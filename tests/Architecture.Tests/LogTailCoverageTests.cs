@@ -42,10 +42,12 @@ public class LogTailCoverageTests
     /// <summary>
     /// A request whose argument can be read from source. A variable argument is
     /// skipped rather than failed: it cannot be checked by reading source, and
-    /// failing it would force a rewrite of correct code.
+    /// failing it would force a rewrite of correct code. A
+    /// <c>DiagnoseAsync("x", …)</c> request asks for <c>x</c>'s log exactly as
+    /// <c>RecentLogs("x")</c> does, so it is read the same way.
     /// </summary>
     private static readonly Regex LiteralRequest = new(
-        @"RecentLogs\(\s*""([^""]+)""",
+        @"\b(?:RecentLogs|DiagnoseAsync)\(\s*""([^""]+)""",
         RegexOptions.Compiled);
 
     private static readonly Regex TailedList = new(

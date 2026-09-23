@@ -200,10 +200,6 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
         ];
     }
 
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}automation log:{Environment.NewLine}{aspire.RecentLogs("automation")}";
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("automation", response);
 }

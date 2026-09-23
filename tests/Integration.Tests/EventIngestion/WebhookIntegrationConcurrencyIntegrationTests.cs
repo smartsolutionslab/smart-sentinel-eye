@@ -189,15 +189,6 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
 
     private static string UniqueName() => $"t044-{Guid.NewGuid():N}".ToLowerInvariant()[..24];
 
-    /// <summary>
-    /// A bare "500" tells a reader nothing, and CI has no other route to the
-    /// service's stack trace. Attach the response body and the service's
-    /// recent output so an unexpected status is diagnosable from the CI log.
-    /// </summary>
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}event-ingestion log:{Environment.NewLine}{aspire.RecentLogs("event-ingestion")}";
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("event-ingestion", response);
 }

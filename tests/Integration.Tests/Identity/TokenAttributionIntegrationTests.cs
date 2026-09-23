@@ -99,11 +99,6 @@ public class TokenAttributionIntegrationTests(AspireFixture aspire)
             ?.Value;
     }
 
-    private async Task<string> DiagnoseAsync(HttpResponseMessage response)
-    {
-        string body = await response.Content.ReadAsStringAsync();
-
-        return $"body: {body}{Environment.NewLine}overlay-designer log:{Environment.NewLine}"
-            + aspire.RecentLogs("overlay-designer");
-    }
+    private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
+        aspire.DiagnoseAsync("overlay-designer", response);
 }
