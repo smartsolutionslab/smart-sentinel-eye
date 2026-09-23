@@ -238,8 +238,12 @@ untouched. Expect:
   redundant;
 - T007's `[Fact]` **red**, naming both carriers and both values.
 
-Then delete the `?? 2000` entirely and confirm T007 fails on the match count
-rather than passing (spec US2 AS3).
+Then remove the digit-literal fallback without changing its effective value —
+`?? 2000` → `?? int.Parse("2000")` — and confirm T007 fails on the match count
+rather than passing (spec US2 AS3). **Not `?? 2000` deleted outright**: T004's
+line assigns `GetValue<int?>(...) ?? <literal>` to a non-nullable `int`, so
+dropping the `??` clause leaves an `int?` assigned to `int` — a build error
+(CS0266), not a red test.
 
 Restore, re-run, confirm green, `git diff src/` empty.
 
