@@ -35,12 +35,25 @@ export default defineConfig({
       name: 'chromium',
       teardown: 'cleanup',
       use: { ...devices['Desktop Chrome'] },
-      // **Both exclusions, and the second was learned the hard way.** Adding a
-      // project does not take its files out of this one: the wall specs ran
+      // **Three exclusions, and the second was learned the hard way.** Adding
+      // a project does not take its files out of this one: the wall specs ran
       // here too, against the management app, and failed every time — eight
       // failures and nine minutes of retries for a suite that passed perfectly
       // in its own project on the same run.
-      testIgnore: /(kiosk|wall)-.*\.spec\.ts/,
+      //
+      // **The third: `e2e/support/**\/*.test.mjs`.** These are `node:test`
+      // files (`render-leg-check.mjs`'s sibling — plan.md §8.2/T027), not
+      // Playwright specs, but they sit under `e2e/` and match Playwright's
+      // default `testMatch` (`**/*.@(spec|test).?(c|m)[jt]s?(x)`), so without
+      // this exclusion `playwright test --list` loads the file as an import
+      // side effect and runs all its `node:test` cases before Playwright's
+      // own listing even starts. Worse: `node:test`'s `test()` sets
+      // `process.exitCode = 1` on Node's `'exit'` event if any case fails,
+      // independent of any Playwright test result — a future regression in
+      // this file's own subject would redden `pnpm test:e2e` for a reason
+      // unrelated to any Playwright test. Run these via `test:guards`
+      // (`node --test`) instead.
+      testIgnore: [/(kiosk|wall)-.*\.spec\.ts/, /\.test\.mjs$/],
     },
     // Spec 041 — the kiosk cannot show a wall until a layout is published, and
     // an e2e stack seeds none. Its own project so the kiosk specs do not depend
