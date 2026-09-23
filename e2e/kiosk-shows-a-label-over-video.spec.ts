@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
 import { signInAsOperator } from './support/sign-in';
 import { isDecodeOngoing, readLiveVideoWall } from './support/live-video-wall';
-import { currentRunProvenance, writeRenderLegRecord } from './support/render-leg';
+import { currentRunProvenance, isCompleteRenderLegMeasurement, writeRenderLegRecord } from './support/render-leg';
 
 /**
  * Spec 056 US1 — the product's central behaviour, asserted for the first time.
@@ -1427,6 +1427,19 @@ test('the span from a value being submitted to it being visible', async ({ page,
   }
   const overlayDrawStats = overlayDraws.length === 0 ? null : percentiles(overlayDraws);
   const provenance = currentRunProvenance();
+
+  // Spec 225 §9 / plan.md §8.2, T027 — built **before** the record is written
+  // (moved up from below the per-camera `expect`s that used to be the first
+  // reader of this map) so the record's `complete` field and the test's own
+  // per-camera assertions are computed from the identical predicate, one
+  // definition, never two that could drift (FR-016).
+  const overlayDrawSamplesPerCamera = new Map<string, number>();
+  for (const line of latencyLines) {
+    if (line.measurement !== 'overlay_draw') continue;
+    overlayDrawSamplesPerCamera.set(line.camera, (overlayDrawSamplesPerCamera.get(line.camera) ?? 0) + 1);
+  }
+  const complete = isCompleteRenderLegMeasurement(overlayDrawSamplesPerCamera, wall.cameras.length, ITERATIONS);
+
   writeRenderLegRecord({
     measurement: 'overlay_draw',
     attempt: test.info().retry,
@@ -1439,6 +1452,7 @@ test('the span from a value being submitted to it being visible', async ({ page,
     p95: overlayDrawStats?.p95 ?? null,
     frameIntervalBeforeMilliseconds,
     frameIntervalAfterMilliseconds,
+    complete,
   });
 
   report({
@@ -1466,11 +1480,10 @@ test('the span from a value being submitted to it being visible', async ({ page,
   // cardinality-only check. Assert the per-camera *volume* instead, using the
   // same harvested lines: each camera must have kept contributing at least
   // once per span iteration, not merely have appeared once.
-  const overlayDrawSamplesPerCamera = new Map<string, number>();
-  for (const line of latencyLines) {
-    if (line.measurement !== 'overlay_draw') continue;
-    overlayDrawSamplesPerCamera.set(line.camera, (overlayDrawSamplesPerCamera.get(line.camera) ?? 0) + 1);
-  }
+  //
+  // `overlayDrawSamplesPerCamera` is built above, before the record is
+  // written (spec 225 §9, T027) — reused here rather than rebuilt, so the
+  // record's `complete` field and these two `expect`s read the identical map.
   expect(
     overlayDrawSamplesPerCamera.size,
     `overlay_draw samples carried ${overlayDrawSamplesPerCamera.size} distinct camera(s) — ` +

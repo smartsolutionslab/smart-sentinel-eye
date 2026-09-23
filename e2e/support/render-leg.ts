@@ -68,6 +68,49 @@ export interface RenderLegRecord {
    * single pre-run reading would not notice the runner losing cadence
    * mid-test (plan.md §2.3). Never taken during the timed window (NFR-002). */
   frameIntervalAfterMilliseconds: number;
+  /**
+   * Whether this attempt is usable as a figure at all (spec FR-016, plan §8.2).
+   *
+   * <p>
+   * Set from {@link isCompleteRenderLegMeasurement} against the same
+   * per-camera sample counts the span test's own per-camera `expect`s already
+   * check — one predicate, so the test and `render-leg-check.mjs` (T020)
+   * cannot disagree about what "complete" means. A record with no `complete`
+   * field at all is malformed, not `false` — the checker reads that case as
+   * *unmeasured*, never as a pass.
+   * </p>
+   */
+  complete: boolean;
+}
+
+/**
+ * True exactly when the wall's samples carry `expectedCameras` distinct
+ * cameras and every one of them contributed at least `iterations` samples
+ * (spec FR-016, plan §8.2).
+ *
+ * <p>
+ * Restates, as one reusable boolean, the identical rule the span test already
+ * applies as two separate `expect`s
+ * (`kiosk-shows-a-label-over-video.spec.ts:1474-1485`): "exactly the expected
+ * camera count" (not "at least" — a fifth camera is as wrong as a missing
+ * one) and "at least `iterations` samples per camera" (a tile that drew once
+ * at mount and then froze must not read as complete).
+ * </p>
+ */
+export function isCompleteRenderLegMeasurement(
+  samplesPerCamera: ReadonlyMap<string, number>,
+  expectedCameras: number,
+  iterations: number,
+): boolean {
+  if (samplesPerCamera.size !== expectedCameras) {
+    return false;
+  }
+  for (const count of samplesPerCamera.values()) {
+    if (count < iterations) {
+      return false;
+    }
+  }
+  return true;
 }
 
 const RENDER_LEG_DIRECTORY = resolve(process.cwd(), 'test-results');
