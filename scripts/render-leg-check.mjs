@@ -67,6 +67,9 @@ function readBaseline(baselinePath) {
     };
   }
   for (const run of baseline.runs) {
+    if (run === null || typeof run !== 'object') {
+      return { ok: false, reason: `${baselinePath}: a run in 'runs' is not an object (${JSON.stringify(run)})` };
+    }
     if (typeof run.sha !== 'string' || !SHA_PATTERN.test(run.sha)) {
       return {
         ok: false,
@@ -180,9 +183,11 @@ function main() {
 
   const attempts = activeShards[0].attempts;
 
-  // Any unreadable file, or any record missing 'complete', fails the whole
-  // check as unmeasured — a malformed record is never quietly skipped in
-  // favour of a sibling that happens to parse (plan.md §8.4).
+  // Any unreadable file, or any record missing a field the verdict
+  // computation below reads, fails the whole check as unmeasured — a
+  // malformed record is never quietly skipped in favour of a sibling that
+  // happens to parse, and never reaches the point of throwing a bare
+  // TypeError over a field it assumed was there (plan.md §8.4).
   for (const attempt of attempts) {
     if (!attempt.ok) {
       print(`render-leg-check: unmeasured: ${attempt.file} malformed: ${attempt.error}`);
@@ -191,6 +196,24 @@ function main() {
     if (typeof attempt.record.complete !== 'boolean') {
       print(`render-leg-check: unmeasured: ${attempt.file} malformed: missing 'complete' field`);
       process.exit(1);
+    }
+    if (typeof attempt.record.attempt !== 'number' || !Number.isFinite(attempt.record.attempt)) {
+      print(`render-leg-check: unmeasured: ${attempt.file} malformed: 'attempt' is not a number`);
+      process.exit(1);
+    }
+    // Only a complete record can become the "chosen" attempt whose frame
+    // interval is printed below (lines ~239-240), but the sort by attempt
+    // number happens before "chosen" is known, so every complete record is
+    // validated here rather than only the one that turns out to be first.
+    if (attempt.record.complete === true) {
+      if (typeof attempt.record.frameIntervalBeforeMilliseconds !== 'number' || !Number.isFinite(attempt.record.frameIntervalBeforeMilliseconds)) {
+        print(`render-leg-check: unmeasured: ${attempt.file} malformed: complete but 'frameIntervalBeforeMilliseconds' is not a number`);
+        process.exit(1);
+      }
+      if (typeof attempt.record.frameIntervalAfterMilliseconds !== 'number' || !Number.isFinite(attempt.record.frameIntervalAfterMilliseconds)) {
+        print(`render-leg-check: unmeasured: ${attempt.file} malformed: complete but 'frameIntervalAfterMilliseconds' is not a number`);
+        process.exit(1);
+      }
     }
   }
 
