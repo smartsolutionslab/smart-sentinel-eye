@@ -390,7 +390,7 @@ export function CameraViewer({
         playsInline
         muted
         className="h-full w-full object-contain"
-        aria-label={cameraName === undefined ? 'Live camera video' : `Live video: ${cameraName}`}
+        aria-label={!cameraName ? 'Live camera video' : `Live video: ${cameraName}`}
       />
       {overlay !== undefined && <OverlayLabel overlay={overlay} />}
       {/* Always mounted, never inserted with its content (#2346): a live
