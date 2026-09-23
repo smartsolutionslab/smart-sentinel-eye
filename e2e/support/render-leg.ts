@@ -119,10 +119,42 @@ export function readRenderLegRecords(directory: string = RENDER_LEG_DIRECTORY): 
     });
 }
 
-/** The provenance pair every record carries, read once from CI's own environment. */
+/**
+ * The provenance pair every record carries, read once from CI's own
+ * environment.
+ *
+ * <p>
+ * Phase-6 review (spec 225): on a `pull_request` run, `GITHUB_SHA` is the
+ * synthetic merge commit GitHub creates for the check, not the branch's own
+ * head — it resolves today but lands on no branch, so `git show` after a
+ * plain fetch misses it. The real head SHA is on the event payload
+ * (`github.event.pull_request.head.sha`), not a plain env var, so it is read
+ * from `GITHUB_EVENT_PATH`'s JSON when the event is `pull_request`, falling
+ * back to `GITHUB_SHA` for every other trigger (push, workflow_dispatch) and
+ * for any failure to read or parse the event file — this function must never
+ * throw, since a provenance nit must not fail the span test that calls it.
+ * </p>
+ */
 export function currentRunProvenance(): { runId: string | null; sha: string | null } {
-  return {
-    runId: process.env['GITHUB_RUN_ID'] ?? null,
-    sha: process.env['GITHUB_SHA'] ?? null,
-  };
+  const runId = process.env['GITHUB_RUN_ID'] ?? null;
+
+  if (process.env['GITHUB_EVENT_NAME'] === 'pull_request') {
+    const eventPath = process.env['GITHUB_EVENT_PATH'];
+    if (eventPath) {
+      try {
+        const event = JSON.parse(readFileSync(eventPath, 'utf8')) as {
+          pull_request?: { head?: { sha?: string } };
+        };
+        const headSha = event.pull_request?.head?.sha;
+        if (typeof headSha === 'string' && headSha.length > 0) {
+          return { runId, sha: headSha };
+        }
+      } catch {
+        // Fall through to GITHUB_SHA below — better a synthetic merge SHA
+        // than no SHA at all.
+      }
+    }
+  }
+
+  return { runId, sha: process.env['GITHUB_SHA'] ?? null };
 }
