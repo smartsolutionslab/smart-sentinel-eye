@@ -3,9 +3,9 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 public sealed partial class AspireFixture
 {
     /// <summary>
-    /// The one place a failing assertion's message is built: the response body,
-    /// then the resource's recent log output, so a red status is diagnosable
-    /// from the CI log alone without re-running anything.
+    /// Shared home for the format the DiagnoseAsync copies used to build independently:
+    /// response body, then the resource's recent log output. Other failure-diagnosis
+    /// copies (BodyAsync, Diagnose) are tracked separately — see #2294.
     /// </summary>
     public async Task<string> DiagnoseAsync(string resourceName, HttpResponseMessage response)
     {
