@@ -51,7 +51,14 @@ vi.mock('react-oidc-context', () => ({
 // rather than a single capture because T009 compares `getToken` across two
 // renders — a stability check needs both, and keeping only the latest would
 // pass against a getter rebuilt on every render.
-const viewerRenders = vi.hoisted(() => [] as { cameraIdentifier: string; getToken: () => Promise<string | null> }[]);
+const viewerRenders = vi.hoisted(
+  () =>
+    [] as {
+      cameraIdentifier: string;
+      getToken: () => Promise<string | null>;
+      cameraName?: string;
+    }[],
+);
 
 // CameraViewer mounts a WhepClient that talks to RTCPeerConnection, and jsdom
 // has no such global — so the composite is stubbed rather than simulated. This
@@ -62,7 +69,11 @@ const viewerRenders = vi.hoisted(() => [] as { cameraIdentifier: string; getToke
 // appears. What it proves is that the page *reaches* the viewer and hands it a
 // credential the operator actually holds.
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
-  CameraViewer: (props: { cameraIdentifier: string; getToken: () => Promise<string | null> }) => {
+  CameraViewer: (props: {
+    cameraIdentifier: string;
+    getToken: () => Promise<string | null>;
+    cameraName?: string;
+  }) => {
     viewerRenders.push(props);
     return <div data-testid="camera-viewer">viewer:{props.cameraIdentifier}</div>;
   },
@@ -229,6 +240,19 @@ describe('CameraDetailPage', () => {
     renderAt(camera.cameraIdentifier);
 
     expect(screen.getByTestId('camera-viewer').textContent).toContain(camera.cameraIdentifier);
+  });
+
+  /**
+   * Spec 228 FR-007 (item 3). The video needs an accessible name, and the page
+   * is the only place that knows the camera's name — `CameraViewer` itself
+   * holds only the identifier. Asserted from the page, the same way as the
+   * getToken test above: a prop that reaches the mock is a prop that would
+   * reach the real composite.
+   */
+  it('Names the viewer with the camera it is showing', () => {
+    renderAt(camera.cameraIdentifier);
+
+    expect(viewerRenders.at(-1)!.cameraName).toBe(camera.name);
   });
 
   /**
