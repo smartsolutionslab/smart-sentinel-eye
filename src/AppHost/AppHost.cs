@@ -585,6 +585,18 @@ if (isE2ETests)
     // breakdown silently reports zeros, so the fixture turns it on rather than
     // asking (spec 109 US1).
     auditObservability.WithEnvironment("AuditObservability__Measurement__RecordIngestBreakdown", "true");
+
+    // The write limiter's 429 seam is unreachable at the production default of
+    // 64 concurrent slots; pinning it to 1 for the integration suite is the
+    // only channel the collection fixture has to reach it per-test-lane
+    // (spec 223 US1). Stack-wide for every test in this collection: any other
+    // integration test that fires concurrent /events/manual or
+    // /events/webhook writes will now see 429s too. Only
+    // IngestBackpressureIntegrationTests does today (spec 223 §*Blast
+    // radius* swept all fifteen write-endpoint consumers) — if you add a
+    // second one, it inherits this ceiling, the same way whep-authorize's
+    // PermitLimit comment tracks its shared-partition consumers.
+    eventIngestion.WithEnvironment("EventIngestion__IngestWrite__Concurrency", "1");
 }
 
 // ADR-0106: single YARP API gateway at the edge — fronts all nine context REST

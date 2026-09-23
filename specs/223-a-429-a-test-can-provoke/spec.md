@@ -421,6 +421,26 @@ observed, then reverted with `git checkout -- src/`; then confirm
 **Predictions are written before the runs. A mismatch is reported, never edited
 into agreement.**
 
+**Correction, phase-6 review**: this row's prediction assumed the injection
+would leave `IngestWriteLease`'s `Wait`/`Release` pairing balanced. It does
+not — `TryAcquire` always granting a lease that never called `Wait` means
+every lease's `Dispose()` (`IngestWriteLimiter.cs:60`, unconditional
+`slots.Release()`) throws `SemaphoreFullException` once the semaphore is
+already at its max count, so the observed shape was `500x8`, not `201x8`
+(`verification.md` §*CF-B*). This still proves the row's claim — no request
+took the refusal branch, per the `using` declaration's dispose-after-return
+ordering — but the exact distribution was mispredicted. Not re-run, since
+the claim already holds by that argument; a properly balanced injection
+matching this row's original `201x8` prediction would have been:
+
+```csharp
+public IngestWriteLease TryAcquire()
+{
+    slots.Wait();                       // never refuses; still balanced
+    return new IngestWriteLease(slots);
+}
+```
+
 **CF-A and CF-B fail differently, and that difference is the point.** CF-A must
 leave the status clause green — if CF-A reddens the status assertion too, the
 test is coupling the two clauses and the assertion needs splitting, which is a
