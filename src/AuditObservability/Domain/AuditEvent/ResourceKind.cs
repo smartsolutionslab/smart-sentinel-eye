@@ -21,15 +21,14 @@ public sealed record ResourceKind(string Value) : IValueObject<string>
     public static ResourceKind Variable { get; } = new("variable");
 
     /// <summary>
-    /// Currently unproducible: its only writer was
+    /// Currently unproducible: its only writer would have been
     /// <c>V1ResourceMap.Conventions.NamespaceToResource["Automation"]</c>,
-    /// removed by spec 226 because <c>Shared.Contracts</c> has no
-    /// <c>Automation</c> folder — Automation publishes into other
-    /// contexts' namespaces instead (spec 226 §0.3). Kept in
+    /// but <c>Shared.Contracts</c> has no <c>Automation</c> folder —
+    /// Automation publishes into other contexts' namespaces instead. Kept in
     /// <see cref="All"/> anyway: the vocabulary is a closed public list
     /// and removing it would turn <c>GET /audit/rule/x</c> from
-    /// 200-empty into 400 for a reason unrelated to this defect (same
-    /// reasoning as <see cref="Webhook"/>, below).
+    /// 200-empty into 400 for a reason unrelated to the orphaned mapping
+    /// (same reasoning as <see cref="Webhook"/>, below).
     /// </summary>
     public static ResourceKind Rule { get; } = new("rule");
 
