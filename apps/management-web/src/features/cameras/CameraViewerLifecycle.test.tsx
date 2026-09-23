@@ -43,13 +43,15 @@ describe('CameraViewer connection lifecycle', () => {
     vi.useRealTimers();
   });
 
-  it('Does not renegotiate the peer connection when the getToken closure changes between renders', () => {
+  it('Does not renegotiate the peer connection when the getToken closure changes between renders, and the session can still reach the fresh token', async () => {
     const { rerender } = render(
       <Provider store={store}>
         <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token-a')} />
       </Provider>,
     );
     expect(construct).toHaveBeenCalledTimes(1);
+    const options = construct.mock.calls[0]![0] as { getToken: () => Promise<string | null> };
+    await expect(options.getToken()).resolves.toBe('token-a');
 
     // Callers pass a fresh inline getToken on every render; that alone must
     // not tear down and rebuild the RTCPeerConnection (the live-video path).
@@ -60,6 +62,8 @@ describe('CameraViewer connection lifecycle', () => {
     );
     expect(construct).toHaveBeenCalledTimes(1);
     expect(close).not.toHaveBeenCalled();
+    // The session was NOT rebuilt — and it can still reach the new token.
+    await expect(options.getToken()).resolves.toBe('token-b');
   });
 
   it('Reconnects automatically with a fresh WhepClient after the peer connection fails', () => {
