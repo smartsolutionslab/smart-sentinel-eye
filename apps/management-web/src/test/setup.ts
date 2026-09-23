@@ -30,9 +30,9 @@ import { configure } from '@testing-library/react';
 // the visible overlay's text verbatim (FR-005), so while a stream is not
 // live the two are the *same* string in the DOM by design — a screen reader
 // is told exactly what a sighted operator sees. That duplication is meant to
-// be read from `getByTestId('camera-viewer-status')`, never from a plain
-// `getByText`/`queryByText`, which cannot tell which of the two identical
-// strings a caller meant and throws on the ambiguity. Mirrors
+// be read from `getByTestId('camera-viewer-status')` / `getByRole('status')`
+// only, never from a plain `getByText`/`queryByText`, which cannot tell which
+// of the two identical strings a caller meant and throws on the ambiguity. Mirrors
 // `apps/shared/src/test/setup.ts`'s identical exclusion, needed here too
 // because this workspace's `CameraViewerLifecycle.test.tsx` renders the real
 // composite rather than a mock.

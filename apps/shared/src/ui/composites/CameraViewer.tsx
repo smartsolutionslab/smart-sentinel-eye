@@ -400,7 +400,7 @@ export function CameraViewer({
           mirrors what `ViewerOverlay` paints, so the two cannot drift
           (spec 228 US2, FR-004/FR-005). */}
       <p role="status" data-testid="camera-viewer-status" className="sr-only">
-        {announcementFor(status, stream, queryError)}
+        {announcementFor(status, errorMessage, stream, queryError)}
       </p>
       {status !== 'live' && (
         <ViewerOverlay status={status} message={errorMessage} stream={stream} queryError={queryError} />
@@ -411,12 +411,21 @@ export function CameraViewer({
 
 /**
  * The text a screen reader hears for the current stream state — empty while
- * live, otherwise exactly what {@link ViewerOverlay} paints (spec 228 US2,
- * FR-005). Shared so the announced text and the visible text cannot drift.
+ * live, otherwise the same label *and* hint {@link ViewerOverlay} paints,
+ * joined the same way the overlay lays them out visually (spec 228 US2,
+ * FR-004/FR-005). Both read from {@link statusInfoFor} / {@link hintFor} so
+ * the announced text and the visible text cannot drift.
  */
-function announcementFor(status: CameraViewerStatus, stream: StreamHealth | undefined, queryError: unknown): string {
+function announcementFor(
+  status: CameraViewerStatus,
+  message: string | null,
+  stream: StreamHealth | undefined,
+  queryError: unknown,
+): string {
   if (status === 'live') return '';
-  return failedReadLabelFor(status, stream, queryError);
+  const { label } = statusInfoFor(status, stream, queryError);
+  const hint = hintFor(message, queryError);
+  return hint === null ? label : `${label}. ${hint}`;
 }
 
 // FR-005: the read for the current camera has failed and no stream has been
@@ -425,9 +434,27 @@ function announcementFor(status: CameraViewerStatus, stream: StreamHealth | unde
 // member added, per plan §2a); `offline` already has its own read of stream
 // state from a read that *succeeded*, so it is excluded here rather than
 // overridden.
-function failedReadLabelFor(status: CameraViewerStatus, stream: StreamHealth | undefined, queryError: unknown): string {
+//
+// Computed once and shared by `announcementFor` and `ViewerOverlay` (rather
+// than each re-deriving `failedRead`) so the predicate itself cannot drift
+// between the announced text and the painted one.
+function statusInfoFor(
+  status: CameraViewerStatus,
+  stream: StreamHealth | undefined,
+  queryError: unknown,
+): { failedRead: boolean; label: string } {
   const failedRead = stream === undefined && queryError !== undefined && status !== 'offline';
-  return failedRead ? 'Viewer error' : labelFor(status, stream);
+  return { failedRead, label: failedRead ? 'Viewer error' : labelFor(status, stream) };
+}
+
+/**
+ * The second line under the label — the WHEP session's own error, or a
+ * generic fallback when the stream read itself failed with nothing more
+ * specific to say. Shared by the status region and the visible overlay so
+ * neither can say more, or less, than the other (FR-005).
+ */
+function hintFor(message: string | null, queryError: unknown): string | null {
+  return message ?? (queryError !== undefined ? 'Could not reach the streaming service.' : null);
 }
 
 function ViewerOverlay({
@@ -441,8 +468,7 @@ function ViewerOverlay({
   stream: StreamHealth | undefined;
   queryError: unknown;
 }) {
-  const failedRead = stream === undefined && queryError !== undefined && status !== 'offline';
-  const label = failedReadLabelFor(status, stream, queryError);
+  const { failedRead, label } = statusInfoFor(status, stream, queryError);
   const tone =
     failedRead || status === 'error' || status === 'offline'
       ? 'text-accent-fault'
@@ -450,7 +476,7 @@ function ViewerOverlay({
         ? 'text-accent-warning'
         : 'text-fg-muted';
 
-  const hint = message ?? (queryError !== undefined ? 'Could not reach the streaming service.' : null);
+  const hint = hintFor(message, queryError);
 
   return (
     // FR-006: hidden from the accessibility tree so the message is read once,
