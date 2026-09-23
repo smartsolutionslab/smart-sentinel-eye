@@ -85,9 +85,19 @@ check.
   `IntegrationTestSelectionTests` already do. **T004 must verify the new
   `.csproj` gained no `ProjectReference`** — this is the one way this
   otherwise-trivial move could do real damage.
-- **`Architecture.Tests` must not reference the `StreamDistribution` Api
-  assembly either.** It reads `Program.cs` as *text*. No `using
-  SmartSentinelEye.StreamDistribution.*`, no type load. Same reasoning.
+- **Correction (phase-6 review): `Architecture.Tests` already references the
+  `StreamDistribution` Api project, and always has** —
+  `SmartSentinelEye.Architecture.Tests.csproj` carries a `ProjectReference` to
+  every `src/<Context>/*` project across all nine bounded contexts (37 `src`
+  projects in all), because `NetArchTest`'s boundary rules need every
+  assembly loaded to inspect. The claim above, that no such reference exists
+  or may exist, was wrong; corrected rather than left to mislead a later
+  reader. The constraint this guard actually observes is narrower: **the
+  moved fact itself must not use that reference.** It reads `Program.cs` as
+  *text* from disk — no `using SmartSentinelEye.StreamDistribution.*`, no
+  type load, no dependency on the assembly being loadable at all. That the
+  `ProjectReference` exists for unrelated reasons is immaterial to how this
+  one guard is written.
 - **The `Integration.Tests` class keeps `[Collection(AspireCollection.Name)]`.**
   Its six surviving facts genuinely need the stack. `IntegrationTestSelectionTests`
   requires every class in that project to declare either the collection or a
