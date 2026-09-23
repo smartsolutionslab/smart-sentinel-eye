@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
 import { signInAsOperator } from './support/sign-in';
 import { isDecodeOngoing, readLiveVideoWall } from './support/live-video-wall';
+import { currentRunProvenance, writeRenderLegRecord } from './support/render-leg';
 
 /**
  * Spec 056 US1 — the product's central behaviour, asserted for the first time.
@@ -701,6 +702,54 @@ async function armClickStamp(operatorPage: Page): Promise<void> {
   });
 }
 
+/**
+ * The compositor's own frame interval on this page, right now — spec 225 US1.
+ *
+ * <p>
+ * <b>Measured, never assumed.</b> ADR-0123's whole finding is that
+ * `overlay_draw`'s elapsed time is dominated by a wait for the next frame
+ * boundary plus one whole frame interval, and that term is this runner's own —
+ * a shared `ubuntu-latest` box, headless Chromium, software rasterisation, no
+ * display server. A gate on the raw figure without this number beside it is a
+ * frame-cadence detector wearing a render-cost budget's name.
+ * </p>
+ *
+ * <p>
+ * A short `rAF` counting loop, milliseconds-per-frame over roughly one second
+ * of real frames — not derived from `getVideoPlaybackQuality()`, which counts
+ * the fixture clip's own 25 fps and would put the encode rate into a
+ * display-cadence term (plan.md §2.3).
+ * </p>
+ */
+const FRAME_INTERVAL_PROBE_WINDOW_MS = 1_000;
+
+async function measureFrameInterval(page: Page): Promise<number> {
+  const raw: unknown = await page.evaluate(async (windowMilliseconds: number) => {
+    return await new Promise<number>((resolve) => {
+      let frames = 0;
+      let startedAt: number | null = null;
+
+      const tick = (now: number): void => {
+        if (startedAt === null) startedAt = now;
+        frames += 1;
+        const elapsed = now - startedAt;
+        if (elapsed >= windowMilliseconds) {
+          resolve(frames > 0 ? elapsed / frames : NaN);
+          return;
+        }
+        requestAnimationFrame(tick);
+      };
+
+      requestAnimationFrame(tick);
+    });
+  }, FRAME_INTERVAL_PROBE_WINDOW_MS);
+
+  if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+    throw new Error(`the frame-interval probe returned an unusable reading: ${JSON.stringify(raw)}`);
+  }
+  return raw;
+}
+
 async function readClickStamp(operatorPage: Page): Promise<number | null> {
   const raw: unknown = await operatorPage.evaluate(() => {
     const state = (window as unknown as SpanWindow).__spanClick;
@@ -1214,6 +1263,12 @@ test('the span from a value being submitted to it being visible', async ({ page,
   const measurements: SpanMeasurement[] = [];
   let skewBefore: ClockSkewBound | null = null;
   let skewAfter: ClockSkewBound | null = null;
+  // Spec 225 US1 — the cadence this run's overlay_draw figure is read against
+  // (ADR-0123 consequence 3). Two readings, not one: `measureFrameInterval`
+  // never runs during the timed loop (NFR-002), so a mid-test cadence drop
+  // would only ever show up as a gap between these two.
+  let frameIntervalBeforeMilliseconds: number | null = null;
+  let frameIntervalAfterMilliseconds: number | null = null;
 
   // The head overshoot, bounded rather than described (spec 108 FR-003): the
   // submit's own round trip, taken from the request's resource timing so it is
@@ -1249,6 +1304,11 @@ test('the span from a value being submitted to it being visible', async ({ page,
     // because both arms of a paired run go through the same subtraction.
     skewBefore = await bracketClockSkew(page, operatorPage);
     console.info(describeSkew('before the loop', skewBefore));
+
+    // Taken on the kiosk page, before any iteration starts — outside the
+    // timed window entirely (NFR-002).
+    frameIntervalBeforeMilliseconds = await measureFrameInterval(page);
+    console.info(`[span] frame interval before the loop: ${frameIntervalBeforeMilliseconds.toFixed(2)} ms/frame`);
 
     for (let iteration = 0; iteration < ITERATIONS; iteration += 1) {
       // Distinguishable per iteration, so the observation cannot match a value
@@ -1314,7 +1374,12 @@ test('the span from a value being submitted to it being visible', async ({ page,
     }
 
     // Again at the end: two bounds that disagree are drift across the run, which
-    // one probe at one instant cannot show.
+    // one probe at one instant cannot show. The frame-interval reading gets the
+    // same treatment, for the same reason (plan.md §2.3): the loop just ran, so
+    // this is the first point outside the timed window where a lost cadence
+    // would be visible.
+    frameIntervalAfterMilliseconds = await measureFrameInterval(page);
+    console.info(`[span] frame interval after the loop: ${frameIntervalAfterMilliseconds.toFixed(2)} ms/frame`);
     skewAfter = await bracketClockSkew(page, operatorPage);
   } finally {
     await operatorPage.close();
@@ -1328,6 +1393,29 @@ test('the span from a value being submitted to it being visible', async ({ page,
   const overlayDraws = latencyLines
     .filter((line) => line.measurement === 'overlay_draw')
     .map((line) => line.elapsedMilliseconds);
+
+  // Spec 225 US1 — the machine-readable escape hatch for this leg's figure.
+  // No assertion here (NFR-001): a run that could not measure the cadence
+  // probe is a harness bug, not a product regression, so it throws rather
+  // than writing a record with an invented frame interval.
+  if (frameIntervalBeforeMilliseconds === null || frameIntervalAfterMilliseconds === null) {
+    throw new Error('the frame-interval probe never completed — this is a harness bug, not a product defect');
+  }
+  const overlayDrawStats = overlayDraws.length === 0 ? null : percentiles(overlayDraws);
+  const provenance = currentRunProvenance();
+  writeRenderLegRecord({
+    measurement: 'overlay_draw',
+    attempt: test.info().retry,
+    runId: provenance.runId,
+    sha: provenance.sha,
+    samples: overlayDraws,
+    count: overlayDraws.length,
+    p50: overlayDrawStats?.p50 ?? null,
+    max: overlayDrawStats?.max ?? null,
+    p95: overlayDrawStats?.p95 ?? null,
+    frameIntervalBeforeMilliseconds,
+    frameIntervalAfterMilliseconds,
+  });
 
   report({
     measurements,
