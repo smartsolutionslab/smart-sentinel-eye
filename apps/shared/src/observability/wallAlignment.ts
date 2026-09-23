@@ -418,11 +418,14 @@ export function settleAlignment(
     .map((camera) => lags.find((candidate) => candidate.camera === camera))
     .filter((lag): lag is TileLag => lag !== undefined);
 
+  // Loop-invariant: neither operand depends on `camera`, so this is computed
+  // once per settle cycle rather than once per marked tile (spec 228 item 6).
+  const trial = wallTargetFrom([...stillHeld, ...markedWithLags]);
+
   for (const camera of wasMarked) {
     const lag = lags.find((candidate) => candidate.camera === camera);
     if (lag === undefined) continue; // the tile is gone; nothing to mark
 
-    const trial = wallTargetFrom([...stillHeld, ...markedWithLags]);
     const wouldHold = trial !== null && trial.held.includes(camera);
 
     if (!wouldHold) {
