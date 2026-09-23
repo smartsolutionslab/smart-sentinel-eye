@@ -406,7 +406,7 @@ export function CameraViewer({
           mirrors what `ViewerOverlay` paints, so the two cannot drift
           (spec 228 US2, FR-004/FR-005). */}
       <p role="status" data-testid="camera-viewer-status" className="sr-only">
-        {announcementFor(status, errorMessage, queryError, label)}
+        {announcementFor(status, errorMessage, queryError, failedRead, label)}
       </p>
       {status !== 'live' && (
         <ViewerOverlay
@@ -427,14 +427,27 @@ export function CameraViewer({
  * joined the same way the overlay lays them out visually (spec 228 US2,
  * FR-004/FR-005). Reads the precomputed {@link statusInfoFor} result — see
  * the call site — so the announced text and the visible text cannot drift.
+ *
+ * <p>
+ * <b>Also empty for `idle` while the read has not failed</b> —
+ * `useWhepSession` initializes `status` to `idle`, so that is the value the
+ * status region is born holding on first paint, in the same commit that
+ * creates the DOM node. Treating it the same as `live` (empty) rather than
+ * announcing "Idle" is the same #2346 lesson applied to the initial mount,
+ * not just a later update: a screen reader attaching after mount never hears
+ * an announcement for content the node was born holding. `failedRead` still
+ * overrides it — a stream read that fails outright never gets a session, so
+ * `status` never leaves `idle`, and that case must still be announced.
+ * </p>
  */
 function announcementFor(
   status: CameraViewerStatus,
   message: string | null,
   queryError: unknown,
+  failedRead: boolean,
   label: string,
 ): string {
-  if (status === 'live') return '';
+  if (status === 'live' || (status === 'idle' && !failedRead)) return '';
   const hint = hintFor(message, queryError);
   return hint === null ? label : `${label}. ${hint}`;
 }

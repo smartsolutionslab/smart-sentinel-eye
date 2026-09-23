@@ -174,6 +174,25 @@ describe('CameraViewer accessibility — announcements and the video name', () =
   });
 
   /**
+   * Scenario "The region is empty on the very first commit" (#2306 review
+   * round 2, item 1). `useWhepSession` initializes `status` to `idle`, not
+   * `live` — before the stream read has resolved, there is no `whepUrl` yet,
+   * so the session effect never fires and `status` stays `idle` through the
+   * commit that creates the status DOM node. A screen reader attaching right
+   * after mount must not hear "Idle": the node has to be born empty, exactly
+   * like the already-covered "empty while live" case above, or the #2346
+   * defect reappears at the initial paint instead of a later update.
+   */
+  it('Renders the status region empty immediately on mount, before any status change', () => {
+    // Neither setHealth nor setStreamReadError: the stream read has not
+    // resolved yet, so there is no whepUrl and useWhepSession's session
+    // effect never runs — status stays at its `idle` initializer.
+    renderViewer();
+
+    expect(statusRegion().textContent).toBe('');
+  });
+
+  /**
    * Scenario "A reconnect is announced". The status region carries the hint
    * too, not just the label — the visible overlay paints both lines, and a
    * screen-reader user must be told the same thing a sighted operator sees
