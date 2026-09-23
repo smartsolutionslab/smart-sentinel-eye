@@ -11,14 +11,28 @@ import { dirname, resolve } from 'node:path';
  * for a wall that was never published.
  */
 
+/** One tile's camera: a name to register it under, and where its video comes from. */
+export interface LiveVideoWallCamera {
+  name: string;
+  rtspUrl: string;
+}
+
+/**
+ * Spec 225 US2 — four tiles, the domain's real ceiling
+ * (`GridDimensions.MaxTiles` / `MaxCells`, enforced at `Layout.cs:79`), not
+ * one. All four resolve the **same** overlay and the same bound variable
+ * (`overlayName`/`variableName` below stay singular), so a per-tile cost is
+ * distinguishable from fixed overhead without a fourth overlay write.
+ */
+export const LIVE_VIDEO_WALL_TILE_COUNT = 4;
+
 export interface LiveVideoWall {
   variableName: string;
   variableInitialValue: string;
   variableChangedValue: string;
   overlayName: string;
   layoutName: string;
-  cameraName: string;
-  cameraRtspUrl: string;
+  cameras: ReadonlyArray<LiveVideoWallCamera>;
 }
 
 /**
@@ -46,6 +60,15 @@ const handoffPath = resolve(process.cwd(), 'test-results', 'spec056-live-video-w
 /** Fresh names for one run. Called by the seed, once. */
 export function newLiveVideoWall(): LiveVideoWall {
   const stamp = Date.now();
+  // The `E2E ` prefix is what the cleanup teardown matches on. A name without
+  // it survives the run, which is how a fixture leaves rows behind. Indexed
+  // (1-4) rather than bare, because all four share one `stamp` and would
+  // otherwise collide on name uniqueness.
+  const cameras: LiveVideoWallCamera[] = [];
+  for (let index = 1; index <= LIVE_VIDEO_WALL_TILE_COUNT; index += 1) {
+    cameras.push({ name: `E2E Spec056 Cam ${index} ${stamp}`, rtspUrl: FIXTURE_VIDEO_RTSP_URL });
+  }
+
   return {
     // Lowercase — the variable grammar rejects anything else (spec 005).
     variableName: `spec056value${stamp}`,
@@ -53,10 +76,7 @@ export function newLiveVideoWall(): LiveVideoWall {
     variableChangedValue: 'AFTER',
     overlayName: `Spec056 Overlay ${stamp}`,
     layoutName: `Spec056 Wall ${stamp}`,
-    // The `E2E ` prefix is what the cleanup teardown matches on. A name without
-    // it survives the run, which is how a fixture leaves rows behind.
-    cameraName: `E2E Spec056 Cam ${stamp}`,
-    cameraRtspUrl: FIXTURE_VIDEO_RTSP_URL,
+    cameras,
   };
 }
 

@@ -115,14 +115,37 @@ test('a tile shows an overlay label over video that is actually decoding', async
 
   // ---- half one: the picture, and it must be MOVING ----------------------
 
+  // The domain's ceiling (GridDimensions.MaxTiles / MaxCells, Layout.cs:79),
+  // pinned as a literal (phase-6 review, should-fix S2): every assertion
+  // below parametrizes on `wall.cameras.length`, so a fixture that silently
+  // narrows — an edited LIVE_VIDEO_WALL_TILE_COUNT, a future refactor —
+  // would narrow every one of them with it, and the four-tile measurement
+  // US2 exists to guarantee would quietly regress with every check green.
+  expect(wall.cameras.length, 'the fixture wall must be at the domain ceiling').toBe(4);
+
+  // Phase-6 review (spec 225 US2, blocker B1): gating on the SUM was correct
+  // for a one-tile wall (there was only one tile to be first), but with four
+  // it let the gate clear the instant tile 1 decoded its first frame while
+  // tiles 2-4 — separate WHEP sessions, separate MediaMTX paths, on a shared
+  // CI runner — had not yet produced one. The very next block requires EVERY
+  // element to already have frames within one SAMPLE_GAP_MS of that moment,
+  // which is a real race the one-tile fixture could not have exposed. Gate on
+  // every element instead, so what follows always runs against a wall that
+  // has actually started.
   await expect
-    .poll(async () => (await readDecode(page)).totalVideoFrames, {
-      timeout: FIRST_FRAME_TIMEOUT_MS,
-      message:
-        'no video frame ever decoded on this tile — either the SFU has no path for the ' +
-        'camera, or the fixture video source is not serving',
-    })
-    .toBeGreaterThan(0);
+    .poll(
+      async () => {
+        const reading = await readDecode(page);
+        return reading.elements === wall.cameras.length && reading.perElement.every((frames) => frames > 0);
+      },
+      {
+        timeout: FIRST_FRAME_TIMEOUT_MS,
+        message:
+          'not every tile ever decoded a video frame — either the SFU has no path for one ' +
+          'of the cameras, or the fixture video source is not serving all of them',
+      },
+    )
+    .toBe(true);
 
   // **The delta is the assertion, not the count.** A source that emitted one
   // frame and stopped satisfies "frames have been decoded" while showing
@@ -142,11 +165,12 @@ test('a tile shows an overlay label over video that is actually decoding', async
       `(+${framesAdvanced}, threshold ${MINIMUM_FRAMES_PER_SAMPLE}) across ${second.elements} element(s)`,
   );
 
-  // There is one tile on this wall by construction. Asserted rather than
-  // assumed, because the per-element check below is only as good as the set it
+  // There are `wall.cameras.length` tiles on this wall by construction — four,
+  // the domain's ceiling (spec 225 US2), not one. Asserted rather than assumed,
+  // because the per-element check below is only as good as the set it
   // iterates: a wall that silently gained a tile would still be checked, but a
-  // wall that silently lost its only one would pass an empty loop.
-  expect(second.elements, 'the wall should carry exactly one tile').toBe(1);
+  // wall that silently lost one would pass a shorter loop.
+  expect(second.elements, `the wall should carry exactly ${wall.cameras.length} tile(s)`).toBe(wall.cameras.length);
 
   // **Every element, not the total.** A sum lets one live picture carry a black
   // neighbour past the threshold.
@@ -1424,6 +1448,41 @@ test('the span from a value being submitted to it being visible', async ({ page,
     overlayDrawMilliseconds: overlayDraws.length === 0 ? null : percentiles(overlayDraws).p50,
   });
   reportLegs(latencyLines, malformedLatencyLines);
+
+  // **Spec 225 US2 T014 — every tile keeps contributing, not just draws
+  // once at mount.** Not a tile count: a wall where three tiles never redraw
+  // would still pass the `second.elements` check above (that counts
+  // `<video>` elements, taken once, before the span even starts). All four
+  // tiles here share one RTSP source (`FIXTURE_VIDEO_RTSP_URL`) through four
+  // independent WHEP sessions and decoders — this is four renders of one
+  // feed, not four distinct sources, and that is the right shape for a
+  // render-cost measurement.
+  //
+  // Phase-6 review (should-fix S1): counting distinct `camera` values alone
+  // is satisfiable by a single mount-time draw per tile — `measureOverlayDraw`
+  // (`CellPage.tsx:537-543`) fires in a `useEffect` that is not gated on
+  // video, so every tile draws once before the span loop even starts. A wall
+  // where three tiles draw once and then freeze would still pass a
+  // cardinality-only check. Assert the per-camera *volume* instead, using the
+  // same harvested lines: each camera must have kept contributing at least
+  // once per span iteration, not merely have appeared once.
+  const overlayDrawSamplesPerCamera = new Map<string, number>();
+  for (const line of latencyLines) {
+    if (line.measurement !== 'overlay_draw') continue;
+    overlayDrawSamplesPerCamera.set(line.camera, (overlayDrawSamplesPerCamera.get(line.camera) ?? 0) + 1);
+  }
+  expect(
+    overlayDrawSamplesPerCamera.size,
+    `overlay_draw samples carried ${overlayDrawSamplesPerCamera.size} distinct camera(s) — ` +
+      `[${[...overlayDrawSamplesPerCamera.keys()].join(', ')}] — not ${wall.cameras.length}; some tile on this wall never redrew`,
+  ).toBe(wall.cameras.length);
+  for (const [camera, count] of overlayDrawSamplesPerCamera) {
+    expect(
+      count,
+      `tile '${camera}' contributed only ${count} overlay_draw sample(s), not the ${ITERATIONS} the span loop ` +
+        `drove — it drew once at mount and then froze rather than redrawing with the rest of the wall`,
+    ).toBeGreaterThanOrEqual(ITERATIONS);
+  }
 
   // **The picture must still be moving after all that** — folded in from what
   // was a separate held-back check. A tile that lost its video and fell back to
