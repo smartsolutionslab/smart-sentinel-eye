@@ -22,6 +22,7 @@
 // contract — a bug here must never redden an otherwise-green e2e run.
 
 import { appendFileSync } from 'node:fs';
+import { pathToFileURL } from 'node:url';
 import { readRenderLegRecords } from '../e2e/support/render-leg.ts';
 
 const DEFAULT_DIRECTORY = 'test-results';
@@ -31,7 +32,10 @@ function oneDecimal(value) {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
 }
 
-function twoDecimals(value) {
+// Exported so render-leg-check.mjs can reuse it rather than redeclaring it
+// byte-identically (Phase-6 review, spec 225) — importing this module does
+// not run `main()` below; see the `isMainModule` guard at the bottom.
+export function twoDecimals(value) {
   return value.toFixed(2);
 }
 
@@ -134,19 +138,30 @@ function main() {
   writeSummary(renderSection(attempts));
 }
 
-try {
-  main();
-} catch (error) {
-  // Never throws, never changes the job's outcome (NFR-001) — a bug in this
-  // script must not turn a green e2e run red. Still try to leave the section
-  // in the job summary — its own try/catch, because writeSummary (e.g. an
-  // unwritable GITHUB_STEP_SUMMARY path) can throw too.
+// Guards the CLI entry point so a sibling script can import `twoDecimals`
+// (above) without running this script's own `main()` as a side effect —
+// `process.argv[1]` is only this file's own path when it is the process
+// actually invoked, never when it is merely imported (Phase-6 review,
+// spec 225). `pathToFileURL` (not a raw `file://${...}` template) so the
+// comparison is correct on Windows, where `import.meta.url` and a raw path
+// disagree on separators and drive-letter casing.
+const isMainModule = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isMainModule) {
   try {
-    writeSummary(renderInternalFailure());
-  } catch (writeError) {
-    process.stderr.write(
-      `render-leg-summary: failed to write internal-failure summary: ${writeError.stack ?? writeError}\n`,
-    );
+    main();
+  } catch (error) {
+    // Never throws, never changes the job's outcome (NFR-001) — a bug in this
+    // script must not turn a green e2e run red. Still try to leave the section
+    // in the job summary — its own try/catch, because writeSummary (e.g. an
+    // unwritable GITHUB_STEP_SUMMARY path) can throw too.
+    try {
+      writeSummary(renderInternalFailure());
+    } catch (writeError) {
+      process.stderr.write(
+        `render-leg-summary: failed to write internal-failure summary: ${writeError.stack ?? writeError}\n`,
+      );
+    }
+    process.stderr.write(`render-leg-summary: unexpected error: ${error.stack ?? error}\n`);
   }
-  process.stderr.write(`render-leg-summary: unexpected error: ${error.stack ?? error}\n`);
 }
