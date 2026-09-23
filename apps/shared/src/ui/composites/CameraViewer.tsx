@@ -382,6 +382,12 @@ export function CameraViewer({
     }
   }, [status, playoutTargetMilliseconds, setPlayoutTarget, cameraIdentifier]);
 
+  // Computed once per render and shared by the status region and
+  // `ViewerOverlay` below — the same inputs otherwise produced the same
+  // result twice on every render of every non-live tile (5s stream poll,
+  // decode/lag sampler effects — across up to 250 wall tiles).
+  const { failedRead, label } = statusInfoFor(status, stream, queryError);
+
   return (
     <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>
       <video
@@ -400,10 +406,16 @@ export function CameraViewer({
           mirrors what `ViewerOverlay` paints, so the two cannot drift
           (spec 228 US2, FR-004/FR-005). */}
       <p role="status" data-testid="camera-viewer-status" className="sr-only">
-        {announcementFor(status, errorMessage, stream, queryError)}
+        {announcementFor(status, errorMessage, queryError, label)}
       </p>
       {status !== 'live' && (
-        <ViewerOverlay status={status} message={errorMessage} stream={stream} queryError={queryError} />
+        <ViewerOverlay
+          status={status}
+          message={errorMessage}
+          queryError={queryError}
+          failedRead={failedRead}
+          label={label}
+        />
       )}
     </div>
   );
@@ -413,17 +425,16 @@ export function CameraViewer({
  * The text a screen reader hears for the current stream state — empty while
  * live, otherwise the same label *and* hint {@link ViewerOverlay} paints,
  * joined the same way the overlay lays them out visually (spec 228 US2,
- * FR-004/FR-005). Both read from {@link statusInfoFor} / {@link hintFor} so
- * the announced text and the visible text cannot drift.
+ * FR-004/FR-005). Reads the precomputed {@link statusInfoFor} result — see
+ * the call site — so the announced text and the visible text cannot drift.
  */
 function announcementFor(
   status: CameraViewerStatus,
   message: string | null,
-  stream: StreamHealth | undefined,
   queryError: unknown,
+  label: string,
 ): string {
   if (status === 'live') return '';
-  const { label } = statusInfoFor(status, stream, queryError);
   const hint = hintFor(message, queryError);
   return hint === null ? label : `${label}. ${hint}`;
 }
@@ -435,9 +446,12 @@ function announcementFor(
 // state from a read that *succeeded*, so it is excluded here rather than
 // overridden.
 //
-// Computed once and shared by `announcementFor` and `ViewerOverlay` (rather
-// than each re-deriving `failedRead`) so the predicate itself cannot drift
-// between the announced text and the painted one.
+// Called once, at the top of `CameraViewer`'s render, and the result passed
+// down to `announcementFor` and `ViewerOverlay` rather than each re-deriving
+// it — so the predicate itself cannot drift between the announced text and
+// the painted one, and a non-live tile does not pay for the same computation
+// twice on every render (5s stream poll, decode/lag sampler effects — across
+// up to 250 wall tiles).
 function statusInfoFor(
   status: CameraViewerStatus,
   stream: StreamHealth | undefined,
@@ -460,15 +474,16 @@ function hintFor(message: string | null, queryError: unknown): string | null {
 function ViewerOverlay({
   status,
   message,
-  stream,
   queryError,
+  failedRead,
+  label,
 }: {
   status: CameraViewerStatus;
   message: string | null;
-  stream: StreamHealth | undefined;
   queryError: unknown;
+  failedRead: boolean;
+  label: string;
 }) {
-  const { failedRead, label } = statusInfoFor(status, stream, queryError);
   const tone =
     failedRead || status === 'error' || status === 'offline'
       ? 'text-accent-fault'
