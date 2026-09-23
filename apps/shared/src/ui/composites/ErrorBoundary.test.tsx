@@ -37,7 +37,7 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByText('healthy child')).toBeTruthy();
+    expect(screen.getByText('healthy child')).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 
@@ -48,8 +48,8 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
 
-    expect(screen.getByRole('alert')).toBeTruthy();
-    expect(screen.getByText('caught: boom')).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeVisible();
+    expect(screen.getByText('caught: boom')).toBeVisible();
     expect(screen.queryByText('healthy child')).toBeNull();
   });
 
@@ -65,11 +65,11 @@ describe('ErrorBoundary', () => {
       </ErrorBoundary>,
     );
     // The boundary holds its error state until reset is invoked.
-    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'reset' }));
 
-    expect(screen.getByText('healthy child')).toBeTruthy();
+    expect(screen.getByText('healthy child')).toBeVisible();
     expect(screen.queryByRole('alert')).toBeNull();
   });
 

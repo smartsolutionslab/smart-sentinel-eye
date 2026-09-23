@@ -139,7 +139,7 @@ describe('CameraViewer stream session state machine', () => {
     await flushMicrotasks();
 
     // The WHEP POST has succeeded, but media transport is not up yet.
-    expect(screen.getByText('Connecting…')).toBeDefined();
+    expect(screen.getByText('Connecting…')).toBeVisible();
 
     act(() => {
       FakePeerConnection.lastInstance().setConnectionState('connected');
@@ -158,7 +158,7 @@ describe('CameraViewer stream session state machine', () => {
       FakePeerConnection.lastInstance().setConnectionState('failed');
     });
 
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
     expect(FakePeerConnection.instances).toHaveLength(1);
 
     await advance(1000); // base delay; jitter factor pinned to 1.0 via Math.random = 0.5
@@ -198,7 +198,7 @@ describe('CameraViewer stream session state machine', () => {
     });
     await advance(5000);
 
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
 
     await advance(1000);
     await flushMicrotasks();
@@ -212,7 +212,7 @@ describe('CameraViewer stream session state machine', () => {
     renderViewer();
     await flushMicrotasks();
 
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
     expect(FakePeerConnection.instances).toHaveLength(1);
 
     const expectedDelays = [1000, 2000, 4000, 8000, 15000, 15000];
@@ -251,12 +251,12 @@ describe('CameraViewer stream session state machine', () => {
     const view = renderViewer();
     await flushMicrotasks();
 
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
 
     setHealth('Offline', 'Source powered down.');
     view.rerender(viewer());
 
-    expect(screen.getByText('Stream is offline')).toBeDefined();
+    expect(screen.getByText('Stream is offline')).toBeVisible();
 
     await advance(120000);
     expect(FakePeerConnection.instances).toHaveLength(1);
@@ -277,7 +277,7 @@ describe('CameraViewer stream session state machine', () => {
     setHealth('Degraded', 'Source unreachable.');
     view.rerender(viewer());
 
-    expect(screen.getByText('Reconnecting…')).toBeDefined();
+    expect(screen.getByText('Reconnecting…')).toBeVisible();
     expect(FakePeerConnection.instances).toHaveLength(1);
 
     setHealth('Healthy');

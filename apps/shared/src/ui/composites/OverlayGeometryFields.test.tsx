@@ -378,7 +378,7 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
 
     fireEvent.change(field('Left'), { target: { value: '-5' } });
     fireEvent.keyDown(field('Left'), { key: 'Enter' });
-    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeVisible();
 
     fireEvent.keyDown(field('Left'), { key: 'Escape' });
 
@@ -392,7 +392,7 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
 
     fireEvent.change(field('Width'), { target: { value: 'abc' } });
     fireEvent.keyDown(field('Width'), { key: 'Enter' });
-    expect(screen.getByRole('alert')).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeVisible();
 
     fireEvent.change(field('Width'), { target: { value: '60' } });
     fireEvent.keyDown(field('Width'), { key: 'Enter' });

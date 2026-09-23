@@ -285,7 +285,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     });
 
     expect(FakePeerConnection.lastInstance().closed).toBe(true);
-    expect(screen.getByRole('alert')).toBeDefined();
+    expect(screen.getByRole('alert')).toBeVisible();
     expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
     // The operator is not stuck: capture can be tried again.
     expect(isDisabled(screen.getByRole('button', { name: /^capture frame$/i }))).toBe(false);
@@ -367,7 +367,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
 
-    expect(screen.getByRole('alert')).toBeDefined();
+    expect(screen.getByRole('alert')).toBeVisible();
     expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
     expect(FakePeerConnection.instances).toHaveLength(0);
   });
