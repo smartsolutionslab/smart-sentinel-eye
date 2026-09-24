@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -56,6 +56,12 @@ function renderDialog() {
     </Provider>,
   );
 }
+
+// `apps/management-web`'s eslint config carries no DOM-element globals, so
+// Duration's numeric value -- `toHaveValue` on a `type="number"` input
+// compares against a number, not the empty string a fresh mount holds --
+// reads through this structural type rather than naming `HTMLInputElement`.
+type InputLike = { value: string };
 
 describe('RuleDialog', () => {
   beforeEach(() => {
@@ -247,14 +253,7 @@ describe('RuleDialog', () => {
 
     await fillValidRule(user);
     await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
-    // The grid position the Overlay/Duration inputs mount at is the same one
-    // Variable name/Value expression just vacated, and the ternary gives React
-    // no key to tell the branches apart -- it reuses the underlying DOM nodes
-    // rather than remounting fresh ones, so the old text is still there to
-    // clear before typing the new value.
-    await user.clear(screen.getByLabelText(/overlay/i));
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
-    await user.clear(screen.getByLabelText(/duration/i));
     await fill(user, screen.getByLabelText(/duration/i), '5000');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
@@ -289,9 +288,112 @@ describe('RuleDialog', () => {
     await fillValidRule(user);
     await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
     await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    // Spec 241 (#2526): the round trip now remounts fresh, empty inputs
+    // instead of carrying the values back, so they are refilled here rather
+    // than relied on to have survived the toggle.
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     expect(await screen.findByText(/choose which fab/i)).toBeInTheDocument();
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  // ---- Spec 241 (#2526): the action ternary's two branches share the same
+  // DOM position with no key, so React reuses the underlying <input> nodes
+  // across a toggle instead of remounting them -- a value typed into one
+  // branch's field carries into the other branch's differently-labelled
+  // field, and can be submitted under the wrong name ----
+
+  it('Empties the Overlay and Duration fields after a typed variable name is toggled away from', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+
+    expect(screen.getByLabelText(/overlay/i)).toHaveValue('');
+    expect((screen.getByLabelText(/duration/i) as unknown as InputLike).value).toBe('');
+  });
+
+  it('Empties Value expression and blocks submit when only Variable name is refilled after an overlay round trip', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
+    await fill(user, screen.getByLabelText(/duration/i), '5000');
+
+    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+
+    expect(screen.getByLabelText(/value expression/i)).toHaveValue('');
+
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(await screen.findByText(/value expression is required for setvariablevalue/i)).toBeInTheDocument();
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('Empties Duration and blocks submit when only Overlay is refilled after a variable round trip', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+    await fill(user, screen.getByLabelText(/value expression/i), '1000');
+
+    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
+
+    expect((screen.getByLabelText(/duration/i) as unknown as InputLike).value).toBe('');
+
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    const durationField = screen.getByLabelText(/duration/i).closest('div');
+    expect(await within(durationField!).findByRole('alert')).toBeInTheDocument();
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('Empties Variable name and Value expression once Overlay has been filled and the action toggles back', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
+
+    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
+    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+
+    expect(screen.getByLabelText(/variable name/i)).toHaveValue('');
+    expect(screen.getByLabelText(/value expression/i)).toHaveValue('');
+  });
+
+  it('Empties both variable fields and blocks submit on an untouched action round trip', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
+
+    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+
+    expect(screen.getByLabelText(/variable name/i)).toHaveValue('');
+    expect(screen.getByLabelText(/value expression/i)).toHaveValue('');
+
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(await screen.findByText(/variable name is required for setvariablevalue/i)).toBeInTheDocument();
+    expect(screen.getByText(/value expression is required for setvariablevalue/i)).toBeInTheDocument();
     expect(createMock).not.toHaveBeenCalled();
   });
 });
