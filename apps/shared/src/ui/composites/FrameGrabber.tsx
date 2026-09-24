@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
+import { logResilienceEvent } from '../../observability/resilienceLog.js';
 import { useWhepSession } from './useWhepSession.js';
 
 export interface FrameGrabberProps {
@@ -65,9 +66,14 @@ export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed 
       // 147's assumption 1), not a rethrow of a fault this code caused. The
       // alternative is an uncaught throw inside a render effect that would
       // take the whole dialog down; this routes into the same FR-016 message
-      // a timeout produces, and swallows nothing silently.
+      // a timeout produces, and swallows nothing silently — each exit's
+      // cause goes to the `[resilience]` channel first (spec 234 FR-001).
       try {
         if (videoEl === null) {
+          logResilienceEvent('stream', 'frame-capture-failed', {
+            cameraIdentifier,
+            error: 'video element unavailable',
+          });
           onFailed();
           return;
         }
@@ -76,12 +82,17 @@ export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed 
         canvas.height = videoEl.videoHeight || DEFAULT_CAPTURE_HEIGHT_PX;
         const context = canvas.getContext('2d');
         if (context === null) {
+          logResilienceEvent('stream', 'frame-capture-failed', {
+            cameraIdentifier,
+            error: '2d context unavailable',
+          });
           onFailed();
           return;
         }
         context.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
         onCaptured(canvas.toDataURL('image/png'));
-      } catch {
+      } catch (cause) {
+        logResilienceEvent('stream', 'frame-capture-failed', { cameraIdentifier, error: String(cause) });
         onFailed();
       }
       return;
@@ -100,7 +111,7 @@ export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed 
       settledRef.current = true;
       onFailed();
     }
-  }, [status, videoRef, onCaptured, onFailed]);
+  }, [status, videoRef, onCaptured, onFailed, cameraIdentifier]);
 
   return <video ref={videoRef} autoPlay playsInline muted aria-hidden="true" style={HIDDEN_VIDEO_STYLE} />;
 }
