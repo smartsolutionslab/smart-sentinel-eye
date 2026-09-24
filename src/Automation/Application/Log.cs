@@ -48,4 +48,18 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Fanned out {Count} action(s) for {EventIdentifier} ({Source}/{Kind}).")]
     public static partial void FannedOutActions(this ILogger logger, int count, Guid eventIdentifier, string source, string kind);
+
+    /// <summary>
+    /// Distinct from <see cref="SkippedEventWithoutFab"/> and
+    /// <see cref="SkippedEventWithUnparseableFab"/>: this one fails on the
+    /// event's payload, not its fab. The payload itself is not logged — up to
+    /// 64 KB of producer data, versus the fab log above, which does name its
+    /// value because a fab identifier is small and worth seeing directly. The
+    /// exception already carries the line and byte position of the failure.
+    /// </summary>
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Ingested event {Event} carried a payload of {PayloadLength} characters that is not valid JSON; no rule evaluated.")]
+    public static partial void SkippedEventWithUnparseablePayload(
+        this ILogger logger, Exception exception, Guid @event, int payloadLength);
 }
