@@ -240,7 +240,7 @@ Scenario: A string read out of the payload survives disposal
 3. Record the Automation dead-letter queue depth.
 4. Via the RabbitMQ management HTTP API, publish to the exchange Automation's `FabEventIngestedV1` listener is bound to a message carrying Wolverine's message-type header for `FabEventIngestedV1` and a body with a valid envelope and `"Payload": "not json"`. (If Wolverine's envelope headers cannot be reproduced by hand in reasonable time, fall back to step 4′ and say so in the note.)
    4′. Fallback: the handler-level tests from `tasks.md`, quoted verbatim, labelled *not observed on the stack*.
-5. Observe: DLQ depth unchanged; one `Warning` "…payload is not valid JSON; no rule evaluated." in the Automation service's structured logs carrying the event identifier.
+5. Observe: DLQ depth unchanged; one `Warning` "…payload of {PayloadLength} characters that could not be parsed (not valid JSON, or nested too deeply); no rule evaluated." in the Automation service's structured logs carrying the event identifier.
 6. Repeat step 4 with a 64-deep payload: DLQ unchanged; `spec243` becomes `1` (read it from the SystemVariables list endpoint, or from the `SystemVariableValueRequestedV1` trace — memory note: create the event rather than hunt `list_traces`).
 7. Repeat with an ordinary payload: `spec243` still updates — the success path is unbroken.
 
