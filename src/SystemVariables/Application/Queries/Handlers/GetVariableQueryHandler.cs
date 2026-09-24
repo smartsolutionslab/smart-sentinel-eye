@@ -30,9 +30,9 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
             return Failure(GetVariableFailures.VariableNotFound(query.Name.Value));
         }
 
-        // Distinct fabs, not raw match count: with Archived excluded and the
-        // fab/name unique index, two rows in one fab cannot happen, but the
-        // condition holds independently of the index too.
+        // Keyed on distinct fabs, not match count: with Archived excluded,
+        // ux_system_variables_fab_name_active allows at most one match per
+        // fab, so more than one distinct fab is the only way here.
         IReadOnlyList<string> fabsHolding =
             [.. matches.Select(match => match.Fab.Value)
                 .Distinct(StringComparer.Ordinal)
