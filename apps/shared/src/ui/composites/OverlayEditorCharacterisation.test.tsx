@@ -187,7 +187,13 @@ describe('OverlayEditor characterisation (spec 147 T001)', () => {
     render(<OverlayEditor value={buildLabel()} onChange={onChange} />);
 
     act(() => {
-      lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 200, offsetHeight: Number.NaN }, {}, { x: 100, y: 50 });
+      lastRndProps!.onResizeStop(
+        {},
+        'bottomRight',
+        { offsetWidth: 200, offsetHeight: Number.NaN },
+        {},
+        { x: 100, y: 50 },
+      );
     });
 
     expect(onChange).toHaveBeenCalledTimes(1);

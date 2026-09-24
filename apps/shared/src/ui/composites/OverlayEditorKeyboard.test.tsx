@@ -416,9 +416,7 @@ describe('OverlayEditor keyboard operability (spec 149)', () => {
     // counterfactual (a monotone Math.max(v, 0.005)) must turn it red.
     it('ArrowRight on x leaves an untouched width of 0.003 unchanged, not floored to 0.005', () => {
       const onChange = vi.fn();
-      render(
-        <OverlayEditor value={buildLabel({ normalizedX: 0.4, normalizedWidth: 0.003 })} onChange={onChange} />,
-      );
+      render(<OverlayEditor value={buildLabel({ normalizedX: 0.4, normalizedWidth: 0.003 })} onChange={onChange} />);
 
       fireEvent.keyDown(getLabel(), { key: 'ArrowRight' });
 
