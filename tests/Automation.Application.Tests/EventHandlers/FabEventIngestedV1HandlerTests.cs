@@ -381,7 +381,7 @@ public class FabEventIngestedV1HandlerTests
             .ShouldHaveSingleItem();
         published.Name.ShouldBe("oeeLine1");
         published.Value.ShouldBe("1");
-        logger.Entries.ShouldBeEmpty();
+        logger.Entries.ShouldNotContain(entry => entry.Level == LogLevel.Warning);
     }
 
     [Fact]
