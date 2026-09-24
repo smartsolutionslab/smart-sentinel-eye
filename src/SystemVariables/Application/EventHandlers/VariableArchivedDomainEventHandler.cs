@@ -79,17 +79,13 @@ public sealed class VariableArchivedDomainEventHandler(
                 // Siblings resolve in the fab that changed (ADR-0115).
                 Option<Variable> other = await variables.GetByNameAsync(
                     fab, parsed, cancellationToken);
+                // None also covers an Archived sibling: GetByNameAsync excludes them (FR-005).
                 if (!other.HasValue)
                 {
                     continue;
                 }
 
                 Variable variable = other.Value;
-                if (variable.State == VariableState.Archived)
-                {
-                    continue;
-                }
-
                 if (variable.Value is VariableValue.Unset)
                 {
                     continue;

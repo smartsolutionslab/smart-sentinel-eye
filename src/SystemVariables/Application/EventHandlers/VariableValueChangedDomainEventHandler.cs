@@ -129,17 +129,13 @@ public sealed class VariableValueChangedDomainEventHandler(
             // overlay is a fab-neutral template and this render belongs to one
             // plant (ADR-0115).
             Option<Variable> other = await variables.GetByNameAsync(changed.Fab, parsed, cancellationToken);
+            // None also covers an Archived sibling: GetByNameAsync excludes them (FR-005).
             if (!other.HasValue)
             {
                 continue;
             }
 
             Variable variable = other.Value;
-            if (variable.State == VariableState.Archived)
-            {
-                continue;
-            }
-
             if (variable.Value is VariableValue.Unset)
             {
                 continue;
