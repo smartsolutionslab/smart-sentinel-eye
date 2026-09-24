@@ -62,7 +62,14 @@ function renderDialog() {
 }
 
 describe('SystemVariableDialog', () => {
-  beforeEach(() => defineMock.mockClear());
+  beforeEach(() => {
+    defineMock.mockClear();
+    // Spec 231 (#2433): the multi-fab describe block below overrides this;
+    // reset it here so that override cannot leak into a test that runs after
+    // it — every other test in this file exercises the single-fab, no-select
+    // path (ADR-0114).
+    assignedGroups.current = ['/fabs/munich'];
+  });
 
   it('Renders the name input and the type selector', () => {
     renderDialog();
@@ -176,6 +183,60 @@ describe('SystemVariableDialog', () => {
     await user.click(screen.getByRole('button', { name: /define/i }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('BooleanLabels can only be set on Boolean variables.');
+    expect(defineMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 231 (#2433) US2 — new behaviour, RED, and the first multi-fab test in
+ * this file. The comment on `assignedGroups` above claims "the multi-fab case
+ * overrides it", but until now nothing did: `RegisterCameraDialog.test.tsx`
+ * and `RuleDialog.test.tsx` both have an ADR-0114 multi-fab section; this file
+ * had none. `beforeEach` above restores single-fab so this section's override
+ * cannot leak into any test that runs after it.
+ */
+describe('SystemVariableDialog — multi-fab (ADR-0114, spec 231 US2)', () => {
+  beforeEach(() => {
+    assignedGroups.current = ['/fabs/munich', '/fabs/dresden'];
+  });
+
+  async function fillValidVariable(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByLabelText(/name/i), 'lineStatus');
+  }
+
+  it('Asks a multi-fab operator which fab', () => {
+    renderDialog();
+
+    expect(screen.getByLabelText(/^fab$/i)).toBeInTheDocument();
+  });
+
+  it('Refuses to submit for a multi-fab operator with no fab chosen', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fillValidVariable(user);
+    await user.click(screen.getByRole('button', { name: /define/i }));
+
+    expect(await screen.findByText(/choose which fab/i)).toBeInTheDocument();
+    expect(defineMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * The Fab `<select>`'s `onChange` sets the value but never clears
+   * `fabError`, so the "Choose which fab…" message survives picking a fab and
+   * only disappears on the next submit.
+   */
+  it('Clears the missing-fab message as soon as a fab is chosen', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fillValidVariable(user);
+    await user.click(screen.getByRole('button', { name: /define/i }));
+    expect(await screen.findByText(/choose which fab/i)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/^fab$/i), 'dresden');
+
+    expect(screen.queryByText(/choose which fab/i)).not.toBeInTheDocument();
     expect(defineMock).not.toHaveBeenCalled();
   });
 });

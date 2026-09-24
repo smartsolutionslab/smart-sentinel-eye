@@ -3,6 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
+import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
 import type { Layout, ListLayoutsResponse } from '@smart-sentinel-eye/shared/api/layouts.api';
 
 const listLayoutsMock = vi.fn();
@@ -11,6 +12,18 @@ const archiveMock = vi.fn(async () => ({ data: 1 }));
 const branchMock = vi.fn(async () => ({ data: 2 }));
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 const editDraftMock = vi.fn(async () => ({ data: 2 }));
+
+// Spec 231 T001: mutable module state, mirroring OverlaysPage.test.tsx. The
+// mutation *state* the page reads back — a vi.mock factory is hoisted above
+// every test, so the fixed-literal `{ isLoading: false }` this used to return
+// gave no test a way to inject a mutation error; the tests that care set this
+// in-place and beforeEach clears it.
+let publishState: { isLoading: boolean; error?: unknown } = { isLoading: false };
+
+/** An RTK Query error in the shape the gateway's RFC-7807 body arrives in. */
+function refusal(status: number, title: string, detail?: string) {
+  return { status, data: { title, status, ...(detail === undefined ? {} : { detail }) } };
+}
 
 vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
@@ -32,7 +45,7 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
       isError: false,
       isFetching: false,
     }),
-    usePublishRevisionMutation: () => [publishMock, { isLoading: false }],
+    usePublishRevisionMutation: () => [publishMock, publishState],
     useArchiveRevisionMutation: () => [archiveMock, { isLoading: false }],
     useBranchDraftRevisionMutation: () => [branchMock, { isLoading: false }],
     useRevertRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false }],
@@ -99,6 +112,7 @@ describe('LayoutsPage', () => {
     archiveMock.mockClear();
     branchMock.mockClear();
     editDraftMock.mockClear();
+    publishState = { isLoading: false };
   });
 
   it('Shows an empty-state message when no layouts exist', () => {
@@ -242,6 +256,57 @@ describe('LayoutsPage', () => {
     });
     // The editor opens pre-loaded: its "Edit layout" dialog title appears.
     expect(await screen.findByText(/edit layout/i)).toBeInTheDocument();
+  });
+});
+
+/**
+ * Spec 231 (#2433) US1 — new behaviour, RED. `LayoutsPage` passes a plain
+ * fallback string to `problemDetail` instead of
+ * `isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that
+ * change.'`, the pattern OverlaysPage.tsx and RulesPage.tsx already use. Every
+ * test here injects an error through `publishState`, since `mutationError` on
+ * this page reads `publishState.error ?? archiveState.error ?? branchState.error
+ * ?? revertState.error` and publish is first in that chain.
+ */
+describe('LayoutsPage — the stale-conflict fallback (spec 231 US1)', () => {
+  beforeEach(() => {
+    listLayoutsMock.mockReset();
+    listLayoutsMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+  });
+
+  it('Shows the conflict fallback, not the generic sentence, for a stale refusal without a detail', () => {
+    publishState = { isLoading: false, error: refusal(409, 'LAYOUT_REVISION_STALE') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(CONFLICT_FALLBACK);
+    expect(alert).not.toHaveTextContent('Could not apply that change.');
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+  });
+
+  it('Keeps the generic fallback for a non-stale 409 without a detail', () => {
+    publishState = { isLoading: false, error: refusal(409, 'LAYOUT_NAME_TAKEN') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Could not apply that change.');
+    expect(alert).not.toHaveTextContent(/someone else/i);
+  });
+
+  it('Shows the server’s own detail verbatim when a stale refusal carries one', () => {
+    publishState = {
+      isLoading: false,
+      error: refusal(409, 'LAYOUT_REVISION_STALE', 'Layout has changed since version 0 (now 1).'),
+    };
+    renderPage();
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Layout has changed since version 0 (now 1).');
   });
 });
 
