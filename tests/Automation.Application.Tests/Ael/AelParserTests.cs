@@ -104,4 +104,45 @@ public class AelParserTests
         AelExpression expr = AelParser.Parse(AelFixtures.SimplePlcPredicate);
         expr.ShouldBeOfType<AelExpression.Logical>().Operator.ShouldBe(LogicalOperator.And);
     }
+
+    // ---- #2497: an out-of-range numeric literal is a parse error, not an OverflowException ----
+
+    [Theory]
+    [InlineData("9223372036854775808", 0)]
+    [InlineData("$.payload.v > 99999999999999999999", 14)]
+    [InlineData("$.payload.v > 99999999999999999999999999999.5", 14)]
+    [InlineData("1 + 79228162514264337593543950336.0", 4)]
+    public void An_out_of_range_numeric_literal_is_a_parse_error_at_its_position(string source, int position)
+    {
+        AelParseException ex = Should.Throw<AelParseException>(() => AelParser.Parse(source));
+        ex.Position.ShouldBe(position);
+        ex.Message.ShouldContain("out of range");
+    }
+
+    [Theory]
+    [InlineData("9223372036854775807", "Int")]
+    [InlineData("79228162514264337593543950335.0", "Decimal")]
+    public void The_largest_representable_literals_still_parse(string source, string kind)
+    {
+        AelExpression expr = AelParser.Parse(source);
+        AelExpression.Literal lit = expr.ShouldBeOfType<AelExpression.Literal>();
+
+        if (kind == "Int")
+        {
+            lit.Value.ShouldBeOfType<AelValue.IntValue>().Value.ShouldBe(long.MaxValue);
+        }
+        else
+        {
+            lit.Value.ShouldBeOfType<AelValue.DecimalValue>().Value.ShouldBe(decimal.MaxValue);
+        }
+    }
+
+    [Theory]
+    [InlineData("1contains \"x\"")]
+    [InlineData("$.payload.v1e3 > 1")]
+    [InlineData("$.payload.e30 == 2.5")]
+    public void Sources_valid_today_with_letters_after_digits_still_parse(string source)
+    {
+        Should.NotThrow(() => AelParser.Parse(source));
+    }
 }
