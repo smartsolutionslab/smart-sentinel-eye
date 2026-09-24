@@ -48,7 +48,7 @@ public sealed class FabEventIngestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (eventIdentifier, fab, source, _, kind, _, ingestedAt, _, _) = message;
+        var (eventIdentifier, fab, source, _, kind, _, ingestedAt, payload, _) = message;
 
         // An event that does not say which fab it came from triggers nothing
         // (spec 013 FR-012). Falling back to evaluating every rule is exactly
@@ -77,7 +77,17 @@ public sealed class FabEventIngestedV1Handler(
             return;
         }
 
-        JsonDocument document = ParseContext(message);
+        JsonDocument document;
+        try
+        {
+            document = ParseContext(message);
+        }
+        catch (JsonException exception)
+        {
+            logger.SkippedEventWithUnparseablePayload(exception, eventIdentifier, payload?.Length ?? 0);
+            return;
+        }
+
         IReadOnlyList<RuleActionEffect> effects;
         using (document)
         {
@@ -153,6 +163,13 @@ public sealed class FabEventIngestedV1Handler(
         builder.Append(message.Payload);
         builder.Append('}');
 
-        return JsonDocument.Parse(builder.ToString());
+        return JsonDocument.Parse(builder.ToString(), ContextParseOptions);
     }
+
+    // The payload was validated by EventIngestion at System.Text.Json's default
+    // depth (64); the envelope object this method wraps around it is one level
+    // more, so the parse here must allow exactly one level beyond that limit —
+    // not a raised or unbounded one.
+    private const int PayloadMaximumDepth = 64;
+    private static readonly JsonDocumentOptions ContextParseOptions = new() { MaxDepth = PayloadMaximumDepth + 1 };
 }
