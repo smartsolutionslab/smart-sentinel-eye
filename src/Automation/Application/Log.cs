@@ -59,7 +59,7 @@ internal static partial class Log
     /// </summary>
     [LoggerMessage(
         Level = LogLevel.Warning,
-        Message = "Ingested event {Event} carried a payload of {PayloadLength} characters that is not valid JSON; no rule evaluated.")]
+        Message = "Ingested event {Event} carried a payload of {PayloadLength} characters that could not be parsed (not valid JSON, or nested too deeply); no rule evaluated.")]
     public static partial void SkippedEventWithUnparseablePayload(
         this ILogger logger, Exception exception, Guid @event, int payloadLength);
 }
