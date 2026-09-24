@@ -157,16 +157,37 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         (await ReadAsync(rules, name)).GetProperty("state").GetString().ShouldBe("Active");
     }
 
+    // #2497: an out-of-range numeric literal in the predicate used to escape
+    // AelParser.ParseInt as an uncaught OverflowException, so the create
+    // endpoint answered 500 instead of the typed 400 every other malformed
+    // predicate gets (Malformed_predicate... in CreateRuleCommandHandlerTests
+    // covers the same shape at the handler level; this is the HTTP boundary).
+    [Fact]
+    public async Task An_oversized_literal_in_a_predicate_is_a_400_not_a_500()
+    {
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        string name = UniqueName();
+
+        HttpResponseMessage created = await CreateAsync(
+            rules, name, predicate: "$.payload.v > 999999999999999999999999999999999999");
+
+        created.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await DiagnoseAsync(created));
+
+        JsonElement problem = await created.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("RULE_PREDICATE_PARSE_FAILED");
+    }
+
     private Task<string> DiagnoseAsync(HttpResponseMessage response) =>
         aspire.DiagnoseAsync("automation", response);
 
-    private static Task<HttpResponseMessage> CreateAsync(HttpClient rules, string name) =>
+    private static Task<HttpResponseMessage> CreateAsync(
+        HttpClient rules, string name, string predicate = "$.payload.cycleTime <= 30") =>
         rules.PostAsJsonAsync("/rules?fabId=munich", new
         {
             name,
             triggerSource = "plc",
             triggerKind = "PlcCycleStart",
-            predicate = "$.payload.cycleTime <= 30",
+            predicate,
             actionType = "SetVariableValue",
             variableName = "oeeLine1",
             valueExpression = "100 - $.payload.cycleTime * 2",

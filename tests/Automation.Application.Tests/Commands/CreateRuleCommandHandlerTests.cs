@@ -161,4 +161,84 @@ public class CreateRuleCommandHandlerTests
 
         duplicate.Error.Message.ShouldContain("dresden");
     }
+
+    // ---- #2497: an out-of-range or exponent literal is a typed parse failure, not a 500 ----
+
+    [Fact]
+    public async Task An_oversized_literal_in_the_predicate_is_PredicateParseFailed_at_its_position()
+    {
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now),
+            NullLogger<CreateRuleCommandHandler>.Instance);
+
+        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+            HappyCommand(predicate: "$.payload.v > 999999999999999999999999999999999999"),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        CreateRuleError.PredicateParseFailed failure =
+            result.Error.ShouldBeOfType<CreateRuleError.PredicateParseFailed>();
+        failure.Position.ShouldBe(14);
+        repo.Rules.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task An_oversized_literal_in_the_value_expression_is_ActionExpressionParseFailed()
+    {
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now),
+            NullLogger<CreateRuleCommandHandler>.Instance);
+
+        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+            HappyCommand(action: RuleAction.SetVariableValue.From(
+                "oeeLine1", "99999999999999999999")),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        CreateRuleError.ActionExpressionParseFailed failure =
+            result.Error.ShouldBeOfType<CreateRuleError.ActionExpressionParseFailed>();
+        failure.Position.ShouldBe(0);
+        repo.Rules.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task An_exponent_in_the_predicate_is_refused_by_name()
+    {
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now),
+            NullLogger<CreateRuleCommandHandler>.Instance);
+
+        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+            HappyCommand(predicate: "$.payload.v > 1e30"),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        CreateRuleError.PredicateParseFailed failure =
+            result.Error.ShouldBeOfType<CreateRuleError.PredicateParseFailed>();
+        failure.Position.ShouldBe(15);
+        failure.Reason.ShouldContain("exponent");
+    }
+
+    [Fact]
+    public async Task A_name_clash_is_reported_before_an_oversized_predicate()
+    {
+        InMemoryRuleRepository repo = new();
+        CreateRuleCommandHandler handler = new(
+            repo, new FakeClock(Now),
+            NullLogger<CreateRuleCommandHandler>.Instance);
+
+        Result<RuleIdentifier, CreateRuleError> first =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+        first.IsSuccess.ShouldBeTrue();
+
+        Result<RuleIdentifier, CreateRuleError> second = await handler.HandleAsync(
+            HappyCommand(predicate: "$.payload.v > 99999999999999999999"),
+            CancellationToken.None);
+
+        second.IsSuccess.ShouldBeFalse();
+        second.Error.ShouldBeOfType<CreateRuleError.RuleNameTaken>();
+    }
 }

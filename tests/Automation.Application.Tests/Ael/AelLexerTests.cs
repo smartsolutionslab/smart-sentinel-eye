@@ -101,4 +101,20 @@ public class AelLexerTests
         // 13 meaningful tokens + EOF.
         tokens.Count.ShouldBe(14);
     }
+
+    // ---- #2497: exponent notation is refused by name, at the exponent marker ----
+
+    [Theory]
+    [InlineData("1e30", 1)]
+    [InlineData("$.payload.v > 1E30", 15)]
+    [InlineData("$.payload.v > 1e+30", 15)]
+    [InlineData("$.payload.v > 1e-3", 15)]
+    [InlineData("$.payload.v > 1.5e3", 17)]
+    [InlineData("1e", 1)]
+    public void Exponent_notation_is_refused_at_the_exponent_marker(string source, int position)
+    {
+        AelParseException ex = Should.Throw<AelParseException>(() => AelLexer.Tokenize(source));
+        ex.Position.ShouldBe(position);
+        ex.Message.ShouldContain("exponent");
+    }
 }
