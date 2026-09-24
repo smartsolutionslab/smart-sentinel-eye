@@ -8,7 +8,7 @@
 // stall fell through to the test's own 900s ceiling: 15.5 minutes on roughly
 // a third of green CI runs, reported as flaky rather than failed.
 //
-// The fix lives in `e2e/support/retire-e2e-cameras.recovery.ts` as
+// The fix lives in `e2e/support/sweep-recovery.ts` as
 // `recoverAndRetry`, extracted specifically so its timing behaviour can be
 // exercised without a browser. These two tests are the property the fix
 // claims: a spent budget does not start a fresh recovery, and a recovery in
@@ -24,7 +24,7 @@
 
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { recoverAndRetry } from '../e2e/support/retire-e2e-cameras.recovery.ts';
+import { recoverAndRetry } from '../e2e/support/sweep-recovery.ts';
 
 test('does not start a recovery once the sweep is out of time', { timeout: 2_000 }, async () => {
   const deadline = Date.now() - 1; // already spent

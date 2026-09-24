@@ -11,7 +11,7 @@
  * test's own 900s ceiling: 15.5 minutes on roughly a third of green CI runs.
  *
  * Extracted so the bound is exercised without a browser — see
- * `scripts/retire-e2e-cameras-recovery.test.mjs`, which stubs a sign-in that
+ * `scripts/sweep-recovery.test.mjs`, which stubs a sign-in that
  * never resolves and proves the recovery gives up on schedule regardless.
  */
 export type RecoveryOutcome<T> = { attempted: false } | { attempted: true; result: T };
