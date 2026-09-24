@@ -40,7 +40,7 @@ const DEADLINE_MS = 5 * 60 * 1000;
 
 /**
  * How long a single re-sign-in attempt (below) may take before the sweep
- * gives up on it and treats the row as skipped. Mirrors the camera
+ * gives up on it and retries the row once regardless. Mirrors the camera
  * teardown's own cap (#2382): ordinary sign-in is single-digit seconds, and
  * the fresh-page retry that followed that file's original 15.5-minute hang
  * passed in 15s, so 30s is generous next to that and only ever bites the
@@ -90,10 +90,13 @@ cleanup('archive the layouts this run published', async ({ page }) => {
       // a missing row. The camera teardown documents the same remedy — and,
       // since #2385, the same bound: both halves (deadline and re-sign-in) are
       // capped by `recoverLayout`, which retries once rather than looping
-      // in place, because an in-place retry would race the same stall. Before
-      // this fix the fallback ran unbounded and cost 11.5 minutes for zero
-      // archives (see above); now a spent deadline starts no new work and a
-      // stalled sign-in is abandoned after `RE_SIGN_IN_TIMEOUT_MS`.
+      // in place, because an in-place retry would race the same stall. The
+      // guard above (added separately) already fixed the 11.5-minute failure
+      // recorded there — that was an unguarded call on an already-signed-in
+      // page. This bounds a different risk: a stall once the page really is
+      // signed out, following #2382's mechanism — a spent deadline starts no
+      // new work and a stalled sign-in is abandoned after
+      // `RE_SIGN_IN_TIMEOUT_MS`.
       const recovery = await recoverLayout(
         Date.now(),
         deadline,
