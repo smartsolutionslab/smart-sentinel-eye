@@ -5,6 +5,7 @@ using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
+using SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 using SmartSentinelEye.SystemVariables.Domain.Variable.Events;
 
@@ -121,5 +122,49 @@ public class VariableValueChangedDomainEventHandlerTests
         ResolvedOverlayTextChangedV1[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV1>()];
         pushes.Length.ShouldBe(2);
         pushes.ShouldAllBe(push => push.Version == FakeOverlayTextVersions.Floor);
+    }
+
+    // Spec 235, C1 (characterisation). Pins that a sibling's *not found on
+    // lookup* path already renders the live row, not stale/archived-state
+    // text -- GetByNameAsync excludes Archived rows by contract (FR-005), so
+    // the archived 'shift' row is invisible and the re-defined one is what
+    // the snapshot sees.
+    [Fact]
+    public async Task A_sibling_archived_and_defined_again_resolves_to_the_live_one()
+    {
+        FakeEventBus bus = new();
+        InMemoryReverseIndex index = new();
+        InMemoryVariableRepository repo = new();
+        FakeOverlayTextVersions versions = new();
+
+        VariableBuilder archivedShiftBuilder = new VariableBuilder()
+            .Named("shift").OfType(VariableType.String)
+            .WithInitialValue(new VariableValue.StringValue("A"));
+        Variable archivedShift = archivedShiftBuilder.Build();
+        archivedShift.Archive(OperatorIdentifier.From(Guid.CreateVersion7()), archivedShiftBuilder.Clock);
+        repo.Add(archivedShift);
+
+        Variable redefinedShift = new VariableBuilder()
+            .Named("shift").OfType(VariableType.String)
+            .WithInitialValue(new VariableValue.StringValue("B")).Build();
+        repo.Add(redefinedShift);
+
+        Guid overlay = Guid.CreateVersion7();
+        index.UpsertOverlayReferences(overlay, "{{shift}} / {{oee}}");
+
+        VariableValueChangedDomainEventHandler handler = new(
+            bus, index, versions, repo, new Resolver(),
+            NullLogger<VariableValueChangedDomainEventHandler>.Instance);
+
+        await handler.Handle(
+            new VariableValueChangedDomainEvent(
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("oee"),
+                VariableType.Number, new VariableValue.NumberValue(82.5), FixedMoment,
+                OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
+            CancellationToken.None);
+
+        ResolvedOverlayTextChangedV1 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
+        push.ResolvedText.ShouldBe("B / 82.5");
     }
 }
