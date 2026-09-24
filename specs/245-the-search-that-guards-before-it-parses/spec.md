@@ -9,7 +9,7 @@ ADR-0036 (smallest change), ADR-0044 (per-context value objects),
 ADR-0144 (autonomous lane, phase-4a colours)
 **Precedent spec:** 215 (#2507) — the same defect on `GetTimeline`, eight lines
 below in the same file. Its §Out of scope recorded both gaps this spec closes.
-**Precedent commit (gap 2):** `e9afe03e` — "skip one odd group", the rule five
+**Precedent commit (gap 2):** `e9afe03e` — "skip one odd group", the rule seven
 contexts already apply to a caller's claimed fabs.
 
 ---
@@ -93,7 +93,7 @@ well-formed groups scope the search as they do today.
 `e9afe03e` ("stop inventing a fab called "none", and skip one odd group", #1299
 review) decided exactly this for Automation: *"One unusable group hid every fab
 … It now maps per entry and keeps what parses."* The same per-entry skip, with the
-same reasoning in the same comment, is now in **five** contexts:
+same reasoning in the same comment, is now in **seven** contexts:
 
 | Site | Behaviour on a malformed claimed fab |
 |---|---|
@@ -102,6 +102,8 @@ same reasoning in the same comment, is now in **five** contexts:
 | `CameraCatalog/Api/CameraEndpoints.cs` | skipped, per entry |
 | `LayoutComposition/Api/LayoutEndpoints.Commands.cs` | skipped, per entry |
 | `StreamDistribution/Api/StreamEndpoints.cs` | skipped, per entry |
+| `Identity/Api/IdentityFabResolution.cs` | skipped, per entry |
+| `EventIngestion/Api/EventIngestionFabResolution.cs` | skipped, per entry |
 | **`AuditObservability` `SearchAuditQueryHandler.cs:72`** | **500 — the sole outlier** |
 
 AuditObservability is the only reader of the caller's claimed fab set that still
