@@ -98,7 +98,10 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
               id="camera-fab-id"
               className="w-full rounded-md border border-fg-muted/30 bg-transparent p-2 text-sm"
               value={fabId}
-              onChange={(event) => setFabId(event.target.value)}
+              onChange={(event) => {
+                setFabId(event.target.value);
+                setFabError(null);
+              }}
             >
               <option value="">Choose a fab…</option>
               {fabs.map((fab) => (
