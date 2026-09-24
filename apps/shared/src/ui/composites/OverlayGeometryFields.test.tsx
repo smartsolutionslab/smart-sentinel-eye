@@ -521,6 +521,23 @@ describe('OverlayEditor wires the live readout and the commit path (FR-006, FR-0
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  // #2361 — FR-003: the live readout must agree with what a release would
+  // emit (spec 151 FR-013's invariant). A resize in progress reporting a
+  // non-positive height must show the size floor, not clamp01's zero — an
+  // operator watching the readout must never see a value the release, and
+  // the domain/schema behind it, would refuse.
+  it('The Height field shows the size floor, not zero, while a resize in progress reports a non-positive height (#2361)', () => {
+    const onChange = vi.fn();
+    render(<ControlledOverlayEditor initial={buildLabel()} onChangeSpy={onChange} />);
+
+    act(() => {
+      lastRndProps!.onResize?.({}, 'bottomRight', { offsetWidth: 200, offsetHeight: -100 }, {}, { x: 100, y: 50 });
+    });
+
+    expect(field('Height').value).toBe('0.5');
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
   /**
    * C1 (phase-6 fix round, reviewer counterfactual). This replaces a test
    * that used to stop at "the field reads the settled drag position" —

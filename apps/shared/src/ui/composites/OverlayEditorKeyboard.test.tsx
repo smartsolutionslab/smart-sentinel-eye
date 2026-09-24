@@ -405,6 +405,29 @@ describe('OverlayEditor keyboard operability (spec 149)', () => {
     });
   });
 
+  describe('a small but domain-valid size is untouched by an unrelated nudge (#2361 guard)', () => {
+    // The critical "a monotone floor is wrong" guard (spec.md FR-002):
+    // `emitNormalized` re-clamps all four values on every keypress, including
+    // axes the operator did not touch. A width of 0.003 is below
+    // `MIN_NORMALIZED_SIZE` (0.005) but domain-valid (> 0) — spec 151 FR-009
+    // lets an operator type it. Nudging x must not silently rewrite it. Must
+    // stay green on both current code (clamp01 never floors a positive
+    // value) and the fixed code (a non-monotone clampSize); T005's
+    // counterfactual (a monotone Math.max(v, 0.005)) must turn it red.
+    it('ArrowRight on x leaves an untouched width of 0.003 unchanged, not floored to 0.005', () => {
+      const onChange = vi.fn();
+      render(
+        <OverlayEditor value={buildLabel({ normalizedX: 0.4, normalizedWidth: 0.003 })} onChange={onChange} />,
+      );
+
+      fireEvent.keyDown(getLabel(), { key: 'ArrowRight' });
+
+      expect(onChange).toHaveBeenCalledTimes(1);
+      const next = onChange.mock.calls[0]![0] as OverlayLabel;
+      expect(next.normalizedWidth).toBe(0.003);
+    });
+  });
+
   describe('the 1e-4 quantum holds under repeated presses (FR-009)', () => {
     it('Reaches the clamp boundary exactly after a hundred and sixty fine presses', () => {
       const onChange = vi.fn();
