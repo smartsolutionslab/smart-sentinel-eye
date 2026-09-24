@@ -1166,7 +1166,8 @@ function observeBudget(startedAt: number, iterationsLeft: number): number {
 }
 
 /**
- * The submit round trip for <b>this iteration's own value</b>.
+ * The recorded outcome for <b>this iteration's own value</b>, from whichever
+ * map is passed in.
  *
  * <para>
  * <b>Keyed by the value the request carried, never by arrival order.</b> The old
@@ -1177,15 +1178,21 @@ function observeBudget(startedAt: number, iterationsLeft: number): number {
  * round trip (236 ms of which 177; 226 ms of which 136), so a mispairing corrupts
  * exactly the samples that matter most.
  * </para>
+ *
+ * <para>
+ * Spec 232 (#2221) US1: generalised from `number` (the round-trip figure) to
+ * any value type keyed the same way, so `submitStatuses` and `submitFailures`
+ * reuse this exact poll shape rather than a second one (ADR-0036).
+ * </para>
  */
-async function settleSubmitRoundTrip(
-  roundTrips: ReadonlyMap<string, number>,
+async function settleMapValue<T>(
+  outcomes: ReadonlyMap<string, T>,
   value: string,
   budgetMilliseconds: number,
-): Promise<number | null> {
+): Promise<T | null> {
   const deadline = Date.now() + budgetMilliseconds;
   for (;;) {
-    const seen = roundTrips.get(value);
+    const seen = outcomes.get(value);
     if (seen !== undefined) return seen;
     if (Date.now() >= deadline) return null;
     await new Promise((resolve) => setTimeout(resolve, 25));
@@ -1304,18 +1311,51 @@ test('the span from a value being submitted to it being visible', async ({ page,
   // overshoot silently prints as `unseen`. Observed on the first run of this
   // instrument.
   const submitRoundTrips = new Map<string, number>();
+  // Spec 232 (#2221) US1 — FR-001: the submit's own HTTP status, keyed the
+  // same way as submitRoundTrips, so a refused iteration can name what it was
+  // refused *with* instead of only that nothing painted.
+  const submitStatuses = new Map<string, number>();
+  // A submit that never gets a response at all — a network error, a dropped
+  // connection — is a third outcome, distinct from both "answered" and "never
+  // finished before the refusal fires"; without this it would be
+  // indistinguishable from a submit still in flight.
+  const submitFailures = new Map<string, string>();
   operatorPage.on('requestfinished', (request) => {
     if (request.method() !== 'PUT') return;
     if (!/\/system-variables\/[^/]+\/value$/.test(new URL(request.url()).pathname)) return;
-    const responseEnd = request.timing().responseEnd;
-    if (responseEnd < 0) return;
 
     // Keyed by the value the body carried (`systemVariables.api.ts:154`), so a
     // late-finishing PUT can never hand its figure to the next iteration.
     const body = request.postDataJSON() as { value?: unknown } | null;
     const value = body?.value;
     if (typeof value !== 'string') return;
+
+    // **Recorded before the `responseEnd`-based early return below** (plan.md
+    // §3): a refused iteration needs to know what the submit was *answered*
+    // with far more than it needs the round-trip figure, and nothing here
+    // guarantees `responseEnd` is populated on every response shape a refusal
+    // can carry — a 429 answers this promise regardless.
+    void request
+      .response()
+      .then((response) => {
+        if (response) submitStatuses.set(value, response.status());
+      })
+      .catch(() => undefined);
+
+    const responseEnd = request.timing().responseEnd;
+    if (responseEnd < 0) return;
+
     submitRoundTrips.set(value, responseEnd);
+  });
+  operatorPage.on('requestfailed', (request) => {
+    if (request.method() !== 'PUT') return;
+    if (!/\/system-variables\/[^/]+\/value$/.test(new URL(request.url()).pathname)) return;
+
+    const body = request.postDataJSON() as { value?: unknown } | null;
+    const value = body?.value;
+    if (typeof value !== 'string') return;
+
+    submitFailures.set(value, request.failure()?.errorText ?? 'unknown network error');
   });
 
   try {
@@ -1358,10 +1398,25 @@ test('the span from a value being submitted to it being visible', async ({ page,
         break;
       }
       if (painted.t1 === null) {
+        // Spec 232 (#2221) US1 — FR-001: names what the operator's submit was
+        // answered with, so "0 label mutation(s)" is never again the whole
+        // story. Three distinct outcomes, checked in this order: an observed
+        // HTTP status outranks a network failure (a submit can only fail
+        // *before* it is answered), and only once both are absent within the
+        // settle budget is it "never observed" at all.
+        const status = await settleMapValue(submitStatuses, value, SUBMIT_SETTLE_MS);
+        const failure = status === null ? await settleMapValue(submitFailures, value, SUBMIT_SETTLE_MS) : null;
+        const submitOutcome =
+          status !== null
+            ? `submit answered ${status}`
+            : failure !== null
+              ? `submit failed: ${failure}`
+              : 'submit response unseen';
+
         measurements.push({
           refusal:
             `iteration ${iteration}: the value never painted on the tile within ${budget} ms ` +
-            `(${painted.mutations} label mutation(s) were seen)`,
+            `(${painted.mutations} label mutation(s) were seen; ${submitOutcome})`,
         });
         break;
       }
@@ -1390,7 +1445,7 @@ test('the span from a value being submitted to it being visible', async ({ page,
       const sample: SpanSample = {
         iteration,
         elapsedMilliseconds: elapsed,
-        submitRoundTripMilliseconds: await settleSubmitRoundTrip(submitRoundTrips, value, SUBMIT_SETTLE_MS),
+        submitRoundTripMilliseconds: await settleMapValue(submitRoundTrips, value, SUBMIT_SETTLE_MS),
       };
 
       measurements.push({ sample });
