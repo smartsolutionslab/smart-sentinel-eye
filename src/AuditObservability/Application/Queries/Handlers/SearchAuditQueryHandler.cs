@@ -54,28 +54,39 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             FabIdentifier fabId = FabIdentifier.From(fab);
             source = source.Where(auditEvent => auditEvent.Fab == fabId);
         }
-        else if (callerFabs.Count > 0)
-        {
-            // Cross-fab rows (fab = null) are included, not excluded. They are
-            // not restricted to a fab, so restricting who may read them by fab
-            // made them readable by nobody: every operator belongs to a fab,
-            // so the whole class of row was invisible to every real caller
-            // (#1300).
-            //
-            // That class is smaller than it was, and the enumeration this
-            // replaced had gone stale. Camera events already stamped the fab
-            // before this; variable events do now (#2068), and layout events
-            // (#2071). What legitimately publishes without one is overlay
-            // events, whose domain events carry no fab at all (ADR-0115), and
-            // retention, which spans fabs. A stream-health event's fab is
-            // nullable and may still arrive null (#2076).
-            List<FabIdentifier> allowed = [.. callerFabs.Select(FabIdentifier.From)];
-            source = source.Where(auditEvent => auditEvent.Fab == null || allowed.Contains(auditEvent.Fab));
-        }
         else
         {
-            // A caller with no fab membership can only see cross-fab rows.
-            source = source.Where(auditEvent => auditEvent.Fab == null);
+            // A single malformed entry in the caller's Keycloak groups-derived
+            // fab list must not take down the whole search for a caller who
+            // also holds a perfectly good fab — skipped per entry, matching
+            // the rule five other contexts already apply (e9afe03e). Not
+            // normalised into validity either: a wrong-case claim is not the
+            // fab it resembles.
+            List<FabIdentifier> allowed = ParseKnownFabs(callerFabs);
+            if (allowed.Count > 0)
+            {
+                // Cross-fab rows (fab = null) are included, not excluded. They
+                // are not restricted to a fab, so restricting who may read them
+                // by fab made them readable by nobody: every operator belongs
+                // to a fab, so the whole class of row was invisible to every
+                // real caller (#1300).
+                //
+                // That class is smaller than it was, and the enumeration this
+                // replaced had gone stale. Camera events already stamped the
+                // fab before this; variable events do now (#2068), and layout
+                // events (#2071). What legitimately publishes without one is
+                // overlay events, whose domain events carry no fab at all
+                // (ADR-0115), and retention, which spans fabs. A stream-health
+                // event's fab is nullable and may still arrive null (#2076).
+                source = source.Where(auditEvent => auditEvent.Fab == null || allowed.Contains(auditEvent.Fab));
+            }
+            else
+            {
+                // No usable fab membership — either none claimed, or every
+                // claim was malformed. Both land in the same bucket: a caller
+                // with no fab membership can only see cross-fab rows (#1300).
+                source = source.Where(auditEvent => auditEvent.Fab == null);
+            }
         }
 
         if (actor is { } actorValue)
@@ -152,5 +163,28 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
 
         AuditRowDto[] dtos = rows.Select(AuditRowMapper.Map).ToArray();
         return Success(new AuditPageDto(dtos, nextCursor));
+    }
+
+    // Per entry, not all-or-nothing: a single group outside FabIdentifier's
+    // grammar (nested group, wrong case) is skipped rather than failing the
+    // whole search. Not logged: no endpoint in this repo takes a logger, and
+    // the misconfiguration belongs to the realm, not something this caller
+    // can act on.
+    private static List<FabIdentifier> ParseKnownFabs(IReadOnlyList<string> candidates)
+    {
+        List<FabIdentifier> fabs = [];
+        foreach (string candidate in candidates)
+        {
+            try
+            {
+                fabs.Add(FabIdentifier.From(candidate));
+            }
+            catch (ArgumentException)
+            {
+                // Skipped: one malformed group must not fail the whole search.
+            }
+        }
+
+        return fabs;
     }
 }

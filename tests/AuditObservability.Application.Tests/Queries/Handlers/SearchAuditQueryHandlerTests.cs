@@ -123,6 +123,60 @@ public class SearchAuditQueryHandlerTests
         result.Value.Rows[0].Fab.ShouldBeNull();
     }
 
+    /// <summary>
+    /// Spec 245 (#2530) US2, SC-6. Today <c>callerFabs.Select(FabIdentifier.From)</c>
+    /// maps every claimed group in one expression, so a single malformed one
+    /// (<c>Munich</c> — the grammar is lowercase-first, ADR-0044) throws
+    /// <c>ArgumentException</c> and takes the whole search down for a caller
+    /// who also holds a perfectly good fab (<c>munich</c>). After the fix, the
+    /// malformed entry is skipped per-entry (<c>e9afe03e</c>, the rule five
+    /// other contexts already apply) and costs only itself: the caller still
+    /// sees their own fab's rows plus the fab-neutral ones (#1300). RED until
+    /// the handler parses <c>callerFabs</c> per entry.
+    /// </summary>
+    [Fact]
+    public async Task A_malformed_claimed_fab_costs_only_itself()
+    {
+        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
+        AuditEventEntity berlin = new AuditEventBuilder().WithFab("berlin").Build();
+        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
+
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+            DefaultQuery(fab: null, callerFabs: ["munich", "Munich"]), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
+    }
+
+    /// <summary>
+    /// Spec 245 (#2530) US2, SC-7. When every claimed group is malformed, the
+    /// per-entry skip (SC-6) leaves nothing usable — the same "no usable fab"
+    /// bucket <see cref="A_caller_with_no_fabs_still_sees_only_cross_fab_rows"/>
+    /// pins for <c>CallerFabs = []</c>, and the two must agree (spec's
+    /// "what wholly malformed means here"). The last assertion is what forbids
+    /// "fixing" this by lowercasing the claim instead of skipping it: a
+    /// normalised <c>Munich</c> would grant a fab the realm never actually
+    /// assigned. RED until the handler parses <c>callerFabs</c> per entry.
+    /// </summary>
+    [Fact]
+    public async Task A_wholly_malformed_claim_set_sees_only_cross_fab_rows()
+    {
+        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
+        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+
+        SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
+
+        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+            DefaultQuery(fab: null, callerFabs: ["Munich"]), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.Rows.Count.ShouldBe(1);
+        result.Value.Rows[0].Fab.ShouldBeNull();
+        result.Value.Rows.Select(row => row.Fab).ShouldNotContain("munich");
+    }
+
     [Fact]
     public async Task Cursor_pagination_round_trips_without_overlap()
     {
