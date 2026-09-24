@@ -59,10 +59,10 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             // A single malformed entry in the caller's Keycloak groups-derived
             // fab list must not take down the whole search for a caller who
             // also holds a perfectly good fab — skipped per entry, matching
-            // the rule five other contexts already apply (e9afe03e). Not
+            // the per-entry skip pattern commit e9afe03e established. Not
             // normalised into validity either: a wrong-case claim is not the
             // fab it resembles.
-            List<FabIdentifier> allowed = ParseKnownFabs(callerFabs);
+            List<FabIdentifier> allowed = ParseUsableFabs(callerFabs);
             if (allowed.Count > 0)
             {
                 // Cross-fab rows (fab = null) are included, not excluded. They
@@ -167,10 +167,9 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
 
     // Per entry, not all-or-nothing: a single group outside FabIdentifier's
     // grammar (nested group, wrong case) is skipped rather than failing the
-    // whole search. Not logged: no endpoint in this repo takes a logger, and
-    // the misconfiguration belongs to the realm, not something this caller
-    // can act on.
-    private static List<FabIdentifier> ParseKnownFabs(IReadOnlyList<string> candidates)
+    // whole search. Not logged: the misconfiguration belongs to the realm's
+    // Keycloak group setup, not something this caller can act on.
+    private static List<FabIdentifier> ParseUsableFabs(IReadOnlyList<string> candidates)
     {
         List<FabIdentifier> fabs = [];
         foreach (string candidate in candidates)
