@@ -140,12 +140,12 @@ public static class AelParser
             case AelTokenKind.IntLiteral:
                 cursor++;
                 return new AelExpression.Literal(
-                    new AelValue.IntValue(AelLexer.ParseInt(token.Lexeme)));
+                    new AelValue.IntValue(AelLexer.ParseInt(token)));
 
             case AelTokenKind.DecimalLiteral:
                 cursor++;
                 return new AelExpression.Literal(
-                    new AelValue.DecimalValue(AelLexer.ParseDecimal(token.Lexeme)));
+                    new AelValue.DecimalValue(AelLexer.ParseDecimal(token)));
 
             case AelTokenKind.StringLiteral:
                 cursor++;
