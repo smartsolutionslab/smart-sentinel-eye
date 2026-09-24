@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { overlayLabelSchema } from '@smart-sentinel-eye/shared/api/overlays.schema';
 
 /**
  * Spec 147 T001 — the characterisation of `OverlayEditor` as it stands **before**
@@ -139,7 +140,13 @@ describe('OverlayEditor characterisation (spec 147 T001)', () => {
     expect(next.fontSizePx).toBe(BASE_LABEL.fontSizePx);
   });
 
-  it('Emits clamped [0,1] geometry through onChange when a resize stops', () => {
+  // #2361 — the assertion this test pins was moved, not added: spec 151
+  // §The zero-size question named this exact line ("`onResizeStop` reporting
+  // `offsetHeight: -100` … pins `normalizedHeight` to `0`") as "the assertion
+  // to move when it is fixed". The size bound is `(0, 1]`, not `[0, 1]`
+  // (spec 004 FR-005 / `overlays.schema.ts`), so a non-positive resize now
+  // floors at `MIN_NORMALIZED_SIZE` instead of clamping to zero.
+  it('Emits the size floor, not clamp01’s zero, and position clamped to [0,1], when a resize stops (#2361)', () => {
     const onChange = vi.fn();
     render(<OverlayEditor value={buildLabel()} onChange={onChange} />);
 
@@ -151,9 +158,59 @@ describe('OverlayEditor characterisation (spec 147 T001)', () => {
     const next = onChange.mock.calls[0]![0] as OverlayLabel;
     expect(next.normalizedX).toBeCloseTo(100 / 800, 10);
     expect(next.normalizedY).toBeCloseTo(50 / 450, 10);
-    // 1600px on an 800px-wide canvas is above 1 and clamps; -100px is below 0.
+    // 1600px on an 800px-wide canvas is above 1 and clamps to the position
+    // edge; -100px is non-positive and floors to 0.005, not clamp01's 0.
     expect(next.normalizedWidth).toBe(1);
-    expect(next.normalizedHeight).toBe(0);
+    expect(next.normalizedHeight).toBe(0.005);
+  });
+
+  // #2361 — a resize reporting exactly zero width must not emit a size the
+  // editor's own domain/schema would refuse at save time.
+  it('Emits the size floor when a resize reports exactly zero width, and the emitted label parses under the schema (#2361)', () => {
+    const onChange = vi.fn();
+    render(<OverlayEditor value={buildLabel()} onChange={onChange} />);
+
+    act(() => {
+      lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 0, offsetHeight: 90 }, {}, { x: 100, y: 50 });
+    });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const next = onChange.mock.calls[0]![0] as OverlayLabel;
+    expect(next.normalizedWidth).toBe(0.005);
+    expect(overlayLabelSchema.safeParse(next).success).toBe(true);
+  });
+
+  // #2361 — a degenerate pixel calculation (e.g. an inverted drag handle)
+  // can report NaN; that must never reach onChange as a size of zero either.
+  it('Emits the size floor when a resize reports a non-numeric height (#2361)', () => {
+    const onChange = vi.fn();
+    render(<OverlayEditor value={buildLabel()} onChange={onChange} />);
+
+    act(() => {
+      lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 200, offsetHeight: Number.NaN }, {}, { x: 100, y: 50 });
+    });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const next = onChange.mock.calls[0]![0] as OverlayLabel;
+    expect(next.normalizedHeight).toBe(0.005);
+  });
+
+  // #2361 GREEN GUARD — a tiny but domain-valid width must survive a resize
+  // untouched; only a genuinely-invalid (<= 0 or NaN) value should be
+  // floored. This must stay green on both the current code (clamp01 never
+  // floors a positive value) and the fixed code (a non-monotone clampSize).
+  // T005's counterfactual (a monotone Math.max(v, 0.005)) must turn it red.
+  it('Leaves a 1px-wide resize at its exact fractional width, not floored to 0.005 (#2361 guard)', () => {
+    const onChange = vi.fn();
+    render(<OverlayEditor value={buildLabel()} onChange={onChange} />);
+
+    act(() => {
+      lastRndProps!.onResizeStop({}, 'bottomRight', { offsetWidth: 1, offsetHeight: 90 }, {}, { x: 100, y: 50 });
+    });
+
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const next = onChange.mock.calls[0]![0] as OverlayLabel;
+    expect(next.normalizedWidth).toBe(1 / 800);
   });
 
   it('Emits the typed label text via onChange, leaving geometry untouched', () => {
