@@ -80,13 +80,20 @@ public class VariableResidueCleanupTests(AspireFixture aspire) : IAsyncLifetime
             falsyLabel = (string?)null,
         });
 
+    // Reads the archived listing rather than by name (spec 239): this
+    // sweep-test's subject is "the variable reached Archived", not "archived
+    // variables are readable by name" — #2446's fix narrows GET /{name} to
+    // non-Archived rows, so a by-name read can no longer answer for it.
     private static async Task<string?> StateAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
-        fetched.EnsureSuccessStatusCode();
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        HttpResponseMessage listed = await variables.GetAsync("/system-variables?state=Archived");
+        listed.EnsureSuccessStatusCode();
+        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
-        return payload.GetProperty("state").GetString();
+        return payload.EnumerateArray()
+            .Where(row => row.GetProperty("name").GetString() == name)
+            .ShouldHaveSingleItem()
+            .GetProperty("state").GetString();
     }
 
     private static async Task<IReadOnlyList<string?>> NamesAsync(HttpClient variables)

@@ -84,6 +84,11 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
+    // Reads the archived listing rather than by name (spec 239): this test's
+    // subject is "the variable reached Archived", not "archived variables are
+    // readable by name" — the by-name read here was test convenience, not a
+    // decision (no production reader relies on it), and #2446's fix narrows
+    // GET /{name} to non-Archived rows.
     [Fact]
     public async Task Archiving_moves_the_variable_out_of_Active()
     {
@@ -94,8 +99,50 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         HttpResponseMessage archived = await VariableRequests.ArchiveAsync(variables, name);
         archived.EnsureSuccessStatusCode();
 
-        JsonElement payload = await ReadAsync(variables, name);
-        payload.GetProperty("state").GetString().ShouldBe("Archived");
+        JsonElement row = (await ArchivedRowsNamedAsync(variables, name)).ShouldHaveSingleItem();
+        row.GetProperty("state").GetString().ShouldBe("Archived");
+    }
+
+    // #2446: GetVariableQueryHandler didn't exclude Archived the way
+    // VariableRepository.GetByNameAsync already does, so re-defining an
+    // archived name in the same fab reads as a false cross-fab ambiguity
+    // instead of resolving to the live variable, and the caller can never
+    // reach the ETag/If-Match round trip that follows.
+    [Fact]
+    public async Task A_name_freed_by_archiving_is_readable_and_writable_again()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        string name = UniqueName();
+
+        (await DefineNumberAsync(variables, name, "1")).StatusCode.ShouldBe(HttpStatusCode.Created);
+        (await VariableRequests.ArchiveAsync(variables, name)).EnsureSuccessStatusCode();
+
+        // Arrange, not the defect under test: FR-005 says this must succeed.
+        HttpResponseMessage redefined = await DefineNumberAsync(variables, name, "2");
+        redefined.StatusCode.ShouldBe(
+            HttpStatusCode.Created,
+            $"defining '{name}' again after archiving it must succeed (FR-005); "
+                + $"this is the test's arrangement, not the defect under test: "
+                + $"{await redefined.Content.ReadAsStringAsync()}");
+
+        // By hand, not VariableRequests.VersionAsync, which hides the status
+        // behind EnsureSuccessStatusCode.
+        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
+        string fetchedBody = await fetched.Content.ReadAsStringAsync();
+        fetched.StatusCode.ShouldBe(HttpStatusCode.OK, fetchedBody);
+
+        JsonElement payload = JsonSerializer.Deserialize<JsonElement>(fetchedBody);
+        payload.GetProperty("state").GetString().ShouldBe("Defined");
+        payload.GetProperty("value").GetString().ShouldBe("2");
+        int version = payload.GetProperty("version").GetInt32();
+        fetched.Headers.ETag?.Tag.ShouldBe($"\"{version}\"");
+
+        HttpRequestMessage write = VariableRequests.Conditional(HttpMethod.Put, name, "value", version);
+        write.Content = JsonContent.Create(new { value = "3" });
+        HttpResponseMessage updated = await variables.SendAsync(write);
+        updated.EnsureSuccessStatusCode();
+
+        (await ReadAsync(variables, name)).GetProperty("value").GetString().ShouldBe("3");
     }
 
     [Fact]
@@ -221,6 +268,15 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         fetched.EnsureSuccessStatusCode();
 
         return await fetched.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task<IReadOnlyList<JsonElement>> ArchivedRowsNamedAsync(HttpClient variables, string name)
+    {
+        HttpResponseMessage listed = await variables.GetAsync("/system-variables?state=Archived");
+        listed.EnsureSuccessStatusCode();
+        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
+
+        return payload.EnumerateArray().Where(row => row.GetProperty("name").GetString() == name).ToArray();
     }
 
     // Variable names are unique across the context and the fixture is shared,

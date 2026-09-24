@@ -1,3 +1,4 @@
+using System.Net;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
@@ -134,5 +135,82 @@ public class GetVariableQueryHandlerTests
             CancellationToken.None);
 
         result.Value.Fab.ShouldBe("dresden");
+    }
+
+    // ---- issue #2446: GetByNameAsync already excludes Archived; this handler doesn't ----
+
+    [Fact]
+    public async Task Resolves_the_live_variable_when_an_archived_one_holds_the_same_name()
+    {
+        // FR-005: archiving releases the name within its fab, so a second
+        // "reused" in munich is a legal re-definition, not a duplicate.
+        VariableBuilder archivedBuilder = new VariableBuilder().WithFab("munich").Named("reused");
+        Variable archived = archivedBuilder.Build();
+        archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
+
+        Variable live = new VariableBuilder().WithFab("munich").Named("reused").Build();
+
+        TestVariableQuerySource source = new([archived, live]);
+        GetVariableQueryHandler handler = new(source);
+
+        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+            new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("reused")),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.State.ShouldBe("Defined");
+        // The identifier, not only the state, so the test cannot pass by
+        // resolving to the wrong (archived) row.
+        result.Value.VariableIdentifier.ShouldBe(live.Id.Value);
+    }
+
+    [Fact]
+    public async Task Reports_an_archived_variable_whose_name_was_never_re_used_as_not_found()
+    {
+        // The deliberate narrowing (spec 239): a by-name read agrees with
+        // GetByNameAsync and no longer answers for an archived-only name.
+        VariableBuilder builder = new VariableBuilder().WithFab("munich").Named("gone");
+        Variable archived = builder.Build();
+        archived.Archive(builder.Operator, builder.Clock);
+
+        TestVariableQuerySource source = new([archived]);
+        GetVariableQueryHandler handler = new(source);
+
+        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+            new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("gone")),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        GetVariableError.VariableNotFound notFound =
+            result.Error.ShouldBeOfType<GetVariableError.VariableNotFound>();
+        notFound.Status.ShouldBe(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task The_ambiguity_refusal_names_each_holding_fab_exactly_once()
+    {
+        // Assert the collection, not the rendered message: a
+        // Message.ShouldContain would pass against the duplicate-fab bug this
+        // test exists to catch, a missing distinct on the candidate fabs.
+        VariableBuilder archivedBuilder = new VariableBuilder().WithFab("munich").Named("shared");
+        Variable archivedMunich = archivedBuilder.Build();
+        archivedMunich.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
+
+        Variable liveMunich = new VariableBuilder().WithFab("munich").Named("shared").Build();
+        Variable liveDresden = new VariableBuilder().WithFab("dresden").Named("shared").Build();
+
+        TestVariableQuerySource source = new([archivedMunich, liveMunich, liveDresden]);
+        GetVariableQueryHandler handler = new(source);
+
+        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+            new GetVariableQuery(
+                [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
+                VariableName.From("shared")),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        GetVariableError.VariableFabAmbiguous ambiguous =
+            result.Error.ShouldBeOfType<GetVariableError.VariableFabAmbiguous>();
+        ambiguous.Candidates.ShouldBe(["dresden", "munich"]);
     }
 }
