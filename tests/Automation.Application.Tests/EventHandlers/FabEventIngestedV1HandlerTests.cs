@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Automation.Application.Evaluation;
@@ -25,7 +26,8 @@ public class FabEventIngestedV1HandlerTests
         null,
         null);
 
-    private static FabEventIngestedV1 PlcCycleStart(Guid? causing = null, string fab = "munich") =>
+    private static FabEventIngestedV1 PlcCycleStart(
+        Guid? causing = null, string fab = "munich", string payload = "{\"cycleTime\":27}") =>
         new(
             EventIdentifier: causing ?? Guid.CreateVersion7(),
             Fab: fab,
@@ -34,8 +36,11 @@ public class FabEventIngestedV1HandlerTests
             Kind: "PlcCycleStart",
             OccurredAt: BaseMoment,
             IngestedAt: BaseMoment.AddSeconds(0.04),
-            Payload: "{\"cycleTime\":27}",
+            Payload: payload,
             Metadata: TestMetadata);
+
+    /// <summary>Depth-<paramref name="depth"/> nested array payload, e.g. depth 2 → "[[1]]".</summary>
+    private static string Nested(int depth) => new string('[', depth) + "1" + new string(']', depth);
 
     private static RuleAggregate ActiveSetVariableRule(
         string predicate, string valueExpression, string fab = "munich", string name = "test-rule")
@@ -87,6 +92,37 @@ public class FabEventIngestedV1HandlerTests
         published.Name.ShouldBe("oeeLine1");
         published.Value.ShouldBe("46");
         published.CausingEventIdentifier.ShouldBe(ingested.EventIdentifier);
+    }
+
+    /// <summary>
+    /// Characterises the disposal boundary (US2, spec 243): the coming
+    /// refactor moves the parsed <see cref="JsonDocument"/> into a
+    /// <c>using</c> that ends before publish. A string read out of the
+    /// payload is exactly the case a wrong disposal boundary breaks —
+    /// <see cref="System.Text.Json.JsonElement.GetString"/> after the
+    /// backing buffer is returned to the pool either throws
+    /// <see cref="ObjectDisposedException"/> or reads garbage — so this
+    /// pins the value surviving intact before that refactor touches
+    /// <c>BuildContext</c>'s structure. Must stay green, unmodified,
+    /// through spec 243's T004 and T005.
+    /// </summary>
+    [Fact]
+    public async Task A_string_read_from_the_payload_is_published_intact()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule("$.payload.cycleTime <= 30", "$.payload.station"));
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        FabEventIngestedV1 ingested = PlcCycleStart(
+            payload: "{\"cycleTime\":27,\"station\":\"station-4-east\"}");
+        await handler.Handle(ingested, CancellationToken.None);
+
+        SystemVariableValueRequestedV1 published = bus.Published
+            .OfType<SystemVariableValueRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Value.ShouldBe("station-4-east");
     }
 
     [Fact]
@@ -310,6 +346,162 @@ public class FabEventIngestedV1HandlerTests
 
         absent.Entries.ShouldHaveSingleItem().Message
             .ShouldNotBe(unparseable.Entries.ShouldHaveSingleItem().Message);
+    }
+
+    // ---- spec 243 US1: a payload that cannot become an evaluation context
+    // costs that event's evaluation, not a dead-letter; a legal one always
+    // becomes one (#2496) ----
+
+    /// <summary>
+    /// The critical discriminator (plan.md §*Test plan*): a catch-only fix
+    /// would make this red by skipping a legal depth-64 payload rather than
+    /// green by evaluating it, so the assertion checks that evaluation
+    /// actually happened — a published effect, not merely "no exception".
+    /// </summary>
+    [Fact]
+    public async Task A_payload_nested_to_the_depth_ingestion_accepts_is_evaluated()
+    {
+        const int depth = 64;
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule("$.source == \"plc\"", "1"));
+
+        CapturingLogger<FabEventIngestedV1Handler> logger = new();
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = new(
+            new RuleEvaluator(cache, NullLogger<RuleEvaluator>.Instance),
+            bus,
+            new FakeClock(BaseMoment.AddSeconds(0.05)),
+            logger);
+
+        FabEventIngestedV1 ingested = PlcCycleStart(payload: Nested(depth));
+        await handler.Handle(ingested, CancellationToken.None);
+
+        SystemVariableValueRequestedV1 published = bus.Published
+            .OfType<SystemVariableValueRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Name.ShouldBe("oeeLine1");
+        published.Value.ShouldBe("1");
+        logger.Entries.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_payload_one_level_deeper_than_ingestion_accepts_is_logged_and_skipped()
+    {
+        const int depth = 65;
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule("$.source == \"plc\"", "1"));
+
+        CapturingLogger<FabEventIngestedV1Handler> logger = new();
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = new(
+            new RuleEvaluator(cache, NullLogger<RuleEvaluator>.Instance),
+            bus,
+            new FakeClock(BaseMoment.AddSeconds(0.05)),
+            logger);
+
+        FabEventIngestedV1 ingested = PlcCycleStart(payload: Nested(depth));
+        await handler.Handle(ingested, CancellationToken.None);
+
+        bus.Published.ShouldBeEmpty();
+        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Exception.ShouldBeAssignableTo<JsonException>();
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("{")]
+    [InlineData("not json")]
+    [InlineData("{\"a\":1}}")]
+    public async Task A_payload_that_is_not_json_is_logged_and_skipped(string payload)
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule("$.source == \"plc\"", "1"));
+
+        CapturingLogger<FabEventIngestedV1Handler> logger = new();
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = new(
+            new RuleEvaluator(cache, NullLogger<RuleEvaluator>.Instance),
+            bus,
+            new FakeClock(BaseMoment.AddSeconds(0.05)),
+            logger);
+
+        FabEventIngestedV1 ingested = PlcCycleStart(payload: payload);
+        await handler.Handle(ingested, CancellationToken.None);
+
+        bus.Published.ShouldBeEmpty();
+        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Exception.ShouldBeAssignableTo<JsonException>();
+        entry.Message.ShouldContain(ingested.EventIdentifier.ToString());
+    }
+
+    /// <summary>A contract violation, exercised with <c>null!</c> on purpose (plan.md).</summary>
+    [Fact]
+    public async Task A_null_payload_is_logged_and_skipped()
+    {
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSetVariableRule("$.source == \"plc\"", "1"));
+
+        CapturingLogger<FabEventIngestedV1Handler> logger = new();
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = new(
+            new RuleEvaluator(cache, NullLogger<RuleEvaluator>.Instance),
+            bus,
+            new FakeClock(BaseMoment.AddSeconds(0.05)),
+            logger);
+
+        FabEventIngestedV1 ingested = PlcCycleStart(payload: null!);
+        await handler.Handle(ingested, CancellationToken.None);
+
+        bus.Published.ShouldBeEmpty();
+        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Exception.ShouldBeAssignableTo<JsonException>();
+        entry.Message.ShouldContain(ingested.EventIdentifier.ToString());
+    }
+
+    /// <summary>
+    /// Same-identifier discipline as <see cref="An_absent_fab_is_logged_distinctly_from_one_that_will_not_parse"/>:
+    /// one shared event identifier across all three, or the messages differ
+    /// on the identifier alone regardless of how similar the templates are.
+    /// </summary>
+    [Fact]
+    public async Task An_unparseable_payload_is_logged_distinctly_from_both_fab_failures()
+    {
+        CapturingLogger<FabEventIngestedV1Handler> absentFab = new();
+        CapturingLogger<FabEventIngestedV1Handler> unparseableFab = new();
+        CapturingLogger<FabEventIngestedV1Handler> unparseablePayload = new();
+
+        Guid causing = Guid.CreateVersion7();
+        await HandlerWith(absentFab).Handle(PlcCycleStart(causing, ""), CancellationToken.None);
+        await HandlerWith(unparseableFab).Handle(PlcCycleStart(causing, "NotAFab"), CancellationToken.None);
+        await HandlerWith(unparseablePayload).Handle(
+            PlcCycleStart(causing, "munich", "not json"), CancellationToken.None);
+
+        string absentFabMessage = absentFab.Entries.ShouldHaveSingleItem().Message;
+        string unparseableFabMessage = unparseableFab.Entries.ShouldHaveSingleItem().Message;
+        string unparseablePayloadMessage = unparseablePayload.Entries.ShouldHaveSingleItem().Message;
+
+        unparseablePayloadMessage.ShouldNotBe(absentFabMessage);
+        unparseablePayloadMessage.ShouldNotBe(unparseableFabMessage);
+    }
+
+    [Fact]
+    public async Task An_unparseable_payload_log_carries_its_length_not_its_text()
+    {
+        const int length = 60_000;
+        string payload = "not json".PadRight(length, 'x');
+
+        CapturingLogger<FabEventIngestedV1Handler> logger = new();
+        FabEventIngestedV1Handler handler = HandlerWith(logger);
+
+        await handler.Handle(PlcCycleStart(payload: payload), CancellationToken.None);
+
+        string message = logger.Entries.ShouldHaveSingleItem().Message;
+        message.ShouldNotContain(payload[..200]);
+        message.ShouldContain(length.ToString(CultureInfo.InvariantCulture));
     }
 
     private static FabEventIngestedV1Handler HandlerWith(ILogger<FabEventIngestedV1Handler> logger) =>
