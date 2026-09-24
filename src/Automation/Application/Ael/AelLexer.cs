@@ -125,6 +125,12 @@ public static class AelLexer
                         i++;
                     }
                 }
+                if (i < source.Length && source[i] is 'e' or 'E')
+                {
+                    throw new AelParseException(
+                        "exponent notation is not supported; write the number out in full", i);
+                }
+
                 string lexeme = source[start..i];
                 tokens.Add(new AelToken(
                     isDecimal ? AelTokenKind.DecimalLiteral : AelTokenKind.IntLiteral,
@@ -160,9 +166,26 @@ public static class AelLexer
         return tokens;
     }
 
-    internal static long ParseInt(string lexeme) =>
-        long.Parse(lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture);
+    internal static long ParseInt(AelToken token)
+    {
+        if (!long.TryParse(token.Lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+        {
+            throw new AelParseException(
+                $"integer literal '{token.Lexeme}' is out of range; " +
+                "add a decimal point to allow values up to decimal's range",
+                token.Position);
+        }
+        return value;
+    }
 
-    internal static decimal ParseDecimal(string lexeme) =>
-        decimal.Parse(lexeme, NumberStyles.Float, CultureInfo.InvariantCulture);
+    internal static decimal ParseDecimal(AelToken token)
+    {
+        if (!decimal.TryParse(token.Lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal value))
+        {
+            throw new AelParseException(
+                $"decimal literal '{token.Lexeme}' is out of range",
+                token.Position);
+        }
+        return value;
+    }
 }
