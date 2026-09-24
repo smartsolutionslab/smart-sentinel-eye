@@ -34,6 +34,37 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
   await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
+// Spec 234 (issue #2356) US3/FR-008/T002/T005 — the camera-less half of spec
+// 147's backdrop selector (`BackdropControls.tsx`), pinned through the real
+// console. Characterisation: the White-field backdrop already paints the
+// canvas white today (`OverlayEditor.tsx:588`'s `canvasBackgroundStyle`); the
+// gap was coverage, not behaviour. The `not.toHaveCSS` assertion before the
+// click is the test's own counterfactual (plan.md §5) — an assertion that
+// passed regardless of the click would be impossible, since the baseline
+// backdrop is the checkerboard, not white.
+//
+// No save, so no `FIRST_WRITE_*` timeout and no disposable — the teardown's
+// `E2E ` pattern is not involved (spec.md §US3).
+//
+// Deliberately not asserted here: the dialog's own `camera-catalog/cameras`
+// fetch (spec.md §8) — `e2e/cameras.spec.ts` already covers that path with
+// the same authenticated operator, and binding it to this test would fail
+// this test for a reason unrelated to what it pins.
+test('operator sees the White field backdrop behind the label without a camera', async ({ page }) => {
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+
+  const canvas = page.getByTestId('overlay-editor-canvas');
+  await expect(canvas).not.toHaveCSS('background-color', 'rgb(255, 255, 255)');
+
+  await page.getByRole('radio', { name: 'White field' }).check();
+  await expect(canvas).toHaveCSS('background-color', 'rgb(255, 255, 255)');
+});
+
 // Spec 151 (issue #2346) T002 — the one thing jsdom cannot prove
 // (spec.md §Precision, §Independent end-to-end test procedure step 11): a
 // typed percentage survives real form submission and the double -> decimal
