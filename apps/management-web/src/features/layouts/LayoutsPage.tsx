@@ -8,7 +8,12 @@ import {
   type LayoutRevision,
   type LayoutRevisionState,
 } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import {
+  CONFLICT_FALLBACK,
+  isConflict,
+  isStaleConflict,
+  problemDetail,
+} from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
@@ -126,7 +131,10 @@ export function LayoutsPage() {
           role="alert"
           className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
         >
-          {problemDetail(mutationError, 'Could not apply that change.')}{' '}
+          {problemDetail(
+            mutationError,
+            isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
+          )}{' '}
           {isConflict(mutationError) && (
             // Reload, never retry: retrying replays the same stale intent over
             // whoever wrote in between.
