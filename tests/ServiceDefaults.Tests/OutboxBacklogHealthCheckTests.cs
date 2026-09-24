@@ -9,14 +9,15 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 
 /// <summary>
 /// Spec 172 / ADR-0154. Of the four outcomes <see cref="OutboxBacklogHealthCheck{TDbContext}"/>
-/// can produce, this is the only one with no coverage anywhere: an unreachable
+/// can produce, <see cref="A_database_that_cannot_be_reached_is_reported_healthy"/> was, when
+/// written, the only one with no coverage anywhere: an unreachable
 /// database is not merely uncovered, it <i>is</i> the decision — readiness on
 /// this system is a liveness and routing signal, and a shared dependency being
 /// unreachable does not fail this replica's readiness (ADR-0154).
 ///
 /// <para>
-/// <b>This test was red on its first run, against the tree exactly as it stood
-/// before this spec.</b> A connection failure against
+/// <b><see cref="A_database_that_cannot_be_reached_is_reported_healthy"/> was red on its first
+/// run, against the tree exactly as it stood before this spec.</b> A connection failure against
 /// <see cref="UnreachableConnectionString"/> does not surface to
 /// <c>OutboxBacklogHealthCheck</c> as the <c>DbException</c> its
 /// <c>catch (DbException ex) when (IsUnreachable(ex))</c> guard expects: EF
@@ -38,17 +39,20 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 /// </para>
 ///
 /// <para>
-/// <b>Spec 238.</b> The audit behind this spec found two shapes the widening
-/// above does not cover, and pins both rather than trusting memory of Npgsql's
-/// source: a <see cref="PostgresException"/> that carries a <b>transient</b>
-/// SQLSTATE (<c>57P03</c>, "cannot connect now") is still wrapped in an
-/// <see cref="InvalidOperationException"/> exactly like the connection
-/// failures above, but its inner exception has a non-empty
+/// <b>Spec 238.</b> The audit behind this spec found two more shapes, and pins
+/// both rather than trusting memory of Npgsql's source: one the widening above
+/// does not cover, and one it was never meant to (handled on purpose by the
+/// <c>DbException</c> catch below). A <see cref="PostgresException"/> that
+/// carries a <b>transient</b> SQLSTATE (<c>57P03</c>, "cannot connect now") is
+/// still wrapped in an <see cref="InvalidOperationException"/> exactly like the
+/// connection failures above, but its inner exception has a non-empty
 /// <see cref="PostgresException.SqlState"/> — so <c>IsUnreachable</c> is false
 /// and it escapes every <c>catch</c> in the check, an accepted gap (spec 238
 /// §3). A <b>non-transient</b> SQLSTATE (<c>42P01</c>, "undefined table") is
 /// never wrapped at all — it reaches the check as a bare
-/// <see cref="PostgresException"/>, confirming the premise the classifiers at
+/// <see cref="PostgresException"/>, is caught by the existing
+/// <c>catch (DbException)</c> arm on purpose, and is reported <c>Degraded</c>,
+/// confirming the premise the classifiers at
 /// <c>UniqueConstraintExceptionHandler</c> and
 /// <c>PersistenceLoopHostedService.IsMissingPartition</c> depend on.
 /// </para>
@@ -65,7 +69,7 @@ public class OutboxBacklogHealthCheckTests
     /// Throws a supplied exception before Npgsql ever dials, so a
     /// <see cref="PostgresException"/> shape can be driven through
     /// <see cref="OutboxBacklogHealthCheck{TDbContext}"/> with no real Postgres
-    /// listening anywhere (spec 238 §2, assumption A2). Overrides both the sync
+    /// listening anywhere (spec 238 §7, assumption A2). Overrides both the sync
     /// and async connection-opening hooks so neither path can bypass it.
     /// </summary>
     private sealed class ThrowingOnOpenInterceptor(Exception exception) : DbConnectionInterceptor
@@ -127,7 +131,7 @@ public class OutboxBacklogHealthCheckTests
     }
 
     [Fact]
-    public async Task A_transient_refusal_that_carries_a_sqlstate_escapes_the_check_for_its_registration_to_resolve()
+    public async Task A_transient_refusal_that_carries_a_sqlstate_escapes_the_check()
     {
         PostgresException transientRefusal = new(
             "cannot connect now",
@@ -150,17 +154,17 @@ public class OutboxBacklogHealthCheckTests
         InvalidOperationException thrown = await Should.ThrowAsync<InvalidOperationException>(
             () => check.CheckHealthAsync(new HealthCheckContext()));
 
-        thrown.InnerException.ShouldBeOfType<PostgresException>(
-            "spec 238 §3 accepted this shape escaping to the registration's "
-            + "failureStatus: Degraded (ADR-0154 row 4). Red here means either the check now "
-            + "handles it — a reclassification under ADR-0154 that needs a human decision and "
-            + "an update to spec 238 §3 — or the provider stopped wrapping it.");
+        PostgresException inner = thrown.InnerException.ShouldBeOfType<PostgresException>(
+            "spec 238 §3 accepted this shape escaping the check unhandled. Red here means "
+            + "either the check now handles it — a reclassification under ADR-0154 that needs "
+            + "a human decision and an update to spec 238 §3 — or the provider stopped "
+            + "wrapping it.");
 
-        ((PostgresException)thrown.InnerException).SqlState.ShouldBe(PostgresErrorCodes.CannotConnectNow);
+        inner.SqlState.ShouldBe(PostgresErrorCodes.CannotConnectNow);
     }
 
     [Fact]
-    public async Task A_non_transient_refusal_is_not_wrapped_and_is_reported_as_an_unreadable_backlog()
+    public async Task A_non_transient_sqlstate_is_not_wrapped_and_is_reported_as_an_unreadable_backlog()
     {
         PostgresException nonTransientRefusal = new(
             "relation does not exist",
@@ -191,5 +195,21 @@ public class OutboxBacklogHealthCheckTests
 
         result.Data.ShouldContainKey("error");
         result.Data["error"].ShouldBe(nameof(PostgresException));
+
+        // These two pin the specific SQLSTATEs UniqueConstraintExceptionHandler and
+        // PersistenceLoopHostedService.IsMissingPartition actually depend on being
+        // non-transient — not just the 42P01 stand-in exercised above.
+        new PostgresException(
+                "duplicate key value violates unique constraint",
+                severity: "ERROR",
+                invariantSeverity: "ERROR",
+                sqlState: PostgresErrorCodes.UniqueViolation)
+            .IsTransient.ShouldBeFalse();
+        new PostgresException(
+                "new row for relation violates check constraint",
+                severity: "ERROR",
+                invariantSeverity: "ERROR",
+                sqlState: PostgresErrorCodes.CheckViolation)
+            .IsTransient.ShouldBeFalse();
     }
 }

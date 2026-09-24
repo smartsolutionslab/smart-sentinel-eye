@@ -1,7 +1,8 @@
 # Spec 238 — The wrap no other catch sees
 
 **Issue**: #2435 (feature-level; no per-task issues) · **Branch**: `fix/2435-dbexception-wrap-audit`
-**Status**: Phase 1 — ready for review · **Lane**: autonomous (ADR-0144)
+**Status**: Phase 4 — tests written, reviewed, review findings addressed; PR about to open ·
+**Lane**: autonomous (ADR-0144)
 **ADRs**: ADR-0154 (readiness is liveness by choice — its Consequences name this audit as an open
 follow-up), ADR-0036 (smallest change), ADR-0139 (the two test obligations), ADR-0144 (lane).
 Neighbour: spec 172 (fixed the one known site; its T007 follow-up was folded into #2435's comment).
