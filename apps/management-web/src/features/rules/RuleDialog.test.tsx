@@ -189,6 +189,26 @@ describe('RuleDialog', () => {
     expect(createMock).toHaveBeenCalledWith(expect.objectContaining({ fabId: 'dresden' }));
   });
 
+  /**
+   * Spec 231 (#2433) US2 — new behaviour, RED. The Fab `<select>`'s `onChange`
+   * sets the value but never clears `fabError`, so the "Choose which fab…"
+   * message survives picking a fab and only disappears on the next submit.
+   */
+  it('Clears the missing-fab message as soon as a fab is chosen', async () => {
+    assignedGroups.current = ['/fabs/munich', '/fabs/dresden'];
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fillValidRule(user);
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+    expect(await screen.findByText(/choose which fab/i)).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText(/^fab$/i), 'dresden');
+
+    expect(screen.queryByText(/choose which fab/i)).not.toBeInTheDocument();
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
   it('Ignores groups that are not fab groups', () => {
     assignedGroups.current = ['/fabs/munich', '/departments/maintenance', '/fabs/dresden'];
     renderDialog();

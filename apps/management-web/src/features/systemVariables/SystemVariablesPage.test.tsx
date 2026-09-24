@@ -3,7 +3,13 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
+import { CONFLICT_FALLBACK } from '@smart-sentinel-eye/shared/api/problemDetail';
 import type { Variable } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+
+/** An RTK Query error in the shape the gateway's RFC-7807 body arrives in. */
+function refusal(status: number, title: string, detail?: string) {
+  return { status, data: { title, status, ...(detail === undefined ? {} : { detail }) } };
+}
 
 // A single-fab operator is never asked which fab (ADR-0114), so the default
 // keeps the existing cases reading as they did; the multi-fab case overrides it.
@@ -239,6 +245,46 @@ describe('SystemVariablesPage', () => {
       version: 0,
       fabId: 'munich',
     });
+  });
+});
+
+/**
+ * Spec 231 (#2433) US1 — new behaviour, RED. `SystemVariablesPage` passes a
+ * plain fallback string to `problemDetail` instead of
+ * `isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that
+ * change.'`, the pattern OverlaysPage.tsx and RulesPage.tsx already use.
+ */
+describe('SystemVariablesPage — the stale-conflict fallback (spec 231 US1)', () => {
+  beforeEach(() => {
+    setValueState = { isLoading: false };
+    listMock.mockReset();
+    listMock.mockReturnValue({
+      data: [variable()],
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+  });
+
+  it('Shows the conflict fallback, not the generic sentence, for a stale refusal without a detail', () => {
+    setValueState = { isLoading: false, error: refusal(409, 'VARIABLE_STALE') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent(CONFLICT_FALLBACK);
+    expect(alert).not.toHaveTextContent('Could not apply that change.');
+    expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
+  });
+
+  it('Keeps the generic fallback and offers no Reload for a 400 without a detail', () => {
+    setValueState = { isLoading: false, error: refusal(400, 'VARIABLE_NAME_INVALID') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Could not apply that change.');
+    expect(alert).not.toHaveTextContent(/someone else/i);
+    expect(screen.queryByRole('button', { name: /reload/i })).not.toBeInTheDocument();
   });
 });
 
