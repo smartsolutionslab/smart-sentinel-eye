@@ -35,9 +35,20 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
   const [fabError, setFabError] = useState<string | null>(null);
 
   // Drop any prior backend error when the dialog closes so a stale banner
-  // doesn't greet the operator on the next open.
+  // doesn't greet the operator on the next open (the mutation result lives
+  // in the store, not in the unmounted form).
   useEffect(() => {
-    if (!open) resetMutationState();
+    if (!open) {
+      // The obvious rewrite is wrong here. Moving these into the Dialog's
+      // onOpenChange handler would catch only Radix-initiated closes (Esc,
+      // overlay click): Cancel and the submit-success path call the *parent's*
+      // onOpenChange and close by flipping the `open` prop, which that handler
+      // never sees. Watching `open` catches every close path. The cost is one
+      // extra render of an already-closed dialog.
+      resetMutationState();
+      setFabId('');
+      setFabError(null);
+    }
   }, [open, resetMutationState]);
 
   const {

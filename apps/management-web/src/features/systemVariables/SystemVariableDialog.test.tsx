@@ -204,6 +204,22 @@ describe('SystemVariableDialog — multi-fab (ADR-0114, spec 231 US2)', () => {
     await user.type(screen.getByLabelText(/name/i), 'lineStatus');
   }
 
+  // Drives the *same* mounted `SystemVariableDialog` instance's `open` prop
+  // false then true, inside the Provider `renderDialog()` already rendered
+  // (mirrors `LayoutEditorDialog.test.tsx`'s close/reopen `rerender` pattern).
+  // `SystemVariablesPage.tsx:220` keeps the dialog mounted while closed, so
+  // this is what a real Cancel does to `fabId`/`fabError`'s component
+  // instance — unmounting and remounting a fresh one would reset every
+  // `useState` for free and pass on the unfixed code, proving nothing about
+  // issue #2561.
+  function toggleOpen(rerender: ReturnType<typeof render>['rerender'], open: boolean) {
+    rerender(
+      <Provider store={store}>
+        <SystemVariableDialog open={open} onOpenChange={() => {}} />
+      </Provider>,
+    );
+  }
+
   it('Asks a multi-fab operator which fab', () => {
     renderDialog();
 
@@ -238,5 +254,41 @@ describe('SystemVariableDialog — multi-fab (ADR-0114, spec 231 US2)', () => {
 
     expect(screen.queryByText(/choose which fab/i)).not.toBeInTheDocument();
     expect(defineMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Issue #2561 (spec 242) — new behaviour, RED. `SystemVariableDialog.tsx`'s
+   * close effect (`:39-41`) only calls `resetMutationState()`; unlike
+   * `RegisterCameraDialog.tsx:33-46`'s matching effect, it never resets
+   * `fabId`/`fabError`. Cancel calls the parent's `onOpenChange(false)`
+   * directly, bypassing the Dialog's own `onOpenChange`, so only the effect
+   * watching `open` can catch it.
+   */
+  it('Drops the missing-fab message when the dialog is closed and reopened without unmounting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+
+    await fillValidVariable(user);
+    await user.click(screen.getByRole('button', { name: /define/i }));
+    expect(await screen.findByText(/choose which fab/i)).toBeInTheDocument();
+
+    toggleOpen(rerender, false);
+    toggleOpen(rerender, true);
+
+    expect(screen.queryByText(/choose which fab/i)).not.toBeInTheDocument();
+  });
+
+  it('Drops the previously chosen fab when the dialog is closed and reopened without unmounting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+
+    await fillValidVariable(user);
+    await user.selectOptions(screen.getByLabelText(/^fab$/i), 'dresden');
+    expect(screen.getByLabelText(/^fab$/i)).toHaveValue('dresden');
+
+    toggleOpen(rerender, false);
+    toggleOpen(rerender, true);
+
+    expect(screen.getByLabelText(/^fab$/i)).toHaveValue('');
   });
 });
