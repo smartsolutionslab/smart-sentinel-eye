@@ -346,8 +346,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     const resilienceLines = (transition: string) =>
       infoSpy.mock.calls.filter(
         (call) =>
-          call[0] === '[resilience]' &&
-          (call[1] as { transition?: unknown } | undefined)?.transition === transition,
+          call[0] === '[resilience]' && (call[1] as { transition?: unknown } | undefined)?.transition === transition,
       );
 
     beforeEach(() => {
