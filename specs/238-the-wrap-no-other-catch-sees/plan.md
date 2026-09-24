@@ -35,14 +35,15 @@ Collections as collection expressions; no `ArgumentNullException.ThrowIfNull`; s
 
 | Test | Input SQLSTATE | Asserts |
 |---|---|---|
-| T1 `A_transient_refusal_that_carries_a_sqlstate_escapes_the_check_for_its_registration_to_resolve` | `57P03` (`PostgresErrorCodes.CannotConnectNow`) | `Should.ThrowAsync<InvalidOperationException>`; `InnerException` is `PostgresException` with `SqlState == "57P03"` |
-| T2 `A_non_transient_refusal_is_not_wrapped_and_is_reported_as_an_unreadable_backlog` | `42P01` (`PostgresErrorCodes.UndefinedTable`) | `Status == Degraded`; `Data["error"] == nameof(PostgresException)` |
+| T1 `A_transient_refusal_that_carries_a_sqlstate_escapes_the_check` | `57P03` (`PostgresErrorCodes.CannotConnectNow`) | `Should.ThrowAsync<InvalidOperationException>`; `InnerException` is `PostgresException` with `SqlState == "57P03"` |
+| T2 `A_non_transient_sqlstate_is_not_wrapped_and_is_reported_as_an_unreadable_backlog` | `42P01` (`PostgresErrorCodes.UndefinedTable`) | `Status == Degraded`; `Data["error"] == nameof(PostgresException)` |
 
 Use `PostgresErrorCodes` constants, not literals. Assertion messages (FR-002):
 
-- **T1**: spec 238 §3 accepted this shape escaping to the registration's `failureStatus: Degraded`
-  (ADR-0154 row 4). Red means either the check now handles it — a reclassification under ADR-0154
-  that needs a human decision and an update to spec 238 §3 — or the provider stopped wrapping it.
+- **T1**: spec 238 §3 accepted this shape escaping the check unhandled (ADR-0154 row 4). Red means
+  either the check now handles it — a reclassification under ADR-0154 that needs a human decision
+  and an update to spec 238 §3 — or the provider stopped wrapping it. This test does not pin the
+  registration's `failureStatus` resolution itself — that's O2 (#2571).
 - **T2**: red means the provider now wraps non-transient SQLSTATE errors, so
   `UniqueConstraintExceptionHandler.IsUniqueViolation` and `PersistenceLoopHostedService.IsMissingPartition`
   no longer see them (spec 238 §2.1 S2, S3).
