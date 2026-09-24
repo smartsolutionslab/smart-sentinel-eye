@@ -5,7 +5,12 @@ import {
   type Variable,
   type VariableState,
 } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import { isConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import {
+  CONFLICT_FALLBACK,
+  isConflict,
+  isStaleConflict,
+  problemDetail,
+} from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
@@ -112,7 +117,10 @@ export function SystemVariablesPage() {
           role="alert"
           className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
         >
-          {problemDetail(mutationError, 'Could not apply that change.')}{' '}
+          {problemDetail(
+            mutationError,
+            isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
+          )}{' '}
           {isConflict(mutationError) && (
             <button type="button" className="underline" onClick={() => void refetch()}>
               Reload
