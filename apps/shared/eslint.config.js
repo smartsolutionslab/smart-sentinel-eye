@@ -34,6 +34,7 @@ export default [
         requestAnimationFrame: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        DOMException: 'readonly',
         Response: 'readonly',
         Request: 'readonly',
         RequestInfo: 'readonly',
