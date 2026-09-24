@@ -16,6 +16,10 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
         List<Variable> matches = await variables.Variables
             .Where(candidate => query.Fabs.Contains(candidate.Fab))
             .Where(candidate => candidate.Name == query.Name)
+            // FR-005: a released name is free for re-use, so an Archived row
+            // must not count as a live match — agrees with
+            // VariableRepository.GetByNameAsync.
+            .Where(candidate => candidate.State != VariableState.Archived)
             .ToListAsync(cancellationToken);
 
         // FR-009: a variable in a fab the caller lacks is reported exactly as
@@ -26,13 +30,19 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
             return Failure(GetVariableFailures.VariableNotFound(query.Name.Value));
         }
 
+        // Distinct fabs, not raw match count: with Archived excluded and the
+        // fab/name unique index, two rows in one fab cannot happen, but the
+        // condition holds independently of the index too.
+        IReadOnlyList<string> fabsHolding =
+            [.. matches.Select(match => match.Fab.Value)
+                .Distinct(StringComparer.Ordinal)
+                .Order(StringComparer.Ordinal)];
+
         // Not tie-broken: whichever row won would be arbitrary, and a caller
         // acting on it would be editing a fab they did not choose.
-        if (matches.Count > 1)
+        if (fabsHolding.Count > 1)
         {
-            return Failure(GetVariableFailures.VariableFabAmbiguous(
-                query.Name.Value,
-                [.. matches.Select(match => match.Fab.Value).OrderBy(name => name, StringComparer.Ordinal)]));
+            return Failure(GetVariableFailures.VariableFabAmbiguous(query.Name.Value, fabsHolding));
         }
 
         return Success(Map(matches[0]));
