@@ -1,6 +1,6 @@
 import { test as cleanup, expect, type Page } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
-import { recoverAndRetry } from './retire-e2e-cameras.recovery';
+import { recoverAndRetry } from './sweep-recovery';
 
 /**
  * Retires the cameras an e2e run registers (issue 1895).
