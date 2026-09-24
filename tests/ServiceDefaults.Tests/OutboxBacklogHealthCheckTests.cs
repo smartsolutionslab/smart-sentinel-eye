@@ -1,6 +1,9 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
+using Npgsql;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 
@@ -33,6 +36,22 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 /// unmodified, from here on; a change that turns it red again is reversing the
 /// widening, not merely moving a characterisation.
 /// </para>
+///
+/// <para>
+/// <b>Spec 238.</b> The audit behind this spec found two shapes the widening
+/// above does not cover, and pins both rather than trusting memory of Npgsql's
+/// source: a <see cref="PostgresException"/> that carries a <b>transient</b>
+/// SQLSTATE (<c>57P03</c>, "cannot connect now") is still wrapped in an
+/// <see cref="InvalidOperationException"/> exactly like the connection
+/// failures above, but its inner exception has a non-empty
+/// <see cref="PostgresException.SqlState"/> — so <c>IsUnreachable</c> is false
+/// and it escapes every <c>catch</c> in the check, an accepted gap (spec 238
+/// §3). A <b>non-transient</b> SQLSTATE (<c>42P01</c>, "undefined table") is
+/// never wrapped at all — it reaches the check as a bare
+/// <see cref="PostgresException"/>, confirming the premise the classifiers at
+/// <c>UniqueConstraintExceptionHandler</c> and
+/// <c>PersistenceLoopHostedService.IsMissingPartition</c> depend on.
+/// </para>
 /// </summary>
 public class OutboxBacklogHealthCheckTests
 {
@@ -41,6 +60,27 @@ public class OutboxBacklogHealthCheckTests
     /// empty context is enough to drive the check under test.
     /// </summary>
     private sealed class ProbeDbContext(DbContextOptions<ProbeDbContext> options) : DbContext(options);
+
+    /// <summary>
+    /// Throws a supplied exception before Npgsql ever dials, so a
+    /// <see cref="PostgresException"/> shape can be driven through
+    /// <see cref="OutboxBacklogHealthCheck{TDbContext}"/> with no real Postgres
+    /// listening anywhere (spec 238 §2, assumption A2). Overrides both the sync
+    /// and async connection-opening hooks so neither path can bypass it.
+    /// </summary>
+    private sealed class ThrowingOnOpenInterceptor(Exception exception) : DbConnectionInterceptor
+    {
+        public override InterceptionResult ConnectionOpening(
+            DbConnection connection, ConnectionEventData eventData, InterceptionResult result) =>
+            throw exception;
+
+        public override ValueTask<InterceptionResult> ConnectionOpeningAsync(
+            DbConnection connection,
+            ConnectionEventData eventData,
+            InterceptionResult result,
+            CancellationToken cancellationToken = default) =>
+            throw exception;
+    }
 
     /// <summary>
     /// <c>127.0.0.1:1</c> is a closed loopback port: port 1 (TCP port service
@@ -84,5 +124,72 @@ public class OutboxBacklogHealthCheckTests
 
         result.Data.ShouldContainKey("error");
         result.Data["error"].ShouldBe(typeof(Npgsql.NpgsqlException).Name);
+    }
+
+    [Fact]
+    public async Task A_transient_refusal_that_carries_a_sqlstate_escapes_the_check_for_its_registration_to_resolve()
+    {
+        PostgresException transientRefusal = new(
+            "cannot connect now",
+            severity: "FATAL",
+            invariantSeverity: "FATAL",
+            sqlState: PostgresErrorCodes.CannotConnectNow);
+
+        DbContextOptions<ProbeDbContext> options = new DbContextOptionsBuilder<ProbeDbContext>()
+            .UseNpgsql(UnreachableConnectionString)
+            .AddInterceptors(new ThrowingOnOpenInterceptor(transientRefusal))
+            .Options;
+
+        await using ProbeDbContext database = new(options);
+
+        OutboxBacklogHealthCheck<ProbeDbContext> check = new(
+            database,
+            NullLogger<OutboxBacklogHealthCheck<ProbeDbContext>>.Instance,
+            "wolverine_probe");
+
+        InvalidOperationException thrown = await Should.ThrowAsync<InvalidOperationException>(
+            () => check.CheckHealthAsync(new HealthCheckContext()));
+
+        thrown.InnerException.ShouldBeOfType<PostgresException>(
+            "spec 238 §3 accepted this shape escaping to the registration's "
+            + "failureStatus: Degraded (ADR-0154 row 4). Red here means either the check now "
+            + "handles it — a reclassification under ADR-0154 that needs a human decision and "
+            + "an update to spec 238 §3 — or the provider stopped wrapping it.");
+
+        ((PostgresException)thrown.InnerException).SqlState.ShouldBe(PostgresErrorCodes.CannotConnectNow);
+    }
+
+    [Fact]
+    public async Task A_non_transient_refusal_is_not_wrapped_and_is_reported_as_an_unreadable_backlog()
+    {
+        PostgresException nonTransientRefusal = new(
+            "relation does not exist",
+            severity: "ERROR",
+            invariantSeverity: "ERROR",
+            sqlState: PostgresErrorCodes.UndefinedTable);
+
+        DbContextOptions<ProbeDbContext> options = new DbContextOptionsBuilder<ProbeDbContext>()
+            .UseNpgsql(UnreachableConnectionString)
+            .AddInterceptors(new ThrowingOnOpenInterceptor(nonTransientRefusal))
+            .Options;
+
+        await using ProbeDbContext database = new(options);
+
+        OutboxBacklogHealthCheck<ProbeDbContext> check = new(
+            database,
+            NullLogger<OutboxBacklogHealthCheck<ProbeDbContext>>.Instance,
+            "wolverine_probe");
+
+        HealthCheckResult result = await check.CheckHealthAsync(new HealthCheckContext());
+
+        result.Status.ShouldBe(
+            HealthStatus.Degraded,
+            "red here means the provider now wraps non-transient SQLSTATE errors, so "
+            + "UniqueConstraintExceptionHandler.IsUniqueViolation and "
+            + "PersistenceLoopHostedService.IsMissingPartition no longer see them "
+            + "(spec 238 §2.1 S2, S3).");
+
+        result.Data.ShouldContainKey("error");
+        result.Data["error"].ShouldBe(nameof(PostgresException));
     }
 }
