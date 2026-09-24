@@ -242,15 +242,20 @@ public class VariableArchivedDomainEventHandlerTests
         push.ResolvedText.ShouldBe("B / {{oee}}");
     }
 
-    // Spec 235, C3 (characterisation). Pins the guard that actually holds
-    // FR-014 for the variable being archived: the name-skip at :70, not the
-    // dead state check at :88. VariableRepository.SaveAsync dispatches
-    // domain events before commit (VariableRepository.cs:70-77), so at
-    // evaluation time the database row for the variable being archived can
-    // still be readable as Defined, with its old value -- modelled here by
-    // never calling Archive() on the repository's copy. If the name-skip
-    // were removed, this row would be found, still Defined and still set,
-    // and its placeholder would render 82.5 instead of staying literal.
+    // Spec 235, C3 (characterisation). Pins the name-skip inside
+    // VariableArchivedDomainEventHandler.Handle's per-placeholder loop in
+    // isolation, against this fake repository: never calling Archive() on
+    // the repository's copy of the variable being archived means that
+    // without the name-skip, this row would still be found, still Defined
+    // and still set, and its placeholder would render 82.5 instead of
+    // staying literal (FR-014).
+    //
+    // Against the real repository this scenario cannot arise the same way:
+    // VariableRepository.SaveAsync dispatches domain events before it
+    // commits, so by evaluation time the tracked EF instance for the
+    // variable being archived already reflects Archive() -- State Archived,
+    // Value Unset. There, the name-skip and the Unset check are two
+    // independent guards, not one guard standing behind an irrelevant one.
     [Fact]
     public async Task The_variable_being_archived_stays_literal_even_while_its_row_is_still_readable()
     {
