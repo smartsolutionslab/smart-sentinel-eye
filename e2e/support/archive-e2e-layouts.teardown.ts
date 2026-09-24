@@ -1,4 +1,5 @@
 import { test as cleanup, expect, type Page } from '@playwright/test';
+import { recoverLayout } from './archive-e2e-layouts.recovery';
 import { signInAsOperator } from './sign-in';
 
 /**
@@ -36,6 +37,16 @@ const DISPOSABLE = /^(E2E Layout |E2E Race Layout |Kiosk Seed Wall |SC004 Wall |
  * attempts, and never redden a green run over a tidy-up.
  */
 const DEADLINE_MS = 5 * 60 * 1000;
+
+/**
+ * How long a single re-sign-in attempt (below) may take before the sweep
+ * gives up on it and treats the row as skipped. Mirrors the camera
+ * teardown's own cap (#2382): ordinary sign-in is single-digit seconds, and
+ * the fresh-page retry that followed that file's original 15.5-minute hang
+ * passed in 15s, so 30s is generous next to that and only ever bites the
+ * stalled `prompt=none` renewal the recovery exists to work around.
+ */
+const RE_SIGN_IN_TIMEOUT_MS = 30_000;
 
 cleanup('archive the layouts this run published', async ({ page }) => {
   cleanup.setTimeout(600_000);
@@ -76,9 +87,27 @@ cleanup('archive the layouts this run published', async ({ page }) => {
 
       // A genuine refusal is not taken at face value: this job outlives
       // Keycloak's 300 s default token lifespan, and a lapsed session looks like
-      // a missing row. The camera teardown documents the same remedy.
-      if (await looksSignedOut(page)) await signInAsOperator(page);
-      if ((await archiveByName(page, name)) === 'archived') archived++;
+      // a missing row. The camera teardown documents the same remedy — and,
+      // since #2385, the same bound: both halves (deadline and re-sign-in) are
+      // capped by `recoverLayout`, which retries once rather than looping
+      // in place, because an in-place retry would race the same stall. Before
+      // this fix the fallback ran unbounded and cost 11.5 minutes for zero
+      // archives (see above); now a spent deadline starts no new work and a
+      // stalled sign-in is abandoned after `RE_SIGN_IN_TIMEOUT_MS`.
+      const recovery = await recoverLayout(
+        Date.now(),
+        deadline,
+        RE_SIGN_IN_TIMEOUT_MS,
+        () => looksSignedOut(page),
+        () => signInAsOperator(page),
+        () => archiveByName(page, name),
+      );
+      if (!recovery.attempted) {
+        outOfTime = true;
+        skipped.push(name);
+        break;
+      }
+      if (recovery.result === 'archived') archived++;
       else skipped.push(name);
     }
   }
