@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { FormField } from './FormField.js';
@@ -126,6 +126,29 @@ function CameraCaptureSection({
 
   const cameraItems = cameras?.items ?? [];
   const camerasTruncated = cameras !== undefined && !cameras.complete;
+  const cameraName = cameraItems.find((camera) => camera.cameraIdentifier === selectedCamera)?.name ?? selectedCamera;
+
+  // Spec 234 (issue #2356) FR-006/FR-007: focus must return to "Capture
+  // frame" when a capture in flight ends (cancel, success, failure, or the
+  // 10 s timeout) while "Cancel capture" held it — but only then. The
+  // mechanism does not depend on `blur` firing when the Cancel button
+  // unmounts (browsers differ on this); it tracks whether Cancel *had* focus
+  // and, on the next exit from `capturing`, checks where focus actually
+  // landed.
+  const captureButtonRef = useRef<HTMLButtonElement>(null);
+  const cancelWasFocusedRef = useRef(false);
+
+  useEffect(() => {
+    if (captureState === 'capturing') {
+      cancelWasFocusedRef.current = false;
+      return;
+    }
+    if (!cancelWasFocusedRef.current) return;
+    cancelWasFocusedRef.current = false;
+    if (document.activeElement === null || document.activeElement === document.body) {
+      captureButtonRef.current?.focus();
+    }
+  }, [captureState]);
 
   return (
     <div style={{ display: 'grid', gap: 8 }}>
@@ -153,6 +176,7 @@ function CameraCaptureSection({
       )}
       <div style={{ display: 'flex', gap: 8 }}>
         <button
+          ref={captureButtonRef}
           type="button"
           onClick={onCapture}
           disabled={selectedCamera === '' || captureState === 'capturing'}
@@ -161,11 +185,25 @@ function CameraCaptureSection({
           Capture frame
         </button>
         {captureState === 'capturing' && (
-          <button type="button" onClick={onCancelCapture} style={BUTTON_STYLE}>
+          <button
+            type="button"
+            onClick={onCancelCapture}
+            onFocus={() => {
+              cancelWasFocusedRef.current = true;
+            }}
+            style={BUTTON_STYLE}
+          >
             Cancel capture
           </button>
         )}
       </div>
+      {/* Spec 234 (issue #2356) FR-005: always mounted, so a region inserted
+          together with its content is not reliably announced — the same
+          reason `ChainRecoveryNotice.tsx` keeps its own region present
+          up front. Visible text, not `sr-only` (spec A3). */}
+      <p aria-live="polite" data-testid="frame-capture-live-region" style={NOTICE_STYLE}>
+        {captureState === 'capturing' ? `Capturing a frame from ${cameraName}…` : ''}
+      </p>
       {captureState === 'failed' && (
         <p role="alert" style={ALERT_STYLE}>
           The frame could not be captured. The backdrop is unchanged — try again, or pick a different camera.
