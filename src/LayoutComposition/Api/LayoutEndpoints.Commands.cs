@@ -140,7 +140,7 @@ public static partial class LayoutEndpoints
         try
         {
             name = LayoutName.From(body.Name);
-            grid = GridDimensions.From(body.Grid.Rows, body.Grid.Cols);
+            grid = ParseGrid(body.Grid);
             tiles = ParseTiles(body.Tiles);
         }
         catch (ArgumentException ex)
@@ -351,7 +351,7 @@ public static partial class LayoutEndpoints
         try
         {
             number = LayoutRevisionNumber.From(revisionNumber);
-            grid = GridDimensions.From(body.Grid.Rows, body.Grid.Cols);
+            grid = ParseGrid(body.Grid);
             tiles = ParseTiles(body.Tiles);
         }
         catch (ArgumentException ex)
@@ -436,16 +436,26 @@ public static partial class LayoutEndpoints
             onFailure: error => error.ToProblem());
     }
 
+    private static GridDimensions ParseGrid(GridRequest grid)
+    {
+        Ensure.That(grid).IsNotNull();
+        return GridDimensions.From(grid.Rows, grid.Cols);
+    }
+
     private static List<Tile> ParseTiles(IReadOnlyList<TileRequest> requests)
     {
         Ensure.That(requests).IsNotNull();
         return requests
-            .Select(request => new Tile(
-                CameraIdentifier.From(request.CameraIdentifier),
-                request.OverlayIdentifier is { } overlayId
-                    ? Option<OverlayIdentifier>.Some(OverlayIdentifier.From(overlayId))
-                    : Option<OverlayIdentifier>.None,
-                GridPosition.From(request.Row, request.Col)))
+            .Select(tile =>
+            {
+                Ensure.That(tile).IsNotNull();
+                return new Tile(
+                    CameraIdentifier.From(tile.CameraIdentifier),
+                    tile.OverlayIdentifier is { } overlayId
+                        ? Option<OverlayIdentifier>.Some(OverlayIdentifier.From(overlayId))
+                        : Option<OverlayIdentifier>.None,
+                    GridPosition.From(tile.Row, tile.Col));
+            })
             .ToList();
     }
 }
