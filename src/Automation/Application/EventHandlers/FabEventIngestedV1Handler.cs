@@ -77,9 +77,14 @@ public sealed class FabEventIngestedV1Handler(
             return;
         }
 
-        EvaluationContext context = BuildContext(message);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
-            parsedFab, source, kind, context);
+        JsonDocument document = ParseContext(message);
+        IReadOnlyList<RuleActionEffect> effects;
+        using (document)
+        {
+            effects = evaluator.Evaluate(
+                parsedFab, source, kind, new EvaluationContext(document.RootElement));
+        }
+
         if (effects.Count == 0)
         {
             return;
@@ -121,13 +126,19 @@ public sealed class FabEventIngestedV1Handler(
     }
 
     /// <summary>
-    /// Builds an <see cref="EvaluationContext"/> whose root is a
-    /// JSON object exposing the canonical envelope fields plus the
-    /// already-canonicalised payload — so AEL field access
-    /// (<c>$.source</c>, <c>$.kind</c>, <c>$.device</c>,
-    /// <c>$.payload.*</c>) lines up with spec FR-013.
+    /// Parses a <see cref="JsonDocument"/> whose root is a JSON object
+    /// exposing the canonical envelope fields plus the already-canonicalised
+    /// payload — so AEL field access (<c>$.source</c>, <c>$.kind</c>,
+    /// <c>$.device</c>, <c>$.payload.*</c>) lines up with spec FR-013.
+    ///
+    /// <para>
+    /// Returns the document itself, not a view of it: <see cref="EvaluationContext"/>
+    /// does not own what it wraps, so the caller disposes the document once it
+    /// is done evaluating (<c>DryRunRuleQueryHandler</c> follows the same
+    /// shape).
+    /// </para>
     /// </summary>
-    private static EvaluationContext BuildContext(FabEventIngestedV1 message)
+    private static JsonDocument ParseContext(FabEventIngestedV1 message)
     {
         // Compose the context JSON by hand to avoid double-parsing
         // the payload — it's already a canonical JSON string.
@@ -142,7 +153,6 @@ public sealed class FabEventIngestedV1Handler(
         builder.Append(message.Payload);
         builder.Append('}');
 
-        JsonDocument doc = JsonDocument.Parse(builder.ToString());
-        return new EvaluationContext(doc.RootElement);
+        return JsonDocument.Parse(builder.ToString());
     }
 }
