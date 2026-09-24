@@ -70,6 +70,23 @@ const COARSE_STEP = 0.05;
 const MIN_NORMALIZED_SIZE = 0.005;
 const ANNOUNCE_DELAY_MS = 500;
 
+/**
+ * #2361: the size clamp for `width`/`height`, separate from `clamp01`'s
+ * position clamp. `[0, 1]` is the correct domain for `x`/`y` — exactly `0`
+ * is a valid position — but a size of `0` is not a valid size, so a
+ * non-positive or `NaN` pixel-derived width/height (a drag past the canvas
+ * edge, or `NaN` from a zero-size ref) must floor to `MIN_NORMALIZED_SIZE`
+ * rather than pass through as `clamp01` would. Deliberately **not**
+ * `Math.max(value, MIN_NORMALIZED_SIZE)` — that would also floor a
+ * small-but-domain-valid size (e.g. `0.003`), which must pass through
+ * unchanged; only a genuinely invalid value (`<= 0` or `NaN`) gets floored.
+ */
+function clampSize(value: number): number {
+  if (!(value > 0)) return MIN_NORMALIZED_SIZE;
+  if (value > MAX_NORMALIZED) return MAX_NORMALIZED;
+  return value;
+}
+
 const ARROW_KEYS = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']);
 
 function quantize(value: number): number {
@@ -220,8 +237,9 @@ function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null)
  * WYSIWYG label editor (spec 004 T059). A fixed-aspect canvas
  * surfaces a draggable + resizable label preview backed by
  * <c>react-rnd</c>; sliders below the canvas tune the font size and
- * the text input updates the label text. All four normalized values
- * are clamped to [0, 1] before <c>onChange</c> fires.
+ * the text input updates the label text. <c>x</c>/<c>y</c> are clamped
+ * to [0, 1] and <c>width</c>/<c>height</c> to <c>[MIN_NORMALIZED_SIZE,
+ * 1]</c> before <c>onChange</c> fires (#2361).
  */
 export function OverlayEditor({
   value,
@@ -251,11 +269,12 @@ export function OverlayEditor({
   // (FR-015) — only the bookkeeping around the emission is new.
   const { commit, endRun, undo, redo, canUndo, canRedo } = useOverlayEditHistory(value, onChange);
 
-  // T005: the single place that builds the `onChange` payload. `clamp01` is
-  // the one clamp both the drag and keyboard paths call — the drag path's
-  // pixel-derived values need it as their only bound (unchanged, FR-011);
-  // the keyboard path's values are already bounded tighter by `nudgePosition`
-  // / `resizeSize` before they arrive here, so `clamp01` is a no-op on them.
+  // T005: the single place that builds the `onChange` payload. `clamp01`
+  // bounds `x`/`y` and `clampSize` bounds `width`/`height` (#2361) — the drag
+  // path's pixel-derived values need these as their only bound (unchanged,
+  // FR-011); the keyboard path's values are already bounded tighter by
+  // `nudgePosition` / `resizeSize` before they arrive here, so both clamps
+  // are a no-op on them.
   const emitNormalized = useCallback(
     (nextX: number, nextY: number, nextWidth: number, nextHeight: number, boundary: Boundary) => {
       commit(
@@ -263,8 +282,8 @@ export function OverlayEditor({
           ...value,
           normalizedX: clamp01(nextX),
           normalizedY: clamp01(nextY),
-          normalizedWidth: clamp01(nextWidth),
-          normalizedHeight: clamp01(nextHeight),
+          normalizedWidth: clampSize(nextWidth),
+          normalizedHeight: clampSize(nextHeight),
         },
         boundary,
       );
@@ -301,8 +320,8 @@ export function OverlayEditor({
     (xPx: number, yPx: number, widthPx: number, heightPx: number): OverlayGeometry => ({
       x: clamp01(xPx / canvasWidthPx),
       y: clamp01(yPx / canvasHeightPx),
-      width: clamp01(widthPx / canvasWidthPx),
-      height: clamp01(heightPx / canvasHeightPx),
+      width: clampSize(widthPx / canvasWidthPx),
+      height: clampSize(heightPx / canvasHeightPx),
     }),
     [canvasWidthPx, canvasHeightPx],
   );
@@ -350,14 +369,14 @@ export function OverlayEditor({
   );
 
   // Spec 151 FR-006, plan.md §3c: one field, spread onto `value`. Deliberately
-  // **not** through `emitNormalized` — that applies `clamp01` to all four
-  // values, but `OverlayGeometryFields` has already validated the committed
-  // field strictly tighter than `clamp01` (FR-008/FR-009), and running the
-  // *other three* through `clamp01` would silently rewrite a stored off-grid
-  // or out-of-range value the operator never touched (FR-006 says they travel
-  // forward untouched). It would also let a typed `0` reach `clamp01`'s own
-  // zero, which spec.md §The zero-size question is at pains to keep
-  // unreachable.
+  // **not** through `emitNormalized` — that applies `clamp01`/`clampSize` to
+  // all four values, but `OverlayGeometryFields` has already validated the
+  // committed field strictly tighter than either clamp (FR-008/FR-009), and
+  // running the *other three* through them would silently rewrite a stored
+  // off-grid or out-of-range value the operator never touched (FR-006 says
+  // they travel forward untouched). Typed entry already bypasses `clamp01`
+  // entirely this way (#2346/spec 151), which is also why a typed `0` never
+  // reaches it.
   const handleGeometryCommit = useCallback(
     (field: OverlayGeometryField, normalized: number) => {
       commit({ ...value, [field]: normalized }, 'atomic');
