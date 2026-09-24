@@ -199,4 +199,86 @@ public class VariableArchivedDomainEventHandlerTests
         pushes.Length.ShouldBe(2);
         pushes.ShouldAllBe(push => push.Version == FakeOverlayTextVersions.Floor);
     }
+
+    // Spec 235, C2 (characterisation). Same premise as C1's sibling in the
+    // other handler: GetByNameAsync excludes Archived rows by contract
+    // (FR-005), so the archived 'shift' row is invisible to the sibling
+    // lookup and the re-defined row is what renders.
+    [Fact]
+    public async Task A_sibling_archived_and_defined_again_resolves_to_the_live_one()
+    {
+        FakeEventBus bus = new();
+        InMemoryReverseIndex index = new();
+        InMemoryVariableRepository repo = new();
+        FakeOverlayTextVersions versions = new();
+
+        VariableBuilder archivedShiftBuilder = new VariableBuilder()
+            .Named("shift").OfType(VariableType.String)
+            .WithInitialValue(new VariableValue.StringValue("A"));
+        Variable archivedShift = archivedShiftBuilder.Build();
+        archivedShift.Archive(OperatorIdentifier.From(Guid.CreateVersion7()), archivedShiftBuilder.Clock);
+        repo.Add(archivedShift);
+
+        Variable redefinedShift = new VariableBuilder()
+            .Named("shift").OfType(VariableType.String)
+            .WithInitialValue(new VariableValue.StringValue("B")).Build();
+        repo.Add(redefinedShift);
+
+        Guid overlay = Guid.CreateVersion7();
+        index.UpsertOverlayReferences(overlay, "{{shift}} / {{oee}}");
+
+        VariableArchivedDomainEventHandler handler = new(
+            bus, index, versions, repo, new Resolver(),
+            NullLogger<VariableArchivedDomainEventHandler>.Instance);
+
+        await handler.Handle(
+            new VariableArchivedDomainEvent(
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("oee"),
+                FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        ResolvedOverlayTextChangedV1 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
+        push.ResolvedText.ShouldBe("B / {{oee}}");
+    }
+
+    // Spec 235, C3 (characterisation). Pins the guard that actually holds
+    // FR-014 for the variable being archived: the name-skip at :70, not the
+    // dead state check at :88. VariableRepository.SaveAsync dispatches
+    // domain events before commit (VariableRepository.cs:70-77), so at
+    // evaluation time the database row for the variable being archived can
+    // still be readable as Defined, with its old value -- modelled here by
+    // never calling Archive() on the repository's copy. If the name-skip
+    // were removed, this row would be found, still Defined and still set,
+    // and its placeholder would render 82.5 instead of staying literal.
+    [Fact]
+    public async Task The_variable_being_archived_stays_literal_even_while_its_row_is_still_readable()
+    {
+        FakeEventBus bus = new();
+        InMemoryReverseIndex index = new();
+        InMemoryVariableRepository repo = new();
+        FakeOverlayTextVersions versions = new();
+
+        Variable oee = new VariableBuilder()
+            .Named("oee").OfType(VariableType.Number)
+            .WithInitialValue(new VariableValue.NumberValue(82.5)).Build();
+        repo.Add(oee);
+
+        Guid overlay = Guid.CreateVersion7();
+        index.UpsertOverlayReferences(overlay, "OEE: {{oee}}%");
+
+        VariableArchivedDomainEventHandler handler = new(
+            bus, index, versions, repo, new Resolver(),
+            NullLogger<VariableArchivedDomainEventHandler>.Instance);
+
+        await handler.Handle(
+            new VariableArchivedDomainEvent(
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("oee"),
+                FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        ResolvedOverlayTextChangedV1 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
+        push.ResolvedText.ShouldBe("OEE: {{oee}}%");
+    }
 }
