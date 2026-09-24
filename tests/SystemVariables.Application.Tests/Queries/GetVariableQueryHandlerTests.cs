@@ -213,4 +213,32 @@ public class GetVariableQueryHandlerTests
             result.Error.ShouldBeOfType<GetVariableError.VariableFabAmbiguous>();
         ambiguous.Candidates.ShouldBe(["dresden", "munich"]);
     }
+
+    [Fact]
+    public async Task The_ambiguity_refusal_de_duplicates_two_live_matches_in_one_fab()
+    {
+        // The Archived filter alone cannot exercise Distinct: excluding an
+        // archived row from one fab still leaves at most one live row per
+        // fab under the real unique index, so the candidate list is already
+        // duplicate-free without it. TestVariableQuerySource has no such
+        // constraint, so two *live* rows can share a fab here and pin
+        // .Distinct(StringComparer.Ordinal) on its own terms.
+        Variable liveMunichFirst = new VariableBuilder().WithFab("munich").Named("shared").Build();
+        Variable liveMunichSecond = new VariableBuilder().WithFab("munich").Named("shared").Build();
+        Variable liveDresden = new VariableBuilder().WithFab("dresden").Named("shared").Build();
+
+        TestVariableQuerySource source = new([liveMunichFirst, liveMunichSecond, liveDresden]);
+        GetVariableQueryHandler handler = new(source);
+
+        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+            new GetVariableQuery(
+                [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
+                VariableName.From("shared")),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        GetVariableError.VariableFabAmbiguous ambiguous =
+            result.Error.ShouldBeOfType<GetVariableError.VariableFabAmbiguous>();
+        ambiguous.Candidates.ShouldBe(["dresden", "munich"]);
+    }
 }
