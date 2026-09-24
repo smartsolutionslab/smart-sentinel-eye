@@ -289,6 +289,30 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
+    /// Spec 245 (#2530) US1, SC-1. <c>Search</c> runs the fab guard on the
+    /// raw, unparsed <c>fabId</c> — <c>DefaultFabAuthorizationGuard</c> does
+    /// plain string equality against the <c>groups</c> claim and has no
+    /// grammar opinion, so a malformed value is refused by the authorization
+    /// boundary (403) rather than the input-validation one (400). Its sibling
+    /// endpoint, the per-resource timeline, already answers this exact input
+    /// with 400 <c>AUDIT_INVALID_INPUT</c> (the malformed-fab-grammar test
+    /// above, spec 215 / #2507); this proves <c>Search</c> now agrees. RED
+    /// until the endpoint parses <c>fabId</c> before the guard.
+    /// </summary>
+    [Fact]
+    public async Task A_malformed_fab_on_the_audit_search_is_a_client_error_not_an_authorization_refusal()
+    {
+        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", "Admin1234");
+
+        HttpResponseMessage response = await client.GetAsync("/audit?fabId=NOT_A_FAB");
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
+    }
+
+    /// <summary>
     /// Spec 215 (#2507), SC-7. Characterisation: records that the
     /// required-parameter refusal for an entirely omitted <c>fabId</c> is
     /// ASP.NET's own, and is not being replaced. No <c>title</c> is asserted

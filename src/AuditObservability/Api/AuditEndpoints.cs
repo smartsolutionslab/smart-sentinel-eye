@@ -73,19 +73,31 @@ public static class AuditEndpoints
         ClaimsPrincipal user,
         CancellationToken cancellationToken)
     {
+        // Parsed ahead of the guard, mirroring GetTimeline (spec 215 / #2507):
+        // the guard needs a well-formed value to authorize against, and a
+        // syntactically malformed fab is a client error (400
+        // AUDIT_INVALID_INPUT), not an authorization refusal (403). A blank
+        // fabId means "no fab named", the same as an omitted one.
+        FabIdentifier? parsedFab = null;
         if (!string.IsNullOrWhiteSpace(fabId))
         {
-            await fabGuard.EnsureAccessAsync(user, fabId, cancellationToken);
+            if (!BoundaryParse.TryParse(
+                () => FabIdentifier.From(fabId),
+                "AUDIT_INVALID_INPUT",
+                out var parsed,
+                out IResult? fabProblem))
+            {
+                return fabProblem;
+            }
+
+            parsedFab = parsed;
+            await fabGuard.EnsureAccessAsync(user, parsed.Value, cancellationToken);
         }
 
         IReadOnlyList<string> callerFabs = FabClaims.AssignedFabs(user);
 
-        // A blank fabId means "no fab named", the same as an omitted one:
-        // SearchAuditQueryHandler treats a non-null Fab as an equality filter
-        // (FabIdentifier.From(fab) then a column comparison), so passing the
-        // empty string through unnormalised would throw inside the handler.
         SearchAuditQuery query = new(
-            Fab: string.IsNullOrWhiteSpace(fabId) ? null : fabId,
+            Fab: parsedFab?.Value,
             CallerFabs: callerFabs,
             Actor: actor,
             ActorUsername: actorUsername,
