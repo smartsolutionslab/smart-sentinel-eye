@@ -59,8 +59,9 @@ must guard the index.)
 ### Why not widen the handler's catch
 
 Spec §4. In short: the parser's contract is `AelParseException`; fixing it at the source gives the 400
-a position and covers `CompiledRule.From` too; widening the catch would misreport real server bugs as
-operator parse errors.
+a position and gives `CompiledRule.From`'s callers a consistent `AelParseException` type too, instead of
+a mixed `OverflowException`/`AelParseException` situation; widening the catch would misreport real
+server bugs as operator parse errors.
 
 ### Error flow (unchanged plumbing)
 
@@ -69,9 +70,12 @@ operator parse errors.
 → `error.ToProblem()` in `RulesEndpoints.Create` → 400 problem, `RULE_PREDICATE_PARSE_FAILED` /
 `RULE_ACTION_EXPRESSION_PARSE_FAILED`.
 
-`DryRunRuleQueryHandler` already absorbs `AelParseException` (its reason mapping lists it,
-`:137`), and `CompiledRule.From` over a stored rule can never meet an oversized literal because create
-never stored one (it 500'd before `rules.Add`). No change needed there.
+`DryRunRuleQueryHandler`'s reason mapping lists `AelParseException` (`:137`), but its call to
+`CompiledRule.From` (`:101`) sits **outside** its own `try` block (which starts at `:103` and wraps only
+`AelInterpreter.Evaluate`) — so an `AelParseException` from that call site would still escape uncaught
+today. That gap is pre-existing and out of scope: `CompiledRule.From` over a *stored* rule can never
+meet an oversized literal, because create validates before persisting (it 500'd before `rules.Add`), so
+the gap has no reachable trigger today and this PR does not need to close it.
 
 ## Tests (4a — `test-writer`)
 

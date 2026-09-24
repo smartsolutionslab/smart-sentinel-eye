@@ -124,8 +124,10 @@ widen the catch:
 - `AelParser`'s documented contract (`AelParser.cs:12-13`) is "parse failures throw
   `AelParseException` carrying the position of the failing token". An out-of-range literal *is* a parse
   failure of operator input; `OverflowException` escaping is the parser breaking its own contract.
-  Fixing it at the source gives the 400 a **position** (a widened catch has none to give), and covers
-  every caller of `AelParser.Parse` — both handler sites and `CompiledRule.From` — at once.
+  Fixing it at the source gives the 400 a **position** (a widened catch has none to give), and gives
+  every caller of `AelParser.Parse` — both handler sites and `CompiledRule.From` — a consistent
+  `AelParseException` type instead of a mixed `OverflowException`/`AelParseException` situation, though
+  no caller today would have observed different end-user behavior from this specific gap.
 - #2427's "stop enumerating exception types" reasoning was for the **evaluator in a message
   handler**, where an escape dead-letters events and silently stops a rule. Here an escape is a 500 to
   an authenticated operator — which is the *correct* answer for a genuine server bug. A catch widened
