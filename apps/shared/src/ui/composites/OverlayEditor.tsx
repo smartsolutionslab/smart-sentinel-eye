@@ -305,11 +305,12 @@ export function OverlayEditor({
   );
 
   // Spec 151 FR-013/FR-014: the live readout. `onDrag`/`onResize` hold the
-  // in-flight geometry in local state, through the same `clamp01` the stop
-  // handlers use, so the readout never shows a number the release would not
-  // produce. `onChange` does not fire from either — only the two existing
-  // `*Stop` handlers below call it, unchanged, and then clear this back to
-  // `null` (FR-014: "discarded when the gesture ends" — spec.md:217).
+  // in-flight geometry in local state, through the same `clamp01`/`clampSize`
+  // the stop handlers use (via `emitNormalized`), so the readout never shows
+  // a number the release would not produce. `onChange` does not fire from
+  // either — only the two existing `*Stop` handlers below call it,
+  // unchanged, and then clear this back to `null` (FR-014: "discarded when
+  // the gesture ends" — spec.md:217).
   // `OverlayGeometryFields` then falls back to the `value` prop, which in the
   // real, controlled `OverlayEditorDialog.tsx` (a `<Controller>`) is updated
   // by this same `onChange` on the very next render, so the field keeps
@@ -374,9 +375,9 @@ export function OverlayEditor({
   // committed field strictly tighter than either clamp (FR-008/FR-009), and
   // running the *other three* through them would silently rewrite a stored
   // off-grid or out-of-range value the operator never touched (FR-006 says
-  // they travel forward untouched). Typed entry already bypasses `clamp01`
-  // entirely this way (#2346/spec 151), which is also why a typed `0` never
-  // reaches it.
+  // they travel forward untouched). Typed entry therefore reaches neither
+  // clamp (#2346/spec 151); `OverlayGeometryFields`' own validation is its
+  // only bound.
   const handleGeometryCommit = useCallback(
     (field: OverlayGeometryField, normalized: number) => {
       commit({ ...value, [field]: normalized }, 'atomic');
