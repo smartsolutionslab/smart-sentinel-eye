@@ -2,7 +2,14 @@
   "extends": "../tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true,
-    "types": ["node"]
+    "types": ["node"],
+    // `archive-e2e-layouts.recovery.ts` imports `sweep-recovery.ts` with an
+    // explicit `.ts` extension (#2385): Node's native type-stripping loader,
+    // which `scripts/archive-e2e-layouts-recovery.test.mjs` runs against
+    // directly (no browser, no bundler), requires the literal extension for a
+    // relative specifier — unlike Playwright's own esbuild-based resolution,
+    // which accepts either. Valid only alongside `noEmit`, already set above.
+    "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts", "../playwright.config.ts"]
 }
