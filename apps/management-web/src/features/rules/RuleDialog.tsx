@@ -168,7 +168,8 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
         </FormField>
 
         {setsVariable ? (
-          // key forces a remount on toggle so a typed value can't carry into the other branch's field (pairs with unregister() above).
+          // key forces a remount on toggle so a typed value can't carry into the other branch's field (pairs with unregister() above),
+          // so a round trip returns empty fields.
           <div key="set-variable" className="grid grid-cols-2 gap-3">
             <FormField label="Variable name" htmlFor="rule-variable" error={errors.variableName?.message}>
               <Input id="rule-variable" placeholder="oeeLine1" {...register('variableName')} />

@@ -57,12 +57,6 @@ function renderDialog() {
   );
 }
 
-// `apps/management-web`'s eslint config carries no DOM-element globals, so
-// Duration's numeric value -- `toHaveValue` on a `type="number"` input
-// compares against a number, not the empty string a fresh mount holds --
-// reads through this structural type rather than naming `HTMLInputElement`.
-type InputLike = { value: string };
-
 describe('RuleDialog', () => {
   beforeEach(() => {
     createMock.mockClear();
@@ -313,7 +307,7 @@ describe('RuleDialog', () => {
     await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
 
     expect(screen.getByLabelText(/overlay/i)).toHaveValue('');
-    expect((screen.getByLabelText(/duration/i) as unknown as InputLike).value).toBe('');
+    expect(screen.getByLabelText(/duration/i)).toHaveValue(null);
   });
 
   it('Empties Value expression and blocks submit when only Variable name is refilled after an overlay round trip', async () => {
@@ -350,7 +344,7 @@ describe('RuleDialog', () => {
     await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
 
-    expect((screen.getByLabelText(/duration/i) as unknown as InputLike).value).toBe('');
+    expect(screen.getByLabelText(/duration/i)).toHaveValue(null);
 
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
