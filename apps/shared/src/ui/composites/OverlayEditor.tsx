@@ -82,6 +82,7 @@ const ANNOUNCE_DELAY_MS = 500;
  * unchanged; only a genuinely invalid value (`<= 0` or `NaN`) gets floored.
  */
 function clampSize(value: number): number {
+  // !(value > 0) — not value <= 0 — so this also catches NaN (NaN > 0 is false)
   if (!(value > 0)) return MIN_NORMALIZED_SIZE;
   if (value > MAX_NORMALIZED) return MAX_NORMALIZED;
   return value;
@@ -238,8 +239,9 @@ function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null)
  * surfaces a draggable + resizable label preview backed by
  * <c>react-rnd</c>; sliders below the canvas tune the font size and
  * the text input updates the label text. <c>x</c>/<c>y</c> are clamped
- * to [0, 1] and <c>width</c>/<c>height</c> to <c>[MIN_NORMALIZED_SIZE,
- * 1]</c> before <c>onChange</c> fires (#2361).
+ * to [0, 1] and <c>width</c>/<c>height</c> to <c>(0, 1]</c>, with a
+ * non-positive or <c>NaN</c> value floored to <c>MIN_NORMALIZED_SIZE</c>,
+ * before <c>onChange</c> fires (#2361).
  */
 export function OverlayEditor({
   value,
