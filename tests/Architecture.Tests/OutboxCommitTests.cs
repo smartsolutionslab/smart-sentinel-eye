@@ -84,6 +84,18 @@ public class OutboxCommitTests
     /// member of <see cref="Assemblies"/> — the real theory above never sees
     /// them, so this fact cannot turn it red.
     /// </para>
+    ///
+    /// <para>
+    /// Spec 252 (#2470) adds three more rows for the shapes the scan stepped
+    /// over: <c>MethodGroupOffenderRepository</c> proves the live-instance
+    /// method-group load (<c>ldvirtftn</c>), <c>BaseMethodGroupOffenderRepository</c>
+    /// proves the <c>base.</c> spelling (<c>ldftn</c>), and
+    /// <c>AsyncLambdaOffenderRepository</c> proves an async lambda's state
+    /// machine nested two levels deep (display class, then state machine) is
+    /// still reached. Each is red on arrival — the detector this fact drives
+    /// does not yet see any of the three — and the fix that follows must turn
+    /// all three green without editing this list again.
+    /// </para>
     /// </summary>
     [Fact]
     public void The_rule_sees_both_spellings_of_a_direct_commit()
@@ -94,6 +106,9 @@ public class OutboxCommitTests
             [
                 "SmartSentinelEye.Architecture.Tests.Persistence.AsyncOffenderRepository",
                 "SmartSentinelEye.Architecture.Tests.Persistence.SyncOffenderRepository",
+                "SmartSentinelEye.Architecture.Tests.Persistence.MethodGroupOffenderRepository",
+                "SmartSentinelEye.Architecture.Tests.Persistence.BaseMethodGroupOffenderRepository",
+                "SmartSentinelEye.Architecture.Tests.Persistence.AsyncLambdaOffenderRepository",
             ],
             ignoreOrder: true);
     }
