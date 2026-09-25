@@ -145,6 +145,83 @@ public class OutboxCommitTests
     }
 
     /// <summary>
+    /// Spec 255 / #2586. Derives, independently of
+    /// <see cref="PersistenceAssemblies"/>, which built assemblies can reach a
+    /// <see cref="DbContext"/> at all — a direct commit needs either a MemberRef
+    /// into EF Core, or a reference to the assembly that defines the concrete
+    /// context it would commit, and both are readable from an assembly's own
+    /// reference metadata without loading or running any of its code.
+    ///
+    /// <para>
+    /// Failing this fact is not itself an offence: it means
+    /// <see cref="PersistenceAssemblies"/> has fallen behind what the build now
+    /// produces, the same way the namespace/name candidate filter fell behind
+    /// <c>StreamFabAttributionService</c> (spec 247). The fix is to widen that
+    /// list — or, if an assembly genuinely cannot commit despite the metadata,
+    /// to record why here — never to narrow the criterion below to match
+    /// today's list.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Known limitation.</b> Candidates come from files in
+    /// <see cref="AppContext.BaseDirectory"/>, which holds only the assemblies
+    /// this test project itself references. A new bounded context's DLLs land
+    /// there only once it is added to <c>Architecture.Tests.csproj</c>, exactly
+    /// as for every other boundary test in this project.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_assembly_that_can_reach_a_DbContext_is_scanned()
+    {
+        // This test assembly itself references EF Core for the probe DbContext
+        // in OutboxCommitProbe.cs (see The_rule_sees_both_spellings_of_a_direct_commit's
+        // doc) and is deliberately never a scan candidate — it is not production
+        // code that could commit anything.
+        string testAssemblyFile = Path.GetFileName(typeof(OutboxCommitTests).Assembly.Location);
+
+        List<string> reaching = [];
+        foreach (string path in Directory.GetFiles(AppContext.BaseDirectory, "SmartSentinelEye.*.dll"))
+        {
+            if (string.Equals(Path.GetFileName(path), testAssemblyFile, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            AssemblyName name = AssemblyName.GetAssemblyName(path);
+            Assembly assembly = Assembly.Load(name);
+
+            bool canReachDbContext = assembly.GetReferencedAssemblies().Any(reference =>
+                reference.Name == "Microsoft.EntityFrameworkCore"
+                || (reference.Name is not null
+                    && reference.Name.StartsWith("SmartSentinelEye.", StringComparison.Ordinal)
+                    && reference.Name.EndsWith(".Infrastructure", StringComparison.Ordinal)));
+
+            if (canReachDbContext)
+            {
+                reaching.Add(assembly.GetName().Name ?? Path.GetFileNameWithoutExtension(path));
+            }
+        }
+
+        // A broken directory probe or filter that silently finds nothing would
+        // otherwise pass this fact vacuously; this is an independent fact about
+        // the build output, not a restatement of PersistenceAssemblies.
+        reaching.ShouldContain(
+            "SmartSentinelEye.CameraCatalog.Infrastructure",
+            "the probe found no reaching assemblies at all — AppContext.BaseDirectory or the "
+            + "SmartSentinelEye.*.dll filter is broken, not that nothing can reach a DbContext.");
+
+        List<string> unscanned =
+            [.. reaching.Except(PersistenceAssemblies).OrderBy(name => name, StringComparer.Ordinal)];
+
+        unscanned.ShouldBeEmpty(
+            $"{string.Join(", ", unscanned)} can reach a DbContext (references "
+            + "Microsoft.EntityFrameworkCore, or a SmartSentinelEye.*.Infrastructure assembly) but "
+            + "is not in PersistenceAssemblies. Add it to the scanned list — or, if it genuinely "
+            + "cannot commit despite this metadata, explain why in this test rather than narrowing "
+            + "the criterion above.");
+    }
+
+    /// <summary>
     /// Spec 193. The issue's own counterfactual, made permanent: before the
     /// comparison in <see cref="ReferencesSaveChanges"/> widens to both
     /// spellings, <see cref="SyncOffenderRepository"/> commits synchronously
