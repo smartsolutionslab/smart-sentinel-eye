@@ -51,10 +51,9 @@ public class MqttPublisherCredentialTests
     {
         private readonly KeycloakTokenProvider tokens;
 
-        private PublisherUnderTest(FakeMqttClient client, RecordingLogger<MqttPublisher> logger, KeycloakTokenProvider tokens)
+        private PublisherUnderTest(FakeMqttClient client, KeycloakTokenProvider tokens)
         {
             Client = client;
-            Logger = logger;
             this.tokens = tokens;
 
             Publisher = new MqttPublisher(
@@ -65,14 +64,12 @@ public class MqttPublisherCredentialTests
                     ClientSecret = "a-secret",
                 }),
                 tokens,
-                logger,
+                NullLogger<MqttPublisher>.Instance,
                 client,
                 new MqttBackoff(TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(4)));
         }
 
         public FakeMqttClient Client { get; }
-
-        public RecordingLogger<MqttPublisher> Logger { get; }
 
         public MqttPublisher Publisher { get; }
 
@@ -85,7 +82,7 @@ public class MqttPublisherCredentialTests
                 TimeProvider.System,
                 NullLogger<KeycloakTokenProvider>.Instance);
 
-            return new PublisherUnderTest(client, new RecordingLogger<MqttPublisher>(), tokens);
+            return new PublisherUnderTest(client, tokens);
         }
 
         public async ValueTask DisposeAsync()
