@@ -503,6 +503,98 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
   });
 });
 
+/**
+ * Spec 256 (issue #2366) T001 — the mechanism half of the fix. A blur-commit
+ * on an invalid geometry field mounts a `role="alert"` as a *new* sibling
+ * (see `OverlayGeometryFields.tsx:227-231`), growing the field's column and
+ * moving every sibling below it — including `OverlayEditorDialog`'s Save
+ * button, one flex ancestor up. A single `mousedown`+`mouseup` on Save then
+ * lands on empty space once the button has moved, and the click is silently
+ * swallowed (spec.md §1). The fix (plan.md §2.2) reserves the message's
+ * vertical space up front so appearing/clearing changes no box height.
+ *
+ * New behaviour, RED (ADR-0139/ADR-0144): `overlay-geometry-message-slot-*`
+ * and `overlay-geometry-advisory-slot` do not exist on the tree these tests
+ * run against, so `getByTestId` throws — not a missing export or a type
+ * error. Literal message strings are written out here, never imported from
+ * the component (an assertion must not check its own input) — the same
+ * literals the existing FR-007–FR-012 tests above already pin.
+ */
+describe('OverlayGeometryFields reserves message space so a blur-triggered render cannot move Save (spec 256, issue #2366)', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const MESSAGE_SLOT_TEST_ID: Record<string, string> = {
+    Left: 'overlay-geometry-message-slot-normalizedX',
+    Top: 'overlay-geometry-message-slot-normalizedY',
+    Width: 'overlay-geometry-message-slot-normalizedWidth',
+    Height: 'overlay-geometry-message-slot-normalizedHeight',
+  };
+
+  const EXPECTED_MESSAGES: Record<string, string[]> = {
+    Left: ['Enter a number.', 'Left must be between 0% and 100%.'],
+    Top: ['Enter a number.', 'Top must be between 0% and 100%.'],
+    Width: ['Enter a number.', 'Width must be greater than 0% and at most 100%.'],
+    Height: ['Enter a number.', 'Height must be greater than 0% and at most 100%.'],
+  };
+
+  const ADVISORY_MESSAGES = [
+    'This label extends past the right edge and the bottom edge and will be clipped on the wall.',
+    'This label extends past the right edge and will be clipped on the wall.',
+    'This label extends past the bottom edge and will be clipped on the wall.',
+  ];
+
+  it.each(['Left', 'Top', 'Width', 'Height'])(
+    'Every message the %s field can show is reserved in its slot before any is shown',
+    (label) => {
+      render(<OverlayGeometryFields value={buildLabel()} preview={null} onCommit={vi.fn()} />);
+
+      const slot = screen.getByTestId(MESSAGE_SLOT_TEST_ID[label]!);
+      const hiddenTexts = Array.from(slot.querySelectorAll('[aria-hidden="true"]')).map(
+        (element) => element.textContent,
+      );
+
+      expect(new Set(hiddenTexts)).toEqual(new Set(EXPECTED_MESSAGES[label]));
+    },
+  );
+
+  it('Every advisory wording is reserved in the advisory slot before any is shown', () => {
+    render(<OverlayGeometryFields value={buildLabel()} preview={null} onCommit={vi.fn()} />);
+
+    const slot = screen.getByTestId('overlay-geometry-advisory-slot');
+    const hiddenTexts = Array.from(slot.querySelectorAll('[aria-hidden="true"]')).map((element) => element.textContent);
+
+    expect(new Set(hiddenTexts)).toEqual(new Set(ADVISORY_MESSAGES));
+  });
+
+  it('The reserved copies never reach the accessibility tree, with or without a live refusal', () => {
+    render(<OverlayGeometryFields value={buildLabel({ normalizedWidth: 0.5 })} preview={null} onCommit={vi.fn()} />);
+
+    expect(screen.queryAllByRole('alert')).toHaveLength(0);
+    expect(screen.getByRole('status').textContent).toBe('');
+
+    fireEvent.change(field('Width'), { target: { value: '0' } });
+    fireEvent.blur(field('Width'));
+
+    expect(screen.queryAllByRole('alert')).toHaveLength(1);
+  });
+
+  it('A blur refusal adds no direct child to the field’s column — the box that must not move Save', () => {
+    const onCommit = vi.fn();
+    render(<OverlayGeometryFields value={buildLabel({ normalizedWidth: 0.5 })} preview={null} onCommit={onCommit} />);
+
+    const column = field('Width').closest('label')!.parentElement!;
+    const childCountBefore = column.children.length;
+
+    fireEvent.change(field('Width'), { target: { value: '0' } });
+    fireEvent.blur(field('Width'));
+
+    expect(screen.getByRole('alert')).toBeVisible();
+    expect(column.children.length).toBe(childCountBefore);
+  });
+});
+
 describe('OverlayEditor wires the live readout and the commit path (FR-006, FR-013, FR-014)', () => {
   afterEach(() => {
     cleanup();
