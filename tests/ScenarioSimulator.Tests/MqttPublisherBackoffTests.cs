@@ -104,12 +104,23 @@ public class MqttPublisherBackoffTests
     }
 
     /// <summary>
-    /// CF2's target (plan.md §5) — the architect's flagged-most-important
-    /// counterfactual, because a hardcoded constant backoff bypassing the new
-    /// injectable parameter would still pass the case above (a hold of zero is
-    /// caught by any yardstick) but must fail this one: the doubled yardstick
-    /// exists precisely to tell a peer sitting a hair above the floor apart from
-    /// a connection that genuinely held.
+    /// CF2's target (plan.md §5) — the doubled yardstick's own case, not the
+    /// injection seam's. It distinguishes <c>ResetIfHeld</c>'s doubled-yardstick
+    /// logic from the pre-fix floor yardstick: under CF2's patch (yardstick →
+    /// <c>first</c>, the constant it used to be) a 110 ms hold clears a 100 ms
+    /// floor and resets the backoff every cycle, so this test goes red.
+    ///
+    /// <para>
+    /// Its red therefore <b>depends on</b> the injected 100 ms floor being in
+    /// force — but that makes it a poor detector of an injection bypass on its
+    /// own: under a bypassed/default backoff (1 s/30 s) the yardstick is always
+    /// ≥2 s, a 110 ms hold never clears it either, and this test stays green
+    /// (only ~3 connects in 3 s, well under the 16 ceiling). The direct detector
+    /// for a bypass of the injected parameter is
+    /// <see cref="A_reconnect_after_a_held_connection_does_not_inherit_the_previous_backoff"/>
+    /// (CF5): under default backoff the yardstick balloons to 3.2-4.8 s, so the
+    /// 150 ms reconnect window fails.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task A_connection_held_just_past_the_floor_still_backs_off()
