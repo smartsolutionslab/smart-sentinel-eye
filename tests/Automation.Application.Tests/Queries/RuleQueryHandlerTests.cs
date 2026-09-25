@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
+using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Application.Queries;
 using SmartSentinelEye.Automation.Application.Queries.Handlers;
@@ -469,6 +470,72 @@ public class RuleQueryHandlerTests
         logger.Entries.ShouldContain(
             entry => entry.Exception is OverflowException,
             "the absorbed exception must be logged, since the caller no longer sees its message.");
+    }
+
+    // ---- #2582: CompiledRule.From must run inside the handler's try block ----
+
+    [Fact]
+    public async Task A_dry_run_of_a_stored_rule_that_does_not_compile_fails_with_a_typed_error()
+    {
+        // RulePredicate.From only checks length, not AEL grammar — Domain
+        // deliberately defers full validation to the Application edge, so
+        // this is the standard way this file reaches a state Create's real
+        // validation gate normally prevents (same trick as the overflow test
+        // above). A single '=' is invalid AEL grammar: AelLexer throws
+        // AelParseException("expected '==' (single '=' is not an operator)", …).
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("uncompilable")
+            .WithPredicate("$.payload.cycleTime = 30")
+            .Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        CapturingLogger<DryRunRuleQueryHandler> logger = new();
+
+        Result<DryRunResultDto, DryRunRuleError> result =
+            await new DryRunRuleQueryHandler(source, logger).HandleAsync(
+                new DryRunRuleQuery(Munich, "uncompilable", Sample), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        DryRunRuleError.EvaluationFailed failure =
+            result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
+        failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
+        failure.Status.ShouldBe(HttpStatusCode.BadRequest);
+        failure.Reason.ShouldContain("single '=' is not an operator");
+
+        logger.Entries.ShouldContain(
+            entry => entry.Exception is AelParseException,
+            "the parse failure must be logged, since the caller only sees its message.");
+    }
+
+    [Fact]
+    public async Task A_dry_run_whose_value_expression_does_not_compile_fails_with_a_typed_error()
+    {
+        // Same defect, reached through CompiledRule.From's second Parse call
+        // — the SetVariableValue action's value expression, not the
+        // predicate. The predicate itself is valid AEL.
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("uncompilable-value")
+            .WithPredicate("$.payload.cycleTime <= 30")
+            .WithAction(RuleAction.SetVariableValue.From("oeeLine1", "100 = $.payload.cycleTime"))
+            .Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        CapturingLogger<DryRunRuleQueryHandler> logger = new();
+
+        Result<DryRunResultDto, DryRunRuleError> result =
+            await new DryRunRuleQueryHandler(source, logger).HandleAsync(
+                new DryRunRuleQuery(Munich, "uncompilable-value", Sample), CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        DryRunRuleError.EvaluationFailed failure =
+            result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
+        failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
+        failure.Status.ShouldBe(HttpStatusCode.BadRequest);
+        failure.Reason.ShouldContain("single '=' is not an operator");
+
+        logger.Entries.ShouldContain(
+            entry => entry.Exception is AelParseException,
+            "the parse failure must be logged, since the caller only sees its message.");
     }
 
     // The widened filter (US2) must not turn a genuine match into a failure —
