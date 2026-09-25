@@ -45,8 +45,9 @@ public class RealmImportMirrorTests
         RealmProbe.Realm.ShouldBe(
             expected,
             $"RealmProbe.Realm is '{RealmProbe.Realm}' but {FullRealmImportPath()}'s root "
-            + $"'realm' field is '{expected}'. Mirror the realm edit into RealmProbe.Realm, or "
-            + "revert it; then delete the Keycloak volume.");
+            + $"'realm' field is '{expected}'. Make RealmProbe.Realm and the realm file agree; if "
+            + "the realm file is what changed, delete the Keycloak volume (the import only runs on "
+            + "a fresh volume).");
     }
 
     [Fact]
@@ -59,8 +60,9 @@ public class RealmImportMirrorTests
             1,
             $"found {matches.Length} clients named '{RealmProbe.AdminClientId}' "
             + $"(RealmProbe.AdminClientId) in {FullRealmImportPath()}'s 'clients' array; expected "
-            + "exactly one — Keycloak itself would reject a duplicate clientId. Mirror the realm "
-            + "edit into RealmProbe.AdminClientId, or revert it; then delete the Keycloak volume.");
+            + "exactly one — Keycloak itself would reject a duplicate clientId. Make "
+            + "RealmProbe.AdminClientId and the realm file agree; if the realm file is what "
+            + "changed, delete the Keycloak volume (the import only runs on a fresh volume).");
     }
 
     [Fact]
@@ -76,8 +78,9 @@ public class RealmImportMirrorTests
             expected,
             $"RealmProbe.AdminClientSecret is '{RealmProbe.AdminClientSecret}' but the "
             + $"'{RealmProbe.AdminClientId}' client's 'secret' in {FullRealmImportPath()} is "
-            + $"'{expected}'. Mirror the realm edit into RealmProbe.AdminClientSecret, or revert "
-            + "it; then delete the Keycloak volume.");
+            + $"'{expected}'. Make RealmProbe.AdminClientSecret and the realm file agree; if the "
+            + "realm file is what changed, delete the Keycloak volume (the import only runs on a "
+            + "fresh volume).");
     }
 
     [Fact]
@@ -92,8 +95,9 @@ public class RealmImportMirrorTests
             $"KeycloakAdminOptions.Realm's default is '{actual}' but {FullRealmImportPath()}'s "
             + $"root 'realm' field is '{expected}'. The AppHost supplies no Keycloak__Realm "
             + "override, so this default is what the Identity API authenticates against in dev "
-            + "and CI. Mirror the realm edit into KeycloakAdminOptions.Realm's default, or revert "
-            + "it; then delete the Keycloak volume.");
+            + "and CI. Make KeycloakAdminOptions.Realm's default and the realm file agree; if the "
+            + "realm file is what changed, delete the Keycloak volume (the import only runs on a "
+            + "fresh volume).");
     }
 
     [Fact]
@@ -108,9 +112,10 @@ public class RealmImportMirrorTests
             $"found {matches.Length} clients named '{clientId}' (KeycloakAdminOptions."
             + $"AdminClientId's default) in {FullRealmImportPath()}'s 'clients' array; expected "
             + "exactly one. The AppHost supplies no Keycloak__AdminClientId override, so this "
-            + "default is the client the Identity API authenticates as in dev and CI. Mirror the "
-            + "realm edit into KeycloakAdminOptions.AdminClientId's default, or revert it; then "
-            + "delete the Keycloak volume.");
+            + "default is the client the Identity API authenticates as in dev and CI. Make "
+            + "KeycloakAdminOptions.AdminClientId's default and the realm file agree; if the realm "
+            + "file is what changed, delete the Keycloak volume (the import only runs on a fresh "
+            + "volume).");
     }
 
     /// <summary>
@@ -148,8 +153,9 @@ public class RealmImportMirrorTests
             + $"'{actual}' but the '{clientId}' client's 'secret' in {FullRealmImportPath()} is "
             + $"'{expected}' — '{clientId}' is what KeycloakAdminOptions.AdminClientId defaults "
             + "to, the client Identity actually presents (AppHost.cs supplies only the secret). "
-            + $"Mirror the realm edit into AppHost.cs's '{IdentityAdminClientSecretParameter}' "
-            + "default, or revert it; then delete the Keycloak volume.");
+            + $"Make AppHost.cs's '{IdentityAdminClientSecretParameter}' default and the realm "
+            + "file agree; if the realm file is what changed, delete the Keycloak volume (the "
+            + "import only runs on a fresh volume).");
     }
 
     /// <summary>
@@ -233,9 +239,7 @@ public class RealmImportMirrorTests
                 + "compare any copy against it.");
         }
 
-        // The file carries a byte-order mark, which the JSON reader rejects
-        // (mirrors Architecture.Tests' SeededCredentialStrengthTests).
-        string text = System.IO.File.ReadAllText(path).TrimStart('﻿');
+        string text = System.IO.File.ReadAllText(path);
         return JsonDocument.Parse(text);
     }
 
