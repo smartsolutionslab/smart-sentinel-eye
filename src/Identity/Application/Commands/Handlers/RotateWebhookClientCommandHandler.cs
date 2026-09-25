@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
@@ -137,7 +138,12 @@ public sealed class RotateWebhookClientCommandHandler(
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException
-                                   and not InvalidOperationException)
+                                   and not InvalidOperationException
+                                   // A Layer-2 loser's DbUpdateConcurrencyException must propagate
+                                   // to ConcurrencyConflictExceptionHandler's 409
+                                   // AGGREGATE_VERSION_STALE (ADR-0113), not be swallowed here as
+                                   // 502 KEYCLOAK_UNAVAILABLE.
+                                   and not DbUpdateConcurrencyException)
         {
             return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
