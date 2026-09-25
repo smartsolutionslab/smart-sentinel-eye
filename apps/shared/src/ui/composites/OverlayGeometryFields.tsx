@@ -97,6 +97,11 @@ const LEGEND_STYLE = { fontSize: 14, padding: 0, marginBottom: 4 };
  * `visibility: hidden` (laid out, unpainted) and `aria-hidden="true"` (kept out
  * of the accessibility tree) — they never carry a `role`, so they cannot be
  * picked up by `getByRole('alert')` / `getByRole('status')`.
+ *
+ * The candidates duplicate the live message's own text in the DOM — hidden
+ * from the accessibility tree, but still findable by a text query. A test or
+ * caller that needs the live message should query by role (`getByRole('alert')`
+ * / `getByRole('status')`), not by text, or it may match more than one node.
  */
 function ReservedMessageSlot({
   candidates,
@@ -116,7 +121,7 @@ function ReservedMessageSlot({
           {text}
         </span>
       ))}
-      <div style={{ gridArea: '1 / 1' }}>{children}</div>
+      <div style={{ ...textStyle, gridArea: '1 / 1' }}>{children}</div>
     </div>
   );
 }
