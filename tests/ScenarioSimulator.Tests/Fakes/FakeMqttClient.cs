@@ -28,8 +28,10 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 ///
 /// <para>
 /// A deliberate second copy of EventIngestion's fake of the same name: the two
-/// test assemblies share no project, and this one gates connects and forces
-/// publish failures where that one records credentials and topics.
+/// test assemblies share no project. What differs between them is what each
+/// records — this one gates connects and forces publish failures where that
+/// one records credentials and topics — the drop/hold controls below are
+/// shared between both, not part of that difference.
 /// </para>
 /// </summary>
 internal sealed class FakeMqttClient : IMqttClient
@@ -38,6 +40,7 @@ internal sealed class FakeMqttClient : IMqttClient
     private int refusals;
     private int connectAttempts;
     private bool staleDuringNextConnect;
+    private TimeSpan? holdFor;
 
     public event Func<MqttApplicationMessageReceivedEventArgs, Task>? ApplicationMessageReceivedAsync;
 
@@ -90,6 +93,35 @@ internal sealed class FakeMqttClient : IMqttClient
     /// mosquitto restart that finishes on its own.
     /// </summary>
     public void RefuseEveryConnect() => refusals = int.MaxValue;
+
+    /// <summary>
+    /// Makes every connection end the moment it is usable, as a session takeover
+    /// does: both real clients connect with a fixed client id
+    /// (<c>event-ingestion</c>, <c>scenario-simulator</c>), so a second pod — or
+    /// a restart before the broker reaps the old session — is answered with a
+    /// CONNACK and then a close. The drop is raised from inside the CONNECT that
+    /// answers <c>Success</c>, so this is a connection that completed and then
+    /// vanished rather than one that was never usable — this publisher never
+    /// subscribes, unlike the loop this fake is borrowed from.
+    /// </summary>
+    public bool DropEveryConnectionImmediately { get; set; }
+
+    /// <summary>
+    /// Makes every connection last <paramref name="duration"/> and then drop —
+    /// a peer that keeps taking the session back at roughly its own reconnect
+    /// period. With a fixed client id two pods do exactly this to each other,
+    /// and the period they converge on is a little above the shorter of their
+    /// two floors, because whichever reconnects first wins the session.
+    ///
+    /// <para>
+    /// Distinct from <see cref="DropEveryConnectionImmediately"/>, and the
+    /// distance between them is the point: a connection that dies on arrival is
+    /// already covered, and a connection that outlives the backoff floor by a
+    /// hair is the case <c>ResetIfHeld</c>'s fixed yardstick cannot tell from a
+    /// connection that held.
+    /// </para>
+    /// </summary>
+    public void HoldEveryConnectionFor(TimeSpan duration) => holdFor = duration;
 
     /// <summary>
     /// Raises a disconnect for a connection that never existed, leaving
@@ -221,7 +253,23 @@ internal sealed class FakeMqttClient : IMqttClient
         }
 
         IsConnected = true;
-        return new MqttClientConnectResult { ResultCode = MqttClientConnectResultCode.Success };
+
+        MqttClientConnectResult result = new() { ResultCode = MqttClientConnectResultCode.Success };
+
+        if (DropEveryConnectionImmediately)
+        {
+            await DropAsync();
+            return result;
+        }
+
+        if (holdFor is TimeSpan hold)
+        {
+            // Scheduled rather than awaited: a CONNECT that took the whole hold
+            // to answer would move the delay into the wrong packet.
+            _ = HoldThenDropAsync(hold);
+        }
+
+        return result;
     }
 
     public Task<MqttClientPublishResult> PublishAsync(
@@ -279,5 +327,11 @@ internal sealed class FakeMqttClient : IMqttClient
         _ = ConnectedAsync;
         _ = ConnectingAsync;
         _ = InspectPacketAsync;
+    }
+
+    private async Task HoldThenDropAsync(TimeSpan hold)
+    {
+        await Task.Delay(hold);
+        await DropAsync();
     }
 }
