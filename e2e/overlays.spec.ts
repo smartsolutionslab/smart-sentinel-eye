@@ -497,3 +497,200 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     await second.close();
   }
 });
+
+// Spec 256 (issue #2366) T002 — the one thing jsdom cannot prove
+// (spec.md §1, plan.md §4.1): a real pointer click is a `mousedown` +
+// `mouseup` pair, and `OverlayGeometryFields.tsx`'s blur-commit (spec 151
+// FR-004) mounts a `role="alert"` as a new sibling above the Save button,
+// which moves it between the two events — the `mouseup` lands on empty
+// space and no `click` is ever dispatched to Save. Playwright's `click()`
+// waits for the element to be stable and then presses and releases at a
+// single point, exactly the pair the defect needs, so these reproduce the
+// bug rather than approximate it (unlike `fireEvent.click`, which jsdom
+// cannot lay out and so cannot move a target under). New behaviour, RED
+// (ADR-0139/ADR-0144) against unmodified `develop`: (1) and (2) below are
+// expected to time out waiting for the overlay's name to reach the list —
+// the single click never reaches the form — and (3)/(4) are expected to
+// report a differing Save button `y`.
+//
+// The refusal used throughout is a **size** message (Width, `0`), never
+// "Enter a number." — the size message wraps to several lines in the
+// dialog's `max-w-md` four-column row (spec.md §3.1), so the shift the
+// mousedown/mouseup race needs is not marginal.
+test('operator saves through a single click while Width holds a refused draft (spec 256, issue #2366)', async ({
+  page,
+}) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  const gatewayRequest = page.waitForRequest((request) => /\/overlay-designer\//.test(request.url()));
+
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  const origin = new URL((await gatewayRequest).url()).origin;
+  const token = await page.evaluate(() => {
+    const key = Object.keys(window.sessionStorage).find((candidate) => candidate.startsWith('oidc.user:'));
+    const user = JSON.parse(window.sessionStorage.getItem(key ?? '') ?? '{}') as Record<string, string>;
+    return user['access_token'] ?? '';
+  });
+  expect(token, 'the operator should be holding an access token').not.toBe('');
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+
+  const name = `E2E Race Refused ${Date.now()}`;
+  await page.locator('#overlay-name').fill(name);
+
+  // Left in a refused state, focus not moved away by Tab/Enter — the
+  // operator's next pointer action is what commits and blurs it.
+  await page.getByLabel('Width', { exact: true }).fill('0');
+
+  // One click: mousedown blurs Width (committing the refused draft and
+  // mounting the alert), mouseup must still land on Save.
+  await page.getByRole('button', { name: /save as draft/i }).click();
+
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  const overlays = await page.evaluate(
+    async ([gatewayOrigin, accessToken]) => {
+      const response = await fetch(`${gatewayOrigin}/overlay-designer/overlays`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      return (await response.json()) as {
+        chains: { name: string; revisions: { normalizedWidth: number }[] }[];
+      };
+    },
+    [origin, token] as const,
+  );
+
+  const saved = overlays.chains.find((chain) => chain.name === name);
+  expect(saved, `the saved overlay "${name}" should be readable back through the gateway`).toBeTruthy();
+  // Spec 151 FR-010 — a refused draft is not emitted; the last committed
+  // value (DEFAULT_INPUT's 0.3) is the truth, exactly as today's *second*
+  // click already saves. This spec makes click one behave like click two.
+  expect(saved!.revisions[0]!.normalizedWidth).toBe(0.3);
+});
+
+test('operator saves a valid, off-edge commit through a single click (spec 256, issue #2366)', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  const gatewayRequest = page.waitForRequest((request) => /\/overlay-designer\//.test(request.url()));
+
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  const origin = new URL((await gatewayRequest).url()).origin;
+  const token = await page.evaluate(() => {
+    const key = Object.keys(window.sessionStorage).find((candidate) => candidate.startsWith('oidc.user:'));
+    const user = JSON.parse(window.sessionStorage.getItem(key ?? '') ?? '{}') as Record<string, string>;
+    return user['access_token'] ?? '';
+  });
+  expect(token, 'the operator should be holding an access token').not.toBe('');
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+
+  const name = `E2E Race Advisory ${Date.now()}`;
+  await page.locator('#overlay-name').fill(name);
+
+  // Accepted, but off-edge — Left 90 with the default 30%-wide box clips the
+  // right edge and raises the non-blocking advisory (FR-012), which also
+  // grows the always-mounted status span. Left unblurred: the click itself
+  // commits it.
+  await page.getByLabel('Left', { exact: true }).fill('90');
+
+  await page.getByRole('button', { name: /save as draft/i }).click();
+
+  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  const overlays = await page.evaluate(
+    async ([gatewayOrigin, accessToken]) => {
+      const response = await fetch(`${gatewayOrigin}/overlay-designer/overlays`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      return (await response.json()) as {
+        chains: { name: string; revisions: { normalizedX: number }[] }[];
+      };
+    },
+    [origin, token] as const,
+  );
+
+  const saved = overlays.chains.find((chain) => chain.name === name);
+  expect(saved, `the saved overlay "${name}" should be readable back through the gateway`).toBeTruthy();
+  expect(saved!.revisions[0]!.normalizedX).toBe(0.9);
+});
+
+// The mechanism, observed directly (spec.md §5 scenario 3): no save
+// involved, so no disposable and no `FIRST_WRITE_*` budget — the teardown's
+// `E2E ` pattern is not implicated (mirrors the White-field backdrop test's
+// reasoning above).
+test('a refusal message appearing on blur does not move the Save button (spec 256, issue #2366)', async ({ page }) => {
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+
+  const widthField = page.getByLabel('Width', { exact: true });
+  await widthField.fill('0');
+
+  const saveButton = page.getByRole('button', { name: /save as draft/i });
+  const before = await saveButton.boundingBox();
+  if (before === null) {
+    throw new Error('the Save button should have a bounding box once the dialog has rendered');
+  }
+
+  await widthField.blur();
+
+  await expect(page.getByRole('alert')).toBeVisible();
+  const after = await saveButton.boundingBox();
+  if (after === null) {
+    throw new Error('the Save button should still have a bounding box after the refusal renders');
+  }
+  expect(after.y).toBe(before.y);
+
+  await page.getByRole('button', { name: /^cancel$/i }).click();
+});
+
+test('the advisory appearing and clearing does not move the Save button (spec 256, issue #2366)', async ({ page }) => {
+  await signInAsOperator(page);
+
+  await page.getByRole('link', { name: /^overlays$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+
+  const leftField = page.getByLabel('Left', { exact: true });
+  const saveButton = page.getByRole('button', { name: /save as draft/i });
+  const advisory = page.getByTestId('overlay-geometry-advisory');
+
+  const before = await saveButton.boundingBox();
+  if (before === null) {
+    throw new Error('the Save button should have a bounding box once the dialog has rendered');
+  }
+
+  await leftField.fill('90');
+  await leftField.blur();
+
+  await expect(advisory).toContainText('clipped');
+  const afterAdvisoryShown = await saveButton.boundingBox();
+  if (afterAdvisoryShown === null) {
+    throw new Error('the Save button should still have a bounding box after the advisory renders');
+  }
+  expect(afterAdvisoryShown.y).toBe(before.y);
+
+  await leftField.fill('10');
+  await leftField.blur();
+
+  await expect(advisory).toHaveText('');
+  const afterAdvisoryCleared = await saveButton.boundingBox();
+  if (afterAdvisoryCleared === null) {
+    throw new Error('the Save button should still have a bounding box after the advisory clears');
+  }
+  expect(afterAdvisoryCleared.y).toBe(before.y);
+
+  await page.getByRole('button', { name: /^cancel$/i }).click();
+});
