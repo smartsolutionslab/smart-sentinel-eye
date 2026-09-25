@@ -20,6 +20,15 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     public IReadOnlyList<RegisteredClientAggregate> Clients => _clients;
 
     /// <summary>
+    /// One-shot: when set, the next <see cref="SaveAsync"/> throws this
+    /// instead of committing, then resets to <c>null</c>. Mirrors
+    /// <see cref="FakeKeycloakAdminClient.FailNextCall"/>'s shape, for the
+    /// same reason — a test injects a Layer-2 loser's exception without a
+    /// second real caller racing it.
+    /// </summary>
+    public Exception? FailNextSaveWith { get; set; }
+
+    /// <summary>
     /// Places a client that already exists in the database, at
     /// <paramref name="version"/>. Distinct from <see cref="Add"/>, which is
     /// the production path for a row being created now: the interceptor does
@@ -81,6 +90,13 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
+        if (FailNextSaveWith is not null)
+        {
+            Exception toThrow = FailNextSaveWith;
+            FailNextSaveWith = null;
+            throw toThrow;
+        }
+
         foreach (RegisteredClientAggregate c in _clients)
         {
             // Mirrors AggregateVersionInterceptor.RequiresBump: an Added root
