@@ -22,7 +22,6 @@ public static partial class OverlayEndpoints
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
-        Ensure.That(body.Label).IsNotNull();
         Ensure.That(http).IsNotNull();
 
         CreateOverlayDraftCommandHandler handler = services.Handler;
@@ -36,6 +35,7 @@ public static partial class OverlayEndpoints
         Label label;
         try
         {
+            Ensure.That(body.Label).IsNotNull();
             name = OverlayName.From(body.Name);
             label = Label.From(
                 body.Label.Text,
@@ -196,7 +196,6 @@ public static partial class OverlayEndpoints
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
-        Ensure.That(body.Label).IsNotNull();
         if (overlayIdentifier == Guid.Empty)
         {
             return Results.Problem(
@@ -208,6 +207,7 @@ public static partial class OverlayEndpoints
         Label label;
         try
         {
+            Ensure.That(body.Label).IsNotNull();
             number = OverlayRevisionNumber.From(revisionNumber);
             label = Label.From(
                 body.Label.Text,
