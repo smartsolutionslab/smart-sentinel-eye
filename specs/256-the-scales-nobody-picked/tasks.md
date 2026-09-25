@@ -23,24 +23,24 @@ three to five lines each, so fan them out only if the orchestrator is already fa
 
 ## Phase 4a: red (test-writer; commit 2 of plan §8)
 
-- [ ] **T001 [P] [US1][US2]** `tests/Architecture.Tests/DesignTokenLayerTests.cs`: facts 1–12 of
+- [x] **T001 [P] [US1][US2]** `tests/Architecture.Tests/DesignTokenLayerTests.cs`: facts 1–12 of
   plan §5.1. Follow `ContainerImagePinTests` for the shape: a private `RepositoryRoot()`, a
   comment-stripped read, and failure messages that say what to do. Locate the token file **by
   following each app's first `@import`**, not by name. Include the private OKLCH/hex → 8-bit sRGB
   resolver (plan §5.1 fact 7). Constants `#00c853`, `#ff5252`, `#ffab40`, `#0b0d10`, `#14171c`
   cite ADR-0146 in a comment.
-- [ ] **T002 [P] [US3]** `tests/Architecture.Tests/SharedUiTokenUsageTests.cs`: plan §5.2.
+- [x] **T002 [P] [US3]** `tests/Architecture.Tests/SharedUiTokenUsageTests.cs`: plan §5.2.
   Strip comments, then apply the rules to string literals only. The carve-out list (4 files,
   each tagged `#2342`) sits in the test with its reason, plus the fact that each carve-out
   still exists and still violates.
-- [ ] **T003 [P] [US2]** `apps/management-web/src/styles/tokens.build.test.ts`: plan §5.3 and
+- [x] **T003 [P] [US2]** `apps/management-web/src/styles/tokens.build.test.ts`: plan §5.3 and
   F9 (`@vitest-environment node`; `postcss` + `@tailwindcss/postcss` from the app; virtual
   `src/styles/__probe__.css` importing `./index.css` + `@source inline(...)`; `base` = app
   root). The assertion list is exactly plan §5.3, with `.rounded-md` marked as a green pin
   in a comment.
-- [ ] **T004 [P] [US2]** `apps/kiosk-web/src/styles/tokens.build.test.ts`: the same as T003,
+- [x] **T004 [P] [US2]** `apps/kiosk-web/src/styles/tokens.build.test.ts`: the same as T003,
   for kiosk-web.
-- [ ] **T005** Run and capture **verbatim**:
+- [x] **T005** Run and capture **verbatim**:
   `dotnet test tests/Architecture.Tests --filter "FullyQualifiedName~DesignTokenLayer|FullyQualifiedName~SharedUiTokenUsage"`,
   `pnpm --filter @smart-sentinel-eye/management-web exec vitest run src/styles/tokens.build.test.ts`,
   and the same for kiosk-web.
@@ -53,7 +53,7 @@ three to five lines each, so fan them out only if the orchestrator is already fa
   - Build tests: every assertion red except `.rounded-md`.
 
   If any fact expected red arrives green, stop and report. Do not adjust it until it is red.
-- [ ] **T006** Counterfactual for fact 10 (plan §5.1). In a scratch copy, add
+- [x] **T006** Counterfactual for fact 10 (plan §5.1). In a scratch copy, add
   `var(--gray-900)` to one `apps/*/src` CSS file and run the fact against it. Quote the
   failure, then revert. It goes in the PR body with T005's output. Commit T001–T004 as
   `test(tokens): pin the token layers, the shared theme and the shared UI's token use red-first`.
@@ -64,7 +64,7 @@ Depends: T001–T004 → T005 → T006.
 
 ### US1 + US2 (commit 3 of plan §8, one commit)
 
-- [ ] **T010 [US1]** Create `apps/shared/src/ui/tokens/tokens.css` exactly per plan §2–§3. That
+- [x] **T010 [US1]** Create `apps/shared/src/ui/tokens/tokens.css` exactly per plan §2–§3. That
   is: primitives (§2.1); the semantic dark defaults and non-colour categories (§2.2–§2.8);
   the bridges `--default-transition-duration: var(--duration-fast)` and
   `--default-transition-timing-function: var(--ease-out)`; the `light` and `high-contrast`
@@ -72,16 +72,16 @@ Depends: T001–T004 → T005 → T006.
   comment covers ADR-0148, the layer rule, the `<html>` caveat, the absence of `--blur-*`,
   and the fact that the file stays unlayered. Copy `--font-sans`/`--font-mono` verbatim from
   `node_modules/tailwindcss/theme.css`. **Blocks T011–T022.**
-- [ ] **T011 [P] [US2]** Create `apps/shared/src/ui/tokens/tailwindTheme.ts` per plan §4.1.
+- [x] **T011 [P] [US2]** Create `apps/shared/src/ui/tokens/tailwindTheme.ts` per plan §4.1.
   Put no `DEFAULT` in `transitionDuration`/`transitionTimingFunction` (F5). Every value is
   `'var(--semantic)'`.
-- [ ] **T012 [P] [US2]** `apps/management-web/tailwind.config.ts`: `theme: tailwindTheme` via
+- [x] **T012 [P] [US2]** `apps/management-web/tailwind.config.ts`: `theme: tailwindTheme` via
   `../shared/src/ui/tokens/tailwindTheme`, with no local `var(--`. In
   `src/styles/index.css`, change the first import to `…/tokens/tokens.css`.
-- [ ] **T013 [P] [US2]** `apps/kiosk-web/tailwind.config.ts` and `src/styles/index.css`: the same
+- [x] **T013 [P] [US2]** `apps/kiosk-web/tailwind.config.ts` and `src/styles/index.css`: the same
   as T012. Leave the pulse block byte-identical.
-- [ ] **T014 [P] [US1]** Delete `apps/shared/src/ui/tokens/colors.css`.
-- [ ] **T015** Run T005's three commands. Every fact and assertion should be green. Run the
+- [x] **T014 [P] [US1]** Delete `apps/shared/src/ui/tokens/colors.css`.
+- [x] **T015** Run T005's three commands. Every fact and assertion should be green. Run the
   full `Architecture.Tests` project, `pnpm typecheck`, `pnpm lint` and `pnpm test`
   (workspace). Run `pnpm build` for both apps. Commit
   `feat(tokens): two-layer OKLCH token file consumed by both apps through one theme`.
@@ -92,22 +92,22 @@ Depends: T010 → (T011 ∥ T014) → (T012 ∥ T013) → T015.
 
 ### US3 (commit 4 of plan §8)
 
-- [ ] **T020 [P] [US3]** `apps/shared/src/ui/primitives/Dialog.tsx` and `ConfirmDialog.tsx`:
+- [x] **T020 [P] [US3]** `apps/shared/src/ui/primitives/Dialog.tsx` and `ConfirmDialog.tsx`:
   - The overlay goes `bg-black/60` → `bg-scrim` and gains `z-overlay`. Keep
     `backdrop-blur-sm` (console-only; ADR-0148 allows it at the call site).
   - The content goes `bg-bg-elevated` → `bg-bg-raised`, `border-fg-muted` →
     `border-border-subtle`, `shadow-xl` → `shadow-overlay`, and gains `z-overlay`.
   - Leave `rounded-lg` as is.
-- [ ] **T021 [P] [US3]** `apps/shared/src/ui/primitives/Tooltip.tsx`:
+- [x] **T021 [P] [US3]** `apps/shared/src/ui/primitives/Tooltip.tsx`:
   - The content goes `bg-bg-elevated` → `bg-bg-raised`, `border-fg-muted/40` →
     `border-border-subtle`, `shadow-md` → `shadow-popover`, and gains `z-tooltip`.
   - The arrow goes `fill-bg-elevated` → `fill-bg-raised`.
-- [ ] **T022 [P] [US3]** `apps/shared/src/ui/composites/DataTable.tsx`: `border-fg-muted/30`
+- [x] **T022 [P] [US3]** `apps/shared/src/ui/composites/DataTable.tsx`: `border-fg-muted/30`
   and `border-fg-muted/20` → `border-border-subtle`. Leave the sort button's
   `ring-accent-active` (#2336). `CameraViewer.tsx`: `bg-black` → `bg-bg-video`,
   `bg-black/60` → `bg-scrim`. The resolved colours are the same, which is the render-leg
   argument in spec §5.
-- [ ] **T023** `SharedUiTokenUsageTests` green; the full Architecture.Tests suite and `pnpm test`
+- [x] **T023** `SharedUiTokenUsageTests` green; the full Architecture.Tests suite and `pnpm test`
   green. Commit
   `refactor(ui): cite semantic tokens in the shared floating primitives, table and viewer`.
 
@@ -115,22 +115,24 @@ Depends: T015 → (T020 ∥ T021 ∥ T022) → T023.
 
 ## Phase 5: verify
 
-- [ ] **T030** Spec §7 steps 3–5, in a real browser, for both apps. Read these computed values
-  and record them in the verification note:
-  - `bg-base` → `rgb(11, 13, 16)`
-  - a triad badge → `rgb(0, 200, 83)`
-  - Dialog: its background, border and shadow
-  - `transition-duration` on a Button → `0.12s`
-  - `font-variant-numeric` on a table cell → `tabular-nums`
-
-  Toggle `data-theme` to `light` and to `high-contrast`, and screenshot each. Check the
-  result against plan §7's expected-change list, item by item.
+- [~] **T030** Scoped down by the orchestrator: this phase ran as a build-based check
+  instead of a live-browser/Playwright pass (no Aspire stack for a frontend-only design-token
+  change). Verified via `pnpm build` on both apps and reading `dist/assets/*.css` directly:
+  `--color-bg-base` resolves through `var(--gray-950)` to `oklch(15.82% .0072 258.4)` (the kept
+  `#0b0d10`), `--color-accent-active` resolves through `var(--green-500)` to the triad's legacy
+  hex, `.rounded-md`/`.p-4`/`.shadow-overlay` compile to their tokens, `font-variant-numeric`
+  is applied from `--font-numeric`, and the `--blur-sm` hit in kiosk-web's bundle is confirmed
+  to be Tailwind's own stock variable (unused by any kiosk-rendered element) not a token-file
+  leak. Live `data-theme` toggling and screenshots were not captured — a real gap against
+  plan §7's original procedure, left for whoever verifies theme switching once something
+  actually sets `data-theme='light'`/`'high-contrast'` (§3: "theme switching UI... no issue yet").
 - [ ] **T031** Read the spec-225 render-leg check from the PR's CI run. Cite the figure against
-  the 50 ms leg (SC-005).
+  the 50 ms leg (SC-005). **Not run** — CI hasn't executed against this branch's tip yet at PR
+  open; the PR body says so and this stays open for whoever reads the CI run.
 
 ## Phase 6: review
 
-- [ ] **T040** `frontend-reviewer` on the diff. `backend-reviewer` on the two `.cs` files. Check
+- [x] **T040** `frontend-reviewer` on the diff. `backend-reviewer` on the two `.cs` files. Check
   three things specifically:
   - no primitive is cited outside `tokens.css`;
   - no wall prohibition is loosened (no blur token; no shadow reaches kiosk-web);
