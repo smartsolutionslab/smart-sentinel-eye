@@ -98,10 +98,10 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
         using (sample)
         {
             EvaluationContext context = new(sample.RootElement);
-            CompiledRule compiled = CompiledRule.From(rule);
 
             try
             {
+                CompiledRule compiled = CompiledRule.From(rule);
                 AelValue verdict = AelInterpreter.Evaluate(compiled.CompiledPredicate, context);
 
                 // Same truthiness rule as RuleEvaluator — a non-boolean result
