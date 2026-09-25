@@ -154,9 +154,9 @@ not see, on purpose** (spec 252 / #2470):
   a design change: revisit this guard with it.
 - **`Database.ExecuteSql*` / `ExecuteUpdate*` / `ExecuteDelete*`** — they join
   the ambient transaction rather than bypass it, so whether one escapes the
-  outbox is a runtime fact, not a call-site fact. Seven live sites on
-  2026-09-25, four in scanned assemblies, none announcing anything. A rule for
-  raw-SQL writes to announcing aggregates would be a different guard.
+  outbox is a runtime fact, not a call-site fact. Eight live `ExecuteSql*`
+  sites on 2026-09-25, four in scanned assemblies, none announcing anything. A
+  rule for raw-SQL writes to announcing aggregates would be a different guard.
 - **Reflection, `dynamic`, expression trees** — no IL call site to match.
 
 Keep it short: one or two lines each; the reasoning in full lives in spec §2.

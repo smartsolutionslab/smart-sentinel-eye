@@ -147,18 +147,26 @@ public class OutboxCommitTests
     ///
     /// <para>
     /// <b>Depth 2, not just depth 1.</b> An <c>async</c> lambda that captures a
-    /// parameter or a local (or is <c>static</c>) is lifted into a closure
-    /// display-class, and the lambda's own body is then compiled into a state
-    /// machine nested <em>inside that display class</em> —
-    /// <c>Type+&lt;&gt;c__DisplayClass0_0+&lt;&lt;Method&gt;b__0&gt;d</c> — because
-    /// the state machine still needs the captured values the display class
-    /// holds. A walk that stops at the candidate's immediate nested types finds
-    /// the display class but never looks inside it, so the walk here is
-    /// transitive: every nested type, and every type nested inside that, all the
-    /// way down. An async lambda that captures only <c>this</c> (e.g. via a
-    /// primary-constructor field) needs no display class — it is lifted directly
-    /// onto the type — so it stays at depth 1 and was already reached before this
-    /// walk became transitive.
+    /// parameter or a local is lifted into a closure display-class, and the
+    /// lambda's own body is then compiled into a state machine nested
+    /// <em>inside that display class</em> —
+    /// <c>Type+&lt;&gt;c__DisplayClass0_0+&lt;&lt;Method&gt;b__0&gt;d</c> —
+    /// because the state machine still needs the captured values the display
+    /// class holds. A non-capturing or <c>static</c> async lambda has nothing to
+    /// hold, so it takes a different path: the compiler's <c>&lt;&gt;c</c>
+    /// singleton, not a display class, with the state machine nested inside
+    /// <em>that</em> instead — <c>Type+&lt;&gt;c+&lt;&lt;Method&gt;b__0&gt;d</c>.
+    /// Both shapes land at depth 2, and the non-capturing one is the more common
+    /// shape in this codebase's own EF idiom — e.g.
+    /// <c>strategy.ExecuteAsync(state, async (ctx, ct) =&gt; await
+    /// ctx.SaveChangesAsync(ct), ...)</c> captures nothing, so it goes through
+    /// <c>&lt;&gt;c</c>. A walk that stops at the candidate's immediate nested
+    /// types finds the display class or the <c>&lt;&gt;c</c> singleton but never
+    /// looks inside it, so the walk here is transitive: every nested type, and
+    /// every type nested inside that, all the way down. An async lambda that
+    /// captures only <c>this</c> (e.g. via a primary-constructor field) needs no
+    /// display class either — it is lifted directly onto the type — so it stays
+    /// at depth 1 and was already reached before this walk became transitive.
     /// </para>
     /// </summary>
     private static bool CallsSaveChangesDirectly(Type type) =>
@@ -190,6 +198,7 @@ public class OutboxCommitTests
     /// <see cref="DbContext.SaveChangesAsync(CancellationToken)"/>, whether
     /// invoked directly or loaded as a method-group delegate.
     /// </summary>
+    /// <remarks>
     /// <para>
     /// <b>What this does not see, on purpose</b> (spec 252 / #2470):
     /// </para>
@@ -203,13 +212,16 @@ public class OutboxCommitTests
     /// is a design change, and this guard needs revisiting alongside it.
     /// </description></item>
     /// <item><description>
-    /// <b><see cref="DbContext.Database"/>.ExecuteSql*/ExecuteUpdate*/ExecuteDelete*.</b>
+    /// <b><see cref="DbContext.Database"/>.ExecuteSql*, and separately the
+    /// <c>IQueryable</c> extension methods <c>ExecuteUpdate*</c> /
+    /// <c>ExecuteDelete*</c> (not <c>Database</c> members at all).</b>
     /// These join the ambient transaction rather than bypass it, so whether one
     /// escapes the outbox is a runtime fact (was there an ambient transaction?),
-    /// not a call-site fact an IL scan can decide. Seven live sites on
-    /// 2026-09-25, four in scanned assemblies, none announcing anything they
-    /// commit. A rule for a raw-SQL write against an announcing aggregate is a
-    /// different guard, with a different instrument.
+    /// not a call-site fact an IL scan can decide. Eight live
+    /// <c>ExecuteSql*</c> sites on 2026-09-25 (no <c>ExecuteUpdate*</c>/
+    /// <c>ExecuteDelete*</c> occurrences), four in scanned assemblies, none
+    /// announcing anything they commit. A rule for a raw-SQL write against an
+    /// announcing aggregate is a different guard, with a different instrument.
     /// </description></item>
     /// <item><description>
     /// <b>Reflection, <c>dynamic</c>, expression trees.</b> None of these leaves
@@ -218,6 +230,7 @@ public class OutboxCommitTests
     /// here for a pattern match to see.
     /// </description></item>
     /// </list>
+    /// </remarks>
     private static bool ReferencesSaveChanges(MethodBody body, Module module)
     {
         byte[] il = body.GetILAsByteArray() ?? [];

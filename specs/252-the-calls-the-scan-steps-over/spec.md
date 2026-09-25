@@ -86,7 +86,7 @@ lambda, and no interface reaches `SaveChanges` anywhere in `src/`.**
 exists. No `CreateExecutionStrategy` (the EF pattern that most naturally puts
 `SaveChangesAsync` in an async lambda) exists.
 
-`ExecuteSql*` **is live** — seven call sites, four of them in assemblies the
+`ExecuteSql*` **is live** — eight call sites, four of them in assemblies the
 guard scans:
 
 | Site | Assembly scanned? | What it is |
@@ -107,7 +107,7 @@ guard scans:
 | A | Method group → delegate (`ldvirtftn`, and `ldftn` for `base.`) | no | **Guard it.** One more opcode family in the same token comparison. |
 | B | Async lambda's state machine nested in a closure class (depth ≥ 2) | no | **Guard it.** Walk nested types transitively instead of one level. |
 | C | `DbContext` reached through an interface | no (re-verified) | **Accepted blind spot, documented.** |
-| D | `Database.ExecuteSql*` (and `ExecuteUpdate/Delete`) | **yes, 7 sites** | **Out of this guard's scope, documented.** |
+| D | `Database.ExecuteSql*` (and `ExecuteUpdate/Delete`) | **yes, 8 sites** | **Out of this guard's scope, documented.** |
 
 ### 2.1 Why A and B are in
 
@@ -152,13 +152,21 @@ that **joins** the ambient `DbContext` transaction if there is one and
 autocommits if there is not. Whether a given call is inside the outbox
 transaction is a property of the caller's runtime context, not of the call site
 — exactly what an IL pattern cannot see. Flagging the call site would turn the
-guard red on four legitimate sites today (audit sink, dedup reservation, two
-DDL provisioners — none of which announce anything) and would force the
-exemption list the class doc argues against, four entries on day one. That is a
-different rule ("a raw-SQL write must not modify an aggregate that announces
-events"), with a different instrument, and it gets its own issue if anyone
-wants it. This spec records the gap and the live sites in the guard's doc; it
-files no follow-up issue, because nothing observed today is a defect.
+guard red today on the **one** site that is actually a candidate under this
+branch's filter (`.Persistence` namespace + `Repository`-suffix name):
+`AuditEventRepository`. `VariableValueRequestDedupStore`,
+`FabPartitionProvisioner` and `EventPartitionRolloverMigrator` sit in scanned
+assemblies too, but their type names don't end in `Repository`, so they are not
+candidates today — that becomes **four** once #2469's every-top-level-type
+candidate filter lands (unmerged, PR #2587). At that point #2469 also ships its
+own `PermittedDirectCommits` exemption list, so flagging the call site would
+not force a *new* exemption list into existence the way it would today — it
+would add four entries to one #2469 already carries, which changes the force
+of this argument rather than removing it. This is still a different rule ("a
+raw-SQL write must not modify an aggregate that announces events"), with a
+different instrument, and it gets its own issue if anyone wants it. This spec
+records the gap and the live sites in the guard's doc; it files no follow-up
+issue, because nothing observed today is a defect.
 
 ### 2.4 Other blind spots written down at the same time
 
