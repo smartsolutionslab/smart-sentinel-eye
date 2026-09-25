@@ -37,6 +37,21 @@ async function fillValidCamera(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/rtsp/i), 'rtsp://10.0.5.12/h264');
 }
 
+// Drives the *same* mounted RegisterCameraDialog instance's `open` prop false
+// then true, inside the Provider renderDialog() already rendered (mirrors
+// SystemVariableDialog.test.tsx's toggleOpen). CamerasPage.tsx:192 keeps the
+// dialog mounted while closed, so this is what a real Cancel/Esc/overlay-click
+// close does to the component instance; unmounting and remounting would reset
+// every useState/useForm value for free and pass on unfixed code, proving
+// nothing about issue #2579.
+function toggleOpen(rerender: ReturnType<typeof render>['rerender'], open: boolean) {
+  rerender(
+    <Provider store={store}>
+      <RegisterCameraDialog open={open} onOpenChange={() => {}} />
+    </Provider>,
+  );
+}
+
 describe('RegisterCameraDialog', () => {
   beforeEach(() => {
     registerMock.mockClear();
@@ -118,5 +133,26 @@ describe('RegisterCameraDialog', () => {
 
     expect(screen.queryByText(/choose which fab/i)).not.toBeInTheDocument();
     expect(registerMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Issue #2579 (spec 256) US2 — new behaviour, RED. Cancel calls the
+   * parent's onOpenChange(false) directly, bypassing the Dialog's own
+   * onOpenChange wrapper (`:81-86`), which is the only place today's code
+   * resets the form. The close effect (`:33-46`) resets the mutation state
+   * and fabId/fabError but not the form, so typed Name and RTSP URL survive
+   * a close/reopen that never touches the wrapper.
+   */
+  it('Drops the typed name and RTSP URL when the dialog is closed and reopened without unmounting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+
+    await fillValidCamera(user);
+
+    toggleOpen(rerender, false);
+    toggleOpen(rerender, true);
+
+    expect(screen.getByLabelText(/name/i)).toHaveValue('');
+    expect(screen.getByLabelText(/rtsp/i)).toHaveValue('');
   });
 });

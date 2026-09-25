@@ -57,6 +57,21 @@ function renderDialog() {
   );
 }
 
+// Drives the *same* mounted RuleDialog instance's `open` prop false then
+// true, inside the Provider renderDialog() already rendered (mirrors
+// SystemVariableDialog.test.tsx's toggleOpen). RulesPage.tsx:213 keeps the
+// dialog mounted while closed, so this is what a real Cancel/Esc/overlay-click
+// close does to the component instance; unmounting and remounting would reset
+// every useState/useForm value for free and pass on unfixed code, proving
+// nothing about issue #2579.
+function toggleOpen(rerender: ReturnType<typeof render>['rerender'], open: boolean) {
+  rerender(
+    <Provider store={store}>
+      <RuleDialog open={open} onOpenChange={() => {}} />
+    </Provider>,
+  );
+}
+
 describe('RuleDialog', () => {
   beforeEach(() => {
     createMock.mockClear();
@@ -389,6 +404,32 @@ describe('RuleDialog', () => {
     expect(await screen.findByText(/variable name is required for setvariablevalue/i)).toBeInTheDocument();
     expect(screen.getByText(/value expression is required for setvariablevalue/i)).toBeInTheDocument();
     expect(createMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Issue #2579 (spec 256) US3 — new behaviour, RED. Unlike the other two
+   * dialogs, RuleDialog has no `if (!open) reset(...)` anywhere: its close
+   * effect (`:40-46`) resets only the mutation state and fabId/fabError, and
+   * the Dialog gets `onOpenChange={onOpenChange}` directly (`:109`) with no
+   * wrapper to reset from either. So Cancel, Esc and overlay click all leave
+   * typed values in place; `toggleOpen` models exactly what all three do to
+   * this always-mounted component instance.
+   */
+  it('Drops the typed name, predicate and trigger source when the dialog is closed and reopened without unmounting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.x > 1');
+    await user.clear(screen.getByLabelText(/trigger source/i));
+    await fill(user, screen.getByLabelText(/trigger source/i), 'mqtt');
+
+    toggleOpen(rerender, false);
+    toggleOpen(rerender, true);
+
+    expect(screen.getByLabelText(/^name$/i)).toHaveValue('');
+    expect(screen.getByLabelText(/predicate/i)).toHaveValue('');
+    expect(screen.getByLabelText(/trigger source/i)).toHaveValue('plc');
   });
 });
 

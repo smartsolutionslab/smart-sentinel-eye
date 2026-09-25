@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
@@ -49,29 +49,23 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     defaultValues: DEFAULT_INPUT,
   });
 
+  // clearOnClose always sees the latest reset/resetMutationState via
+  // useEffectEvent; the effect itself only re-fires when `open` changes, so
+  // Cancel/Esc/overlay-click (which all flip `open`, not call this directly)
+  // all land here exactly once per close.
+  const clearOnClose = useEffectEvent(() => {
+    resetMutationState();
+    reset(DEFAULT_INPUT);
+    setFabId('');
+    setFabError(null);
+  });
+
   // Drop any prior backend error and typed input when the dialog closes so a
   // stale banner or value doesn't greet the operator on the next open (the
   // mutation result and the form values both live outside the unmounted
   // dialog's DOM — the parent renders this dialog unconditionally).
   useEffect(() => {
-    if (!open) {
-      // Deps are deliberately just [open], not exhaustive. Radix has already
-      // unmounted the form's inputs by the time this runs (open is false), and
-      // calling RHF's reset() against unmounted fields forces a formState
-      // broadcast on every call, which re-renders this component and hands
-      // useCreateRuleMutation() a new (unstable) `reset` function identity on
-      // each pass. Listing that function as a dep re-fires this effect on that
-      // very re-render, calling reset() again — a self-sustaining loop that
-      // starves the process rather than erroring, since nothing here ever
-      // throws. Closing over the latest resetMutationState/reset via the
-      // effect body (not the dep list) breaks the cycle; open is the only
-      // signal this effect should react to.
-      resetMutationState();
-      reset(DEFAULT_INPUT);
-      setFabId('');
-      setFabError(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+    if (!open) clearOnClose();
   }, [open]);
 
   // The action tag decides which half of the form is live — the same
