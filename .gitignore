@@ -79,3 +79,8 @@ aspire-dashboard-storage/
 # Local-only: a BOM-prefixed copy of coverage-check.ps1, because Windows
 # PowerShell 5.1 mis-decodes the script's UTF-8 characters without one.
 scripts/coverage-check.bom.ps1
+
+# tokens.build.test.ts (spec 256, issue #2332) writes a virtual probe sheet
+# into the source tree at runtime; a crashed run can leave it behind for
+# git/format:check/DesignTokenLayerTests to trip over.
+**/src/styles/__probe__.css

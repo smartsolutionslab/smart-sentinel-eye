@@ -23,7 +23,7 @@
  * `<html>`, the same element `:root` selects. Both apps' `index.html` put it
  * there today. A theme applied to a subtree instead would inherit
  * already-computed derived values from `:root` rather than recomputing them
- * against the subtree's remapped primitives.
+ * against the subtree's remapped roles.
  *
  * NO `--blur-*` TOKEN EXISTS, deliberately — ADR-0146 prohibits blur on the
  * wall. `backdrop-blur-sm` stays an explicit Tailwind utility at the two
@@ -128,11 +128,9 @@
      node_modules/tailwindcss/theme.css — this spec changes no glyph. #2333
      prepends 'IBM Plex Sans'/'IBM Plex Mono' to these. */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial,
-    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
-    monospace;
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
 
   /* Tabular figures everywhere, from the type tokens rather than per call
      site (ADR-0147). Applied once, at the foot of this file. */
@@ -231,8 +229,13 @@
   --color-accent: var(--cyan-300);
   --color-focus-ring: var(--cyan-200);
 
-  --shadow-popover: none;
-  --shadow-overlay: none;
+  /* Not `none`: inside Tailwind's comma-separated box-shadow composition
+     (--tw-inset-shadow, --tw-inset-ring-shadow, --tw-ring-offset-shadow,
+     --tw-ring-shadow, --tw-shadow), a `none` list item makes the whole
+     declaration invalid and the browser drops it — taking any co-applied
+     ring with it. Tailwind's own shadow-none avoids this the same way. */
+  --shadow-popover: 0 0 #0000;
+  --shadow-overlay: 0 0 #0000;
 }
 
 /* Tabular figures from the type tokens, not per call site (ADR-0147). The
