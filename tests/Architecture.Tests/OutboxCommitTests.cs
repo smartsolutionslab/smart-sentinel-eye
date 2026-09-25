@@ -1,11 +1,12 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Architecture.Tests.Persistence;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
 
 namespace SmartSentinelEye.Architecture.Tests;
 
 /// <summary>
-/// Spec 021 FR-007. A repository that calls <c>SaveChanges</c> or
+/// Spec 021 FR-007. A type that calls <c>SaveChanges</c> or
 /// <c>SaveChangesAsync</c> directly commits its rows and leaves the
 /// announcements behind — which is the defect this feature closed, and the
 /// one a repository added later reintroduces by default, because that is what
@@ -13,11 +14,16 @@ namespace SmartSentinelEye.Architecture.Tests;
 ///
 /// <para>
 /// The guarantee is a property of a call site, not of a type, so nothing in the
-/// type system holds it. This test is what holds it. It is deliberately a rule
-/// with no exemption list: the one repository that announces nothing
-/// (<c>DeadLetterRepository</c>) commits through the same seam anyway, precisely
-/// so that this can be absolute. An exemption list rots — the next repository
-/// added by copying an exempt one inherits the exemption without the reason.
+/// type system holds it. This test is what holds it. It has one recorded
+/// exception (<see cref="PermittedDirectCommits"/>), not a design where every
+/// repository must earn its way onto a list: <c>DeadLetterRepository</c>, the
+/// one repository that announces nothing, still commits through the same seam
+/// anyway, so the rule stays absolute for every repository that could
+/// plausibly be copied. The rot an exemption list invites — the next
+/// repository added by copying an exempt one inherits the exemption without
+/// the reason — cannot happen to a list keyed by <c>typeof</c>: a copy is a
+/// different <see cref="Type"/> and is reported like anything else (spec 247 /
+/// #2469).
 /// </para>
 /// </summary>
 public class OutboxCommitTests
@@ -35,11 +41,55 @@ public class OutboxCommitTests
         "SmartSentinelEye.AuditObservability.Infrastructure",
     ];
 
+    /// <summary>
+    /// Spec 247 / #2469. The guard's one recorded exception, keyed by
+    /// <c>typeof</c> rather than by namespace or name — so a class that copies
+    /// <see cref="StreamFabAttributionService"/>'s shape is still reported;
+    /// only this exact type is exempt.
+    ///
+    /// <para>
+    /// Three reasons decide it, in the order that matters (spec 247 §1.2):
+    /// (1) complying would not protect anything — the service holds no
+    /// <c>IDomainEventDispatcher</c> and does not go through
+    /// <c>IStreamRepository</c>, so an event raised by
+    /// <c>Stream.AttributeToFab</c> would be lost whichever commit method the
+    /// service used, which means forcing it through
+    /// <c>ITransactionalCommit</c> would turn this guard green while leaving
+    /// the real hazard exactly where it is; (2) the seam commits a different,
+    /// scoped <c>DbContext</c> — this service creates its own from
+    /// <c>IDbContextFactory</c>, so routing it through the seam means
+    /// rewriting how it loads and tracks streams, not swapping one call; (3)
+    /// it runs as a hosted service registered before Wolverine builds the
+    /// outbox storage, an untested ordering risk the rewrite would carry for
+    /// no benefit given (1).
+    /// </para>
+    ///
+    /// <para>
+    /// The premise this rests on — that <c>Stream.AttributeToFab</c> raises no
+    /// domain event — is pinned by
+    /// <c>StreamFabAttributionTests.The_pass_raises_nothing_a_direct_commit_would_drop</c>.
+    /// If that test ever fails, the fix is to route the pass through
+    /// <c>IStreamRepository.SaveAsync</c> and delete this entry — not to add
+    /// another permitted type, and not to adjust that test.
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="Every_permitted_direct_commit_still_commits_directly"/> is
+    /// the other half: it keeps a stale entry from surviving once the
+    /// exemption is no longer needed.
+    /// </para>
+    /// </summary>
+    private static readonly Type[] PermittedDirectCommits =
+    [
+        typeof(StreamFabAttributionService),
+    ];
+
     [Theory]
     [MemberData(nameof(Assemblies))]
-    public void No_repository_commits_without_its_announcements(string assemblyName)
+    public void Nothing_commits_without_its_announcements(string assemblyName)
     {
-        List<string> offenders = Offenders(Assembly.Load(assemblyName));
+        List<string> offenders = [.. Offenders(Assembly.Load(assemblyName))
+            .Except(PermittedDirectCommits.Select(type => type.FullName!))];
 
         offenders.ShouldBeEmpty(
             $"{string.Join(", ", offenders)} calls SaveChanges or SaveChangesAsync directly. "
@@ -47,6 +97,31 @@ public class OutboxCommitTests
             + "events they announce land in one transaction (spec 021 FR-001). Committing "
             + "directly is silent: the write succeeds, the caller is told the truth, and the "
             + "announcement is never made.");
+    }
+
+    /// <summary>
+    /// Spec 247 / #2469. Keeps <see cref="PermittedDirectCommits"/> honest
+    /// against the corpus it exempts from. An entry whose assembly is no
+    /// longer scanned, or that stopped calling SaveChanges/SaveChangesAsync
+    /// directly — because it was routed through <c>ITransactionalCommit</c> —
+    /// is a stale exemption: it exempts nothing, and leaving it in would let
+    /// the next reader believe this list is still curated when nobody is
+    /// checking it any more.
+    /// </summary>
+    [Fact]
+    public void Every_permitted_direct_commit_still_commits_directly()
+    {
+        foreach (Type permitted in PermittedDirectCommits)
+        {
+            PersistenceAssemblies.ShouldContain(
+                permitted.Assembly.GetName().Name,
+                $"{permitted.FullName} is in PermittedDirectCommits but its assembly is not one of "
+                + "the scanned PersistenceAssemblies; remove the entry.");
+
+            CallsSaveChangesDirectly(permitted).ShouldBeTrue(
+                $"{permitted.FullName} is in PermittedDirectCommits but no longer calls SaveChanges "
+                + "or SaveChangesAsync directly; remove the entry — its exemption is no longer needed.");
+        }
     }
 
     public static TheoryData<string> Assemblies()
@@ -75,8 +150,8 @@ public class OutboxCommitTests
     /// <para>
     /// This calls the same <see cref="CallsSaveChangesDirectly"/> the real
     /// theory above calls — not a reimplementation of it — over the same
-    /// namespace/name candidate filter, so a gap here is the theory's own
-    /// gap, not a copy that could disagree with it.
+    /// candidate filter, so a gap here is the theory's own gap, not a copy
+    /// that could disagree with it.
     /// </para>
     ///
     /// <para>
@@ -95,6 +170,15 @@ public class OutboxCommitTests
     /// still reached. Each is red on arrival — the detector this fact drives
     /// does not yet see any of the three — and the fix that follows must turn
     /// all three green without editing this list again.
+    /// </para>
+    ///
+    /// <para>
+    /// Spec 247. <see cref="Attribution.OffenderAttributionService"/> is the
+    /// gap the namespace/name filter left open: a direct commit outside
+    /// ".Persistence" and not named "...Repository". Its full name below is
+    /// what widening the filter must newly surface, and only it — before the
+    /// fix commit this row is missing from the actual list, which is the
+    /// probe's own red.
     /// </para>
     /// </summary>
     [Fact]
@@ -115,16 +199,30 @@ public class OutboxCommitTests
     }
 
     /// <summary>
-    /// Steps 1-4 of the walk: the namespace/name candidate filter, then the IL
-    /// scan. Shared by the real theory above and by
+    /// Steps 1-4 of the walk: the candidate filter, then the IL scan. Shared by
+    /// the real theory above and by
     /// <see cref="The_rule_sees_both_spellings_of_a_direct_commit"/> so a gap in
     /// the candidate filter or the detector is the theory's own gap, not a copy
     /// that could silently disagree with it.
+    ///
+    /// <para>
+    /// Spec 247 / #2469. Candidates are every top-level type in the assembly
+    /// (<c>!type.IsNested</c>), not only ones in a ".Persistence" namespace
+    /// named "...Repository". That narrower filter is a proxy for "code that
+    /// commits" which assumes commits happen in repositories; it missed
+    /// <c>StreamFabAttributionService</c>, a hosted service that takes an
+    /// <c>IDbContextFactory</c> and commits directly, precisely the shape the
+    /// next background sweep or backfill is likely to repeat. Nested types are
+    /// excluded, not admitted: <see cref="BodiesOf"/> already walks a type's
+    /// direct nested types (including its async state machines) through its
+    /// declaring type, so admitting them here would report the same offence
+    /// twice, once under a compiler-generated name. Nested-of-nested bodies are
+    /// not walked — a pre-existing gap, tracked separately (#2470).
+    /// </para>
     /// </summary>
     private static List<string> Offenders(Assembly assembly) =>
         [.. assembly.GetTypes()
-            .Where(type => type.Namespace?.Contains(".Persistence", StringComparison.Ordinal) == true)
-            .Where(type => type.Name.EndsWith("Repository", StringComparison.Ordinal))
+            .Where(type => !type.IsNested)
             .Where(CallsSaveChangesDirectly)
             .Select(type => type.FullName ?? type.Name)];
 
@@ -132,8 +230,8 @@ public class OutboxCommitTests
     /// Reads the IL rather than the source, because the call is what matters and
     /// a comment saying "we use the outbox" is not a constraint. Any reference
     /// to <see cref="DbContext.SaveChanges()"/> or
-    /// <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> from a
-    /// repository body is an offence — including one buried in a helper, which
+    /// <see cref="DbContext.SaveChangesAsync(CancellationToken)"/> from any
+    /// type's body is an offence — including one buried in a helper, which
     /// is how it would come back.
     ///
     /// <para>
