@@ -154,11 +154,9 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     }
 
     /// <summary>
-    /// Issue #2574 — <c>Ensure.That(body.Label).IsNotNull()</c> sits before the
-    /// endpoint's <c>try</c> block, so an omitted <c>label</c> throws an
-    /// unhandled <see cref="ArgumentNullException"/> (uncaught by any registered
-    /// <c>IExceptionHandler</c>) instead of reaching the <c>catch (ArgumentException)</c>
-    /// that produces this <c>400</c>. Currently red: today's code returns <c>500</c>.
+    /// Issue #2574 — an omitted <c>label</c> must reach the endpoint's
+    /// <c>catch (ArgumentException)</c> and answer <c>400</c>, not escape as an
+    /// unhandled <see cref="ArgumentNullException"/> (<c>500</c>).
     /// </summary>
     [Fact]
     public async Task Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT()
@@ -180,9 +178,10 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
 
     /// <summary>
     /// Issue #2574, edit-endpoint counterpart of
-    /// <see cref="Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT"/> — same
-    /// pre-<c>try</c> <c>Ensure.That(body.Label).IsNotNull()</c>, same unhandled
-    /// <see cref="ArgumentNullException"/>. Currently red: today's code returns <c>500</c>.
+    /// <see cref="Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT"/> — an
+    /// omitted <c>label</c> must reach the endpoint's <c>catch (ArgumentException)</c>
+    /// and answer <c>400</c>, not escape as an unhandled
+    /// <see cref="ArgumentNullException"/> (<c>500</c>).
     /// </summary>
     [Fact]
     public async Task Edit_without_a_label_returns_400_OVERLAY_INVALID_INPUT()
