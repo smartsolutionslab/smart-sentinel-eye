@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using MQTTnet;
 using MQTTnet.Diagnostics.PacketInspection;
 using MQTTnet.Exceptions;
@@ -27,8 +28,11 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Tests.Fakes;
 internal sealed class FakeMqttClient : IMqttClient
 {
     private readonly TaskCompletionSource firstSubscribeSeen = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly ConcurrentQueue<string> presentedCredentials = new();
+    private readonly ConcurrentQueue<string> subscribedTopics = new();
 
     private int refusals;
+    private int connectAttempts;
     private TimeSpan? holdFor;
     private bool staleDuringNextConnect;
 
@@ -42,11 +46,17 @@ internal sealed class FakeMqttClient : IMqttClient
 
     public event Func<InspectMqttPacketEventArgs, Task>? InspectPacketAsync;
 
-    /// <summary>The password presented by each CONNECT, in order.</summary>
-    public List<string> PresentedCredentials { get; } = [];
+    /// <summary>
+    /// The password presented by each CONNECT, in order. A point-in-time
+    /// snapshot: the loop writes on its own thread while a test polls, and the
+    /// backing queue plus <see cref="ConnectAttempts"/>'s post-enqueue increment
+    /// mean a count a reader has already observed always has its element
+    /// stored, so a snapshot never comes up short or throws mid-read.
+    /// </summary>
+    public IReadOnlyList<string> PresentedCredentials => presentedCredentials.ToArray();
 
     /// <summary>Every topic a SUBSCRIBE asked for, in order, across all connects.</summary>
-    public List<string> SubscribedTopics { get; } = [];
+    public IReadOnlyList<string> SubscribedTopics => subscribedTopics.ToArray();
 
     /// <summary>
     /// Makes every connection end the moment it is usable, as a session takeover
@@ -59,7 +69,13 @@ internal sealed class FakeMqttClient : IMqttClient
     /// </summary>
     public bool DropEveryConnectionImmediately { get; set; }
 
-    public int ConnectAttempts => PresentedCredentials.Count;
+    /// <summary>
+    /// CONNECTs the broker answered, refusals included. Its own counter rather
+    /// than <c>PresentedCredentials.Count</c>: incremented after the credential
+    /// is enqueued, so a count this returns is never ahead of the element that
+    /// backs it.
+    /// </summary>
+    public int ConnectAttempts => Volatile.Read(ref connectAttempts);
 
     public bool IsConnected { get; private set; }
 
@@ -207,8 +223,9 @@ internal sealed class FakeMqttClient : IMqttClient
         }
 
         Options = options;
-        PresentedCredentials.Add(System.Text.Encoding.UTF8.GetString(
+        presentedCredentials.Enqueue(System.Text.Encoding.UTF8.GetString(
             options.Credentials?.GetPassword(options) ?? []));
+        Interlocked.Increment(ref connectAttempts);
 
         if (refusals > 0)
         {
@@ -242,7 +259,10 @@ internal sealed class FakeMqttClient : IMqttClient
             throw new MqttClientNotConnectedException();
         }
 
-        SubscribedTopics.AddRange(options.TopicFilters.Select(filter => filter.Topic));
+        foreach (MqttTopicFilter filter in options.TopicFilters)
+        {
+            subscribedTopics.Enqueue(filter.Topic);
+        }
         firstSubscribeSeen.TrySetResult();
 
         MqttClientSubscribeResult granted = new(
