@@ -269,17 +269,23 @@ Same 71 as §4's first run.
 ?? tests/ScenarioSimulator.Tests/MqttPublisherCredentialTests.cs
 ```
 
-Both are now committed (`8b9d8116` fake change, `f1074d28` new tests). Final
-diff against `origin/develop`:
+Both are now committed (`8b9d8116` fake change, `f1074d28` new tests), and
+`verification.md` itself, plus the phase 6 findings fix-up (CF5's evidence
+and the two test-code nits below), landed in further commits on this
+branch. Final diff against `origin/develop`, re-run against the branch's
+last commit (`git diff origin/develop --stat`) rather than reused from an
+earlier phase-4 snapshot, since that snapshot predates this file's own
+commits and CF5's addition:
 
 ```
- specs/254-the-credential-the-fake-never-kept/plan.md                       | 219 +++++++++++++++++++++
- specs/254-the-credential-the-fake-never-kept/spec.md                       | 201 +++++++++++++++++++
- specs/254-the-credential-the-fake-never-kept/tasks.md                      | 181 +++++++++++++++++
- tests/ScenarioSimulator.Tests/FakeMqttClientCredentialContractTests.cs     | 178 +++++++++++++++++
- tests/ScenarioSimulator.Tests/Fakes/FakeMqttClient.cs                      |  37 +++-
- tests/ScenarioSimulator.Tests/MqttPublisherCredentialTests.cs              | 141 +++++++++++++
- 6 files changed, 954 insertions(+), 3 deletions(-)
+ specs/254-the-credential-the-fake-never-kept/plan.md                       | 219 ++++++++++++++
+ specs/254-the-credential-the-fake-never-kept/spec.md                       | 201 +++++++++++++
+ specs/254-the-credential-the-fake-never-kept/tasks.md                      | 181 ++++++++++++
+ specs/254-the-credential-the-fake-never-kept/verification.md               | 315 +++++++++++++++++++++
+ tests/ScenarioSimulator.Tests/FakeMqttClientCredentialContractTests.cs     | 182 ++++++++++++
+ tests/ScenarioSimulator.Tests/Fakes/FakeMqttClient.cs                      |  37 ++-
+ tests/ScenarioSimulator.Tests/MqttPublisherCredentialTests.cs              | 138 +++++++++
+ 7 files changed, 1270 insertions(+), 3 deletions(-)
 ```
 
 **Nothing under `src/` appears in the final diff.** Every `src/` edit made
