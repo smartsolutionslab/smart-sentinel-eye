@@ -5,10 +5,11 @@ namespace SmartSentinelEye.Shared.CQRS;
 /// them, in one transaction (spec 021 FR-001).
 ///
 /// <para>
-/// A repository used to call <c>SaveChangesAsync</c> and then announce what it
-/// had written. The gap between the two is where an integration event went
-/// missing: the row was durable, the announcement was not, and nothing held a
-/// copy. This is the replacement — one call, both or neither.
+/// A repository used to call <c>SaveChanges</c> or <c>SaveChangesAsync</c>
+/// directly and then announce what it had written. The gap between the two is
+/// where an integration event went missing: the row was durable, the
+/// announcement was not, and nothing held a copy. This is the replacement —
+/// one call, both or neither.
 /// </para>
 ///
 /// <para>
