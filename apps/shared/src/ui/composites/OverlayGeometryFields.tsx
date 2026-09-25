@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { parsePercent, toPercentText } from './normalizedPercent.js';
 
@@ -46,18 +46,33 @@ const FIELD_SPECS: FieldSpec[] = [
   { field: 'normalizedHeight', label: 'Height', kind: 'size', previewKey: 'height' },
 ];
 
+const NOT_A_NUMBER_MESSAGE = 'Enter a number.';
+
+/** The refusal message for `spec.kind`, whatever the actual bound violation (spec 256 plan §2.1). */
+function rangeMessage(spec: FieldSpec): string {
+  if (spec.kind === 'position') {
+    return `${spec.label} must be between 0% and 100%.`;
+  }
+  return `${spec.label} must be greater than 0% and at most 100%.`;
+}
+
+/** Every message `commit`/`committedValueError` can show for this field (spec 256 plan §2.1). */
+function messagesFor(spec: FieldSpec): string[] {
+  return [NOT_A_NUMBER_MESSAGE, rangeMessage(spec)];
+}
+
 /** Validates a committed (parsed) normalized value; `null` means accepted. */
 function validate(spec: FieldSpec, normalized: number): string | null {
   if (spec.kind === 'position') {
     if (normalized < 0 || normalized > 1) {
-      return `${spec.label} must be between 0% and 100%.`;
+      return rangeMessage(spec);
     }
     return null;
   }
   // size — refused at 0 and below, and above 100% (#2361, from the guarded
   // side: a typed 0 is refused with a message, never floored).
   if (!(normalized > 0 && normalized <= 1)) {
-    return `${spec.label} must be greater than 0% and at most 100%.`;
+    return rangeMessage(spec);
   }
   return null;
 }
@@ -69,6 +84,42 @@ const FIELD_STATUS_STYLE = { color: '#b45309', fontSize: 12 };
 // pattern — the four fields otherwise have no accessible group name.
 const FIELDSET_STYLE = { border: 'none', padding: 0, margin: 0 };
 const LEGEND_STYLE = { fontSize: 14, padding: 0, marginBottom: 4 };
+
+/**
+ * Reserves the vertical space of the tallest message `candidates` can ever
+ * contain, at whatever width the slot actually renders — a static min-height
+ * can't do this because a size-field refusal wraps to a different number of
+ * lines depending on width (spec 256 plan §2.2). Every candidate is stacked in
+ * the same grid cell as `children` (`gridArea: '1 / 1'`), so the cell's height
+ * is always the tallest candidate at the current width; this is what stops a
+ * blur-triggered message from moving the dialog's Save button out from under
+ * an in-flight `mousedown`+`mouseup` (issue #2366). The candidates are
+ * `visibility: hidden` (laid out, unpainted) and `aria-hidden="true"` (kept out
+ * of the accessibility tree) — they never carry a `role`, so they cannot be
+ * picked up by `getByRole('alert')` / `getByRole('status')`.
+ */
+function ReservedMessageSlot({
+  candidates,
+  textStyle,
+  testId,
+  children,
+}: {
+  candidates: string[];
+  textStyle: CSSProperties;
+  testId: string;
+  children: ReactNode;
+}) {
+  return (
+    <div data-testid={testId} style={{ display: 'grid' }}>
+      {candidates.map((text) => (
+        <span key={text} aria-hidden="true" style={{ ...textStyle, gridArea: '1 / 1', visibility: 'hidden' }}>
+          {text}
+        </span>
+      ))}
+      <div style={{ gridArea: '1 / 1' }}>{children}</div>
+    </div>
+  );
+}
 
 /**
  * Four percent-denominated fields — Left, Top, Width, Height — for an overlay
@@ -107,7 +158,7 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
 
     const parsed = parsePercent(draft);
     if (parsed === null) {
-      setErrors((prev) => ({ ...prev, [spec.field]: 'Enter a number.' }));
+      setErrors((prev) => ({ ...prev, [spec.field]: NOT_A_NUMBER_MESSAGE }));
       return;
     }
 
@@ -224,11 +275,17 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
                     style={FIELD_INPUT_STYLE}
                   />
                 </label>
-                {error !== undefined && (
-                  <span id={errorId} role="alert" style={FIELD_ALERT_STYLE}>
-                    {error}
-                  </span>
-                )}
+                <ReservedMessageSlot
+                  candidates={messagesFor(spec)}
+                  textStyle={FIELD_ALERT_STYLE}
+                  testId={`overlay-geometry-message-slot-${spec.field}`}
+                >
+                  {error !== undefined && (
+                    <span id={errorId} role="alert" style={FIELD_ALERT_STYLE}>
+                      {error}
+                    </span>
+                  )}
+                </ReservedMessageSlot>
               </div>
             );
           })}
@@ -239,21 +296,39 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
           the same instant as its content is not reliably announced.
           `OverlayEditor.tsx:534` already does it this way in the same tree:
           always rendered, content changes. */}
-      <span role="status" data-testid="overlay-geometry-advisory" style={FIELD_STATUS_STYLE}>
-        {advisory ?? ''}
-      </span>
+      <ReservedMessageSlot
+        candidates={ADVISORY_WORDINGS}
+        textStyle={FIELD_STATUS_STYLE}
+        testId="overlay-geometry-advisory-slot"
+      >
+        <span role="status" data-testid="overlay-geometry-advisory" style={FIELD_STATUS_STYLE}>
+          {advisory ?? ''}
+        </span>
+      </ReservedMessageSlot>
     </div>
   );
 }
+
+const ADVISORY_BOTH_EDGES_MESSAGE =
+  'This label extends past the right edge and the bottom edge and will be clipped on the wall.';
+const ADVISORY_RIGHT_EDGE_MESSAGE = 'This label extends past the right edge and will be clipped on the wall.';
+const ADVISORY_BOTTOM_EDGE_MESSAGE = 'This label extends past the bottom edge and will be clipped on the wall.';
+
+/** Every wording `buildAdvisory` can return (spec 256 plan §2.1). */
+const ADVISORY_WORDINGS: string[] = [
+  ADVISORY_BOTH_EDGES_MESSAGE,
+  ADVISORY_RIGHT_EDGE_MESSAGE,
+  ADVISORY_BOTTOM_EDGE_MESSAGE,
+];
 
 /** FR-012 — phrased as what the wall will do, not as an error. */
 function buildAdvisory(clipsRight: boolean, clipsBottom: boolean): string | null {
   if (!clipsRight && !clipsBottom) return null;
   if (clipsRight && clipsBottom) {
-    return 'This label extends past the right edge and the bottom edge and will be clipped on the wall.';
+    return ADVISORY_BOTH_EDGES_MESSAGE;
   }
   if (clipsRight) {
-    return 'This label extends past the right edge and will be clipped on the wall.';
+    return ADVISORY_RIGHT_EDGE_MESSAGE;
   }
-  return 'This label extends past the bottom edge and will be clipped on the wall.';
+  return ADVISORY_BOTTOM_EDGE_MESSAGE;
 }
