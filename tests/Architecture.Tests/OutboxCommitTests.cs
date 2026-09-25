@@ -172,7 +172,7 @@ public class OutboxCommitTests
 
     /// <summary>
     /// Spec 255 / #2586. Derives, independently of
-    /// <see cref="PersistenceAssemblies"/>, which built assemblies can reach a
+    /// <see cref="ScannedAssemblies"/>, which built assemblies can reach a
     /// <see cref="DbContext"/> at all — a direct commit needs either a MemberRef
     /// into EF Core, or a reference to the assembly that defines the concrete
     /// context it would commit, and both are readable from an assembly's own
@@ -180,7 +180,7 @@ public class OutboxCommitTests
     ///
     /// <para>
     /// Failing this fact is not itself an offence: it means
-    /// <see cref="PersistenceAssemblies"/> has fallen behind what the build now
+    /// <see cref="ScannedAssemblies"/> has fallen behind what the build now
     /// produces, the same way the namespace/name candidate filter fell behind
     /// <c>StreamFabAttributionService</c> (spec 247). The fix is to widen that
     /// list — or, if an assembly genuinely cannot commit despite the metadata,
@@ -193,7 +193,9 @@ public class OutboxCommitTests
     /// <see cref="AppContext.BaseDirectory"/>, which holds only the assemblies
     /// this test project itself references. A new bounded context's DLLs land
     /// there only once it is added to <c>Architecture.Tests.csproj</c>, exactly
-    /// as for every other boundary test in this project.
+    /// as for every other boundary test in this project. Two <c>src/</c> projects
+    /// are outside that reference set today, <c>ScenarioSimulator</c> and
+    /// <c>AppHost</c>; neither references EF Core, so this is not yet a live gap.
     /// </para>
     /// </summary>
     [Fact]
@@ -230,11 +232,19 @@ public class OutboxCommitTests
 
         // A broken directory probe or filter that silently finds nothing would
         // otherwise pass this fact vacuously; this is an independent fact about
-        // the build output, not a restatement of PersistenceAssemblies.
+        // the build output, not a restatement of ScannedAssemblies. Two anchors,
+        // one per criterion clause: CameraCatalog.Infrastructure is reached only
+        // through the EF Core reference, CameraCatalog.Api only through the
+        // Infrastructure-reference clause (spec 255 §1.2) — either clause silently
+        // breaking would otherwise still leave the other anchor green.
         reaching.ShouldContain(
             "SmartSentinelEye.CameraCatalog.Infrastructure",
             "the probe found no reaching assemblies at all — AppContext.BaseDirectory or the "
             + "SmartSentinelEye.*.dll filter is broken, not that nothing can reach a DbContext.");
+        reaching.ShouldContain(
+            "SmartSentinelEye.CameraCatalog.Api",
+            "no assembly reached through the SmartSentinelEye.*.Infrastructure reference clause — "
+            + "that clause is broken, not that no *.Api assembly can reach a DbContext.");
 
         List<string> unscanned =
             [.. reaching.Except(ScannedAssemblies).OrderBy(name => name, StringComparer.Ordinal)];
@@ -242,7 +252,7 @@ public class OutboxCommitTests
         unscanned.ShouldBeEmpty(
             $"{string.Join(", ", unscanned)} can reach a DbContext (references "
             + "Microsoft.EntityFrameworkCore, or a SmartSentinelEye.*.Infrastructure assembly) but "
-            + "is not in PersistenceAssemblies. Add it to the scanned list — or, if it genuinely "
+            + "is not in ScannedAssemblies. Add it to the scanned list — or, if it genuinely "
             + "cannot commit despite this metadata, explain why in this test rather than narrowing "
             + "the criterion above.");
     }
