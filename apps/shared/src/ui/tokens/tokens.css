@@ -1,0 +1,242 @@
+/*
+ * Design tokens (ADR-0078, ADR-0146, ADR-0148 — spec 256, issue #2332).
+ *
+ * TWO LAYERS. A primitive layer — `--<hue>-<step>` OKLCH literals (gray,
+ * cyan, the triad, black/white) — and a semantic layer that cites it
+ * (`--<category>-<role>`: color, space, text, font, tracking, radius,
+ * shadow, duration, ease, z). Components cite the semantic layer only;
+ * nothing outside this file may reference a primitive
+ * (`DesignTokenLayerTests.Nothing_outside_the_token_file_cites_a_primitive`).
+ * A theme block remaps semantic roles, never primitives.
+ *
+ * DERIVED COLOURS CITE THE ROLE, NOT THE PRIMITIVE
+ * (`color-mix(in oklch, var(--color-accent) 88%, var(--white))`), so a theme
+ * that remaps `--color-accent` gets its hover/pressed/disabled/subtle
+ * variants for free through the cascade, without redeclaring them. This is
+ * why most derived roles below are absent from the `light` and
+ * `high-contrast` blocks even though the table in plan.md §2.2 lists their
+ * resolved value for every theme — only a role whose FORMULA differs (a
+ * different mix percentage, or mixing toward black instead of white) is
+ * redeclared.
+ *
+ * THE <html> CAVEAT: the trick above relies on `data-theme` sitting on
+ * `<html>`, the same element `:root` selects. Both apps' `index.html` put it
+ * there today. A theme applied to a subtree instead would inherit
+ * already-computed derived values from `:root` rather than recomputing them
+ * against the subtree's remapped primitives.
+ *
+ * NO `--blur-*` TOKEN EXISTS, deliberately — ADR-0146 prohibits blur on the
+ * wall. `backdrop-blur-sm` stays an explicit Tailwind utility at the two
+ * console-only dialog call sites (Dialog, ConfirmDialog); it is not, and
+ * must never become, a token.
+ *
+ * UNLAYERED, DELIBERATELY. No `@layer` wraps anything in this file. It is
+ * imported *before* `@import 'tailwindcss'`; a layer name declared first
+ * here would reorder Tailwind's own `theme, base, components, utilities`
+ * layers. Staying unlayered is also what makes this file win every name
+ * collision with Tailwind's `@layer theme` defaults (e.g. `--radius-md`,
+ * `--ease-out`, `--tracking-tight`) — see plan.md §4 finding F6.
+ */
+
+:root {
+  /* Gray ramp (hue 260, low chroma). 900/950 pinned to the kept dark ground
+     (ADR-0146: #14171c / #0b0d10). */
+  --gray-50: oklch(97.5% 0.005 260);
+  --gray-100: oklch(94% 0.008 260);
+  --gray-200: oklch(88% 0.012 260);
+  --gray-300: oklch(81% 0.016 260);
+  --gray-400: oklch(72% 0.02 260);
+  --gray-500: oklch(63% 0.024 262);
+  --gray-600: oklch(54% 0.022 260);
+  --gray-700: oklch(41% 0.018 260);
+  --gray-800: oklch(29% 0.014 260);
+  --gray-850: oklch(24.5% 0.012 260);
+  --gray-900: oklch(20.37% 0.011 260.7);
+  --gray-950: oklch(15.82% 0.0072 258.4);
+
+  /* Cyan ramp (hue 210). 500 pinned to ADR-0146's oklch(78% 0.09 210). */
+  --cyan-50: oklch(97% 0.02 210);
+  --cyan-100: oklch(93% 0.04 210);
+  --cyan-200: oklch(88% 0.065 210);
+  --cyan-300: oklch(84% 0.08 210);
+  --cyan-400: oklch(81% 0.088 210);
+  --cyan-500: oklch(78% 0.09 210);
+  --cyan-600: oklch(66% 0.095 210);
+  --cyan-700: oklch(50% 0.083 210);
+  --cyan-800: oklch(41% 0.068 210);
+  --cyan-900: oklch(32% 0.053 210);
+  --cyan-950: oklch(24% 0.04 210);
+
+  /* Triad stops, one each, no ramp. */
+  --green-500: oklch(72.656% 0.20847 148.34);
+  --red-500: oklch(67.864% 0.20948 24.66);
+  --amber-500: oklch(80.584% 0.15273 68.43);
+  --black: oklch(0% 0 0);
+  --white: oklch(100% 0 0);
+}
+
+:root {
+  /* Semantic colour roles (dark, the default theme — plan.md §2.2). */
+  --color-bg-base: var(--gray-950);
+  --color-bg-elevated: var(--gray-900);
+  --color-bg-raised: var(--gray-850);
+  --color-bg-video: var(--black);
+  --color-scrim: color-mix(in oklch, var(--black) 60%, transparent);
+  --color-fg-primary: var(--gray-50);
+  --color-fg-muted: var(--gray-500);
+  --color-fg-disabled: var(--gray-600);
+  --color-fg-on-accent: var(--gray-950);
+  --color-border-subtle: var(--gray-800);
+  --color-border-strong: var(--gray-600);
+  --color-accent: var(--cyan-500);
+  --color-accent-hover: color-mix(in oklch, var(--color-accent) 88%, var(--white));
+  --color-accent-pressed: color-mix(in oklch, var(--color-accent) 84%, var(--black));
+  --color-accent-disabled: color-mix(in oklch, var(--color-accent) 40%, var(--color-bg-base));
+  --color-accent-subtle: color-mix(in oklch, var(--color-accent) 16%, var(--color-bg-base));
+  --color-focus-ring: var(--cyan-400);
+  --color-accent-active: var(--green-500);
+  --color-accent-fault: var(--red-500);
+  --color-accent-warning: var(--amber-500);
+
+  /* Type scale — sizes equal Tailwind's stock scale (plan.md §2.3), so
+     nothing jumps before #2333 (IBM Plex). Every leading is a multiple of
+     4px. 2xl/3xl carry --tracking-tight, applied in tailwindTheme.ts. */
+  --text-xs: 0.75rem;
+  --text-xs-leading: 1rem;
+  --text-sm: 0.875rem;
+  --text-sm-leading: 1.25rem;
+  --text-base: 1rem;
+  --text-base-leading: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg-leading: 1.75rem;
+  --text-xl: 1.25rem;
+  --text-xl-leading: 1.75rem;
+  --text-2xl: 1.5rem;
+  --text-2xl-leading: 2rem;
+  --text-3xl: 1.875rem;
+  --text-3xl-leading: 2.25rem;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0em;
+  --tracking-wide: 0.025em;
+
+  /* Tailwind 4.3.3's current default stacks, copied verbatim from
+     node_modules/tailwindcss/theme.css — this spec changes no glyph. #2333
+     prepends 'IBM Plex Sans'/'IBM Plex Mono' to these. */
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial,
+    sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+
+  /* Tabular figures everywhere, from the type tokens rather than per call
+     site (ADR-0147). Applied once, at the foot of this file. */
+  --font-numeric: tabular-nums;
+
+  /* Spacing: 4-point rhythm, plus the one sub-rhythm step for optical
+     alignment (ADR-0146 §2). Every other numeric Tailwind key resolves
+     through Tailwind's own --spacing: 0.25rem multiplier, itself the same
+     rhythm (plan.md §2.4). */
+  --space-0-5: 0.125rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+
+  /* Radius, one rule each (plan.md §2.5). */
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-full: 9999px;
+
+  /* Elevation: shadows exist only for floating surfaces (plan.md §2.6). The
+     tonal ground steps (bg-base/bg-elevated/bg-raised above) carry ordinary
+     panels; these two are for Dialog/ConfirmDialog/Tooltip only. */
+  --shadow-popover: 0 4px 12px 0 color-mix(in oklch, var(--black) 48%, transparent);
+  --shadow-overlay: 0 16px 40px 0 color-mix(in oklch, var(--black) 64%, transparent);
+
+  /* Motion: the category only — the easing language is #2334. All three
+     durations sit inside ADR-0146's 120-200ms. */
+  --duration-fast: 120ms;
+  --duration-moderate: 160ms;
+  --duration-slow: 200ms;
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Z-layers (plan.md §2.8). Nothing in the tree sets a z-index today. */
+  --z-sticky: 100;
+  --z-overlay: 200;
+  --z-popover: 300;
+  --z-tooltip: 400;
+
+  /* Bridges: Tailwind's own transition-default variable names, bound to the
+     motion tokens (plan.md §4 finding F5). Neither a token nor a primitive —
+     omitting these two, or giving transitionDuration/transitionTimingFunction
+     a DEFAULT key in tailwindTheme.ts, silently makes every stock
+     transition-colors etc. instant. */
+  --default-transition-duration: var(--duration-fast);
+  --default-transition-timing-function: var(--ease-out);
+}
+
+/* Light theme (plan.md §2.2, §2.6). Only roles whose value differs from the
+   dark default are redeclared — a role citing another role (e.g.
+   --color-accent-hover citing --color-accent) already picks up the remapped
+   value through the cascade once --color-accent itself is redeclared here. */
+[data-theme='light'] {
+  --color-bg-base: var(--gray-50);
+  --color-bg-elevated: var(--white);
+  --color-bg-raised: var(--white);
+  --color-scrim: color-mix(in oklch, var(--gray-950) 40%, transparent);
+  --color-fg-primary: var(--gray-900);
+  --color-fg-muted: var(--gray-600);
+  --color-fg-disabled: var(--gray-500);
+  --color-fg-on-accent: var(--white);
+  --color-border-subtle: var(--gray-200);
+  --color-border-strong: var(--gray-500);
+  --color-accent: var(--cyan-700);
+  --color-accent-hover: color-mix(in oklch, var(--color-accent) 88%, var(--black));
+  --color-accent-pressed: color-mix(in oklch, var(--color-accent) 76%, var(--black));
+  --color-accent-subtle: color-mix(in oklch, var(--color-accent) 12%, var(--color-bg-base));
+  --color-focus-ring: var(--cyan-700);
+
+  --shadow-popover: 0 4px 12px 0 color-mix(in oklch, var(--gray-950) 12%, transparent);
+  --shadow-overlay: 0 16px 40px 0 color-mix(in oklch, var(--gray-950) 20%, transparent);
+}
+
+/* High-contrast theme (plan.md §2.2, §2.6). Shadows are removed — borders
+   carry surface separation instead. */
+[data-theme='high-contrast'] {
+  --color-bg-base: var(--black);
+  --color-bg-elevated: var(--black);
+  --color-bg-raised: var(--gray-950);
+  --color-scrim: color-mix(in oklch, var(--black) 80%, transparent);
+  --color-fg-primary: var(--white);
+  --color-fg-muted: var(--gray-200);
+  --color-fg-disabled: var(--gray-400);
+  --color-fg-on-accent: var(--black);
+  --color-border-subtle: var(--gray-500);
+  --color-border-strong: var(--white);
+  --color-accent: var(--cyan-300);
+  --color-focus-ring: var(--cyan-200);
+
+  --shadow-popover: none;
+  --shadow-overlay: none;
+}
+
+/* Tabular figures from the type tokens, not per call site (ADR-0147). The
+   only rule in this file that is not a custom property declaration. */
+html {
+  font-variant-numeric: var(--font-numeric);
+}

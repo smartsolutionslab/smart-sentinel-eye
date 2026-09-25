@@ -1,4 +1,4 @@
-@import '@smart-sentinel-eye/shared/ui/tokens/colors.css';
+@import '@smart-sentinel-eye/shared/ui/tokens/tokens.css';
 @import 'tailwindcss';
 @config '../../tailwind.config.ts';
 
