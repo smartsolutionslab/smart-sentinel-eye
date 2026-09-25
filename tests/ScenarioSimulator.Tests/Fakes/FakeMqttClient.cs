@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections.Concurrent;
 using MQTTnet;
 using MQTTnet.Diagnostics.PacketInspection;
 using MQTTnet.Exceptions;
@@ -28,14 +29,16 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 ///
 /// <para>
 /// A deliberate second copy of EventIngestion's fake of the same name: the two
-/// test assemblies share no project. What differs between them is what each
-/// records — this one gates connects and forces publish failures where that
-/// one records credentials and topics — the drop/hold controls below are
+/// test assemblies share no project. What differs between them now is that this
+/// one gates connects and forces publish failures, while that one records
+/// subscribed topics. Credential recording and the drop/hold controls below are
 /// shared between both, not part of that difference.
 /// </para>
 /// </summary>
 internal sealed class FakeMqttClient : IMqttClient
 {
+    private readonly ConcurrentQueue<string> presentedCredentials = new();
+
     private TaskCompletionSource? connectGate;
     private int refusals;
     private int connectAttempts;
@@ -73,6 +76,18 @@ internal sealed class FakeMqttClient : IMqttClient
 
     /// <summary>CONNECTs the broker answered, refusals included.</summary>
     public int ConnectAttempts => Volatile.Read(ref connectAttempts);
+
+    /// <summary>
+    /// The password presented by each CONNECT, in order. A point-in-time
+    /// snapshot: the loop writes on its own thread while a test polls, and the
+    /// backing queue plus <see cref="ConnectAttempts"/>'s post-enqueue increment
+    /// mean a count a reader has already observed always has its element
+    /// stored, so a snapshot never comes up short or throws mid-read. It records
+    /// the <b>password</b> rather than counting mints, because a loop that mints
+    /// a token and then presents a stale one would pass a call-count assertion
+    /// and fail this one (#2038).
+    /// </summary>
+    public IReadOnlyList<string> PresentedCredentials => presentedCredentials.ToArray();
 
     public bool IsConnected { get; private set; }
 
@@ -213,6 +228,19 @@ internal sealed class FakeMqttClient : IMqttClient
     /// is its own test affordance, and a CONNECT the real client refuses outright
     /// must not instead park on a gate nobody has released.
     /// </para>
+    ///
+    /// <para>
+    /// <b>The credential is read before the gate and recorded after it.</b> The
+    /// real client reads the password while it builds the CONNECT packet, which
+    /// happens before it waits for a CONNACK — so the read here happens
+    /// immediately after the liveness check, at the same point in the sequence.
+    /// The gate models the broker answering slowly; a read taken after it would
+    /// capture whatever the slot holds when the test releases the gate, not what
+    /// was actually sent. The enqueue, in turn, happens after the gate and
+    /// immediately before <see cref="ConnectAttempts"/>'s increment, so a CONNECT
+    /// the gate never releases records nothing and <see cref="ConnectAttempts"/>
+    /// does not move for it either.
+    /// </para>
     /// </summary>
     public async Task<MqttClientConnectResult> ConnectAsync(
         MqttClientOptions options, CancellationToken cancellationToken = default)
@@ -233,11 +261,14 @@ internal sealed class FakeMqttClient : IMqttClient
                 "It is not allowed to connect with a server after the connection is established.");
         }
 
+        string presented = System.Text.Encoding.UTF8.GetString(options.Credentials?.GetPassword(options) ?? []);
+
         if (connectGate is not null)
         {
             await connectGate.Task.WaitAsync(cancellationToken);
         }
 
+        presentedCredentials.Enqueue(presented);
         Interlocked.Increment(ref connectAttempts);
 
         if (refusals > 0)
