@@ -176,7 +176,7 @@ GitHub Actions runs the following on **every** PR into `develop` and
 | Web lint | ESLint |
 | Web unit tests | `vitest run` |
 | Secrets scan | `gitleaks` |
-| Integration tests | Aspire AppHost via the `AspireFixture` (real Postgres, RabbitMQ, Keycloak, MinIO) |
+| Integration tests | Aspire AppHost via the `AspireFixture` (real Postgres, RabbitMQ, Keycloak, Azurite) |
 | Container smoke | `aspire publish --target k8s` |
 
 **Exemption:** PRs touching only `docs/`, `specs/`, or top-level `*.md`

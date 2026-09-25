@@ -139,7 +139,7 @@ if (isRunMode && !isE2ETests)
 // both tags — so this pin changes nothing about what runs today while closing
 // the patch-channel `26.6` leaves open. Order matters: `WithImage` re-parses
 // the reference and resets the tag to `latest` when it is given none, so it
-// must come before `WithImageTag`, exactly as for minio below.
+// must come before `WithImageTag`.
 var keycloak = builder
     .AddKeycloak("keycloak", adminPassword: keycloakPassword)
     .WithImage("keycloak/keycloak")
@@ -286,60 +286,42 @@ if (isRunMode && !isE2ETests)
         .WithVolume("mosquitto-data", "/mosquitto/data");
 }
 
-// MinIO object storage (ADR-0009) — used by AuditObservability
-// (spec 009 ADR-0101) for the per-chunk cold archive once a
-// hypertable chunk crosses the 90-day boundary. The
-// CommunityToolkit.Aspire.Hosting.Minio integration injects a
-// `ConnectionStrings:minio` value into every consumer that
-// `WithReference`s it; the Infrastructure project resolves an
-// `IMinioClient` from that via `AddMinioClient("minio")`.
+// Azure Blob Storage (Azurite emulator in dev/CI) — ADR-0155. Used by
+// AuditObservability (spec 009 ADR-0101) for the per-chunk cold archive once
+// a hypertable chunk crosses the 90-day boundary. Aspire's own Azure Storage
+// hosting integration injects `ConnectionStrings:blobs` into every consumer
+// that `WithReference`s the blob resource; the Infrastructure project
+// resolves a `BlobServiceClient` from it via `AddAzureBlobServiceClient("blobs")`.
 //
-// The registry override is not a preference. On 2026-09-11 — between roughly
-// 18:12 and 19:46 UTC, which bounds when we first observed it broken rather
-// than when the vendor acted — `minio/minio` and `minio/mc` started answering
-// 404 on Docker Hub. The `minio` organisation itself is untouched: it still
-// answers 200 with `is_active: true`, owned by MinIO, Inc., and its other
-// twenty repositories are still there. Only the two flagship images, server
-// and client, were removed. Every integration run failed on
-// `minio: FailedToStart` (#2265). quay.io is MinIO's other official registry
-// and serves the identical tag: the pull resolves to digest
-// sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e —
-// the manifest list the quay API reports — and `minio --version` inside it
-// prints RELEASE.2025-09-07T16-13-09Z.
+// Replaces MinIO — ADR-0155 supersedes the storage choice ADR-0101/ADR-0130
+// made, not the TimescaleDB decision around it. On 2026-09-11 `minio/minio`
+// and `minio/mc` disappeared from Docker Hub (#2265, #2266); this AppHost
+// switched to the quay.io mirror, and on 2026-09-25 that mirror also started
+// answering 401 UNAUTHORIZED on every tag (#2267), confirmed via `docker
+// pull`, a raw registry v2 token+manifest fetch, and a control image
+// succeeding in the same environment. Every integration/e2e run repo-wide
+// failed on `minio: FailedToStart` — there is no image-pin workaround for a
+// registry that refuses the pull outright, so the choice of vendor itself had
+// to change.
 //
-// Whether MinIO stays in this stack at all is a human's decision, not this
-// file's. CommunityToolkit.Aspire.Hosting.Minio 13.5.0 says so in its own
-// nuspec description: "DEPRECATED: The MinIO OSS project has been archived and
-// is no longer maintained." There is no formal NuGet deprecation object behind
-// that sentence, so `dotnet restore` never warns. Choosing a successor is
-// ADR-level and out of scope here.
-//
-// Image and tag are spelled out because the package supplies all three
-// coordinates and this file named none of them: a Directory.Packages.props
-// bump could move the image or the tag with no diff here, and
-// ContainerImagePinTests reads literals out of this file, so minio was the one
-// container it could not see. Order matters: `WithImage` re-parses the
-// reference and resets the tag to `latest` when it is given none, so it must
-// come before `WithImageTag`. `WithImageRegistry` assigns only the registry
-// field, so its position is free — it sits last so the reference reads left to
-// right. ContainerImagePinTests cannot see this order at all — it has no
-// notion of call sequence, so a WithImage moved after WithImageTag would still
-// match its regex and still pass while the composed tag silently became
-// `latest`. AppHostContainerImagePinTests is the guard that actually enforces
-// this ordering, because it reads the ContainerImageAnnotation the model
-// resolves to, not the literals written here (issue #2270, spec 187).
-var minio = builder
-    .AddMinioContainer("minio")
-    .WithImage("minio/minio")
-    .WithImageTag("RELEASE.2025-09-07T16-13-09Z")
-    .WithImageRegistry("quay.io");
-
-if (isRunMode && !isE2ETests)
-{
-    minio
-        .WithLifetime(ContainerLifetime.Persistent)
-        .WithDataVolume();
-}
+// `RunAsEmulator()` runs Microsoft's own `azurite` container. Its image and
+// tag are pinned by the Aspire.Hosting.Azure.Storage package version
+// (Directory.Packages.props), the same way Postgres's and RabbitMQ's base
+// images are — there is no `WithImage`/`WithImageTag` literal here for
+// ContainerImagePinTests to read, and none is needed. Persistent lifetime +
+// data volume mirror every other stateful container in this file.
+var storage = builder
+    .AddAzureStorage("storage")
+    .RunAsEmulator(azurite =>
+    {
+        if (isRunMode && !isE2ETests)
+        {
+            azurite
+                .WithLifetime(ContainerLifetime.Persistent)
+                .WithDataVolume();
+        }
+    });
+var auditArchiveBlobs = storage.AddBlobs("blobs");
 
 // MigrationRunner orchestrates all per-context migrations and exits (ADR-0067).
 var migrations = builder
@@ -535,11 +517,11 @@ var auditObservability = builder
     .WithReference(auditDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
-    .WithReference(minio)
-    .WithEnvironment("Minio__Bucket", "audit-archive")
+    .WithReference(auditArchiveBlobs)
+    .WithEnvironment("AuditArchive__ContainerName", "audit-archive")
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
-    .WaitFor(minio);
+    .WaitFor(auditArchiveBlobs);
 
 // Services must not boot until the schema exists — Wolverine builds its outbox
 // storage on startup (AutoBuildMessageStorageOnStartup), and this is the
@@ -615,7 +597,7 @@ if (isE2ETests)
 // is never marked unhealthy, so there is nothing to recover; the very next
 // request, once the backend is listening, just succeeds. Every one of the
 // nine already waits on its own dependencies — RabbitMQ and Keycloak, plus
-// MediaMTX, Mosquitto, MinIO or overlay-designer where one applies; not its
+// MediaMTX, Mosquitto, Azure Blob Storage or overlay-designer where one applies; not its
 // database, which only the migration runner waits on — so chaining
 // api-gateway behind all nine as well would inherit the union of those nine
 // chains and make it one of the last resources in the stack to reach Running, for

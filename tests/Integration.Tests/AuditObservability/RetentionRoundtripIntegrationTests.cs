@@ -7,7 +7,7 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 
 /// <summary>
 /// Spec 009 US3 (T067): a chunk aged past the 90-day boundary is archived to
-/// MinIO, dropped from the hypertable, and announced with
+/// Azure Blob Storage, dropped from the hypertable, and announced with
 /// <c>AuditChunkArchivedV1</c>. In the integration suite the retention worker
 /// sweeps every few seconds (AppHost E2E override), so seeding a back-dated
 /// row drives the round-trip.
@@ -15,10 +15,11 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 /// <para>
 /// Assertions read the store directly rather than the HTTP API: the worker
 /// holds a brief <c>drop_chunks</c> lock during archival, and racing it from
-/// the read API was flaky. The MinIO upload is verified transitively — the
+/// the read API was flaky. The blob upload is verified transitively — the
 /// archiver only publishes <c>AuditChunkArchivedV1</c> after a successful
-/// upload + ETag round-trip, and the audit subscriber records that very V1, so
-/// the recorded payload's object key + row count prove the object landed.
+/// upload + content-hash round-trip, and the audit subscriber records that
+/// very V1, so the recorded payload's object key + row count prove the blob
+/// landed.
 /// </para>
 ///
 /// <para>
@@ -58,11 +59,11 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
         IReadOnlyList<JsonElement> archived = await PollForArchivesAsync(seeded);
 
         // AuditChunkArchivedV1 payload (PascalCase — serialised with default
-        // options) proves the MinIO upload + the archived row count.
+        // options) proves the blob upload + the archived row count.
         foreach (JsonElement announcement in archived)
         {
             announcement.GetProperty("RowCount").GetInt32().ShouldBeGreaterThanOrEqualTo(1);
-            announcement.GetProperty("MinioObjectKey").GetString().ShouldNotBeNullOrEmpty();
+            announcement.GetProperty("ArchiveObjectKey").GetString().ShouldNotBeNullOrEmpty();
         }
 
         // The aged chunks are gone from the hypertable.

@@ -26,7 +26,7 @@ public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
         }
 
         ChunkArchiveResult fresh = new(
-            MinioObjectKey: $"fab=_unscoped/chunk-{chunk.ChunkIdentifier:N}.ndjson.gz",
+            ArchiveObjectKey: $"fab=_unscoped/chunk-{chunk.ChunkIdentifier:N}.ndjson.gz",
             ContentMd5: $"md5-{chunk.ChunkIdentifier:N}"[..16],
             RowCount: 42,
             AlreadyArchived: false);

@@ -30,7 +30,7 @@ namespace SmartSentinelEye.Integration.Tests;
 /// rather than shared: two classes with four literal parameter values each is
 /// not yet an abstraction (ADR-0036), and a shared fixture would couple two
 /// guards whose populations deliberately differ (this one includes
-/// <c>keycloak</c> and <c>minio</c>, which that one has no reason to touch).
+/// <c>keycloak</c> and <c>storage</c>, which that one has no reason to touch).
 /// </para>
 /// </summary>
 [Trait("Category", "FixtureLogic")]
@@ -76,7 +76,7 @@ public class AppHostContainerImagePinTests
         images.Length.ShouldBeGreaterThanOrEqualTo(
             6,
             $"expected at least the six pulled containers the integration fixture composes today "
-            + $"(postgres, rabbitmq, keycloak, mediamtx, fixture-video, minio) and found "
+            + $"(postgres, rabbitmq, keycloak, mediamtx, fixture-video, storage) and found "
             + $"{images.Length}: {string.Join(", ", images.Select(image => image.ResourceName))}. Either "
             + "a container was removed (update this number and say why) or the scan no longer finds "
             + "what it should — the scan is broken, not the code.");
@@ -105,7 +105,7 @@ public class AppHostContainerImagePinTests
         images.Length.ShouldBeGreaterThanOrEqualTo(
             8,
             $"expected at least the eight pulled containers a run-mode stack composes today "
-            + $"(mediamtx, fixture-video, camera-sim, postgres, pgadmin, rabbitmq, keycloak, minio) and found "
+            + $"(mediamtx, fixture-video, camera-sim, postgres, pgadmin, rabbitmq, keycloak, storage) and found "
             + $"{images.Length}: {string.Join(", ", names)}. Either a container was removed (update "
             + "this number and say why) or the scan no longer finds what it should — the scan is "
             + "broken, not the code.");
@@ -243,8 +243,8 @@ public class AppHostContainerImagePinTests
         /// <summary>
         /// Rendered the way a reader would write it, so a failure message can
         /// be pasted into <c>docker pull</c> — prefixed with the registry when
-        /// one is set, because <c>minio</c> resolves through <c>quay.io</c> and
-        /// a message that omits it sends the reader to the wrong registry.
+        /// one is set, because <c>keycloak</c> resolves through <c>quay.io</c>
+        /// and a message that omits it sends the reader to the wrong registry.
         /// </summary>
         public string Reference
         {

@@ -73,12 +73,13 @@
          (spec 079). MqttConnectionLoop and MqttPublisher each hold a copy. -->
     <PackageVersion Include="MQTTnet" Version="5.2.0.1603" />
 
-    <!-- MinIO object storage (spec 009 ADR-0101). Aspire hosting
-         resource + typed client wrapper, both via the Aspire
-         Community Toolkit. Transitively pulls in the official
-         `Minio` .NET SDK. -->
-    <PackageVersion Include="CommunityToolkit.Aspire.Hosting.Minio" Version="13.5.0" />
-    <PackageVersion Include="CommunityToolkit.Aspire.Minio.Client" Version="13.5.0" />
+    <!-- Azure Blob Storage (spec 009 ADR-0101, ADR-0155). Aspire's own
+         hosting + client integrations. RunAsEmulator() runs Azurite
+         locally/in CI, so no real Azure subscription is needed. Replaces
+         CommunityToolkit.Aspire.Hosting.Minio / .Minio.Client (ADR-0155)
+         after MinIO's registry access broke (#2265, #2266, #2267). -->
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.3" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.11" />

@@ -388,10 +388,12 @@ unrecorded for as long as nobody looked.
 - **.NET 10**, ASP.NET Core, **.NET Aspire** (ADR-024).
 - **PostgreSQL** as default persistence (ADR-009). **TimescaleDB**
   (PostgreSQL extension) is permitted in time-series-shaped contexts;
-  current use is AuditObservability per ADR-0101. **MinIO** for object
-  storage — **in use today**: audit chunks are archived to it by
-  `MinioAuditChunkArchiver` (ADR-0101, ADR-0130). Snapshots and recording
-  remain future uses.
+  current use is AuditObservability per ADR-0101. **Azure Blob Storage**
+  (Azurite emulator in dev/CI) for object storage — **in use today**:
+  audit chunks are archived to it by `AzureBlobAuditChunkArchiver`
+  (ADR-0101, ADR-0155). ADR-0155 replaced the original MinIO choice
+  (ADR-0101, ADR-0130) after MinIO's registry access broke repo-wide
+  (#2265, #2266, #2267). Snapshots and recording remain future uses.
   **Marten** remains permitted for event-sourced contexts and **is not
   used anywhere** — no context has yet justified it (ADR-0130).
   **Metrics go to the sink ADR-0118 chose**, not to Prometheus.

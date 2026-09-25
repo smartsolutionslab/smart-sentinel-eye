@@ -2,9 +2,11 @@
 
 Spec 009 introduces the **AuditObservability** bounded context:
 a bus-fed audit trail of every `*V1` integration event with hot
-search in a TimescaleDB hypertable and a daily MinIO cold
-archive past the 90-day retention boundary. This runbook is the
-operational reference for the on-call rotation.
+search in a TimescaleDB hypertable and a daily Azure Blob
+Storage cold archive past the 90-day retention boundary (ADR-0155
+replaced the original MinIO archiver after its registry access
+broke — #2265, #2266, #2267). This runbook is the operational
+reference for the on-call rotation.
 
 ## Where data lives
 
@@ -15,10 +17,10 @@ operational reference for the on-call rotation.
   `occurred_at` with a 1-month chunk interval. Native
   TimescaleDB column compression kicks in for chunks older
   than 30 days.
-- **Cold tier (older than 90 days)**: MinIO bucket
-  `audit-archive` (Aspire resource name `minio`). One
-  gzipped-NDJSON object per Timescale chunk at
-  `s3://audit-archive/fab=<fabId-or-_unscoped>/year=YYYY/month=MM/chunk-<chunkId>.ndjson.gz`.
+- **Cold tier (older than 90 days)**: Azure Blob Storage container
+  `audit-archive` (Aspire resource name `storage`; Azurite emulator
+  in dev/CI). One gzipped-NDJSON blob per Timescale chunk at
+  `fab=<fabId-or-_unscoped>/year=YYYY/month=MM/chunk-<chunkId>.ndjson.gz`.
 
 ## Inspect hot tier
 
@@ -62,40 +64,32 @@ For a unit-style trigger from code (debugging only), the
 `AuditRetentionHostedService.RunOnceAsync(CancellationToken)`
 method is `public` and safe to call from a hook.
 
-## Read an archived NDJSON object
+## Read an archived NDJSON blob
 
-`mc` (the MinIO client CLI) isn't bundled with the stack. Install it,
-or run it via Docker from **`quay.io/minio/mc`** — MinIO's other
-official registry, now that `minio/mc` was removed from Docker Hub on
-2026-09-11 alongside `minio/minio` (#2265; #2266 made the same switch
-for the server image). Verified 2026-09-20: `docker pull
-quay.io/minio/mc:latest` succeeds and `docker run --rm
-quay.io/minio/mc:latest --version` reports a real MinIO Client
-release.
+The Azure CLI isn't bundled with the stack. Install it, or run it via
+Docker from `mcr.microsoft.com/azure-cli`.
 
-The root **user** is the fixed default `minioadmin`; the root
-**password** is a generated Aspire parameter, not `minioadmin` —
-retrieve it from the Aspire dashboard's `minio-rootPassword` parameter
-(reveal the value), or run `dotnet user-secrets list --project
-src/AppHost` from the repo root and read the
-`Parameters:minio-rootPassword` key.
+Azurite serves a fixed, publicly-documented well-known development
+account (`devstoreaccount1`) — the same for every Azurite instance
+everywhere, not a secret — so no password lookup is needed. Only the
+published port (from the Aspire dashboard's `storage` resource) varies.
 
 ```bash
-# Run mc via Docker. Mount the current directory so the alias config
-# and any downloaded chunks persist across invocations, and reach the
-# host's published port via `host.docker.internal` (works on Docker
-# Desktop; on Linux Docker add --add-host=host.docker.internal:host-gateway).
-alias mc='docker run --rm -e HOME=/work -v "$PWD:/work" -w /work quay.io/minio/mc:latest'
+# Run az via Docker.
+alias az='docker run --rm mcr.microsoft.com/azure-cli:latest az'
 
-# Configure mc against the dev MinIO (port from the Aspire dashboard;
-# password retrieved as above).
-mc alias set audit http://host.docker.internal:<port> minioadmin <root-password>
+# Azurite's well-known connection string (port from the Aspire dashboard;
+# host.docker.internal works on Docker Desktop, on Linux Docker add
+# --add-host=host.docker.internal:host-gateway to the alias above).
+CONN="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://host.docker.internal:<port>/devstoreaccount1;"
 
-# List archived objects.
-mc ls --recursive audit/audit-archive/
+# List archived blobs.
+az storage blob list --container-name audit-archive --connection-string "$CONN" --output table
 
 # Pull one chunk down.
-mc cp audit/audit-archive/fab=munich/year=2026/month=02/chunk-<id>.ndjson.gz .
+az storage blob download --container-name audit-archive \
+  --name "fab=munich/year=2026/month=02/chunk-<id>.ndjson.gz" \
+  --file chunk-<id>.ndjson.gz --connection-string "$CONN"
 
 # Each line is one verbatim V1 payload + the indexed metadata.
 zcat chunk-<id>.ndjson.gz | jq .
@@ -108,11 +102,11 @@ zcat chunk-<id>.ndjson.gz | jq .
 The worker logs `Failed to archive chunk <id>; leaving it in
 place for the next sweep.` and continues with the next chunk
 (NFR-004 accepts ≤ 5 min of audit lag during outages). Drill
-in via the logs to see whether MinIO is unreachable, the
-`drop_chunks` call rolled back, or the upload's ETag didn't
+in via the logs to see whether Azure Blob Storage is unreachable, the
+`drop_chunks` call rolled back, or the upload's content hash didn't
 match the local MD5. Once the underlying issue is resolved,
 the next nightly sweep retries the same chunk; archiver is
-idempotent (existing-object ETag match short-circuits).
+idempotent (existing-blob content-hash match short-circuits).
 
 Before #2425 was fixed, this retry was not actually possible:
 `DropChunkAsync` called `drop_chunks` with only an upper bound
@@ -142,8 +136,8 @@ Check `timescaledb_information.chunks` for `audit_events` and
 compare against `information_schema` / `timescaledb_information.dimensions`
 for an unexpected `add_dimension`. The named extra chunks were
 dropped without being archived first — treat their data as gone
-from both the hypertable and MinIO, and restore from a database
-backup if it's needed.
+from both the hypertable and the blob archive, and restore from a
+database backup if it's needed.
 
 ### `event_identifier` collisions
 

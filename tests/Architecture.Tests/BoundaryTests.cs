@@ -187,7 +187,7 @@ public class BoundaryTests
     /// <summary>
     /// Spec 009 T069 — AuditObservability.Domain must remain free of
     /// every infrastructure framework. The TimescaleDB hypertable +
-    /// MinIO archiver live in Infrastructure; Domain stays pure.
+    /// Azure Blob archiver live in Infrastructure; Domain stays pure.
     /// </summary>
     [Fact]
     public void AuditObservability_Domain_has_no_infrastructure_framework_dependencies()
@@ -202,7 +202,7 @@ public class BoundaryTests
                 "Wolverine",
                 "Npgsql",
                 "MQTTnet",
-                "Minio")
+                "Azure.Storage.Blobs")
             .GetResult();
 
         result.IsSuccessful.ShouldBeTrue(

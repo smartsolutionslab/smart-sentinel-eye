@@ -162,7 +162,7 @@ public class V1ResourceMapTests
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 DateTimeOffset.UtcNow.AddSeconds(2),
                 DateTimeOffset.UtcNow.AddSeconds(3),
-                "MinioObjectKey-sentinel",
+                "ArchiveObjectKey-sentinel",
                 "ContentMd5-sentinel",
                 TestMetadata),
             chunkIdentifier.ToString());
