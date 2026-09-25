@@ -314,4 +314,71 @@ public sealed class SourceScanCharacterisationTests
         outputs.Count.ShouldBeGreaterThan(
             1, $"the three strictnesses all produced the same output for '{fixture}' — one of them has been collapsed.");
     }
+
+    // =====================================================================
+    // Spec 249 (issue #2467) — the hazard the three sibling readers'
+    // corpus bans exist to prevent. Not part of M1: M1 pins what each
+    // strictness does to a fixture in isolation; this pins what the
+    // one-pass CommentsAndLiteralInteriors mask does to the NotFound
+    // sentinel PreconditionDeclarationTests, RouteValueRefusalDeclarationTests
+    // and StatusProducerDeclarationTests all walk with — the same shape
+    // EndpointScopeDeclarationTests.A_raw_string_in_a_chain_runs_one_mapping_into_the_next
+    // (issue #2278) already found exposed for its own EndOfText sentinel.
+    // =====================================================================
+
+    /// <summary>
+    /// <b>A raw string runs a <see cref="MaskStrictness.CommentsAndLiteralInteriors"/>
+    /// chain to the end of the file.</b> <c>PreconditionDeclarationTests</c>,
+    /// <c>RouteValueRefusalDeclarationTests</c> and
+    /// <c>StatusProducerDeclarationTests</c> each mask with
+    /// <see cref="MaskStrictness.CommentsAndLiteralInteriors"/> and walk with
+    /// <see cref="RouteChainReader.StatementEnd"/>'s
+    /// <see cref="ChainEndSentinel.NotFound"/> sentinel and
+    /// <see cref="ChainLiteralHandling.AlreadyMasked"/> — issue #2467. The mask
+    /// walks a literal's quotes in pairs, exactly as the two-stage mask does
+    /// (<see cref="The_RawStringLiteral_fixture_masks_as_expected_under_every_strictness"/>):
+    /// in <c>"""A"B"C"""</c> the first two quotes read as an empty literal,
+    /// <c>"A"</c> is blanked, then <c>B</c> — including an unbalanced <c>(</c>
+    /// inside it — is walked as ordinary code before <c>"C"</c> is blanked. The
+    /// bracket the mask fails to blank keeps <c>StatementEnd</c>'s depth counter
+    /// positive past the chain's own terminating semicolon, and with
+    /// <c>NotFound</c> (not <c>EndOfText</c>) the walk falls all the way through
+    /// to its not-found contract, <c>-1</c> — which every one of the three
+    /// guards' call sites reads as "no chain end found here", so their
+    /// <c>masked[call.Index..]</c> fallback swallows the rest of the file.
+    ///
+    /// <para>
+    /// This is existing <c>SourceMask</c> + <c>RouteChainReader</c> behaviour,
+    /// constructed rather than argued, and it must pass unmodified: it is what
+    /// makes the three corpus bans (spec 249) load-bearing rather than a rule
+    /// nobody can show matters. If it ever goes red because the masker was
+    /// taught to read a raw string, the correct response is to delete the three
+    /// bans it justifies (and spec 192's) — not to edit this assertion.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_raw_string_runs_a_CommentsAndLiteralInteriors_chain_to_the_end_of_the_file()
+    {
+        const string source =
+            "group.MapPost(\"/probe\", Probe)\n"
+            + "    .WithSummary(\"\"\"see \"foo( bar\" now\"\"\")\n"
+            + "    .ProducesProblem(StatusCodes.Status404NotFound);\n"
+            + "group.MapPost(\"/other\", Other)\n"
+            + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
+            + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n";
+
+        string masked = SourceMask.Apply(source, MaskStrictness.CommentsAndLiteralInteriors);
+        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+
+        end.ShouldBe(
+            -1,
+            "StatementEnd fell through to its not-found contract for this sentinel — -1 — meaning the "
+            + "probe chain's own terminating semicolon was never found at all. That is exactly what an "
+            + "unbalanced bracket inside a raw string's interior does: the depth counter never returns to "
+            + "zero, so PreconditionDeclarationTests', RouteValueRefusalDeclarationTests' and "
+            + "StatusProducerDeclarationTests' masked[call.Index..] fallback would each swallow the rest of "
+            + "the file. If this assertion ever goes red because the masker was taught to read a raw "
+            + "string, delete the three bans (and spec 192's) this test justifies — do not edit this "
+            + "assertion to match a new number.");
+    }
 }
