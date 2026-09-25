@@ -1,4 +1,6 @@
 using System.Reflection;
+using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 using SmartSentinelEye.StreamDistribution.Domain.Tests.Stream.Builders;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
@@ -65,6 +67,53 @@ public class StreamFabAttributionTests
             [],
             new Dictionary<Guid, string> { [Guid.CreateVersion7()] = "munich" })
             .ShouldBe(0);
+    }
+
+    /// <summary>
+    /// Spec 247 / #2469. This is the premise the outbox guard's one exemption
+    /// (<c>OutboxCommitTests.PermittedDirectCommits</c>) depends on:
+    /// <see cref="StreamFabAttributionService"/> commits its own
+    /// <c>DbContext</c> directly, outside <see cref="ITransactionalCommit"/>,
+    /// which is only safe because the pass it runs never has an announcement
+    /// to lose. <c>Stream.AttributeToFab</c> raises no domain event, and the
+    /// service holds no <see cref="IDomainEventDispatcher"/> to drain one
+    /// anyway — so if a pending event ever appeared here, committing through
+    /// the seam would not save it either, because nothing drains it.
+    ///
+    /// <para>
+    /// <b>If this test ever fails</b> — because <c>AttributeToFab</c> starts
+    /// raising an event — the fix is to route the pass through
+    /// <see cref="IStreamRepository"/>.SaveAsync (which does drain and
+    /// dispatch <see cref="AggregateRoot{TIdentifier}.PendingEvents"/>) and
+    /// delete the <c>PermittedDirectCommits</c> entry, not to add more
+    /// permitted types or to adjust this assertion.
+    /// </para>
+    ///
+    /// <para>
+    /// Both streams are asserted attributed first: an <c>Attribute</c> that
+    /// did nothing would also raise nothing, and would pass the "no pending
+    /// events" half vacuously.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void The_pass_raises_nothing_a_direct_commit_would_drop()
+    {
+        StreamAggregate munich = Unattributed();
+        StreamAggregate dresden = Unattributed();
+        munich.ClearPendingEvents();
+        dresden.ClearPendingEvents();
+
+        int attributed = StreamFabAttributionService.Attribute(
+            [munich, dresden],
+            new Dictionary<Guid, string>
+            {
+                [munich.Camera.Value] = "munich",
+                [dresden.Camera.Value] = "dresden",
+            });
+
+        attributed.ShouldBe(2);
+        munich.PendingEvents.ShouldBeEmpty();
+        dresden.PendingEvents.ShouldBeEmpty();
     }
 
     /// <summary>
