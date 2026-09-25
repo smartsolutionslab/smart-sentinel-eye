@@ -109,6 +109,7 @@ public class OutboxCommitTests
                 "SmartSentinelEye.Architecture.Tests.Persistence.MethodGroupOffenderRepository",
                 "SmartSentinelEye.Architecture.Tests.Persistence.BaseMethodGroupOffenderRepository",
                 "SmartSentinelEye.Architecture.Tests.Persistence.AsyncLambdaOffenderRepository",
+                "SmartSentinelEye.Architecture.Tests.Attribution.OffenderAttributionService",
             ],
             ignoreOrder: true);
     }
