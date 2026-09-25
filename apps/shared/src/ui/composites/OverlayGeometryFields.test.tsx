@@ -568,6 +568,14 @@ describe('OverlayGeometryFields reserves message space so a blur-triggered rende
     expect(new Set(hiddenTexts)).toEqual(new Set(ADVISORY_MESSAGES));
   });
 
+  // Phase-6 should-fix S1 (reviewer). `queryAllByRole('alert')` cannot tell
+  // an aria-hidden candidate from one with no `role` at all — the hidden
+  // copies never carry `role` either way (`OverlayGeometryFields.tsx:98`),
+  // so the count-based assertion this test used to make would pass even if
+  // `aria-hidden="true"` were missing from every one of them. This checks
+  // the actual claim instead: every copy of the live message's own text
+  // stays `aria-hidden="true"` except the one inside the live
+  // `role="alert"` span.
   it('The reserved copies never reach the accessibility tree, with or without a live refusal', () => {
     render(<OverlayGeometryFields value={buildLabel({ normalizedWidth: 0.5 })} preview={null} onCommit={vi.fn()} />);
 
@@ -577,7 +585,14 @@ describe('OverlayGeometryFields reserves message space so a blur-triggered rende
     fireEvent.change(field('Width'), { target: { value: '0' } });
     fireEvent.blur(field('Width'));
 
-    expect(screen.queryAllByRole('alert')).toHaveLength(1);
+    const widthMessage = 'Width must be greater than 0% and at most 100%.';
+    const copies = screen.getAllByText(widthMessage, { ignore: false });
+    const hiddenCopies = copies.filter((element) => element.getAttribute('aria-hidden') === 'true');
+    const liveCopies = copies.filter((element) => element.getAttribute('aria-hidden') !== 'true');
+
+    expect(hiddenCopies).toHaveLength(copies.length - 1);
+    expect(liveCopies).toHaveLength(1);
+    expect(liveCopies[0]!.closest('[role="alert"]')).not.toBeNull();
   });
 
   it('A blur refusal adds no direct child to the field’s column — the box that must not move Save', () => {
