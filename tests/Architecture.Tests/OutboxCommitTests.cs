@@ -25,10 +25,16 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// different <see cref="Type"/> and is reported like anything else (spec 247 /
 /// #2469).
 /// </para>
+///
+/// <para>
+/// Spec 255 / #2586. The scanned set below is every assembly that can reach a
+/// <see cref="DbContext"/>, not only <c>.Infrastructure</c> — held by
+/// <see cref="Every_assembly_that_can_reach_a_DbContext_is_scanned"/>.
+/// </para>
 /// </summary>
 public class OutboxCommitTests
 {
-    private static readonly string[] PersistenceAssemblies =
+    private static readonly string[] ScannedAssemblies =
     [
         "SmartSentinelEye.CameraCatalog.Infrastructure",
         "SmartSentinelEye.StreamDistribution.Infrastructure",
@@ -39,6 +45,26 @@ public class OutboxCommitTests
         "SmartSentinelEye.Automation.Infrastructure",
         "SmartSentinelEye.Identity.Infrastructure",
         "SmartSentinelEye.AuditObservability.Infrastructure",
+        "SmartSentinelEye.CameraCatalog.Api",
+        "SmartSentinelEye.StreamDistribution.Api",
+        "SmartSentinelEye.LayoutComposition.Api",
+        "SmartSentinelEye.SystemVariables.Api",
+        "SmartSentinelEye.EventIngestion.Api",
+        "SmartSentinelEye.OverlayDesigner.Api",
+        "SmartSentinelEye.Automation.Api",
+        "SmartSentinelEye.Identity.Api",
+        "SmartSentinelEye.AuditObservability.Api",
+        "SmartSentinelEye.CameraCatalog.Application",
+        "SmartSentinelEye.StreamDistribution.Application",
+        "SmartSentinelEye.LayoutComposition.Application",
+        "SmartSentinelEye.SystemVariables.Application",
+        "SmartSentinelEye.EventIngestion.Application",
+        "SmartSentinelEye.OverlayDesigner.Application",
+        "SmartSentinelEye.Automation.Application",
+        "SmartSentinelEye.Identity.Application",
+        "SmartSentinelEye.AuditObservability.Application",
+        "SmartSentinelEye.ServiceDefaults",
+        "SmartSentinelEye.MigrationRunner",
     ];
 
     /// <summary>
@@ -122,10 +148,10 @@ public class OutboxCommitTests
     {
         foreach (Type permitted in PermittedDirectCommits)
         {
-            PersistenceAssemblies.ShouldContain(
+            ScannedAssemblies.ShouldContain(
                 permitted.Assembly.GetName().Name,
                 $"{permitted.FullName} is in PermittedDirectCommits but its assembly is not one of "
-                + "the scanned PersistenceAssemblies; remove the entry.");
+                + "ScannedAssemblies; remove the entry.");
 
             CallsSaveChangesDirectly(permitted).ShouldBeTrue(
                 $"{permitted.FullName} is in PermittedDirectCommits but no longer calls SaveChanges "
@@ -136,7 +162,7 @@ public class OutboxCommitTests
     public static TheoryData<string> Assemblies()
     {
         TheoryData<string> data = [];
-        foreach (string assembly in PersistenceAssemblies)
+        foreach (string assembly in ScannedAssemblies)
         {
             data.Add(assembly);
         }
@@ -211,7 +237,7 @@ public class OutboxCommitTests
             + "SmartSentinelEye.*.dll filter is broken, not that nothing can reach a DbContext.");
 
         List<string> unscanned =
-            [.. reaching.Except(PersistenceAssemblies).OrderBy(name => name, StringComparer.Ordinal)];
+            [.. reaching.Except(ScannedAssemblies).OrderBy(name => name, StringComparer.Ordinal)];
 
         unscanned.ShouldBeEmpty(
             $"{string.Join(", ", unscanned)} can reach a DbContext (references "
