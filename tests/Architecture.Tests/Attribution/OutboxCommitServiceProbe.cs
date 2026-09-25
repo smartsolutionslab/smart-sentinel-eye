@@ -10,7 +10,7 @@ namespace SmartSentinelEye.Architecture.Tests.Attribution;
 /// exactly <c>StreamFabAttributionService</c>'s shape (spec 247 §1). This
 /// type exists only to be caught once the filter widens to every top-level
 /// type; it must never be "fixed" by routing it through
-/// <see cref="ITransactionalCommit"/>, and no change here should ever make
+/// <c>ITransactionalCommit</c>, and no change here should ever make
 /// the probe compliant.
 ///
 /// <para>

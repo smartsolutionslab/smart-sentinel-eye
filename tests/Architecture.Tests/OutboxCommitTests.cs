@@ -74,6 +74,16 @@ public class OutboxCommitTests
     /// </para>
     ///
     /// <para>
+    /// That premise, and the three reasons above it, are argued only against
+    /// <c>Attribute(...)</c>'s current call to <c>Stream.AttributeToFab</c> — but
+    /// <c>typeof</c>-keying exempts the whole type, not that one call site. Any
+    /// domain-mutating call added anywhere else in
+    /// <c>StreamFabAttributionService</c> (inside <c>AttributeOnceAsync</c> or a
+    /// later method) is silently exempt too, and must be checked against this
+    /// same safety argument before this entry can be trusted to still hold.
+    /// </para>
+    ///
+    /// <para>
     /// <see cref="Every_permitted_direct_commit_still_commits_directly"/> is
     /// the other half: it keeps a stale entry from surviving once the
     /// exemption is no longer needed.
@@ -88,8 +98,7 @@ public class OutboxCommitTests
     [MemberData(nameof(Assemblies))]
     public void Nothing_commits_without_its_announcements(string assemblyName)
     {
-        List<string> offenders = [.. Offenders(Assembly.Load(assemblyName))
-            .Except(PermittedDirectCommits.Select(type => type.FullName!))];
+        List<string> offenders = Offenders(Assembly.Load(assemblyName));
 
         offenders.ShouldBeEmpty(
             $"{string.Join(", ", offenders)} calls SaveChanges or SaveChangesAsync directly. "
@@ -223,6 +232,7 @@ public class OutboxCommitTests
     private static List<string> Offenders(Assembly assembly) =>
         [.. assembly.GetTypes()
             .Where(type => !type.IsNested)
+            .Where(type => !PermittedDirectCommits.Contains(type))
             .Where(CallsSaveChangesDirectly)
             .Select(type => type.FullName ?? type.Name)];
 
