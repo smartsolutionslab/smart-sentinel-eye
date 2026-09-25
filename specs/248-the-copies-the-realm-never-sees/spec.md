@@ -190,7 +190,10 @@ green, that is a defect in the guard and goes back to `test-writer`, not forward
 
 - SC-1: six new facts in one class, `Trait("Category","FixtureLogic")`, all green on the tree.
 - SC-2: C1–C5 each produce exactly the reds in §5, quoted verbatim in the PR body.
-- SC-3: `git diff --stat origin/develop` touches only the new test file and `specs/248-*`.
+- SC-3: `git diff --stat origin/develop` touches only the new test file, `specs/248-*`, and the one
+  `tests/Integration.Tests/ci-shards/shard-N.filter` line that assigns the new class to a shard (the
+  integration shard coverage guard, `ci.yml`'s `integration-shard-coverage` job, fails otherwise —
+  precedent: commit `da7e398f`).
 - SC-4: Release build clean (analyzers, collection-expression rule); `IntegrationTestSelectionTests` green.
 
 ## 8. Assumptions
