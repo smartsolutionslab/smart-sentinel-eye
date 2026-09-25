@@ -29,6 +29,9 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     private const string FabGroup = "/fabs/munich";
     private const string GroupsClaim = "groups";
 
+    private const string SimulatorClientId = "scenario-simulator";
+    private const string SimulatorClientSecret = "dev-only-scenario-simulator-secret";
+
     [Fact]
     public async Task The_seeded_operator_arrives_with_its_fab_group()
     {
@@ -175,8 +178,8 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
-            ["client_id"] = "scenario-simulator",
-            ["client_secret"] = "dev-only-scenario-simulator-secret",
+            ["client_id"] = SimulatorClientId,
+            ["client_secret"] = SimulatorClientSecret,
         });
 
         HttpResponseMessage response = await keycloak.PostAsync(

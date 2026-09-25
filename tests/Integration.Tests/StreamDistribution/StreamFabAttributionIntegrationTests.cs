@@ -35,6 +35,9 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
     private const string OperatorPassword = "Operator1234";
 
+    private const string AttributionClientIdentifier = "stream-distribution-attribution";
+    private const string AttributionClientSecret = "dev-only-stream-distribution-secret";
+
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
 
     public async Task InitializeAsync()
@@ -299,8 +302,8 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
         {
             KeycloakUrl = aspire.App.GetEndpoint("keycloak").ToString(),
             Realm = "smart-sentinel-eye",
-            ClientIdentifier = "stream-distribution-attribution",
-            ClientSecret = "dev-only-stream-distribution-secret",
+            ClientIdentifier = AttributionClientIdentifier,
+            ClientSecret = AttributionClientSecret,
         };
         IOptions<StreamFabAttributionOptions> options = Options.Create(settings);
 
