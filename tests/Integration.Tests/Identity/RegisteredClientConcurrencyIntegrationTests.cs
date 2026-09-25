@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.Identity;
@@ -6,7 +7,10 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// <summary>
 /// ADR-0113 Layer 1 for Identity (spec 012 T040), against the real stack — so
 /// the versions here are ones the EF interceptor actually moved, which no
-/// Application-layer fake reproduces.
+/// Application-layer fake reproduces. Since spec 254 (#2570) the webhook
+/// rotation gate also covers Layer 2: a genuine two-request race that both
+/// pass the Layer-1 version check before either commits, decided only by the
+/// EF concurrency token on <c>SaveAsync</c>.
 ///
 /// <para>
 /// The gate applies to the webhook rotation only. The device and kiosk
@@ -35,6 +39,12 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string Fab = "munich";
+
+    /// <summary>How many rotations race per round in <see cref="A_rotation_that_loses_the_database_race_at_layer_2_is_told_it_conflicted_not_that_keycloak_is_down"/>.</summary>
+    private const int Racers = 6;
+
+    /// <summary>Rounds attempted before giving up as inconclusive (spec 254 FR-006).</summary>
+    private const int MaxRounds = 10;
 
     public async Task InitializeAsync()
     {
@@ -119,6 +129,133 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
         // pass even if the refused request had destroyed it.
         (await CanAuthenticateAsync($"webhook-{name}", winner.secret))
             .ShouldBeTrue("the refused rotation invalidated the live secret");
+    }
+
+    /// <summary>
+    /// Spec 254 AS-1 (#2570) — the confirmation. <see cref="Racers"/> rotations
+    /// at the same If-Match version, dispatched together, so several are past
+    /// the Layer-1 read-then-compare before any has committed — the window
+    /// only the EF concurrency token on <c>SaveAsync</c> (Layer 2) decides.
+    /// Repeats rounds against the winner's new version until a Layer-2 loser
+    /// is actually observed, because a single round usually only exercises
+    /// Layer 1 (sequential staleness against an already-committed version).
+    ///
+    /// <para>
+    /// <b>Pre-fix red, and what it means</b> (spec 254 §5): a round containing
+    /// a 502 <c>KEYCLOAK_UNAVAILABLE</c> loser is the confirmed defect — the
+    /// Layer-2 loser's raw <see cref="DbUpdateConcurrencyException"/> was
+    /// caught by <c>RotateWebhookClientCommandHandler</c>'s filter and
+    /// misreported as a Keycloak outage. A 500 loser means the exception
+    /// arrived <i>wrapped</i> after all, contradicting spec 254 §1/A1 — that is
+    /// a stop-and-report case, the fix would belong in middleware, not this
+    /// handler. An <c>AGGREGATE_VERSION_STALE</c> loser never appearing across
+    /// all <see cref="MaxRounds"/> rounds is inconclusive (A2): the harness
+    /// never actually got two requests racing at Layer 2.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_rotation_that_loses_the_database_race_at_layer_2_is_told_it_conflicted_not_that_keycloak_is_down()
+    {
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        string name = UniqueIntegrationName();
+        int version = await CreateAsync(identity, name);
+
+        bool layer2Observed = false;
+        for (int round = 1; round <= MaxRounds && !layer2Observed; round++)
+        {
+            HttpResponseMessage[] answers = await Task.WhenAll(Enumerable.Range(0, Racers)
+                .Select(_ => identity.SendAsync(Conditional(name, version, Body()))));
+
+            (HttpStatusCode Status, string? Title, string Raw)[] results =
+                await Task.WhenAll(answers.Select(ReadAnswerAsync));
+
+            // A loser's body is quoted whole: a 502's detail carries the caught
+            // exception's message, which is what tells a Layer-2 loser from a real
+            // Keycloak outage. A 200's body holds the new secret, so it is not.
+            string answered = string.Join(", ", results.Select(r => r.Status == HttpStatusCode.OK
+                ? "200"
+                : $"{(int)r.Status} {r.Title ?? "(no title)"} {r.Raw}"));
+
+            (HttpStatusCode Status, string? Title, string Raw)[] winners = results
+                .Where(r => r.Status == HttpStatusCode.OK).ToArray();
+            winners.Length.ShouldBe(1,
+                $"round {round}: exactly one racer may win the rotation, its version and secret become "
+                + $"the round's outcome. Answers: {answered}");
+
+            (HttpStatusCode Status, string? Title, string Raw)[] losers = results
+                .Where(r => r.Status != HttpStatusCode.OK).ToArray();
+
+            bool any502 = losers.Any(loser => loser.Status == HttpStatusCode.BadGateway);
+            bool any500 = losers.Any(loser => loser.Status == HttpStatusCode.InternalServerError);
+            string meaning;
+            if (any502)
+            {
+                meaning = "a 502 KEYCLOAK_UNAVAILABLE loser is spec 254's confirmed defect: the Layer-2 "
+                    + "loser's raw DbUpdateConcurrencyException was caught by the handler's filter and "
+                    + "misreported as a Keycloak outage.";
+            }
+            else if (any500)
+            {
+                meaning = "a 500 loser means the exception arrived wrapped after all (contradicts spec "
+                    + "254 §1/A1) — STOP and report verbatim, the fix would belong in middleware, not "
+                    + "the handler filter.";
+            }
+            else
+            {
+                meaning = "an unexpected non-409 answer — report verbatim rather than treating it as "
+                    + "either known case.";
+            }
+            losers.ShouldAllBe(
+                loser => loser.Status == HttpStatusCode.Conflict
+                    && (loser.Title == "WEBHOOK_CLIENT_STALE" || loser.Title == "AGGREGATE_VERSION_STALE"),
+                customMessage: $"round {round}: every loser must be told it conflicted — 409 "
+                    + $"WEBHOOK_CLIENT_STALE or 409 AGGREGATE_VERSION_STALE, never anything else. {meaning} "
+                    + $"Answers: {answered}");
+
+            using JsonDocument winnerBody = JsonDocument.Parse(winners[0].Raw);
+            int winnerVersion = winnerBody.RootElement.GetProperty("version").GetInt32();
+            string winnerSecret = winnerBody.RootElement.GetProperty("clientSecret").GetString()!;
+
+            (await CanAuthenticateAsync($"webhook-{name}", winnerSecret)).ShouldBeTrue(
+                $"round {round}: the round's winner must still be able to authenticate with the secret "
+                + $"it was just handed. Answers: {answered}");
+
+            if (losers.Any(loser => loser.Title == "AGGREGATE_VERSION_STALE"))
+            {
+                layer2Observed = true;
+                break;
+            }
+
+            version = winnerVersion;
+        }
+
+        layer2Observed.ShouldBeTrue(
+            $"inconclusive: no racer reached Layer 2 in {MaxRounds} rounds of {Racers} — the harness did "
+            + "not race deep enough to put two requests between the Layer-1 version check and the "
+            + "commit. This is not spec 254's defect's red (spec 254 §5 A2); report it rather than "
+            + "declaring victory.");
+    }
+
+    private static async Task<(HttpStatusCode Status, string? Title, string Raw)> ReadAnswerAsync(
+        HttpResponseMessage response)
+    {
+        string raw = await response.Content.ReadAsStringAsync();
+        string? title = null;
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(raw);
+            if (document.RootElement.TryGetProperty("title", out JsonElement titleElement))
+            {
+                title = titleElement.GetString();
+            }
+        }
+        catch (JsonException)
+        {
+            // A body that is not JSON at all (an unmapped 500, say) — the raw
+            // text still carries the evidence into the assertion message.
+        }
+
+        return (response.StatusCode, title, raw);
     }
 
     [Fact]

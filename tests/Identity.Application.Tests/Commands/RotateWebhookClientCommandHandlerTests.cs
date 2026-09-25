@@ -1,4 +1,5 @@
 using System.Globalization;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
@@ -122,6 +123,53 @@ public class RotateWebhookClientCommandHandlerTests
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.KeycloakUnavailable>();
         repo.Clients.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// Spec 254 AS-4 (#2570) — the handler contract the fix pins. The rotate
+    /// branch's <c>SaveAsync</c> is where the EF Layer-2 concurrency token
+    /// lives (ADR-0113); a genuine loser throws a raw
+    /// <see cref="DbUpdateConcurrencyException"/> there, before Keycloak is
+    /// ever asked to roll the secret. It must reach
+    /// <c>ConcurrencyConflictExceptionHandler</c> unconverted, not be folded
+    /// into <c>KeycloakUnavailable</c> by the handler's own catch.
+    ///
+    /// <para>
+    /// Pre-fix red: the current filter does not exclude
+    /// <see cref="DbUpdateConcurrencyException"/>, so the handler catches it
+    /// and <i>returns</i> a <c>KeycloakUnavailable</c> result instead of
+    /// throwing — <see cref="ShouldThrowExtensions.ShouldThrowAsync"/> finds
+    /// nothing to catch.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_rotation_that_loses_the_database_race_lets_the_concurrency_exception_reach_the_middleware()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        RegisteredClient client = RegisteredClient.Register(
+            ClientId.From("webhook-qa"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Seed(client, version: 3);
+        repo.FailNextSaveWith = new DbUpdateConcurrencyException(
+            "Layer-2 loser: the row was updated by another rotation first.");
+
+        FakeKeycloakAdminClient keycloak = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, new FakeEventBus(), new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        RotateWebhookClientCommand command = new(
+            "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
+            Option<int>.Some(3));
+
+        await Should.ThrowAsync<DbUpdateConcurrencyException>(
+            async () => await handler.HandleAsync(command, CancellationToken.None));
+
+        keycloak.CallCount.ShouldBe(
+            0, "the loser must not roll a secret for a save that never committed");
     }
 
     /// <summary>
