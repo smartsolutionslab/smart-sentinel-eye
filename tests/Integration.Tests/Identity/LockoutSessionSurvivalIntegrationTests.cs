@@ -1,3 +1,4 @@
+using System.Buffers.Text;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -343,11 +344,15 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
     /// pass vacuously — the counter could not have moved regardless of what
     /// Keycloak does with malformed grants, because Keycloak has nothing to
     /// attribute the attempt to. This mints a real pair for the probe first,
-    /// then flips the last character of the refresh token's signature segment
-    /// — still a three-segment JWT naming this probe's session in its
+    /// then flips one bit of the refresh token's <b>decoded</b> signature —
+    /// still a three-segment JWT naming this probe's session in its
     /// (unverified but readable) payload, but one whose signature check must
-    /// fail. That is what makes the before/after comparison on <i>this</i>
-    /// account's own record a claim that could actually fail.
+    /// fail. Flipping only the signature's last base64url character instead
+    /// would, about a quarter of the time, touch only padding bits a decoder
+    /// discards and leave the decoded signature unchanged — a token Keycloak
+    /// correctly accepts, not a corrupted one (spec 253/#2533); flipping a
+    /// decoded byte cannot. That is what makes the before/after comparison on
+    /// <i>this</i> account's own record a claim that could actually fail.
     /// </para>
     ///
     /// <para>
@@ -398,23 +403,48 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// Flips the last character of a three-segment JWT's signature, leaving
-    /// its header and payload — the parts naming the session and subject —
-    /// byte-identical and readable. A signature-only corruption is what makes
-    /// the token attributable but invalid, as opposed to a bare string that
-    /// fails to parse as a JWT at all.
+    /// Flips one bit of a three-segment JWT's <b>decoded</b> signature,
+    /// leaving its header and payload — the parts naming the session and
+    /// subject — byte-identical and readable. A signature-only corruption is
+    /// what makes the token attributable but invalid, as opposed to a bare
+    /// string that fails to parse as a JWT at all.
+    ///
+    /// <para>
+    /// Operates on decoded bytes rather than the base64url text. A base64url
+    /// signature's <b>last character</b> often carries unused padding bits a
+    /// decoder discards — a canonical 64-byte (HS512) signature's final
+    /// character always spells 'A', 'Q', 'g' or 'w', and only three of those
+    /// four flips touch a significant bit. Flipping the last character
+    /// therefore left the decoded signature byte-identical, and Keycloak
+    /// correctly accepting it, about a quarter of the time (spec 253, issue
+    /// #2533). Flipping bit 0 of the <b>first</b> decoded byte is
+    /// significant in every base64url encoding at every signature length, so
+    /// the corruption is guaranteed real.
+    /// </para>
     /// </summary>
-    private static string CorruptSignature(string jwt)
+    internal static string CorruptSignature(string jwt)
     {
         string[] segments = jwt.Split('.');
         segments.Length.ShouldBe(3, $"a refresh token should be a three-segment JWT; got {segments.Length} segment(s).");
 
         string signature = segments[2];
         signature.ShouldNotBeNullOrEmpty("a refresh token's signature segment should not be empty.");
-        char lastCharacter = signature[^1];
-        char flipped = lastCharacter == 'A' ? 'B' : 'A';
 
-        return $"{segments[0]}.{segments[1]}.{signature[..^1]}{flipped}";
+        byte[] decoded = Base64Url.DecodeFromChars(signature);
+        byte[] corrupted = (byte[])decoded.Clone();
+        corrupted[0] ^= 0x01;
+        string corruptedSignature = Base64Url.EncodeToString(corrupted);
+
+        // Self-check: a padding-bits-only flip (the bug this replaced) would
+        // leave the decoded bytes unchanged. Flipping the first byte cannot
+        // do that, but this turns any future edit that reintroduces such a
+        // flip into a loud failure here rather than a silent ~1-in-4 flake
+        // downstream.
+        Base64Url.DecodeFromChars(corruptedSignature).SequenceEqual(decoded).ShouldBeFalse(
+            "CorruptSignature must produce a signature whose decoded bytes differ from the original's "
+            + "— a padding-bits-only change would defeat the whole point of this helper.");
+
+        return $"{segments[0]}.{segments[1]}.{corruptedSignature}";
     }
 
     /// <summary>
