@@ -3,7 +3,7 @@ using System.Text.RegularExpressions;
 namespace SmartSentinelEye.Architecture.Tests;
 
 /// <summary>
-/// Guards US3 of spec 256 (issue #2332): the shared UI primitives and composites
+/// Guards US3 of spec 257 (issue #2332): the shared UI primitives and composites
 /// that no later issue owns cite the semantic token layer for every colour,
 /// never a Tailwind stock-palette utility, a call-site alpha modifier on a
 /// semantic colour, or a raw colour literal.
@@ -27,7 +27,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// Measured on develop (spec 256 plan.md §5.2): the violators outside the
+/// Measured on develop (spec 257 plan.md §5.2): the violators outside the
 /// carve-outs are <c>CameraViewer.tsx</c> (2 stock-palette), <c>DataTable.tsx</c>
 /// (2 alpha), <c>Dialog.tsx</c> (1 stock-palette), <c>ConfirmDialog.tsx</c> (1
 /// stock-palette) and <c>Tooltip.tsx</c> (1 alpha) — exactly US3's migration set.
@@ -63,7 +63,7 @@ public class SharedUiTokenUsageTests
         (
             "apps/shared/src/ui/composites/overlayLabelStyle.ts",
             "#2342: the label's rendered look over live video on both surfaces (spec 146) — on the "
-            + "render leg, deliberately not touched by spec 256 (spec §3, §5)."),
+            + "render leg, deliberately not touched by spec 257 (spec §3, §5)."),
     ];
 
     private static readonly Regex StockPaletteUtility = new(

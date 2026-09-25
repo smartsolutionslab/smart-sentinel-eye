@@ -1,4 +1,4 @@
-# Tasks 256: The scales nobody picked
+# Tasks 257: The scales nobody picked
 
 **Spec**: [spec.md](spec.md) · **Plan**: [plan.md](plan.md) · **Issue**: #2332 · **Phase**: 3 (Tasks)
 **Colour**: **red** (behaviour-changing). Pins that are declared green in advance are listed in

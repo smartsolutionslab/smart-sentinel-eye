@@ -1,4 +1,4 @@
-# Plan 256: The scales nobody picked
+# Plan 257: The scales nobody picked
 
 **Spec**: [spec.md](spec.md) · **Issue**: #2332 · **Phase**: 2 (Plan)
 
@@ -467,7 +467,7 @@ Measured 2026-09-25, `apps/*/src`, non-test:
 
 ## 8. Commit sequence (each commit builds on its own, ADR-0087)
 
-1. `docs(256): specify, plan and task the two-layer token system` (this phase).
+1. `docs(257): specify, plan and task the two-layer token system` (this phase).
 2. `test(tokens): pin the token layers, the shared theme and the shared UI's token use red-first`.
    The 4a tests are committed red (the build compiles, and only the declared facts fail).
 3. `feat(tokens): two-layer OKLCH token file consumed by both apps through one theme`.

@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 namespace SmartSentinelEye.Architecture.Tests;
 
 /// <summary>
-/// Guards ADR-0148's two-layer token file (spec 256, issue #2332): one file both
+/// Guards ADR-0148's two-layer token file (spec 257, issue #2332): one file both
 /// <c>apps/management-web</c> and <c>apps/kiosk-web</c> import, carrying a primitive
 /// OKLCH scale and a semantic layer that cites it, in every category the issue names.
 ///
