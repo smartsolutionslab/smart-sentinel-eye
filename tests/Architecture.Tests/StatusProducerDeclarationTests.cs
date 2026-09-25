@@ -608,12 +608,9 @@ public class StatusProducerDeclarationTests
 
     /// <summary>
     /// <b>A planted form is reported with its own file and line.</b> The
-    /// detection counterfactual for issue #2467: before
-    /// <c>FormsThisReaderCannotMask</c> exists, this test does not compile, and
-    /// that compile failure is the weakest form of red this slice takes (the
-    /// stronger one plants the same form in a real endpoint file — spec 249
-    /// §5, §6). Once the helper exists, this proves it can actually fail: a
-    /// clean pair reports nothing, and an offending pair is named precisely.
+    /// detection counterfactual for issue #2467: this proves the helper can
+    /// actually fail — a clean pair reports nothing, and an offending pair is
+    /// named precisely.
     /// </summary>
     [Fact]
     public void A_planted_unmaskable_form_is_reported_with_its_file_and_line()
