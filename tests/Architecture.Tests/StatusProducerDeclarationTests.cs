@@ -604,6 +604,129 @@ public class StatusProducerDeclarationTests
             + "wearing a build failure's clothes.");
     }
 
+    // ---- masker assumptions (issue #2467) ----------------------------------
+
+    /// <summary>
+    /// <b>A planted form is reported with its own file and line.</b> The
+    /// detection counterfactual for issue #2467: before
+    /// <c>FormsThisReaderCannotMask</c> exists, this test does not compile, and
+    /// that compile failure is the weakest form of red this slice takes (the
+    /// stronger one plants the same form in a real endpoint file — spec 249
+    /// §5, §6). Once the helper exists, this proves it can actually fail: a
+    /// clean pair reports nothing, and an offending pair is named precisely.
+    /// </summary>
+    [Fact]
+    public void A_planted_unmaskable_form_is_reported_with_its_file_and_line()
+    {
+        const string offendingFile = "src/Probe/Api/ProbeEndpoints.cs";
+        const string offendingText =
+            "group.MapPost(\"/probe\", Probe)\n"
+            + "    .WithSummary(\"\"\"see \"foo( bar\" now\"\"\")\n"
+            + "    .ProducesProblem(StatusCodes.Status404NotFound);\n";
+
+        const string cleanFile = "src/Probe/Api/OtherEndpoints.cs";
+        const string cleanText =
+            "group.MapPost(\"/other\", Other)\n"
+            + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
+            + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n";
+
+        (string File, string Text)[] sources =
+        [
+            (offendingFile, offendingText),
+            (cleanFile, cleanText),
+        ];
+
+        string[] offenders = FormsThisReaderCannotMask(sources);
+
+        offenders.Length.ShouldBe(
+            1,
+            $"expected exactly one offender — the raw string planted in {offendingFile} — but got "
+            + $"[{string.Join(" | ", offenders)}]. The clean pair must not be reported at all.");
+
+        offenders[0].ShouldContain(
+            $"{offendingFile}:2",
+            Case.Sensitive,
+            "the offender must name the file and the line — line 2 of the fixture, where the raw string "
+            + "sits — together, not one without the other.");
+        offenders[0].ShouldContain("\"\"\"", Case.Sensitive, "the offender must name the form that could not be masked.");
+        offenders[0].ShouldContain("raw string literal", Case.Sensitive, "the offender must say why the reader cannot read it.");
+    }
+
+    /// <summary>
+    /// <b>The masker's assumption holds for this reader.</b> This reader masks
+    /// with <see cref="MaskStrictness.CommentsAndLiteralInteriors"/> and walks
+    /// with <see cref="ChainEndSentinel.NotFound"/> — issue #2467, the same
+    /// shape <c>EndpointScopeDeclarationTests</c>'
+    /// <c>The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask</c>
+    /// (issue #2278) already asserts for its own two-stage reader. Without
+    /// this, a raw string added anywhere under <c>src/*/Api</c> is misread
+    /// silently, in the passing direction:
+    /// <see cref="SourceScanCharacterisationTests.A_raw_string_runs_a_CommentsAndLiteralInteriors_chain_to_the_end_of_the_file"/>
+    /// shows exactly what that does to this reader's chain boundary.
+    /// </summary>
+    [Fact]
+    public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        List<string> files = ApiSourceFiles(root);
+        files.ShouldNotBeEmpty(
+            "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
+
+        BannedForms().ShouldNotBeEmpty(
+            "the list of forms this reader's masker cannot handle is empty, so this guard would pass "
+            + "against nothing to look for.");
+
+        string[] offenders = FormsThisReaderCannotMask(files.Select(file => (file, ReadRepositoryFile(file))));
+
+        offenders.ShouldBeEmpty(
+            $"{offenders.Length} source file(s) under src/*/Api use a literal form this reader's masker "
+            + "does not handle:" + Environment.NewLine + string.Join(Environment.NewLine, offenders) + Environment.NewLine
+            + "This reader masks in one pass — SourceMask.Apply(…, CommentsAndLiteralInteriors) — that "
+            + "walks a literal's quotes in pairs, so the text between a raw string's first two interior "
+            + "quotes is left as code. An unbalanced bracket there keeps RouteChainReader.StatementEnd's "
+            + "depth positive past the chain's own semicolon; with ChainEndSentinel.NotFound the chain "
+            + "becomes the rest of the file, and this mapping is credited with every later mapping's 401 "
+            + "challenge declaration and authorized/anonymous classification. Keep the form out of "
+            + "src/*/Api, or teach SourceMask to read it — a behaviour change with its own issue, not "
+            + "something to do inside a failing build.");
+    }
+
+    /// <summary>
+    /// The forms this reader's one-pass masker cannot handle — the single list
+    /// both <see cref="FormsThisReaderCannotMask"/> and its own non-vacuity
+    /// assertion read, so the two can never come to describe different sets.
+    /// </summary>
+    private static (string Form, string Why)[] BannedForms() =>
+        [.. SourceMask.UnhandledForms(MaskStrictness.CommentsAndLiteralInteriors)];
+
+    /// <summary>
+    /// One <c>file:line contains form — why</c> entry per (source, form) pair
+    /// whose first occurrence <see cref="BannedForms"/> names. Takes raw
+    /// <c>(File, Text)</c> pairs rather than reading files itself, so the
+    /// detection is testable against synthetic text; reads
+    /// <paramref name="sources"/>' text as given, never through the masker,
+    /// because masking is what destroys the very form being looked for.
+    /// </summary>
+    private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
+    {
+        (string Form, string Why)[] bannedForms = BannedForms();
+
+        List<string> offenders = [];
+        foreach ((string file, string text) in sources)
+        {
+            foreach ((string form, string why) in bannedForms)
+            {
+                int at = text.IndexOf(form, StringComparison.Ordinal);
+                if (at >= 0)
+                {
+                    offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
+                }
+            }
+        }
+
+        return [.. offenders];
+    }
+
     // ---- reading the surface -----------------------------------------------
 
     private static string Describe(RouteMapping mapping)
