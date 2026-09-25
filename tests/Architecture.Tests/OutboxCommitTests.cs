@@ -144,6 +144,22 @@ public class OutboxCommitTests
     /// therefore catches the one shape nobody writes and misses every
     /// <c>await dbContext.SaveChangesAsync(ct)</c> in the repository.
     /// </para>
+    ///
+    /// <para>
+    /// <b>Depth 2, not just depth 1.</b> An <c>async</c> lambda that captures a
+    /// parameter or a local (or is <c>static</c>) is lifted into a closure
+    /// display-class, and the lambda's own body is then compiled into a state
+    /// machine nested <em>inside that display class</em> —
+    /// <c>Type+&lt;&gt;c__DisplayClass0_0+&lt;&lt;Method&gt;b__0&gt;d</c> — because
+    /// the state machine still needs the captured values the display class
+    /// holds. A walk that stops at the candidate's immediate nested types finds
+    /// the display class but never looks inside it, so the walk here is
+    /// transitive: every nested type, and every type nested inside that, all the
+    /// way down. An async lambda that captures only <c>this</c> (e.g. via a
+    /// primary-constructor field) needs no display class — it is lifted directly
+    /// onto the type — so it stays at depth 1 and was already reached before this
+    /// walk became transitive.
+    /// </para>
     /// </summary>
     private static bool CallsSaveChangesDirectly(Type type) =>
         BodiesOf(type).Any(body => ReferencesSaveChanges(body, type.Module));
@@ -154,7 +170,7 @@ public class OutboxCommitTests
             BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
             | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
-        IEnumerable<Type> types = [type, .. type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)];
+        IEnumerable<Type> types = [type, .. NestedTypesOf(type)];
 
         return types
             .SelectMany(candidate => candidate.GetMethods(Declared).Cast<MethodBase>()
@@ -164,19 +180,71 @@ public class OutboxCommitTests
             .Select(body => body!);
     }
 
+    private static IEnumerable<Type> NestedTypesOf(Type type) =>
+        type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)
+            .SelectMany(nested => (IEnumerable<Type>)[nested, .. NestedTypesOf(nested)]);
+
+    /// <summary>
+    /// Scans a single method body's IL for a reference to
+    /// <see cref="DbContext.SaveChanges()"/> or
+    /// <see cref="DbContext.SaveChangesAsync(CancellationToken)"/>, whether
+    /// invoked directly or loaded as a method-group delegate.
+    /// </summary>
+    /// <para>
+    /// <b>What this does not see, on purpose</b> (spec 252 / #2470):
+    /// </para>
+    /// <list type="bullet">
+    /// <item><description>
+    /// <b>Interface dispatch.</b> A <see cref="DbContext"/> reached through an
+    /// interface resolves to the interface's method, whose declaring type is not
+    /// a <see cref="DbContext"/> — the declaring-type check that rescues
+    /// <c>SaveChangesAndFlushMessagesAsync</c> would exclude it by the same
+    /// reasoning. No such interface exists in <c>src/</c> today; introducing one
+    /// is a design change, and this guard needs revisiting alongside it.
+    /// </description></item>
+    /// <item><description>
+    /// <b><see cref="DbContext.Database"/>.ExecuteSql*/ExecuteUpdate*/ExecuteDelete*.</b>
+    /// These join the ambient transaction rather than bypass it, so whether one
+    /// escapes the outbox is a runtime fact (was there an ambient transaction?),
+    /// not a call-site fact an IL scan can decide. Seven live sites on
+    /// 2026-09-25, four in scanned assemblies, none announcing anything they
+    /// commit. A rule for a raw-SQL write against an announcing aggregate is a
+    /// different guard, with a different instrument.
+    /// </description></item>
+    /// <item><description>
+    /// <b>Reflection, <c>dynamic</c>, expression trees.</b> None of these leaves
+    /// a matching IL call site at the point where the code is written — the
+    /// actual call is assembled or dispatched at runtime — so there is nothing
+    /// here for a pattern match to see.
+    /// </description></item>
+    /// </list>
     private static bool ReferencesSaveChanges(MethodBody body, Module module)
     {
         byte[] il = body.GetILAsByteArray() ?? [];
 
-        // 0x28 call, 0x6F callvirt — the two ways SaveChanges/SaveChangesAsync are reached.
+        // 0x28 call, 0x6F callvirt — a direct or virtual invocation.
+        // 0xFE 0x06 ldftn, 0xFE 0x07 ldvirtftn — a method group converted to a
+        // delegate: the commit is deferred to whoever invokes the delegate, not
+        // avoided, so it is the same offence one step removed. ldvirtftn is the
+        // live-instance spelling: SaveChanges is virtual, so Roslyn loads it
+        // through the vtable even for a method group taken off a live instance.
+        // ldftn only appears for the base-qualified spelling, reachable from
+        // inside a DbContext subclass.
         for (int i = 0; i + 4 < il.Length; i++)
         {
-            if (il[i] is not (0x28 or 0x6F))
+            int operand = il[i] switch
+            {
+                0x28 or 0x6F => i + 1,
+                0xFE when il[i + 1] is 0x06 or 0x07 => i + 2,
+                _ => -1,
+            };
+
+            if (operand < 0 || operand + 4 > il.Length)
             {
                 continue;
             }
 
-            int token = BitConverter.ToInt32(il, i + 1);
+            int token = BitConverter.ToInt32(il, operand);
             try
             {
                 MethodBase? called = module.ResolveMethod(token);
