@@ -35,6 +35,13 @@ namespace SmartSentinelEye.Architecture.Tests.Persistence;
 /// parameterless <see cref="DbContext"/> subclass that would throw on
 /// construction is fine for exactly that reason.
 /// </para>
+///
+/// <para>
+/// Spec 252 (#2470) adds <see cref="MethodGroupOffenderRepository"/>,
+/// <see cref="BaseMethodGroupOffenderRepository"/> and
+/// <see cref="AsyncLambdaOffenderRepository"/> — the delegate-load and
+/// depth-2-nesting shapes the scan stepped over before that fix.
+/// </para>
 /// </summary>
 public sealed class ProbeDbContext : DbContext
 {
@@ -106,4 +113,52 @@ public sealed class FailureSubscriptionRepository
         // subscription above resolves to a real EventHandler<SaveChangesFailedEventArgs>
         // shape, which is what makes add_SaveChangesFailed appear in the IL at all.
     }
+}
+
+/// <summary>
+/// Spec 252 (#2470) shape A, live-instance spelling: a method group converted
+/// to a delegate compiles to <c>ldvirtftn</c> (<c>0xFE 0x07</c>), not
+/// <c>ldftn</c> — <see cref="DbContext.SaveChanges()"/> is virtual, so Roslyn
+/// loads it through the vtable even though nothing has been called yet. The
+/// commit happens later, through <see cref="Save"/>'s returned delegate, but
+/// the reference to <see cref="DbContext.SaveChanges()"/> is already in this
+/// type's own IL — which is what the scan must catch.
+/// </summary>
+public sealed class MethodGroupOffenderRepository(ProbeDbContext dbContext)
+{
+    public Func<int> Save() => dbContext.SaveChanges;
+}
+
+/// <summary>
+/// Spec 252 (#2470) shape A, <c>base.</c> spelling: converting
+/// <c>base.SaveChanges</c> to a delegate compiles to <c>ldftn</c>
+/// (<c>0xFE 0x06</c>) — a non-virtual load, reachable only from inside a
+/// <see cref="DbContext"/> subclass. <c>ldftn</c> and <c>ldvirtftn</c> are one
+/// opcode family (load a method pointer); a scan that caught only the
+/// live-instance spelling above would leave this one uncaught, so each gets
+/// its own probe.
+/// </summary>
+public sealed class BaseMethodGroupOffenderRepository : DbContext
+{
+    public Func<int> Save() => base.SaveChanges;
+}
+
+/// <summary>
+/// Spec 252 (#2470) shape B: an <c>async</c> lambda that captures a method
+/// parameter (or a local, or is <c>static</c>) is lifted into a display class
+/// and then compiled to a state machine <em>nested inside that display
+/// class</em> —
+/// <c>AsyncLambdaOffenderRepository+&lt;&gt;c__DisplayClass0_0+&lt;&lt;SaveAsync&gt;b__0&gt;d</c>,
+/// depth 2. The one-level <c>BodiesOf</c> walk that catches a synchronous
+/// lambda's closure class never reaches a second level, so this call escapes
+/// it. <paramref name="dbContext"/> is taken as a method parameter — not a
+/// field — precisely so the lambda is forced into a display class: an async
+/// lambda that captures only <c>this</c> (e.g. a primary-constructor field)
+/// is lifted directly onto the type instead and stays at depth 1, which the
+/// scan already catches today and would make this probe arrive green.
+/// </summary>
+public static class AsyncLambdaOffenderRepository
+{
+    public static Task SaveAsync(ProbeDbContext dbContext, Func<Func<CancellationToken, Task>, Task> run) =>
+        run(async cancellationToken => await dbContext.SaveChangesAsync(cancellationToken));
 }
