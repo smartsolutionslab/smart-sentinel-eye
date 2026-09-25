@@ -8,11 +8,16 @@ const listCameras = vi.hoisted(() => vi.fn());
 
 // `currentData` and `refetch` are optional here — spec 211's tests set them
 // explicitly per case (US1-A/B/C/G); every pre-existing mockReturnValue omits
-// both, unedited, and stays valid because neither is required.
+// both, unedited, and stays valid because neither is required. `isFetching` is
+// optional for the same reason (spec 256, issue #2522): every pre-existing
+// mockReturnValue omits it, which is falsy and renders as it always has (the
+// unreachable-in-real-RTK row 7 of the plan's table) — only the new tests
+// below set it.
 type GetCameraResult = {
   data: unknown;
   currentData?: unknown;
   isLoading: boolean;
+  isFetching?: boolean;
   error: unknown;
   refetch?: unknown;
 };
@@ -569,5 +574,96 @@ describe('CameraDetailPage', () => {
     expect(screen.queryByRole('button', { name: /^rename$/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /correct the address/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
+  });
+
+  /**
+   * Spec 256 (issue #2522) — the truth table's row 8, and the fix itself.
+   *
+   * `isLoading` is false because `hasData` is true (RTK Query's `lastResult`
+   * fallback carries `data` forward from a *previously viewed* identifier
+   * across an argument change — see the comment above `record` in
+   * `CameraDetailPage.tsx`). `currentData` is undefined because nothing has
+   * arrived yet for THIS identifier. Today the page reads `record = camera`
+   * (since `error` is undefined) and renders the previous camera's heading,
+   * fab, RTSP URL and viewer under the new camera's URL. This is the case
+   * `isFetching` exists to catch, and — with the pair below — is load-bearing:
+   * an `isFetching`-only gate would pass this test and wrongly fail the next
+   * one (row 6, a background refetch of the camera already on screen).
+   */
+  it('Shows loading, not the previous camera, while the new one is fetched', () => {
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: undefined,
+      isLoading: false,
+      isFetching: true,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderAt(otherCamera.cameraIdentifier);
+
+    expect(screen.getByText('Loading…')).toBeInTheDocument();
+    expect(screen.queryByText(camera.name)).toBeNull();
+    expect(screen.queryByText(camera.fab)).toBeNull();
+    expect(screen.queryByText(camera.rtspUrl)).toBeNull();
+    expect(screen.queryByTestId('camera-viewer')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^rename$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /correct the address/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
+    expect(viewerRenders).toHaveLength(0);
+  });
+
+  /**
+   * Fence for row 8 above (plan §Testing: "load-bearing, write each pair
+   * adjacent"). `data` and `currentData` agree — this IS the camera on
+   * screen's own record — and `isFetching` is true only because it is being
+   * refreshed in the background (e.g. after a rename). A gate that reads
+   * `isFetching` alone, without requiring `currentData === undefined`, would
+   * flash "Loading…" on every background refetch of the camera an operator is
+   * already looking at. That must not happen.
+   */
+  it('Keeps showing the camera while its own record is refreshed', () => {
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: camera,
+      isLoading: false,
+      isFetching: true,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderAt(camera.cameraIdentifier);
+
+    expect(screen.getByRole('heading', { name: 'Line-1-Entrance' })).toBeInTheDocument();
+    expect(screen.queryByText('Loading…')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  /**
+   * Fence for row 8 above, the other half of the pair (plan §Testing): a gate
+   * that reads `isFetching && currentData === undefined` without also
+   * requiring `error === undefined` would drop spec 211's refusal branch —
+   * FR-008's "No such camera" — the moment a refused identifier's request is
+   * retried while still in flight. `error` stays set the whole time a refused
+   * identifier is being refetched, so this must keep reading as a refusal, not
+   * flip to "Loading…".
+   */
+  it('Still shows no such camera while a refused identifier is refetched', () => {
+    getCamera.mockReturnValue({
+      data: camera,
+      currentData: undefined,
+      isLoading: false,
+      isFetching: true,
+      error: { status: 404 },
+      refetch: vi.fn(),
+    });
+
+    renderAt('22222222-2222-2222-2222-222222222222');
+
+    expect(screen.getByRole('heading', { name: /no such camera/i })).toBeInTheDocument();
+    expect(screen.queryByText('Loading…')).toBeNull();
+    expect(screen.queryByText(camera.name)).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
   });
 });
