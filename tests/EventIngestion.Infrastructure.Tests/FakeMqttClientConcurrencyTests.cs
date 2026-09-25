@@ -5,22 +5,35 @@ using SmartSentinelEye.EventIngestion.Infrastructure.Tests.Fakes;
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Tests;
 
 /// <summary>
-/// Issue #2451. <c>FakeMqttClient.PresentedCredentials</c> and
-/// <c>SubscribedTopics</c> are plain <c>List&lt;string&gt;</c>, and
-/// <c>ConnectAttempts</c> reads <c>PresentedCredentials.Count</c>.
-/// <c>List&lt;T&gt;.Add</c> publishes the new count before it stores the
-/// element (<c>_size = size + 1; array[size] = item;</c>), so a reader that
-/// waits for a count and then reads the element at that index can observe a
-/// count the storage has not caught up with — a <c>null</c>, a stale value, or
-/// (because <c>List&lt;T&gt;</c>'s enumerator is version-checked) an
-/// <c>InvalidOperationException</c> thrown mid-<c>foreach</c> by the writer's
-/// concurrent <c>Add</c>.
+/// Issue #2451. Before the fix, <c>FakeMqttClient.PresentedCredentials</c> and
+/// <c>SubscribedTopics</c> were plain <c>List&lt;string&gt;</c>, and
+/// <c>ConnectAttempts</c> read <c>PresentedCredentials.Count</c>. The red this
+/// suite actually observed (commit 18141f7a, before the fix) was
+/// <c>List&lt;T&gt;</c>'s version-checked enumerator throwing
+/// <c>InvalidOperationException: Collection was modified</c> mid-<c>foreach</c>
+/// when the writer's concurrent <c>Add</c> landed during a read — the issue's
+/// original premise.
+///
+/// <para>
+/// The fix (now <c>ConcurrentQueue&lt;string&gt;</c>, with
+/// <c>ConnectAttempts</c> its own counter incremented only after the element is
+/// enqueued) additionally closes a second, related race by construction rather
+/// than by ever having been seen failing in this shape: <c>List&lt;T&gt;.Add</c>
+/// publishes the new count before it stores the element
+/// (<c>_size = size + 1; array[size] = item;</c>), so a reader that read a count
+/// and then indexed up to it could in principle observe an element the storage
+/// had not caught up with. Nothing in this repository's runs ever reproduced
+/// that ordering directly — the enumeration throw always won the race first —
+/// so this test asserts the fixed invariant (a snapshot is never behind the
+/// count read before it) going forward rather than re-deriving a failure that
+/// was never independently observed.
+/// </para>
 ///
 /// <para>
 /// This is a guard whose subject is the test double itself, in the shape of
 /// <see cref="MqttClientWasConnectedContractTests"/> here and
 /// <c>ScenarioSimulator.Tests/FakeMqttClientContractTests.cs</c> there. A
-/// single-threaded test cannot reach the defect at all — it needs a writer and
+/// single-threaded test cannot reach either race at all — it needs a writer and
 /// a reader genuinely overlapping on different threads — so this is a bounded
 /// stress test rather than an ordinary fact. That is also what makes it
 /// trustworthy in both directions: once the recorder is FIFO with the count
@@ -39,6 +52,7 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Tests;
 /// touches the version check that makes the race observable.
 /// </para>
 /// </summary>
+[Collection(FakeMqttClientConcurrencyCollection.Name)]
 public class FakeMqttClientConcurrencyTests
 {
     private const int Writes = 20_000;
@@ -203,8 +217,8 @@ public class FakeMqttClientConcurrencyTests
     /// <summary>
     /// F3. Single-threaded characterisation, green before and after: the one
     /// placement the fix could plausibly move is the enqueue/increment relative
-    /// to the <c>IsConnected</c> check, and this pins that a refusal there
-    /// records nothing (<c>FakeMqttClient.cs:185-190</c>).
+    /// to <c>ConnectAsync</c>'s <c>IsConnected</c> guard, and this pins that a
+    /// refusal there records nothing.
     /// </summary>
     [Fact]
     public async Task A_connect_refused_because_the_client_is_already_connected_is_not_recorded()
