@@ -1,5 +1,5 @@
 // The one Tailwind theme object both apps' tailwind.config.ts import
-// (ADR-0078, ADR-0148 — spec 256, issue #2332). Cites semantic tokens from
+// (ADR-0078, ADR-0148 — spec 257, issue #2332). Cites semantic tokens from
 // ./tokens.css only — never a primitive (plan.md §4.1). `colors` and
 // `spacing` sit under `extend` because Tailwind's own colour/size scales
 // stay available alongside ours; every other namespace here REPLACES

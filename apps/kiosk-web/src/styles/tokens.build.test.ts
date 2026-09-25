@@ -12,7 +12,7 @@
 // each app wires it." Importing this app's real index.css also pulls in the
 // kiosk-only `ssE-overlay-highlight` pulse block (untouched by this spec).
 //
-// Red on develop (spec 256 §6): every assertion below except `.rounded-md`,
+// Red on develop (spec 257 §6): every assertion below except `.rounded-md`,
 // which is a green pin — Tailwind 4.3.3 already emits
 // `border-radius: var(--radius-md)` for the STOCK `rounded-md` utility, by a
 // name collision with ADR-0148's token names (spec §1 finding 2), unrelated
@@ -105,7 +105,7 @@ function ruleExists(className: string): boolean {
   return found;
 }
 
-describe('kiosk-web tokens compile through Tailwind (spec 256 US2)', () => {
+describe('kiosk-web tokens compile through Tailwind (spec 257 US2)', () => {
   it('spacing routes through the rhythm tokens: p-4 padding is var(--space-4)', () => {
     expect(ruleExists('p-4'), '.p-4 does not compile at all').toBe(true);
     expect(ruleDeclarations('p-4').padding).toBe('var(--space-4)');

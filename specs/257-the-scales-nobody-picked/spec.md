@@ -1,4 +1,4 @@
-# Spec 256 — The scales nobody picked
+# Spec 257 — The scales nobody picked
 
 **Issue:** [#2332](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2332)
 — *The design system is seven colours and nothing else*. Labels `enhancement`,
@@ -9,7 +9,11 @@
 **Spec number.** Every remote branch, every local branch and every worktree was
 listed on 2026-09-25. Develop's highest is 252; 253 is an untracked directory in the
 main checkout; 254 is claimed three times (`fix/2570`, `fix/2589`, `test/2450`); 255
-by `fix/2586`. This spec is **256**. Re-check before the PR is opened.
+by `fix/2586`. **256 was picked first and turned out to be a three-way collision** —
+`fix/2366-mousedown-blur-submit-race` and `fix/2522-cameradetailpage-stale-render`
+both already carried unmerged `specs/256-*` directories that the first check missed.
+Found and renumbered to **257** on 2026-09-26, immediately before opening this PR,
+which is exactly the re-check this note already told the next reader to do.
 
 **ADRs referenced:**
 
