@@ -2,13 +2,12 @@ using System.Globalization;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text.Json;
+using Azure;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using Minio;
-using Minio.DataModel;
-using Minio.DataModel.Args;
-using Minio.Exceptions;
 using OpenTelemetry;
 using SmartSentinelEye.AuditObservability.Application.Retention;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
@@ -19,33 +18,36 @@ namespace SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 
 /// <summary>
 /// Production <see cref="IAuditChunkArchiver"/>: streams every
-/// row in the chunk to a gzipped NDJSON object on MinIO, with
-/// an <c>Content-MD5</c> checksum verified post-upload against
-/// the object's ETag.
+/// row in the chunk to a gzipped NDJSON blob on Azure Blob Storage
+/// (Azurite emulator in dev/CI, spec 009 ADR-0101, ADR-0155), with
+/// a Content-MD5 checksum the service verifies on upload and the
+/// archiver re-checks against the blob's stored content hash.
 ///
 /// <para>
-/// Idempotent: if an object with the expected key already
-/// exists and its ETag matches the freshly-computed MD5, the
+/// Idempotent: if a blob at the expected key already exists and
+/// its stored content hash matches the freshly-computed MD5, the
 /// archiver short-circuits with
 /// <see cref="ChunkArchiveResult.AlreadyArchived"/> set —
 /// safe to re-run after a mid-flight failure.
 /// </para>
 /// </summary>
-public sealed class MinioAuditChunkArchiver(
-    IMinioClient minio,
+public sealed class AzureBlobAuditChunkArchiver(
+    BlobServiceClient blobServiceClient,
     IDbContextFactory<AuditObservabilityDbContext> dbContextFactory,
-    IOptions<MinioOptions> options,
-    ILogger<MinioAuditChunkArchiver> logger) : IAuditChunkArchiver
+    IOptions<AuditArchiveOptions> options,
+    ILogger<AzureBlobAuditChunkArchiver> logger) : IAuditChunkArchiver
 {
     public async Task<ChunkArchiveResult> ArchiveChunkAsync(
         AuditChunk chunk, CancellationToken cancellationToken)
     {
         Ensure.That(chunk).IsNotNull();
 
-        MinioOptions opts = options.Value;
-        await EnsureBucketAsync(opts.Bucket, cancellationToken);
+        AuditArchiveOptions opts = options.Value;
+        BlobContainerClient container = blobServiceClient.GetBlobContainerClient(opts.ContainerName);
+        await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
         string objectKey = BuildObjectKey(opts.ObjectKeyTemplate, chunk);
+        BlobClient blob = container.GetBlobClient(objectKey);
 
         await using AuditObservabilityDbContext context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
@@ -61,39 +63,37 @@ public sealed class MinioAuditChunkArchiver(
             foreach (AuditEventEntity row in rows)
             {
                 await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(MinioAuditRow.From(row)));
+                    JsonSerializer.Serialize(BlobAuditRow.From(row)));
             }
         }
 
         payload.Position = 0;
-#pragma warning disable CA5351, S4790 // S3's Content-MD5 header is an integrity check, not a security primitive.
-        string contentMd5 = Convert.ToHexStringLower(MD5.HashData(payload.ToArray()));
+#pragma warning disable CA5351, S4790 // Content-MD5 is an integrity check, not a security primitive.
+        byte[] md5Bytes = MD5.HashData(payload.ToArray());
 #pragma warning restore CA5351, S4790
+        string contentMd5 = Convert.ToHexStringLower(md5Bytes);
 
-        // Idempotency: a previous successful run leaves the
-        // object in place; only re-upload if it's missing or
-        // the checksum drifted.
-        string? existingEtag = await TryGetEtagAsync(opts.Bucket, objectKey, cancellationToken);
-        if (existingEtag is not null && string.Equals(existingEtag, contentMd5, StringComparison.OrdinalIgnoreCase))
+        // Idempotency: a previous successful run leaves the blob
+        // in place; only re-upload if it's missing or the
+        // checksum drifted.
+        byte[]? existingContentHash = await TryGetContentHashAsync(blob, cancellationToken);
+        if (existingContentHash is not null && existingContentHash.AsSpan().SequenceEqual(md5Bytes))
         {
             logger.ChunkAlreadyArchived(chunk.ChunkIdentifier, objectKey);
             return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: true);
         }
 
         payload.Position = 0;
-        await minio.PutObjectAsync(
-            new PutObjectArgs()
-                .WithBucket(opts.Bucket)
-                .WithObject(objectKey)
-                .WithStreamData(payload)
-                .WithObjectSize(payload.Length)
-                .WithContentType("application/x-ndjson")
-                .WithHeaders(new Dictionary<string, string>
+        await blob.UploadAsync(
+            payload,
+            new BlobUploadOptions
+            {
+                HttpHeaders = new BlobHttpHeaders
                 {
-#pragma warning disable CA5351, S4790
-                    ["Content-MD5"] = Convert.ToBase64String(MD5.HashData(payload.ToArray())),
-#pragma warning restore CA5351, S4790
-                }),
+                    ContentType = "application/x-ndjson",
+                    ContentHash = md5Bytes,
+                },
+            },
             cancellationToken);
 
         logger.ArchivedAuditChunk(chunk.ChunkIdentifier, rows.Count, objectKey);
@@ -101,24 +101,12 @@ public sealed class MinioAuditChunkArchiver(
         return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: false);
     }
 
-    private async Task EnsureBucketAsync(string bucket, CancellationToken cancellationToken)
+    private static async Task<byte[]?> TryGetContentHashAsync(BlobClient blob, CancellationToken cancellationToken)
     {
-        bool exists = await minio.BucketExistsAsync(
-            new BucketExistsArgs().WithBucket(bucket), cancellationToken);
-        if (!exists)
-        {
-            await minio.MakeBucketAsync(
-                new MakeBucketArgs().WithBucket(bucket), cancellationToken);
-        }
-    }
-
-    private async Task<string?> TryGetEtagAsync(
-        string bucket, string objectKey, CancellationToken cancellationToken)
-    {
-        // #1808. StatObjectAsync issues a HEAD, and on a first archive the
+        // #1808. GetPropertiesAsync issues a HEAD, and on a first archive the
         // answer is legitimately 404 — that is what this probe is asking. The
         // HTTP instrumentation records the 404 as `error.type` before the SDK
-        // turns it into ObjectNotFoundException, and one error span marks the
+        // turns it into a RequestFailedException, and one error span marks the
         // whole trace, so every routine archival showed up in the dashboard as
         // a failed "archive audit chunk" while the upload had in fact
         // succeeded. Re-archiving an existing chunk — the rare case — was the
@@ -130,17 +118,15 @@ public sealed class MinioAuditChunkArchiver(
         // is that the probe itself no longer appears. That is the trade worth
         // making — an existence check that misses is not something anyone acts
         // on, and a span that cries failure on the happy path is worse than no
-        // span at all. The PUT and the surrounding journey are untouched.
+        // span at all. The upload and the surrounding journey are untouched.
         using IDisposable suppressed = SuppressInstrumentationScope.Begin();
 
         try
         {
-            ObjectStat stat = await minio.StatObjectAsync(
-                new StatObjectArgs().WithBucket(bucket).WithObject(objectKey),
-                cancellationToken);
-            return stat.ETag?.Trim('"');
+            Response<BlobProperties> properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
+            return properties.Value.ContentHash;
         }
-        catch (ObjectNotFoundException)
+        catch (RequestFailedException ex) when (ex.Status == 404)
         {
             return null;
         }
@@ -157,7 +143,7 @@ public sealed class MinioAuditChunkArchiver(
             .Replace("{chunkId:N}", chunk.ChunkIdentifier.ToString("N"), StringComparison.Ordinal);
     }
 
-    private sealed record MinioAuditRow(
+    private sealed record BlobAuditRow(
         Guid AuditIdentifier,
         DateTimeOffset OccurredAt,
         DateTimeOffset ReceivedAt,
@@ -171,7 +157,7 @@ public sealed class MinioAuditChunkArchiver(
         string Payload,
         short SchemaVersion)
     {
-        public static MinioAuditRow From(AuditEventEntity row) => new(
+        public static BlobAuditRow From(AuditEventEntity row) => new(
             row.Id.Value, row.OccurredAt, row.ReceivedAt,
             row.Fab?.Value, row.EventKind.Value,
             row.ResourceKind?.Value, row.ResourceIdentifier?.Value,

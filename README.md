@@ -37,7 +37,7 @@ every connected kiosk within 1 s via SignalR.
 | Frontend | React + TypeScript + Vite |
 | Backend | .NET 10 + ASP.NET Core + **.NET Aspire** |
 | Persistence | PostgreSQL (+ Marten for event-sourced contexts) |
-| Object store | MinIO |
+| Object store | Azure Blob Storage (Azurite emulator, ADR-0155) |
 | Messaging | RabbitMQ |
 | Identity | Keycloak (OIDC) per fab |
 | Streaming | WebRTC SFU; passthrough + GPU transcode fallback |
@@ -288,9 +288,10 @@ the existing `/hubs/layouts` SignalR hub).
 
 Spec 009 lights up **AuditObservability** — a bus-fed audit
 trail of every `*V1` integration event with hot search +
-per-resource timelines + a daily cold-archive sweep into MinIO.
-v1 ships the read API; the management-web Audit page lands
-alongside the cold-archive read endpoint in a follow-on spec.
+per-resource timelines + a daily cold-archive sweep into Azure
+Blob Storage (ADR-0155). v1 ships the read API; the
+management-web Audit page lands alongside the cold-archive read
+endpoint in a follow-on spec.
 
 1. **Pre-conditions.** `dotnet run --project src/AppHost`; wait
    for `audit-observability` to reach **Running** and `migrations`
@@ -327,12 +328,13 @@ alongside the cold-archive read endpoint in a follow-on spec.
 6. **Retention round-trip** (P3). Hot data lives in the
    TimescaleDB hypertable for 90 days; the
    `AuditRetentionHostedService` runs nightly, exports each
-   aged chunk to MinIO at
-   `s3://audit-archive/fab=*/year=YYYY/month=MM/chunk.ndjson.gz`
+   aged chunk to the `audit-archive` blob container at
+   `fab=*/year=YYYY/month=MM/chunk.ndjson.gz`
    with a `Content-MD5`-checked upload, then drops the chunk.
    Each archive emits `AuditChunkArchivedV1` on the bus.
    Cold-read API lands in a follow-on spec; for v1 retrieve
-   archived chunks directly from MinIO.
+   archived chunks directly from Azure Blob Storage (Azurite in
+   dev/CI).
 
 ## Quickstart — bind a kiosk, register a device, author a scoped rule
 

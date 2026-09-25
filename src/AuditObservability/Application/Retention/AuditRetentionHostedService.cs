@@ -140,7 +140,7 @@ public sealed class AuditRetentionHostedService(
                 chunk.OccurredFrom,
                 chunk.OccurredUntil,
                 clock.UtcNow,
-                result.MinioObjectKey,
+                result.ArchiveObjectKey,
                 result.ContentMd5,
                 Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, null, null));
             await deps.Events.PublishAsync(@event, cancellationToken);
@@ -159,7 +159,7 @@ public sealed class AuditRetentionHostedService(
 
             await deps.Inventory.DropChunkAsync(chunk, cancellationToken);
 
-            logger.ArchivedChunk(chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.MinioObjectKey);
+            logger.ArchivedChunk(chunk.ChunkIdentifier, result.RowCount, result.AlreadyArchived, result.ArchiveObjectKey);
         }
         catch (OperationCanceledException cancelled)
         {

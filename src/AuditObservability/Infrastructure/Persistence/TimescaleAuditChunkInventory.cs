@@ -96,7 +96,7 @@ public sealed class TimescaleAuditChunkInventory(
     /// <summary>
     /// Stable Guid derived from the Timescale chunk name so the
     /// same chunk surfaces with the same identifier across
-    /// retention runs (MinIO object keys are content-addressed
+    /// retention runs (archive object keys are content-addressed
     /// via this id; we need it deterministic).
     /// </summary>
     private static Guid DeterministicChunkIdentifier(string chunkName)

@@ -118,7 +118,7 @@ public class AuditRetentionHostedServiceTests
         FakeAuditChunkInventory inventory = new([stale]);
         FakeAuditChunkArchiver archiver = new()
         {
-            FailNextCall = new InvalidOperationException("minio down"),
+            FailNextCall = new InvalidOperationException("blob storage down"),
         };
         FakeBus bus = new();
 
@@ -265,7 +265,7 @@ public class AuditRetentionHostedServiceTests
     public async Task A_failed_archival_marks_its_journey()
     {
         RecordingJourneyOrigin journeys = new();
-        InvalidOperationException refused = new("minio down");
+        InvalidOperationException refused = new("blob storage down");
         FakeAuditChunkArchiver archiver = new() { FailNextCall = refused };
 
         AuditRetentionHostedService worker = Build(

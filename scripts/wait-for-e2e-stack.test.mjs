@@ -103,7 +103,7 @@ const composedResources = [
   'postgres',
   'rabbitmq',
   'keycloak',
-  'minio',
+  'storage',
   'migrations',
   'camera-catalog',
   'stream-distribution',
@@ -233,12 +233,14 @@ test('a stack the script cannot ask about migrations is not reported ready', { s
 });
 
 test('a stack whose status report names a resource that never started is not reported ready (#2268)', { skip: !bashAvailable }, () => {
-  // #2264's stack exactly: every existing probe is satisfied — ports serve,
-  // the gateway answers 401, every database carries applied migrations — and
-  // the only thing wrong is a status report naming minio as FailedToStart and
-  // audit-observability as Waiting.
+  // #2264's stack exactly (the resource that never started was `minio` at the
+  // time; the example below uses the stack's current storage resource name,
+  // `storage`, per ADR-0155): every existing probe is satisfied — ports
+  // serve, the gateway answers 401, every database carries applied
+  // migrations — and the only thing wrong is a status report naming storage
+  // as FailedToStart and audit-observability as Waiting.
   const statusFile = writeStatusReport({
-    minio: ['FailedToStart', ''],
+    storage: ['FailedToStart', ''],
     'audit-observability': ['Waiting', ''],
   });
 
@@ -251,16 +253,16 @@ test('a stack whose status report names a resource that never started is not rep
   assert.notEqual(
     result.status,
     0,
-    `the gate opened over a stack missing minio (#2268):\n${output}`,
+    `the gate opened over a stack missing storage (#2268):\n${output}`,
   );
   // US2: the refusal must name the offender, not just refuse (tasks.md T009).
   assert.match(
     output,
-    /minio/,
-    `expected the failure to name minio, the resource that never started:\n${output}`,
+    /storage/,
+    `expected the failure to name storage, the resource that never started:\n${output}`,
   );
   // ... and must not name a resource that did start — "postgres" is Running
-  // in this fixture, same as every other composed resource but minio and
+  // in this fixture, same as every other composed resource but storage and
   // audit-observability.
   assert.doesNotMatch(
     output,

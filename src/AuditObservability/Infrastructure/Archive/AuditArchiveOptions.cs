@@ -1,15 +1,17 @@
 namespace SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 
 /// <summary>
-/// Bound from the <c>Minio</c> configuration section + the
-/// Aspire-injected MinIO connection string (spec 009 ADR-0101).
+/// Bound from the <c>AuditArchive</c> configuration section. The
+/// Azure Blob Storage connection itself comes from the
+/// Aspire-injected <c>blobs</c> connection string (spec 009
+/// ADR-0101, ADR-0155).
 /// </summary>
-public sealed class MinioOptions
+public sealed class AuditArchiveOptions
 {
-    public const string SectionName = "Minio";
+    public const string SectionName = "AuditArchive";
 
-    /// <summary>Bucket the retention worker uploads to. Created on first use if missing.</summary>
-    public string Bucket { get; set; } = "audit-archive";
+    /// <summary>Blob container the retention worker uploads to. Created on first use if missing.</summary>
+    public string ContainerName { get; set; } = "audit-archive";
 
     /// <summary>
     /// Path template for archived chunks. <c>{fab}</c> resolves

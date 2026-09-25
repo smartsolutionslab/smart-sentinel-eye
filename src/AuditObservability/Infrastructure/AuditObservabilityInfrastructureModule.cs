@@ -80,12 +80,12 @@ public static class AuditObservabilityInfrastructureModule
         builder.Services.AddScoped<GetResourceTimelineQueryHandler>();
         builder.Services.AddScoped<GetAuditEventQueryHandler>();
 
-        // Retention: TimescaleDB inventory + MinIO archiver + hosted worker.
-        builder.AddMinioClient("minio");
-        builder.Services.AddOptions<MinioOptions>()
-            .Bind(builder.Configuration.GetSection(MinioOptions.SectionName));
+        // Retention: TimescaleDB inventory + Azure Blob archiver + hosted worker.
+        builder.AddAzureBlobServiceClient("blobs");
+        builder.Services.AddOptions<AuditArchiveOptions>()
+            .Bind(builder.Configuration.GetSection(AuditArchiveOptions.SectionName));
         builder.Services.AddScoped<IAuditChunkInventory, TimescaleAuditChunkInventory>();
-        builder.Services.AddScoped<IAuditChunkArchiver, MinioAuditChunkArchiver>();
+        builder.Services.AddScoped<IAuditChunkArchiver, AzureBlobAuditChunkArchiver>();
         builder.Services.AddOptions<AuditRetentionOptions>()
             .Bind(builder.Configuration.GetSection(AuditRetentionOptions.SectionName));
         builder.Services.AddHostedService<AuditRetentionHostedService>();

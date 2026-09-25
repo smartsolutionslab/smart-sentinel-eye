@@ -34,7 +34,7 @@ public class AuditChunkArchivedV1Tests
         evt.OccurredFrom.ShouldBe(From);
         evt.OccurredUntil.ShouldBe(Until);
         evt.ArchivedAt.ShouldBe(ArchivedAt);
-        evt.MinioObjectKey.ShouldBe("fab=munich/year=2026/month=02/chunk.ndjson.gz");
+        evt.ArchiveObjectKey.ShouldBe("fab=munich/year=2026/month=02/chunk.ndjson.gz");
         evt.ContentMd5.ShouldBe("deadbeefcafef00d1234567890abcdef");
     }
 

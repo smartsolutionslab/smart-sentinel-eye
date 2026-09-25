@@ -25,7 +25,7 @@ namespace SmartSentinelEye.Integration.Tests;
 ///
 /// <para>
 /// Fact 2 asserts against resources named directly — <c>audit-observability</c>,
-/// <c>minio</c> and <c>migrations</c> present; every <c>builder.AddParameter(...)</c>
+/// <c>storage</c> and <c>migrations</c> present; every <c>builder.AddParameter(...)</c>
 /// secret this AppHost composes absent — rather than re-deriving the
 /// "expected" set with the same <see cref="ParameterResource"/> predicate
 /// <see cref="StackStatusReport"/> itself applies. Comparing two derivations
@@ -99,7 +99,7 @@ public class AppHostStackStatusTests
         // above this gate already depends on being able to tell apart from
         // "started".
         names.ShouldContain("audit-observability");
-        names.ShouldContain("minio");
+        names.ShouldContain("storage");
         names.ShouldContain("migrations");
 
         // ParameterResource is a type, not a name this file wrote down:
