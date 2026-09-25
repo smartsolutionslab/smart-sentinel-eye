@@ -275,5 +275,6 @@ must hold unmodified apart from the one added row.
 |---|---|
 | Other ways out of the seam (`ExecuteSql*`, `ldftn`, interface-typed context, nested-of-nested types) | #2470 |
 | `ITransactionalCommit.cs:8` doc comment | #2471 |
-| Adding `ServiceDefaults` or Application assemblies to the scanned set | No `DbContext` is reachable there that commits (§1.1); not a gap today |
+| Adding `ServiceDefaults` or Application assemblies to the scanned set | No `DbContext` subclass is reachable there that commits (§1.1); not a gap today |
+| Adding the nine `*.Api` assemblies to the scanned set | Not measured here — grep found zero direct commits in `src/` overall, but a type in `*.Api` referencing its own `*.Infrastructure` project could resolve the concrete `XxxDbContext` via DI and call `SaveChangesAsync` on it without itself being a `DbContext` subclass, which `Offenders`' assembly scan wouldn't see even after this PR's widening. Filed as follow-up #2586 rather than widened here |
 | Any change to `StreamFabAttributionService` or `Stream` | Deliberately none — §2 |
