@@ -39,7 +39,14 @@ export function CameraDetailPage() {
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const { data: camera, currentData, isLoading, error, refetch } = useGetCameraQuery({ cameraIdentifier });
+  const {
+    data: camera,
+    currentData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetCameraQuery({ cameraIdentifier });
 
   // `camera` (`data`) can still hold a *previously viewed* identifier's record
   // for a moment after the URL changes — including across a same-instance
@@ -50,7 +57,11 @@ export function CameraDetailPage() {
   // disagree about which identifier is on screen.
   const record = error !== undefined ? currentData : camera;
 
-  if (isLoading) {
+  // `data` may still be the previous identifier's record (see above); while
+  // this identifier's first response is in flight and nothing has failed,
+  // show loading. A background refetch keeps `currentData`, and a refusal
+  // keeps `error`, so neither reaches this branch.
+  if (isLoading || (isFetching && currentData === undefined && error === undefined)) {
     return <Surface>Loading…</Surface>;
   }
 
