@@ -61,6 +61,22 @@ function renderDialog() {
   );
 }
 
+// Module-level copy for this single-fab describe block: drives the *same*
+// mounted SystemVariableDialog instance's `open` prop false then true, inside
+// the Provider renderDialog() already rendered. This mirrors what a real
+// Cancel/Esc/overlay-click close does to the component instance
+// (SystemVariablesPage.tsx:220 keeps the dialog mounted while closed);
+// unmounting and remounting would reset every useState/useForm value for
+// free and pass on unfixed code, proving nothing about issue #2579. The
+// nested `toggleOpen` inside the multi-fab describe below is untouched.
+function toggleOpen(rerender: ReturnType<typeof render>['rerender'], open: boolean) {
+  rerender(
+    <Provider store={store}>
+      <SystemVariableDialog open={open} onOpenChange={() => {}} />
+    </Provider>,
+  );
+}
+
 describe('SystemVariableDialog', () => {
   beforeEach(() => {
     defineMock.mockClear();
@@ -184,6 +200,44 @@ describe('SystemVariableDialog', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('BooleanLabels can only be set on Boolean variables.');
     expect(defineMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Issue #2579 (spec 256) US1 — new behaviour, RED. Cancel calls the
+   * parent's onOpenChange(false) directly, bypassing the Dialog's own
+   * onOpenChange wrapper (`:111-114`), which is the only place today's code
+   * resets the form. The close effect (`:40-52`) resets the mutation state
+   * and fabId/fabError but not the form, so a typed Name survives a
+   * close/reopen that never touches the wrapper.
+   */
+  it('Drops the typed name when the dialog is closed and reopened without unmounting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+
+    await user.type(screen.getByLabelText(/name/i), 'lineStatus');
+
+    toggleOpen(rerender, false);
+    toggleOpen(rerender, true);
+
+    expect(screen.getByLabelText(/name/i)).toHaveValue('');
+  });
+
+  /**
+   * Issue #2579 (spec 256) US1 — new behaviour, RED. Same gap as above, for
+   * the Type selector: it should be back at its default "String" after a
+   * close/reopen that never routes through Cancel or the Dialog's own
+   * onOpenChange.
+   */
+  it('Drops the changed type when the dialog is closed and reopened without unmounting', async () => {
+    const user = userEvent.setup();
+    const { rerender } = renderDialog();
+
+    await user.selectOptions(screen.getByRole('combobox', { name: /type/i }), 'Number');
+
+    toggleOpen(rerender, false);
+    toggleOpen(rerender, true);
+
+    expect(screen.getByRole('combobox', { name: /type/i })).toHaveValue('String');
   });
 });
 

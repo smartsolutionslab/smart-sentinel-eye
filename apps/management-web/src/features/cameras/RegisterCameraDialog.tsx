@@ -7,7 +7,7 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAssignedFabs } from '../../app/useAssignedFabs';
-import { useEffect, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface RegisterCameraDialogProps {
@@ -37,37 +37,47 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
     defaultValues: { name: '', rtspUrl: '' },
   });
 
+  // fabId/fabError are cleared here, during render, rather than from the
+  // close effect below: this component (unlike RuleDialog/SystemVariableDialog)
+  // never calls react-hook-form's watch(), so nothing makes React Compiler skip
+  // it, and react-hooks/set-state-in-effect flags a raw useState setter reached
+  // from an effect (even indirectly, through a useEffectEvent-wrapped
+  // callback) as a synchronous, cascading-render-inducing setState-in-effect.
+  // Comparing against the last-seen `open` and setting state unconditionally
+  // in the render body is React's own documented fix for exactly this shape —
+  // "Adjusting some state when a prop changes"
+  // (https://react.dev/learn/you-might-not-need-an-effect) — and it sidesteps
+  // the rule instead of suppressing it.
+  const [wasOpen, setWasOpen] = useState(open);
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (!open) {
+      setFabId('');
+      setFabError(null);
+    }
+  }
+
+  // clearOnClose always sees the latest reset/resetMutationState via
+  // useEffectEvent; the effect itself only re-fires when `open` changes, so
+  // Cancel/Esc/overlay-click (which all flip `open`, not call this directly)
+  // all land here exactly once per close.
+  const clearOnClose = useEffectEvent(() => {
+    resetMutationState();
+    reset();
+  });
+
   // Drop any prior backend error and typed input when the dialog closes so a
   // stale banner or value doesn't greet the operator on the next open (the
   // mutation result and the form values both live outside the unmounted
   // dialog's DOM — the parent renders this dialog unconditionally).
   useEffect(() => {
-    if (!open) {
-      // The obvious rewrite is wrong here. Moving these into the Dialog's
-      // onOpenChange handler would catch only Radix-initiated closes (Esc,
-      // overlay click): Cancel and the submit-success path call the *parent's*
-      // onOpenChange and close by flipping the `open` prop, which that handler
-      // never sees. Watching `open` catches every close path. The cost is one
-      // extra render of an already-closed dialog.
-      //
-      // Deps are deliberately just [open], not exhaustive. Radix has already
-      // unmounted the form's inputs by the time this runs (open is false), and
-      // calling RHF's reset() against unmounted fields forces a formState
-      // broadcast on every call, which re-renders this component and hands
-      // useRegisterCameraMutation() a new (unstable) `reset` function identity
-      // on each pass. Listing that function as a dep re-fires this effect on
-      // that very re-render, calling reset() again — a self-sustaining loop
-      // that starves the process rather than erroring, since nothing here
-      // ever throws. Closing over the latest resetMutationState/reset via the
-      // effect body (not the dep list) breaks the cycle; open is the only
-      // signal this effect should react to.
-      resetMutationState();
-      reset();
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- see above
-      setFabId('');
-      setFabError(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+    // The obvious rewrite is wrong here. Moving this into the Dialog's
+    // onOpenChange handler would catch only Radix-initiated closes (Esc,
+    // overlay click): Cancel and the submit-success path call the *parent's*
+    // onOpenChange and close by flipping the `open` prop, which that handler
+    // never sees. Watching `open` catches every close path. The cost is one
+    // extra render of an already-closed dialog.
+    if (!open) clearOnClose();
   }, [open]);
 
   const onSubmit = handleSubmit(async (input) => {
