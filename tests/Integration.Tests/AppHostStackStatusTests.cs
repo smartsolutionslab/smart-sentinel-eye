@@ -102,6 +102,15 @@ public class AppHostStackStatusTests
         names.ShouldContain("storage");
         names.ShouldContain("migrations");
 
+        // ADR-0155: AddAzureStorage implicitly adds an AzureEnvironmentResource
+        // ("azure-environment") that never reaches Running in run mode — no
+        // container, no health check, nothing this AppHost ever starts a
+        // process for. Discovered live: a CI e2e job timed out at the gate's
+        // 10-minute ceiling naming exactly this resource, on a stack where
+        // every resource that actually runs (including `storage` and `blobs`
+        // themselves) was Running in well under a minute.
+        names.ShouldNotContain("azure-environment");
+
         // ParameterResource is a type, not a name this file wrote down:
         // parameters can never reach Running, so a gate that waited on one
         // would wait forever, and a report that printed one would carry the
