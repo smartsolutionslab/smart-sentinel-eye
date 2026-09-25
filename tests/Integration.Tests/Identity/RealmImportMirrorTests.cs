@@ -31,7 +31,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// </para>
 /// </summary>
 [Trait("Category", "FixtureLogic")]
-public class RealmImportMirrorTests
+public partial class RealmImportMirrorTests
 {
     private const string RealmImportPath = "src/AppHost/Realms/smart-sentinel-eye-realm.json";
     private const string IdentityAdminClientSecretParameter = "IdentityAdminClientSecret";
