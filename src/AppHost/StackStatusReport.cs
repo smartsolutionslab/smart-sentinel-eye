@@ -1,4 +1,5 @@
 using System.Globalization;
+using Aspire.Hosting.Azure;
 using Aspire.Hosting.Eventing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -34,8 +35,8 @@ public static class StackStatusReport
 
     /// <summary>
     /// The resource set a status report should name: every resource in
-    /// <paramref name="resources"/> except two categories that can never
-    /// reach <c>Running</c> on their own, both excluded by Aspire's own
+    /// <paramref name="resources"/> except three categories that can never
+    /// reach <c>Running</c> on their own, all excluded by Aspire's own
     /// type/annotation markers rather than a hand-written name list
     /// (spec.md §5's rejected options are all hand-written lists of one
     /// shape or another):
@@ -71,6 +72,17 @@ public static class StackStatusReport
     /// <c>Running</c>. This is plan.md §5's "resource legitimately not
     /// Running" risk, resolved by an annotation filter rather than the name
     /// list the risk's own mitigation warned against.</item>
+    /// <item><see cref="AzureEnvironmentResource"/> -- the local-provisioning
+    /// coordination resource `AddAzureStorage` (ADR-0155) implicitly adds via
+    /// `AddAzureProvisioning`, named `azure-environment`. It carries no
+    /// <see cref="ExplicitStartupAnnotation"/> (so the previous exclusion
+    /// does not catch it), no container image, and no health check -- nothing
+    /// in this AppHost's run mode ever gives it a process to report a state
+    /// for, so it sits at <c>NotStarted</c> for the life of the AppHost. A
+    /// CI e2e run discovered this the hard way: the gate timed out at its
+    /// 10-minute ceiling naming exactly this resource, on a stack where every
+    /// resource that actually runs -- including `storage` and `blobs`
+    /// themselves -- had reached <c>Running</c> in well under a minute.</item>
     /// </list>
     /// </summary>
     public static IReadOnlyList<string> ExpectedResourceNames(IEnumerable<IResource> resources)
@@ -81,6 +93,9 @@ public static class StackStatusReport
         [
             .. resources
                 .Where(resource => resource is not ParameterResource)
+#pragma warning disable ASPIREAZURE001 // AzureEnvironmentResource is experimental; only its type identity is used here, not its API surface.
+                .Where(resource => resource is not AzureEnvironmentResource)
+#pragma warning restore ASPIREAZURE001
                 .Where(resource => !resource.HasAnnotationOfType<ExplicitStartupAnnotation>())
                 .Select(resource => resource.Name),
         ];
