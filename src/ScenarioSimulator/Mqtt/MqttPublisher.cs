@@ -64,7 +64,7 @@ public sealed class MqttPublisher : IAsyncDisposable
     private readonly int port;
     private readonly IMqttClient client;
     private readonly TokenHolder token = new();
-    private readonly MqttBackoff backoff = new();
+    private readonly MqttBackoff backoff;
 
     private CancellationTokenSource? loopCancellation;
     private Task? loop;
@@ -83,16 +83,26 @@ public sealed class MqttPublisher : IAsyncDisposable
     /// What is worth testing here — a disconnected publish is counted rather than
     /// thrown, and the count is reported once — needs a connection state to
     /// control, not a network.
+    ///
+    /// <para>
+    /// Takes the backoff for the same reason: a test must be able to observe the
+    /// loop's waits without the production 1 s / 30 s, and EventIngestion's
+    /// <c>MqttConnectionLoop</c> already takes it the same way. Optional and
+    /// defaulted so every existing caller — the public constructor included —
+    /// keeps today's exact backoff unchanged.
+    /// </para>
     /// </summary>
     internal MqttPublisher(
         IOptions<SimulatorOptions> options,
         KeycloakTokenProvider tokens,
         ILogger<MqttPublisher> logger,
-        IMqttClient client)
+        IMqttClient client,
+        MqttBackoff? backoff = null)
     {
         this.tokens = tokens;
         this.logger = logger;
         this.client = client;
+        this.backoff = backoff ?? new MqttBackoff();
         (host, port) = ParseHost(options.Value.MqttHost);
     }
 
