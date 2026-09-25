@@ -37,14 +37,6 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   const [fabId, setFabId] = useState('');
   const [fabError, setFabError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      resetMutationState();
-      setFabId('');
-      setFabError(null);
-    }
-  }, [open, resetMutationState]);
-
   const {
     register,
     handleSubmit,
@@ -56,6 +48,31 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     resolver: zodResolver(createRuleSchema),
     defaultValues: DEFAULT_INPUT,
   });
+
+  // Drop any prior backend error and typed input when the dialog closes so a
+  // stale banner or value doesn't greet the operator on the next open (the
+  // mutation result and the form values both live outside the unmounted
+  // dialog's DOM — the parent renders this dialog unconditionally).
+  useEffect(() => {
+    if (!open) {
+      // Deps are deliberately just [open], not exhaustive. Radix has already
+      // unmounted the form's inputs by the time this runs (open is false), and
+      // calling RHF's reset() against unmounted fields forces a formState
+      // broadcast on every call, which re-renders this component and hands
+      // useCreateRuleMutation() a new (unstable) `reset` function identity on
+      // each pass. Listing that function as a dep re-fires this effect on that
+      // very re-render, calling reset() again — a self-sustaining loop that
+      // starves the process rather than erroring, since nothing here ever
+      // throws. Closing over the latest resetMutationState/reset via the
+      // effect body (not the dep list) breaks the cycle; open is the only
+      // signal this effect should react to.
+      resetMutationState();
+      reset(DEFAULT_INPUT);
+      setFabId('');
+      setFabError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [open]);
 
   // The action tag decides which half of the form is live — the same
   // discriminant the wire shape and the domain use.
