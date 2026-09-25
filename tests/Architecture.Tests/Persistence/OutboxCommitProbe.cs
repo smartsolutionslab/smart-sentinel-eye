@@ -145,16 +145,19 @@ public sealed class BaseMethodGroupOffenderRepository : DbContext
 
 /// <summary>
 /// Spec 252 (#2470) shape B: an <c>async</c> lambda that captures a method
-/// parameter (or a local, or is <c>static</c>) is lifted into a display class
-/// and then compiled to a state machine <em>nested inside that display
-/// class</em> —
+/// parameter (as here) or a local is lifted into a display class and then
+/// compiled to a state machine <em>nested inside that display class</em> —
 /// <c>AsyncLambdaOffenderRepository+&lt;&gt;c__DisplayClass0_0+&lt;&lt;SaveAsync&gt;b__0&gt;d</c>,
-/// depth 2. The one-level <c>BodiesOf</c> walk that catches a synchronous
-/// lambda's closure class never reaches a second level, so this call escapes
-/// it. <paramref name="dbContext"/> is taken as a method parameter — not a
-/// field — precisely so the lambda is forced into a display class: an async
-/// lambda that captures only <c>this</c> (e.g. a primary-constructor field)
-/// is lifted directly onto the type instead and stays at depth 1, which the
+/// depth 2. (A non-capturing or <c>static</c> async lambda takes a different
+/// path — the compiler's <c>&lt;&gt;c</c> singleton, not a display class — but
+/// still lands at depth 2 and is caught by the same transitive walk; this
+/// probe exercises the capturing shape specifically.) The one-level
+/// <c>BodiesOf</c> walk that catches a synchronous lambda's closure class
+/// never reaches a second level, so this call escapes it. <paramref
+/// name="dbContext"/> is taken as a method parameter — not a field —
+/// precisely so the lambda is forced into a display class: an async lambda
+/// that captures only <c>this</c> (e.g. a primary-constructor field) is
+/// lifted directly onto the type instead and stays at depth 1, which the
 /// scan already catches today and would make this probe arrive green.
 /// </summary>
 public static class AsyncLambdaOffenderRepository

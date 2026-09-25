@@ -75,7 +75,7 @@ Depends: T004 → T005, T006 → T007 → T008.
 
 ## Out of scope — do not do
 
-- Any file under `src/`, including the seven `ExecuteSql*` sites.
+- Any file under `src/`, including the eight `ExecuteSql*` sites.
 - The candidate filter / `PermittedDirectCommits` / theory rename (#2469) · `ITransactionalCommit.cs`
   doc (#2471) · the scanned assembly list.
 - Interface-dispatch detection, `ExecuteSql*` detection, reflection/expression-tree detection
