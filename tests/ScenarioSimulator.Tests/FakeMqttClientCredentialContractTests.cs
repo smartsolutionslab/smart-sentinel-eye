@@ -57,6 +57,10 @@ public class FakeMqttClientCredentialContractTests
             2,
             "both CONNECTs were answered by the broker — one refused, one accepted — so both must "
             + "count, and PresentedCredentials.Count must equal it.");
+        client.PresentedCredentials.Count.ShouldBe(
+            client.ConnectAttempts,
+            "every CONNECT the broker answers, refused or accepted, must leave exactly one entry in the "
+            + "history — the two counts must not drift apart.");
     }
 
     [Fact]
