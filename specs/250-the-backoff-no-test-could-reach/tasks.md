@@ -155,9 +155,10 @@ T001 (baseline) ─┬─> T002 ─┐
 
 1. `ScenarioSimulator.Tests` green before and after the seam, same pass count, the
    pre-existing test files byte-identical to `origin/develop`.
-2. Five new tests green; each shown red under at least one counterfactual, with
-   the counts quoted in the PR body.
-3. The PR diff contains exactly the five files listed above.
+2. Six new tests green (three in each of the two new test files); each shown red
+   under at least one counterfactual, with the counts quoted in the PR body.
+3. The PR diff contains exactly the five files listed above, plus this spec's
+   three docs (`spec.md`, `plan.md`, `tasks.md`).
 4. `EventIngestion` untouched.
 5. Conventional Commits, **no `Co-Authored-By` footer** (ADR-0086); each commit
    builds on its own; PR `--base develop` (ADR-0028); body quotes T001/T004 and
