@@ -34,23 +34,6 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
   const [fabId, setFabId] = useState('');
   const [fabError, setFabError] = useState<string | null>(null);
 
-  // Drop any prior backend error when the dialog closes so a stale banner
-  // doesn't greet the operator on the next open (the mutation result lives
-  // in the store, not in the unmounted form).
-  useEffect(() => {
-    if (!open) {
-      // The obvious rewrite is wrong here. Moving these into the Dialog's
-      // onOpenChange handler would catch only Radix-initiated closes (Esc,
-      // overlay click): Cancel and the submit-success path call the *parent's*
-      // onOpenChange and close by flipping the `open` prop, which that handler
-      // never sees. Watching `open` catches every close path. The cost is one
-      // extra render of an already-closed dialog.
-      resetMutationState();
-      setFabId('');
-      setFabError(null);
-    }
-  }, [open, resetMutationState]);
-
   const {
     register,
     handleSubmit,
@@ -62,6 +45,38 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
     resolver: zodResolver(defineVariableSchema),
     defaultValues: DEFAULT_INPUT,
   });
+
+  // Drop any prior backend error and typed input when the dialog closes so a
+  // stale banner or value doesn't greet the operator on the next open (the
+  // mutation result and the form values both live outside the unmounted
+  // dialog's DOM — the parent renders this dialog unconditionally).
+  useEffect(() => {
+    if (!open) {
+      // The obvious rewrite is wrong here. Moving these into the Dialog's
+      // onOpenChange handler would catch only Radix-initiated closes (Esc,
+      // overlay click): Cancel and the submit-success path call the *parent's*
+      // onOpenChange and close by flipping the `open` prop, which that handler
+      // never sees. Watching `open` catches every close path. The cost is one
+      // extra render of an already-closed dialog.
+      //
+      // Deps are deliberately just [open], not exhaustive. Radix has already
+      // unmounted the form's inputs by the time this runs (open is false), and
+      // calling RHF's reset() against unmounted fields forces a formState
+      // broadcast on every call, which re-renders this component and hands
+      // useDefineVariableMutation() a new (unstable) `reset` function identity
+      // on each pass. Listing that function as a dep re-fires this effect on
+      // that very re-render, calling reset() again — a self-sustaining loop
+      // that starves the process rather than erroring, since nothing here
+      // ever throws. Closing over the latest resetMutationState/reset via the
+      // effect body (not the dep list) breaks the cycle; open is the only
+      // signal this effect should react to.
+      resetMutationState();
+      reset(DEFAULT_INPUT);
+      setFabId('');
+      setFabError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see comment above
+  }, [open]);
 
   // As in RuleDialog: react-hook-form's watch() is opaque to React Compiler,
   // which reports "Compilation Skipped", not a defect. ADR-0079 chose it.
@@ -108,10 +123,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
   return (
     <Dialog
       open={open}
-      onOpenChange={(next) => {
-        if (!next) reset(DEFAULT_INPUT);
-        onOpenChange(next);
-      }}
+      onOpenChange={onOpenChange}
       title="New variable"
       description="Pick a name, type, and (optionally) an initial value."
     >
