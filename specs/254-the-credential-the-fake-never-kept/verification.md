@@ -208,6 +208,46 @@ is exercising the read-before-gate ordering specifically rather than a
 static value. Reverted; `git diff --exit-code -- src/
 tests/ScenarioSimulator.Tests/Fakes/` clean.
 
+**CF5** (phase 6 finding — added because CF3's red for
+`A_connect_refused_because_the_client_is_already_connected_records_nothing`
+was a side effect of removing the eager `GetPassword` call entirely, not a
+counterfactual that targets what that test claims on its own: that a connect
+refused because the client is already connected records nothing). Moved the
+credential read and the `presentedCredentials` enqueue in `ConnectAsync` to
+run *before* the `IsConnected` liveness check, instead of after it — the
+narrowest change that makes "already connected" CONNECTs still get recorded
+while leaving the gate and the refusal/success paths otherwise untouched.
+Filtered to the contract test file:
+
+```
+[xUnit.net]     SmartSentinelEye.ScenarioSimulator.Tests.FakeMqttClientCredentialContractTests.A_connect_refused_because_the_client_is_already_connected_records_nothing [FAIL]
+  Error Message:
+   Shouldly.ShouldAssertException : client.PresentedCredentials
+    should be
+["first"]
+    but was (case sensitive comparison)
+["first", "second"]
+    difference
+["first", *"second"*]
+
+Additional Info:
+    a CONNECT ThrowIfConnected refuses never reaches the point where a real client reads the password to build the packet, so nothing about "second" belongs in the history — only what the first, successful CONNECT actually presented.
+Failed!  - Failed:     1, Passed:     2, Skipped:     0, Total:     3, Duration: 281 ms - SmartSentinelEye.ScenarioSimulator.Tests.dll (net10.0)
+```
+
+Full-assembly run under the same patch, to confirm this is the *only*
+failure in the whole suite (contrast, the way CF4's isolation was shown):
+
+```
+Failed!  - Failed:     1, Passed:    70, Skipped:     0, Total:    71, Duration: 6 s - SmartSentinelEye.ScenarioSimulator.Tests.dll (net10.0)
+```
+
+Exactly 1 of 71 failed, and it is the target test — `ConnectAttempts` stayed
+at 1 (the increment was not moved), so the sibling assertion in the same
+test kept passing and no other test anywhere in the assembly was touched.
+Reverted (`git checkout -- tests/ScenarioSimulator.Tests/Fakes/FakeMqttClient.cs`);
+`git diff --exit-code -- src/ tests/ScenarioSimulator.Tests/Fakes/` clean.
+
 ---
 
 ## 5. Final state
@@ -252,7 +292,7 @@ test file changed; both new test files are additions.
 ## 6. Note carried from `plan.md` §2
 
 The fake, `tests/ScenarioSimulator.Tests/Fakes/FakeMqttClient.cs`, is now
-~371 lines, further past ADR-0084's advisory 300-line limit. That limit is a
+368 lines, further past ADR-0084's advisory 300-line limit. That limit is a
 `warning`, carved out of `TreatWarningsAsErrors`, and the plan explicitly
 directs against splitting a test double over it — recorded here rather than
 acted on.
