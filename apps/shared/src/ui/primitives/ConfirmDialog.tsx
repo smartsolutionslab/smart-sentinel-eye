@@ -49,12 +49,12 @@ export function ConfirmDialog({
   return (
     <RadixAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixAlertDialog.Portal>
-        <RadixAlertDialog.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm" />
+        <RadixAlertDialog.Overlay className="fixed inset-0 z-overlay bg-scrim backdrop-blur-sm" />
         <RadixAlertDialog.Content
           className={
-            'fixed left-1/2 top-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
+            'fixed left-1/2 top-1/2 z-overlay w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
             'max-h-[90vh] overflow-y-auto ' +
-            'rounded-lg bg-bg-elevated p-6 shadow-xl border border-fg-muted text-fg-primary'
+            'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary'
           }
         >
           <RadixAlertDialog.Title className="text-lg font-semibold">{title}</RadixAlertDialog.Title>

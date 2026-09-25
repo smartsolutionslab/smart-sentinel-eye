@@ -42,7 +42,7 @@ export function DataTable<TRow, TSortKey extends string = string>({
   isLoading = false,
 }: DataTableProps<TRow, TSortKey>) {
   return (
-    <div className="overflow-x-auto rounded-md border border-fg-muted/30">
+    <div className="overflow-x-auto rounded-md border border-border-subtle">
       <table className="w-full text-left text-sm">
         {caption !== undefined && <caption className="sr-only">{caption}</caption>}
         <thead className="bg-bg-elevated text-fg-muted">
@@ -67,7 +67,7 @@ export function DataTable<TRow, TSortKey extends string = string>({
             </tr>
           ) : (
             rows.map((row) => (
-              <tr key={getRowKey(row)} className="border-t border-fg-muted/20">
+              <tr key={getRowKey(row)} className="border-t border-border-subtle">
                 {columns.map((column) => (
                   <td key={column.id} className={clsx('px-3 py-2', column.className)}>
                     {column.cell(row)}
