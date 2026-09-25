@@ -121,9 +121,12 @@ describe('management-web tokens compile through Tailwind (spec 256 US2)', () => 
     expect(declarations['line-height'] ?? '(no line-height declared)').toContain('var(--text-sm-leading)');
   });
 
-  it('2xl carries tracking: text-2xl letter-spacing is var(--tracking-tight)', () => {
+  it('2xl carries tracking: text-2xl letter-spacing falls back to var(--tracking-tight)', () => {
     expect(ruleExists('text-2xl'), '.text-2xl does not compile at all').toBe(true);
-    expect(ruleDeclarations('text-2xl')['letter-spacing'] ?? '(no letter-spacing declared)').toBe(
+    // Tailwind 4.3.3 always wraps a fontSize tuple's letterSpacing as
+    // `var(--tw-tracking, var(--tracking-tight))`, never a bare value — the
+    // same wrapped-default shape as text-sm's line-height above.
+    expect(ruleDeclarations('text-2xl')['letter-spacing'] ?? '(no letter-spacing declared)').toContain(
       'var(--tracking-tight)',
     );
   });
@@ -134,8 +137,12 @@ describe('management-web tokens compile through Tailwind (spec 256 US2)', () => 
   });
 
   it.each([
-    ['shadow-popover', 'box-shadow', '--shadow-popover'],
-    ['shadow-overlay', 'box-shadow', '--shadow-overlay'],
+    // Tailwind 4.3.3's shadow-* utility always emits box-shadow as the fixed
+    // 5-variable composition (…, var(--tw-shadow)) and sets the token
+    // reference on --tw-shadow itself — the same indirection as ring-*
+    // below, whose token lands on --tw-ring-color rather than box-shadow.
+    ['shadow-popover', '--tw-shadow', '--shadow-popover'],
+    ['shadow-overlay', '--tw-shadow', '--shadow-overlay'],
     ['duration-fast', 'transition-duration', '--duration-fast'],
     ['z-overlay', 'z-index', '--z-overlay'],
     ['bg-bg-raised', 'background-color', '--color-bg-raised'],
