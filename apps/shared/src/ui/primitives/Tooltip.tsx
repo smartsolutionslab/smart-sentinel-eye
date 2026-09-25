@@ -25,12 +25,12 @@ export function Tooltip({ trigger, content, side = 'top', delayMs = 200, content
             side={side}
             sideOffset={4}
             className={clsx(
-              'rounded-md border border-fg-muted/40 bg-bg-elevated px-2 py-1 text-xs text-fg-primary shadow-md whitespace-pre',
+              'z-tooltip rounded-md border border-border-subtle bg-bg-raised px-2 py-1 text-xs text-fg-primary shadow-popover whitespace-pre',
               contentClassName,
             )}
           >
             {content}
-            <RadixTooltip.Arrow className="fill-bg-elevated" />
+            <RadixTooltip.Arrow className="fill-bg-raised" />
           </RadixTooltip.Content>
         </RadixTooltip.Portal>
       </RadixTooltip.Root>

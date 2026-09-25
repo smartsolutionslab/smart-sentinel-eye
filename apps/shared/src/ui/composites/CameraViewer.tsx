@@ -389,7 +389,7 @@ export function CameraViewer({
   const { failedRead, label } = statusInfoFor(status, stream, queryError);
 
   return (
-    <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-black', className)}>
+    <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-bg-video', className)}>
       <video
         ref={videoRef}
         autoPlay
@@ -512,7 +512,7 @@ function ViewerOverlay({
     // visible on screen; `aria-hidden` affects only assistive tech.
     <div
       aria-hidden="true"
-      className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-center text-sm"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-scrim text-center text-sm"
     >
       <span className={clsx('font-medium', tone)}>{label}</span>
       {hint !== null && <span className="px-4 text-xs text-fg-muted">{hint}</span>}
