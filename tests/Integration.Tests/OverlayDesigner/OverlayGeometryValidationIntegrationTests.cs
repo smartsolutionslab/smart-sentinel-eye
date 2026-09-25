@@ -153,6 +153,52 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
 
+    /// <summary>
+    /// Issue #2574 — <c>Ensure.That(body.Label).IsNotNull()</c> sits before the
+    /// endpoint's <c>try</c> block, so an omitted <c>label</c> throws an
+    /// unhandled <see cref="ArgumentNullException"/> (uncaught by any registered
+    /// <c>IExceptionHandler</c>) instead of reaching the <c>catch (ArgumentException)</c>
+    /// that produces this <c>400</c>. Currently red: today's code returns <c>500</c>.
+    /// </summary>
+    [Fact]
+    public async Task Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Geo-{Guid.NewGuid():N}"[..16],
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
+        problem.GetProperty("detail").GetString()!.ShouldContain("body.Label");
+    }
+
+    /// <summary>
+    /// Issue #2574, edit-endpoint counterpart of
+    /// <see cref="Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT"/> — same
+    /// pre-<c>try</c> <c>Ensure.That(body.Label).IsNotNull()</c>, same unhandled
+    /// <see cref="ArgumentNullException"/>. Currently red: today's code returns <c>500</c>.
+    /// </summary>
+    [Fact]
+    public async Task Edit_without_a_label_returns_400_OVERLAY_INVALID_INPUT()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+
+        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, "revisions/1", new { });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
+        problem.GetProperty("detail").GetString()!.ShouldContain("body.Label");
+    }
+
     private static async Task<Guid> CreateDraftAsync(HttpClient overlays)
     {
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
