@@ -295,7 +295,16 @@ in advance** as pins, and their green result is not phase-4a evidence:
 - both apps import the same token file first (US1),
 - no `--blur-*` token and no blur in any value (US1, true today by absence),
 - `rounded-md` compiles to `var(--radius-md)` (US2, true today by the name
-  collision in §1).
+  collision in §1),
+- every declared custom property name is category-prefixed or a named bridge
+  (US1, true today because `colors.css`'s seven existing names are all
+  `--color-*` — vacuously pure, not evidence that the naming rule holds once
+  primitives exist; found and reported during T005's red run),
+- `ease-out` compiles to `var(--ease-out)` (US2, true today by the same
+  Tailwind 4.3.3 stock-theme-variable collision as `rounded-md` — Tailwind's
+  own default theme ships `--ease-out: cubic-bezier(0, 0, 0.2, 1)`, a
+  different curve than ADR-0146's planned one under the same property name;
+  found and reported during T005's red run).
 
 Every other scenario above must be observed red on unmodified `develop`.
 
