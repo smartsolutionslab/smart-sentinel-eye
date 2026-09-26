@@ -91,6 +91,27 @@ describe('layouts.schema — the 3x3 grid with spanning tiles (ADR-0156)', () =>
     expect(result.error.issues.some((issue) => issue.path.join('.') === 'tiles.0')).toBe(false);
   });
 
+  it('still flags a later tile that overlaps an out-of-bounds one’s in-grid cells', () => {
+    const result = editDraftRevisionSchema.safeParse({
+      grid: { rows: 2, cols: 2 },
+      tiles: [
+        // Its full 1x3 span would claim (0,0),(0,1),(0,2) — (0,2) doesn't
+        // exist on a 2-col grid, so this is out of bounds. Its in-bounds
+        // portion, (0,0) and (0,1), is still real territory.
+        tileAt(0, 0, { colSpan: 3 }),
+        // Claims (0,1) — part of the out-of-bounds tile's in-grid span.
+        tileAt(0, 1),
+      ],
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const outOfBoundsIssue = result.error.issues.find((issue) => issue.path.join('.') === 'tiles.0');
+    const overlapIssue = result.error.issues.find((issue) => issue.path.join('.') === 'tiles.1');
+    expect(outOfBoundsIssue?.message).toBe('Tile span is out of grid bounds');
+    expect(overlapIssue?.message).toBe('Two tiles overlap');
+  });
+
   it('refuses a tile with a span of zero', () => {
     const result = editDraftRevisionSchema.safeParse({
       grid: { rows: 1, cols: 1 },

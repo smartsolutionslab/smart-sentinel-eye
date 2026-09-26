@@ -11,6 +11,26 @@ export const MAX_CELLS = 9;
 
 const GUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
+/** A tile's claimed rectangle: origin `(row, col)` plus its `rowSpan × colSpan` extent. */
+export interface TileSpan {
+  row: number;
+  col: number;
+  rowSpan: number;
+  colSpan: number;
+}
+
+/**
+ * Whether two tile spans claim any cell in common (ADR-0156 §2's "no two
+ * tiles overlap" invariant, same-tier shared so `gridDesignerModel.ts`'s
+ * `spanOptions` doesn't reimplement the rectangle-intersection test
+ * independently. `refineGrid` below still enumerates cells itself — it
+ * needs per-cell attribution (which tile a cell belongs to), which a
+ * pairwise boolean can't give it — but the boolean test itself is this one.
+ */
+export function spansOverlap(a: TileSpan, b: TileSpan): boolean {
+  return a.row < b.row + b.rowSpan && b.row < a.row + a.rowSpan && a.col < b.col + b.colSpan && b.col < a.col + a.colSpan;
+}
+
 // One grid tile. Mirrors the backend TileDto / the FE LayoutTile shape: a
 // required camera, an optional overlay (`null`/omitted == unbound), at
 // zero-indexed (row, col), claiming a `rowSpan × colSpan` rectangle whose
@@ -64,13 +84,18 @@ const refineGrid = (
     const outOfBounds = tile.row + tile.rowSpan > grid.rows || tile.col + tile.colSpan > grid.cols;
     if (outOfBounds) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tiles', index], message: 'Tile span is out of grid bounds' });
-      return;
     }
 
+    // An out-of-bounds tile's in-grid portion is still real territory a
+    // later tile can collide with, so it must still be claimed here — only
+    // cells that actually exist on the grid are eligible keys (clamping,
+    // not skipping the claim entirely, is what kept the earlier bug alive).
+    const rowEnd = Math.min(tile.row + tile.rowSpan, grid.rows);
+    const colEnd = Math.min(tile.col + tile.colSpan, grid.cols);
     const cells: string[] = [];
     let overlaps = false;
-    for (let row = tile.row; row < tile.row + tile.rowSpan; row += 1) {
-      for (let col = tile.col; col < tile.col + tile.colSpan; col += 1) {
+    for (let row = tile.row; row < rowEnd; row += 1) {
+      for (let col = tile.col; col < colEnd; col += 1) {
         const key = `${row},${col}`;
         cells.push(key);
         if (claimedBy.has(key)) {
@@ -79,13 +104,16 @@ const refineGrid = (
       }
     }
 
-    if (overlaps) {
+    if (!outOfBounds && overlaps) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tiles', index], message: 'Two tiles overlap' });
-      return;
     }
 
-    for (const key of cells) {
-      claimedBy.set(key, index);
+    // An in-bounds, overlapping tile doesn't get to claim the cell it lost
+    // the race for — the earlier claimant keeps it, same as before this fix.
+    if (outOfBounds || !overlaps) {
+      for (const key of cells) {
+        claimedBy.set(key, index);
+      }
     }
   });
 };
