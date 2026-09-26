@@ -2,13 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { editDraftRevisionSchema } from './layouts.schema.js';
 
 /**
- * Spec 258 (#2607), ADR-0156. `layouts.schema.ts` today caps `grid.rows` /
- * `grid.cols` at 2 and knows nothing of `rowSpan`/`colSpan` — a tile that
- * carries them is parsed with the extra keys silently stripped. Every test
- * below states the *new* contract (plan.md §4.1: grid dimensions 1..3,
- * `MAX_TILES = MAX_CELLS = 9`, full-span in-bounds, cell-overlap) and is
- * expected to fail against this file until that work lands (ADR-0139 red
- * first).
+ * Spec 258 (#2607), ADR-0156. States the grid/tile contract `layouts.schema.ts`
+ * enforces: grid dimensions 1..3, `MAX_TILES = MAX_CELLS = 9`, full-span
+ * in-bounds, cell-overlap (plan.md §4.1).
  */
 
 const CAMERA_A = '11111111-1111-1111-1111-111111111111';
@@ -57,8 +53,7 @@ describe('layouts.schema — the 3x3 grid with spanning tiles (ADR-0156)', () =>
     if (result.success) return;
     const rowsIssue = result.error.issues.find((issue) => issue.path.join('.') === 'grid.rows');
     expect(rowsIssue).toBeDefined();
-    // `too_big` issues carry a `maximum` field; today's schema still caps at
-    // 2, so this reads 2 rather than the new 3 until the schema is raised.
+    // `too_big` issues carry a `maximum` field.
     expect((rowsIssue as unknown as { maximum?: number }).maximum).toBe(3);
   });
 

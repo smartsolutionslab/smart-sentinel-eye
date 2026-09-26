@@ -27,15 +27,30 @@ export interface GridItem {
  * is dropped entirely (first wins) — impossible from a valid layout, kept
  * only so the renderer stays total.
  *
- * Row-major-by-origin keeps an all-1×1 wall's order identical to today's
- * `buildGridCells` (spec 258 §8 characterisation), and tile keys stay the
- * origin `row:col` so `useWallAlignment`'s keys do not move.
+ * Row-major-by-origin keeps an all-1×1 wall's order identical to the
+ * pre-feature auto-placement (spec 258 §8 characterisation), and tile keys
+ * stay the origin `row:col` so `useWallAlignment`'s keys do not move.
  */
 export function buildGridItems(rows: number, cols: number, tiles: LayoutTile[]): GridItem[] {
   const occupied = new Set<string>();
   const origins = new Map<string, { tile: LayoutTile; rowSpan: number; colSpan: number }>();
 
   for (const tile of tiles) {
+    // Defensive, from-the-wire (see doc comment above): a non-finite span or
+    // a negative origin would otherwise clamp to NaN, or occupy cells behind
+    // its own out-of-bounds origin without ever emitting itself — silently
+    // breaking totality rather than throwing.
+    if (
+      !Number.isFinite(tile.row) ||
+      !Number.isFinite(tile.col) ||
+      !Number.isFinite(tile.rowSpan) ||
+      !Number.isFinite(tile.colSpan) ||
+      tile.row < 0 ||
+      tile.col < 0
+    ) {
+      continue;
+    }
+
     const rowSpan = Math.max(1, Math.min(tile.rowSpan, rows - tile.row));
     const colSpan = Math.max(1, Math.min(tile.colSpan, cols - tile.col));
 
