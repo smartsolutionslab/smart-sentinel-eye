@@ -330,7 +330,8 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
         Guid b = await PublishedLayoutAsync(admin);
         Guid wall = await CreateWallReturningIdAsync(admin, [a, b]);
 
-        string kioskToken = await aspire.GetAccessTokenForClientAsync("kiosk-web", "admin", "Admin1234", "openid");
+        (string ClientId, string ClientSecret) enrolled = await EnrollKioskAsync();
+        string kioskToken = await ClientCredentialsTokenAsync(enrolled.ClientId, enrolled.ClientSecret);
         using HttpClient kiosk = aspire.CreateServiceClient("layout-composition");
         kiosk.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", kioskToken);
 
@@ -434,6 +435,53 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     {
         HttpResponseMessage reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
         reverted.EnsureSuccessStatusCode();
+    }
+
+    /// <summary>
+    /// Enrols a genuine kiosk service identity via the real
+    /// <c>POST /kiosks/enroll</c> surface (mirrors
+    /// <c>CrossFabDisableIntegrationTests.EnrollKioskAsync</c>), rather than a
+    /// password grant for a human user against the <c>kiosk-web</c> SPA client
+    /// — that client is public and has no direct-access-grant, so Keycloak
+    /// refuses it outright, and even granted it would be a human's token, not
+    /// a kiosk-scoped one.
+    /// </summary>
+    private async Task<(string ClientId, string ClientSecret)> EnrollKioskAsync()
+    {
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        string clientId = $"t258-wall-{Guid.CreateVersion7():N}";
+
+        HttpResponseMessage enrolled = await identity.PostAsJsonAsync(
+            "/kiosks/enroll?fabId=munich", new { clientId });
+        enrolled.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(enrolled));
+
+        JsonElement body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
+        return (body.GetProperty("clientId").GetString()!, body.GetProperty("clientSecret").GetString()!);
+    }
+
+    /// <summary>
+    /// The <c>client_credentials</c> grant for the just-enrolled kiosk,
+    /// hand-rolled the same way <c>PlantFloor.SimulatorTokenAsync</c> and
+    /// <c>WebhookBearerValidationIntegrationTests.ScopeLessServiceAccountTokenAsync</c>
+    /// do (ADR-0036), rather than added to <see cref="AspireFixture"/>: a third
+    /// call site is not yet a pattern worth collapsing in a bug-fix change.
+    /// </summary>
+    private async Task<string> ClientCredentialsTokenAsync(string clientId, string clientSecret)
+    {
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using FormUrlEncodedContent form = new(new Dictionary<string, string>
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = clientId,
+            ["client_secret"] = clientSecret,
+        });
+
+        HttpResponseMessage token = await keycloak.PostAsync(
+            "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
+        token.EnsureSuccessStatusCode();
+
+        return (await token.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("access_token").GetString()!;
     }
 
     private static Task<HttpResponseMessage> CreateWallAsync(
