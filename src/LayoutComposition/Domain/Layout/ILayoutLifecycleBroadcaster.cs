@@ -21,6 +21,13 @@ public interface ILayoutLifecycleBroadcaster
     Task ResolvedOverlayTextChangedAsync(ResolvedOverlayTextChangedNotification notification, CancellationToken cancellationToken);
 
     Task OverlayHighlightedAsync(OverlayHighlightedNotification notification, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Spec 258 US1, plan.md §4.3. A wall's <c>Showing</c> scene changed.
+    /// Best-effort like every other frame here: FR-008's reconnect re-read
+    /// is the safety net.
+    /// </summary>
+    Task WallSceneChangedAsync(WallSceneChangedNotification notification, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -116,3 +123,17 @@ public sealed record OverlayHighlightedNotification(
     Guid Overlay,
     int DurationMs,
     string Fab);
+
+/// <summary>
+/// Wire shape for "a wall's scene changed" pushes (spec 258 US1). Kept as
+/// value-object-typed fields, unlike the primitive-typed notifications
+/// above, because this one has no cross-context caller — Wall lives in this
+/// same context, so there is no boundary forcing primitives (contrast
+/// <see cref="OverlayLifecyclePublishedNotification"/>, built from
+/// OverlayDesigner's data).
+/// </summary>
+public sealed record WallSceneChangedNotification(
+    FabIdentifier Fab,
+    Wall.WallIdentifier Wall,
+    LayoutIdentifier Showing,
+    Wall.SceneVersion SceneVersion);

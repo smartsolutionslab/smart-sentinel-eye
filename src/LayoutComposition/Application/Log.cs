@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application;
@@ -48,4 +49,13 @@ internal static partial class Log
     public static partial void BroadcastOverlayPublished(this ILogger logger, Guid overlay, int revision);
     [LoggerMessage(Level = LogLevel.Warning, Message = "Refused {Count} tile(s) naming a camera outside fab {Fab} (spec 017 FR-014).")]
     public static partial void RefusedCrossFabTiles(this ILogger logger, FabIdentifier fab, int count);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Created wall {Wall} '{Name}' by {Operator}.")]
+    public static partial void CreatedWall(this ILogger logger, WallIdentifier wall, WallName name, OperatorIdentifier @operator);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Edited scenes on wall {Wall} by {Operator}.")]
+    public static partial void EditedWallScenes(this ILogger logger, WallIdentifier wall, OperatorIdentifier @operator);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Switched wall {Wall} scene by {Operator}.")]
+    public static partial void SwitchedWallScene(this ILogger logger, WallIdentifier wall, OperatorIdentifier @operator);
 }
