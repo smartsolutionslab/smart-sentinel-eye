@@ -34,7 +34,7 @@ public class WallTests
 
     private static OperatorIdentifier NewOperator() => OperatorIdentifier.From(Guid.CreateVersion7());
 
-    private static IReadOnlySet<LayoutIdentifier> AllPublishable(IReadOnlyList<LayoutIdentifier> scenes) =>
+    private static HashSet<LayoutIdentifier> AllPublishable(IReadOnlyList<LayoutIdentifier> scenes) =>
         scenes.ToHashSet();
 
     private static SceneSwitchCause.Operator OperatorCause() => new(NewOperator());
