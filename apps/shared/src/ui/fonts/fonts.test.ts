@@ -321,7 +321,9 @@ describe('fonts.css (spec 261 US1/US2, issue #2333)', () => {
     const css = requireFile(fontsCssPath, 'the IBM Plex Sans Fallback 400 face').toString('utf8');
     const rule = parseFontFaceRules(css).find(
       (candidate) =>
-        candidate.family === 'IBM Plex Sans Fallback' && candidate.weight === '400' && candidate.unicodeRange === undefined,
+        candidate.family === 'IBM Plex Sans Fallback' &&
+        candidate.weight === '400' &&
+        candidate.unicodeRange === undefined,
     );
 
     expect(rule, 'no general IBM Plex Sans Fallback 400 face (without unicode-range) in fonts.css').toBeDefined();
@@ -360,7 +362,10 @@ describe('fonts.css (spec 261 US1/US2, issue #2333)', () => {
           candidate.unicodeRange === undefined,
       );
 
-      expect(rule, `no general IBM Plex Sans Fallback ${weight} face (without unicode-range) in fonts.css`).toBeDefined();
+      expect(
+        rule,
+        `no general IBM Plex Sans Fallback ${weight} face (without unicode-range) in fonts.css`,
+      ).toBeDefined();
 
       const sizeAdjustFraction = HINTING_SAFE_GENERAL_SIZE_ADJUST_PERCENT[weight] / 100;
       const expected = {
