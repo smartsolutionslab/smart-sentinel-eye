@@ -23,7 +23,7 @@ public enum GridViolation
     Empty,
 
     /// <summary>
-    /// Two tiles' spans share a cell (spec 258, ADR-0156 §2) — the general
+    /// Two tiles' spans share a cell (spec 262, ADR-0156 §2) — the general
     /// form of the old "same <see cref="GridPosition"/>" check, of which a
     /// shared origin between two 1×1 tiles is now the degenerate instance.
     /// </summary>

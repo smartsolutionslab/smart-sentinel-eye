@@ -1,4 +1,4 @@
-# Spec 258 — The tile that claims a rectangle
+# Spec 262 — The tile that claims a rectangle
 
 **Issue:** [#2607](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2607)
 — *Deliver ADR-0156: 3x3 walls with spanning tiles*. On Project #13, status **Todo**

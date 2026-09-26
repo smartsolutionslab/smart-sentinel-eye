@@ -51,7 +51,7 @@ public class LayoutRevisionPublishedV2Tests
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
-    /// <summary>Spec 258 (ADR-0156): trailing, defaulted positional parameters.</summary>
+    /// <summary>Spec 262 (ADR-0156): trailing, defaulted positional parameters.</summary>
     [Fact]
     public void LayoutTileV2_positional_constructor_defaults_the_span_to_1x1()
     {
@@ -62,7 +62,7 @@ public class LayoutRevisionPublishedV2Tests
     }
 
     /// <summary>
-    /// Spec 258 plan §3.1: a message serialised before this feature — no
+    /// Spec 262 plan §3.1: a message serialised before this feature — no
     /// <c>rowSpan</c>/<c>colSpan</c> properties at all — deserialises as 1x1,
     /// via System.Text.Json honouring the constructor-parameter defaults.
     /// </summary>

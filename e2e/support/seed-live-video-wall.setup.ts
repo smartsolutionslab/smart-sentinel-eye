@@ -18,7 +18,7 @@ import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
  * </para>
  *
  * <para>
- * <b>Spec 225 US2, raised by spec 258 (ADR-0156, D1 option A) — nine tiles,
+ * <b>Spec 225 US2, raised by spec 262 (ADR-0156, D1 option A) — nine tiles,
  * not one and not the old four.</b> The wall used to seed a single 1×1 tile
  * ("one tile is enough — the gap is that no check has both halves, not that
  * none has four"), then a 2×2 grid at spec 225. It now seeds the domain's
@@ -46,11 +46,11 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   // The 320 s figure above did not account for that; +90 s covers it with
   // margin.
   //
-  // Spec 258 (ADR-0156, D1 option A): the wall grew from four cameras to
+  // Spec 262 (ADR-0156, D1 option A): the wall grew from four cameras to
   // nine, so registrations 2-4 above became registrations 2-9 — six more
   // warm sites at the same 30 s CI worst case, +180 s. Rounded up rather than
   // padded to the old ratio: this sweep has never actually run at nine, so
-  // the risk is watched on the first PR run (spec 258 §7 D1) rather than
+  // the risk is watched on the first PR run (spec 262 §7 D1) rather than
   // trusted from arithmetic alone.
   setup.setTimeout(600_000);
 
@@ -96,7 +96,7 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
 
   // 3. Nine cameras — **at an address something actually serves**, and at the
   //    domain's real ceiling (`GridDimensions.MaxTiles` / `MaxCells`, now 9 —
-  //    `GridDimensions.cs:26,29`, raised from 4 by ADR-0156/spec 258), never
+  //    `GridDimensions.cs:26,29`, raised from 4 by ADR-0156/spec 262), never
   //    past it (spec 225 US2). The URL comes from the module that owns it,
   //    never composed here: a host and port written into a fixture is a
   //    second thing to keep true, and when it rots the wall looks like a
@@ -118,7 +118,7 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   }
 
   // 4. The wall: 3×3, nine tiles, one camera per tile, all bound to the same
-  //    overlay (spec 225 US2, raised from 2×2/four by ADR-0156/spec 258) —
+  //    overlay (spec 225 US2, raised from 2×2/four by ADR-0156/spec 262) —
   //    so a per-tile render cost is distinguishable from fixed overhead,
   //    without a ninth overlay write to pay for it.
   await page.getByRole('link', { name: /^layouts$/i }).click();

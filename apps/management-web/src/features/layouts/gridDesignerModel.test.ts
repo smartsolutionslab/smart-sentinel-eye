@@ -46,7 +46,7 @@ function indexAt(cells: ReadonlyArray<DesignerCell>, row: number, col: number): 
   return index;
 }
 
-describe('gridDesignerModel — spans up to a 3x3 grid (spec 258 US3)', () => {
+describe('gridDesignerModel — spans up to a 3x3 grid (spec 262 US3)', () => {
   it('offers nine presets, rows and cols each 1..3, up to the nine-cell cap', () => {
     expect(GRID_PRESETS).toHaveLength(9);
     expect(GRID_PRESETS.map((preset) => preset.label).sort()).toEqual(

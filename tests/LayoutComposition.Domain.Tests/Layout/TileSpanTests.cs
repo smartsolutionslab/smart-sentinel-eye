@@ -3,7 +3,7 @@ using SmartSentinelEye.LayoutComposition.Domain.Layout;
 namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout;
 
 /// <summary>
-/// Spec 258 (ADR-0156 §2): <c>TileSpan</c> is the value object a tile's
+/// Spec 262 (ADR-0156 §2): <c>TileSpan</c> is the value object a tile's
 /// <c>RowSpan</c>/<c>ColSpan</c> ride on, mirroring <c>GridPosition</c>. Only
 /// the lower bound (≥1) is guarded here — the upper bound is the grid's, so
 /// it is validated by <see cref="GridDimensions"/> (plan §2.1).

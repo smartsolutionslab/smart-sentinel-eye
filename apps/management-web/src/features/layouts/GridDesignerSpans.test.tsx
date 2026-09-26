@@ -8,7 +8,7 @@ import { GridDesigner } from './GridDesigner.js';
 import { buildCells, cellsFromTiles, type DesignerCell, type GridDesignerValue } from './gridDesignerModel.js';
 
 /**
- * Spec 258 (#2607), ADR-0156, US3 — the two native `Row span` / `Column
+ * Spec 262 (#2607), ADR-0156, US3 — the two native `Row span` / `Column
  * span` selects per populated tile (plan.md §4.3), rendered by
  * `TileSpanFields` for every populated cell in `GridDesigner.tsx`.
  */
@@ -96,7 +96,7 @@ function Harness({
   );
 }
 
-describe('GridDesigner — Row span / Column span controls (spec 258 US3)', () => {
+describe('GridDesigner — Row span / Column span controls (spec 262 US3)', () => {
   it('Hides the three cells a 2x2 hero span covers', async () => {
     const user = userEvent.setup();
     render(<Harness />);
@@ -144,7 +144,7 @@ describe('GridDesigner — Row span / Column span controls (spec 258 US3)', () =
     expect(optionValues).toEqual(['1', '2']);
   });
 
-  // Phase-6 review (spec 258, N5): this focuses the select and drives the
+  // Phase-6 review (spec 262, N5): this focuses the select and drives the
   // value change through `user.selectOptions`, not real keyboard input — a
   // native `<select>` is already keyboard-operable for free (it is a
   // platform control, unlike the custom radio group `GridDesignerKeyboard.test.tsx`
@@ -185,7 +185,7 @@ describe('GridDesigner — Row span / Column span controls (spec 258 US3)', () =
   });
 
   /**
-   * Phase-6 review (spec 258, S1): the reset that actually runs is the
+   * Phase-6 review (spec 262, S1): the reset that actually runs is the
    * camera-select's inline `onChange` in `GridDesigner.tsx` — `setValue`
    * calls, not `replace()` (which would remount every card and drop focus,
    * per that file's own comment). The now-removed `clearCameraAt` in

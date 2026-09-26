@@ -10,7 +10,7 @@ export type LayoutRevisionState = 'Draft' | 'Published' | 'Archived';
  * One tile of a layout grid (spec 010). Mirrors the backend `TileDto`
  * shape exactly: a required camera, an optional overlay (`null` when
  * unbound), at zero-indexed `(row, col)`, claiming a `rowSpan × colSpan`
- * rectangle whose origin is that cell (spec 258, ADR-0156). Required, not
+ * rectangle whose origin is that cell (spec 262, ADR-0156). Required, not
  * optional — the backend always sends both, defaulting to 1×1 when a caller
  * omits them. An overlay MAY be reused across tiles (ADR-0112 §2 —
  * highlight-all-matching).

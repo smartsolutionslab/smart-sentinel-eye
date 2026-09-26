@@ -5,7 +5,7 @@ import { buildGridItems } from './wallGrid.js';
 const CAMERA_A = 'cam-a';
 const CAMERA_B = 'cam-b';
 
-/** A tile fixture carrying `rowSpan`/`colSpan` (spec 258 FR-002). */
+/** A tile fixture carrying `rowSpan`/`colSpan` (spec 262 FR-002). */
 function tileAt(
   row: number,
   col: number,
@@ -21,7 +21,7 @@ function tileAt(
   };
 }
 
-describe('buildGridItems — explicit placement for a wall of spanning tiles (spec 258 US2)', () => {
+describe('buildGridItems — explicit placement for a wall of spanning tiles (spec 262 US2)', () => {
   it('places a 2x2 hero and five 1x1 tiles on a 3x3 wall with no placeholders', () => {
     const tiles: LayoutTile[] = [
       tileAt(0, 0, { rowSpan: 2, colSpan: 2 }),
@@ -56,7 +56,7 @@ describe('buildGridItems — explicit placement for a wall of spanning tiles (sp
   });
 
   /**
-   * CHARACTERISATION (spec 258 §8 declared pin). An all-1x1 wall must place
+   * CHARACTERISATION (spec 262 §8 declared pin). An all-1x1 wall must place
    * every tile and placeholder in the same row-major-by-origin order the
    * pre-feature auto-placement produced: one item per cell.
    *
@@ -84,7 +84,7 @@ describe('buildGridItems — explicit placement for a wall of spanning tiles (sp
   });
 
   it('clamps a span that runs off the grid rather than throwing (defensive, from-the-wire)', () => {
-    // The aggregate already refuses this (spec 258 FR-003); the renderer
+    // The aggregate already refuses this (spec 262 FR-003); the renderer
     // stays total in case a stale or malformed payload reaches it anyway
     // (plan.md §4.2).
     const badTile = tileAt(1, 1, { rowSpan: 5, colSpan: 5 });

@@ -6,7 +6,7 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout;
 
 /// <summary>
-/// Spec 258 §1 finding 1 (ADR-0156): <c>BranchDraft</c> clones the Published
+/// Spec 262 §1 finding 1 (ADR-0156): <c>BranchDraft</c> clones the Published
 /// revision's tiles via <c>Revision.NewDraft</c>, carrying each tile's
 /// <c>Span</c> forward (plan §2.5) rather than flattening it back to 1×1 — a
 /// published hero wall keeps its 2×2 span when branched into a new draft.
