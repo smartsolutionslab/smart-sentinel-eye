@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -18,11 +18,14 @@ vi.mock('react-oidc-context', () => ({
   useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
 }));
 
+// Mutable so a test can put a create in flight (ADR-0151 focus-loss guard).
+const mutationState = { current: { isLoading: false, error: undefined as unknown, reset: vi.fn() } };
+
 vi.mock('@smart-sentinel-eye/shared/api/rules.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/rules.api')>();
   return {
     ...actual,
-    useCreateRuleMutation: () => [createMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useCreateRuleMutation: () => [createMock, mutationState.current],
   };
 });
 
@@ -76,6 +79,7 @@ describe('RuleDialog', () => {
   beforeEach(() => {
     createMock.mockClear();
     assignedGroups.current = ['/fabs/munich'];
+    mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
   });
 
   it('Renders the rule fields and the AEL help panel', () => {
@@ -450,6 +454,52 @@ describe('RuleDialog', () => {
     expect(screen.getByLabelText(/^name$/i)).toHaveValue('');
     expect(screen.getByLabelText(/predicate/i)).toHaveValue('');
     expect(screen.getByLabelText(/trigger source/i)).toHaveValue('plc');
+  });
+
+  // ---- Issue #2624 / ADR-0151: focus must survive an in-flight submit ----
+
+  it('Announces Create draft as unavailable with aria-disabled, not native disabled, while in flight', () => {
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+
+    renderDialog();
+
+    const submit = screen.getByRole('button', { name: /^(create draft|creating…)$/i });
+    expect(submit).toHaveAttribute('aria-disabled', 'true');
+    expect(submit).not.toHaveAttribute('disabled');
+  });
+
+  it('Refuses a form-level submit while a create is in flight', async () => {
+    const user = userEvent.setup();
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+    renderDialog();
+
+    await fillValidRule(user);
+    // The submit event is dispatched at the form itself, bypassing whatever
+    // the submit button's own disabled/aria-disabled state is — this is the
+    // form-level guard, not a click or an implicit-submission proof (that is
+    // e2e/in-flight-focus.spec.ts). One macrotask flush lets react-hook-form's
+    // (async) zodResolver validation and the mocked mutation call settle
+    // before asserting, since both resolve on the microtask queue with no
+    // real timer involved.
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId('rule-form'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('Submits a form-level submit once when nothing is in flight', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fillValidRule(user);
+    await act(async () => {
+      fireEvent.submit(screen.getByTestId('rule-form'));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(createMock).toHaveBeenCalledTimes(1);
   });
 });
 

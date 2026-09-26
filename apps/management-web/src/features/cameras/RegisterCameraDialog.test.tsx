@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -10,6 +10,9 @@ const registerMock = vi.fn(async (_input: Record<string, unknown>) => ({ data: '
 // only asks when there is something to ask about (ADR-0114).
 const assignedGroups = { current: ['/fabs/munich'] as string[] };
 
+// Mutable so a test can put a register in flight (ADR-0151 focus-loss guard).
+const mutationState = { current: { isLoading: false, error: undefined as unknown, reset: vi.fn() } };
+
 vi.mock('react-oidc-context', () => ({
   useAuth: () => ({ user: { profile: { groups: assignedGroups.current } } }),
 }));
@@ -18,7 +21,7 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
   return {
     ...actual,
-    useRegisterCameraMutation: () => [registerMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useRegisterCameraMutation: () => [registerMock, mutationState.current],
   };
 });
 
@@ -56,6 +59,7 @@ describe('RegisterCameraDialog', () => {
   beforeEach(() => {
     registerMock.mockClear();
     assignedGroups.current = ['/fabs/munich'];
+    mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
   });
 
   it('Never asks a single-fab operator which fab', async () => {
@@ -154,5 +158,53 @@ describe('RegisterCameraDialog', () => {
 
     expect(screen.getByLabelText(/name/i)).toHaveValue('');
     expect(screen.getByLabelText(/rtsp/i)).toHaveValue('');
+  });
+
+  // ---- Issue #2624 / ADR-0151: focus must survive an in-flight submit ----
+
+  it('Announces Register as unavailable with aria-disabled, not native disabled, while in flight', () => {
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+
+    renderDialog();
+
+    const register = screen.getByRole('button', { name: /^(register|registering…)$/i });
+    expect(register).toHaveAttribute('aria-disabled', 'true');
+    expect(register).not.toHaveAttribute('disabled');
+  });
+
+  it('Refuses a form-level submit while a register is in flight', async () => {
+    const user = userEvent.setup();
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+    renderDialog();
+
+    await fillValidCamera(user);
+    // Dialog renders through a Radix Portal into document.body, outside
+    // render()'s own container, so the form is looked up from the document.
+    // The submit event is dispatched at the form itself, bypassing whatever
+    // the submit button's own disabled/aria-disabled state is — this is the
+    // form-level guard, not a click or an implicit-submission proof (that is
+    // e2e/in-flight-focus.spec.ts). One macrotask flush lets react-hook-form's
+    // (async) zodResolver validation and the mocked mutation call settle
+    // before asserting, since both resolve on the microtask queue with no
+    // real timer involved.
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(registerMock).not.toHaveBeenCalled();
+  });
+
+  it('Submits a form-level submit once when nothing is in flight', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fillValidCamera(user);
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(registerMock).toHaveBeenCalledTimes(1);
   });
 });
