@@ -157,7 +157,13 @@ Scenario: a grid over nine cells is refused (bad request)
 Scenario: a stale edit is still refused (conflict, unchanged)
   Given the hero wall Draft at version v
   When PATCH /layouts/{id}/revisions/1 carries If-Match of an older version
-  Then the response is 412 and the draft keeps its spans
+  Then the response is 409 and the draft keeps its spans
+  # LayoutComposition's EditDraftRevisionErrors.LayoutRevisionStale maps to
+  # Conflict (409) today, not the 412/PreconditionFailed convention
+  # CameraCatalog's stale-version errors use (ADR-0119) — a pre-existing,
+  # unrelated divergence. Out of scope here (plan.md never lists this
+  # mapping as touched); tracked by a follow-up issue instead of "fixed"
+  # silently by writing 412 into this test.
 
 Scenario: authorization is unchanged (auth)
   When the POST carries no token
@@ -399,7 +405,7 @@ Two that look like pins and are **not**, so a green one is a defect in the test:
   the field.
 - "the ADR-0112 duplicate-position case" must be red today, because the code string
   changes to `LAYOUT_TILE_OVERLAP`.
-- "a stale edit is still refused" must be red today: the 412 path is unchanged, but
+- "a stale edit is still refused" must be red today: the 409 path is unchanged, but
   the scenario's setup (a 3×3 hero draft) cannot be created yet.
 
 ## 9. Independent end-to-end test procedure

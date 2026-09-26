@@ -54,7 +54,7 @@ The PR must not merge before ADR-0156's PR #2606.
   spans; migration default via raw-SQL insert naming no span column, then GET → 1×1;
   overlap 400 `LAYOUT_TILE_OVERLAP`; duplicate origin 400 `LAYOUT_TILE_OVERLAP`; span off
   edge 400 `LAYOUT_TILE_OUT_OF_BOUNDS`; span 0 / −1 400 `LAYOUT_INVALID_INPUT`; 2×5 400;
-  stale If-Match 412 keeps spans; 401; 403). Anonymous-object bodies, so it compiles
+  stale If-Match 409 keeps spans; 401; 403). Anonymous-object bodies, so it compiles
   today. Raw-SQL precedent: `CameraCatalog/StaleIdempotencyReservationIntegrationTests.cs` —
   `tests/Integration.Tests/LayoutComposition/TileSpanIntegrationTests.cs`
 - [ ] **T005** [US1] On unchanged production code run
@@ -63,7 +63,7 @@ The PR must not merge before ADR-0156's PR #2606.
   capture **verbatim**. **Required**: T001–T003 red by **compile error** naming
   `TileSpan` / `GridViolation.Overlap` / `RowSpan` (quote the errors); T004 compiles and
   every scenario is red **on its assertion** except the declared pins (401, 403, and
-  4×3/2×5 → 400), which are green and labelled as characterisation. The 412 scenario is
+  4×3/2×5 → 400), which are green and labelled as characterisation. The 409 scenario is
   **red** today, not a pin: its setup cannot create a 3×3 hero wall yet. Any other green
   → stop and report; do not adjust the test until it is red. Depends on T001–T004.
 
