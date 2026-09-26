@@ -24,6 +24,8 @@ export function DryRunPanel({ ruleName, fabId }: { ruleName: string; fabId: stri
   const [dryRun, { data, error, isLoading, reset }] = useDryRunRuleMutation();
 
   const onRun = async () => {
+    // ADR-0151: Run stays clickable while in flight (`unavailable`), so this refuses.
+    if (isLoading) return;
     const parsed = dryRunSampleSchema.safeParse(sample);
     if (!parsed.success) {
       setJsonError(parsed.error.issues[0]?.message ?? 'Not valid JSON');
@@ -58,7 +60,7 @@ export function DryRunPanel({ ruleName, fabId }: { ruleName: string; fabId: stri
         </p>
       )}
 
-      <Button type="button" onClick={onRun} disabled={isLoading}>
+      <Button type="button" onClick={onRun} unavailable={isLoading} className="aria-disabled:cursor-progress">
         {isLoading ? 'Running…' : 'Run'}
       </Button>
 
