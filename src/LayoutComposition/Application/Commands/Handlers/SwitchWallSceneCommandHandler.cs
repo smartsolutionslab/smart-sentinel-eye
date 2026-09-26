@@ -50,6 +50,17 @@ public sealed class SwitchWallSceneCommandHandler(
             return Failure(SwitchWallSceneFailures.SceneNotInSet(requested.Value));
         }
 
+        if (namedLayout is { } already && already == wall.Showing)
+        {
+            // Already showing it: the same no-op success `Wall.SwitchTo` guarantees
+            // (Wall.cs's own Showing precedence) — whether the target is still
+            // Published is irrelevant to a switch that doesn't move `Showing` at
+            // all, so this must not depend on `publishable` below.
+            await walls.SaveAsync(cancellationToken);
+            logger.WallSceneSwitchWasNoOp(wall.Id, by);
+            return Success(GetWallQueryHandler.Map(wall));
+        }
+
         IReadOnlySet<LayoutIdentifier> publishable =
             await lookup.PublishedAmong(wall.Scenes, wall.Fab, cancellationToken);
 
