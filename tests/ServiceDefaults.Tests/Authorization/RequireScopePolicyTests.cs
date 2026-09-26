@@ -84,28 +84,52 @@ public class RequireScopePolicyTests
         result.Succeeded.ShouldBeTrue();
     }
 
+    /// <summary>
+    /// Spec 200 US2 / #2486 (SC-9) — the policy half of withdrawing the
+    /// <c>sse.management</c> grandfather clause. The WHEP handler's own copy
+    /// was fixed by spec 258
+    /// (<c>AuthorizeWhepCommandHandlerTests.Authorize_with_only_the_legacy_management_bundle_returns_Forbidden</c>);
+    /// this is every policy <see cref="RequireScopeExtensions.AddScopePolicies"/>
+    /// registers.
+    ///
+    /// <para>
+    /// Written as the literal <c>"sse.management"</c>, not
+    /// <see cref="RequireScopeExtensions.LegacyManagementBundle"/> — the constant
+    /// is deleted in the phase-4b change that makes this pass, and a test that
+    /// referenced it would stop compiling.
+    /// </para>
+    ///
+    /// <para>
+    /// Collects every scope the bundle passes rather than stopping at the
+    /// first, so a failing run names them all: today that is every entry in
+    /// <see cref="Scope.All"/> except <see cref="Scope.Sse.Events.Publish"/>
+    /// (reserved for MQTT-publishing devices, ADR-0100), which is the
+    /// grandfather clause laid bare rather than one odd policy. Replaces
+    /// <c>Legacy_management_bundle_passes_a_normal_sse_policy</c> and
+    /// <c>Legacy_management_bundle_does_not_pass_the_events_publish_policy</c> —
+    /// a deliberate inversion of a green test, written as the specification of
+    /// the change (ADR-0139).
+    /// </para>
+    /// </summary>
     [Fact]
-    public async Task Legacy_management_bundle_passes_a_normal_sse_policy()
+    public async Task A_principal_carrying_only_the_legacy_bundle_fails_every_policy()
     {
         IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes(RequireScopeExtensions.LegacyManagementBundle);
+        ClaimsPrincipal user = UserWithScopes("sse.management");
 
-        AuthorizationResult result =
-            await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
+        List<string> passed = [];
+        foreach (string scope in Scope.All)
+        {
+            AuthorizationResult result = await authorization.AuthorizeAsync(user, null, scope);
+            if (result.Succeeded)
+            {
+                passed.Add(scope);
+            }
+        }
 
-        result.Succeeded.ShouldBeTrue();
-    }
-
-    [Fact]
-    public async Task Legacy_management_bundle_does_not_pass_the_events_publish_policy()
-    {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes(RequireScopeExtensions.LegacyManagementBundle);
-
-        AuthorizationResult result =
-            await authorization.AuthorizeAsync(user, null, Scope.Sse.Events.Publish);
-
-        result.Succeeded.ShouldBeFalse();
+        passed.ShouldBeEmpty(
+            $"the sse.management bundle was withdrawn (spec 200 US2 / #2486) and must not "
+            + $"substitute for any scope, but it still passes: {string.Join(", ", passed)}.");
     }
 
     [Fact]
