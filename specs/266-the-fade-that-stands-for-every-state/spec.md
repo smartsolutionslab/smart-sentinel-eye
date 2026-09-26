@@ -179,8 +179,8 @@ variant's rest fill (it is working, not refused), and suppresses hover and press
 feedback so a second press is not invited. The call site's existing label swap
 (`'Saving…'`) stays where it is — the copy belongs to the feature.
 
-**Open decision D1 (§4) governs this story's visual.** It can ship with the default
-below, or wait; US1 and US3 do not depend on it.
+**Decision D1 (§4) is resolved: option (a), the static busy state below.** It ships in this PR;
+#2334 may add an indicator later without changing the `busy` prop.
 
 **Independent test:** in the Rename camera dialog, submit and hold the network (route
 interception), then read `aria-busy`, the cursor and the fill while the request is
@@ -286,14 +286,14 @@ disabled recipe and its ≥ 3:1 target (WCAG 1.4.3 exempts inactive components, 
 threshold is this spec's choice — 3:1 keeps it legible while reading as inactive); an
 outline rather than a ring for focus; `danger` keeping the fault red at rest.
 
-> The last is the one a reviewer should look at twice. ADR-0146 says the triad is "not
+> Confirmed 2026-09-26 (relayed by the coordinator): `danger` keeps the fault red at rest. ADR-0146 says the triad is "not
 > available as brand colour". A destructive button is not brand, and the existing
 > `Button.tsx` comment argues deliberately for the fault red; spec 257 inventoried the
 > triad violations and did **not** list `danger`. This spec follows that precedent.
 > If the reviewer reads ADR-0146 more strictly, the alternative (outline-danger at rest,
 > red fill only on hover/pressed) changes one class string in T012 and no token.
 
-**Open — decision D1, needs a human before US2's visual is final:**
+**Decision D1 — resolved 2026-09-26: option (a), relayed by the coordinator.** The question as it was put:
 **What does *loading* look like?** ADR-0146 lists *loading* as a state and describes
 console motion only as "on state change and surface entry, 120–200 ms". A continuous
 spinner is neither, and the motion language is #2334's (open). Options:

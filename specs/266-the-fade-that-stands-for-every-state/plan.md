@@ -340,7 +340,7 @@ The label swaps stay. **No `disabled` / `unavailable` is added, removed or swapp
 3. `feat(tokens): derive hover, pressed and on-fault roles` — §2.
 4. `feat(shared): design Button's state matrix` — §3 without `busy`.
 5. `feat(shared): one focus outline on Input, DataTable and GridDesigner` — §4.
-6. `feat(shared): add a busy state to Button and adopt it` — §3 `busy`, §6. **Held on D1.**
+6. `feat(shared): add a busy state to Button and adopt it` — §3 `busy`, §6. D1 resolved: option (a).
 
 ## 10. Verification (Phase 5)
 

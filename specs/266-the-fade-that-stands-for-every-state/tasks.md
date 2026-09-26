@@ -15,8 +15,8 @@ No Shared.Kernel, Shared.Contracts or AppHost work.
 **Parallelism** (ADR-0109, disjoint files): in 4a, T002 ∥ T003 ∥ T004 ∥ T005 ∥ T006 (T002
 after T001). In 4b, after T010: T011 ∥ T012; T013 after T011 (same file, `Button.tsx`).
 T014 (the nine adoption sites) is disjoint from T012 but depends on T013.
-**Held**: T013–T014 (US2) wait on **decision D1** (spec §4). US1 + US3 ship without them;
-if D1 is "(b) hold", drop T013–T014 and US2's tests from T003/T004 and open a follow-up.
+**D1 resolved (2026-09-26): option (a).** T013–T014 are no longer held. (Previously: US1 + US3 could ship without them;
+the "(b) hold" path is no longer needed.)
 
 **Do not** touch: any raw `<button>` (plan §7 follow-up); any selection fill using
 `accent-active` (plan §7); `OverlayEditor.tsx`, `BackdropControls.tsx`,
@@ -78,10 +78,10 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
 - [ ] **T012 [P] [US3]** `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx` focus outline and
   `Input` disabled; `ChainRecoveryNotice.tsx:302` disabled label — exactly plan §4's table.
   Commit `feat(shared): one focus outline on Input, DataTable and GridDesigner`.
-- [ ] **T013 [US2] (held on D1)** `Button.tsx`: implement `busy` per plan §3 — destructured,
+- [ ] **T013 [US2]** `Button.tsx`: implement `busy` per plan §3 — destructured,
   `aria-busy={busy || undefined}`, `cursor-progress`, `interactive[variant]` omitted, no
   change to `disabled`/`aria-disabled`.
-- [ ] **T014 [US2] (held on D1)** `busy={…}` at the nine sites of plan §6, additions only;
+- [ ] **T014 [US2]** `busy={…}` at the nine sites of plan §6, additions only;
   `ConfirmDialog.tsx`'s confirm button. Commit T013–T014 as
   `feat(shared): add a busy state to Button and adopt it`.
 - [ ] **T015** Re-run T008's commands; every red test green, nothing else changed. Then the
@@ -107,5 +107,5 @@ T003 ─────────┤
 T004 ─────────┼─► T008 ──► T010 ──► T011 ──► T013* ──► T014* ──► T015 ──► T020 ──► T021
 T005 ─────────┤                 └─► T012 ─────────────────────────┘
 T006 ─────────┤
-T007 ─────────┘                                   * held on D1
+T007 ─────────┘                                
 ```
