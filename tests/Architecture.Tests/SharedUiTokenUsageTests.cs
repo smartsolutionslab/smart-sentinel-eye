@@ -128,7 +128,7 @@ public class SharedUiTokenUsageTests
                 continue;
             }
 
-            string literalContent = StringLiteralContent(File.ReadAllText(path));
+            string literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
             bool stillViolates = StockPaletteUtility.IsMatch(literalContent)
                 || CallSiteAlphaOnSemantic.IsMatch(literalContent)
                 || ColourLiteral.IsMatch(literalContent);
@@ -160,7 +160,7 @@ public class SharedUiTokenUsageTests
             }
 
             string path = Path.Combine(root.FullName, relativePath);
-            string literalContent = StringLiteralContent(File.ReadAllText(path));
+            string literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
 
             if (rule.IsMatch(literalContent))
             {
@@ -199,28 +199,5 @@ public class SharedUiTokenUsageTests
 
             yield return relative;
         }
-    }
-
-    /// <summary>
-    /// The content of every single-, double- or template-quoted string literal in
-    /// the file, comments stripped first. The rules apply only here — never to
-    /// identifiers or JSX structure (plan.md §5.2).
-    /// </summary>
-    private static string StringLiteralContent(string source)
-    {
-        string withoutBlockComments = Regex.Replace(source, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
-        string withoutComments = Regex.Replace(withoutBlockComments, @"//[^\n]*", string.Empty);
-
-        List<string> literals = [];
-
-        foreach (Match match in Regex.Matches(
-                     withoutComments,
-                     @"'(?:[^'\\]|\\.)*'|""(?:[^""\\]|\\.)*""|`(?:[^`\\]|\\.)*`",
-                     RegexOptions.Singleline))
-        {
-            literals.Add(match.Value[1..^1]);
-        }
-
-        return string.Join('\n', literals);
     }
 }
