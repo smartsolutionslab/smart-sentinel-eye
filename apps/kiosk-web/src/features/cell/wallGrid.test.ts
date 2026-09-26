@@ -97,6 +97,20 @@ describe('buildGridItems — explicit placement for a wall of spanning tiles (sp
     expect(items.filter((item) => item.tile === null)).toHaveLength(3);
   });
 
+  it('drops a tile whose origin sits at or past the grid’s row/col count, rather than clamping into a dead 1x1 entry (defensive, from-the-wire)', () => {
+    // row === rows (or col === cols) makes `rows - tile.row` (or the col
+    // equivalent) 0, so a lower-bound-only guard lets it through and the
+    // span clamp forces it back up to a 1x1 that renders nothing but still
+    // occupies a cell — this asserts it is dropped before that clamp runs.
+    const atRowBound = tileAt(2, 0, { cameraIdentifier: CAMERA_A });
+    const atColBound = tileAt(0, 2, { cameraIdentifier: CAMERA_B });
+
+    const items = buildGridItems(2, 2, [atRowBound, atColBound]);
+
+    expect(items).toHaveLength(4);
+    expect(items.every((item) => item.tile === null)).toBe(true);
+  });
+
   it('drops a tile with a non-finite span or a negative origin, rather than clamping to NaN (defensive, from-the-wire)', () => {
     const nanSpan = tileAt(0, 0, { rowSpan: Number.NaN, cameraIdentifier: CAMERA_A });
     const negativeOrigin = tileAt(-1, 0, { cameraIdentifier: CAMERA_B });

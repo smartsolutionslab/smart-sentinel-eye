@@ -37,16 +37,22 @@ export function buildGridItems(rows: number, cols: number, tiles: LayoutTile[]):
 
   for (const tile of tiles) {
     // Defensive, from-the-wire (see doc comment above): a non-finite span or
-    // a negative origin would otherwise clamp to NaN, or occupy cells behind
-    // its own out-of-bounds origin without ever emitting itself — silently
-    // breaking totality rather than throwing.
+    // an origin outside the grid would otherwise clamp to NaN, or occupy a
+    // cell behind its own out-of-bounds origin without ever emitting itself
+    // — silently breaking totality rather than throwing. An origin at or
+    // past `rows`/`cols` also isn't caught by the span clamp below: it makes
+    // `rows - tile.row` (or the col equivalent) ≤ 0, which the clamp forces
+    // back up to a span of 1, registering a dead entry the render loop below
+    // never visits.
     if (
       !Number.isFinite(tile.row) ||
       !Number.isFinite(tile.col) ||
       !Number.isFinite(tile.rowSpan) ||
       !Number.isFinite(tile.colSpan) ||
       tile.row < 0 ||
-      tile.col < 0
+      tile.col < 0 ||
+      tile.row >= rows ||
+      tile.col >= cols
     ) {
       continue;
     }
@@ -66,6 +72,13 @@ export function buildGridItems(rows: number, cols: number, tiles: LayoutTile[]):
       }
     }
     if (overlaps) {
+      // Unreachable from a valid layout — the aggregate's `ValidateGrid`
+      // refuses an overlapping tile set before it can ever be persisted
+      // (ADR-0156 §2). Warn rather than silently drop, in case a future
+      // migration, a direct DB edit, or an unrelated bug ever produces one.
+      console.warn(
+        `buildGridItems: dropping tile at (${tile.row}, ${tile.col}) — its span overlaps an already-claimed cell`,
+      );
       continue;
     }
 
