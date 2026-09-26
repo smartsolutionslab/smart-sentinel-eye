@@ -53,10 +53,22 @@ public sealed record GridDimensions(int Rows, int Cols) : IValueObject
     /// True when the full rectangle a tile at <paramref name="position"/>
     /// with <paramref name="span"/> occupies fits inside this grid (spec 258,
     /// ADR-0156 §2) — not just its origin cell.
+    ///
+    /// <para>
+    /// Written as subtraction, not <c>position.Row + span.Rows &lt;= Rows</c>
+    /// (code review finding B1): <see cref="TileSpan"/> only guards its own
+    /// lower bound, so a caller-supplied span up to <see cref="int.MaxValue"/>
+    /// reaches here, and that addition wraps around to a negative number
+    /// instead of overflowing past <see cref="Rows"/>/<see cref="Cols"/> —
+    /// silently reporting an out-of-bounds rectangle as contained.
+    /// <see cref="Contains(GridPosition)"/> already bounds <c>position.Row</c>
+    /// to <c>[0, Rows)</c>, so <c>Rows - position.Row</c> cannot overflow.
+    /// </para>
     /// </summary>
     public bool Contains(GridPosition position, TileSpan span) =>
-        position.Row >= 0 && position.Row + span.Rows <= Rows &&
-        position.Col >= 0 && position.Col + span.Cols <= Cols;
+        Contains(position) &&
+        span.Rows <= Rows - position.Row &&
+        span.Cols <= Cols - position.Col;
 
     public override string ToString() => $"{Rows}x{Cols}";
 }
