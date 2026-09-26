@@ -19,6 +19,8 @@
     "./api/systemVariables.api": "./src/api/systemVariables.api.ts",
     "./api/systemVariables.schema": "./src/api/systemVariables.schema.ts",
     "./api/audit.api": "./src/api/audit.api.ts",
+    "./api/walls.api": "./src/api/walls.api.ts",
+    "./api/walls.schema": "./src/api/walls.schema.ts",
     "./api/problemDetail": "./src/api/problemDetail.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./realtime/hubUrl": "./src/realtime/hubUrl.ts",

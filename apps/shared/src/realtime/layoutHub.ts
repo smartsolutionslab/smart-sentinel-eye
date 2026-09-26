@@ -79,6 +79,19 @@ export interface OverlayHighlightChangedMessage {
   durationMs: number;
 }
 
+/**
+ * Wire shape for wall-scene-changed SignalR frames (spec 258 US1, PD-2). A
+ * wall is fab-scoped (like a Layout), so — unlike the overlay frames above —
+ * this carries no `fab`: hub-group membership already answers that. The
+ * kiosk discards a frame whose `sceneVersion` is not strictly greater than
+ * the one it is rendering (FR-008, US1-16).
+ */
+export interface WallSceneChangedMessage {
+  wall: string;
+  showing: string;
+  sceneVersion: number;
+}
+
 export type LayoutHubConnectionState = 'connecting' | 'connected' | 'degraded';
 
 export interface LayoutHubCallbacks {
@@ -88,6 +101,7 @@ export interface LayoutHubCallbacks {
   onOverlayArchived?: (message: OverlayRevisionArchivedMessage) => void;
   onResolvedOverlayTextChanged?: (message: ResolvedOverlayTextChangedMessage) => void;
   onOverlayHighlightChanged?: (message: OverlayHighlightChangedMessage) => void;
+  onWallSceneChanged?: (message: WallSceneChangedMessage) => void;
   /** Fires on every recovery — SignalR auto-reconnect AND manual restart. */
   onReconnected?: () => void;
   /** Fires on every connection-state transition, incl. the initial connect. */
@@ -156,6 +170,9 @@ function registerMessageHandlers(connection: HubConnection, callbacks: LayoutHub
   }
   if (callbacks.onOverlayHighlightChanged !== undefined) {
     connection.on('OverlayHighlightChanged', callbacks.onOverlayHighlightChanged);
+  }
+  if (callbacks.onWallSceneChanged !== undefined) {
+    connection.on('WallSceneChanged', callbacks.onWallSceneChanged);
   }
 }
 
