@@ -78,6 +78,15 @@ public sealed partial class V1ResourceMap
             // variable's; SystemVariables addresses every variable by name.
             Add<SystemVariableValueRequestedV1>(map, DomainResourceKind.Variable, requested => requested.Name);
 
+            // Spec 258 US1: published from LayoutComposition, but the subject
+            // is the wall, not the layout the namespace convention would pick
+            // (the picker's first Guid property would otherwise be Wall's own
+            // identifier here anyway, but this makes the resource kind
+            // explicit rather than relying on convention picking the right
+            // one by coincidence).
+            Add<WallConfiguredV1>(map, DomainResourceKind.Wall, configured => configured.Wall);
+            Add<WallSceneChangedV1>(map, DomainResourceKind.Wall, changed => changed.Wall);
+
             return map;
         }
 

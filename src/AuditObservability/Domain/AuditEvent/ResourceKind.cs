@@ -54,6 +54,9 @@ public sealed record ResourceKind(string Value) : IValueObject<string>
 
     public static ResourceKind WebhookIntegration { get; } = new("webhook-integration");
 
+    /// <summary>Spec 258 US1: a rotating display surface (ADR-0157, PD-2).</summary>
+    public static ResourceKind Wall { get; } = new("wall");
+
     public static IReadOnlyList<ResourceKind> All { get; } =
     [
         Camera,
@@ -66,7 +69,8 @@ public sealed record ResourceKind(string Value) : IValueObject<string>
         Webhook,
         Device,
         Kiosk,
-        WebhookIntegration
+        WebhookIntegration,
+        Wall
     ];
 
     public static ResourceKind From(string value)
