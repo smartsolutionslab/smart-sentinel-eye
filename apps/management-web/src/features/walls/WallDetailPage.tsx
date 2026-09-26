@@ -1,22 +1,31 @@
-import { useGetWallQuery, useSwitchWallSceneMutation } from '@smart-sentinel-eye/shared/api/walls.api';
+import { useGetWallQuery, useSwitchWallSceneMutation, wallsApi } from '@smart-sentinel-eye/shared/api/walls.api';
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
+import { createLayoutHubClient } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useAuth } from 'react-oidc-context';
+import { useDispatch } from 'react-redux';
 import { useParams } from 'react-router-dom';
+import type { AppDispatch } from '../../app/store.js';
 
 /**
  * Spec 258 US1: an admin's Next/Show controls for one wall, and the
- * live-updated Showing badge (subscribed via the SignalR hub client
- * elsewhere — see `WallSceneChanged`; this page re-reads through RTK
- * Query's normal cache invalidation rather than holding its own
- * connection). On a stale `If-Match` (`409 WALL_STALE`) it shows the shared
- * conflict fallback and re-fetches once, without retrying the switch
- * automatically (ADR-0113 — resubmitting would replay the same stale intent
- * over whoever wrote in between).
+ * live-updated Showing badge. This page holds its own `WallSceneChanged`
+ * subscription (T060's `onWallSceneChanged`, the same hook `WallPage` uses
+ * kiosk-side) and invalidates the cached wall on a frame that names it, so a
+ * switch made from another admin session or from the kiosk itself shows up
+ * here without a manual refresh — on top of the mutation-success
+ * invalidation RTK Query already does for a switch made from *this* page.
+ * On a stale `If-Match` (`409 WALL_STALE`) it shows the shared conflict
+ * fallback and re-fetches once, without retrying the switch automatically
+ * (ADR-0113 — resubmitting would replay the same stale intent over whoever
+ * wrote in between).
  */
 export function WallDetailPage() {
   const { wallIdentifier = '' } = useParams<{ wallIdentifier: string }>();
+  const auth = useAuth();
+  const dispatch = useDispatch<AppDispatch>();
   const {
     data: wall,
     isLoading,
@@ -25,6 +34,51 @@ export function WallDetailPage() {
   } = useGetWallQuery(wallIdentifier, { skip: wallIdentifier === '' });
   const [switchWallScene, switchState] = useSwitchWallSceneMutation();
   const { data: layoutsData } = useListLayoutsQuery('Published');
+
+  // Same rationale as WallPage's own accessTokenRef (kiosk-web): a fresh
+  // function each render would restart the hub-connect effect below on
+  // every silent token renewal. Optional chaining throughout this
+  // component's use of `auth`: `useAuth()` returns `undefined` (rather than
+  // throwing) outside an `<AuthProvider>`, which `WallDetailPage.test.tsx`
+  // deliberately doesn't render one of.
+  const accessTokenRef = useRef(auth?.user?.access_token);
+  // eslint-disable-next-line react-hooks/refs -- see above
+  accessTokenRef.current = auth?.user?.access_token;
+
+  useEffect(() => {
+    if (auth?.isAuthenticated !== true || wallIdentifier === '') {
+      return undefined;
+    }
+
+    const hub = createLayoutHubClient(
+      { accessTokenFactory: () => accessTokenRef.current ?? '' },
+      {
+        onWallSceneChanged: (message) => {
+          if (message.wall !== wallIdentifier) return;
+          dispatch(wallsApi.util.invalidateTags([{ type: 'Wall', id: wallIdentifier }]));
+        },
+        onReconnected: () => {
+          dispatch(wallsApi.util.invalidateTags([{ type: 'Wall', id: wallIdentifier }]));
+        },
+      },
+    );
+
+    // Same StrictMode-safe deferred start as WallPage/useLayoutLifecycle
+    // (spec 011): a tick's delay lets the dev double-mount's cleanup cancel
+    // this start before it begins negotiating.
+    let started = false;
+    const startTimer = setTimeout(() => {
+      started = true;
+      void hub.start();
+    }, 0);
+
+    return () => {
+      clearTimeout(startTimer);
+      if (started) {
+        void hub.stop().catch(() => undefined);
+      }
+    };
+  }, [auth?.isAuthenticated, wallIdentifier, dispatch]);
 
   const switchError = switchState.error;
   const staleConflict = isStaleConflict(switchError);
