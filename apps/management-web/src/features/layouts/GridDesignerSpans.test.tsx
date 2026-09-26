@@ -9,10 +9,8 @@ import { buildCells, cellsFromTiles, type DesignerCell, type GridDesignerValue }
 
 /**
  * Spec 258 (#2607), ADR-0156, US3 — the two native `Row span` / `Column
- * span` selects per populated tile (plan.md §4.3). `GridDesigner.tsx` does
- * not render them yet, so every case below fails on `getAllByLabelText`
- * ("missing control", ADR-0139 red first) until `TileSpanFields` is wired
- * in.
+ * span` selects per populated tile (plan.md §4.3), rendered by
+ * `TileSpanFields` for every populated cell in `GridDesigner.tsx`.
  */
 
 const CAM_A = '11111111-1111-1111-1111-111111111111';
@@ -43,7 +41,7 @@ const HERO_WALL_CAMERAS = [
   camera(CAM_F, 'Bottom right'),
 ];
 
-/** A cell fixture, cast because `DesignerCell` does not carry spans yet. */
+/** A cell fixture carrying `rowSpan`/`colSpan` (plan.md §4.3, default 1). */
 function cellAt(
   row: number,
   col: number,
@@ -56,7 +54,7 @@ function cellAt(
     col,
     rowSpan: overrides.rowSpan ?? 1,
     colSpan: overrides.colSpan ?? 1,
-  } as DesignerCell;
+  };
 }
 
 function tileAt(row: number, col: number, overrides: { rowSpan?: number; colSpan?: number } = {}): LayoutTile {
@@ -67,7 +65,7 @@ function tileAt(row: number, col: number, overrides: { rowSpan?: number; colSpan
     col,
     rowSpan: overrides.rowSpan ?? 1,
     colSpan: overrides.colSpan ?? 1,
-  } as LayoutTile;
+  };
 }
 
 /** The spec's hero-and-thumbnails 3x3 wall: (0,0) is the hero, unspanned so far. */
@@ -131,7 +129,7 @@ describe('GridDesigner — Row span / Column span controls (spec 258 US3)', () =
 
     const reappeared = screen.getByText('Tile 1,2').closest('div');
     expect(reappeared).not.toBeNull();
-    const cameraSelect = within(reappeared as HTMLElement).getByLabelText('Camera');
+    const cameraSelect = within(reappeared!).getByLabelText('Camera');
     expect(cameraSelect).toHaveValue('');
   });
 
@@ -139,12 +137,21 @@ describe('GridDesigner — Row span / Column span controls (spec 258 US3)', () =
     render(<Harness />);
 
     const columnSelect = screen.getAllByLabelText('Column span')[0]!;
-    const optionValues = within(columnSelect).getAllByRole('option').map((option) => (option as HTMLOptionElement).value);
+    const optionValues = within(columnSelect)
+      .getAllByRole('option')
+      .map((option) => option.getAttribute('value'));
 
     expect(optionValues).toEqual(['1', '2']);
   });
 
-  it('Sets a span through the keyboard alone, no click required', async () => {
+  // Phase-6 review (spec 258, N5): this focuses the select and drives the
+  // value change through `user.selectOptions`, not real keyboard input — a
+  // native `<select>` is already keyboard-operable for free (it is a
+  // platform control, unlike the custom radio group `GridDesignerKeyboard.test.tsx`
+  // has to prove keyboard support for). What this actually pins is that the
+  // control is reachable by focus and is a real `<select>`, not a custom
+  // widget that would need its own keyboard wiring.
+  it('Is a focusable native select, not a custom widget needing its own keyboard wiring', async () => {
     const user = userEvent.setup();
     render(<Harness />);
 
@@ -175,5 +182,37 @@ describe('GridDesigner — Row span / Column span controls (spec 258 US3)', () =
     expect(rowSelect).toHaveValue('2');
     expect(colSelect).toHaveValue('2');
     expect(screen.queryByText('Tile 1,2')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Phase-6 review (spec 258, S1): the reset that actually runs is the
+   * camera-select's inline `onChange` in `GridDesigner.tsx` — `setValue`
+   * calls, not `replace()` (which would remount every card and drop focus,
+   * per that file's own comment). The now-removed `clearCameraAt` in
+   * `gridDesignerModel.ts` was never wired to it and had its own, separate
+   * unit test — covering a function nothing in production called, while the
+   * mechanism that actually runs had none. This exercises the real thing.
+   */
+  it('Resets the cleared cell’s span in the DOM, and a reassigned camera does not inherit the stale span', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.selectOptions(screen.getAllByLabelText('Row span')[0]!, '2');
+    await user.selectOptions(screen.getAllByLabelText('Column span')[0]!, '2');
+
+    const heroCard = screen.getByText('Tile 1,1').closest('div');
+    expect(heroCard).not.toBeNull();
+    expect(heroCard!.style.gridRow).toBe('1 / span 2');
+
+    const heroCameraSelect = screen.getAllByLabelText('Camera')[0]!;
+    await user.selectOptions(heroCameraSelect, '');
+
+    expect(heroCard!.style.gridRow).toBe('1 / span 1');
+    expect(heroCard!.style.gridColumn).toBe('1 / span 1');
+
+    await user.selectOptions(heroCameraSelect, CAM_A);
+
+    expect(screen.getAllByLabelText('Row span')[0]).toHaveValue('1');
+    expect(screen.getAllByLabelText('Column span')[0]).toHaveValue('1');
   });
 });

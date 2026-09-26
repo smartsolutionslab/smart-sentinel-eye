@@ -46,6 +46,9 @@ export interface GridPreset {
   label: string;
 }
 
+/** Shared by every `<select>` in the designer (`GridDesigner.tsx`, `TileSpanFields.tsx`). */
+export const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
+
 // Derived from MAX_CELLS / the schema's 1..3 row-col bounds: every rows×cols
 // with rows,cols ∈ {1,2,3} and rows*cols ≤ MAX_CELLS (ADR-0156 §2) — nine
 // presets. One source of truth.
@@ -124,7 +127,8 @@ export function tilesFromCells(cells: ReadonlyArray<DesignerCell>): LayoutTileIn
  * Cells another populated cell's span covers, keyed by the covered cell's
  * own index and mapping to the covering cell's index (spec 258 US3). Only a
  * *populated* cell's span covers anything — an empty cell's span is always
- * 1×1 (see `clearCameraAt`), so this never needs to consider one.
+ * 1×1 (the camera select's `onChange` in `GridDesigner.tsx` resets it on
+ * clear), so this never needs to consider one.
  */
 export function coveredBy(cells: ReadonlyArray<DesignerCell>): Map<number, number> {
   const indexByPosition = new Map<string, number>();
@@ -191,17 +195,6 @@ export function spanOptions(
   }
 
   return { rows, cols };
-}
-
-/**
- * Clears the camera at `index` back to "(empty cell)" and resets its span to
- * 1×1 (spec 258 US3) — a span on an empty cell would hide cells for nothing,
- * and the cell is dropped from the wire on submit regardless.
- */
-export function clearCameraAt(cells: ReadonlyArray<DesignerCell>, index: number): DesignerCell[] {
-  return cells.map((cell, candidateIndex) =>
-    candidateIndex === index ? { ...cell, cameraIdentifier: '', rowSpan: 1, colSpan: 1 } : cell,
-  );
 }
 
 /**
