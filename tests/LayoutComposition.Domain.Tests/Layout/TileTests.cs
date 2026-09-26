@@ -44,7 +44,7 @@ public class TileTests
     }
 
     /// <summary>
-    /// Spec 258 (ADR-0156): the 3-argument constructor stays for the ~15
+    /// Spec 262 (ADR-0156): the 3-argument constructor stays for the ~15
     /// existing call sites and is the honest meaning of a 1×1 tile — it
     /// delegates to the 4-argument constructor with <see cref="TileSpan.Cell"/>
     /// (plan §2.2).

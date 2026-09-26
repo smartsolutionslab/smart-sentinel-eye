@@ -1,4 +1,4 @@
-# Verification — spec 258 (issue #2607, ADR-0156)
+# Verification — spec 262 (issue #2607, ADR-0156)
 
 Phase 5 (ADR-0037). Run 2026-09-26, worktree `D:\Github\sse-2607`, branch
 `feat/2607-3x3-walls-spanning-tiles`, tip at the commit immediately preceding

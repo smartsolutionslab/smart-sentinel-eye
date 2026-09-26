@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { editDraftRevisionSchema } from './layouts.schema.js';
 
 /**
- * Spec 258 (#2607), ADR-0156. States the grid/tile contract `layouts.schema.ts`
+ * Spec 262 (#2607), ADR-0156. States the grid/tile contract `layouts.schema.ts`
  * enforces: grid dimensions 1..3, `MAX_TILES = MAX_CELLS = 9`, full-span
  * in-bounds, cell-overlap (plan.md §4.1).
  */

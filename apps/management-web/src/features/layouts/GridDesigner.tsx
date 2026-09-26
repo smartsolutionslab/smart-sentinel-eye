@@ -138,7 +138,7 @@ export function GridDesigner({
   // than the field-array snapshot.
   const cellsValue: DesignerCell[] = watch('cells') ?? [];
   // A cell another populated cell's span covers is not rendered at all
-  // (spec 258 US3): it disappears from the grid until the span shrinks.
+  // (spec 262 US3): it disappears from the grid until the span shrinks.
   const covered = coveredBy(cellsValue);
 
   /**
@@ -275,7 +275,7 @@ export function GridDesigner({
       >
         {fields.map((cell, index) => {
           // A cell another populated cell's span covers renders nothing at
-          // all (spec 258 US3) — it stays in the dense `useFieldArray` below
+          // all (spec 262 US3) — it stays in the dense `useFieldArray` below
           // so `tiles[i]` ↔ cell-index mapping stays stable, but disappears
           // from the grid until the covering span shrinks.
           if (covered.has(index)) return null;
@@ -328,7 +328,7 @@ export function GridDesigner({
                   value={camera}
                   onChange={(event) => {
                     cameraField.onChange(event);
-                    // Spec 258 US3: a cell with no camera has nothing to span.
+                    // Spec 262 US3: a cell with no camera has nothing to span.
                     if (event.target.value === '') {
                       setValue(`cells.${index}.rowSpan`, 1);
                       setValue(`cells.${index}.colSpan`, 1);

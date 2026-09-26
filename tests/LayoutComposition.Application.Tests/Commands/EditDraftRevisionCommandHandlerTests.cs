@@ -141,7 +141,7 @@ public class EditDraftRevisionCommandHandlerTests
         result.Error.ShouldBeOfType<EditDraftRevisionError.TileOverlap>();
     }
 
-    /// <summary>Spec 258: two spans that intersect are refused as LAYOUT_TILE_OVERLAP.</summary>
+    /// <summary>Spec 262: two spans that intersect are refused as LAYOUT_TILE_OVERLAP.</summary>
     [Fact]
     public async Task Two_overlapping_tiles_return_LAYOUT_TILE_OVERLAP()
     {
@@ -161,7 +161,7 @@ public class EditDraftRevisionCommandHandlerTests
         result.Error.ShouldBeOfType<EditDraftRevisionError.TileOverlap>();
     }
 
-    /// <summary>Spec 258: a span that runs off the grid is refused as LAYOUT_TILE_OUT_OF_BOUNDS.</summary>
+    /// <summary>Spec 262: a span that runs off the grid is refused as LAYOUT_TILE_OUT_OF_BOUNDS.</summary>
     [Fact]
     public async Task A_span_that_runs_off_the_grid_returns_LAYOUT_TILE_OUT_OF_BOUNDS()
     {

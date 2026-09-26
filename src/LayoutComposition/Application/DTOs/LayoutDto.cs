@@ -65,7 +65,7 @@ public sealed record PublishedLayoutDto(
 /// One tile of a layout grid on the read side: a required camera, an
 /// optional overlay (<c>null</c> when unbound), at zero-indexed
 /// <c>(Row, Col)</c>, claiming a <c>RowSpan × ColSpan</c> rectangle from
-/// that origin (spec 258, ADR-0156 §2). The TS <c>LayoutTile</c> seam type
+/// that origin (spec 262, ADR-0156 §2). The TS <c>LayoutTile</c> seam type
 /// mirrors this shape exactly (plan T015/T030).
 /// </summary>
 public sealed record TileDto(

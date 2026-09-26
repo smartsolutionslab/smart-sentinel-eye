@@ -15,7 +15,7 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
  * §2 — sparse grids allowed). `overlayIdentifier` is `''` for "(none)".
  *
  * `rowSpan`/`colSpan` default to 1 and claim a rectangle from this cell's
- * origin (spec 258, ADR-0156); a cell another populated cell's span covers
+ * origin (spec 262, ADR-0156); a cell another populated cell's span covers
  * is not rendered (see `coveredBy`) but stays in this dense array so the
  * resolver's `tiles[i]` ↔ cell-index mapping stays stable.
  */
@@ -68,7 +68,7 @@ export const GRID_PRESETS: ReadonlyArray<GridPreset> = (() => {
 /**
  * Build a dense `rows×cols` cell grid, carrying over any existing cell.
  * A carried cell's span is clamped to the new grid from its own origin
- * (spec 258 US3 "a smaller preset clamps spans") — shrinking a grid cannot
+ * (spec 262 US3 "a smaller preset clamps spans") — shrinking a grid cannot
  * create an overlap, since a valid wall's spans never intersected before the
  * shrink either.
  */
@@ -126,7 +126,7 @@ export function tilesFromCells(cells: ReadonlyArray<DesignerCell>): LayoutTileIn
 
 /**
  * Cells another populated cell's span covers, keyed by the covered cell's
- * own index and mapping to the covering cell's index (spec 258 US3). Only a
+ * own index and mapping to the covering cell's index (spec 262 US3). Only a
  * *populated* cell's span covers anything — an empty cell's span is always
  * 1×1 (the camera select's `onChange` in `GridDesigner.tsx` resets it on
  * clear), so this never needs to consider one.

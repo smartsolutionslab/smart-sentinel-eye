@@ -5,7 +5,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 
 /// <summary>
 /// The <c>(rows, cols)</c> extent a <see cref="Tile"/> claims from its
-/// <see cref="GridPosition"/> origin (spec 258, ADR-0156 §2), mirroring
+/// <see cref="GridPosition"/> origin (spec 262, ADR-0156 §2), mirroring
 /// <see cref="GridPosition"/>'s shape. Only the lower bound (≥1 on each
 /// axis) is guarded here — a span is meaningless without its grid, so
 /// the upper bound (in-bounds against <see cref="GridDimensions"/>) is
@@ -15,7 +15,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 public sealed record TileSpan(int Rows, int Cols) : IValueObject
 {
     /// <summary>
-    /// The 1×1 span every tile had before spec 258. Named <c>Cell</c>, not
+    /// The 1×1 span every tile had before spec 262. Named <c>Cell</c>, not
     /// <c>Single</c> — the same CA1720 (collides with <see cref="float"/>)
     /// that <see cref="GridDimensions.Cell"/> is named to avoid.
     /// </summary>

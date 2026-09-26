@@ -190,7 +190,7 @@ backend from T020 running.
 - [ ] **T038** [US1-3] Observe end to end on the live stack (check the AppHost PID's
   start time is after the last commit): author the hero wall in the console, publish,
   open it on a kiosk tab, screenshot; highlight the hero's overlay and see it light.
-  Record in `specs/258-the-tile-that-claims-a-rectangle/verification.md`. Depends on T034, T041.
+  Record in `specs/262-the-tile-that-claims-a-rectangle/verification.md`. Depends on T034, T041.
 - [ ] **T039** [US2] **NFR, measurable here — M1 and M2** (spec §4, plan §8 steps 2–3):
   9-tile 3×3 vs 4-tile 2×2 on `fixture-video`, dev machine, two runs each. Record
   cadence first, then `overlay_draw` p50/p95/max, per-tile `receive_to_decoded`, and each

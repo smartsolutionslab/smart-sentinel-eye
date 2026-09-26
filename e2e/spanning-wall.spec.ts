@@ -4,7 +4,7 @@ import { signInToKiosk } from './support/kiosk-session';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 /**
- * Spec 258 US2 + US3, T024 (ADR-0156) — a hero-and-thumbnails wall, authored
+ * Spec 262 US2 + US3, T024 (ADR-0156) — a hero-and-thumbnails wall, authored
  * in the console and drawn at its real size on the kiosk.
  *
  * <para>
@@ -46,7 +46,7 @@ test('a hero-and-thumbnails wall is authored, published and drawn at its real si
   // write kinds (first camera registration, save-as-draft, publish —
   // `cold-stack.ts`) at 90 s each = 270 s.
   //
-  // Phase-6 review (spec 258 nit S3): that figure alone missed camera
+  // Phase-6 review (spec 262 nit S3): that figure alone missed camera
   // registrations 2-6 — five more warm (not cold-budgeted) sites paying the
   // ordinary `expect.timeout` ceiling of 30 s each in CI
   // (`playwright.config.ts:12`) = 150 s — plus two full Keycloak sign-ins

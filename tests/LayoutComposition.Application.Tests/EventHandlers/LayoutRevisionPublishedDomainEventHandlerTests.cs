@@ -57,7 +57,7 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
         broadcaster.Published.Single().Layout.ShouldBe(layout);
     }
 
-    /// <summary>Spec 258: the published V2 carries each tile's span.</summary>
+    /// <summary>Spec 262: the published V2 carries each tile's span.</summary>
     [Fact]
     public async Task Handle_carries_each_tiles_span_onto_V2()
     {

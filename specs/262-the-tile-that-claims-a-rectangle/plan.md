@@ -332,7 +332,7 @@ against. The same holds for TypeScript tests that fail `typecheck`. Runtime-red 
 ## 8. Phase 5 — measurement plan
 
 Per `/verify`, plus the NFR gate. Written into
-`specs/258-the-tile-that-claims-a-rectangle/verification.md`.
+`specs/262-the-tile-that-claims-a-rectangle/verification.md`.
 
 1. **Observe the feature** — hero wall authored in the console, shown in the kiosk,
    screenshot; highlight a spanning tile's overlay and watch it light.

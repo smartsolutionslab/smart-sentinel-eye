@@ -87,7 +87,7 @@ public class GridDimensionsTests
     }
 
     /// <summary>
-    /// Code-review finding B1 (spec 258): <c>position.Row + span.Rows</c>
+    /// Code-review finding B1 (spec 262): <c>position.Row + span.Rows</c>
     /// wraps around <c>int.MaxValue</c> instead of overflowing past
     /// <see cref="GridDimensions.Rows"/>, so an origin this far out of
     /// bounds must not be reported as contained.

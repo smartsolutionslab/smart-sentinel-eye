@@ -294,7 +294,7 @@ public class LayoutTests
             .Value.ShouldBe(GridViolation.Overlap);
     }
 
-    /// <summary>Spec 258: a genuine partial-rectangle overlap, not just duplicate origins.</summary>
+    /// <summary>Spec 262: a genuine partial-rectangle overlap, not just duplicate origins.</summary>
     [Fact]
     public void ValidateGrid_rejects_two_tiles_whose_spans_intersect_as_Overlap()
     {
@@ -309,7 +309,7 @@ public class LayoutTests
     }
 
     /// <summary>
-    /// Spec 258 US1 Gherkin: origin (1,1) is in-bounds on a 3x3 grid, but the
+    /// Spec 262 US1 Gherkin: origin (1,1) is in-bounds on a 3x3 grid, but the
     /// span's last column (3) is not.
     /// </summary>
     [Fact]

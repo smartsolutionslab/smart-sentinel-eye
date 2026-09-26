@@ -164,7 +164,7 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
                 tiles.Ignore(tile => tile.Position);
                 tiles.Ignore(tile => tile.Overlay);
 
-                // Spec 258 (ADR-0156 §2): the span a tile claims from its
+                // Spec 262 (ADR-0156 §2): the span a tile claims from its
                 // origin. Additive columns, default 1 — every row written
                 // before this feature means exactly what row_span = col_span = 1
                 // says (plan §3.5).

@@ -98,7 +98,7 @@ public class GetLayoutQueryHandlerTests
         result.Error.ShouldBeOfType<GetLayoutError.LayoutNotFound>();
     }
 
-    /// <summary>Spec 258: the read side carries each tile's span.</summary>
+    /// <summary>Spec 262: the read side carries each tile's span.</summary>
     [Fact]
     public async Task The_dto_carries_each_tiles_span()
     {

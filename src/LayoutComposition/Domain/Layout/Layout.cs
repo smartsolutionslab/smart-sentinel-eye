@@ -12,7 +12,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// index in Postgres is a belt-and-braces backstop.
 ///
 /// <para>
-/// Spec 010 (ADR-0112): a revision now carries a multi-tile grid. Spec 258
+/// Spec 010 (ADR-0112): a revision now carries a multi-tile grid. Spec 262
 /// (ADR-0156) generalises a tile from one cell to a rectangle.
 /// <see cref="ValidateGrid"/> is the single source of truth for the four
 /// grid invariants (≥1 tile, no overlapping span, in-bounds, ≤9);

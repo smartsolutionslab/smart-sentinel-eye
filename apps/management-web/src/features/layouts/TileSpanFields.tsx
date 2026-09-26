@@ -9,7 +9,7 @@ export interface TileSpanFieldsProps {
 
 /**
  * The two native `Row span` / `Column span` selects for one populated tile
- * (spec 258 US3, ADR-0156). Native `<select>`s rather than drag handles: the
+ * (spec 262 US3, ADR-0156). Native `<select>`s rather than drag handles: the
  * smallest surface, keyboard and screen-reader operable for free, mirroring
  * spec 228's move to native controls in this same component.
  */

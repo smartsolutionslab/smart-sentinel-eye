@@ -306,7 +306,7 @@ interface TileProps {
    * disagreement. Called only once the tile actually knows the text.
    */
   onLabelVerdict: (overlayIdentifier: string, hasPlaceholder: boolean) => void;
-  /** Explicit CSS grid placement for this tile's span (spec 258 FR-008). */
+  /** Explicit CSS grid placement for this tile's span (spec 262 FR-008). */
   style: CSSProperties;
 }
 
@@ -472,7 +472,7 @@ function EmptyCell({ style }: { style: CSSProperties }) {
   );
 }
 
-/** Explicit CSS grid placement for a `GridItem`'s span (spec 258 FR-008). */
+/** Explicit CSS grid placement for a `GridItem`'s span (spec 262 FR-008). */
 function gridPlacementStyle(row: number, col: number, rowSpan: number, colSpan: number): CSSProperties {
   return {
     gridRow: `${row + 1} / span ${rowSpan}`,
