@@ -63,6 +63,31 @@ function editWallScenesQuery({ wallIdentifier, version, scenes }: EditWallScenes
 }
 
 /**
+ * Wire shape of `WallDto` (C# `record WallDto(Guid Wall, int Version, ...)`,
+ * `LayoutComposition/Application/DTOs/WallDto.cs`): the identifier
+ * serialises as `wall`, camelCased by the default ASP.NET Core JSON
+ * options. Every endpoint below that returns a wall runs its response
+ * through `toWall` so the TS-side field stays `wallIdentifier` — matching
+ * every other API client's `<Thing>Identifier` convention and the field
+ * name the protected test files (`walls.api.test.ts`, `WallPage.test.tsx`,
+ * `WallForm.test.tsx`, `WallDetailPage.test.tsx`) already assert on.
+ */
+interface WallWireDto {
+  wall: string;
+  version: number;
+  fab: string;
+  name: string;
+  scenes: string[];
+  showing: string;
+  sceneVersion: number;
+  showingSince: string;
+}
+
+function toWall({ wall, ...rest }: WallWireDto): Wall {
+  return { wallIdentifier: wall, ...rest };
+}
+
+/**
  * Gateway route `layout-composition/walls` (plan.md §4.5, tasks.md T002):
  * there is no bare `/walls` route — mirrors exactly how `layouts.api.ts`
  * calls `gatewayBaseQuery('layout-composition/layouts')`.
@@ -82,14 +107,17 @@ const wallsApiBase = createApi({
     }),
     getWall: build.query<Wall, string>({
       query: (wallIdentifier) => `/${wallIdentifier}`,
+      transformResponse: toWall,
       providesTags: (_result, _error, wallIdentifier) => [{ type: 'Wall', id: wallIdentifier }],
     }),
     listWalls: build.query<Wall[], void>({
       query: () => '',
+      transformResponse: (response: WallWireDto[]) => response.map(toWall),
       providesTags: () => [{ type: 'WallList', id: 'ALL' }],
     }),
     editWallScenes: build.mutation<Wall, EditWallScenesInput>({
       query: editWallScenesQuery,
+      transformResponse: toWall,
       invalidatesTags: (_r, _e, { wallIdentifier }) => [
         { type: 'Wall', id: wallIdentifier },
         { type: 'WallList', id: 'ALL' },
@@ -97,6 +125,7 @@ const wallsApiBase = createApi({
     }),
     switchWallScene: build.mutation<Wall, SwitchWallSceneInput>({
       query: switchWallSceneQuery,
+      transformResponse: toWall,
       invalidatesTags: (_r, _e, { wallIdentifier }) => [{ type: 'Wall', id: wallIdentifier }],
     }),
   }),
