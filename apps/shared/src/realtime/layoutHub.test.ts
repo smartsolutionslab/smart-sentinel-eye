@@ -284,7 +284,6 @@ describe('layout hub WallSceneChanged subscription (spec 258 US1)', () => {
     const onWallSceneChanged = vi.fn();
     createLayoutHubClient(
       { accessTokenFactory: () => 'token' },
-      // @ts-expect-error — onWallSceneChanged does not exist on LayoutHubCallbacks yet (RED).
       { onWallSceneChanged },
     );
 
@@ -296,7 +295,6 @@ describe('layout hub WallSceneChanged subscription (spec 258 US1)', () => {
     const onWallSceneChanged = vi.fn();
     createLayoutHubClient(
       { accessTokenFactory: () => 'token' },
-      // @ts-expect-error — onWallSceneChanged does not exist on LayoutHubCallbacks yet (RED).
       { onWallSceneChanged },
     );
 
