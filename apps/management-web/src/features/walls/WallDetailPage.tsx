@@ -16,7 +16,12 @@ import type { AppDispatch } from '../../app/store.js';
  * kiosk-side) and invalidates the cached wall on a frame that names it, so a
  * switch made from another admin session or from the kiosk itself shows up
  * here without a manual refresh — on top of the mutation-success
- * invalidation RTK Query already does for a switch made from *this* page.
+ * invalidation RTK Query already does for a switch made from *this* page. It
+ * also invalidates on the hub's very first `connected` state, not only on
+ * reconnect (mirroring `WallPage.tsx`, kiosk-side): `GET /walls/{id}`
+ * usually resolves before SignalR finishes negotiating, so a switch landing
+ * in that gap would otherwise go unnoticed until the next switch happens to
+ * fire `onWallSceneChanged`.
  * On a stale `If-Match` (`409 WALL_STALE`) it shows the shared conflict
  * fallback and re-fetches once, without retrying the switch automatically
  * (ADR-0113 — resubmitting would replay the same stale intent over whoever
@@ -59,6 +64,17 @@ export function WallDetailPage() {
         },
         onReconnected: () => {
           dispatch(wallsApi.util.invalidateTags([{ type: 'Wall', id: wallIdentifier }]));
+        },
+        // Same reasoning as WallPage's own onStateChange (kiosk-web): also
+        // re-read on the hub's very first connect, not only on recovery —
+        // `GET /walls/{id}` usually resolves before SignalR finishes
+        // negotiating, so a switch landing in that gap would otherwise never
+        // be received until the next switch happens to fire
+        // `onWallSceneChanged`.
+        onStateChange: (state) => {
+          if (state === 'connected') {
+            dispatch(wallsApi.util.invalidateTags([{ type: 'Wall', id: wallIdentifier }]));
+          }
         },
       },
     );
