@@ -7,19 +7,22 @@ their green result is not 4a evidence.
 `frontend-engineer` (4b). No backend or infra engineer. **Reviewers**: `frontend-reviewer`
 (+ `backend-reviewer` for the one `.cs` file).
 **Tracking**: feature-level issue #2335 (on Project #13, Todo). No per-task issues.
-**Blocked on**: spec §0 Q2–Q5 answered. Q1 (command palette) blocks nothing here.
+**Blocked on**: spec §0 Q2–Q5 answered. Q1 (command palette) is answered — **build** —
+and is US6 below (T070–T075).
 
 Format: `[ID] [P?] [Story] description`.
 
-**Foundational / blocking**: T001–T003 (shared workspace test enablement and the four
+**Foundational / blocking**: T001–T003 (shared workspace test enablement and the five
 `exports` entries). They own `apps/shared/package.json`, both `setup.ts` files and
 `pnpm-lock.yaml`, which every story would otherwise contend on. No Shared.Kernel,
 Shared.Contracts or AppHost work.
 
 **Parallelism** (ADR-0109, disjoint files — plan §1): after T003, the four stories are
-disjoint end to end and can fan out as four agents: **US1 ∥ US2 ∥ US3 ∥ US4**. Within 4a,
-T010 ∥ T020 ∥ T030 ∥ T040 ∥ T005. Within 4b, T013 ∥ T023 ∥ T033 ∥ T043; each story's
-consumer task follows its own primitive task. Commits still land in the plan §8 order
+disjoint end to end and can fan out as five agents: **US1 ∥ US2 ∥ US3 ∥ US4 ∥ US6**. US6
+owns `CommandPalette.*`, `ShellLayout.*` and a new e2e file — none touched by any other
+story. Within 4a, T010 ∥ T020 ∥ T030 ∥ T040 ∥ T070 ∥ T071 ∥ T072 ∥ T005. Within 4b,
+T013 ∥ T023 ∥ T033 ∥ T043 ∥ T073; each story's consumer task follows its own primitive
+task. Commits still land in the plan §8 order
 (one index per branch — fan-out is of work, not of commits).
 
 **Do not touch**: `Button.tsx`, `Input.tsx` (#2336); `OverlayEditor.tsx`,
@@ -32,7 +35,8 @@ buttons (spec §3.1); anything in `apps/kiosk-web`.
 - [ ] **T001** `apps/shared/package.json`: add `"@testing-library/user-event": "14.6.6"` to
   `devDependencies` (the version both apps pin); add `exports` entries
   `./ui/primitives/Select`, `./ui/primitives/DropdownMenu`, `./ui/primitives/Popover`,
-  `./ui/primitives/Tabs` (pointing at the `.tsx` files T010/T020/T030/T040 create) and
+  `./ui/primitives/Tabs`, `./ui/primitives/CommandPalette` (pointing at the `.tsx` files
+  T010/T020/T030/T040/T070 create) and
   `./test/radixJsdom`. `pnpm install` → commit `pnpm-lock.yaml`.
 - [ ] **T002** `apps/shared/src/test/radixJsdom.ts` (new): install-if-absent no-ops for
   `hasPointerCapture` / `setPointerCapture` / `releasePointerCapture` / `scrollIntoView`
@@ -68,15 +72,26 @@ red lands on content.
   fail, and it sleeps 250 ms).
 - [ ] **T040 [P] [US4]** `apps/shared/src/ui/primitives/Tabs.test.tsx` + stub: plan §5.2.
   *(If Q3 = defer: skip; see T044.)*
+- [ ] **T070 [P] [US6]** `apps/shared/src/ui/primitives/CommandPalette.test.tsx` + stub
+  `CommandPalette.tsx`: plan §5.2 row "CommandPalette" (§3.5 interface, `return null;`).
+- [ ] **T071 [P] [US6]** `apps/management-web/src/app/ShellLayout.test.tsx` (new): plan §5.3
+  last bullet — chord (Control and Meta), `defaultPrevented`, filter + Enter → route and
+  link focus, "Go to…" + Escape → focus back, no palette over an open dialog; the
+  seven-links pin.
+- [ ] **T072 [P] [US6]** `e2e/command-palette.spec.ts` (new): plan §5.4a. Written in 4a so
+  the Chromium red is observable too (run it against the stack: it must fail on the missing
+  dialog, not on sign-in).
 - [ ] **T050** Run and capture **verbatim**:
   `dotnet test tests/Architecture.Tests --filter "FullyQualifiedName~SharedUiDependencyUsage"`,
   `pnpm --filter @smart-sentinel-eye/shared exec vitest run src/ui/primitives`,
-  `pnpm --filter @smart-sentinel-eye/management-web exec vitest run src/features/rules/RuleDialog.test.tsx src/features/layouts/LayoutsPage.test.tsx src/features/cameras/StreamHealthBadge.test.tsx`,
+  `pnpm --filter @smart-sentinel-eye/management-web exec vitest run src/features/rules/RuleDialog.test.tsx src/features/layouts/LayoutsPage.test.tsx src/features/cameras/StreamHealthBadge.test.tsx src/app/ShellLayout.test.tsx`,
+  `npx playwright test e2e/command-palette.spec.ts` (stack running),
   and `pnpm typecheck`.
   **Required**: guard red naming exactly `@radix-ui/react-dropdown-menu`,
-  `@radix-ui/react-popover`, `@radix-ui/react-select`, `@radix-ui/react-tabs`; every
-  primitive case red **on content**; every new consumer case red on content; declared pins
-  green (spec §6); `typecheck` green. Any expected-red case arriving green: **stop and
+  `@radix-ui/react-popover`, `@radix-ui/react-select`, `@radix-ui/react-tabs` (US6 adds no
+  name — `react-dialog` is already imported); every
+  primitive case red **on content**; every new consumer case red on content; the US6 e2e
+  red on the missing "Go to" dialog; declared pins green (spec §6); `typecheck` green. Any expected-red case arriving green: **stop and
   report**, do not adjust it until it is red.
 - [ ] **T051** Counterfactual for T005 (plan §5.1): scratch-add `@radix-ui/react-switch`,
   run, quote the failure, revert. Both T050 and T051 output go in the PR body.
@@ -114,6 +129,19 @@ red lands on content.
 - [ ] **T044 [US4] (alternative, only if Q3 = defer)** Remove `@radix-ui/react-tabs` from
   `apps/shared/package.json` `dependencies` and its `exports` entry from T001; `pnpm install`.
 
+### US6 (P5) — CommandPalette
+
+- [ ] **T073 [P] [US6]** `apps/shared/src/ui/primitives/CommandPalette.tsx`: plan §3.5 and the
+  §2 CommandPalette table. On `@radix-ui/react-dialog`; hand-written combobox + listbox;
+  `onSelect` via `onCloseAutoFocus`, no timer; `data-highlighted` on the active option; no
+  `backdrop-blur`, `hover:`, `opacity-`, `transition-`, `animate-`. No new dependency.
+- [ ] **T074 [US6]** `apps/management-web/src/app/ShellLayout.tsx`: plan §4.4 — `DESTINATIONS`
+  constant shared by nav and palette, "Go to…" trigger, the `document` keydown chord with
+  the open-dialog check, `navigate` + link focus on select. Nav markup and classes
+  otherwise unchanged. Depends on T073.
+- [ ] **T075 [US6]** Run `e2e/command-palette.spec.ts` against the stack, green, unmodified
+  from T072. Depends on T074.
+
 ## Phase 4 close / Phase 5 / Phase 6
 
 - [ ] **T060** Full gates: `pnpm lint`, `pnpm typecheck`, `pnpm format:check`, `pnpm test`,
@@ -127,4 +155,5 @@ red lands on content.
   Security review not required (no trust boundary touched).
 - [ ] **T063** Before `gh pr create --base develop`: re-check the spec number across every
   branch and worktree (spec header). File the follow-up issues spec §3.2 names — Badge (build
-  next), and the Toast / combobox / command-palette decision issue(s) as the user directs.
+  next), and the Toast / combobox decision issue(s) as the user directs. (The command
+  palette is no longer a follow-up: it is US6.)
