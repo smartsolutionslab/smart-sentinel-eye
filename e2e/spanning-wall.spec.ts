@@ -41,12 +41,23 @@ import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
  * </para>
  */
 test('a hero-and-thumbnails wall is authored, published and drawn at its real size', async ({ page, browser }) => {
-  // Three cold-budgeted write kinds (first camera registration, save-as-draft,
-  // publish — `cold-stack.ts`), plus two full Keycloak sign-ins (operator and
-  // kiosk) and the kiosk's own layout GET. Sized per-site rather than copying
-  // `FIRST_WRITE_TEST_TIMEOUT_MS` (that constant's own arithmetic is for a
-  // single-app test): 3 × 90 s cold sites + two sign-ins + margin.
-  test.setTimeout(360_000);
+  // Sized per-site rather than copying `FIRST_WRITE_TEST_TIMEOUT_MS` (that
+  // constant's own arithmetic is for a single-app test): three cold-budgeted
+  // write kinds (first camera registration, save-as-draft, publish —
+  // `cold-stack.ts`) at 90 s each = 270 s.
+  //
+  // Phase-6 review (spec 258 nit S3): that figure alone missed camera
+  // registrations 2-6 — five more warm (not cold-budgeted) sites paying the
+  // ordinary `expect.timeout` ceiling of 30 s each in CI
+  // (`playwright.config.ts:12`) = 150 s — plus two full Keycloak sign-ins
+  // (operator and kiosk) and the kiosk's own warm expects (`layout-grid`
+  // visible, the `Layouts` heading, the published listitem). 270 s + 150 s
+  // already exceeds the old 360 s budget before a single sign-in is counted;
+  // rounded up to 480 s for margin on the sign-ins and remaining warm
+  // expects. Same gap already found once in this repo
+  // (`seed-live-video-wall.setup.ts`, spec 225 phase-6 nit N1) — mirror that
+  // arithmetic rather than re-deriving it from scratch next time.
+  test.setTimeout(480_000);
 
   const stamp = Date.now();
   const cameraNames = Array.from({ length: 6 }, (_, index) => `E2E Span Cam ${index + 1} ${stamp}`);
@@ -112,6 +123,7 @@ test('a hero-and-thumbnails wall is authored, published and drawn at its real si
 
     await kioskPage.getByRole('listitem').filter({ hasText: layoutName }).getByRole('button').click();
     await expect(kioskPage.getByTestId('layout-grid')).toBeVisible();
+    await expect(kioskPage.getByRole('alert')).toHaveCount(0);
 
     const tiles = kioskPage.getByTestId('layout-tile');
     const emptyCells = kioskPage.getByTestId('layout-empty-cell');
