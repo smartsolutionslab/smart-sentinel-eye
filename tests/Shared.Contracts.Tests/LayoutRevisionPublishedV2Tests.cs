@@ -51,6 +51,49 @@ public class LayoutRevisionPublishedV2Tests
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
     }
 
+    /// <summary>Spec 258 (ADR-0156): trailing, defaulted positional parameters.</summary>
+    [Fact]
+    public void LayoutTileV2_positional_constructor_defaults_the_span_to_1x1()
+    {
+        LayoutTileV2 tile = new(Guid.CreateVersion7(), null, 0, 0);
+
+        tile.RowSpan.ShouldBe(1);
+        tile.ColSpan.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// Spec 258 plan §3.1: a message serialised before this feature — no
+    /// <c>rowSpan</c>/<c>colSpan</c> properties at all — deserialises as 1x1,
+    /// via System.Text.Json honouring the constructor-parameter defaults.
+    /// </summary>
+    [Fact]
+    public void A_tile_serialised_before_this_feature_deserialises_as_1x1()
+    {
+        Guid camera = Guid.CreateVersion7();
+        string json = $$"""{"Camera":"{{camera}}","Overlay":null,"Row":0,"Col":0}""";
+
+        LayoutTileV2 tile = JsonSerializer.Deserialize<LayoutTileV2>(json)!;
+
+        tile.Camera.ShouldBe(camera);
+        tile.Row.ShouldBe(0);
+        tile.Col.ShouldBe(0);
+        tile.RowSpan.ShouldBe(1);
+        tile.ColSpan.ShouldBe(1);
+    }
+
+    [Fact]
+    public void JSON_round_trip_of_a_2x2_tile_preserves_its_span()
+    {
+        LayoutTileV2 original = new(Guid.CreateVersion7(), Guid.CreateVersion7(), 0, 0, RowSpan: 2, ColSpan: 2);
+
+        string json = JsonSerializer.Serialize(original);
+        LayoutTileV2 deserialized = JsonSerializer.Deserialize<LayoutTileV2>(json)!;
+
+        deserialized.ShouldBe(original);
+        deserialized.RowSpan.ShouldBe(2);
+        deserialized.ColSpan.ShouldBe(2);
+    }
+
     [Fact]
     public void JSON_round_trip_preserves_every_field_including_the_tile_list()
     {

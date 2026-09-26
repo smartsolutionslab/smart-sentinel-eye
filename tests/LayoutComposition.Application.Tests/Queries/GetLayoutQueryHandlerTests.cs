@@ -98,6 +98,39 @@ public class GetLayoutQueryHandlerTests
         result.Error.ShouldBeOfType<GetLayoutError.LayoutNotFound>();
     }
 
+    /// <summary>Spec 258: the read side carries each tile's span.</summary>
+    [Fact]
+    public async Task The_dto_carries_each_tiles_span()
+    {
+        InMemoryLayoutRepository repository = new();
+        CameraIdentifier hero = CameraIdentifier.From(Guid.CreateVersion7());
+        Tile heroTile = new(
+            hero, Option<OverlayIdentifier>.None, GridPosition.From(0, 0), TileSpan.From(2, 2));
+        Tile filler = new(
+            CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None,
+            GridPosition.From(2, 2));
+        Layout layout = new LayoutBuilder()
+            .Named("Hero-Wall")
+            .WithGrid(GridDimensions.From(3, 3))
+            .WithTiles([heroTile, filler])
+            .At(FixedMoment)
+            .Build();
+        repository.Add(layout);
+
+        GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
+        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+            new GetLayoutQuery([Munich], layout.Id), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        IReadOnlyList<TileDto> tiles = result.Value.Revisions[0].Tiles;
+        TileDto heroDto = tiles.Single(tile => tile.CameraIdentifier == hero.Value);
+        heroDto.RowSpan.ShouldBe(2);
+        heroDto.ColSpan.ShouldBe(2);
+        TileDto fillerDto = tiles.Single(tile => tile.CameraIdentifier != hero.Value);
+        fillerDto.RowSpan.ShouldBe(1);
+        fillerDto.ColSpan.ShouldBe(1);
+    }
+
     [Fact]
     public async Task A_multi_fab_caller_reaches_a_layout_in_either_of_their_fabs()
     {

@@ -58,7 +58,7 @@ public class LayoutGridInvariantTests
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment)));
 
-        exception.Message.ShouldContain(nameof(GridViolation.DuplicatePosition));
+        exception.Message.ShouldContain(nameof(GridViolation.Overlap));
     }
 
     [Fact]
@@ -82,14 +82,14 @@ public class LayoutGridInvariantTests
     {
         IReadOnlyList<Tile> tiles = [TileAt(0, 0)];
 
-        // Direct constructor, not GridDimensions.From(3, 3): From's own
+        // Direct constructor, not GridDimensions.From(4, 3): From's own
         // Ensure.That guard already rejects > MaxCells, which would make this
         // pass for a reason that has nothing to do with the aggregate
         // (LayoutTests.cs:305-311 uses the same direct-constructor trick).
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
-            new GridDimensions(3, 3),
+            new GridDimensions(4, 3),
             tiles,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment)));
@@ -100,23 +100,29 @@ public class LayoutGridInvariantTests
     [Fact]
     public void CreateDraft_refuses_more_tiles_than_the_grid_allows()
     {
-        // A 2x2 grid (4 cells, at the MaxCells ceiling) with 5 tiles: the four
-        // valid corners plus one repeat. Rows*Cols (4) does not exceed
-        // MaxCells (4), so this can only trip the tiles.Count > MaxTiles
+        // A 3x3 grid (9 cells, at the MaxCells ceiling) with 10 tiles: the
+        // nine valid positions plus one repeat. Rows*Cols (9) does not exceed
+        // MaxCells (9), so this can only trip the tiles.Count > MaxTiles
         // disjunct of the TooLarge check, not the cells disjunct — unlike
         // CreateDraft_refuses_an_oversized_grid above, which trips the cells
-        // disjunct with a single tile. MaxCells == MaxTiles == 4 makes 5
-        // distinct in-bounds positions impossible to construct, so the 5th
+        // disjunct with a single tile. MaxCells == MaxTiles == 9 makes ten
+        // distinct in-bounds positions impossible to construct, so the 10th
         // tile repeats a position; the count check runs before the
-        // duplicate-position check, so TooLarge — not DuplicatePosition — is
-        // what actually fires.
-        IReadOnlyList<Tile> tiles =
-            [TileAt(0, 0), TileAt(0, 1), TileAt(1, 0), TileAt(1, 1), TileAt(0, 0)];
+        // overlap check, so TooLarge — not Overlap — is what actually fires.
+        List<Tile> tiles = [];
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                tiles.Add(TileAt(row, col));
+            }
+        }
+        tiles.Add(TileAt(0, 0));
 
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
-            GridDimensions.Default,
+            GridDimensions.From(3, 3),
             tiles,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment)));
@@ -172,7 +178,7 @@ public class LayoutGridInvariantTests
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
             LayoutRevisionNumber.One, GridDimensions.Default, tiles, clock));
 
-        exception.Message.ShouldContain(nameof(GridViolation.DuplicatePosition));
+        exception.Message.ShouldContain(nameof(GridViolation.Overlap));
         Revision only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.Cell);
         only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
@@ -204,7 +210,7 @@ public class LayoutGridInvariantTests
         IReadOnlyList<Tile> tiles = [TileAt(0, 0)];
 
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
-            LayoutRevisionNumber.One, new GridDimensions(3, 3), tiles, clock));
+            LayoutRevisionNumber.One, new GridDimensions(4, 3), tiles, clock));
 
         exception.Message.ShouldContain(nameof(GridViolation.TooLarge));
         Revision only = layout.Revisions.Single();
