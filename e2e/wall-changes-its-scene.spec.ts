@@ -21,6 +21,21 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
  * legal one (a single tile), because what changes between scenes is *which*
  * layout is showing, not how many tiles it has.
  *
+ * **This file's name collides with the `[wall]` Playwright project.**
+ * `playwright.config.ts`'s `wall` project (kiosk-web's *wall-display* mode,
+ * :5175 — a different "wall" from this spec's `Wall` aggregate) matches any
+ * `wall-*.spec.ts`, and its `chromium` project (management-web, :5173)
+ * excludes the same pattern for exactly the reason this file tripped over:
+ * a `wall-*`-named spec run against the wrong app fails at the very first
+ * `signInAsOperator` line, before any of its own code runs, because the page
+ * it navigates is the kiosk wall-display screen, which has no "sign in"
+ * button leading to a "Cameras" heading. `test.use` below pins this file's
+ * default `page`/`context` fixtures back to management-web regardless of
+ * which project sweeps the file in; the kiosk side already uses its own
+ * `browser.newContext()`, which — per `kiosk-comes-back.spec.ts` — does not
+ * inherit a project's `use.baseURL` either, so it needs the same explicit
+ * value pointed at the ordinary kiosk (:5174, not the :5175 wall display).
+ *
  * **RED today.** Nothing under this spec exists yet: no "Walls" nav entry, no
  * wall create dialog, no `/walls/:wallIdentifier` kiosk route. The
  * `data-testid`s and button/heading copy below are this test's own contract
@@ -68,6 +83,11 @@ function showingText(page: import('@playwright/test').Page) {
   return page.getByTestId('wall-showing');
 }
 
+// See the file header: this spec's own `page`/`context` must be management-web
+// (:5173) no matter which Playwright project's testMatch happens to sweep the
+// file in.
+test.use({ baseURL: 'http://localhost:5173' });
+
 test('an admin switches a wall by hand and the kiosk follows within about a second (US1-3)', async ({
   page,
   browser,
@@ -88,7 +108,9 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
 
   await expect(showingText(page)).toContainText(layoutAName);
 
-  const kioskContext = await browser.newContext();
+  // The ordinary kiosk (:5174), not the wall display (:5175) — and explicit,
+  // because `browser.newContext()` does not inherit a project's `use.baseURL`.
+  const kioskContext = await browser.newContext({ baseURL: 'http://localhost:5174' });
   const kiosk = await kioskContext.newPage();
   try {
     await signInToKiosk(kiosk);
@@ -127,8 +149,10 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
   await createWall(page, wallName, [layoutAName, layoutBName]);
 
   // Its own browser context: management-web must keep working while only the
-  // kiosk's connection is severed (mirrors kiosk-reconciliation.spec.ts).
-  const kioskContext = await browser.newContext();
+  // kiosk's connection is severed (mirrors kiosk-reconciliation.spec.ts). The
+  // ordinary kiosk (:5174), not the wall display (:5175) — and explicit,
+  // because `browser.newContext()` does not inherit a project's `use.baseURL`.
+  const kioskContext = await browser.newContext({ baseURL: 'http://localhost:5174' });
   const kiosk = await kioskContext.newPage();
   try {
     await signInToKiosk(kiosk);
