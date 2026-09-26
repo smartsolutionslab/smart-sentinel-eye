@@ -1,5 +1,5 @@
 import { useCreateWallMutation, type CreateWallInput } from '@smart-sentinel-eye/shared/api/walls.api';
-import { createWallSchema } from '@smart-sentinel-eye/shared/api/walls.schema';
+import { createWallSchema, MIN_SCENES } from '@smart-sentinel-eye/shared/api/walls.schema';
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -94,7 +94,7 @@ export function WallForm({ onSaved }: WallFormProps) {
       <fieldset className="flex flex-col gap-2">
         <legend className="text-sm font-medium text-fg-primary">Scenes</legend>
         {layoutsLoading && <p className="text-sm text-fg-muted">Loading layouts…</p>}
-        {!layoutsLoading && published.length === 0 && (
+        {!layoutsLoading && published.length < MIN_SCENES && (
           <p className="text-sm text-fg-muted">Publish at least two layouts before creating a wall.</p>
         )}
         {published.map((layout: PublishedLayout) => (
