@@ -16,6 +16,7 @@ public class ResourceKindTests
     [InlineData("device")]
     [InlineData("kiosk")]
     [InlineData("webhook-integration")]
+    [InlineData("wall")]
     public void Accepts_every_member_of_the_v1_vocabulary(string member)
     {
         ResourceKind kind = ResourceKind.From(member);
@@ -39,7 +40,7 @@ public class ResourceKindTests
     [Fact]
     public void All_returns_the_full_vocabulary()
     {
-        ResourceKind.All.Count.ShouldBe(11);
+        ResourceKind.All.Count.ShouldBe(12);
         ResourceKind.All.ShouldContain(ResourceKind.Camera);
         ResourceKind.All.ShouldContain(ResourceKind.WebhookIntegration);
     }
