@@ -667,6 +667,17 @@ test('the advisory appearing and clearing does not move the Save button (spec 25
   const saveButton = page.getByRole('button', { name: /save as draft/i });
   const advisory = page.getByTestId('overlay-geometry-advisory');
 
+  // The dialog's own content already exceeds `max-h-[90vh]` at this
+  // viewport (Dialog.tsx's documented, deliberate overflow-y-auto), so
+  // Left starts below the fold. `fill()`'s actionability check would
+  // scroll it into view on the *next* line, moving every element's
+  // absolute position by the scroll delta — indistinguishable from a real
+  // layout shift if that scroll lands between this snapshot and the next.
+  // Settling it here, before `before` is captured, matches the sibling
+  // "a refusal message..." test above, whose own first fill (on Width)
+  // incidentally does the same thing before its own `before` snapshot.
+  await leftField.scrollIntoViewIfNeeded();
+
   const before = await saveButton.boundingBox();
   if (before === null) {
     throw new Error('the Save button should have a bounding box once the dialog has rendered');
