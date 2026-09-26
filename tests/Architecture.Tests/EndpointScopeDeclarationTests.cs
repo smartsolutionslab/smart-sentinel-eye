@@ -350,11 +350,12 @@ public class EndpointScopeDeclarationTests
     /// <c>OverlayEndpoints.cs</c> out of <c>src/OverlayDesigner/Api</c> shrinks
     /// both sides together and stays green while eight endpoints go unchecked.
     /// Adding or removing an endpoint edits one of these numbers in the same
-    /// diff as the endpoint.
+    /// diff as the endpoint. Spec 258 US1 added WallEndpoints.cs with five
+    /// route handlers: 13 -&gt; 14 files, 60 -&gt; 65 mappings.
     /// </summary>
-    private const int EndpointFileCount = 13;
+    private const int EndpointFileCount = 14;
 
-    private const int RouteHandlerMappingCount = 60;
+    private const int RouteHandlerMappingCount = 65;
 
     /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that

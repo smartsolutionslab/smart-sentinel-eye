@@ -170,19 +170,23 @@ public class PreconditionDeclarationTests
     private const string DeclarationToken = "Status428PreconditionRequired";
 
     /// <summary>
-    /// Seventeen mappings whose handler reads <c>If-Match</c>, spread over seven
-    /// files. Pinned, not merely compared — see the class doc.
+    /// Mappings whose handler reads <c>If-Match</c>, spread over
+    /// <see cref="PreconditionFileCount"/> files. Pinned, not merely compared —
+    /// see the class doc. Spec 258 US1 added two (PUT /walls/{id}/scenes,
+    /// POST /walls/{id}/switch): 18 -&gt; 20.
     /// </summary>
-    private const int PreconditionEndpointCount = 18;
+    private const int PreconditionEndpointCount = 20;
 
-    private const int PreconditionFileCount = 8;
+    /// <summary>Spec 258 US1 added WallEndpoints.cs as a ninth file: 8 -&gt; 9.</summary>
+    private const int PreconditionFileCount = 9;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually: a
     /// single total lets one file stop being read while the others carry it.
+    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14.
     /// </summary>
-    private const int EndpointFileCount = 13;
+    private const int EndpointFileCount = 14;
 
     private static readonly Regex MappingCall = new(
         @"\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",
@@ -554,7 +558,7 @@ public class PreconditionDeclarationTests
     /// turn that into a failure.
     /// </summary>
     [Fact]
-    public void The_precondition_corpus_is_seventeen_endpoints_across_seven_files()
+    public void The_precondition_corpus_is_twenty_endpoints_across_nine_files()
     {
         ResolvedMapping[] requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
         string[] files = requiring
@@ -605,7 +609,7 @@ public class PreconditionDeclarationTests
     /// nothing about a file it is never given.
     /// </summary>
     [Fact]
-    public void The_endpoint_file_glob_still_finds_twelve_files()
+    public void The_endpoint_file_glob_still_finds_fourteen_files()
     {
         IReadOnlyList<string> files = TheSurface.Value.EndpointSources;
 

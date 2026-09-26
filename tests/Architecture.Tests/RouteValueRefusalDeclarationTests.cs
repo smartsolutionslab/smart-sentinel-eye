@@ -188,15 +188,17 @@ public class RouteValueRefusalDeclarationTests
 
     /// <summary>
     /// Every <c>.Map(Get|Post|Put|Patch|Delete)("route", Handler)</c> site under
-    /// <c>src/*/Api</c>. Pinned, not merely compared — see G4.
+    /// <c>src/*/Api</c>. Pinned, not merely compared — see G4. Spec 258 US1
+    /// added WallEndpoints.cs's five route handlers: 60 -&gt; 65.
     /// </summary>
-    private const int RouteHandlerMappingCount = 60;
+    private const int RouteHandlerMappingCount = 65;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually.
+    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14.
     /// </summary>
-    private const int EndpointFileCount = 13;
+    private const int EndpointFileCount = 14;
 
     private static readonly Regex MappingCall = new(
         @"(?<receiver>[A-Za-z_]\w*)\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",
