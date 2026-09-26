@@ -395,6 +395,11 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(edited));
         (await edited.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("showing").GetGuid().ShouldBe(a);
 
+        // The Operator switch above and this Reconfigured edit both write a
+        // WallSceneChangedV1 audit row for this wall, independently, via the
+        // outbox — so "latest by occurred_at" races with which delivery lands
+        // first. Filter on Cause so the poll waits for the row it actually
+        // wants instead of grabbing whichever of the two exists first.
         (Guid Previous, Guid Current, string Cause) audited = await PollForAuditAsync(
             "WallSceneChangedV1", wall,
             "(payload->>'PreviousLayout') || '|' || (payload->>'CurrentLayout') || '|' || (payload->>'Cause')",
@@ -402,7 +407,8 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             {
                 string[] parts = row.Split('|');
                 return (Guid.Parse(parts[0]), Guid.Parse(parts[1]), parts[2]);
-            });
+            },
+            extraWhereClause: "payload->>'Cause' = 'Reconfigured'");
         audited.Cause.ShouldBe("Reconfigured");
     }
 
@@ -531,21 +537,30 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     }
 
     private async Task<T> PollForAuditAsync<T>(
-        string eventKind, Guid wall, string selectExpression, Func<string, T> parse)
+        string eventKind, Guid wall, string selectExpression, Func<string, T> parse, string? extraWhereClause = null)
     {
-        // selectExpression is a hardcoded, test-authored SQL fragment (never
-        // user input), so it is spliced into the SQL text directly. Splicing
-        // it through SqlQuery's FormattableString hole instead would bind it
-        // as a literal string VALUE rather than raw SQL — every row's "Value"
-        // would come back as the C# expression's own text. eventKind/wall stay
-        // genuine bound parameters via SqlQueryRaw's positional {0}/{1}
-        // placeholders, the same mechanism DeadLetterReasonIntegrationTests
-        // uses for its LIKE parameter.
+        // selectExpression (and extraWhereClause) are hardcoded, test-authored
+        // SQL fragments (never user input), so they are spliced into the SQL
+        // text directly. Splicing them through SqlQuery's FormattableString
+        // hole instead would bind them as literal string VALUEs rather than
+        // raw SQL — every row's "Value" would come back as the C# expression's
+        // own text. eventKind/wall stay genuine bound parameters via
+        // SqlQueryRaw's positional {0}/{1} placeholders, the same mechanism
+        // DeadLetterReasonIntegrationTests uses for its LIKE parameter.
+        //
+        // extraWhereClause narrows the poll to a specific row when a single
+        // wall can legitimately produce more than one matching audit row
+        // (US1-15: an Operator switch and a Reconfigured edit both write a
+        // WallSceneChangedV1 for the same wall) — "latest by occurred_at" is
+        // racy there, since both rows land via independent async outbox
+        // deliveries whose completion order need not match issue order.
+        string extraWhere = extraWhereClause is null ? string.Empty : $"AND {extraWhereClause}";
         string sql = $$"""
             SELECT {{selectExpression}} AS "Value"
             FROM audit_events
             WHERE event_kind = {0}
               AND payload->>'Wall' = {1}
+              {{extraWhere}}
             ORDER BY occurred_at DESC
             """;
 
