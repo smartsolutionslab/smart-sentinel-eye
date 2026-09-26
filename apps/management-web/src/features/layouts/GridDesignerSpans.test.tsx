@@ -91,9 +91,7 @@ function Harness({
 }) {
   const form = useForm<GridDesignerValue>({ defaultValues: { name: 'wall', grid, cells } });
 
-  return (
-    <GridDesigner form={form} cameras={cameras} overlays={[]} camerasLoading={false} overlaysLoading={false} />
-  );
+  return <GridDesigner form={form} cameras={cameras} overlays={[]} camerasLoading={false} overlaysLoading={false} />;
 }
 
 describe('GridDesigner — Row span / Column span controls (spec 262 US3)', () => {

@@ -359,9 +359,7 @@ export function GridDesigner({
                   ))}
                 </select>
               </FormField>
-              {populated && (
-                <TileSpanFields form={form} index={index} options={spanOptions(cellsValue, index, grid)} />
-              )}
+              {populated && <TileSpanFields form={form} index={index} options={spanOptions(cellsValue, index, grid)} />}
             </div>
           );
         })}

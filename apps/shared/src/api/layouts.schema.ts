@@ -28,7 +28,9 @@ export interface TileSpan {
  * pairwise boolean can't give it — but the boolean test itself is this one.
  */
 export function spansOverlap(a: TileSpan, b: TileSpan): boolean {
-  return a.row < b.row + b.rowSpan && b.row < a.row + a.rowSpan && a.col < b.col + b.colSpan && b.col < a.col + a.colSpan;
+  return (
+    a.row < b.row + b.rowSpan && b.row < a.row + a.rowSpan && a.col < b.col + b.colSpan && b.col < a.col + a.colSpan
+  );
 }
 
 // One grid tile. Mirrors the backend TileDto / the FE LayoutTile shape: a
