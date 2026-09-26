@@ -50,6 +50,16 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
    * `LayoutEditorDialog.tsx` Save (the form's `onSubmit`).
    */
   unavailable?: boolean;
+  /**
+   * In flight. Announces `aria-busy`; never disables — pass `disabled` or
+   * `unavailable` for that (spec 268, issue #2336, US2).
+   *
+   * Declaration only for now (spec 268 T003): the phase-4a red commit adds
+   * the prop's type so `pnpm typecheck` stays green while `Button.test.tsx`'s
+   * new `busy` cases are red on behaviour. `Button` does not yet destructure
+   * or render anything from it — that lands with the implementation.
+   */
+  busy?: boolean;
 }
 
 // Custom design-system button (ADR-0077). Built on Radix Slot so it can wrap

@@ -48,6 +48,18 @@ const CANDIDATES = [
   'border-border-subtle',
   'text-fg-on-accent',
   'ring-focus-ring',
+  // Spec 268 (issue #2336) plan.md §5.3 — the five roles US1/US2 add.
+  'bg-bg-hover',
+  'bg-bg-pressed',
+  'bg-accent-fault-hover',
+  'bg-accent-fault-pressed',
+  'text-fg-on-fault',
+  // Pins (plan.md §5.3): already true on develop, not phase-4a evidence.
+  'hover:bg-accent-hover',
+  'focus-visible:outline-focus-ring',
+  'active:bg-accent-pressed',
+  'disabled:bg-transparent',
+  'aria-disabled:bg-transparent',
 ];
 
 let root: postcss.Root;
@@ -152,6 +164,13 @@ describe('management-web tokens compile through Tailwind (spec 257 US2)', () => 
     ['border-border-subtle', 'border-color', '--color-border-subtle'],
     ['text-fg-on-accent', 'color', '--color-fg-on-accent'],
     ['ring-focus-ring', '--tw-ring-color', '--color-focus-ring'],
+    // Spec 268 (issue #2336) plan.md §5.3 — RED on develop: none of the five
+    // roles below exist in tokens.css yet.
+    ['bg-bg-hover', 'background-color', '--color-bg-hover'],
+    ['bg-bg-pressed', 'background-color', '--color-bg-pressed'],
+    ['bg-accent-fault-hover', 'background-color', '--color-accent-fault-hover'],
+    ['bg-accent-fault-pressed', 'background-color', '--color-accent-fault-pressed'],
+    ['text-fg-on-fault', 'color', '--color-fg-on-fault'],
   ])('role-named utility %s cites its matching token', (className, property, expectedToken) => {
     expect(ruleExists(className), `.${className} does not compile at all yet`).toBe(true);
     const declarations = ruleDeclarations(className);
@@ -167,6 +186,69 @@ describe('management-web tokens compile through Tailwind (spec 257 US2)', () => 
     () => {
       expect(ruleExists('ease-out')).toBe(true);
       expect(ruleDeclarations('ease-out')['transition-timing-function']).toContain('--ease-out');
+    },
+  );
+
+  // Spec 268 (issue #2336) plan.md §5.3 — three PINS, already true on
+  // develop (Tailwind 4.3.3's own behaviour), not phase-4a evidence.
+  it('hover:bg-accent-hover compiles inside @media (hover: hover) — GREEN PIN (Tailwind 4.3.3 touch guard)', () => {
+    // A hover: variant's selector carries the pseudo-class too
+    // (`.hover\:bg-accent-hover:hover`), so this cannot reuse `ruleExists` —
+    // that helper's exact `.${className}` match is for prefixless utilities.
+    let found = false;
+    let sitsInsideHoverMedia = false;
+
+    root.walkAtRules('media', (atRule) => {
+      if (atRule.params !== '(hover: hover)') {
+        return;
+      }
+      atRule.walkRules((rule) => {
+        if (rule.selector.replace(/\\([^\\])/g, '$1') === '.hover:bg-accent-hover:hover') {
+          found = true;
+          sitsInsideHoverMedia = true;
+        }
+      });
+    });
+
+    expect(found, '.hover\\:bg-accent-hover:hover does not compile at all').toBe(true);
+    expect(sitsInsideHoverMedia, 'expected .hover\\:bg-accent-hover:hover inside @media (hover: hover)').toBe(true);
+  });
+
+  it('focus-visible:outline-focus-ring compiles to outline-color: var(--color-focus-ring) — GREEN PIN (the token already exists)', () => {
+    let found = false;
+    const declarations: Record<string, string> = {};
+
+    root.walkRules((rule) => {
+      if (rule.selector.replace(/\\([^\\])/g, '$1') === '.focus-visible:outline-focus-ring:focus-visible') {
+        found = true;
+        rule.walkDecls((decl) => {
+          declarations[decl.prop] = decl.value;
+        });
+      }
+    });
+
+    expect(found, '.focus-visible\\:outline-focus-ring:focus-visible does not compile at all').toBe(true);
+    expect(declarations['outline-color']).toBe('var(--color-focus-ring)');
+  });
+
+  it(
+    'hover, active, disabled and aria-disabled utilities appear in that order in the compiled output — GREEN ' +
+      'PIN (plan.md §3 R1: the state matrix depends on this cascade order, and Button.tsx §5.1 pins it here so ' +
+      'a Tailwind upgrade that reorders it fails loudly)',
+    () => {
+      const hoverIndex = rawOutput.indexOf('.hover\\:bg-accent-hover');
+      const activeIndex = rawOutput.indexOf('.active\\:bg-accent-pressed');
+      const disabledIndex = rawOutput.indexOf('.disabled\\:bg-transparent');
+      const ariaDisabledIndex = rawOutput.indexOf('.aria-disabled\\:bg-transparent');
+
+      expect(hoverIndex).toBeGreaterThanOrEqual(0);
+      expect(activeIndex).toBeGreaterThanOrEqual(0);
+      expect(disabledIndex).toBeGreaterThanOrEqual(0);
+      expect(ariaDisabledIndex).toBeGreaterThanOrEqual(0);
+
+      expect(hoverIndex).toBeLessThan(activeIndex);
+      expect(activeIndex).toBeLessThan(disabledIndex);
+      expect(disabledIndex).toBeLessThan(ariaDisabledIndex);
     },
   );
 

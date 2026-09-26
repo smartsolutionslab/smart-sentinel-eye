@@ -108,6 +108,33 @@ describe('ConfirmDialog', () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * Spec 268 (issue #2336) T004, US2 — `pending` adopts `Button`'s new `busy`
+   * prop on the confirming action (plan.md §6): the in-flight state should
+   * announce `aria-busy`, not merely hold `disabled` (ADR-0151's own concern,
+   * separate from this one). Red on unmodified `develop`: `ConfirmDialog`
+   * does not pass `busy` to either button yet, so neither ever carries
+   * `aria-busy`.
+   */
+  it('Announces aria-busy on the confirming action while pending', () => {
+    renderDialog({ pending: true });
+
+    const action = screen.getByRole('button', { name: /retire camera/i });
+
+    expect(action).toHaveAttribute('aria-busy', 'true');
+  });
+
+  /**
+   * The counterpart pin: nothing is in flight, so nothing is announced.
+   */
+  it('Does not announce aria-busy on the confirming action when nothing is in flight', () => {
+    renderDialog({ pending: false });
+
+    const action = screen.getByRole('button', { name: /retire camera/i });
+
+    expect(action).not.toHaveAttribute('aria-busy');
+  });
+
   it('Renders the caller words describing what confirming will do', () => {
     renderDialog();
 

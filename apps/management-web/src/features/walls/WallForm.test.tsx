@@ -16,12 +16,15 @@ import { store } from '../../app/store.js';
 
 const createWallMock = vi.fn(async () => ({ data: 'wall-1' }));
 const listLayoutsMock = vi.fn();
+const createWallMutationState = vi.hoisted(() => ({
+  current: { isLoading: false, error: undefined as unknown, reset: vi.fn() },
+}));
 
 vi.mock('@smart-sentinel-eye/shared/api/walls.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/walls.api')>();
   return {
     ...actual,
-    useCreateWallMutation: () => [createWallMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useCreateWallMutation: () => [createWallMock, createWallMutationState.current],
   };
 });
 
@@ -58,6 +61,7 @@ function renderForm() {
 describe('WallForm', () => {
   beforeEach(() => {
     createWallMock.mockClear();
+    createWallMutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
     listLayoutsMock.mockReset();
     listLayoutsMock.mockReturnValue({
       data: {
@@ -106,5 +110,24 @@ describe('WallForm', () => {
 
     expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
     expect(createWallMock).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Spec 268 (issue #2336) T012/T014, US2 — `WallForm.tsx:162`'s Save button
+   * is the ninth `busy` adoption site (spec §1 finding 8; plan.md §6). It
+   * already swaps its own label to 'Saving…' while `isLoading`; this adds
+   * `busy={isLoading}` beside the existing `disabled={isLoading}` so the
+   * button also announces `aria-busy`, additions only — the label swap and
+   * `disabled` stay exactly as they are (spec §3 "In this PR" row 3).
+   *
+   * Red on unmodified `develop`: `WallForm.tsx` does not pass `busy` yet.
+   */
+  it('Announces aria-busy on Save while the create request is in flight', () => {
+    createWallMutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+    renderForm();
+
+    const saveButton = screen.getByRole('button', { name: /saving…/i });
+
+    expect(saveButton).toHaveAttribute('aria-busy', 'true');
   });
 });

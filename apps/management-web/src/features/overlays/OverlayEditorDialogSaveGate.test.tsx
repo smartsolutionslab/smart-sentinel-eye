@@ -238,13 +238,16 @@ describe('OverlayEditorDialog — Save keeps its focus while it is unavailable (
 
     // Spec 163 (issue #2399) T003 — characterisation, captured GREEN on
     // unmodified `develop` before the Button `unavailable` prop lands (T005)
-    // and the call site converts to it (T006). Must pass UNMODIFIED
-    // afterwards: an edit here would mean the conversion moved behaviour,
-    // not merely relocated it (ADR-0144). Order-independent `toHaveClass`,
-    // never an exact `className` string — `clsx` reorders the classes once
-    // `aria-disabled:opacity-50` comes from the primitive instead of this
-    // call site's own `className` (plan.md 163 §3).
-    expect(saveButton).toHaveClass('aria-disabled:opacity-50', 'aria-disabled:cursor-progress');
+    // and the call site converts to it (T006). Order-independent
+    // `toHaveClass`, never an exact `className` string — `clsx` reorders the
+    // classes once `aria-disabled:opacity-50` comes from the primitive
+    // instead of this call site's own `className` (plan.md 163 §3).
+    //
+    // Spec 268 (issue #2336) T005: `aria-disabled:opacity-50` -> the disabled
+    // treatment is a neutral fg-disabled label, not an opacity fade
+    // (ADR-0146 item 5) — the ADR-0151 half, `aria-disabled:cursor-progress`,
+    // is kept verbatim.
+    expect(saveButton).toHaveClass('aria-disabled:text-fg-disabled', 'aria-disabled:cursor-progress');
     expect(saveButton).not.toHaveAttribute('disabled');
 
     await act(async () => {
