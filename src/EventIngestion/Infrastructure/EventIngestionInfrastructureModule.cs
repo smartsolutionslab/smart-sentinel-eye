@@ -14,6 +14,7 @@ using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.Event.Events;
 using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
+using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration.Events;
 using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
@@ -71,6 +72,14 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddScoped<
             IDomainEventHandler<EventIngestedDomainEvent>,
             EventIngestedDomainEventHandler>();
+
+        // Domain event handler — translates WebhookIntegrationRevokedDomainEvent
+        // into WebhookIntegrationRevokedV1 on the integration bus (spec 264,
+        // #2206). Without this the dispatcher resolves an empty set and the
+        // revocation never reaches Identity.
+        builder.Services.AddScoped<
+            IDomainEventHandler<WebhookIntegrationRevokedDomainEvent>,
+            WebhookIntegrationRevokedDomainEventHandler>();
 
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<IngestEventCommandHandler>();

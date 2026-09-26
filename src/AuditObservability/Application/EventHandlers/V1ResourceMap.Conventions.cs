@@ -1,6 +1,7 @@
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.AuditObservability;
+using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
@@ -57,10 +58,15 @@ public sealed partial class V1ResourceMap
 
             // Identity contracts split across two resource kinds depending on
             // which client persona the event covers (devices vs kiosks vs
-            // webhook integrations).
+            // webhook integrations). WebhookIntegrationRevokedV1 is published
+            // by EventIngestion, not Identity, but pivots on the same
+            // WebhookIntegration resource as the rotation event above
+            // (spec 264, #2206), so the convention's namespace-to-resource
+            // default (EventIngestion → Event) would be wrong for it too.
             Add<DeviceRegisteredV1>(map, DomainResourceKind.Device, registered => registered.ClientId);
             Add<KioskEnrolledV1>(map, DomainResourceKind.Kiosk, enrolled => enrolled.ClientId);
             Add<WebhookIntegrationRotatedV1>(map, DomainResourceKind.WebhookIntegration, rotated => rotated.IntegrationName);
+            Add<WebhookIntegrationRevokedV1>(map, DomainResourceKind.WebhookIntegration, revoked => revoked.IntegrationName);
 
             // Spec 005: emitted from SystemVariables but pivots on the overlay
             // whose resolved text changed, not on a variable.

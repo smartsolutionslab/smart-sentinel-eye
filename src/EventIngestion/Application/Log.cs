@@ -43,6 +43,11 @@ internal static partial class Log
     public static partial void WebhookIntegrationRevoked(
         this ILogger logger, WebhookIntegrationName name, WebhookIntegrationIdentifier identifier);
 
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Published WebhookIntegrationRevokedV1 for '{Name}' in fab {Fab}.")]
+    public static partial void PublishedWebhookIntegrationRevokedV1(
+        this ILogger logger, WebhookIntegrationName name, FabIdentifier fab);
+
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Ignoring WebhookIntegrationRotatedV1 with invalid name '{Name}'.")]
     public static partial void InvalidRotationName(this ILogger logger, Exception exception, string name);

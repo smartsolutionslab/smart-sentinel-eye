@@ -135,6 +135,7 @@ public class V1ResourceMapTests
         DeviceRegisteredCase(),
         KioskEnrolledCase(),
         WebhookIntegrationRotatedCase(),
+        WebhookIntegrationRevokedCase(),
         LayoutRevisionArchivedCase(),
         LayoutRevisionPublishedCase(),
         OverlayHighlightRequestedCase(),
@@ -302,6 +303,21 @@ public class V1ResourceMapTests
             () => new WebhookIntegrationRotatedV1(
                 integrationName,
                 "ClientId-sentinel",
+                DateTimeOffset.UtcNow.AddSeconds(1),
+                TestMetadata),
+            integrationName);
+    }
+
+    // 9a. EventIngestion.WebhookIntegrationRevokedV1 -> webhook-integration / IntegrationName
+    // (hand-tweak; spec 264, #2206)
+    private static MappingCase WebhookIntegrationRevokedCase()
+    {
+        string integrationName = "IntegrationName-sentinel";
+        return new MappingCase(
+            typeof(WebhookIntegrationRevokedV1),
+            ResourceKind.WebhookIntegration,
+            () => new WebhookIntegrationRevokedV1(
+                integrationName,
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 TestMetadata),
             integrationName);

@@ -68,6 +68,33 @@ public class WebhookIntegrationTests
             .ShouldHaveSingleItem();
     }
 
+    /// <summary>
+    /// Spec 264 (#2206). The domain event needs the integration's fab so the
+    /// EventIngestion → Identity crossing can announce which fab's Keycloak
+    /// client to disable — see plan.md §3. Red: compile, until
+    /// <c>WebhookIntegrationRevokedDomainEvent</c> gains <c>Fab</c>.
+    /// </summary>
+    [Fact]
+    public void Revoke_raises_a_domain_event_carrying_the_integrations_fab()
+    {
+        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+            Domain.WebhookIntegration.WebhookIntegration.Register(
+                WebhookIntegrationName.From("qa"),
+                FabIdentifier.From("munich"),
+                Kind.From("QaResult"),
+                new FakeClock(Now));
+        integration.ClearPendingEvents();
+
+        integration.Revoke(new FakeClock(Now.AddHours(1)));
+
+        WebhookIntegrationRevokedDomainEvent raised = integration.PendingEvents
+            .OfType<WebhookIntegrationRevokedDomainEvent>()
+            .ShouldHaveSingleItem();
+        raised.Fab.ShouldBe(FabIdentifier.From("munich"));
+        raised.Name.ShouldBe(integration.Name);
+        raised.RevokedAt.ShouldBe(Now.AddHours(1));
+    }
+
     [Fact]
     public void Revoke_is_idempotent_on_an_already_revoked_integration()
     {

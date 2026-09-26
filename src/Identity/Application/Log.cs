@@ -38,4 +38,19 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered device {Identifier} '{ClientId}' ({DeviceType}/{DeviceIdentifier}) for fab {Fab}.")]
     public static partial void RegisteredDevice(this ILogger logger, RegisteredClientIdentifier identifier, ClientId clientId, string deviceType, string deviceIdentifier, FabIdentifier fab);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Disabled webhook client {Identifier} '{ClientId}'.")]
+    public static partial void DisabledWebhookClient(this ILogger logger, RegisteredClientIdentifier identifier, ClientId clientId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Ignoring WebhookIntegrationRevokedV1 with invalid name '{Name}'.")]
+    public static partial void InvalidRevocationName(this ILogger logger, Exception exception, string name);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook integration '{Name}' revocation event carried an unusable fab '{Fab}' and was ignored.")]
+    public static partial void RevocationFabInvalid(this ILogger logger, Exception? exception, string name, string fab);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "No webhook client to disable for revoked integration '{Name}' in fab {Fab}.")]
+    public static partial void NoWebhookClientToDisable(this ILogger logger, string name, FabIdentifier fab);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client disable failed for integration '{Name}': {Code} {Message}.")]
+    public static partial void WebhookClientDisableFailed(this ILogger logger, string name, string code, string message);
 }
