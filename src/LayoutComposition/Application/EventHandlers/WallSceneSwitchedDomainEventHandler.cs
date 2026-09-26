@@ -57,7 +57,7 @@ public sealed class WallSceneSwitchedDomainEventHandler(IEventBus events)
         {
             SceneSwitchCause.Operator operatorCause => ("Operator", operatorCause.By.Value, null, null),
             SceneSwitchCause.Reconfigured reconfigured => ("Reconfigured", reconfigured.By.Value, null, null),
-            SceneSwitchCause.Rule rule => ("Rule", null, rule.RuleIdentifier.Value, rule.CausingEventIdentifier.Value),
+            SceneSwitchCause.Rule rule => ("Rule", null, rule.By.Value, rule.CausingEvent.Value),
             _ => throw new InvalidOperationException($"Unknown SceneSwitchCause '{cause}'."),
         };
 }

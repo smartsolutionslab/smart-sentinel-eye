@@ -20,7 +20,14 @@ public abstract record SceneSwitchCause
     /// An Automation rule fired (US2, PD-1). Carries both the rule and the
     /// plant-floor event that triggered it, per ADR-0157 §Consequences.
     /// </summary>
-    public sealed record Rule(RuleIdentifier RuleIdentifier, CausingEventIdentifier CausingEventIdentifier) : SceneSwitchCause;
+    /// <remarks>
+    /// The first property is named <c>By</c>, not <c>Rule</c> — matching
+    /// <see cref="Operator.By"/> and <see cref="Reconfigured.By"/> above — both
+    /// because a property can't share its enclosing record's own name (CS0542)
+    /// and because "caused by" is the same role every <see cref="SceneSwitchCause"/>
+    /// variant carries.
+    /// </remarks>
+    public sealed record Rule(RuleIdentifier By, CausingEventIdentifier CausingEvent) : SceneSwitchCause;
 
     /// <summary>
     /// Editing the scene set dropped the scene that was showing, so the
