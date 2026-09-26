@@ -125,8 +125,9 @@ export function CameraViewer({
   // read, once per counter for the life of this mounted tile.
   //
   // ONCE PER MOUNTED TILE, NOT ONCE PER CAMERA — and the tile is a grid
-  // position. `CellPage` keys its tiles on `positionKey(row, col)`, so a layout
-  // revision that puts a different camera at (0,0) leaves this instance mounted
+  // position. `CellPage` keys its tiles on the origin `row:col` key
+  // `buildGridItems` assigns (`wallGrid.ts`), so a layout revision that puts
+  // a different camera at (0,0) leaves this instance mounted
   // and changes only the `cameraIdentifier` prop; neither ref resets, and the
   // second camera's equally unreadable instrument says nothing. That is the
   // intended scope, not an oversight: a missing `totalProcessingDelay` — like an

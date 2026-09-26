@@ -1,20 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
-// wallGrid.ts does not exist yet (plan.md §4.2 extracts it from
-// CellPage.tsx:422-450). Every test below is expected to fail to resolve
-// this import until it is written — that is the RED this file is meant to
-// show (ADR-0139).
 import { buildGridItems } from './wallGrid.js';
 
 const CAMERA_A = 'cam-a';
 const CAMERA_B = 'cam-b';
 
-/**
- * A tile fixture wide enough to carry `rowSpan`/`colSpan` (spec 258 FR-002),
- * cast because today's `LayoutTile` does not declare those fields yet — the
- * same technique `CellPage.test.tsx` already uses for a drifted wire shape
- * (`fab as unknown as string`).
- */
+/** A tile fixture carrying `rowSpan`/`colSpan` (spec 258 FR-002). */
 function tileAt(
   row: number,
   col: number,
@@ -27,7 +18,7 @@ function tileAt(
     col,
     rowSpan: overrides.rowSpan ?? 1,
     colSpan: overrides.colSpan ?? 1,
-  } as LayoutTile;
+  };
 }
 
 describe('buildGridItems — explicit placement for a wall of spanning tiles (spec 258 US2)', () => {
@@ -66,18 +57,14 @@ describe('buildGridItems — explicit placement for a wall of spanning tiles (sp
 
   /**
    * CHARACTERISATION (spec 258 §8 declared pin). An all-1x1 wall must place
-   * every tile and placeholder exactly as `CellPage.tsx`'s current
-   * `buildGridCells` does today: row-major by position, one item per cell.
-   * Declared green in advance — if this is red once `wallGrid.ts` exists,
-   * the test does not match today's placement order and must be corrected,
-   * not the code (spec 258 §8).
+   * every tile and placeholder in the same row-major-by-origin order the
+   * pre-feature auto-placement produced: one item per cell.
    *
-   * It is red for now for the same reason every other case in this file is:
-   * `wallGrid.ts` does not exist yet. The literal green proof for "a 1x1
-   * wall renders exactly as today" is `CellPage.test.tsx`'s
-   * `'Renders every tile of an all-1x1 wall in row-major order, unchanged by
-   * this feature'`, which exercises the real, unmodified `CellPage.tsx` and
-   * passes today — see that file for the actual pin.
+   * The literal green proof for "a 1x1 wall renders exactly as today" is
+   * `CellPage.test.tsx`'s `'Renders every tile of an all-1x1 wall in
+   * row-major order, unchanged by this feature'`, which exercises the real
+   * `CellPage.tsx` wired to `buildGridItems` — see that file for the actual
+   * pin.
    */
   it('lays out an all-1x1 wall in the same row-major order as today (characterisation)', () => {
     const tiles: LayoutTile[] = [
@@ -108,6 +95,16 @@ describe('buildGridItems — explicit placement for a wall of spanning tiles (sp
     const placed = items.find((item) => item.tile !== null);
     expect(placed).toMatchObject({ key: '1:1', rowSpan: 1, colSpan: 1 });
     expect(items.filter((item) => item.tile === null)).toHaveLength(3);
+  });
+
+  it('drops a tile with a non-finite span or a negative origin, rather than clamping to NaN (defensive, from-the-wire)', () => {
+    const nanSpan = tileAt(0, 0, { rowSpan: Number.NaN, cameraIdentifier: CAMERA_A });
+    const negativeOrigin = tileAt(-1, 0, { cameraIdentifier: CAMERA_B });
+
+    const items = buildGridItems(2, 2, [nanSpan, negativeOrigin]);
+
+    expect(items).toHaveLength(4);
+    expect(items.every((item) => item.tile === null)).toBe(true);
   });
 
   it('drops a later tile that overlaps an earlier one, keeping the first (defensive, impossible from a valid layout)', () => {

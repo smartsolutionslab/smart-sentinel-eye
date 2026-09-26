@@ -161,9 +161,7 @@ function tile(overrides: Partial<LayoutTile> = {}): LayoutTile {
     row: 0,
     col: 0,
     // Spec 258 (#2607): `LayoutTile` gains these as required fields — the
-    // backend always sends them (plan.md §4.1). Until it does, this is a
-    // type error against today's `LayoutTile`, not a runtime failure
-    // (ADR-0139 red-first; the type change is expected RED under typecheck).
+    // backend always sends them (plan.md §4.1).
     rowSpan: 1,
     colSpan: 1,
     ...overrides,
