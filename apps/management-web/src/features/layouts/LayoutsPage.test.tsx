@@ -334,8 +334,16 @@ describe('LayoutsPage — archive confirmation', () => {
     });
   }
 
+  /**
+   * Spec 266 (issue #2335) US2 — new behaviour, RED. Archive moves behind the
+   * row's "More actions" menu (Q4 default), so opening the confirmation is a
+   * two-step trigger→menuitem interaction rather than one direct button
+   * click. Red today: there is no "More actions" trigger yet, so `getByRole`
+   * throws before the menu item is ever sought.
+   */
   async function openConfirmation(user: ReturnType<typeof userEvent.setup>) {
-    await user.click(screen.getByRole('button', { name: /^archive$/i }));
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /^archive$/i }));
     return screen.getByRole('alertdialog');
   }
 
@@ -709,11 +717,75 @@ describe('LayoutsPage — archive and discard on one chain', () => {
     });
   });
 
-  async function confirm(user: ReturnType<typeof userEvent.setup>, label: RegExp, button: RegExp) {
-    await user.click(screen.getByRole('button', { name: label }));
+  /**
+   * Spec 266 (issue #2335) US2 — new behaviour, RED. `itemLabel` now names a
+   * menu item behind "More actions" rather than a row button — see
+   * `openConfirmation` above for why this is expected red today.
+   */
+  async function confirm(user: ReturnType<typeof userEvent.setup>, itemLabel: RegExp, button: RegExp) {
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: itemLabel }));
     const dialog = screen.getByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: button }));
   }
+
+  /**
+   * Spec 266 (issue #2335) US2 (Q4 default) — new behaviour, RED. Publish and
+   * Edit (new draft) stay inline; Discard draft, Revert and Archive move
+   * behind one "More actions" trigger per row. Red today: the row renders
+   * all five as direct buttons, so this row shows exactly two.
+   */
+  it('Keeps Publish and Edit (new draft) inline, and offers no direct button for Discard draft, Revert or Archive', () => {
+    renderPage();
+
+    expect(screen.getByRole('button', { name: /^publish$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /edit \(new draft\)/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /discard draft/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^revert$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^archive$/i })).not.toBeInTheDocument();
+  });
+
+  /**
+   * Spec 266 (issue #2335) US2 — new behaviour, RED: there is no "More
+   * actions" trigger yet, so `getByRole` throws before the menu is ever
+   * opened.
+   */
+  it('"More actions" opens a menu with Discard draft, Revert and Archive', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByRole('menuitem', { name: /discard draft/i })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: /^revert$/i })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: /^archive$/i })).toBeInTheDocument();
+  });
+
+  /**
+   * Spec 266 (issue #2335) US2 scenario 2 — new behaviour, RED. The one this
+   * spec is built to hold: a non-modal menu (`Root modal={false}`,
+   * plan.md §3.2) so opening the ConfirmDialog from the menu's `onSelect`
+   * does not leave `pointer-events: none` on `<body>` or race the two focus
+   * scopes. Covered directly on the primitive (`DropdownMenu.test.tsx`); this
+   * is the same guarantee through the real consumer.
+   */
+  it('Choosing Archive from the menu opens the confirmation, and Escape returns focus to More actions', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    const trigger = screen.getByRole('button', { name: /more actions/i });
+    await user.click(trigger);
+    await user.click(await screen.findByRole('menuitem', { name: /^archive$/i }));
+
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(document.body.style.pointerEvents).not.toBe('none');
+  });
 
   /**
    * **The targets, on the same chain.** Both calls succeed whichever revision
@@ -761,7 +833,8 @@ describe('LayoutsPage — archive and discard on one chain', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: /discard draft/i }));
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /discard draft/i }));
     const dialog = screen.getByRole('alertdialog');
 
     expect(dialog).toHaveTextContent(/cannot be recovered/i);
@@ -777,11 +850,13 @@ describe('LayoutsPage — archive and discard on one chain', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: /^archive$/i }));
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /^archive$/i }));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('revision 4');
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /cancel/i }));
 
-    await user.click(screen.getByRole('button', { name: /discard draft/i }));
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /discard draft/i }));
     expect(screen.getByRole('alertdialog')).toHaveTextContent('draft revision 5');
   });
 
@@ -789,7 +864,8 @@ describe('LayoutsPage — archive and discard on one chain', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: /discard draft/i }));
+    await user.click(screen.getByRole('button', { name: /more actions/i }));
+    await user.click(await screen.findByRole('menuitem', { name: /discard draft/i }));
     await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: /cancel/i }));
 
     expect(archiveMock).not.toHaveBeenCalled();
