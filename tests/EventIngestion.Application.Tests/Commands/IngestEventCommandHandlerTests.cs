@@ -30,6 +30,7 @@ public class IngestEventCommandHandlerTests
 
     private static IngestEventCommandHandler Handler(InMemoryEventRepository repository) =>
         new(repository, new FakeClock(Now),
+            new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
     [Fact]
@@ -38,6 +39,7 @@ public class IngestEventCommandHandlerTests
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
             repo, new FakeClock(Now),
+            new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
         EventEnvelope envelope = BuildEnvelope();
@@ -56,6 +58,7 @@ public class IngestEventCommandHandlerTests
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
             repo, new FakeClock(Now),
+            new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
         Result<EventIdentifier, IngestEventError> first = await handler.HandleAsync(
@@ -76,6 +79,7 @@ public class IngestEventCommandHandlerTests
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
             repo, new FakeClock(Now),
+            new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
         EventEnvelope envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6));

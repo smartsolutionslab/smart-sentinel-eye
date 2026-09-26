@@ -17,6 +17,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 public sealed class IngestEventCommandHandler(
     IEventRepository events,
     IClock clock,
+    EventTypeAdmission admission,
     ILogger<IngestEventCommandHandler> logger)
     : ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>
 {
@@ -38,6 +39,35 @@ public sealed class IngestEventCommandHandler(
             return Failure(IngestEventFailures.EventAlreadyIngested(envelope.Identifier.Value));
         }
 
+        // Spec 269 FR-007: redelivery outranks it (above), and future skew
+        // outranks it (inside Build) — a strict source's admission verdict is
+        // consulted last of the three.
+        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], cancellationToken);
+
+        Result<EventAggregate, IngestEventError> built = Build(envelope, verdicts);
+        if (!built.IsSuccess)
+        {
+            return Failure(built.Error);
+        }
+
+        events.Add(built.Value);
+        await events.SaveAsync(cancellationToken);
+
+        // After the commit (spec 103 FR-006). The two early returns above are
+        // what keeps a redelivery and a future-skew refusal out of the count,
+        // so no branch is added here.
+        IngestVolume.Record(envelope.Source);
+
+        return Success(built.Value.Id);
+    }
+
+    /// <summary>
+    /// Builds the aggregate, or the reason it cannot be built — future skew
+    /// first, then the admission verdict (FR-007), mirroring
+    /// <c>IngestEventBatchCommandHandler.Build</c>.
+    /// </summary>
+    private Result<EventAggregate, IngestEventError> Build(EventEnvelope envelope, EventTypeVerdicts verdicts)
+    {
         EventAggregate @event;
         try
         {
@@ -58,14 +88,13 @@ public sealed class IngestEventCommandHandler(
             return Failure(IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value));
         }
 
-        events.Add(@event);
-        await events.SaveAsync(cancellationToken);
+        if (verdicts.Refuses(envelope))
+        {
+            logger.UnregisteredEventTypeRefused(envelope.Identifier, envelope.Fab, envelope.Source, envelope.Kind);
+            return Failure(IngestEventFailures.EventTypeNotRegistered(
+                envelope.Fab.Value, envelope.Source.Value, envelope.Kind.Value));
+        }
 
-        // After the commit (spec 103 FR-006). The two early returns above are
-        // what keeps a redelivery and a future-skew refusal out of the count,
-        // so no branch is added here.
-        IngestVolume.Record(envelope.Source);
-
-        return Success(@event.Id);
+        return Success(@event);
     }
 }
