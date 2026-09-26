@@ -48,6 +48,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapLayoutEndpoints();
+app.MapWallEndpoints();
 app.MapHub<LayoutLifecycleHub>(LayoutLifecycleHub.Path);
 
 if (app.Environment.IsDevelopment())
