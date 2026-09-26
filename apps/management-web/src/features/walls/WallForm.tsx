@@ -131,7 +131,7 @@ export function WallForm({ onSaved }: WallFormProps) {
                     type="button"
                     aria-label={`Move ${nameFor(scene)} up`}
                     disabled={index === 0}
-                    className="rounded-md bg-bg-elevated/60 px-2 py-0.5 text-xs disabled:opacity-40"
+                    className="rounded-md bg-bg-elevated/60 px-2 py-0.5 text-xs disabled:text-fg-disabled"
                     onClick={() => moveScene(index, -1)}
                   >
                     Up
@@ -140,7 +140,7 @@ export function WallForm({ onSaved }: WallFormProps) {
                     type="button"
                     aria-label={`Move ${nameFor(scene)} down`}
                     disabled={index === scenes.length - 1}
-                    className="rounded-md bg-bg-elevated/60 px-2 py-0.5 text-xs disabled:opacity-40"
+                    className="rounded-md bg-bg-elevated/60 px-2 py-0.5 text-xs disabled:text-fg-disabled"
                     onClick={() => moveScene(index, 1)}
                   >
                     Down

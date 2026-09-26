@@ -9,8 +9,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input({ c
       ref={ref}
       className={clsx(
         'block w-full rounded-md border border-fg-muted bg-bg-elevated px-3 py-2 text-sm text-fg-primary ' +
-          'placeholder:text-fg-muted focus-visible:outline-none focus-visible:ring-2 ' +
-          'focus-visible:ring-accent-active disabled:opacity-50',
+          'placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 ' +
+          'focus-visible:outline-focus-ring disabled:border-border-subtle disabled:text-fg-disabled',
         className,
       )}
       {...rest}

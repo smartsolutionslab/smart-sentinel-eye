@@ -219,8 +219,8 @@ export function GridDesigner({
                   (active
                     ? 'relative rounded-md border border-accent-active bg-accent-active/10 px-3 py-1 text-sm text-accent-active'
                     : 'relative rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted') +
-                  ' cursor-pointer has-[:focus-visible]:outline-none has-[:focus-visible]:ring-2' +
-                  ' has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-accent-active'
+                  ' cursor-pointer has-[:focus-visible]:outline-2' +
+                  ' has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus-ring'
                 }
               >
                 {/* Transparent, not `sr-only` — clipped to a 1px box, `sr-only`

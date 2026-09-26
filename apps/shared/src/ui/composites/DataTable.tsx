@@ -115,7 +115,7 @@ function HeaderCell<TRow, TSortKey extends string>({ column, sort, onSortChange 
       <button
         type="button"
         onClick={() => onSortChange(next())}
-        className="inline-flex items-center gap-1 hover:text-fg-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-active rounded"
+        className="inline-flex items-center gap-1 hover:text-fg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring rounded"
       >
         <span>{column.header}</span>
         <SortIndicator active={isActive} direction={sort?.direction} />
