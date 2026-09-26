@@ -45,5 +45,10 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Raising `asyncUtilTimeout` alone (src/test/setup.ts) just renames the
+    // failure once contention pushes a `waitFor` past Vitest's 5 s default —
+    // it dies as "Test timed out in 5000ms" instead, which names nothing
+    // (spec 216 §Claim 8). Match management-web's `testTimeout`.
+    testTimeout: 30_000,
   },
 });
