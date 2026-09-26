@@ -90,6 +90,21 @@ describe('gridDesignerModel — spans up to a 3x3 grid (spec 258 US3)', () => {
     expect(options.rows).toEqual([1, 2, 3]);
   });
 
+  it('blocks a span that would reach a spanning neighbour’s claimed cell, not just its origin', () => {
+    // B originates at (0,1) with rowSpan 2, so it claims (0,1) AND (1,1) —
+    // not just its own origin. A sits at (1,0): a colSpan of 2 from there
+    // would cover (1,1), which B already claims, even though B's *origin*
+    // (0,1) is outside A's candidate rectangle on the row axis.
+    const cells = buildCells(3, 3, [
+      cellAt(0, 1, { cameraIdentifier: CORNER, rowSpan: 2 }),
+      cellAt(1, 0, { cameraIdentifier: HERO }),
+    ]);
+
+    const options = spanOptions(cells, indexAt(cells, 1, 0), { rows: 3, cols: 3 });
+
+    expect(options.cols).toEqual([1]);
+  });
+
   it('maps every cell a hero’s span covers back to the hero, via coveredBy', () => {
     const cells = buildCells(3, 3, [cellAt(0, 0, { cameraIdentifier: HERO, rowSpan: 2, colSpan: 2 })]);
     const heroIndex = indexAt(cells, 0, 0);
