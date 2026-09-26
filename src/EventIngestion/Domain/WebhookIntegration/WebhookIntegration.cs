@@ -100,7 +100,7 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
         }
 
         RevokedAt = RevokedAt.From(clock.UtcNow);
-        Raise(new WebhookIntegrationRevokedDomainEvent(Name, RevokedAt.Value));
+        Raise(new WebhookIntegrationRevokedDomainEvent(Name, Fab, RevokedAt.Value));
     }
 
     /// <summary>

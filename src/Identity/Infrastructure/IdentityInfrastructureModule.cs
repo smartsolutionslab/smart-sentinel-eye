@@ -79,6 +79,10 @@ public static class IdentityInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<DisableDeviceCommand, Result<RegisteredClientIdentifier, DisableDeviceError>>,
             DisableDeviceCommandHandler>();
+        builder.Services.AddScoped<DisableWebhookClientCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>>,
+            DisableWebhookClientCommandHandler>();
         builder.Services.AddScoped<RotateWebhookClientCommandHandler>();
         builder.Services.AddScoped<
             ICommandHandler<
