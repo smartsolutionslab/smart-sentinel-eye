@@ -476,7 +476,7 @@ claims a discharge nobody earned.
 | Object store | Azure Blob Storage (Azurite emulator) — replaced MinIO after its registry access broke | 0000-initial-decisions.md row 009, **0155** |
 | Messaging | RabbitMQ (via Wolverine) | 0000-initial-decisions.md row 010, 0042 |
 | Sagas | Wolverine state machines + compensating actions | 0072 |
-| Identity | Keycloak (OIDC) per fab | 0000-initial-decisions.md rows 007-008 |
+| Identity | Keycloak (OIDC), **one realm per deployment**; a deployment serves one or more fabs, each a group under `/fabs` | 0000-initial-decisions.md rows 007-008, **0159** |
 | Streaming | WebRTC SFU; passthrough + GPU transcode fallback | 0000-initial-decisions.md rows 011-012 |
 | Time | PTP (IEEE 1588) per fab — for fab-wide correlation and inter-display sync, **not** for the presentation-buffer leg | 0000-initial-decisions.md rows 014, 021, **0128** |
 | Logging | `ILogger<T>` + OpenTelemetry OTLP (MEL-native, **no Serilog**); `[LoggerMessage]` source-gen; structured fields | 0050 |

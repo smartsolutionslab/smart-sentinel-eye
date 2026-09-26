@@ -14,8 +14,11 @@ consistent with it. Amendments require an explicit ADR entry in
 
 ### I. On-Prem First, Cloud-Ready (ADR-006)
 
-Every service ships in a configuration that runs fully self-contained inside
-a single fab. The system must be operable with **no outbound internet
+Every service ships in a configuration that runs fully self-contained on
+premises. A deployment serves **one or more fabs** (ADR-0159) and needs nothing
+outside them. Those fabs **may be at different sites**, so a deployment may
+cross the operator's own WAN between them — that is inside the self-contained
+boundary; the internet is not. The system must be operable with **no outbound internet
 dependency** — no SaaS auth, no cloud telemetry, no cloud DB.
 
 The cloud control plane is a **v2 additive layer**. Any v1 design that
@@ -139,6 +142,11 @@ Sub-budgets (any leg breaching its budget triggers an ADR-class review):
 
 Every PR that touches the event-to-overlay path must cite which leg it
 affects and demonstrate the budget still holds.
+
+**Camera → SFU assumes a site-local camera** (ADR-0159). A deployment may
+span sites, but the ≤ 80 ms leg was set for a camera and its SFU on the same
+site. A camera reaching its SFU across the inter-site WAN is outside that
+assumption and is justified against this section like any other breach.
 
 **Which legs are built, and which are watched** (ADR-0117). §VII binds
 the implemented ones; a leg not yet built is not yet subject, and this
@@ -284,8 +292,16 @@ abandoned the Grafana/Prometheus stack and chose the Aspire dashboard as
 the single sink; this list never followed.
 
 - **Dev:** `aspire run` starts the full stack.
-- **Prod:** `aspire publish --target k8s` generates Helm charts deployed
-  per fab on k3s (ADR-025).
+- **Prod:** **one deployment per installation, serving one or more fabs**
+  (ADR-0159) — one AppHost composition, one Keycloak realm, one instance of
+  each service (ADR-0153). The intended path is `aspire publish --target k8s`
+  generating Helm charts for k3s (ADR-025); **it has never been run** —
+  `deploy/helm/` holds one hand-written Mosquitto chart (ADR-0130, issue 1015).
+- **"Per fab" in this constitution never means the deployment.** A fab is a
+  **data scope** — every fab-scoped record carries one, and access follows
+  the caller's fab groups, of which a principal may hold several (ADR-0114,
+  ADR-0145). Where a constraint is bound to the cameras' location — the OT
+  VLAN, the PTP grandmaster — "per fab" means **per site**, and is unchanged.
 - Aspire integrations are preferred over ad-hoc configuration. If a
   resource lacks an Aspire integration, wrap it as a custom resource in
   the AppHost rather than configuring it out-of-band.
@@ -415,8 +431,10 @@ unrecorded for as long as nobody looked.
 
 - **k3s + Helm** in production (ADR-025). Pilot also uses k3s
   (single-node if needed) to keep one toolchain.
-- **Argo CD / Flux** for v2 cloud-pushed releases per fab.
-- **GitOps:** every fab has its own deployment branch / values file.
+- **Argo CD / Flux** for v2 cloud-pushed releases per deployment
+  (ADR-0159; originally *per fab*).
+- **GitOps:** every deployment has its own deployment branch / values file
+  (ADR-0159; originally *every fab*).
 
 ---
 
@@ -425,7 +443,8 @@ unrecorded for as long as nobody looked.
 ### Scale
 
 - Pilot: 20 concurrent cameras.
-- Production target: 250 concurrent cameras per fab.
+- Production target: 250 concurrent cameras **per deployment**, shared by
+  the fabs it serves (ADR-0159; originally *per fab*).
 - Recording / replay: **out of scope for v1**, but architecture must
   not preclude it (MinIO is pre-provisioned; presentation timestamps
   are persisted).
@@ -642,9 +661,21 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.8.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-09-03
+**Version:** 1.9.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-09-26
 
 **Amendment history.**
+1.9.0 — **"per fab" stops meaning the deployment** (ADR-0159, issue 2080).
+§I, §VI and §Operations described one installation per fab, which makes a
+principal holding two fabs impossible — yet the realm holds one realm with
+four fab groups, spec 008 chose a single shared realm for v1, and specs
+013–019 build fab scoping for exactly that principal. The maintainer confirmed
+multi-fab on 2026-09-04 (issue 2069). A deployment now serves one or more fabs;
+a fab is a data scope; site-bound constraints (VLAN, PTP) are unchanged. A
+deployment may span sites: §I's self-containment now admits the operator's
+own inter-site WAN, and §IV records that the camera → SFU leg assumes a
+site-local camera. §Scale's 250 cameras are per deployment, not per fab.
+§VI's Prod bullet also stops implying the Helm path runs: it never has
+(issue 1015).
 1.8.0 — the kiosk bullet's *single-reveal secret* becomes *revealed once
 per idempotency key* (ADR-0142). A transparent retry is indistinguishable
 from the original request by construction, so a secret that may never
