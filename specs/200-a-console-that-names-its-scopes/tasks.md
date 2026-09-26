@@ -94,6 +94,11 @@ integration test's token mint with `invalid_scope`.
     green facts in this PR.
 - [ ] **T012 [US2]** not attempted — depends on T011, deferred with it. See #2486.
 
+**Remainder delivered:** the WHEP handler's own copy of this acceptance was
+fixed by spec 258 / PR #2611; T011/T012's remainder (`RequireScopeExtensions`,
+`AuthenticationDefaults.AdminPolicy`, the realm's `sse.management` catalogue
+entry) was completed under spec 265, closing #2486.
+
 ---
 
 ## Phase 5 — verification (`/verify`)

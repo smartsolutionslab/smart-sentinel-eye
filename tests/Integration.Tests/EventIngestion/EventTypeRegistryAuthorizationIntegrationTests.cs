@@ -218,7 +218,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
                 HttpStatusCode.Forbidden,
                 await Diagnose(declared) + Environment.NewLine
                 + "FR-010 is the whole reason sse.events.types.write exists. A 201 here means the "
-                + "POST is still declaring sse.events.write, or the token picked up sse.management.");
+                + "POST is still declaring sse.events.write.");
 
             HttpResponseMessage retired = await RetireAsync(source, UniqueKind(), expectedVersion: null);
             retired.StatusCode.ShouldBe(
@@ -328,12 +328,14 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
 
         // The control on the probe itself. If planting silently produced a token
         // carrying the registry scope, or the legacy bundle, the refusals below
-        // would be proving nothing.
+        // would be proving nothing. The bundle is kept as a probe-shape control
+        // even though no policy honours it any more (spec 265 / #2486): a probe
+        // that somehow acquired it would still be the wrong probe to reason from.
         granted.ShouldContain("sse.events.write",
             customMessage: $"the probe must actually be an event source. Scopes: {string.Join(" ", granted)}");
         granted.ShouldNotContain("sse.management",
-            customMessage: "the legacy bundle satisfies every sse.* policy but sse.events.publish, so a "
-            + "probe holding it cannot demonstrate a scope refusal");
+            customMessage: "the legacy bundle is withdrawn and grants nothing (spec 265 / #2486), but a "
+            + "probe that somehow carries it is still not the narrow event-source probe this test needs");
         granted.ShouldNotContain("sse.events.types.write",
             customMessage: "the probe must not hold the very scope the endpoint requires");
 

@@ -12,8 +12,7 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 /// <see cref="SignalRLayoutLifecycleBroadcaster"/>.
 ///
 /// Authorisation is hub-level: a connection is rejected if the bearer
-/// token does not carry <c>sse.layouts.read</c> (or the grandfathered
-/// <c>sse.management</c> bundle). The bearer arrives via the WebSocket
+/// token does not carry <c>sse.layouts.read</c>. The bearer arrives via the WebSocket
 /// query string per Microsoft's documented pattern; the
 /// <c>JwtBearerOptions.OnMessageReceived</c> hook wired in
 /// <c>Program.cs</c> translates query-string to the
