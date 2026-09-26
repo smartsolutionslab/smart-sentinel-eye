@@ -1,11 +1,17 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { fontPreload } from '../shared/src/ui/fonts/fontPreload';
 
 // Aspire injects backend service URLs as environment variables (ADR-0074).
 // Local dev port chosen to match the Aspire JS resource wiring.
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // The sign-in screen's <h1> and body text are this app's first-paint
+    // faces: Sans SemiBold for the heading, Sans Regular for the body.
+    fontPreload(['IBMPlexSans-Regular-Latin1.woff2', 'IBMPlexSans-SemiBold-Latin1.woff2']),
+  ],
   server: {
     port: 5173,
     strictPort: true,
