@@ -41,7 +41,7 @@ public static partial class WallEndpoints
         try
         {
             name = WallName.From(body.Name);
-            scenes = [.. body.Scenes.Select(LayoutIdentifier.From)];
+            scenes = ParseScenes(body.Scenes);
         }
         catch (ArgumentException ex)
         {
@@ -102,7 +102,7 @@ public static partial class WallEndpoints
         List<LayoutIdentifier> scenes;
         try
         {
-            scenes = [.. body.Scenes.Select(LayoutIdentifier.From)];
+            scenes = ParseScenes(body.Scenes);
         }
         catch (ArgumentException ex)
         {
@@ -205,4 +205,18 @@ public static partial class WallEndpoints
             "layout" => throw new ArgumentException("target 'layout' requires a layout identifier."),
             _ => throw new ArgumentException($"Unknown switch target '{body.Target}'."),
         };
+
+    /// <summary>
+    /// Minimal APIs don't enforce NRT on a record body, so an omitted
+    /// <c>scenes</c> field arrives as <see langword="null"/> despite the
+    /// request record's non-nullable type. <c>Ensure.That</c> turns that
+    /// into <see cref="ArgumentNullException"/> — caught by the callers
+    /// above and mapped to <c>400 WALL_INVALID_INPUT</c>, mirroring
+    /// <c>LayoutEndpoints.ParseTiles</c>.
+    /// </summary>
+    private static List<LayoutIdentifier> ParseScenes(IReadOnlyList<Guid> scenes)
+    {
+        Ensure.That(scenes).IsNotNull();
+        return [.. scenes.Select(LayoutIdentifier.From)];
+    }
 }
