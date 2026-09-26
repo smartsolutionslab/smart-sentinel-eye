@@ -7,26 +7,24 @@ using SmartSentinelEye.Integration.Tests.Fixtures;
 namespace SmartSentinelEye.Integration.Tests.Identity;
 
 /// <summary>
-/// #2575 against the real stack. <c>RegisterDeviceCommandHandler</c> checks
-/// <c>deviceType</c> but never <c>deviceIdentifier</c> before building
-/// <c>ClientId.From($"{deviceType}-{deviceIdentifier}")</c> — a
-/// <see langword="null"/> or empty identifier still produces a grammatically
-/// valid clientId ("plc-"), so today the request succeeds with 201 and
-/// registers a real Keycloak client literally named "plc-".
+/// Against the real stack: <c>RegisterDeviceCommandHandler</c> checks
+/// <c>deviceType</c> but must also refuse an absent <c>deviceIdentifier</c>
+/// before building <c>ClientId.From($"{deviceType}-{deviceIdentifier}")</c> —
+/// a <see langword="null"/> or empty identifier would otherwise still
+/// produce a grammatically valid clientId ("plc-"), registering a real
+/// Keycloak client literally named "plc-".
 ///
 /// <para>
 /// The unit tests (<c>RegisterDeviceCommandHandlerTests</c>) prove the same
-/// gap against the handler in isolation; this proves it travels unchanged
-/// through <c>RegisterDeviceRequest</c>'s bare-string binding and the wire,
-/// which no Application-layer fake can show.
+/// invariant against the handler in isolation; this proves it holds through
+/// <c>RegisterDeviceRequest</c>'s bare-string binding and the wire, which no
+/// Application-layer fake can show.
 /// </para>
 ///
 /// <para>
-/// Each of a-c is expected to observe today's bug (201, or 409 on the
-/// repeat) rather than the 400 the fix will return — this is the red
-/// evidence ADR-0139 requires, not an assertion of desired behaviour. Row d
-/// is a green guard: a unique valid identifier already returns 201 today and
-/// must keep doing so after the fix.
+/// Rows a-c assert the refusal (400 <c>DEVICE_INVALID_IDENTIFIER</c>) for an
+/// omitted, null and empty identifier respectively. Row d is a green guard:
+/// a unique valid identifier must still register successfully (201).
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -45,8 +43,9 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
 
     /// <summary>
     /// Disables every "plc-" (or "inference-") client this test run actually
-    /// created — the red run of rows a-c creates one for real, since today
-    /// nothing stops the request before Keycloak.
+    /// created. Rows a-c never create one post-fix (the guard refuses before
+    /// Keycloak is reached); only the green-guard row (a fresh unique
+    /// identifier) is expected to leave one behind.
     /// </summary>
     public async Task DisposeAsync()
     {
