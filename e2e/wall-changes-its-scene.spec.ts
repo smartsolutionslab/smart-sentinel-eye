@@ -44,8 +44,18 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
  * testids already work, not inventing a new naming style.
  */
 
-/** Registers a camera and authors + publishes a one-tile layout named `name`. Leaves the page on the Layouts list. */
-async function createPublishedLayout(page: import('@playwright/test').Page, name: string, cameraName: string) {
+/**
+ * Registers a camera and authors + publishes a one-tile layout named `name`.
+ * Leaves the page on the Layouts list. Returns the registered camera's
+ * identifier (a GUID) — extracted from its Cameras-page row link — because
+ * that, not the camera's name, is what ends up embedded in the kiosk's
+ * layout-tile content (see the file header for why).
+ */
+async function createPublishedLayout(
+  page: import('@playwright/test').Page,
+  name: string,
+  cameraName: string,
+): Promise<string> {
   // Navigate to Cameras explicitly rather than assuming the caller is already
   // there — the second call in a row starts on the Layouts list left by the
   // first call's own ending, where "Register camera" does not exist.
@@ -55,7 +65,10 @@ async function createPublishedLayout(page: import('@playwright/test').Page, name
   await page.locator('#register-camera-name').fill(cameraName);
   await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${Math.floor(Math.random() * 200) + 2}/stream`);
   await page.getByRole('button', { name: /^register$/i }).click();
-  await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  const cameraRow = page.getByRole('cell', { name: cameraName });
+  await expect(cameraRow).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  const cameraHref = await cameraRow.getByRole('link').getAttribute('href');
+  const cameraIdentifier = cameraHref!.split('/').pop()!;
 
   await page.getByRole('link', { name: /^layouts$/i }).click();
   await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
@@ -68,6 +81,8 @@ async function createPublishedLayout(page: import('@playwright/test').Page, name
   const row = page.getByRole('listitem').filter({ hasText: name });
   await row.getByRole('button', { name: /^publish$/i }).click();
   await expect(row.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  return cameraIdentifier;
 }
 
 /** Creates a wall named `wallName` with the given ordered scene (layout) names. Leaves the page on the wall's detail view. */
@@ -107,8 +122,8 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
   const cameraBName = `E2E Wall Cam B ${stamp}`;
 
   await signInAsOperator(page);
-  await createPublishedLayout(page, layoutAName, cameraAName);
-  await createPublishedLayout(page, layoutBName, cameraBName);
+  const cameraAIdentifier = await createPublishedLayout(page, layoutAName, cameraAName);
+  const cameraBIdentifier = await createPublishedLayout(page, layoutBName, cameraBName);
   await createWall(page, wallName, [layoutAName, layoutBName]);
 
   await expect(showingText(page)).toContainText(layoutAName);
@@ -122,14 +137,14 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
     await kiosk.getByRole('listitem').filter({ hasText: wallName }).getByRole('button').click();
 
     await expect(kiosk.getByTestId('layout-grid')).toBeVisible();
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAName);
+    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAIdentifier);
 
     await page.getByRole('button', { name: /^next$/i }).click();
     await expect(showingText(page)).toContainText(layoutBName);
 
     // "Within about a second" — this is a generous end-to-end wait, not the
     // FR-V1 settle-time measurement (that is a Phase-5 concern, spec.md §7).
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBName, { timeout: 5_000 });
+    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBIdentifier, { timeout: 5_000 });
   } finally {
     await kioskContext.close();
   }
@@ -149,8 +164,8 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
   const cameraBName = `E2E Reconcile Cam B ${stamp}`;
 
   await signInAsOperator(page);
-  await createPublishedLayout(page, layoutAName, cameraAName);
-  await createPublishedLayout(page, layoutBName, cameraBName);
+  const cameraAIdentifier = await createPublishedLayout(page, layoutAName, cameraAName);
+  const cameraBIdentifier = await createPublishedLayout(page, layoutBName, cameraBName);
   await createWall(page, wallName, [layoutAName, layoutBName]);
 
   // Its own browser context: management-web must keep working while only the
@@ -163,7 +178,7 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
     await signInToKiosk(kiosk);
     await kiosk.getByRole('listitem').filter({ hasText: wallName }).getByRole('button').click();
     await expect(kiosk.getByTestId('layout-grid')).toBeVisible();
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAName);
+    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAIdentifier);
 
     // Sever the kiosk's own connection — a real network drop, not an aborted
     // route (kiosk-reconciliation.spec.ts's own lesson: route interception
@@ -177,14 +192,14 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
 
     // The kiosk must still be showing the old scene — it never received the
     // frame — until it reconnects and re-reads.
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAName);
+    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAIdentifier);
 
     await kioskContext.setOffline(false);
     await expect(kiosk.getByTestId('live-updates-degraded')).toBeHidden({ timeout: 45_000 });
 
     // Reconciled by re-reading GET /walls/{id} on reconnect (FR-008), not by
     // a page reload.
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBName, { timeout: 45_000 });
+    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBIdentifier, { timeout: 45_000 });
   } finally {
     await kioskContext.close();
   }
