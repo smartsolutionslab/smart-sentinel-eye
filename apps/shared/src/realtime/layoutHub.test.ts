@@ -17,6 +17,8 @@ interface FakeHubConnectionLike {
   closeCallback: ((error?: Error) => void) | undefined;
   reconnectingCallback: ((error?: Error) => void) | undefined;
   reconnectedCallback: ((connectionId?: string) => void) | undefined;
+  /** Spec 258 T014: records every `connection.on(name, handler)` registration so a test can fire one. */
+  handlers: Map<string, (...args: unknown[]) => void>;
 }
 
 interface WithUrlOptionsLike {
@@ -38,8 +40,11 @@ vi.mock('@microsoft/signalr', () => {
     closeCallback: ((error?: Error) => void) | undefined;
     reconnectingCallback: ((error?: Error) => void) | undefined;
     reconnectedCallback: ((connectionId?: string) => void) | undefined;
+    handlers = new Map<string, (...args: unknown[]) => void>();
 
-    on(): void {}
+    on(eventName: string, handler: (...args: unknown[]) => void): void {
+      this.handlers.set(eventName, handler);
+    }
 
     onclose(callback: (error?: Error) => void): void {
       this.closeCallback = callback;
@@ -258,5 +263,57 @@ describe('layout hub resilience (spec 011 FR-006/007)', () => {
 
     expect(connection.startCalls).toBe(2);
     await expect(Promise.resolve(factory!())).resolves.toBe('token-after-renewal');
+  });
+});
+
+/**
+ * Spec 258 US1, T014 (tasks.md). `createLayoutHubClient` does not yet accept
+ * an `onWallSceneChanged` callback or register a `WallSceneChanged` handler —
+ * this is the expected RED (compile error / assertion failure) until
+ * `layoutHub.ts` is extended per plan.md §6.1.
+ */
+describe('layout hub WallSceneChanged subscription (spec 258 US1)', () => {
+  beforeEach(() => {
+    fakes.urls.length = 0;
+    fakes.withUrlOptions.length = 0;
+    fakes.retryPolicies.length = 0;
+    fakes.connections.length = 0;
+  });
+
+  it('Registers a WallSceneChanged handler on the hub connection when one is supplied', () => {
+    const onWallSceneChanged = vi.fn();
+    createLayoutHubClient(
+      { accessTokenFactory: () => 'token' },
+      // @ts-expect-error — onWallSceneChanged does not exist on LayoutHubCallbacks yet (RED).
+      { onWallSceneChanged },
+    );
+
+    const connection = lastConnection();
+    expect(connection.handlers.has('WallSceneChanged')).toBe(true);
+  });
+
+  it('Forwards a WallSceneChanged frame to the supplied callback unchanged', () => {
+    const onWallSceneChanged = vi.fn();
+    createLayoutHubClient(
+      { accessTokenFactory: () => 'token' },
+      // @ts-expect-error — onWallSceneChanged does not exist on LayoutHubCallbacks yet (RED).
+      { onWallSceneChanged },
+    );
+
+    const connection = lastConnection();
+    const handler = connection.handlers.get('WallSceneChanged');
+    expect(handler).toBeDefined();
+
+    const message = { wall: 'w-1', showing: 'scene-b', sceneVersion: 4 };
+    handler?.(message);
+
+    expect(onWallSceneChanged).toHaveBeenCalledWith(message);
+  });
+
+  it('Does not register a WallSceneChanged handler when no callback is supplied', () => {
+    createClient();
+
+    const connection = lastConnection();
+    expect(connection.handlers.has('WallSceneChanged')).toBe(false);
   });
 });

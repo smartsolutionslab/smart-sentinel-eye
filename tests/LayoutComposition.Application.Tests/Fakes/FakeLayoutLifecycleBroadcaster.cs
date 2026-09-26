@@ -65,4 +65,20 @@ public sealed class FakeLayoutLifecycleBroadcaster : ILayoutLifecycleBroadcaster
         Highlighted.Add(notification);
         return Task.CompletedTask;
     }
+
+    /// <summary>
+    /// Spec 258 US1, plan.md §4.3: <c>ILayoutLifecycleBroadcaster</c> gains a
+    /// seventh method for the wall-scene-switched hub frame. Declared here
+    /// ahead of the interface itself (which does not exist yet — RED) so this
+    /// fake needs no further edit once the interface member lands; a public
+    /// method matching the eventual signature satisfies implicit interface
+    /// implementation without this file being touched again.
+    /// </summary>
+    public List<WallSceneChangedNotification> WallSceneChanged { get; } = [];
+
+    public Task WallSceneChangedAsync(WallSceneChangedNotification notification, CancellationToken cancellationToken)
+    {
+        WallSceneChanged.Add(notification);
+        return Task.CompletedTask;
+    }
 }
