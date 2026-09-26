@@ -5,6 +5,30 @@ import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
 import type { CreateRuleArgs } from '@smart-sentinel-eye/shared/api/rules.api';
 
+/**
+ * Spec 266 (issue #2335) US1 — new behaviour, RED. Replaces every existing
+ * `user.selectOptions(getByLabelText(/action/i), X)` call site: once the
+ * Action field is the shared `Select` primitive there is no native `<select>`
+ * left for `selectOptions` to drive. This drives the Radix listbox instead
+ * (click the trigger, click the option by name), so on TODAY's native select
+ * every call site using it goes red against the underlying assertion it
+ * feeds — expected, per spec 266 §6: "Tests edited, and why that is not a
+ * moved characterisation." Every assertion downstream of this helper is
+ * byte-identical to what it was before.
+ */
+const ACTION_LABELS: Record<'SetVariableValue' | 'HighlightOverlay', string> = {
+  SetVariableValue: 'Set a system variable',
+  HighlightOverlay: 'Highlight an overlay',
+};
+
+async function chooseAction(
+  user: ReturnType<typeof userEvent.setup>,
+  value: 'SetVariableValue' | 'HighlightOverlay',
+) {
+  await user.click(screen.getByRole('combobox', { name: /action/i }));
+  await user.click(await screen.findByRole('option', { name: ACTION_LABELS[value] }));
+}
+
 // Typed so `createMock.mock.calls[0][0]` narrows to the payload shape instead
 // of an empty tuple — a bare `vi.fn(async () => …)` infers a zero-arg
 // signature, which is what the new toggle-and-back cases index into.
@@ -82,6 +106,25 @@ describe('RuleDialog', () => {
     mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
   });
 
+  /**
+   * Spec 266 (issue #2335) US1 — new behaviour, RED. The discriminating
+   * assertion is the portalled `listbox`: a native `<select>` also exposes
+   * role `combobox`, but never a separate `listbox` in jsdom (spec §1
+   * finding 1), so this fails against today's native select and only passes
+   * once the Action field is the shared `Select` primitive.
+   */
+  it('The action field opens a listbox of the two actions', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    screen.getByRole('combobox', { name: /action/i }).focus();
+    await user.keyboard('{ArrowDown}');
+
+    const listbox = await screen.findByRole('listbox');
+    expect(within(listbox).getByRole('option', { name: 'Set a system variable' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: 'Highlight an overlay' })).toBeInTheDocument();
+  });
+
   it('Renders the rule fields and the AEL help panel', () => {
     renderDialog();
     expect(screen.getByLabelText(/^name$/i)).toBeInTheDocument();
@@ -99,7 +142,7 @@ describe('RuleDialog', () => {
     const user = userEvent.setup();
     renderDialog();
 
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
 
     expect(screen.getByLabelText(/duration/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/variable name/i)).not.toBeInTheDocument();
@@ -247,8 +290,8 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
     await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
     await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await chooseAction(user, 'HighlightOverlay');
+    await chooseAction(user, 'SetVariableValue');
     await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
     await fill(user, screen.getByLabelText(/value expression/i), '42');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
@@ -265,7 +308,7 @@ describe('RuleDialog', () => {
     renderDialog();
 
     await fillValidRule(user);
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
     await fill(user, screen.getByLabelText(/duration/i), '5000');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
@@ -285,8 +328,8 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
     await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
     await fill(user, screen.getByLabelText(/value expression/i), '42');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await chooseAction(user, 'HighlightOverlay');
+    await chooseAction(user, 'SetVariableValue');
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     expect(await screen.findByText(/variable name is required/i)).toBeInTheDocument();
@@ -299,8 +342,8 @@ describe('RuleDialog', () => {
     renderDialog();
 
     await fillValidRule(user);
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await chooseAction(user, 'HighlightOverlay');
+    await chooseAction(user, 'SetVariableValue');
     // Spec 241 (#2526): the round trip now remounts fresh, empty inputs
     // instead of carrying the values back, so they are refilled here rather
     // than relied on to have survived the toggle.
@@ -323,7 +366,7 @@ describe('RuleDialog', () => {
     renderDialog();
 
     await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
 
     expect(screen.getByLabelText(/overlay/i)).toHaveValue('');
     expect(screen.getByLabelText(/duration/i)).toHaveValue(null);
@@ -336,11 +379,11 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
     await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
     await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
     await fill(user, screen.getByLabelText(/duration/i), '5000');
 
-    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await chooseAction(user, 'SetVariableValue');
     await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
 
     expect(screen.getByLabelText(/value expression/i)).toHaveValue('');
@@ -360,7 +403,7 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
     await fill(user, screen.getByLabelText(/value expression/i), '1000');
 
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
 
     expect(screen.getByLabelText(/duration/i)).toHaveValue(null);
@@ -381,7 +424,7 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
     await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
 
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
 
     await user.click(screen.getByRole('button', { name: /create draft/i }));
@@ -399,9 +442,9 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
     await fill(user, screen.getByLabelText(/value expression/i), '42');
 
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await chooseAction(user, 'HighlightOverlay');
     await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await chooseAction(user, 'SetVariableValue');
 
     expect(screen.getByLabelText(/variable name/i)).toHaveValue('');
     expect(screen.getByLabelText(/value expression/i)).toHaveValue('');
@@ -417,8 +460,8 @@ describe('RuleDialog', () => {
     await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
     await fill(user, screen.getByLabelText(/value expression/i), '42');
 
-    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
-    await user.selectOptions(screen.getByLabelText(/action/i), 'SetVariableValue');
+    await chooseAction(user, 'HighlightOverlay');
+    await chooseAction(user, 'SetVariableValue');
 
     expect(screen.getByLabelText(/variable name/i)).toHaveValue('');
     expect(screen.getByLabelText(/value expression/i)).toHaveValue('');
