@@ -146,6 +146,8 @@ public class V1ResourceMapTests
         SystemVariableDefinedCase(),
         SystemVariableValueChangedCase(),
         SystemVariableValueRequestedCase(),
+        WallConfiguredCase(),
+        WallSceneChangedCase(),
     ];
 
     // 1. AuditObservability.AuditChunkArchivedV1 -> event / ChunkIdentifier (hand-tweak; blessed)
@@ -506,6 +508,43 @@ public class V1ResourceMapTests
                 TestMetadata),
             name,
             causingEventIdentifier.ToString());
+    }
+
+    // 21. LayoutComposition.WallConfiguredV1 -> wall / Wall (spec 258 US1, T012)
+    private static MappingCase WallConfiguredCase()
+    {
+        Guid wall = Guid.CreateVersion7();
+        return new MappingCase(
+            typeof(WallConfiguredV1),
+            ResourceKind.Wall,
+            () => new WallConfiguredV1(
+                wall,
+                "Name-sentinel",
+                [Guid.CreateVersion7(), Guid.CreateVersion7()],
+                Guid.CreateVersion7(),
+                DateTimeOffset.UtcNow.AddSeconds(1),
+                TestMetadata),
+            wall.ToString());
+    }
+
+    // 22. LayoutComposition.WallSceneChangedV1 -> wall / Wall (spec 258 US1, T012)
+    private static MappingCase WallSceneChangedCase()
+    {
+        Guid wall = Guid.CreateVersion7();
+        return new MappingCase(
+            typeof(WallSceneChangedV1),
+            ResourceKind.Wall,
+            () => new WallSceneChangedV1(
+                wall,
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                1L,
+                "Operator",
+                null,
+                null,
+                DateTimeOffset.UtcNow.AddSeconds(1),
+                TestMetadata),
+            wall.ToString());
     }
 
     public static TheoryData<MappingCase> Cases()
