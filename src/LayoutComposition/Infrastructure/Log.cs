@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
+using SmartSentinelEye.LayoutComposition.Domain.Wall;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure;
 
@@ -30,4 +31,7 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "SignalR broadcast for OverlayHighlightChanged({Overlay}, {DurationMs} ms) failed; reconcile-on-reconnect will recover.")]
     public static partial void OverlayHighlightChangedBroadcastFailed(this ILogger logger, Exception exception, Guid overlay, int durationMs);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "SignalR broadcast for WallSceneChanged({Wall}, v{SceneVersion}) failed; reconcile-on-reconnect will recover.")]
+    public static partial void WallSceneChangedBroadcastFailed(this ILogger logger, Exception exception, WallIdentifier wall, SceneVersion sceneVersion);
 }

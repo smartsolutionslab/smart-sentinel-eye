@@ -131,6 +131,7 @@ public sealed partial class AspireFixture
         await using LayoutCompositionDbContext context =
             await CreateLayoutCompositionDbContextAsync(cancellationToken).ConfigureAwait(false);
         await context.Layouts.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await context.Walls.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<OverlayDesignerDbContext> CreateOverlayDesignerDbContextAsync(

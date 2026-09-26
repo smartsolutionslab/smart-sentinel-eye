@@ -2,11 +2,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
+using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Tiles;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
+using SmartSentinelEye.LayoutComposition.Domain.Wall;
+using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Cameras;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
@@ -36,8 +39,12 @@ public static class LayoutCompositionInfrastructureModule
 
         builder.Services.AddScoped<ILayoutRepository, LayoutRepository>();
         builder.Services.AddScoped<ILayoutQuerySource, LayoutQuerySource>();
+        builder.Services.AddScoped<IWallRepository, WallRepository>();
+        builder.Services.AddScoped<ILayoutPublicationLookup, LayoutPublicationLookup>();
         builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionPublishedDomainEvent>, LayoutRevisionPublishedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionArchivedDomainEvent>, LayoutRevisionArchivedDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventHandler<WallConfiguredDomainEvent>, WallConfiguredDomainEventHandler>();
+        builder.Services.AddScoped<IDomainEventHandler<WallSceneSwitchedDomainEvent>, WallSceneSwitchedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
         builder.Services.AddSingleton(TimeProvider.System);
@@ -88,6 +95,15 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>,
             RevertRevisionCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<CreateWallCommand, Result<WallIdentifier, CreateWallError>>,
+            CreateWallCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<EditWallScenesCommand, Result<WallDto, EditWallScenesError>>,
+            EditWallScenesCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<SwitchWallSceneCommand, Result<WallDto, SwitchWallSceneError>>,
+            SwitchWallSceneCommandHandler>();
 
         // Cross-context lifecycle relays: the publishing contexts emit an
         // integration event; the SignalR broadcast lives here with the hub
