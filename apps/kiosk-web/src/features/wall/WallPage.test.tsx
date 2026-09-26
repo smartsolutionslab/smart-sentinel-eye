@@ -25,9 +25,13 @@ const navigateMock = vi.fn();
 // technique CellPage.test.tsx uses for onOverlayHighlightChanged.
 let capturedCallbacks: Record<string, (...args: unknown[]) => void> = {};
 
-vi.mock('@smart-sentinel-eye/shared/api/walls.api', async () => ({
-  useGetWallQuery: (...args: unknown[]) => getWallMock(...args),
-}));
+vi.mock('@smart-sentinel-eye/shared/api/walls.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/walls.api')>();
+  return {
+    ...actual,
+    useGetWallQuery: (...args: unknown[]) => getWallMock(...args),
+  };
+});
 
 vi.mock('react-oidc-context', () => ({
   useAuth: () => ({
