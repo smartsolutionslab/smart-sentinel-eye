@@ -1,4 +1,4 @@
-# Spec 266 — The fade that stands for every state
+# Spec 268 — The fade that stands for every state
 
 **Issue:** [#2336](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2336)
 — *Every interactive state is hover:opacity-90*. Label `enhancement`. Phase 02 of the
@@ -10,12 +10,18 @@ closed: #2329 by PR #2338 (ADR-0146/0147/0148), #2332 by PR #2604 (spec 257, mer
 2026-09-26 00:53 UTC). This spec is written against what those two shipped, on
 `origin/develop` at `7aab60de`, not against the question as #2336 first framed it.
 
-**Spec number.** Every remote branch (`git ls-tree` of each `specs/`), every local
-worktree's `specs/` directory (tracked or not) and both open PRs were listed on
-2026-09-26. The highest claimed number is **265** (`fix/2486-legacy-bundle-remainder`,
-untracked in `D:\Github\sse-2486b`); 264 is `fix/2575`, 263 is `feat/2608`, 262 is
-`feat/2607`. **266 is free.** Re-check immediately before opening the PR — two parked
-PRs can still land a 266 between now and then.
+**Spec number.** This spec was first written as 266 on 2026-09-26, checked only against
+`origin/develop`. #2335 (Radix primitives, delivered in parallel in `D:\Github\sse-2335`)
+had independently claimed 266 for itself and committed it there first — a genuine
+collision, discovered after both were committed. Renumbered to 268 on 2026-09-27.
+
+Re-checked properly this time: every remote branch (`git ls-tree -r` of each `specs/`)
+and every local worktree's `specs/` directory (tracked **and** untracked) were listed.
+266 is confirmed taken (`origin/feat/2335-radix-primitives` and `D:\Github\sse-2335`,
+`266-the-packages-nobody-imports`). 267 is also already taken
+(`D:\Github\sse-2624`, untracked, `267-the-place-a-submit-keeps`). The highest
+committed number otherwise is 265. **268 is free.** Re-check immediately before
+opening the PR — parked PRs can still land a 268 between now and then.
 
 **ADRs referenced:**
 

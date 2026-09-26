@@ -1,4 +1,4 @@
-# Plan 266: The fade that stands for every state
+# Plan 268: The fade that stands for every state
 
 **Spec**: [spec.md](spec.md) · **Issue**: #2336 · **Phase**: 2 (Plan)
 

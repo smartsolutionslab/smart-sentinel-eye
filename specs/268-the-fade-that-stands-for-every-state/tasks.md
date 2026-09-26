@@ -1,4 +1,4 @@
-# Tasks 266: The fade that stands for every state
+# Tasks 268: The fade that stands for every state
 
 **Spec**: [spec.md](spec.md) · **Plan**: [plan.md](plan.md) · **Issue**: #2336 · **Phase**: 3 (Tasks)
 **Colour**: **red** (behaviour-changing: every console Button's rendering). Pins declared green
@@ -46,7 +46,7 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
   confirm button `aria-busy="true"`.
 - [ ] **T005 [P] [US1]** `LayoutEditorDialogSaveGate.test.tsx:227` and
   `OverlayEditorDialogSaveGate.test.tsx:247`: `aria-disabled:opacity-50` →
-  `aria-disabled:text-fg-disabled`; the comment above each names spec 266.
+  `aria-disabled:text-fg-disabled`; the comment above each names spec 268.
 - [ ] **T006 [P] [US1]** Both `apps/{management-web,kiosk-web}/src/styles/tokens.build.test.ts`:
   plan §5.3's candidates and assertions; the three pins marked as such in a comment.
 - [ ] **T007 [P] [US1][US3]** `e2e/interaction-states.spec.ts`: plan §5.4 items 1–5, sign-in
