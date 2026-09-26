@@ -27,7 +27,7 @@ public static partial class LayoutEndpoints
     /// there would allow the two to disagree.
     /// </para>
     /// </summary>
-    private static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
+    internal static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,
@@ -63,7 +63,7 @@ public static partial class LayoutEndpoints
     /// reported exactly as one that never existed (FR-006).
     /// </para>
     /// </summary>
-    private static Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveCallerFabsAsync(
+    internal static Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveCallerFabsAsync(
         ClaimsPrincipal user,
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken) =>
@@ -80,7 +80,7 @@ public static partial class LayoutEndpoints
     /// holds. Mirrors <c>CameraEndpoints</c>, where that was a real defect.
     /// </para>
     /// </summary>
-    private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
+    internal static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user,
         string fabId,
         IFabAuthorizationGuard fabGuard,

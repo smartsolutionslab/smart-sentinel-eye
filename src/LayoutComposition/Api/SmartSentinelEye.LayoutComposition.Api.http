@@ -4,3 +4,44 @@ GET {{SmartSentinelEye.LayoutComposition.Api_HostAddress}}/weatherforecast/
 Accept: application/json
 
 ###
+
+# Spec 258 US1 — walls (needs a bearer token with sse.layouts.write / .read)
+
+POST {{SmartSentinelEye.LayoutComposition.Api_HostAddress}}/walls
+Content-Type: application/json
+Idempotency-Key: example-create-key-1
+
+{
+  "name": "Line 3 rotation",
+  "scenes": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
+}
+
+###
+
+GET {{SmartSentinelEye.LayoutComposition.Api_HostAddress}}/walls
+
+###
+
+GET {{SmartSentinelEye.LayoutComposition.Api_HostAddress}}/walls/00000000-0000-0000-0000-000000000000
+
+###
+
+PUT {{SmartSentinelEye.LayoutComposition.Api_HostAddress}}/walls/00000000-0000-0000-0000-000000000000/scenes
+Content-Type: application/json
+If-Match: "0"
+
+{
+  "scenes": ["00000000-0000-0000-0000-000000000001", "00000000-0000-0000-0000-000000000002"]
+}
+
+###
+
+POST {{SmartSentinelEye.LayoutComposition.Api_HostAddress}}/walls/00000000-0000-0000-0000-000000000000/switch
+Content-Type: application/json
+If-Match: "0"
+
+{
+  "target": "next"
+}
+
+###
