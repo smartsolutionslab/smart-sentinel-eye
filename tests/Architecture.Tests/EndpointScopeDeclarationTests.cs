@@ -261,9 +261,12 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// exception being <see cref="Scope.Sse.Events.Publish"/>. So a token carrying
 /// the bundle alone satisfies every scoped endpoint this guard checks, and every
 /// <c>Required scope:</c> sentence it demands is true but not the whole truth.
-/// Only <c>POST /streams/authorize</c> says so, because only there is the check
-/// hand-rolled in the handler rather than delegated to the policy. That is
-/// <c>KioskScopeParityTests</c>' territory, not this one.
+/// <b>#2486 (spec 258)</b> narrowed that gap to the policy-routed endpoints
+/// only: <c>POST /streams/authorize</c>'s check is hand-rolled rather than
+/// delegated to the policy, so it does not inherit the bundle's grandfathering,
+/// and no summary here names it any more. The gap closes for the rest when
+/// #2486's remainder withdraws the bundle from <c>AddScopePolicies</c> itself.
+/// That is <c>KioskScopeParityTests</c>' territory, not this one.
 /// </para>
 ///
 /// <para>
@@ -819,18 +822,28 @@ public class EndpointScopeDeclarationTests
     }
 
     /// <summary>
-    /// <b>A8b — the WHEP hook's sentence is pinned to the constants it is about.</b>
+    /// <b>A8b — the WHEP hook's sentence is pinned to the constant it is about.</b>
     ///
     /// <para>
     /// <see cref="Every_anonymous_endpoint_says_what_authenticates_it_instead"/>
     /// asks only whether the label is present, so <c>"No OIDC scope: trust me"</c>
-    /// would satisfy it. This endpoint's sentence names two scopes the handler
-    /// hand-rolls, and both are read here as constants rather than typed, so the
-    /// day either moves the sentence is red instead of quietly false.
+    /// would satisfy it. This endpoint's sentence names the one scope the handler
+    /// hand-rolls, read here as a constant rather than typed, so the day it moves
+    /// the sentence is red instead of quietly false.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>#2486 (spec 258).</b> The handler no longer accepts
+    /// <see cref="RequireScopeExtensions.LegacyManagementBundle"/> — the absence
+    /// assertion below is the other half of that: a summary should not go on
+    /// naming a scope the check now refuses. The reference to the constant stays
+    /// on purpose, as the authoritative spelling while it still exists; when
+    /// #2486's remainder deletes it, this assertion is deleted with it, since
+    /// nothing will remain to hold the scope to be named.
     /// </para>
     /// </summary>
     [Fact]
-    public void The_whep_hook_summary_names_the_two_scopes_its_handler_accepts()
+    public void The_whep_hook_summary_names_the_one_scope_its_handler_accepts()
     {
         string required = PrivateConstant(typeof(AuthorizeWhepCommandHandler), "RequiredScope");
         string bundle = RequireScopeExtensions.LegacyManagementBundle;
@@ -844,13 +857,12 @@ public class EndpointScopeDeclarationTests
             + $"admits them does not name it: {Quoted(summary)}. The endpoint is anonymous, so this "
             + "sentence is the only place the surface says what the call is checked against.");
 
-        summary.ShouldContain(
+        summary.ShouldNotContain(
             bundle,
             Case.Sensitive,
-            $"the handler also accepts '{bundle}' and the summary no longer names it: "
-            + $"{Quoted(summary)}. If the bundle was withdrawn, delete the clause with it; "
-            + "AuthenticationDefaults.AdminPolicy is already marked obsolete, so this sentence is on a "
-            + "path to becoming false without anything failing.");
+            $"the handler no longer accepts '{bundle}' (#2486) and the summary still names it: "
+            + $"{Quoted(summary)}. An OpenAPI summary naming a scope the check refuses is worse than "
+            + "silence — drop the clause with the fix.");
     }
 
     /// <summary>
