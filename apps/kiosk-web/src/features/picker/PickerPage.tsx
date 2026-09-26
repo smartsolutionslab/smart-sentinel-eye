@@ -1,4 +1,5 @@
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
+import { useListWallsQuery, type Wall } from '@smart-sentinel-eye/shared/api/walls.api';
 import type { ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
@@ -17,6 +18,10 @@ export function PickerPage() {
   const auth = useAuth();
   const navigate = useNavigate();
   const { data, isLoading, error, refetch } = useListLayoutsQuery('Published');
+  // Spec 258 US1: walls are listed alongside layouts. A wall's own scene
+  // pointer moves via SignalR once the kiosk is on `/walls/:id` (WallPage);
+  // the picker just needs the current list to route to one.
+  const { data: walls } = useListWallsQuery();
 
   const { degraded } = useLayoutLifecycle({
     accessTokenFactory: () => auth.user?.access_token ?? '',
@@ -35,8 +40,10 @@ export function PickerPage() {
         isLoading={isLoading}
         hasError={error !== undefined}
         published={data?.published ?? []}
+        walls={walls ?? []}
         onRetry={() => void refetch()}
         onOpen={(layoutIdentifier) => navigate(`/layouts/${layoutIdentifier}`)}
+        onOpenWall={(wallIdentifier) => navigate(`/walls/${wallIdentifier}`)}
       />
       <LiveUpdatesBadge degraded={degraded} />
     </>
@@ -47,11 +54,13 @@ interface PickerBodyProps {
   isLoading: boolean;
   hasError: boolean;
   published: { layoutIdentifier: string; name: string; revisionNumber: number }[];
+  walls: Wall[];
   onRetry: () => void;
   onOpen: (layoutIdentifier: string) => void;
+  onOpenWall: (wallIdentifier: string) => void;
 }
 
-function PickerBody({ isLoading, hasError, published, onRetry, onOpen }: PickerBodyProps) {
+function PickerBody({ isLoading, hasError, published, walls, onRetry, onOpen, onOpenWall }: PickerBodyProps) {
   if (isLoading) {
     return <FullScreen message="Loading layouts…" />;
   }
@@ -97,6 +106,25 @@ function PickerBody({ isLoading, hasError, published, onRetry, onOpen }: PickerB
           </li>
         ))}
       </ul>
+
+      {walls.length > 0 && (
+        <>
+          <h2 className="mb-6 mt-10 text-3xl font-semibold">Walls</h2>
+          <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {walls.map((wall) => (
+              <li key={wall.wallIdentifier}>
+                <button
+                  type="button"
+                  onClick={() => onOpenWall(wall.wallIdentifier)}
+                  className="w-full rounded-lg border border-fg-muted/30 bg-bg-elevated p-6 text-left transition hover:border-accent-active"
+                >
+                  <h2 className="text-xl font-medium">{wall.name}</h2>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </main>
   );
 }
