@@ -97,11 +97,17 @@ public class StatusProducerDeclarationTests
     private const string GuardSource = "tests/Architecture.Tests/StatusProducerDeclarationTests.cs";
     private const string EndpointFileSuffix = "Endpoints.cs";
 
-    /// <summary>Every <c>.Map(Get|Post|Put|Patch|Delete)(</c> site under <c>src/*/Api</c>.</summary>
-    private const int RouteHandlerMappingCount = 60;
+    /// <summary>
+    /// Every <c>.Map(Get|Post|Put|Patch|Delete)(</c> site under <c>src/*/Api</c>.
+    /// Spec 258 US1 added WallEndpoints.cs's five route handlers: 60 -&gt; 65.
+    /// </summary>
+    private const int RouteHandlerMappingCount = 65;
 
-    /// <summary>Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.</summary>
-    private const int EndpointFileCount = 13;
+    /// <summary>
+    /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
+    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14.
+    /// </summary>
+    private const int EndpointFileCount = 14;
 
     /// <summary>Where the exception handlers this census classifies are registered.</summary>
     private const string RegistrationSource = "src/ServiceDefaults/AuthenticationDefaults.cs";

@@ -211,20 +211,24 @@ public class ConcurrencyConflictDeclarationTests
         TimeSpan.FromSeconds(5));
 
     /// <summary>
-    /// Thirty-three mutating mappings, in eleven files, across eight contexts.
-    /// Pinned rather than merely compared: every other count in this file is
-    /// derived from one glob, so a file leaving <c>src/*/Api</c> shrinks both
-    /// sides of every comparison at once and nothing goes red. Adding, moving or
-    /// removing a mutating endpoint edits one of these numbers in the same diff.
+    /// Mutating mappings, spread over files and contexts. Pinned rather than
+    /// merely compared: every other count in this file is derived from one
+    /// glob, so a file leaving <c>src/*/Api</c> shrinks both sides of every
+    /// comparison at once and nothing goes red. Adding, moving or removing a
+    /// mutating endpoint edits one of these numbers in the same diff. Spec 258
+    /// US1 added three (POST /walls, PUT /walls/{id}/scenes,
+    /// POST /walls/{id}/switch) in a new file, WallEndpoints.cs: 35 -&gt; 38
+    /// mappings, 12 -&gt; 13 files.
     /// </summary>
-    private const int MutatingMappingCount = 35;
+    private const int MutatingMappingCount = 38;
 
-    private const int MutatingMappingFileCount = 12;
+    private const int MutatingMappingFileCount = 13;
 
     private const int MutatingMappingContextCount = 8;
 
     /// <summary>
-    /// The twenty-nine routes that can answer <c>409</c>, each with the
+    /// The thirty-two routes that can answer <c>409</c> (spec 258 US1 added
+    /// three), each with the
     /// mechanism — or mechanisms — that produce it. Each must declare
     /// <c>Status409Conflict</c> in its own chain.
     ///
@@ -242,7 +246,7 @@ public class ConcurrencyConflictDeclarationTests
     /// on <c>ux_layout_revisions_number</c> / <c>ux_overlay_revisions_number</c>,
     /// and no row cited it — and that gap is now closed, but nothing here can
     /// promise there is not another: a route's mechanisms are settled three or
-    /// four hops away, and completeness across four mechanisms and twenty-nine
+    /// four hops away, and completeness across four mechanisms and thirty-two
     /// routes is not something a reader can check. <b>No assertion in this file
     /// depends on the strings.</b> They are carried into the two partition
     /// failure messages by <see cref="MechanismFor"/> and
@@ -384,6 +388,16 @@ public class ConcurrencyConflictDeclarationTests
             "LayoutComposition PATCH /layouts/{layoutIdentifier:guid}/revisions/{revisionNumber:int}",
             "refusal (EditDraftRevisionErrors); lost update"),
         new(
+            "LayoutComposition POST /walls/",
+            "refusal (CreateWallFailures.NameTaken); unique race (ux_walls_fab_name_ci, unlike "
+            + "ix_layouts_fab_name this one IS unique); idempotency"),
+        new(
+            "LayoutComposition PUT /walls/{wallIdentifier:guid}/scenes",
+            "refusal (EditWallScenesFailures.Stale); lost update (Wall.Version concurrency token)"),
+        new(
+            "LayoutComposition POST /walls/{wallIdentifier:guid}/switch",
+            "refusal (SwitchWallSceneFailures.Stale); lost update (Wall.Version concurrency token)"),
+        new(
             "OverlayDesigner POST /overlays/",
             "refusal (CreateOverlayDraftErrors.NameAlreadyTaken); idempotency. NOT a unique race: "
             + "ix_overlays_name is not unique"),
@@ -498,7 +512,7 @@ public class ConcurrencyConflictDeclarationTests
     /// or started, a context that gained or lost a write surface.
     /// </summary>
     [Fact]
-    public void The_mutating_surface_is_thirty_three_mappings_in_eleven_files_across_eight_contexts()
+    public void The_mutating_surface_is_thirty_eight_mappings_in_thirteen_files_across_eight_contexts()
     {
         IReadOnlyList<MutatingMapping> mappings = TheMappings.Value;
 

@@ -83,7 +83,7 @@ public class StaleCodeConventionTests
     /// offenders proves nothing unless something is known to be there.
     ///
     /// <para>
-    /// Eight today — seven per-context refusals plus the shared Layer-2 handler
+    /// Nine today — eight per-context refusals plus the shared Layer-2 handler
     /// in ServiceDefaults. That eighth is why this feature turned out bigger
     /// than #1857 described: it was named <c>AGGREGATE_VERSION_CONFLICT</c>, so
     /// no client recognised the true database race as a lost update, in
@@ -116,13 +116,15 @@ public class StaleCodeConventionTests
                 "OVERLAY_REVISION_STALE",
                 "RULE_STALE",
                 "VARIABLE_STALE",
+                "WALL_STALE",
                 "WEBHOOK_CLIENT_STALE",
                 "WEBHOOK_INTEGRATION_STALE",
             ],
             ignoreOrder: true,
-            "Nine codes: eight per-context refusals plus AGGREGATE_VERSION_STALE, the shared Layer-2 "
+            "Ten codes: nine per-context refusals plus AGGREGATE_VERSION_STALE, the shared Layer-2 "
             + "handler in ServiceDefaults that covers the true database race for every mutating endpoint. "
-            + "If this list shrank, a context lost its concurrency "
+            + "WALL_STALE (spec 258 US1) is one code shared by EditWallScenesError.Stale and "
+            + "SwitchWallSceneError.Stale. If this list shrank, a context lost its concurrency "
             + "refusal; if it grew, a new one arrived and the shared client's tests should cover it too "
             + "(specs/031-stale-version-convention).");
     }

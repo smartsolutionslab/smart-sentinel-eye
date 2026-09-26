@@ -146,7 +146,8 @@ public class PrimitiveBoundaryTests
         // A guard on the guard: if a refactor stops the walk reaching aggregate
         // state, the rule above silently passes everything. That failure is
         // invisible without this.
-        roots.Count.ShouldBe(12);
+        // Spec 258 US1 added the Wall aggregate: 12 -> 13 roots.
+        roots.Count.ShouldBe(13);
         reached.ShouldBeGreaterThan(100);
     }
 
