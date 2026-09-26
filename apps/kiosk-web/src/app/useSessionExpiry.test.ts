@@ -107,6 +107,11 @@ describe('The renewer keeps its contract (spec 051 T011)', () => {
   });
 });
 
+// #2536 guard constant. Must clear the old 1000 ms `asyncUtilTimeout` default
+// by a clear margin, matching the precedent set for #2520/#2419 in
+// apps/management-web/src/features/overlays/OverlayEditorDialogResolvePreview.test.tsx.
+const SLOW_REJECTION_MS = 1500;
+
 describe('A refused screen is never redirected (spec 051 US2)', () => {
   beforeEach(() => {
     window.localStorage.clear();
@@ -153,6 +158,39 @@ describe('A refused screen is never redirected (spec 051 US2)', () => {
   });
 
   /**
+   * #2536 guard. The test above already covers the recoverable verdict for an
+   * absent provider whose `signinSilent` rejects promptly; this guards the
+   * same verdict under real latency. `SLOW_REJECTION_MS` (1.5 s) clears
+   * Testing Library's OLD 1000 ms `asyncUtilTimeout` default by a clear
+   * margin, so a future reduction of that value (kiosk-web's
+   * `src/test/setup.ts`) below roughly this mark fails the build here instead
+   * of on someone else's unrelated pull request. The bound itself is not
+   * asserted directly — `configure(...)`'s value is this guard's input, and
+   * asserting it back would only prove the input was read, not that it does
+   * anything (MEMORY: an assertion must not check its own input).
+   *
+   * The delay is a real `setTimeout` inside the `signinSilent` stub, injecting
+   * latency — not a fixed-count settle before an assertion and not inside a
+   * loop, so it falls outside ADR-0150 §2's selectors (a separate, related
+   * rule; not conflated with this one).
+   */
+  it('Still reaches the recoverable verdict when the provider fails too slowly for the old deadline (#2536)', async () => {
+    window.localStorage.setItem(WAS_AUTHENTICATED_STORAGE_KEY, 'true');
+    const auth = authWith({
+      signinSilent: vi.fn(
+        () =>
+          new Promise((_resolve, reject) => {
+            setTimeout(() => reject(new TypeError('Failed to fetch')), SLOW_REJECTION_MS);
+          }),
+      ),
+    } as Partial<AuthContextProps>);
+
+    const { result } = renderHook(() => useSessionExpiry(auth));
+
+    await waitFor(() => expect(result.current.identityFailure).toBe('recoverable'));
+  });
+
+  /**
    * **The wall coming back, with nothing touched** (US1). The provider starts
    * refusing, then recovers; the verdict must clear without any manual call.
    */
@@ -175,7 +213,7 @@ describe('A refused screen is never redirected (spec 051 US2)', () => {
     // version of this test called `retryNow` to shorten the wait, and would have
     // passed against a screen that only ever recovers when somebody presses
     // something. That screen is the defect.
-    await waitFor(() => expect(result.current.identityFailure).toBeUndefined(), { timeout: 10_000 });
+    await waitFor(() => expect(result.current.identityFailure).toBeUndefined());
     expect(auth.signinRedirect).not.toHaveBeenCalled();
   });
 
