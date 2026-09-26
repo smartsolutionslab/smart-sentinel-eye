@@ -37,13 +37,13 @@ public class AuthorizeWhepCommandHandlerTests
     ];
 
     /// <summary>
-    /// Mirrors management-web's <c>defaultClientScopes</c> since spec 200 US1
-    /// (realm <c>:157-188</c>) — a representative slice of its granular
+    /// Mirrors management-web's <c>defaultClientScopes</c> in the realm since
+    /// spec 200 US1 — a representative slice of its granular
     /// <c>sse.*.read</c>/<c>.write</c> scopes, including <c>sse.streams.read</c>
-    /// and deliberately <b>not</b> <c>sse.management</c>. It need not be the
-    /// exact twenty the realm grants; it only needs to prove the read scope
-    /// alone is sufficient. Written out rather than referenced — Application
-    /// tests do not reach into the realm or another context.
+    /// and deliberately <b>not</b> <c>sse.management</c>. It need not be every
+    /// scope the realm grants; it only needs to prove the read scope alone is
+    /// sufficient. Written out rather than referenced — Application tests do
+    /// not reach into the realm or another context.
     /// </summary>
     private static readonly string[] AConsolePersona =
     [
@@ -122,6 +122,7 @@ public class AuthorizeWhepCommandHandlerTests
                 ReportedMediaMtxAction.TryFrom("read")),
             CancellationToken.None);
 
+        result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(path);
     }
 
@@ -231,7 +232,7 @@ public class AuthorizeWhepCommandHandlerTests
 
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -274,10 +275,9 @@ public class AuthorizeWhepCommandHandlerTests
     }
 
     /// <summary>
-    /// The console's granular token is the broadest token that reaches this
-    /// hook (#2486 — the bundle no longer does). Breadth of scope is not the
-    /// question a publish asks — the action is refused for everyone, so this
-    /// token is refused too.
+    /// The console's token reaches this hook (#2486 — the bundle no longer
+    /// does). Breadth of scope is not the question a publish asks — the
+    /// action is refused for everyone, so this token is refused too.
     /// </summary>
     [Fact]
     public async Task Authorize_a_publish_with_the_consoles_broadest_token_is_refused()
