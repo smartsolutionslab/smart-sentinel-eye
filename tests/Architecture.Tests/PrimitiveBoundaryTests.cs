@@ -53,7 +53,7 @@ public class PrimitiveBoundaryTests
     ];
 
     /// <summary>
-    /// Roots the walk starts from. Eleven aggregates reach it through
+    /// Roots the walk starts from. Thirteen aggregates reach it through
     /// <c>AggregateRoot&lt;T&gt;</c>; <c>AuditEvent</c> is append-only and carries
     /// state without that base, so it is named. A new aggregate needs no edit
     /// here unless it likewise skips the base.
@@ -147,7 +147,8 @@ public class PrimitiveBoundaryTests
         // state, the rule above silently passes everything. That failure is
         // invisible without this.
         // Spec 258 US1 added the Wall aggregate: 12 -> 13 roots.
-        roots.Count.ShouldBe(13);
+        // Spec 269 adds the SourceMode aggregate: 13 -> 14 roots.
+        roots.Count.ShouldBe(14);
         reached.ShouldBeGreaterThan(100);
     }
 
