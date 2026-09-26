@@ -20,6 +20,24 @@ import { boundOverlayIn, namedFab } from './wallBindings.js';
 export interface LayoutGridProps {
   /** The Layout chain to render — a route param for `CellPage`, or a wall's current `Showing` for `WallPage` (spec 258 plan.md §6.3). */
   layoutIdentifier: string;
+  /**
+   * Called instead of navigating to the picker when this layout becomes
+   * unavailable (archived, or loaded with no Published revision). Defaults
+   * to `navigate('/')`, so `CellPage` — which doesn't pass this — is
+   * completely unchanged. `WallPage` (spec 258 PD-6) passes a no-op: a wall
+   * does not auto-advance off itself, it stays put showing this component's
+   * own archived-layout placeholder (24/7 operation).
+   */
+  onUnavailable?: () => void;
+  /**
+   * Overrides the header's title (normally the current scene's own layout
+   * name) and hides the "Back" button. `WallPage` passes the wall's name
+   * here: a wall's header should read as the wall, not whichever scene it
+   * happens to be showing, and a wall page offers no way to leave the wall
+   * (spec 258 PD-6). `CellPage` doesn't pass this, so its header is
+   * unchanged.
+   */
+  headerTitle?: string;
 }
 
 /**
@@ -45,9 +63,16 @@ export interface LayoutGridProps {
  * (highlight-all-matching, ADR-0112 §5). A highlight for an overlay bound
  * to no rendered tile is a no-op.
  */
-export function LayoutGrid({ layoutIdentifier }: LayoutGridProps) {
+export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: LayoutGridProps) {
   const navigate = useNavigate();
   const auth = useAuth();
+  const handleUnavailable = useCallback(() => {
+    if (onUnavailable !== undefined) {
+      onUnavailable();
+      return;
+    }
+    navigate('/', { replace: true });
+  }, [navigate, onUnavailable]);
 
   // Stable identity, holding the newest token behind a ref. Every tile puts this
   // into effect dependency arrays, so a fresh function each render rebuilds those
@@ -147,7 +172,7 @@ export function LayoutGrid({ layoutIdentifier }: LayoutGridProps) {
     enabled: auth.isAuthenticated,
     onArchived: (message) => {
       if (message.layout === layoutIdentifier) {
-        navigate('/', { replace: true });
+        handleUnavailable();
       }
     },
     ...overlayHub.handlers,
@@ -158,17 +183,25 @@ export function LayoutGrid({ layoutIdentifier }: LayoutGridProps) {
 
   useEffect(() => {
     if (!isLoading && error === undefined && data !== undefined && published === undefined) {
-      navigate('/', { replace: true });
+      handleUnavailable();
     }
-  }, [data, error, isLoading, navigate, published]);
+  }, [data, error, isLoading, handleUnavailable, published]);
+
+  // `headerTitle` (WallPage) has to stay visible through every branch below —
+  // loading, the archived/unavailable fallback, and the rendered grid — so a
+  // wall's own name doesn't blink out while a scene it just switched to is
+  // still loading. `CellPage` doesn't pass it, so its loading/fallback
+  // screens stay exactly as before (no header at all).
+  const wallHeader = headerTitle !== undefined ? <WallHeader title={headerTitle} /> : undefined;
 
   if (isLoading) {
-    return <FullScreen message="Loading camera…" />;
+    return <FullScreen message="Loading camera…" header={wallHeader} />;
   }
   if (error !== undefined || data === undefined || published === undefined || tiles.length === 0) {
     return (
       <FullScreen
         message="Layout is no longer available."
+        header={wallHeader}
         action={
           <button
             type="button"
@@ -186,12 +219,10 @@ export function LayoutGrid({ layoutIdentifier }: LayoutGridProps) {
 
   return (
     <main className="relative min-h-screen bg-black">
-      <header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-black/50 px-6 py-3 text-fg-primary">
-        <h1 className="text-lg font-medium">{data.name}</h1>
-        <button type="button" className="rounded-md bg-bg-elevated/60 px-3 py-1 text-sm" onClick={() => navigate('/')}>
-          Back
-        </button>
-      </header>
+      <WallHeader
+        title={headerTitle ?? data.name}
+        onBack={headerTitle === undefined ? () => navigate('/') : undefined}
+      />
       <div
         data-testid="layout-grid"
         className="grid h-screen gap-1 p-1"
@@ -460,11 +491,35 @@ function positionKey(row: number, col: number): string {
   return `${row}:${col}`;
 }
 
-function FullScreen({ message, action }: { message: string; action?: ReactNode }) {
+function FullScreen({
+  message,
+  action,
+  header,
+}: {
+  message: string;
+  action?: ReactNode;
+  /** A `WallHeader` to keep visible through this placeholder (see `wallHeader` above). */
+  header?: ReactNode;
+}) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base p-8 text-center">
+    <main className="relative flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base p-8 text-center">
+      {header}
       <p className="text-lg">{message}</p>
       {action}
     </main>
+  );
+}
+
+/** The persistent title bar; `onBack` renders the "Back" button (CellPage only — a wall page offers no way to leave, PD-6). */
+function WallHeader({ title, onBack }: { title: string; onBack?: () => void }) {
+  return (
+    <header className="absolute left-0 right-0 top-0 z-10 flex items-center justify-between bg-black/50 px-6 py-3 text-fg-primary">
+      <h1 className="text-lg font-medium">{title}</h1>
+      {onBack !== undefined && (
+        <button type="button" className="rounded-md bg-bg-elevated/60 px-3 py-1 text-sm" onClick={onBack}>
+          Back
+        </button>
+      )}
+    </header>
   );
 }

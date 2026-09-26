@@ -1,6 +1,6 @@
 import { useGetWallQuery } from '@smart-sentinel-eye/shared/api/walls.api';
 import { createLayoutHubClient } from '@smart-sentinel-eye/shared/realtime/layoutHub';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useParams } from 'react-router-dom';
 import { LayoutGrid } from '../cell/LayoutGrid.js';
@@ -15,7 +15,11 @@ interface Showing {
  * once via `GET /walls/{id}`, then renders whichever scene is currently
  * showing through `LayoutGrid` — the same renderer `CellPage` uses (T063) —
  * remounted via `key` on every scene change so the old grid's WebRTC
- * sessions tear down deterministically (plan.md §6.3).
+ * sessions tear down deterministically (plan.md §6.3). Renders `LayoutGrid`
+ * directly rather than wrapping it in a second `<main>`/header: `LayoutGrid`
+ * already renders that structure, and a wall's header is `headerTitle`
+ * (the wall's own name) with the "Back" button suppressed — a wall page
+ * offers no way to leave the wall (PD-6).
  *
  * Owns its own `WallSceneChanged` subscription, separate from `LayoutGrid`'s
  * own layout-lifecycle hub connection: a wall's scene pointer is a
@@ -23,8 +27,15 @@ interface Showing {
  * this page's callbacks (discard-by-version, reconnect-reread) apply only
  * to the pointer. FR-008: a frame whose `sceneVersion` is not strictly
  * greater than the one currently rendered is discarded (US1-16), and the
- * wall is re-read from scratch on every hub reconnect (US1-17) rather than
- * trusting that no frame was missed while the connection was down.
+ * wall is re-read from scratch on every hub reconnect (US1-17) and on the
+ * hub's very first connect (US1-?, a switch landing before SignalR finishes
+ * negotiating would otherwise never be received) rather than trusting that
+ * no frame was missed while the connection was down.
+ *
+ * PD-6: an archived/unpublished showing scene does not take the kiosk off
+ * the wall — `onUnavailable` is a no-op, so `LayoutGrid` shows its own
+ * archived-layout placeholder in place rather than navigating to the picker
+ * (the default every other caller, i.e. `CellPage`, keeps).
  */
 export function WallPage() {
   const { wallIdentifier = '' } = useParams<{ wallIdentifier: string }>();
@@ -37,9 +48,14 @@ export function WallPage() {
   // eslint-disable-next-line react-hooks/refs -- see above
   accessTokenRef.current = auth.user?.access_token;
 
-  const { data, isLoading, error, refetch } = useGetWallQuery(wallIdentifier, {
+  const { data, isLoading, refetch } = useGetWallQuery(wallIdentifier, {
     skip: wallIdentifier === '',
   });
+
+  // Additive no-op for LayoutGrid's onUnavailable (PD-6): a stable identity
+  // (empty deps) so the effect below, and LayoutGrid's own, never see it as
+  // "changed" on an unrelated re-render.
+  const stayOnWall = useCallback(() => undefined, []);
 
   // The locally-tracked pointer. Seeded from the query result and moved only
   // forward by a WallSceneChanged frame's sceneVersion (US1-16) — never
@@ -85,6 +101,17 @@ export function WallPage() {
         onReconnected: () => {
           void refetch();
         },
+        // US1-5: also re-read on the hub's very first connect, not only on
+        // recovery — `GET /walls/{id}` usually resolves before SignalR
+        // finishes negotiating, so a switch landing in that gap would
+        // otherwise never be received. `onStateChange` fires on every
+        // connected transition, including the first, and the sceneVersion
+        // gate above makes a redundant read here harmless.
+        onStateChange: (state) => {
+          if (state === 'connected') {
+            void refetch();
+          }
+        },
       },
     );
 
@@ -105,29 +132,49 @@ export function WallPage() {
     };
   }, [auth.isAuthenticated, wallIdentifier, refetch]);
 
-  if (isLoading) {
-    return <FullScreen message="Loading wall…" />;
-  }
-  if (error !== undefined || data === undefined) {
-    return <FullScreen message="Wall is no longer available." />;
+  // Render from `data` whenever it's present, even alongside a concurrent
+  // `error` — RTK Query keeps the last good `data` through a failed
+  // background refetch (e.g. a transient reconnect re-read), and swapping to
+  // the fallback on that error would blank an otherwise-fine wall (spec 258
+  // review). The fallback is reserved for when there is truly nothing to
+  // show yet.
+  if (data === undefined) {
+    if (isLoading) {
+      return <FullScreen message="Loading wall…" />;
+    }
+    return (
+      <FullScreen
+        message="Wall is no longer available."
+        action={
+          <button
+            type="button"
+            className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
+            onClick={() => void refetch()}
+          >
+            Retry
+          </button>
+        }
+      />
+    );
   }
 
   const currentLayout = showing?.layout ?? data.showing;
 
   return (
-    <main className="relative min-h-screen bg-black">
-      <header className="absolute left-0 right-0 top-0 z-10 bg-black/50 px-6 py-3 text-fg-primary">
-        <h1 className="text-lg font-medium">{data.name}</h1>
-      </header>
-      <LayoutGrid layoutIdentifier={currentLayout} key={currentLayout} />
-    </main>
+    <LayoutGrid
+      layoutIdentifier={currentLayout}
+      key={currentLayout}
+      onUnavailable={stayOnWall}
+      headerTitle={data.name}
+    />
   );
 }
 
-function FullScreen({ message }: { message: string }) {
+function FullScreen({ message, action }: { message: string; action?: ReactNode }) {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base p-8 text-center">
       <p className="text-lg">{message}</p>
+      {action}
     </main>
   );
 }
