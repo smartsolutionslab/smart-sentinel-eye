@@ -364,7 +364,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     vi.restoreAllMocks();
   });
 
-  it('Stops showing camera A the instant the tile is reassigned to camera B', { timeout: 10_000 }, async () => {
+  it('Stops showing camera A the instant the tile is reassigned to camera B', async () => {
     setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
     const view = render(viewerFor(CAM_A));
     const pcA = await goLive();
@@ -451,7 +451,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     expect(screen.queryByText('Connecting…')).toBeNull();
   });
 
-  it('Never resolves to camera A when every stream read for camera B fails', { timeout: 10_000 }, async () => {
+  it('Never resolves to camera A when every stream read for camera B fails', async () => {
     setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
     const view = render(viewerFor(CAM_A));
     const pcA = await goLive();
@@ -498,7 +498,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
 
   it(
     "Never resolves to camera A when the gateway refuses camera B's stream read with 403",
-    { timeout: 10_000 },
     async () => {
       setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
       const view = render(viewerFor(CAM_A));
@@ -523,7 +522,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
 
   it(
     'Reads "Stream is offline" rather than Connecting when the new camera answers Offline',
-    { timeout: 10_000 },
     async () => {
       setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
       const view = render(viewerFor(CAM_A));
@@ -563,7 +561,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
 
   it(
     'Reads Stream is offline, not Connecting forever, when camera B is already warm in the cache',
-    { timeout: 10_000 },
     async () => {
       setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
       setStreamAnswer(CAM_B, () => jsonResponse(offlineStream(CAM_B, CAM_B_WHEP_URL, 'Source powered down.')));
@@ -632,7 +629,7 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     },
   );
 
-  it('Reads Viewer error, not Idle, on a first mount whose stream read fails', { timeout: 10_000 }, async () => {
+  it('Reads Viewer error, not Idle, on a first mount whose stream read fails', async () => {
     // FR-007 note, not a swap scenario: FR-005's error branch
     // (CameraViewer.tsx's `failedRead`) is not scoped to a camera change —
     // it fires on ANY failed read with no stream for the current camera,
@@ -656,7 +653,6 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
 
   it(
     'Keeps the session to camera A across an unrelated re-render with a new getToken closure',
-    { timeout: 10_000 },
     async () => {
       setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
       const view = render(viewerFor(CAM_A));

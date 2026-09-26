@@ -15,5 +15,10 @@ export default defineConfig({
     environment: 'node',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
+    // Raising `asyncUtilTimeout` alone (src/test/setup.ts) just renames the
+    // failure once contention pushes a wait past Vitest's 5 s default — it
+    // dies as "Test timed out in 5000ms" instead, which names nothing (spec
+    // 216 §Claim 8). Match management-web's and kiosk-web's `testTimeout`.
+    testTimeout: 30_000,
   },
 });
