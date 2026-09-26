@@ -125,6 +125,13 @@ Marked superseded in the row itself. Not audited; 015 is audited in its place.
 | Keycloak per fab, self-hosted OIDC | **Holds** | 34 references in `AppHost.cs`; realm imported from `src/AppHost/Realms/` |
 | v2 federation | **Unverifiable here** | v2 intent |
 
+> **Corrected by ADR-0159 (issue 2080).** The first row's verdict is wrong.
+> Its evidence establishes *Keycloak, self-hosted* and says nothing about
+> *per fab* — and the realm it cites holds **one** realm with four fab groups
+> and a principal in two of them. Spec 008 had already chosen a single shared
+> realm. The verdict is left as recorded so the miss stays visible; the
+> finding is **Diverges**: one realm per deployment, not per fab.
+
 ### 008 — kiosk authentication → **Diverges**
 
 > *Kiosk auth = device-bound credential → OIDC `client_credentials` → short-lived
