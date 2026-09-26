@@ -7,16 +7,16 @@ using SmartSentinelEye.ServiceDefaults.Authorization;
 namespace SmartSentinelEye.ServiceDefaults.Tests.Authorization;
 
 /// <summary>
-/// Spec 200 US2 / #2486 (SC-10) — the registration itself offers no back door
-/// once the <c>sse.management</c> bundle is withdrawn from every policy.
+/// Spec 265 (#2486, SC-10) — the registration itself offers no back door once
+/// the <c>sse.management</c> bundle is withdrawn from every policy.
 ///
 /// <para>
-/// <b>What is broken today.</b> <c>AuthenticationDefaults.AddBearerAuthentication</c>
-/// registers a second policy, <c>"admin"</c>, requiring the same bundle — a
-/// registered policy that no client can ever satisfy legitimately, and that no
-/// endpoint, hub or attribute names (grepped; only the definition and one stale
-/// doc <c>cref</c> reference it). It has carried
-/// <c>[Obsolete("… Removed in spec 009.")]</c> since issue #844.
+/// <b>What this guards against.</b> <c>AuthenticationDefaults.AddBearerAuthentication</c>
+/// used to register a second policy, <c>"admin"</c>, requiring the same
+/// bundle — a registered policy that no client could ever satisfy
+/// legitimately, and that no endpoint, hub or attribute named (grepped; only
+/// the definition and one stale doc <c>cref</c> referenced it). It had
+/// carried <c>[Obsolete("… Removed in spec 009.")]</c> since issue #844.
 /// </para>
 ///
 /// <para>
@@ -29,18 +29,26 @@ namespace SmartSentinelEye.ServiceDefaults.Tests.Authorization;
 ///
 /// <para>
 /// <b>The literal <c>"admin"</c>, not <c>AuthenticationDefaults.AdminPolicy</c>.</b>
-/// The constant is deleted in the phase-4b change that makes this pass, and a
-/// test that referenced it would stop compiling.
+/// That constant no longer exists, so a test referencing it would not compile.
 /// </para>
 /// </summary>
 public class RegisteredPolicyTests
 {
+    /// <summary>
+    /// Checks the one specific, previously-registered policy name — not a
+    /// general "no extra policy exists" guarantee. <see cref="AuthorizationOptions"/>
+    /// exposes no public enumerator over the policies it holds, so a full
+    /// inventory of every registered policy is not obtainable without
+    /// reflection; this is an accepted limit, not an oversight.
+    /// </summary>
     [Fact]
     public async Task The_host_registers_no_admin_policy()
     {
-        IAuthorizationPolicyProvider provider = BuildPolicyProvider();
+        using ServiceProvider provider = BuildServiceProvider();
+        IAuthorizationPolicyProvider policyProvider =
+            provider.GetRequiredService<IAuthorizationPolicyProvider>();
 
-        AuthorizationPolicy? policy = await provider.GetPolicyAsync("admin");
+        AuthorizationPolicy? policy = await policyProvider.GetPolicyAsync("admin");
 
         policy.ShouldBeNull(
             "AuthenticationDefaults registers an 'admin' policy requiring sse.management — a "
@@ -56,23 +64,24 @@ public class RegisteredPolicyTests
     [Fact]
     public async Task The_host_still_registers_a_policy_per_catalogued_scope()
     {
-        IAuthorizationPolicyProvider provider = BuildPolicyProvider();
+        using ServiceProvider provider = BuildServiceProvider();
+        IAuthorizationPolicyProvider policyProvider =
+            provider.GetRequiredService<IAuthorizationPolicyProvider>();
 
         foreach (string scope in Scope.All)
         {
-            AuthorizationPolicy? policy = await provider.GetPolicyAsync(scope);
+            AuthorizationPolicy? policy = await policyProvider.GetPolicyAsync(scope);
 
             policy.ShouldNotBeNull($"AddScopePolicies should register a policy for '{scope}'.");
         }
     }
 
-    private static IAuthorizationPolicyProvider BuildPolicyProvider()
+    private static ServiceProvider BuildServiceProvider()
     {
         HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.AddBearerAuthentication();
 
-        ServiceProvider provider = builder.Services.BuildServiceProvider();
-        return provider.GetRequiredService<IAuthorizationPolicyProvider>();
+        return builder.Services.BuildServiceProvider();
     }
 }
