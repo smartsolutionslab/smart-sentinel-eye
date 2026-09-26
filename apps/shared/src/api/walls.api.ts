@@ -126,7 +126,10 @@ const wallsApiBase = createApi({
     switchWallScene: build.mutation<Wall, SwitchWallSceneInput>({
       query: switchWallSceneQuery,
       transformResponse: toWall,
-      invalidatesTags: (_r, _e, { wallIdentifier }) => [{ type: 'Wall', id: wallIdentifier }],
+      invalidatesTags: (_r, _e, { wallIdentifier }) => [
+        { type: 'Wall', id: wallIdentifier },
+        { type: 'WallList', id: 'ALL' },
+      ],
     }),
   }),
 });
