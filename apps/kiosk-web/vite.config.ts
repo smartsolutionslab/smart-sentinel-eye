@@ -1,5 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
+import { fontPreload } from '../shared/src/ui/fonts/fontPreload';
 
 // The realtime SignalR hub (LayoutComposition) stays OFF the API gateway — it's
 // not on the §IV REST path (see api/gateway.ts). The browser opens it at the
@@ -26,7 +27,12 @@ const layoutComposition =
   process.env['services__layout-composition__https__0'];
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [
+    react(),
+    // The wall's screen headings and its overlay labels (fontWeight: 600)
+    // are both Sans Regular/SemiBold Latin1 — this app's first-paint faces.
+    fontPreload(['IBMPlexSans-Regular-Latin1.woff2', 'IBMPlexSans-SemiBold-Latin1.woff2']),
+  ],
   server: {
     // **Taken from the environment, because one bundle now runs twice** (spec
     // 052): an ordinary kiosk and a wall display, differing only in
