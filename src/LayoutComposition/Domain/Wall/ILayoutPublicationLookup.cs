@@ -21,10 +21,9 @@ public interface ILayoutPublicationLookup
 
     /// <summary>
     /// The fab each candidate layout actually belongs to (only entries that
-    /// exist at all). Used to check a candidate exists <b>in the caller's
-    /// own fab</b> — one in a different fab is treated the same as one that
-    /// doesn't exist anywhere (<c>WALL_SCENE_NOT_FOUND</c>, US1-10), so the
-    /// answer never discloses that the identifier exists elsewhere.
+    /// exist at all). Publishedness alone cannot tell "doesn't exist"
+    /// (<c>WALL_SCENE_NOT_FOUND</c>) apart from "exists in a different fab"
+    /// (<c>WALL_SCENE_OTHER_FAB</c>) — this does (US1-10).
     /// </summary>
     Task<IReadOnlyDictionary<LayoutIdentifier, FabIdentifier>> FabsOf(
         IEnumerable<LayoutIdentifier> candidates, CancellationToken cancellationToken);

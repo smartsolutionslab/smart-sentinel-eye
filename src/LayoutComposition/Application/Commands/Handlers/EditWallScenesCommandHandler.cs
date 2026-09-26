@@ -58,13 +58,7 @@ public sealed class EditWallScenesCommandHandler(
         return Success(GetWallQueryHandler.Map(wall));
     }
 
-    /// <summary>
-    /// Mirrors <c>CreateWallCommandHandler</c>'s scene validation: a layout
-    /// that exists only in a different fab does not count as existing at
-    /// all, so it gets the same <c>WALL_SCENE_NOT_FOUND</c> as one that
-    /// doesn't exist anywhere — never a distinct code that would disclose
-    /// the identifier exists somewhere else.
-    /// </summary>
+    /// <summary>Mirrors <c>CreateWallCommandHandler</c>'s three-step scene validation.</summary>
     private async Task<EditWallScenesError?> ValidateScenesAsync(
         IReadOnlyList<LayoutIdentifier> scenes, FabIdentifier fab, CancellationToken cancellationToken)
     {
@@ -73,9 +67,13 @@ public sealed class EditWallScenesCommandHandler(
 
         foreach (LayoutIdentifier scene in scenes)
         {
-            if (!fabsOf.TryGetValue(scene, out FabIdentifier? sceneFab) || sceneFab != fab)
+            if (!fabsOf.TryGetValue(scene, out FabIdentifier? sceneFab))
             {
                 return EditWallScenesFailures.SceneNotFound(scene.Value);
+            }
+            if (sceneFab != fab)
+            {
+                return EditWallScenesFailures.SceneOtherFab(scene.Value);
             }
         }
 
