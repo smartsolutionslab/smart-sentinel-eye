@@ -51,6 +51,27 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddScoped<IDeadLetterQuerySource, DeadLetterQuerySource>();
         builder.Services.AddScoped<IWebhookIntegrationQuerySource, WebhookIntegrationQuerySource>();
         builder.Services.AddScoped<IRegisteredEventTypeQuerySource, RegisteredEventTypeQuerySource>();
+
+        // Spec 269 T002. Scoped alongside the ingest handlers that consult
+        // it. ISourceModeRepository / ISourceModeQuerySource and the three
+        // declare/change/list handlers are NOT registered here: they take
+        // ISourceModeRepository / ISourceModeQuerySource, which have no
+        // Infrastructure implementation until T007 supplies the EF-backed
+        // ones (the source_modes table itself does not exist until T008's
+        // migration). Registering the handlers before that would make
+        // ASP.NET's ValidateOnBuild — enabled because
+        // src/AppHost/Properties/launchSettings.json sets
+        // ASPNETCORE_ENVIRONMENT=Development — fail to build the whole
+        // event-ingestion service, breaking every integration test in the
+        // Aspire fixture, not just SourceMode's. Nothing needs them
+        // registered before T009 maps /event-sources: T003f's integration
+        // tests hit that route before it is mapped and get 404 at routing,
+        // never reaching DI. T007/T009 should register
+        // ISourceModeRepository, ISourceModeQuerySource and the three
+        // handlers together, once real implementations exist.
+        builder.Services.AddScoped<IEventTypeAdmissionSource, EventTypeAdmissionSource>();
+        builder.Services.AddScoped<EventTypeAdmission>();
+
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
         builder.Services.AddSingleton<IClock, SystemClock>();
 

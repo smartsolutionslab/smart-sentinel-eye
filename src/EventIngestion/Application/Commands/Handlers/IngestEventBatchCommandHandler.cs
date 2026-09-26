@@ -28,6 +28,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 public sealed class IngestEventBatchCommandHandler(
     IEventRepository events,
     IClock clock,
+    EventTypeAdmission admission,
     ILogger<IngestEventBatchCommandHandler> logger)
 {
     /// <summary>
@@ -61,6 +62,10 @@ public sealed class IngestEventBatchCommandHandler(
             [.. envelopes.Select(envelope => (envelope.Fab, envelope.Identifier))],
             cancellationToken);
 
+        // Spec 269 FR-006: one assessment for the whole batch, before the
+        // build loop — never one query per event.
+        EventTypeVerdicts verdicts = await admission.AssessAsync(envelopes, cancellationToken);
+
         // Seeded with what is already stored, then grown as the batch is built,
         // so the same check answers both "already here" and "already in this
         // batch". Without the second, a delivery that arrived twice before
@@ -68,8 +73,27 @@ public sealed class IngestEventBatchCommandHandler(
         // the whole batch — sending 199 healthy events down the slow path for a
         // duplicate the idempotency rule was supposed to absorb.
         HashSet<EventIdentifier> seen = [.. already];
-        List<RefusedEnvelope> refused = [];
         Dictionary<Source, long> storedBySource = [];
+        List<RefusedEnvelope> refused = StoreOrRefuse(envelopes, verdicts, seen, storedBySource);
+
+        await events.SaveAsync(cancellationToken);
+
+        RecordVolume(storedBySource);
+        return new IngestEventBatchResult(refused);
+    }
+
+    /// <summary>
+    /// One pass over the batch: skips what <paramref name="seen"/> already
+    /// names, adds what builds to <see cref="events"/> and tallies it by
+    /// source, and collects the rest as refusals.
+    /// </summary>
+    private List<RefusedEnvelope> StoreOrRefuse(
+        IReadOnlyList<EventEnvelope> envelopes,
+        EventTypeVerdicts verdicts,
+        HashSet<EventIdentifier> seen,
+        Dictionary<Source, long> storedBySource)
+    {
+        List<RefusedEnvelope> refused = [];
 
         foreach (EventEnvelope envelope in envelopes)
         {
@@ -79,7 +103,7 @@ public sealed class IngestEventBatchCommandHandler(
                 continue;
             }
 
-            Result<EventAggregate, IngestEventError> built = Build(envelope);
+            Result<EventAggregate, IngestEventError> built = Build(envelope, verdicts);
             if (built.IsSuccess)
             {
                 events.Add(built.Value);
@@ -91,10 +115,7 @@ public sealed class IngestEventBatchCommandHandler(
             }
         }
 
-        await events.SaveAsync(cancellationToken);
-
-        RecordVolume(storedBySource);
-        return new IngestEventBatchResult(refused);
+        return refused;
     }
 
     /// <summary>
@@ -131,11 +152,12 @@ public sealed class IngestEventBatchCommandHandler(
     /// per retry, for ever. The reason is built once and carried out rather than
     /// constructed to log its code and thrown away (spec 213, issue #2428).
     /// </summary>
-    private Result<EventAggregate, IngestEventError> Build(EventEnvelope envelope)
+    private Result<EventAggregate, IngestEventError> Build(EventEnvelope envelope, EventTypeVerdicts verdicts)
     {
+        EventAggregate @event;
         try
         {
-            return Success(EventAggregate.Ingest(
+            @event = EventAggregate.Ingest(
                 envelope.Identifier,
                 envelope.Fab,
                 envelope.Source,
@@ -143,13 +165,25 @@ public sealed class IngestEventBatchCommandHandler(
                 envelope.Kind,
                 envelope.OccurredAt,
                 envelope.Payload,
-                clock));
+                clock);
         }
         catch (ArgumentException)
         {
-            IngestEventError reason = IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value);
-            logger.BatchEnvelopeRejected(envelope.Identifier, envelope.Source, envelope.Device, reason.Code);
-            return Failure(reason);
+            IngestEventError skewed = IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value);
+            logger.BatchEnvelopeRejected(envelope.Identifier, envelope.Source, envelope.Device, skewed.Code);
+            return Failure(skewed);
         }
+
+        // Spec 269 FR-007: future skew (above) outranks the admission
+        // verdict — the same precedence as the single-event handler.
+        if (verdicts.Refuses(envelope))
+        {
+            IngestEventError refused = IngestEventFailures.EventTypeNotRegistered(
+                envelope.Fab.Value, envelope.Source.Value, envelope.Kind.Value);
+            logger.BatchEnvelopeRejected(envelope.Identifier, envelope.Source, envelope.Device, refused.Code);
+            return Failure(refused);
+        }
+
+        return Success(@event);
     }
 }

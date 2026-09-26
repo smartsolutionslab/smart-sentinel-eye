@@ -34,10 +34,12 @@ public class IngestEventBatchCommandHandlerTests
 
     private static IngestEventBatchCommandHandler Handler(InMemoryEventRepository repository) =>
         new(repository, new FakeClock(Now),
+            new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventBatchCommandHandler>.Instance);
 
     private static IngestEventCommandHandler SingleHandler(InMemoryEventRepository repository) =>
         new(repository, new FakeClock(Now),
+            new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
     [Fact]

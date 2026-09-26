@@ -28,6 +28,19 @@ public abstract record IngestEventError(string Code, string Message, HttpStatusC
             "EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE",
             $"occurredAt {OccurredAt:O} is more than 5 minutes in the future; check the source's clock.",
             HttpStatusCode.BadRequest);
+
+    /// <summary>
+    /// The source is declared <c>strict</c> and <c>Kind</c> has no
+    /// <c>Registered</c> entry for this fab (spec 269 FR-004, FR-008). Names
+    /// all three so a webhook sender can act on it without reading logs, and
+    /// stays well under <c>RejectionReason.MaximumLength</c> so the MQTT path
+    /// can carry it into a dead letter unmodified.
+    /// </summary>
+    public sealed record EventTypeNotRegistered(string Fab, string Source, string Kind)
+        : IngestEventError(
+            "EVENT_TYPE_NOT_REGISTERED",
+            $"Event type '{Kind}' is not registered for fab '{Fab}', and source '{Source}' is strict.",
+            HttpStatusCode.BadRequest);
 }
 
 /// <summary>
@@ -43,4 +56,7 @@ public static class IngestEventFailures
 
     public static IngestEventError OccurredAtTooFarInFuture(DateTimeOffset occurredAt) =>
         new IngestEventError.OccurredAtTooFarInFuture(occurredAt);
+
+    public static IngestEventError EventTypeNotRegistered(string fab, string source, string kind) =>
+        new IngestEventError.EventTypeNotRegistered(fab, source, kind);
 }

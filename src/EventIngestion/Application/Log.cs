@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
+using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 
 namespace SmartSentinelEye.EventIngestion.Application;
@@ -77,4 +78,19 @@ internal static partial class Log
         Message = "Retired event type '{Kind}' for fab {Fab} ({Identifier}).")]
     public static partial void EventTypeRetired(
         this ILogger logger, FabIdentifier fab, Kind kind, RegisteredEventTypeIdentifier identifier);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Declared source mode '{Mode}' for {Source} in fab {Fab} ({Identifier}).")]
+    public static partial void SourceModeDeclared(
+        this ILogger logger, FabIdentifier fab, Source source, EventTypeMode mode, SourceModeIdentifier identifier);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Changed source mode to '{Mode}' for {Source} in fab {Fab} ({Identifier}).")]
+    public static partial void SourceModeChanged(
+        this ILogger logger, FabIdentifier fab, Source source, EventTypeMode mode, SourceModeIdentifier identifier);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "Refused {Identifier} for fab {Fab}: event type '{Kind}' is not registered and source {Source} is strict.")]
+    public static partial void UnregisteredEventTypeRefused(
+        this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Source source, Kind kind);
 }

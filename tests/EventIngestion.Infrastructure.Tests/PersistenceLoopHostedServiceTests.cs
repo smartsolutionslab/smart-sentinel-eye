@@ -8,6 +8,7 @@ using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
+using SmartSentinelEye.EventIngestion.Infrastructure.Tests.Fakes;
 using SmartSentinelEye.Shared.Kernel;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
@@ -491,6 +492,8 @@ public class PersistenceLoopHostedServiceTests
             services.AddSingleton<IDeadLetterRepository>(deadLetters);
             services.AddSingleton<IClock>(new FixedClock());
             services.AddLogging();
+            services.AddScoped<IEventTypeAdmissionSource, AdmitAllEventTypeAdmissionSource>();
+            services.AddScoped<EventTypeAdmission>();
             services.AddScoped<IngestEventCommandHandler>();
             services.AddScoped<IngestEventBatchCommandHandler>();
 
