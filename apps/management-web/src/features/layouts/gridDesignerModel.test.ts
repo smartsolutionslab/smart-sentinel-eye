@@ -5,7 +5,6 @@ import {
   cellsFromTiles,
   tilesFromCells,
   GRID_PRESETS,
-  // Spec 258 (#2607), ADR-0156, plan.md §4.3.
   coveredBy,
   spanOptions,
   type DesignerCell,
