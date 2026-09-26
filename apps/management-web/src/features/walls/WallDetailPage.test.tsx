@@ -28,10 +28,14 @@ function refusal(status: number, title: string, detail?: string) {
   return { status, data: { title, status, ...(detail === undefined ? {} : { detail }) } };
 }
 
-vi.mock('@smart-sentinel-eye/shared/api/walls.api', () => ({
-  useGetWallQuery: (...args: unknown[]) => getWallMock(...args),
-  useSwitchWallSceneMutation: () => [switchMock, switchState],
-}));
+vi.mock('@smart-sentinel-eye/shared/api/walls.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/walls.api')>();
+  return {
+    ...actual,
+    useGetWallQuery: (...args: unknown[]) => getWallMock(...args),
+    useSwitchWallSceneMutation: () => [switchMock, switchState],
+  };
+});
 
 vi.mock('react-router-dom', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router-dom')>();

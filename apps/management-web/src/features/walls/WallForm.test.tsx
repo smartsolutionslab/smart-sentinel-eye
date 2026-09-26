@@ -17,9 +17,13 @@ import { store } from '../../app/store.js';
 const createWallMock = vi.fn(async () => ({ data: 'wall-1' }));
 const listLayoutsMock = vi.fn();
 
-vi.mock('@smart-sentinel-eye/shared/api/walls.api', () => ({
-  useCreateWallMutation: () => [createWallMock, { isLoading: false, error: undefined, reset: vi.fn() }],
-}));
+vi.mock('@smart-sentinel-eye/shared/api/walls.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/walls.api')>();
+  return {
+    ...actual,
+    useCreateWallMutation: () => [createWallMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+  };
+});
 
 vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
