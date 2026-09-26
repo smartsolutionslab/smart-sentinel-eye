@@ -4,6 +4,7 @@ import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { wallsApi } from '@smart-sentinel-eye/shared/api/walls.api';
 
 // Single Redux store per app (ADR-0075). Kiosk-web consumes the read
 // sides of every API it touches; no mutations originate here.
@@ -14,6 +15,7 @@ export const store = configureStore({
     [overlaysApi.reducerPath]: overlaysApi.reducer,
     [streamsApi.reducerPath]: streamsApi.reducer,
     [systemVariablesApi.reducerPath]: systemVariablesApi.reducer,
+    [wallsApi.reducerPath]: wallsApi.reducer,
   },
   middleware: (getDefault) =>
     getDefault().concat(
@@ -22,6 +24,7 @@ export const store = configureStore({
       overlaysApi.middleware,
       streamsApi.middleware,
       systemVariablesApi.middleware,
+      wallsApi.middleware,
     ),
 });
 
