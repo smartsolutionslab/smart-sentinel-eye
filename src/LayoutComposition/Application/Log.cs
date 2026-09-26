@@ -61,4 +61,10 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Switch on wall {Wall} by {Operator} was a no-op; scene unchanged.")]
     public static partial void WallSceneSwitchWasNoOp(this ILogger logger, WallIdentifier wall, OperatorIdentifier @operator);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Broadcast WallSceneChanged for wall {Wall} (scene version {SceneVersion}).")]
+    public static partial void BroadcastWallSceneChanged(this ILogger logger, Guid wall, long sceneVersion);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneChanged for wall {Wall} v{SceneVersion} carries no fab; not broadcast.")]
+    public static partial void WallSceneChangedWithoutFab(this ILogger logger, Guid wall, long sceneVersion);
 }

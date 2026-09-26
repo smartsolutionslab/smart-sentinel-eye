@@ -10,10 +10,12 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
 /// <summary>
 /// Spec 258 US1 (T011), plan.md §3/§4.3. Maps
-/// <c>WallSceneSwitchedDomainEvent</c> to <c>WallSceneChangedV1</c> AND
-/// broadcasts <c>WallSceneChangedAsync</c> — FR-006's
-/// "<c>Metadata.Actor</c> names the operator" for an Operator/Reconfigured
-/// cause, and plan.md §4.3's hub notification.
+/// <c>WallSceneSwitchedDomainEvent</c> to <c>WallSceneChangedV1</c> —
+/// FR-006's "<c>Metadata.Actor</c> names the operator" for an
+/// Operator/Reconfigured cause. The hub broadcast itself is
+/// <c>WallSceneChangedV1Handler</c>'s job now (phase-6 remediation): this
+/// handler runs pre-commit and must not be the thing that pushes to a
+/// kiosk, see <see cref="WallSceneChangedV1HandlerTests"/>.
 /// </summary>
 public class WallSceneSwitchedDomainEventHandlerTests
 {
@@ -26,8 +28,7 @@ public class WallSceneSwitchedDomainEventHandlerTests
     public async Task An_Operator_switch_publishes_WallSceneChangedV1_with_Metadata_Actor_set_to_the_operator()
     {
         FakeEventBus bus = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
-        WallSceneSwitchedDomainEventHandler handler = new(bus, broadcaster);
+        WallSceneSwitchedDomainEventHandler handler = new(bus);
 
         WallIdentifier wall = WallIdentifier.New();
         LayoutIdentifier previous = LayoutIdentifier.New();
@@ -56,7 +57,7 @@ public class WallSceneSwitchedDomainEventHandlerTests
     public async Task A_Reconfigured_switch_publishes_Cause_Reconfigured_with_Metadata_Actor_set_to_the_editor()
     {
         FakeEventBus bus = new();
-        WallSceneSwitchedDomainEventHandler handler = new(bus, new FakeLayoutLifecycleBroadcaster());
+        WallSceneSwitchedDomainEventHandler handler = new(bus);
         OperatorIdentifier editor = OperatorIdentifier.From(Guid.CreateVersion7());
         WallSceneSwitchedDomainEvent domainEvent = new(
             Munich, WallIdentifier.New(), LayoutIdentifier.New(), LayoutIdentifier.New(), SceneVersion.Initial.Next(),
@@ -69,27 +70,5 @@ public class WallSceneSwitchedDomainEventHandlerTests
         v1.Rule.ShouldBeNull();
         v1.CausingEventIdentifier.ShouldBeNull();
         v1.Metadata.Actor.ShouldBe(editor.Value);
-    }
-
-    [Fact]
-    public async Task Broadcasts_the_new_Showing_scene_and_SceneVersion_over_the_hub()
-    {
-        FakeEventBus bus = new();
-        FakeLayoutLifecycleBroadcaster broadcaster = new();
-        WallSceneSwitchedDomainEventHandler handler = new(bus, broadcaster);
-        WallIdentifier wall = WallIdentifier.New();
-        LayoutIdentifier current = LayoutIdentifier.New();
-        WallSceneSwitchedDomainEvent domainEvent = new(
-            Munich, wall, LayoutIdentifier.New(), current, SceneVersion.Initial.Next(),
-            new SceneSwitchCause.Operator(OperatorIdentifier.From(Guid.CreateVersion7())), FixedMoment);
-
-        await handler.Handle(domainEvent, CancellationToken.None);
-
-        broadcaster.WallSceneChanged.ShouldHaveSingleItem();
-        WallSceneChangedNotification notification = broadcaster.WallSceneChanged.Single();
-        notification.Fab.ShouldBe(Munich);
-        notification.Wall.ShouldBe(wall);
-        notification.Showing.ShouldBe(current);
-        notification.SceneVersion.ShouldBe(SceneVersion.Initial.Next());
     }
 }
