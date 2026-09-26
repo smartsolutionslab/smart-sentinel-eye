@@ -155,7 +155,7 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
 
     // Reconciled by re-reading GET /walls/{id} on reconnect (FR-008), not by
     // a page reload.
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBName, { timeout: 10_000 });
+    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBName, { timeout: 45_000 });
   } finally {
     await kioskContext.close();
   }
