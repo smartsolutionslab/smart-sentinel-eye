@@ -48,10 +48,12 @@ public sealed class CreateWallCommandHandler(
     }
 
     /// <summary>
-    /// PD-6 + US1-10: every candidate scene must exist, belong to this
-    /// wall's fab, and currently be Published. Checked in that order so a
-    /// caller learns "doesn't exist" and "exists elsewhere" apart from
-    /// "exists but isn't Published", per plan.md §3's distinct error codes.
+    /// PD-6 + US1-10: every candidate scene must exist in this wall's own
+    /// fab, and currently be Published. A layout that exists only in a
+    /// different fab does not count as existing at all — otherwise the
+    /// response would disclose that the identifier exists somewhere, just
+    /// not here — so it gets the same <c>WALL_SCENE_NOT_FOUND</c> as an
+    /// identifier that doesn't exist anywhere.
     /// </summary>
     private async Task<CreateWallError?> ValidateScenesAsync(
         IReadOnlyList<LayoutIdentifier> scenes, FabIdentifier fab, CancellationToken cancellationToken)
@@ -61,13 +63,9 @@ public sealed class CreateWallCommandHandler(
 
         foreach (LayoutIdentifier scene in scenes)
         {
-            if (!fabsOf.TryGetValue(scene, out FabIdentifier? sceneFab))
+            if (!fabsOf.TryGetValue(scene, out FabIdentifier? sceneFab) || sceneFab != fab)
             {
                 return CreateWallFailures.SceneNotFound(scene.Value);
-            }
-            if (sceneFab != fab)
-            {
-                return CreateWallFailures.SceneOtherFab(scene.Value);
             }
         }
 
