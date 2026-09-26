@@ -13,7 +13,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect, type FormEvent } from 'react';
+import { useEffect, useEffectEvent, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface RenameCameraDialogProps {
@@ -62,14 +62,27 @@ export function RenameCameraDialog({
     defaultValues: { name: currentName },
   });
 
+  // resetForOpen always sees the latest reset/resetMutationState via
+  // useEffectEvent; the effect itself only re-fires on `open`/`currentName`.
+  // Listing RTK Query's `reset` in the deps array instead churns: triggering
+  // the mutation gives it a new identity (its `useCallback` closes over the
+  // pending promise), which re-ran this effect mid-submit and called
+  // `resetMutationState()` a second time — discarding the very "pending" state
+  // it had just recorded while the request was still in flight. `unavailable`
+  // read that discarded state, so Save reported "not loading" seconds into a
+  // held request (issue #2624 CI, spec 267).
+  const resetForOpen = useEffectEvent(() => {
+    reset({ name: currentName });
+    resetMutationState();
+  });
+
   // Reopening starts from what is stored now, not from what a previous attempt
   // left behind — and a stale refusal banner must not greet the next open.
   useEffect(() => {
     if (open) {
-      reset({ name: currentName });
-      resetMutationState();
+      resetForOpen();
     }
-  }, [open, currentName, reset, resetMutationState]);
+  }, [open, currentName]);
 
   const onSubmit = handleSubmit(async (input) => {
     // FR-010. `input.name` reaches the server exactly as typed. The schema
