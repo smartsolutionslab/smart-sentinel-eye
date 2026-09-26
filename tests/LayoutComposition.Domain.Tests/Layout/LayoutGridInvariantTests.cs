@@ -130,6 +130,37 @@ public class LayoutGridInvariantTests
         exception.Message.ShouldContain(nameof(GridViolation.TooLarge));
     }
 
+    /// <summary>
+    /// Code-review finding B1 (spec 258): <c>tileA</c>'s span
+    /// (<c>int.MaxValue</c> rows) overflows the addition in both
+    /// <c>GridDimensions.Contains(position, span)</c> and
+    /// <c>Tile.Overlaps</c>, wrapping to a negative number that hides both
+    /// the out-of-bounds origin and the overlap with <c>tileB</c> sitting
+    /// inside the (wrapped) claimed rectangle. The fix must reject
+    /// <c>tileA</c>'s own span as <see cref="GridViolation.OutOfBounds"/>
+    /// before <c>Overlaps</c> ever runs — not let the pair through as
+    /// valid.
+    /// </summary>
+    [Fact]
+    public void CreateDraft_refuses_a_tile_whose_overflowing_span_would_otherwise_hide_an_overlap()
+    {
+        Tile overflowing = new(
+            CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None,
+            GridPosition.From(1, 0), TileSpan.From(int.MaxValue, 1));
+        Tile insideWrappedRectangle = TileAt(2, 0);
+        IReadOnlyList<Tile> tiles = [overflowing, insideWrappedRectangle];
+
+        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+            FabIdentifier.From("munich"),
+            LayoutName.From("Line-1"),
+            GridDimensions.From(3, 3),
+            tiles,
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new LayoutBuilder.TestClock(FixedMoment)));
+
+        exception.Message.ShouldContain(nameof(GridViolation.OutOfBounds));
+    }
+
     // ---- CreateDraft still accepts valid input (green from the start) ---
 
     [Fact]
