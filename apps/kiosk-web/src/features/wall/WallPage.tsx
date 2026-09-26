@@ -39,6 +39,21 @@ interface Showing {
  */
 export function WallPage() {
   const { wallIdentifier = '' } = useParams<{ wallIdentifier: string }>();
+  // Keyed on the route param: React Router does not remount this component
+  // on a param-only navigation between two `/walls/:wallIdentifier` routes,
+  // but `showing`/`seenSceneVersion` below are local state seeded from *this*
+  // wall's query result. Without the key, navigating from wall A to wall B
+  // would carry wall A's `showing`/`seenSceneVersion` forward, and if wall
+  // B's `sceneVersion` happens to equal wall A's last-seen value (plausible —
+  // `SceneVersion.Initial = 0` for every fresh wall) the
+  // `data.sceneVersion !== seenSceneVersion` guard below would never fire,
+  // leaving wall A's layout rendered under wall B's URL. The key forces a
+  // full remount, resetting both pieces of state and restarting the hub
+  // subscription's effect cleanly for the new wall.
+  return <WallPageForWall key={wallIdentifier} wallIdentifier={wallIdentifier} />;
+}
+
+function WallPageForWall({ wallIdentifier }: { wallIdentifier: string }) {
   const auth = useAuth();
 
   // Same rationale as LayoutGrid's own accessTokenRef: a fresh function each
