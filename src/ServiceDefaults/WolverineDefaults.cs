@@ -88,6 +88,20 @@ public static class WolverineDefaults
             opts.UseEntityFrameworkCoreTransactions();
             opts.Policies.AutoApplyTransactions();
 
+            // A context that both publishes an integration event and
+            // subscribes to its own copy (a same-context relay, e.g.
+            // LayoutComposition's WallSceneChangedV1Handler broadcasting
+            // after its own WallSceneSwitchedDomainEventHandler publishes)
+            // has a local handler for that message type in its own process.
+            // Wolverine's default local-routing convention treats that as
+            // exclusive: a known local handler makes it route the message
+            // to the in-memory local queue ONLY, silently skipping the
+            // RabbitMQ conventional routing below — so no copy ever reaches
+            // any other subscriber, including AuditObservability, which
+            // every *V1 is required to reach. Additive local routing keeps
+            // the in-process delivery and restores the external one.
+            opts.Policies.ConventionalLocalRoutingIsAdditive();
+
             opts.UseRabbitMq(new Uri(rabbitConnection))
                 .AutoProvision()
                 .UseConventionalRouting(routing =>
