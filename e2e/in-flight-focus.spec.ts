@@ -62,7 +62,11 @@ test.describe('US1 — a keyboard operator submitting a dialog form keeps their 
     const urlField = page.locator('#register-camera-url');
     await urlField.fill('rtsp://10.0.5.98/stream');
 
-    const { count, release } = await holdWrites(page, (url) => url.pathname.endsWith('/camera-catalog/cameras'), 'POST');
+    const { count, release } = await holdWrites(
+      page,
+      (url) => url.pathname.endsWith('/camera-catalog/cameras'),
+      'POST',
+    );
 
     try {
       const submit = page.getByRole('button', { name: /^(register|registering…)$/i });
@@ -275,7 +279,11 @@ test.describe('US2 — a keyboard operator running a dry run keeps their place',
     const panel = page.getByTestId('dry-run-panel');
     await expect(panel).toBeVisible();
 
-    const { count, release } = await holdWrites(page, (url) => /\/automation\/rules\/[^/]+\/dry-run$/.test(url.pathname), 'POST');
+    const { count, release } = await holdWrites(
+      page,
+      (url) => /\/automation\/rules\/[^/]+\/dry-run$/.test(url.pathname),
+      'POST',
+    );
 
     try {
       const run = panel.getByRole('button', { name: /^(run|running…)$/i });
