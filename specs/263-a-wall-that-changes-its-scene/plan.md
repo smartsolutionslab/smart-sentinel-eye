@@ -1,4 +1,4 @@
-# Plan 258: A wall that changes its scene
+# Plan 263: A wall that changes its scene
 
 **Spec**: [spec.md](spec.md) · **Issue**: #2608 · **Phase**: 2 (Plan), drafted and **not past
 the gate**. The plan assumes the **proposed** answers to PD-1..PD-6. If a human overrides
