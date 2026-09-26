@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { z } from 'zod';
@@ -43,11 +43,14 @@ vi.mock('react-oidc-context', () => ({
 // signature, which is what the new toggle-and-back cases index into.
 const defineMock = vi.fn(async (_payload: DefineVariableInput & { fabId?: string }) => ({ data: 'noop' }));
 
+// Mutable so a test can put a define in flight (ADR-0151 focus-loss guard).
+const mutationState = { current: { isLoading: false, error: undefined as unknown, reset: vi.fn() } };
+
 vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
   return {
     ...actual,
-    useDefineVariableMutation: () => [defineMock, { isLoading: false, error: undefined, reset: vi.fn() }],
+    useDefineVariableMutation: () => [defineMock, mutationState.current],
   };
 });
 
@@ -85,6 +88,7 @@ describe('SystemVariableDialog', () => {
     // it — every other test in this file exercises the single-fab, no-select
     // path (ADR-0114).
     assignedGroups.current = ['/fabs/munich'];
+    mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
   });
 
   it('Renders the name input and the type selector', () => {
@@ -238,6 +242,60 @@ describe('SystemVariableDialog', () => {
     toggleOpen(rerender, true);
 
     expect(screen.getByRole('combobox', { name: /type/i })).toHaveValue('String');
+  });
+
+  // ---- Issue #2624 / ADR-0151: focus must survive an in-flight submit ----
+
+  it('Announces Define as unavailable with aria-disabled, not native disabled, while in flight', () => {
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+
+    renderDialog();
+
+    const submit = screen.getByRole('button', { name: /^(define|saving…)$/i });
+    expect(submit).toHaveAttribute('aria-disabled', 'true');
+    expect(submit).not.toHaveAttribute('disabled');
+  });
+
+  it('Refuses a form-level submit while a define is in flight', async () => {
+    const user = userEvent.setup();
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+    renderDialog();
+
+    await user.type(screen.getByLabelText(/name/i), 'lineStatus');
+    // Dialog renders through a Radix Portal into document.body, outside
+    // render()'s own container, so the form is looked up from the document.
+    // The submit event is dispatched at the form itself, bypassing whatever
+    // the submit button's own disabled/aria-disabled state is — this is the
+    // form-level guard, not a click or an implicit-submission proof (that is
+    // e2e/in-flight-focus.spec.ts). One macrotask flush lets react-hook-form's
+    // (async) zodResolver validation and the mocked mutation call settle
+    // before asserting, since both resolve on the microtask queue with no
+    // real timer involved.
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(defineMock).not.toHaveBeenCalled();
+  });
+
+  it('Submits a form-level submit once when nothing is in flight', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await user.type(screen.getByLabelText(/name/i), 'lineStatus');
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(defineMock).toHaveBeenCalledTimes(1);
+
+    // This describe's beforeEach clears defineMock before each of its own
+    // tests, but the sibling multi-fab describe below has no beforeEach of
+    // its own for it — a call left on the record by whichever test runs last
+    // here would otherwise leak into that describe's first test.
+    defineMock.mockClear();
   });
 });
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 
@@ -143,5 +143,50 @@ describe('EditCameraAddressDialog', () => {
 
     expect(screen.getByLabelText(/rtsp url/i)).toBeInTheDocument();
     expect(screen.getByRole('alert')).toBeInTheDocument();
+  });
+
+  // ---- Issue #2624 / ADR-0151: focus must survive an in-flight submit ----
+
+  it('Announces Save as unavailable with aria-disabled, not native disabled, while in flight', () => {
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+
+    renderDialog();
+
+    const save = screen.getByRole('button', { name: /^(save|saving…)$/i });
+    expect(save).toHaveAttribute('aria-disabled', 'true');
+    expect(save).not.toHaveAttribute('disabled');
+  });
+
+  it('Refuses a form-level submit while a save is in flight', async () => {
+    mutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+
+    renderDialog();
+    // Dialog renders through a Radix Portal into document.body, outside
+    // render()'s own container, so the form is looked up from the document.
+    // The submit event is dispatched at the form itself, bypassing whatever
+    // the submit button's own disabled/aria-disabled state is — this is the
+    // form-level guard, not a click or an implicit-submission proof (that is
+    // e2e/in-flight-focus.spec.ts). One macrotask flush lets react-hook-form's
+    // (async) zodResolver validation and the mocked mutation call settle
+    // before asserting, since both resolve on the microtask queue with no
+    // real timer involved.
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(changeAddress).not.toHaveBeenCalled();
+  });
+
+  it('Submits a form-level submit once when nothing is in flight', async () => {
+    mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
+
+    renderDialog();
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(changeAddress).toHaveBeenCalledTimes(1);
   });
 });
