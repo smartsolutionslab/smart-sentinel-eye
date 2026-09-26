@@ -207,7 +207,9 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
                 id="rule-duration"
                 type="number"
                 placeholder="5000"
-                {...register('durationMs', { valueAsNumber: true })}
+                {...register('durationMs', {
+                  setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
+                })}
               />
             </FormField>
           </div>

@@ -364,7 +364,27 @@ describe('RuleDialog', () => {
     await user.click(screen.getByRole('button', { name: /create draft/i }));
 
     const durationField = screen.getByLabelText(/duration/i).closest('div');
-    expect(await within(durationField!).findByRole('alert')).toBeInTheDocument();
+    const alert = await within(durationField!).findByRole('alert');
+    expect(alert).toHaveTextContent(/duration is required for highlightoverlay/i);
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  it('Reports the friendly Duration message when a HighlightOverlay rule is submitted with Duration left untouched', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+
+    await user.selectOptions(screen.getByLabelText(/action/i), 'HighlightOverlay');
+    await fill(user, screen.getByLabelText(/overlay/i), '123e4567-e89b-12d3-a456-426614174000');
+
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    const durationField = screen.getByLabelText(/duration/i).closest('div');
+    const alert = await within(durationField!).findByRole('alert');
+    expect(alert).toHaveTextContent(/duration is required for highlightoverlay/i);
     expect(createMock).not.toHaveBeenCalled();
   });
 
