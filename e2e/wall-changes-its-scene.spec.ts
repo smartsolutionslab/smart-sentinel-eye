@@ -46,6 +46,11 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 
 /** Registers a camera and authors + publishes a one-tile layout named `name`. Leaves the page on the Layouts list. */
 async function createPublishedLayout(page: import('@playwright/test').Page, name: string, cameraName: string) {
+  // Navigate to Cameras explicitly rather than assuming the caller is already
+  // there — the second call in a row starts on the Layouts list left by the
+  // first call's own ending, where "Register camera" does not exist.
+  await page.getByRole('link', { name: /^cameras$/i }).click();
+  await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
   await page.getByRole('button', { name: /register camera/i }).click();
   await page.locator('#register-camera-name').fill(cameraName);
   await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${Math.floor(Math.random() * 200) + 2}/stream`);
