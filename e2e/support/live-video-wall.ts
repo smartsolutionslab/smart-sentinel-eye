@@ -18,13 +18,14 @@ export interface LiveVideoWallCamera {
 }
 
 /**
- * Spec 225 US2 — four tiles, the domain's real ceiling
- * (`GridDimensions.MaxTiles` / `MaxCells`, enforced at `Layout.cs:79`), not
- * one. All four resolve the **same** overlay and the same bound variable
- * (`overlayName`/`variableName` below stay singular), so a per-tile cost is
- * distinguishable from fixed overhead without a fourth overlay write.
+ * Spec 225 US2, raised by spec 258 (ADR-0156, D1 option A) — nine tiles, the
+ * domain's real ceiling (`GridDimensions.MaxTiles` / `MaxCells`, now 9 —
+ * `GridDimensions.cs:26,29`), not one and not the old four. All nine resolve
+ * the **same** overlay and the same bound variable (`overlayName`/
+ * `variableName` below stay singular), so a per-tile cost is distinguishable
+ * from fixed overhead without a ninth overlay write.
  */
-export const LIVE_VIDEO_WALL_TILE_COUNT = 4;
+export const LIVE_VIDEO_WALL_TILE_COUNT = 9;
 
 export interface LiveVideoWall {
   variableName: string;
@@ -62,7 +63,7 @@ export function newLiveVideoWall(): LiveVideoWall {
   const stamp = Date.now();
   // The `E2E ` prefix is what the cleanup teardown matches on. A name without
   // it survives the run, which is how a fixture leaves rows behind. Indexed
-  // (1-4) rather than bare, because all four share one `stamp` and would
+  // (1-9) rather than bare, because all nine share one `stamp` and would
   // otherwise collide on name uniqueness.
   const cameras: LiveVideoWallCamera[] = [];
   for (let index = 1; index <= LIVE_VIDEO_WALL_TILE_COUNT; index += 1) {
