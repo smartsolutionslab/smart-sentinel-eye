@@ -17,4 +17,6 @@ public interface ILayoutLifecycleClient
     Task ResolvedOverlayTextChanged(ResolvedOverlayTextChangedHubMessage message);
 
     Task OverlayHighlightChanged(OverlayHighlightChangedHubMessage message);
+
+    Task WallSceneChanged(WallSceneChangedHubMessage message);
 }

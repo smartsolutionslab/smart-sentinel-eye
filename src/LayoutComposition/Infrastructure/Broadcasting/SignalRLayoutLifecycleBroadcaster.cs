@@ -137,6 +137,22 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             ex => logger.OverlayHighlightChangedBroadcastFailed(ex, notification.Overlay, notification.DurationMs));
     }
 
+    public async Task WallSceneChangedAsync(WallSceneChangedNotification notification, CancellationToken cancellationToken)
+    {
+        Ensure.That(notification).IsNotNull();
+
+        WallSceneChangedHubMessage message = new(
+            Wall: notification.Wall.Value,
+            Showing: notification.Showing.Value,
+            SceneVersion: notification.SceneVersion.Value);
+
+        await BroadcastAsync(
+            // Group, not All — same reason as every other frame above.
+            () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(notification.Fab.Value))
+                .WallSceneChanged(message),
+            ex => logger.WallSceneChangedBroadcastFailed(ex, notification.Wall, notification.SceneVersion));
+    }
+
     // Best-effort broadcast: a transient hub failure is logged and swallowed
     // so a dropped frame never breaks the write that triggered it (FR-012
     // reconnect-and-reconcile is the safety net). Cancellation is never
