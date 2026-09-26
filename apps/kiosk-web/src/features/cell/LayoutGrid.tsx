@@ -6,7 +6,7 @@ import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraVie
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import clsx from 'clsx';
-import { useCallback, useEffect, useRef, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
@@ -16,6 +16,7 @@ import { useLabelDelay } from './useLabelDelay.js';
 import { useOverlayHubHandlers } from './useOverlayHubHandlers.js';
 import { useWallAlignment } from './useWallAlignment.js';
 import { boundOverlayIn, namedFab } from './wallBindings.js';
+import { buildGridItems } from './wallGrid.js';
 
 export interface LayoutGridProps {
   /** The Layout chain to render — a route param for `CellPage`, or a wall's current `Showing` for `WallPage` (spec 258 plan.md §6.3). */
@@ -217,7 +218,7 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
     );
   }
 
-  const cells = buildGridCells(published.gridRows, published.gridCols, tiles);
+  const items = buildGridItems(published.gridRows, published.gridCols, tiles);
 
   return (
     <main className="relative min-h-screen bg-black">
@@ -233,25 +234,27 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
           gridTemplateRows: `repeat(${published.gridRows}, minmax(0, 1fr))`,
         }}
       >
-        {cells.map((cell) => {
-          if (cell.tile === null) {
-            return <EmptyCell key={cell.key} />;
+        {items.map((item) => {
+          const placement = gridPlacementStyle(item.row, item.col, item.rowSpan, item.colSpan);
+          if (item.tile === null) {
+            return <EmptyCell key={item.key} style={placement} />;
           }
-          const boundOverlay = boundOverlayIn(cell.tile.overlayIdentifier);
+          const boundOverlay = boundOverlayIn(item.tile.overlayIdentifier);
           return (
             <Tile
-              key={cell.key}
-              tile={cell.tile}
+              key={item.key}
+              tile={item.tile}
               fab={data.fab}
               getToken={getToken}
               unavailable={boundOverlay !== null && overlayHub.unavailableOverlays.has(boundOverlay)}
               highlighted={boundOverlay !== null && overlayHub.highlightedOverlays.has(boundOverlay)}
-              playoutTargetMilliseconds={alignment.targetFor(cell.key)}
+              playoutTargetMilliseconds={alignment.targetFor(item.key)}
               frameAgeFor={alignment.frameAgeFor}
-              tileKey={cell.key}
-              onLagMeasured={(camera, lag, buffer) => alignment.reportLag(cell.key, camera, lag, buffer)}
-              outOfAlignment={alignment.released.has(cell.key)}
+              tileKey={item.key}
+              onLagMeasured={(camera, lag, buffer) => alignment.reportLag(item.key, camera, lag, buffer)}
+              outOfAlignment={alignment.released.has(item.key)}
               onLabelVerdict={overlayHub.onLabelVerdict}
+              style={placement}
             />
           );
         })}
@@ -303,6 +306,8 @@ interface TileProps {
    * disagreement. Called only once the tile actually knows the text.
    */
   onLabelVerdict: (overlayIdentifier: string, hasPlaceholder: boolean) => void;
+  /** Explicit CSS grid placement for this tile's span (spec 258 FR-008). */
+  style: CSSProperties;
 }
 
 /**
@@ -324,6 +329,7 @@ function Tile({
   frameAgeFor,
   tileKey,
   onLabelVerdict,
+  style,
 }: TileProps) {
   // Read at the moment this tile renders, not handed down as a value computed
   // during the parent's last render (spec 204) — the parent has no reason to
@@ -432,6 +438,7 @@ function Tile({
         'relative flex h-full w-full items-center justify-center overflow-hidden rounded-md',
         highlighted && 'ssE-overlay-highlight',
       )}
+      style={style}
     >
       {overlayUnavailable && (
         <div
@@ -453,45 +460,24 @@ function Tile({
   );
 }
 
-function EmptyCell() {
+function EmptyCell({ style }: { style: CSSProperties }) {
   return (
     <div
       data-testid="layout-empty-cell"
       className="flex h-full w-full items-center justify-center rounded-md border border-dashed border-fg-muted/30 bg-bg-elevated/20 text-sm text-fg-muted"
+      style={style}
     >
       Empty
     </div>
   );
 }
 
-interface GridCell {
-  key: string;
-  tile: LayoutTile | null;
-}
-
-/**
- * Lay out every grid coordinate in row-major order, slotting each tile at
- * its `(row, col)`. Cells without a tile are `null` (rendered as a
- * placeholder). Out-of-bounds tiles are ignored defensively (the aggregate
- * already enforces in-bounds; this keeps the renderer total).
- */
-function buildGridCells(rows: number, cols: number, tiles: LayoutTile[]): GridCell[] {
-  const byPosition = new Map<string, LayoutTile>();
-  for (const tile of tiles) {
-    byPosition.set(positionKey(tile.row, tile.col), tile);
-  }
-  const cells: GridCell[] = [];
-  for (let row = 0; row < rows; row += 1) {
-    for (let col = 0; col < cols; col += 1) {
-      const key = positionKey(row, col);
-      cells.push({ key, tile: byPosition.get(key) ?? null });
-    }
-  }
-  return cells;
-}
-
-function positionKey(row: number, col: number): string {
-  return `${row}:${col}`;
+/** Explicit CSS grid placement for a `GridItem`'s span (spec 258 FR-008). */
+function gridPlacementStyle(row: number, col: number, rowSpan: number, colSpan: number): CSSProperties {
+  return {
+    gridRow: `${row + 1} / span ${rowSpan}`,
+    gridColumn: `${col + 1} / span ${colSpan}`,
+  };
 }
 
 function FullScreen({
