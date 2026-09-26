@@ -140,6 +140,15 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
         Ensure.That(clock).IsNotNull();
         RequireValidScenes(newScenes);
 
+        if (scenes.SequenceEqual(newScenes))
+        {
+            // Identical to the current set (same layouts, same order): nothing
+            // changed, so raise nothing. Otherwise an idempotent-retried PUT
+            // (ADR-0143) would duplicate WallConfiguredV1 and its audit row for
+            // no actual state change, mirroring SwitchTo's own no-op guard.
+            return;
+        }
+
         DateTimeOffset now = clock.UtcNow;
         scenes.Clear();
         scenes.AddRange(newScenes);
