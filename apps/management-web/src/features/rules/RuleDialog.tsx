@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
@@ -114,6 +114,17 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     }
   });
 
+  // ADR-0151: `unavailable` keeps Create draft focusable and clickable, and no
+  // longer suppresses implicit submission (Enter in a field), so this is what
+  // refuses a second submit while the first is in flight.
+  function handleFormSubmit(event: FormEvent) {
+    if (isLoading) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
+
   return (
     <Dialog
       open={open}
@@ -121,7 +132,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
       title="New rule"
       description="Rules are created as drafts. Publish when you are ready for them to fire."
     >
-      <form onSubmit={onSubmit} className="space-y-3" data-testid="rule-form">
+      <form onSubmit={handleFormSubmit} className="space-y-3" data-testid="rule-form">
         <FormField label="Name" htmlFor="rule-name" error={errors.name?.message}>
           <Input id="rule-name" placeholder="high-oee-on-fast-cycle" {...register('name')} />
         </FormField>
@@ -226,7 +237,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
             {isLoading ? 'Creating…' : 'Create draft'}
           </Button>
         </div>

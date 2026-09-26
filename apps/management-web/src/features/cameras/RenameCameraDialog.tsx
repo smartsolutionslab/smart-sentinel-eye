@@ -13,7 +13,7 @@ import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useEffect } from 'react';
+import { useEffect, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface RenameCameraDialogProps {
@@ -87,6 +87,17 @@ export function RenameCameraDialog({
     }
   });
 
+  // ADR-0151: `unavailable` keeps Save focusable and clickable, and no longer
+  // suppresses implicit submission (Enter in the field), so this is what refuses
+  // a second submit while the first is in flight.
+  function handleFormSubmit(event: FormEvent) {
+    if (isLoading) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
+
   return (
     <Dialog
       open={open}
@@ -94,7 +105,7 @@ export function RenameCameraDialog({
       title="Rename camera"
       description="The camera keeps its address, its identifier and its history."
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
         <FormField label="Name" htmlFor="rename-camera-name" error={errors.name?.message}>
           <Input id="rename-camera-name" autoFocus placeholder="line-4-inlet" {...register('name')} />
         </FormField>
@@ -105,7 +116,7 @@ export function RenameCameraDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
             {isLoading ? 'Saving…' : 'Save'}
           </Button>
         </div>

@@ -7,7 +7,7 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAssignedFabs } from '../../app/useAssignedFabs';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface RegisterCameraDialogProps {
@@ -100,6 +100,18 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
 
   const backendError = problemDetail(error, 'Could not register the camera. Try again.');
 
+  // ADR-0151: `unavailable` keeps Register focusable and clickable, and no
+  // longer suppresses implicit submission (Enter in a field), so this is what
+  // refuses a second submit while the first is in flight — before the
+  // missing-fab check too, since nothing should be re-validated mid-request.
+  function handleFormSubmit(event: FormEvent) {
+    if (isLoading) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
+
   return (
     <Dialog
       open={open}
@@ -107,7 +119,7 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
       title="Register a camera"
       description="Provide a unique name and the camera's RTSP URL."
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
         <FormField label="Name" htmlFor="register-camera-name" error={errors.name?.message}>
           <Input id="register-camera-name" autoFocus {...register('name')} />
         </FormField>
@@ -144,7 +156,7 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
             {isLoading ? 'Registering…' : 'Register'}
           </Button>
         </div>
