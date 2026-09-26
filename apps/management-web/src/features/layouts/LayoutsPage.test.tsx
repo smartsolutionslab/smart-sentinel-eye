@@ -82,7 +82,16 @@ function chain(overrides: Partial<Layout> = {}): Layout {
         state: 'Draft',
         gridRows: 1,
         gridCols: 1,
-        tiles: [{ cameraIdentifier: '44444444-4444-4444-4444-444444444444', overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
+        tiles: [
+          {
+            cameraIdentifier: '44444444-4444-4444-4444-444444444444',
+            overlayIdentifier: null,
+            row: 0,
+            col: 0,
+            rowSpan: 1,
+            colSpan: 1,
+          },
+        ],
         createdAt: '2026-05-26T10:00:00Z',
         createdBy: '22222222-2222-2222-2222-222222222222',
         publishedAt: null,
@@ -556,7 +565,9 @@ describe('LayoutsPage — archive confirmation', () => {
                 revisionIdentifier: 'aa',
                 gridRows: 1,
                 gridCols: 1,
-                tiles: [{ cameraIdentifier: 'discarded', overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
+                tiles: [
+                  { cameraIdentifier: 'discarded', overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 },
+                ],
               }),
             ],
           }),

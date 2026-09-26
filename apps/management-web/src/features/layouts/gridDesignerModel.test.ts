@@ -65,7 +65,10 @@ describe('gridDesignerModel — spans up to a 3x3 grid (spec 262 US3)', () => {
   });
 
   it('offers only the column spans that stay in-bounds and clear a populated cell', () => {
-    const cells = buildCells(3, 3, [cellAt(0, 0, { cameraIdentifier: HERO }), cellAt(0, 2, { cameraIdentifier: CORNER })]);
+    const cells = buildCells(3, 3, [
+      cellAt(0, 0, { cameraIdentifier: HERO }),
+      cellAt(0, 2, { cameraIdentifier: CORNER }),
+    ]);
 
     const options = spanOptions(cells, indexAt(cells, 0, 0), { rows: 3, cols: 3 });
 
