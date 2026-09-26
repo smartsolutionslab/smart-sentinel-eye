@@ -36,7 +36,15 @@ vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => 
 const { WallForm } = await import('./WallForm.js');
 
 function publishedLayout(layoutIdentifier: string, name: string) {
-  return { layoutIdentifier, name, revisionNumber: 1, gridRows: 1, gridCols: 1, tiles: [], publishedAt: '2026-09-26T10:00:00Z' };
+  return {
+    layoutIdentifier,
+    name,
+    revisionNumber: 1,
+    gridRows: 1,
+    gridCols: 1,
+    tiles: [],
+    publishedAt: '2026-09-26T10:00:00Z',
+  };
 }
 
 function renderForm() {

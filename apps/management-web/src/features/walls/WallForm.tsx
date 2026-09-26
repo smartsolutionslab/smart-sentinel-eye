@@ -55,9 +55,7 @@ export function WallForm({ onSaved }: WallFormProps) {
   const scenes = watch('scenes');
 
   const toggleScene = (layoutIdentifier: string, checked: boolean): void => {
-    const next = checked
-      ? [...scenes, layoutIdentifier]
-      : scenes.filter((selected) => selected !== layoutIdentifier);
+    const next = checked ? [...scenes, layoutIdentifier] : scenes.filter((selected) => selected !== layoutIdentifier);
     setValue('scenes', next, { shouldValidate: true });
   };
 

@@ -146,7 +146,7 @@ describe('WallPage', () => {
     expect(getWallMock).toHaveBeenCalled();
   });
 
-  it("Re-reads the wall when the hub reconnects (US1-17)", () => {
+  it('Re-reads the wall when the hub reconnects (US1-17)', () => {
     const refetch = vi.fn();
     mockWall(wall(), refetch);
     renderPage();
