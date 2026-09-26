@@ -63,7 +63,16 @@ export function ConfirmDialog({
           </RadixAlertDialog.Description>
           <div className="mt-6 flex justify-end gap-2">
             <RadixAlertDialog.Cancel asChild>
-              <Button variant="secondary" disabled={pending}>
+              <Button
+                variant="secondary"
+                unavailable={pending}
+                className="aria-disabled:cursor-progress"
+                // ADR-0151: stays focusable while pending. Radix closes on click unless the
+                // event is default-prevented, so this is what refuses the cancel.
+                onClick={(event) => {
+                  if (pending) event.preventDefault();
+                }}
+              >
                 {cancelLabel}
               </Button>
             </RadixAlertDialog.Cancel>
@@ -72,8 +81,19 @@ export function ConfirmDialog({
               on click, which would tear down the pending state the confirming
               control uses to refuse a second submit. The caller closes it when
               the request settles.
+
+              `unavailable` (ADR-0151) keeps it focusable and clickable while
+              pending, so the click handler is what refuses.
             */}
-            <Button variant="danger" disabled={pending} onClick={onConfirm}>
+            <Button
+              variant="danger"
+              unavailable={pending}
+              className="aria-disabled:cursor-progress"
+              onClick={() => {
+                if (pending) return;
+                onConfirm();
+              }}
+            >
               {confirmLabel}
             </Button>
           </div>
