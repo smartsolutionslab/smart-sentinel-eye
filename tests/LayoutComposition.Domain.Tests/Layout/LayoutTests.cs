@@ -14,6 +14,9 @@ public class LayoutTests
     private static Tile TileAt(CameraIdentifier camera, int row, int col) =>
         new(camera, Option<OverlayIdentifier>.None, GridPosition.From(row, col));
 
+    private static Tile TileAt(CameraIdentifier camera, int row, int col, TileSpan span) =>
+        new(camera, Option<OverlayIdentifier>.None, GridPosition.From(row, col), span);
+
     [Fact]
     public void CreateDraft_records_when_it_happened_and_who_did_it_on_the_chain_and_its_revision()
     {
@@ -279,7 +282,7 @@ public class LayoutTests
     }
 
     [Fact]
-    public void ValidateGrid_rejects_two_tiles_at_the_same_position_as_DuplicatePosition()
+    public void ValidateGrid_rejects_two_tiles_at_the_same_position_as_Overlap()
     {
         IReadOnlyList<Tile> tiles =
         [
@@ -288,7 +291,83 @@ public class LayoutTests
         ];
 
         Domain.Layout.Layout.ValidateGrid(GridDimensions.Default, tiles)
-            .Value.ShouldBe(GridViolation.DuplicatePosition);
+            .Value.ShouldBe(GridViolation.Overlap);
+    }
+
+    /// <summary>Spec 258: a genuine partial-rectangle overlap, not just duplicate origins.</summary>
+    [Fact]
+    public void ValidateGrid_rejects_two_tiles_whose_spans_intersect_as_Overlap()
+    {
+        IReadOnlyList<Tile> tiles =
+        [
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0, TileSpan.From(2, 2)),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 1, 1),
+        ];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.From(3, 3), tiles)
+            .Value.ShouldBe(GridViolation.Overlap);
+    }
+
+    /// <summary>
+    /// Spec 258 US1 Gherkin: origin (1,1) is in-bounds on a 3x3 grid, but the
+    /// span's last column (3) is not.
+    /// </summary>
+    [Fact]
+    public void ValidateGrid_rejects_a_span_that_runs_off_the_grid_as_OutOfBounds()
+    {
+        IReadOnlyList<Tile> tiles =
+            [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 1, 1, TileSpan.From(1, 3))];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.From(3, 3), tiles)
+            .Value.ShouldBe(GridViolation.OutOfBounds);
+    }
+
+    /// <summary>
+    /// FR-003: OutOfBounds is checked before Overlap. A tile that is both
+    /// out-of-bounds and overlapping another must report OutOfBounds.
+    /// </summary>
+    [Fact]
+    public void ValidateGrid_reports_OutOfBounds_before_Overlap_when_both_violations_are_present()
+    {
+        IReadOnlyList<Tile> tiles =
+        [
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0, TileSpan.From(1, 4)),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0),
+        ];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.From(3, 3), tiles)
+            .Value.ShouldBe(GridViolation.OutOfBounds);
+    }
+
+    [Fact]
+    public void ValidateGrid_accepts_a_hero_wall_with_a_2x2_tile_and_five_1x1_tiles()
+    {
+        IReadOnlyList<Tile> tiles =
+        [
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0, TileSpan.From(2, 2)),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 2),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 1, 2),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 2, 0),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 2, 1),
+            TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 2, 2),
+        ];
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.From(3, 3), tiles).HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public void ValidateGrid_accepts_a_full_3x3_grid_of_1x1_tiles()
+    {
+        List<Tile> tiles = [];
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                tiles.Add(TileAt(CameraIdentifier.From(Guid.CreateVersion7()), row, col));
+            }
+        }
+
+        Domain.Layout.Layout.ValidateGrid(GridDimensions.From(3, 3), tiles).HasValue.ShouldBeFalse();
     }
 
     [Fact]
@@ -305,9 +384,9 @@ public class LayoutTests
     {
         IReadOnlyList<Tile> tiles = [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)];
 
-        // 3x3 = 9 cells > MaxCells; GridDimensions.From would reject too, but
+        // 4x3 = 12 cells > MaxCells; GridDimensions.From would reject too, but
         // ValidateGrid guards even a manually-constructed oversize grid.
-        Domain.Layout.Layout.ValidateGrid(new GridDimensions(3, 3), tiles)
+        Domain.Layout.Layout.ValidateGrid(new GridDimensions(4, 3), tiles)
             .Value.ShouldBe(GridViolation.TooLarge);
     }
 
