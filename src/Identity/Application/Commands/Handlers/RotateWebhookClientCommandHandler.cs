@@ -110,7 +110,12 @@ public sealed class RotateWebhookClientCommandHandler(
                     StandardFlowEnabled: false,
                     DirectAccessGrantsEnabled: false,
                     PublicClient: false,
-                    DefaultClientScopes: [.. KeycloakScopeBundles.WebhookIntegration, KeycloakScopeBundles.AudienceScope],
+                    DefaultClientScopes:
+                    [
+                        .. KeycloakScopeBundles.WebhookIntegration,
+                        KeycloakScopeBundles.AudienceScope,
+                        KeycloakScopeBundles.GroupsScope,
+                    ],
                     OptionalClientScopes: Array.Empty<string>(),
                     Attributes: new Dictionary<string, string>
                     {
