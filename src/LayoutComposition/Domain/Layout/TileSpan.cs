@@ -14,13 +14,12 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// </summary>
 public sealed record TileSpan(int Rows, int Cols) : IValueObject
 {
-    // CA1720 fires because "Single" collides with System.Single. Suppressed
-    // deliberately: this mirrors GridPosition's naming convention for a
-    // grid's degenerate 1×1 case, and the tests name it exactly this way.
-#pragma warning disable CA1720
-    /// <summary>The 1×1 span every tile had before spec 258.</summary>
-    public static readonly TileSpan Single = new(1, 1);
-#pragma warning restore CA1720
+    /// <summary>
+    /// The 1×1 span every tile had before spec 258. Named <c>Cell</c>, not
+    /// <c>Single</c> — the same CA1720 (collides with <see cref="float"/>)
+    /// that <see cref="GridDimensions.Cell"/> is named to avoid.
+    /// </summary>
+    public static readonly TileSpan Cell = new(1, 1);
 
     public static TileSpan From(int rows, int cols)
     {

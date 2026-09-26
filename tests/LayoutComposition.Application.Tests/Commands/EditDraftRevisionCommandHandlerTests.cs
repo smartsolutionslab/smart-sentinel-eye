@@ -155,7 +155,7 @@ public class EditDraftRevisionCommandHandlerTests
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.From(3, 3),
-                [TileAt(0, 0, TileSpan.From(2, 2)), TileAt(1, 1, TileSpan.Single)], 0),
+                [TileAt(0, 0, TileSpan.From(2, 2)), TileAt(1, 1, TileSpan.Cell)], 0),
             CancellationToken.None);
 
         result.Error.ShouldBeOfType<EditDraftRevisionError.TileOverlap>();

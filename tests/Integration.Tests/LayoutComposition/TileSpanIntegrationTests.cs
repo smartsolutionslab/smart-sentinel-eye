@@ -11,39 +11,19 @@ namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 /// <c>[Fact]</c> per scenario, against the real Aspire stack (ADR-0103).
 ///
 /// <para>
-/// <b>Phase 4a, red-first (ADR-0139/0144, spec §8).</b> On unmodified
-/// production code every scenario here is red on its own assertion, except
-/// the three declared pins: <see cref="Anonymous_POST_returns_401"/>,
+/// Four scenarios are declared pins (spec §8) — existing behaviour, unchanged
+/// by this feature: <see cref="Anonymous_POST_returns_401"/>,
 /// <see cref="A_caller_without_sse_layouts_write_is_refused_403"/>, and the
 /// grid-over-nine-cells refusals
 /// (<see cref="A_2x5_grid_is_refused_as_LAYOUT_INVALID_INPUT"/>,
-/// <see cref="A_4x3_grid_is_refused_as_LAYOUT_INVALID_INPUT"/>) — all four are
-/// existing behaviour, unchanged by this feature, so their green result is
-/// characterisation, not 4a evidence.
+/// <see cref="A_4x3_grid_is_refused_as_LAYOUT_INVALID_INPUT"/>).
 /// </para>
 ///
 /// <para>
-/// Two scenarios that *look* like they could pass today must not:
-/// <see cref="Omitted_spans_mean_1x1"/> reads <c>rowSpan</c>/<c>colSpan</c>
-/// straight off the GET response, which <c>TileDto</c> does not carry yet — a
-/// green result here would mean the assertion is not reading the field.
 /// <see cref="Two_1x1_tiles_sharing_an_origin_are_refused_as_LAYOUT_TILE_OVERLAP"/>
-/// (the ADR-0112 duplicate-position case) asserts the *new* problem title;
-/// today's code still answers <c>LAYOUT_TILE_POSITION_DUPLICATE</c>.
-/// </para>
-///
-/// <para>
-/// <see cref="A_stale_If_Match_on_the_hero_wall_is_refused_and_keeps_its_spans"/>
-/// is red today for a different reason than the rest: its own setup (a
-/// published 3×3 hero wall) cannot be created until the cap and span support
-/// land, so the test never reaches its 409 assertion. It is not a pin.
-/// </para>
-///
-/// <para>
-/// Anonymous-object request bodies throughout (plan §6.2 / tasks T004): they
-/// compile today because <c>System.Text.Json</c> silently ignores the extra
-/// <c>rowSpan</c>/<c>colSpan</c> properties against today's <c>TileRequest</c>,
-/// which has no such members.
+/// covers the ADR-0112 duplicate-position case as the 1×1 instance of overlap:
+/// two 1×1 tiles at the same origin now answer <c>LAYOUT_TILE_OVERLAP</c>, the
+/// same problem title as any other intersecting pair.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -102,9 +82,8 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     }
 
     /// <summary>
-    /// The trap (spec §8): must be red today, because <c>TileDto</c> carries
-    /// no <c>rowSpan</c>/<c>colSpan</c> yet, so the properties this reads off
-    /// the GET response do not exist.
+    /// A tile posted without <c>rowSpan</c>/<c>colSpan</c> reads back as 1×1
+    /// (spec §8) — <c>TileDto</c> carries both fields on the GET response.
     /// </summary>
     [Fact]
     public async Task Omitted_spans_mean_1x1()
@@ -246,9 +225,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     }
 
     /// <summary>
-    /// The trap (spec §8): the ADR-0112 duplicate-position case is the 1×1
-    /// instance of overlap. Must be red today — the code is still
-    /// <c>LAYOUT_TILE_POSITION_DUPLICATE</c>.
+    /// The ADR-0112 duplicate-position case is the 1×1 instance of overlap
+    /// (spec §8): two 1×1 tiles at the same origin answer
+    /// <c>LAYOUT_TILE_OVERLAP</c>, the same problem title as any other
+    /// intersecting pair.
     /// </summary>
     [Fact]
     public async Task Two_1x1_tiles_sharing_an_origin_are_refused_as_LAYOUT_TILE_OVERLAP()
@@ -363,11 +343,11 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     }
 
     /// <summary>
-    /// Red today, but NOT a pin (spec §8): the setup itself — a published 3×3
-    /// hero wall — cannot be created before the cap and span support land, so
-    /// this never reaches its 409 assertion. The status is 409 (Conflict), not
-    /// 412 (PreconditionFailed): <c>EditDraftRevisionErrors.LayoutRevisionStale</c>
-    /// maps to <c>HttpStatusCode.Conflict</c>, unlike <c>CameraCatalog</c>'s
+    /// A stale <c>If-Match</c> against a published 3×3 hero wall is refused
+    /// (spec §8) and the hero tile's span is untouched. The status is 409
+    /// (Conflict), not 412 (PreconditionFailed):
+    /// <c>EditDraftRevisionErrors.LayoutRevisionStale</c> maps to
+    /// <c>HttpStatusCode.Conflict</c>, unlike <c>CameraCatalog</c>'s
     /// stale-version errors (ADR-0119's 412 convention) — a pre-existing,
     /// unrelated divergence, tracked by a follow-up issue rather than changed here.
     /// </summary>
