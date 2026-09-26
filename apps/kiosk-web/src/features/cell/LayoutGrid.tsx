@@ -427,6 +427,7 @@ function Tile({
     <div
       data-testid="layout-tile"
       data-highlighted={highlighted ? 'true' : 'false'}
+      data-camera-identifier={tile.cameraIdentifier}
       className={clsx(
         'relative flex h-full w-full items-center justify-center overflow-hidden rounded-md',
         highlighted && 'ssE-overlay-highlight',
