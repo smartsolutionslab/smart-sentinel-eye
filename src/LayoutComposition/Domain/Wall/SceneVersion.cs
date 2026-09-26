@@ -28,14 +28,11 @@ public sealed record SceneVersion : IValueObject<long>
     public static SceneVersion From(long value)
     {
         // Ensure.That has no `long` overload (only string/object/Guid/int/decimal,
-        // ADR-0105) and Shared.Kernel is out of this slice's scope this batch
-        // (ADR-0109) — a bare guard, matching what EnsuredValue<int>.AtLeast(0)
-        // does for AggregateVersion.From, is the smallest change that stays
-        // within LayoutComposition.
-        if (value < 0)
-        {
-            throw new ArgumentException($"{nameof(value)} must be >= 0; got {value}.", nameof(value));
-        }
+        // ADR-0105), but `long` implicitly converts to `decimal`, so the
+        // `decimal` overload's AtLeast(0) applies here — the same guard
+        // AggregateVersion.From uses via EnsuredValue<int>.
+        Ensure.That(value).AtLeast(0);
+
         return new SceneVersion(value);
     }
 
