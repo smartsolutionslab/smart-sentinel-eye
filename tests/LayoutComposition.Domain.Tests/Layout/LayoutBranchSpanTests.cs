@@ -6,13 +6,10 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout;
 
 /// <summary>
-/// Spec 258 §1 finding 1 (ADR-0156): <c>Revision.NewDraft</c> re-constructs
-/// every tile via the 3-argument constructor, which silently drops any span
-/// wider than 1×1. <c>BranchDraft</c> calls <c>NewDraft</c> to clone the
-/// Published revision's tiles, so a published hero wall would branch into a
-/// draft whose hero tile is flattened back to 1×1 unless the clone carries
-/// <c>tile.Span</c> forward (plan §2.5). If this test arrives green on
-/// unchanged code, it is not exercising <c>BranchDraft</c>.
+/// Spec 258 §1 finding 1 (ADR-0156): <c>BranchDraft</c> clones the Published
+/// revision's tiles via <c>Revision.NewDraft</c>, carrying each tile's
+/// <c>Span</c> forward (plan §2.5) rather than flattening it back to 1×1 — a
+/// published hero wall keeps its 2×2 span when branched into a new draft.
 /// </summary>
 public class LayoutBranchSpanTests
 {
