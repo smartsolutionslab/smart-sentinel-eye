@@ -123,7 +123,7 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
             Creation = Creation.From(CreatedAt.From(now), createdBy),
         };
         wall.scenes.AddRange(scenes);
-        wall.Raise(new WallConfiguredDomainEvent(fab, wall.Id, name, wall.Scenes, first, now, createdBy));
+        wall.Raise(new WallConfiguredDomainEvent(fab, wall.Id, name, [.. wall.Scenes], first, now, createdBy));
         return wall;
     }
 
@@ -155,7 +155,7 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
                 Fab, Id, previous, next, SceneVersion, new SceneSwitchCause.Reconfigured(by), now));
         }
 
-        Raise(new WallConfiguredDomainEvent(Fab, Id, Name, scenes, Showing, now, by));
+        Raise(new WallConfiguredDomainEvent(Fab, Id, Name, [.. scenes], Showing, now, by));
     }
 
     /// <summary>
