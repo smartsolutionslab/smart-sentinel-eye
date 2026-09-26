@@ -58,4 +58,7 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Switched wall {Wall} scene by {Operator}.")]
     public static partial void SwitchedWallScene(this ILogger logger, WallIdentifier wall, OperatorIdentifier @operator);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Switch on wall {Wall} by {Operator} was a no-op; scene unchanged.")]
+    public static partial void WallSceneSwitchWasNoOp(this ILogger logger, WallIdentifier wall, OperatorIdentifier @operator);
 }
