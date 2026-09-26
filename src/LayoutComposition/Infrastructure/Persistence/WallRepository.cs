@@ -31,10 +31,21 @@ public sealed class WallRepository(
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
 
-        Wall? found = await dbContext.Walls
+        // ux_walls_fab_name_ci is unique on (fab, lower(name)), but WallName's
+        // own equality is ordinal — an exact == here would let
+        // "line 3 rotation" past this check after "Line 3 rotation" already
+        // exists, only for the database to refuse it with a generic
+        // RESOURCE_ALREADY_EXISTS instead of the typed WALL_NAME_TAKEN. Name is
+        // mapped through HasConversion, so there is no column expression to
+        // lower-case server-side; walls per fab are few (PD-5 caps scenes, not
+        // walls, but the count is the same order), so comparing case-
+        // insensitively over the fab's own walls is the straightforward fix.
+        List<Wall> inFab = await dbContext.Walls
             .Where(candidate => candidate.Fab == fab)
-            .Where(candidate => candidate.Name == name)
-            .FirstOrDefaultAsync(cancellationToken);
+            .ToListAsync(cancellationToken);
+
+        Wall? found = inFab.FirstOrDefault(
+            candidate => string.Equals(candidate.Name.Value, name.Value, StringComparison.OrdinalIgnoreCase));
         return found is null ? Option<Wall>.None : Option<Wall>.Some(found);
     }
 
