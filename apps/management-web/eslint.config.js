@@ -35,6 +35,8 @@ export default [
         globalThis: 'readonly',
         AbortController: 'readonly',
         KeyboardEvent: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLOptionElement: 'readonly',
       },
     },
     plugins: {
