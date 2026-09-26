@@ -6,8 +6,9 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 
 /// <summary>
 /// Failure hierarchy for <see cref="EditDraftRevisionCommand"/>
-/// (ADR-0047/0089). The four <c>LAYOUT_GRID_*</c> cases mirror the
-/// aggregate's <see cref="GridViolation"/> set (ADR-0112 §2).
+/// (ADR-0047/0089). The four <c>LAYOUT_GRID_*</c>/<c>LAYOUT_TILE_*</c>
+/// cases mirror the aggregate's <see cref="GridViolation"/> set
+/// (ADR-0112 §2, ADR-0156 §2).
 /// </summary>
 public abstract record EditDraftRevisionError(string Code, string Message, HttpStatusCode Status)
     : ApiError(Code, Message, Status)
@@ -47,16 +48,17 @@ public abstract record EditDraftRevisionError(string Code, string Message, HttpS
             "A layout revision must contain at least one tile.",
             HttpStatusCode.BadRequest);
 
-    public sealed record TilePositionDuplicate()
+    /// <summary>Spec 258 (ADR-0156 §2): generalises the old same-position case.</summary>
+    public sealed record TileOverlap()
         : EditDraftRevisionError(
-            "LAYOUT_TILE_POSITION_DUPLICATE",
-            "Two tiles occupy the same grid position.",
+            "LAYOUT_TILE_OVERLAP",
+            "Two tiles overlap.",
             HttpStatusCode.BadRequest);
 
     public sealed record TileOutOfBounds()
         : EditDraftRevisionError(
             "LAYOUT_TILE_OUT_OF_BOUNDS",
-            "A tile sits outside the grid bounds.",
+            "A tile's span extends outside the grid bounds.",
             HttpStatusCode.BadRequest);
 
     public sealed record GridTooLarge()
@@ -69,7 +71,7 @@ public abstract record EditDraftRevisionError(string Code, string Message, HttpS
         violation switch
         {
             GridViolation.Empty => new GridEmpty(),
-            GridViolation.DuplicatePosition => new TilePositionDuplicate(),
+            GridViolation.Overlap => new TileOverlap(),
             GridViolation.OutOfBounds => new TileOutOfBounds(),
             GridViolation.TooLarge => new GridTooLarge(),
             _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown grid violation."),
@@ -110,8 +112,8 @@ public static class EditDraftRevisionFailures
     public static EditDraftRevisionError GridEmpty() =>
         new EditDraftRevisionError.GridEmpty();
 
-    public static EditDraftRevisionError TilePositionDuplicate() =>
-        new EditDraftRevisionError.TilePositionDuplicate();
+    public static EditDraftRevisionError TileOverlap() =>
+        new EditDraftRevisionError.TileOverlap();
 
     public static EditDraftRevisionError TileOutOfBounds() =>
         new EditDraftRevisionError.TileOutOfBounds();

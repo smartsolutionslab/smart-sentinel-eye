@@ -12,9 +12,10 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// index in Postgres is a belt-and-braces backstop.
 ///
 /// <para>
-/// Spec 010 (ADR-0112): a revision now carries a multi-tile grid.
+/// Spec 010 (ADR-0112): a revision now carries a multi-tile grid. Spec 258
+/// (ADR-0156) generalises a tile from one cell to a rectangle.
 /// <see cref="ValidateGrid"/> is the single source of truth for the four
-/// grid invariants (≥1 tile, no duplicate position, in-bounds, ≤4);
+/// grid invariants (≥1 tile, no overlapping span, in-bounds, ≤9);
 /// command handlers call it and map the first violation to a
 /// <c>LAYOUT_GRID_*</c> <c>400</c> error before invoking a write method.
 /// The aggregate calls it too, via <see cref="RequireValidGrid"/>, as a
@@ -62,9 +63,9 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     private Layout() { }
 
     /// <summary>
-    /// Validates a candidate grid + tile set against the four spec-010
-    /// invariants (ADR-0112 §2), returning the first violation or
-    /// <see cref="Option{T}.None"/> when valid. The single source of
+    /// Validates a candidate grid + tile set against the four spec-010/258
+    /// invariants (ADR-0112 §2, ADR-0156 §2), returning the first violation
+    /// or <see cref="Option{T}.None"/> when valid. The single source of
     /// truth shared by create + edit so both paths reject identically.
     /// </summary>
     public static Option<GridViolation> ValidateGrid(GridDimensions grid, IReadOnlyList<Tile> tiles)
@@ -80,13 +81,19 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         {
             return Option<GridViolation>.Some(GridViolation.TooLarge);
         }
-        if (tiles.Any(tile => !grid.Contains(tile.Position)))
+        if (tiles.Any(tile => !grid.Contains(tile.Position, tile.Span)))
         {
             return Option<GridViolation>.Some(GridViolation.OutOfBounds);
         }
-        if (tiles.Select(tile => tile.Position).Distinct().Count() != tiles.Count)
+        for (int i = 0; i < tiles.Count; i++)
         {
-            return Option<GridViolation>.Some(GridViolation.DuplicatePosition);
+            for (int j = i + 1; j < tiles.Count; j++)
+            {
+                if (tiles[i].Overlaps(tiles[j]))
+                {
+                    return Option<GridViolation>.Some(GridViolation.Overlap);
+                }
+            }
         }
         return Option<GridViolation>.None;
     }

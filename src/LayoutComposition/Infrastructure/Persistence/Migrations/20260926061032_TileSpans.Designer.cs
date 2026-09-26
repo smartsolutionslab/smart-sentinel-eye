@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LayoutCompositionDbContext))]
-    partial class LayoutCompositionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260926061032_TileSpans")]
+    partial class TileSpans
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -60,55 +63,6 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
                         .HasFilter("archived_at IS NULL");
 
                     b.ToTable("layouts", (string)null);
-                });
-
-            modelBuilder.Entity("SmartSentinelEye.LayoutComposition.Domain.Wall.Wall", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid")
-                        .HasColumnName("wall_id");
-
-                    b.Property<string>("Fab")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("character varying(32)")
-                        .HasColumnName("fab");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(80)
-                        .HasColumnType("character varying(80)")
-                        .HasColumnName("name");
-
-                    b.Property<long>("SceneVersion")
-                        .HasColumnType("bigint")
-                        .HasColumnName("scene_version");
-
-                    b.Property<Guid[]>("Scenes")
-                        .IsRequired()
-                        .HasColumnType("uuid[]")
-                        .HasColumnName("scenes");
-
-                    b.Property<Guid>("Showing")
-                        .HasColumnType("uuid")
-                        .HasColumnName("showing_layout_id");
-
-                    b.Property<DateTimeOffset>("ShowingSince")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("showing_since");
-
-                    b.Property<int>("Version")
-                        .IsConcurrencyToken()
-                        .HasColumnType("integer")
-                        .HasColumnName("version");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Fab", "Name")
-                        .IsUnique()
-                        .HasDatabaseName("ux_walls_fab_name_ci");
-
-                    b.ToTable("walls", (string)null);
                 });
 
             modelBuilder.Entity("SmartSentinelEye.LayoutComposition.Domain.Layout.Layout", b =>
@@ -276,33 +230,6 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Migratio
                         .IsRequired();
 
                     b.Navigation("Revisions");
-                });
-
-            modelBuilder.Entity("SmartSentinelEye.LayoutComposition.Domain.Wall.Wall", b =>
-                {
-                    b.OwnsOne("SmartSentinelEye.LayoutComposition.Domain.Layout.Creation", "Creation", b1 =>
-                        {
-                            b1.Property<Guid>("WallId")
-                                .HasColumnType("uuid");
-
-                            b1.Property<DateTimeOffset>("At")
-                                .HasColumnType("timestamp with time zone")
-                                .HasColumnName("created_at");
-
-                            b1.Property<Guid>("By")
-                                .HasColumnType("uuid")
-                                .HasColumnName("created_by");
-
-                            b1.HasKey("WallId");
-
-                            b1.ToTable("walls");
-
-                            b1.WithOwner()
-                                .HasForeignKey("WallId");
-                        });
-
-                    b.Navigation("Creation")
-                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }

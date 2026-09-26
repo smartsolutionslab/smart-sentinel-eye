@@ -9,8 +9,8 @@ namespace SmartSentinelEye.LayoutComposition.Application.Commands;
 /// <see cref="CreateLayoutDraftCommand"/> (ADR-0047 + ADR-0089). Each
 /// case carries Code, Message, and HttpStatusCode so the API layer maps
 /// to RFC 7807 Problem Details without per-case translation. The four
-/// <c>LAYOUT_GRID_*</c> cases mirror the aggregate's
-/// <see cref="GridViolation"/> set (ADR-0112 §2).
+/// <c>LAYOUT_GRID_*</c>/<c>LAYOUT_TILE_*</c> cases mirror the aggregate's
+/// <see cref="GridViolation"/> set (ADR-0112 §2, ADR-0156 §2).
 /// </summary>
 public abstract record CreateLayoutDraftError(string Code, string Message, HttpStatusCode Status)
     : ApiError(Code, Message, Status)
@@ -44,16 +44,17 @@ public abstract record CreateLayoutDraftError(string Code, string Message, HttpS
             "A layout revision must contain at least one tile.",
             HttpStatusCode.BadRequest);
 
-    public sealed record TilePositionDuplicate()
+    /// <summary>Spec 258 (ADR-0156 §2): generalises the old same-position case.</summary>
+    public sealed record TileOverlap()
         : CreateLayoutDraftError(
-            "LAYOUT_TILE_POSITION_DUPLICATE",
-            "Two tiles occupy the same grid position.",
+            "LAYOUT_TILE_OVERLAP",
+            "Two tiles overlap.",
             HttpStatusCode.BadRequest);
 
     public sealed record TileOutOfBounds()
         : CreateLayoutDraftError(
             "LAYOUT_TILE_OUT_OF_BOUNDS",
-            "A tile sits outside the grid bounds.",
+            "A tile's span extends outside the grid bounds.",
             HttpStatusCode.BadRequest);
 
     public sealed record GridTooLarge()
@@ -66,7 +67,7 @@ public abstract record CreateLayoutDraftError(string Code, string Message, HttpS
         violation switch
         {
             GridViolation.Empty => new GridEmpty(),
-            GridViolation.DuplicatePosition => new TilePositionDuplicate(),
+            GridViolation.Overlap => new TileOverlap(),
             GridViolation.OutOfBounds => new TileOutOfBounds(),
             GridViolation.TooLarge => new GridTooLarge(),
             _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown grid violation."),
@@ -90,8 +91,8 @@ public static class CreateLayoutDraftFailures
     public static CreateLayoutDraftError GridEmpty() =>
         new CreateLayoutDraftError.GridEmpty();
 
-    public static CreateLayoutDraftError TilePositionDuplicate() =>
-        new CreateLayoutDraftError.TilePositionDuplicate();
+    public static CreateLayoutDraftError TileOverlap() =>
+        new CreateLayoutDraftError.TileOverlap();
 
     public static CreateLayoutDraftError TileOutOfBounds() =>
         new CreateLayoutDraftError.TileOutOfBounds();
