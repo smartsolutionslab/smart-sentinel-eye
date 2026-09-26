@@ -42,6 +42,7 @@
     "./ui/composites/ErrorBoundary": "./src/ui/composites/ErrorBoundary.tsx",
     "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
+    "./ui/fonts/*": "./src/ui/fonts/*",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"
   },
