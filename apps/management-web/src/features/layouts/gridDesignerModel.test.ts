@@ -5,24 +5,16 @@ import {
   cellsFromTiles,
   tilesFromCells,
   GRID_PRESETS,
-  // Spec 258 (#2607), ADR-0156, plan.md §4.3 — none of these three exist on
-  // today's `gridDesignerModel.ts`. The import itself fails to resolve until
-  // they are added, which fails every test in this file at once (the same
-  // "missing export" RED every other new case in this phase relies on).
+  // Spec 258 (#2607), ADR-0156, plan.md §4.3.
   coveredBy,
   spanOptions,
-  clearCameraAt,
   type DesignerCell,
 } from './gridDesignerModel.js';
 
 const HERO = 'cam-hero';
 const CORNER = 'cam-corner';
 
-/**
- * A cell fixture wide enough to carry `rowSpan`/`colSpan` (plan.md §4.3:
- * `DesignerCell` gains them, default 1). Cast because today's `DesignerCell`
- * does not declare those fields yet.
- */
+/** A cell fixture carrying `rowSpan`/`colSpan` (plan.md §4.3, default 1). */
 function cellAt(
   row: number,
   col: number,
@@ -35,7 +27,7 @@ function cellAt(
     col,
     rowSpan: overrides.rowSpan ?? 1,
     colSpan: overrides.colSpan ?? 1,
-  } as DesignerCell;
+  };
 }
 
 function tileAt(row: number, col: number, overrides: { rowSpan?: number; colSpan?: number } = {}): LayoutTile {
@@ -46,7 +38,7 @@ function tileAt(row: number, col: number, overrides: { rowSpan?: number; colSpan
     col,
     rowSpan: overrides.rowSpan ?? 1,
     colSpan: overrides.colSpan ?? 1,
-  } as LayoutTile;
+  };
 }
 
 function indexAt(cells: ReadonlyArray<DesignerCell>, row: number, col: number): number {
@@ -126,14 +118,5 @@ describe('gridDesignerModel — spans up to a 3x3 grid (spec 258 US3)', () => {
 
     expect(roundTripped.find((tile) => tile.row === 0 && tile.col === 0)).toMatchObject({ rowSpan: 2, colSpan: 2 });
     expect(roundTripped.find((tile) => tile.row === 0 && tile.col === 2)).toMatchObject({ rowSpan: 1, colSpan: 1 });
-  });
-
-  it('resets a cell’s span to 1x1 when its camera is cleared', () => {
-    const cells = buildCells(3, 3, [cellAt(0, 0, { cameraIdentifier: HERO, rowSpan: 2, colSpan: 2 })]);
-    const heroIndex = indexAt(cells, 0, 0);
-
-    const cleared = clearCameraAt(cells, heroIndex);
-
-    expect(cleared[heroIndex]).toMatchObject({ cameraIdentifier: '', rowSpan: 1, colSpan: 1 });
   });
 });

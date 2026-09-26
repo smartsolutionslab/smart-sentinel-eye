@@ -1,7 +1,5 @@
 import type { UseFormReturn } from 'react-hook-form';
-import type { GridDesignerValue } from './gridDesignerModel.js';
-
-const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
+import { SELECT_CLASS, type GridDesignerValue } from './gridDesignerModel.js';
 
 export interface TileSpanFieldsProps {
   form: UseFormReturn<GridDesignerValue>;

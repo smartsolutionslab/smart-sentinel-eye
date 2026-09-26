@@ -3,7 +3,15 @@ import type { PublishedOverlay } from '@smart-sentinel-eye/shared/api/overlays.a
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useId } from 'react';
 import { useFieldArray, type UseFormReturn } from 'react-hook-form';
-import { buildCells, coveredBy, GRID_PRESETS, spanOptions, type DesignerCell, type GridDesignerValue } from './gridDesignerModel.js';
+import {
+  buildCells,
+  coveredBy,
+  GRID_PRESETS,
+  SELECT_CLASS,
+  spanOptions,
+  type DesignerCell,
+  type GridDesignerValue,
+} from './gridDesignerModel.js';
 import { TileSpanFields } from './TileSpanFields.js';
 
 export interface GridDesignerProps {
@@ -38,8 +46,6 @@ export interface GridDesignerProps {
    */
   cameraNoticeId?: string;
 }
-
-const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
 
 /**
  * The wall designer (spec 010, FR-010): a grid-size preset picker plus a dense
@@ -280,6 +286,7 @@ export function GridDesigner({
           const camera = selectedCameraOf(index);
           const populated = camera !== '';
           const { rowSpan, colSpan } = cellsValue[index] ?? cell;
+          const cameraField = register(`cells.${index}.cameraIdentifier`);
 
           return (
             <div
@@ -317,10 +324,10 @@ export function GridDesigner({
                   id={`tile-${index}-camera`}
                   className={SELECT_CLASS}
                   aria-describedby={cameraNoticeId}
-                  {...register(`cells.${index}.cameraIdentifier`)}
+                  {...cameraField}
                   value={camera}
                   onChange={(event) => {
-                    register(`cells.${index}.cameraIdentifier`).onChange(event);
+                    cameraField.onChange(event);
                     // Spec 258 US3: a cell with no camera has nothing to span.
                     if (event.target.value === '') {
                       setValue(`cells.${index}.rowSpan`, 1);
