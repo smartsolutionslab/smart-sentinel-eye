@@ -66,9 +66,10 @@ export function ConfirmDialog({
               <Button
                 variant="secondary"
                 unavailable={pending}
-                className="aria-disabled:cursor-progress"
                 // ADR-0151: stays focusable while pending. Radix closes on click unless the
-                // event is default-prevented, so this is what refuses the cancel.
+                // event is default-prevented, so this is what refuses the cancel. No
+                // cursor-progress here: Cancel isn't itself mid-request (Button.tsx) —
+                // confirm is.
                 onClick={(event) => {
                   if (pending) event.preventDefault();
                 }}
