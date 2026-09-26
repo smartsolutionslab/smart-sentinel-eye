@@ -7,11 +7,10 @@ import { brotliDecompressSync } from 'node:zlib';
  * Not a production dependency: `fonts.test.ts` (S2, S4b, S5) is its only
  * caller. Parses the WOFF2 header and table directory, brotli-decompresses
  * the single table stream, and exposes exactly the four tables those facts
- * need: `head`, `hhea`, `hmtx` and `cmap` (formats 4 and 12). None of the
- * twelve committed IBM Plex files transform `glyf`/`loca` (measured, plan.md
- * §6), so this reader tracks transform lengths only to keep stream offsets
- * correct for tables it otherwise ignores — it never decodes a transformed
- * table's content.
+ * need: `head`, `hhea`, `hmtx` and `cmap` (formats 4 and 12). `glyf`/`loca`
+ * are transformed in all twelve committed files; only their lengths are
+ * tracked here, never decoded — `hmtx` is the untransformed table this
+ * reader actually reads (plan.md §6).
  *
  * Reference: W3C WOFF2 (https://www.w3.org/TR/WOFF2/) and OpenType `head` /
  * `hhea` / `hmtx` / `cmap`.
@@ -145,6 +144,12 @@ function readTableDirectory(view: DataView, cursor: Cursor, numTables: number): 
 
     const origLength = readUIntBase128(view, cursor);
     const isReTransformable = tag === 'glyf' || tag === 'loca';
+    if (!isReTransformable && transformVersion !== 0) {
+      throw new Error(
+        `WOFF2 table '${tag}' has a nonzero transform version (${transformVersion}), which this reader does ` +
+          'not know how to skip — the table directory would desync from here on.',
+      );
+    }
     const streamLength = isReTransformable && transformVersion === 0 ? readUIntBase128(view, cursor) : origLength;
 
     entries.push({ tag, origLength, streamLength });

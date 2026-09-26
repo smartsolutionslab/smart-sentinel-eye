@@ -22,13 +22,17 @@ namespace SmartSentinelEye.Architecture.Tests;
 ///
 /// <para>
 /// <b>What this scan cannot see (spec 261 plan.md §6.1):</b> a stylesheet or
-/// <c>FontFace</c> built in TypeScript at runtime (nothing here evaluates JS); CSS
-/// a dependency brings in from <c>node_modules</c> (excluded by path, and rightly
-/// so — this scan is the authority for what this repository writes, not for what
-/// it depends on); and a <c>url()</c> assembled from a variable rather than
-/// written as a literal. <c>fonts.build.test.ts</c>'s <c>B3</c> (the built output)
-/// and <c>e2e/self-hosted-fonts.spec.ts</c>'s <c>E1</c> (the network the running
-/// page actually uses) are the authorities for those, exactly as
+/// <c>FontFace</c> built in TypeScript at runtime (nothing here evaluates JS).
+/// <c>e2e/self-hosted-fonts.spec.ts</c>'s <c>E1</c> (the network the running page
+/// actually uses) is the authority for that — not <c>fonts.build.test.ts</c>'s
+/// <c>B3</c>, which scans only built <c>.css</c>/<c>.html</c> and never a bundled
+/// <c>assets/*.js</c> chunk, so a runtime <c>new FontFace(…, "url(https://…)")</c>
+/// in a JS bundle is invisible to it. This scan also cannot see CSS a dependency
+/// brings in from <c>node_modules</c> (excluded by path, and rightly so — this
+/// scan is the authority for what this repository writes, not for what it
+/// depends on) or a <c>url()</c> assembled from a variable rather than written as
+/// a literal; <c>B3</c> is the authority for those two, since they surface as
+/// literal text in the built output it scans — exactly as
 /// <c>AppHostContainerImagePinTests</c> is for what <c>ContainerImagePinTests</c>
 /// cannot see.
 /// </para>
@@ -45,20 +49,20 @@ public class ExternalFontHostTests
     /// </summary>
     private static readonly Regex UrlFunction = new(
         @"url\(\s*(?:'(?<target>[^']*)'|""(?<target>[^""]*)""|(?<target>[^'"")\s][^)]*?))\s*\)",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex ImportStatement = new(
-        @"@import\s+(?:url\(\s*(?:'(?<target>[^']*)'|""(?<target>[^""]*)""|(?<target>[^'"")\s][^)]*?))\s*\)"
+        @"@import\s*(?:url\(\s*(?:'(?<target>[^']*)'|""(?<target>[^""]*)""|(?<target>[^'"")\s][^)]*?))\s*\)"
         + @"|'(?<target>[^']*)'|""(?<target>[^""]*)"")",
-        RegexOptions.Compiled);
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     private static readonly Regex FontFaceBlock = new(
         @"@font-face\s*\{(?<body>[^{}]*)\}",
-        RegexOptions.Compiled | RegexOptions.Singleline);
+        RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
     private static readonly Regex SrcDeclaration = new(
         @"(?<![-\w])src\s*:\s*(?<value>[^;]+);",
-        RegexOptions.Compiled | RegexOptions.Singleline);
+        RegexOptions.Compiled | RegexOptions.Singleline | RegexOptions.IgnoreCase);
 
     private static readonly Regex LinkTag = new(
         @"<link\b[^>]*>",
@@ -73,12 +77,18 @@ public class ExternalFontHostTests
     /// in advance (spec 261 §6): nothing under <c>apps/**</c> declares a font yet,
     /// so there is nothing to be absolute. Proved live by a planted counterfactual
     /// (plan.md §6.5 #1), quoted in the PR, not by this test going red on develop.
+    /// The <c>url()</c> half of the self-check is <see cref="Every_font_face_url_names_a_file_that_exists"/>'s
+    /// (G3) — both walk the same <see cref="UrlFunction"/> matches. This fact adds
+    /// its own self-check for the <c>@import</c> half, so a broken
+    /// <see cref="ImportStatement"/> regex cannot pass vacuously forever: both
+    /// apps' <c>index.css</c> have an <c>@import '…/tokens.css'</c> today.
     /// </summary>
     [Fact]
     public void No_stylesheet_under_apps_references_an_absolute_url()
     {
         DirectoryInfo root = RepositorySource.Root();
         List<string> violations = [];
+        int importMatches = 0;
 
         foreach (string relativePath in CssFiles(root))
         {
@@ -95,6 +105,7 @@ public class ExternalFontHostTests
 
             foreach (Match match in ImportStatement.Matches(css))
             {
+                importMatches++;
                 string target = match.Groups["target"].Value;
                 if (IsAbsolute(target))
                 {
@@ -102,6 +113,12 @@ public class ExternalFontHostTests
                 }
             }
         }
+
+        importMatches.ShouldBeGreaterThanOrEqualTo(
+            1,
+            $"no @import target was found anywhere under {AppsTree}/ — the scan is broken, not the code. A "
+            + "source-scanning guard that matches nothing passes, and a passing guard that checks nothing is "
+            + "indistinguishable from one that holds.");
 
         violations.ShouldBeEmpty(
             $"{violations.Count} stylesheet reference(s) under {AppsTree}/ reach for an absolute URL, which "
@@ -113,16 +130,24 @@ public class ExternalFontHostTests
     /// <summary>
     /// Fact G2. Same declared-vacuous-green status as G1 (spec 261 §6):
     /// <c>apps/*/index.html</c> carries no font-related <c>&lt;link&gt;</c> yet.
-    /// Proved live by a planted counterfactual (plan.md §6.5 #2).
+    /// Proved live by a planted counterfactual (plan.md §6.5 #2). Self-checks that
+    /// at least two <c>index.html</c> files were scanned and at least one
+    /// <c>&lt;link href&gt;</c> was parsed — both apps' <c>index.html</c> have
+    /// <c>&lt;link rel="icon" href="/favicon.svg"&gt;</c> today — so a broken
+    /// <see cref="LinkTag"/>/<see cref="HrefAttribute"/> regex cannot pass
+    /// vacuously forever.
     /// </summary>
     [Fact]
     public void No_index_html_link_loads_from_an_absolute_url()
     {
         DirectoryInfo root = RepositorySource.Root();
         List<string> violations = [];
+        int scannedFiles = 0;
+        int hrefsParsed = 0;
 
         foreach (string relativePath in IndexHtmlFiles(root))
         {
+            scannedFiles++;
             string html = File.ReadAllText(Path.Combine(root.FullName, relativePath));
 
             foreach (Match link in LinkTag.Matches(html))
@@ -133,6 +158,7 @@ public class ExternalFontHostTests
                     continue;
                 }
 
+                hrefsParsed++;
                 string target = href.Groups["value"].Value;
                 if (IsAbsolute(target))
                 {
@@ -140,6 +166,15 @@ public class ExternalFontHostTests
                 }
             }
         }
+
+        scannedFiles.ShouldBeGreaterThanOrEqualTo(
+            2,
+            $"fewer than 2 apps/*/index.html were found under {AppsTree}/ — the scan is broken, not the code.");
+        hrefsParsed.ShouldBeGreaterThanOrEqualTo(
+            1,
+            "no <link href> was parsed in any apps/*/index.html — the scan is broken, not the code. A "
+            + "source-scanning guard that matches nothing passes, and a passing guard that checks nothing is "
+            + "indistinguishable from one that holds.");
 
         violations.ShouldBeEmpty(
             $"{violations.Count} <link> element(s) in an apps/*/index.html load from an absolute URL — the "
@@ -165,15 +200,12 @@ public class ExternalFontHostTests
 
             foreach (Match face in FontFaceBlock.Matches(css))
             {
-                Match src = SrcDeclaration.Match(face.Groups["body"].Value);
-                if (!src.Success)
+                foreach (Match src in SrcDeclaration.Matches(face.Groups["body"].Value))
                 {
-                    continue;
-                }
-
-                foreach (Match url in UrlFunction.Matches(src.Groups["value"].Value))
-                {
-                    urlSources.Add((relativePath, url.Groups["target"].Value));
+                    foreach (Match url in UrlFunction.Matches(src.Groups["value"].Value))
+                    {
+                        urlSources.Add((relativePath, url.Groups["target"].Value));
+                    }
                 }
             }
         }
@@ -227,19 +259,16 @@ public class ExternalFontHostTests
 
             foreach (Match face in FontFaceBlock.Matches(css))
             {
-                Match src = SrcDeclaration.Match(face.Groups["body"].Value);
-                if (!src.Success)
+                foreach (Match src in SrcDeclaration.Matches(face.Groups["body"].Value))
                 {
-                    continue;
-                }
+                    string value = src.Groups["value"].Value;
+                    bool hasUrl = UrlFunction.IsMatch(value);
+                    bool hasLocal = value.Contains("local(", StringComparison.OrdinalIgnoreCase);
 
-                string value = src.Groups["value"].Value;
-                bool hasUrl = UrlFunction.IsMatch(value);
-                bool hasLocal = value.Contains("local(", StringComparison.Ordinal);
-
-                if (hasUrl && hasLocal)
-                {
-                    violations.Add($"{relativePath}: src: {value.Trim()}");
+                    if (hasUrl && hasLocal)
+                    {
+                        violations.Add($"{relativePath}: src: {value.Trim()}");
+                    }
                 }
             }
         }
@@ -271,8 +300,18 @@ public class ExternalFontHostTests
         return line;
     }
 
+    /// <summary>
+    /// Strips comments but keeps their newlines, so <see cref="LineOf"/> still
+    /// reports the right line number for text that follows a multi-line header
+    /// comment (N3: <c>fonts.css</c>'s ~49-line header would otherwise put every
+    /// reported line ~48 too low).
+    /// </summary>
     private static string StripCssComments(string css) =>
-        Regex.Replace(css, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+        Regex.Replace(
+            css,
+            @"/\*.*?\*/",
+            match => new string('\n', match.Value.Count(character => character == '\n')),
+            RegexOptions.Singleline);
 
     private static IEnumerable<string> CssFiles(DirectoryInfo root)
     {

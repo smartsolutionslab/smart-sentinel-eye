@@ -146,7 +146,13 @@ test.describe('self-hosted fonts (spec 261, issue #2333)', () => {
           ]);
           return {
             plexLoaded: document.fonts.check(`${weight} 16px "${plexFamily}"`),
-            fallbackLoaded: document.fonts.check(`${weight} 16px "${fallbackFamily}"`),
+            // `document.fonts.check()` returns true even when nothing matches
+            // (it just means the browser would use its own default font), so
+            // a mistyped fallback family would still pass that gate. Require
+            // an actual loaded FontFace of that family instead (N6).
+            fallbackLoaded: [...document.fonts].some(
+              (face) => face.family.replace(/^["']|["']$/g, '') === fallbackFamily && face.status === 'loaded',
+            ),
           };
         },
         { plexFamily, fallbackFamily, weight },
