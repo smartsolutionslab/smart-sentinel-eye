@@ -237,7 +237,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
+          <Button type="submit" unavailable={isLoading} busy={isLoading}>
             {isLoading ? 'Creating…' : 'Create draft'}
           </Button>
         </div>

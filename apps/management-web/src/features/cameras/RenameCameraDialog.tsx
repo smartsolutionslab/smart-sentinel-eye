@@ -129,7 +129,7 @@ export function RenameCameraDialog({
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
+          <Button type="submit" unavailable={isLoading} busy={isLoading}>
             {isLoading ? 'Saving…' : 'Save'}
           </Button>
         </div>

@@ -159,7 +159,7 @@ export function WallForm({ onSaved }: WallFormProps) {
       )}
 
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={isLoading}>
+        <Button type="submit" disabled={isLoading} busy={isLoading}>
           {isLoading ? 'Saving…' : 'Save'}
         </Button>
       </div>

@@ -156,7 +156,7 @@ export function RegisterCameraDialog({ open, onOpenChange }: RegisterCameraDialo
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
+          <Button type="submit" unavailable={isLoading} busy={isLoading}>
             {isLoading ? 'Registering…' : 'Register'}
           </Button>
         </div>
