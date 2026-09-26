@@ -97,6 +97,36 @@ public class RegisterDeviceCommandHandlerTests
         result.Error.ShouldBeOfType<RegisterDeviceError.InvalidDeviceIdentifier>();
     }
 
+    /// <summary>
+    /// #2575: a null or empty deviceIdentifier passes the ClientId grammar
+    /// (it produces "plc-" or "inference-", both valid) so today nothing
+    /// stops it before Keycloak — this proves the gap the null-guard fix
+    /// closes. No client may be created for any of these rows.
+    /// </summary>
+    [Theory]
+    [InlineData("plc", null)]
+    [InlineData("plc", "")]
+    [InlineData("inference", "")]
+    public async Task Absent_device_identifier_returns_InvalidDeviceIdentifier(
+        string deviceType, string? deviceIdentifier)
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        RegisterDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<RegisterDeviceCommandHandler>.Instance);
+
+        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+            await handler.HandleAsync(
+                HappyCommand(deviceType: deviceType, deviceIdentifier: deviceIdentifier!),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<RegisterDeviceError.InvalidDeviceIdentifier>();
+        repo.Clients.ShouldBeEmpty();
+        keycloak.Created.ShouldBeEmpty();
+    }
+
     [Fact]
     public async Task Keycloak_transport_failure_returns_KeycloakUnavailable()
     {
