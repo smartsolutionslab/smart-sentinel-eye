@@ -137,14 +137,16 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
     await kiosk.getByRole('listitem').filter({ hasText: wallName }).getByRole('button').click();
 
     await expect(kiosk.getByTestId('layout-grid')).toBeVisible();
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAIdentifier);
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraAIdentifier);
 
     await page.getByRole('button', { name: /^next$/i }).click();
     await expect(showingText(page)).toContainText(layoutBName);
 
     // "Within about a second" — this is a generous end-to-end wait, not the
     // FR-V1 settle-time measurement (that is a Phase-5 concern, spec.md §7).
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBIdentifier, { timeout: 5_000 });
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraBIdentifier, {
+      timeout: 5_000,
+    });
   } finally {
     await kioskContext.close();
   }
@@ -178,7 +180,7 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
     await signInToKiosk(kiosk);
     await kiosk.getByRole('listitem').filter({ hasText: wallName }).getByRole('button').click();
     await expect(kiosk.getByTestId('layout-grid')).toBeVisible();
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAIdentifier);
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraAIdentifier);
 
     // Sever the kiosk's own connection — a real network drop, not an aborted
     // route (kiosk-reconciliation.spec.ts's own lesson: route interception
@@ -192,14 +194,16 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
 
     // The kiosk must still be showing the old scene — it never received the
     // frame — until it reconnects and re-reads.
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraAIdentifier);
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraAIdentifier);
 
     await kioskContext.setOffline(false);
     await expect(kiosk.getByTestId('live-updates-degraded')).toBeHidden({ timeout: 45_000 });
 
     // Reconciled by re-reading GET /walls/{id} on reconnect (FR-008), not by
     // a page reload.
-    await expect(kiosk.getByTestId('layout-tile').first()).toContainText(cameraBIdentifier, { timeout: 45_000 });
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraBIdentifier, {
+      timeout: 45_000,
+    });
   } finally {
     await kioskContext.close();
   }
