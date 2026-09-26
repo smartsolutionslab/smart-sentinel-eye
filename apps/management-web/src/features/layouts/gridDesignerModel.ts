@@ -161,15 +161,21 @@ export function spanOptions(
   const cell = cells[index];
   if (cell === undefined) return { rows: [], cols: [] };
 
+  // Full rectangle intersection against every OTHER populated cell's own
+  // claimed span — not just its origin. A candidate that only checked the
+  // other cell's (row, col) missed a spanning neighbour whose origin sits
+  // outside the candidate rectangle but whose span reaches into it (e.g. a
+  // neighbour spanning down from a row above). Same predicate as the
+  // backend's `Tile.Overlaps`.
   const blocksOther = (rowSpan: number, colSpan: number): boolean =>
     cells.some(
       (other, otherIndex) =>
         otherIndex !== index &&
         other.cameraIdentifier !== '' &&
-        other.row >= cell.row &&
         other.row < cell.row + rowSpan &&
-        other.col >= cell.col &&
-        other.col < cell.col + colSpan,
+        cell.row < other.row + other.rowSpan &&
+        other.col < cell.col + colSpan &&
+        cell.col < other.col + other.colSpan,
     );
 
   const rows: number[] = [];
