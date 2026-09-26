@@ -28,6 +28,11 @@ public sealed class RegisterDeviceCommandHandler(
             return Failure(RegisterDeviceFailures.InvalidDeviceType(deviceType));
         }
 
+        if (string.IsNullOrWhiteSpace(deviceIdentifier))
+        {
+            return Failure(RegisterDeviceFailures.InvalidDeviceIdentifier("must not be empty."));
+        }
+
         ClientId clientId;
         try
         {
