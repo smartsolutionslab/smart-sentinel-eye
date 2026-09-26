@@ -117,6 +117,13 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<OverlayRevisionArchivedV1Handler>();
         builder.Services.AddScoped<ResolvedOverlayTextChangedV1Handler>();
 
+        // Same-context relay (spec 258 US1, phase-6 remediation): this
+        // context both publishes WallSceneChangedV1 and subscribes to it, so
+        // the broadcast only happens once Wolverine's outbox has actually
+        // released the message — after the commit that raised it, never
+        // before.
+        builder.Services.AddScoped<WallSceneChangedV1Handler>();
+
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
