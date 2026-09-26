@@ -144,9 +144,13 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
 
     // "Within about a second" — this is a generous end-to-end wait, not the
     // FR-V1 settle-time measurement (that is a Phase-5 concern, spec.md §7).
-    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraBIdentifier, {
-      timeout: 5_000,
-    });
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute(
+      'data-camera-identifier',
+      cameraBIdentifier,
+      {
+        timeout: 5_000,
+      },
+    );
   } finally {
     await kioskContext.close();
   }
@@ -201,9 +205,13 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
 
     // Reconciled by re-reading GET /walls/{id} on reconnect (FR-008), not by
     // a page reload.
-    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute('data-camera-identifier', cameraBIdentifier, {
-      timeout: 45_000,
-    });
+    await expect(kiosk.getByTestId('layout-tile').first()).toHaveAttribute(
+      'data-camera-identifier',
+      cameraBIdentifier,
+      {
+        timeout: 45_000,
+      },
+    );
   } finally {
     await kioskContext.close();
   }
