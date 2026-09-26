@@ -124,13 +124,21 @@
   --tracking-normal: 0em;
   --tracking-wide: 0.025em;
 
-  /* Tailwind 4.3.3's current default stacks, copied verbatim from
-     node_modules/tailwindcss/theme.css — this spec changes no glyph. #2333
-     prepends 'IBM Plex Sans'/'IBM Plex Mono' to these. */
+  /* IBM Plex (ADR-0147, spec 261, issue #2333), then its metric-matched
+     fallback (declared in ../fonts/fonts.css), then Tailwind 4.3.3's default
+     stack verbatim from node_modules/tailwindcss/theme.css as the last-resort
+     path for a glyph outside every shipped unicode-range. Tailwind's
+     preflight resolves html and code/kbd/samp/pre through
+     --default-font-family/--default-mono-font-family, which cite these
+     tokens, so body text, form controls (font: inherit) and the wall's
+     overlay labels (fontWeight: 600 only) all inherit Plex with no component
+     edit. */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', 'Noto Sans', Arial, sans-serif,
-    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    'IBM Plex Sans', 'IBM Plex Sans Fallback', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue',
+    'Noto Sans', Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --font-mono:
+    'IBM Plex Mono', 'IBM Plex Mono Fallback', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
 
   /* Tabular figures everywhere, from the type tokens rather than per call
      site (ADR-0147). Applied once, at the foot of this file. */

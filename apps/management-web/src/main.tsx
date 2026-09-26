@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { Provider } from 'react-redux';
 import { App } from './App.js';
 import { store } from './app/store.js';
+import '@smart-sentinel-eye/shared/ui/fonts/fonts.css';
 import './styles/index.css';
 
 const rootElement = document.getElementById('root');
