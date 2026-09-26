@@ -358,8 +358,9 @@ constraint over a long run.
     the wrong reason.
   - **`security-reviewer`** — `/security-review` is a skill with no
     repo-specific brief, so it cannot tell a correct `RequireScope` from
-    a plausible-looking wrong one, and it does not know that
-    `sse.management` grandfathers every granular policy or that an
-    idempotency key scoped without the caller is a cross-tenant leak.
+    a plausible-looking wrong one, and it does not know that an
+    idempotency key scoped without the caller is a cross-tenant leak
+    (nor, at the time this ADR was written, that `sse.management`
+    grandfathered every granular policy — since withdrawn, #2486).
     The skill still runs; this role is what reads the authorization
     model.
