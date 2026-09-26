@@ -45,12 +45,12 @@ public abstract record EditWallScenesError(string Code, string Message, HttpStat
             "The scene set contains the same layout more than once.",
             HttpStatusCode.BadRequest);
 
-    public sealed record SceneOtherFab(Guid Layout)
-        : EditWallScenesError(
-            "WALL_SCENE_OTHER_FAB",
-            $"Layout {Layout} does not belong to this wall's fab.",
-            HttpStatusCode.BadRequest);
-
+    /// <summary>
+    /// Also returned for a layout that exists but in a different fab than
+    /// the wall — that must not be distinguishable from one that doesn't
+    /// exist anywhere, or the response discloses the identifier exists
+    /// somewhere.
+    /// </summary>
     public sealed record SceneNotFound(Guid Layout)
         : EditWallScenesError(
             "WALL_SCENE_NOT_FOUND",
@@ -80,8 +80,6 @@ public static class EditWallScenesFailures
     public static EditWallScenesError TooManyScenes(int count) => new EditWallScenesError.TooManyScenes(count);
 
     public static EditWallScenesError DuplicateScene() => new EditWallScenesError.DuplicateScene();
-
-    public static EditWallScenesError SceneOtherFab(Guid layout) => new EditWallScenesError.SceneOtherFab(layout);
 
     public static EditWallScenesError SceneNotFound(Guid layout) => new EditWallScenesError.SceneNotFound(layout);
 

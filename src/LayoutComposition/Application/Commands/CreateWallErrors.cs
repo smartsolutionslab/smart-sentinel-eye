@@ -30,16 +30,11 @@ public abstract record CreateWallError(string Code, string Message, HttpStatusCo
             HttpStatusCode.BadRequest);
 
     /// <summary>
-    /// A candidate scene layout exists, but in a different fab than the wall
-    /// (US1-10). Distinct from <see cref="SceneNotFound"/> so the caller's
-    /// own fab is checked without disclosing anything about the other one.
+    /// Also returned for a layout that exists but in a different fab than
+    /// the wall (US1-10) — that must not be distinguishable from one that
+    /// doesn't exist anywhere, or the response discloses the identifier
+    /// exists somewhere.
     /// </summary>
-    public sealed record SceneOtherFab(Guid Layout)
-        : CreateWallError(
-            "WALL_SCENE_OTHER_FAB",
-            $"Layout {Layout} does not belong to this wall's fab.",
-            HttpStatusCode.BadRequest);
-
     public sealed record SceneNotFound(Guid Layout)
         : CreateWallError(
             "WALL_SCENE_NOT_FOUND",
@@ -73,8 +68,6 @@ public static class CreateWallFailures
     public static CreateWallError TooManyScenes(int count) => new CreateWallError.TooManyScenes(count);
 
     public static CreateWallError DuplicateScene() => new CreateWallError.DuplicateScene();
-
-    public static CreateWallError SceneOtherFab(Guid layout) => new CreateWallError.SceneOtherFab(layout);
 
     public static CreateWallError SceneNotFound(Guid layout) => new CreateWallError.SceneNotFound(layout);
 
