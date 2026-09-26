@@ -39,14 +39,7 @@ export function CameraDetailPage() {
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const {
-    data: camera,
-    currentData,
-    isLoading,
-    isFetching,
-    error,
-    refetch,
-  } = useGetCameraQuery({ cameraIdentifier });
+  const { data: camera, currentData, isLoading, isFetching, error, refetch } = useGetCameraQuery({ cameraIdentifier });
 
   // `camera` (`data`) can still hold a *previously viewed* identifier's record
   // for a moment after the URL changes — including across a same-instance
