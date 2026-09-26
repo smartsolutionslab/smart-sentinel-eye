@@ -43,7 +43,7 @@ public sealed class RegisteredEventTypeRepository(
         // capture and the row commit below happen in one transaction. Nothing
         // subscribes to either domain event this aggregate raises (FR-012),
         // so this loop dispatches to no handler — the same position
-        // WebhookIntegration's register/revoke are already in.
+        // WebhookIntegration's register is already in.
         foreach (RegisteredEventType eventType in tracked)
         {
             IDomainEvent[] events = eventType.PendingEvents.ToArray();

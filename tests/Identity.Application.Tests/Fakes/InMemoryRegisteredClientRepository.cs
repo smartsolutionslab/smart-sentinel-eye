@@ -82,25 +82,6 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
             : Option<RegisteredClientAggregate>.Some(found));
     }
 
-    /// <summary>
-    /// Spec 264 (#2206). Same fab-scoped match as <see cref="GetWithinFabAsync"/>,
-    /// minus the <c>DisabledAt is null</c> filter — see the interface doc
-    /// comment for why a Disable subscriber needs a Disabled row returned
-    /// rather than excluded.
-    /// </summary>
-    public Task<Option<RegisteredClientAggregate>> GetWithinFabIncludingDisabledAsync(
-        FabIdentifier fab, ClientId clientId, CancellationToken cancellationToken)
-    {
-        Ensure.That(clientId).IsNotNull();
-        Ensure.That(fab).IsNotNull();
-
-        RegisteredClientAggregate? found = _clients.SingleOrDefault(c =>
-            c.ClientId == clientId && c.Fab == fab);
-        return Task.FromResult(found is null
-            ? Option<RegisteredClientAggregate>.None
-            : Option<RegisteredClientAggregate>.Some(found));
-    }
-
     public void Add(RegisteredClientAggregate client)
     {
         Ensure.That(client).IsNotNull();

@@ -164,8 +164,17 @@ public class DisableWebhookClientCommandHandlerTests
         repo.Clients[0].DisabledAt.ShouldBeNull();
     }
 
+    /// <summary>
+    /// Redelivery of the same message finds the row already disabled:
+    /// <see cref="IRegisteredClientRepository.GetWithinFabAsync"/> excludes
+    /// Disabled rows, so the second delivery gets the same
+    /// <c>WebhookClientNotFound</c> a repeat <c>DisableKioskCommandHandler</c>
+    /// call gets — not a bespoke success path (spec 264 phase-6 review). The
+    /// underlying idempotency property still holds: no second Keycloak call,
+    /// no state corruption, and <c>DisabledAt</c> unmoved.
+    /// </summary>
     [Fact]
-    public async Task A_repeat_disable_is_idempotent_and_does_not_move_DisabledAt()
+    public async Task A_repeat_disable_reports_WebhookClientNotFound_and_does_not_move_DisabledAt()
     {
         InMemoryRegisteredClientRepository repo = new();
         Seed(repo, ClientKind.WebhookIntegration, "webhook-w");
@@ -186,7 +195,7 @@ public class DisableWebhookClientCommandHandlerTests
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
 
-        result.IsSuccess.ShouldBeTrue();
+        result.Error.ShouldBeOfType<DisableWebhookClientError.WebhookClientNotFound>();
         repo.Clients[0].DisabledAt!.Value.ShouldBe(firstDisabledAt);
     }
 

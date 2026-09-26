@@ -11,16 +11,6 @@ namespace SmartSentinelEye.Identity.Application.Commands.Handlers;
 /// Mirrors <see cref="DisableKioskCommandHandler"/> / <see cref="DisableDeviceCommandHandler"/>:
 /// Keycloak first, then the row, so a Keycloak failure never leaves the row
 /// disabled without the client actually being disabled (spec 264, #2206).
-///
-/// <para>
-/// The lookup is <see cref="IRegisteredClientRepository.GetWithinFabIncludingDisabledAsync"/>
-/// rather than <c>GetWithinFabAsync</c>: this command is driven by an
-/// at-least-once bus message, not a single admin HTTP call, so a redelivery
-/// against an already-disabled client must still resolve the aggregate.
-/// <see cref="RegisteredClientAggregate.Disable"/> is itself idempotent — it
-/// neither moves <c>DisabledAt</c> nor raises a second event — so a repeat
-/// disable succeeds and Keycloak's own disable call is a harmless no-op.
-/// </para>
 /// </summary>
 public sealed class DisableWebhookClientCommandHandler(
     IRegisteredClientRepository clients,
@@ -36,7 +26,7 @@ public sealed class DisableWebhookClientCommandHandler(
         (ClientId clientId, FabIdentifier fab) = command;
 
         Option<RegisteredClientAggregate> found = await clients
-            .GetWithinFabIncludingDisabledAsync(fab, clientId, cancellationToken);
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.WebhookIntegration)
         {
             return Failure(DisableWebhookClientFailures.WebhookClientNotFound(clientId.Value));
