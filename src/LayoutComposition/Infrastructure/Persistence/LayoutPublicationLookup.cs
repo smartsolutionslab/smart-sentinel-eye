@@ -37,11 +37,12 @@ public sealed class LayoutPublicationLookup(LayoutCompositionDbContext dbContext
         Ensure.That(candidates).IsNotNull();
 
         LayoutIdentifier[] ids = [.. candidates];
-        List<Layout> found = await dbContext.Layouts
+        var found = await dbContext.Layouts
             .AsNoTracking()
             .Where(layout => ids.Contains(layout.Id))
+            .Select(layout => new { layout.Id, layout.Fab })
             .ToListAsync(cancellationToken);
 
-        return found.ToDictionary(layout => layout.Id, layout => layout.Fab);
+        return found.ToDictionary(entry => entry.Id, entry => entry.Fab);
     }
 }
