@@ -37,15 +37,6 @@
     }
   ],
   "clientScopes": [
-    {
-      "name": "sse.management",
-      "description": "Legacy bundle (spec 001-007). Grandfathered until per-endpoint sse.*.write migration in spec 008 PR F. Grants permission only: identity claims moved to sse-identity in spec 042, so narrowing this cannot make a caller unattributable.",
-      "protocol": "openid-connect",
-      "attributes": {
-        "include.in.token.scope": "true",
-        "display.on.consent.screen": "true"
-      }
-    },
     { "name": "sse.cameras.read", "description": "Read camera catalogue.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.cameras.write", "description": "Mutate camera catalogue.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.streams.read", "description": "Read stream metadata.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
