@@ -9,10 +9,6 @@ namespace SmartSentinelEye.EventIngestion.Domain.SourceMode;
 /// wire convention — it is also a wire token, in request bodies and in
 /// <c>GET</c> output, unlike <c>RegistrationState</c> (plan.md §2).
 ///
-/// <para>
-/// Withheld for phase A (tasks.md T001): <see cref="From"/> does not yet
-/// validate its input. Phase C fills in the switch and the throw.
-/// </para>
 /// </summary>
 public sealed record EventTypeMode(string Value) : IValueObject<string>
 {
@@ -20,7 +16,12 @@ public sealed record EventTypeMode(string Value) : IValueObject<string>
 
     public static EventTypeMode Discovery { get; } = new("discovery");
 
-    public static EventTypeMode From(string value) => Discovery;
+    public static EventTypeMode From(string value) => value switch
+    {
+        "strict" => Strict,
+        "discovery" => Discovery,
+        _ => throw new ArgumentException($"Unknown event-type mode '{value}'.", nameof(value)),
+    };
 
     public sealed override string ToString() => Value;
 }
