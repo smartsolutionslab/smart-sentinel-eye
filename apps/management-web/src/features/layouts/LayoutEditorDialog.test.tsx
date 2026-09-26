@@ -157,7 +157,7 @@ describe('LayoutEditorDialog — create', () => {
     expect(createDraftMock).toHaveBeenCalledWith({
       name: 'Line-1',
       grid: { rows: 1, cols: 1 },
-      tiles: [{ cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0 }],
+      tiles: [{ cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
     });
   });
 
@@ -172,7 +172,7 @@ describe('LayoutEditorDialog — create', () => {
     expect(createDraftMock).toHaveBeenCalledWith({
       name: 'Line-2',
       grid: { rows: 1, cols: 1 },
-      tiles: [{ cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0 }],
+      tiles: [{ cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
     });
   });
 
@@ -193,8 +193,8 @@ describe('LayoutEditorDialog — create', () => {
       name: 'Wall',
       grid: { rows: 1, cols: 2 },
       tiles: [
-        { cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0 },
-        { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1 },
+        { cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 },
+        { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1, rowSpan: 1, colSpan: 1 },
       ],
     });
   });
@@ -214,7 +214,7 @@ describe('LayoutEditorDialog — create', () => {
     expect(createDraftMock).toHaveBeenCalledWith({
       name: 'Sparse',
       grid: { rows: 1, cols: 2 },
-      tiles: [{ cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0 }],
+      tiles: [{ cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
     });
   });
 
@@ -286,8 +286,8 @@ describe('LayoutEditorDialog — edit', () => {
     name: 'Rolling Mill',
     grid: { rows: 1, cols: 2 },
     tiles: [
-      { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0 },
-      { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1 },
+      { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0, rowSpan: 1, colSpan: 1 },
+      { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1, rowSpan: 1, colSpan: 1 },
     ],
   };
 
@@ -318,8 +318,8 @@ describe('LayoutEditorDialog — edit', () => {
       version: 7,
       grid: { rows: 1, cols: 2 },
       tiles: [
-        { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0 },
-        { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1 },
+        { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0, rowSpan: 1, colSpan: 1 },
+        { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1, rowSpan: 1, colSpan: 1 },
       ],
     });
     expect(createDraftMock).not.toHaveBeenCalled();
@@ -369,7 +369,7 @@ describe('LayoutEditorDialog — edit', () => {
       revisionNumber: 4,
       name: 'Furnace Hall',
       grid: { rows: 1, cols: 1 },
-      tiles: [{ cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 0 }],
+      tiles: [{ cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
     };
     // Reopen on an unrelated draft that was never refused.
     rerender(
@@ -397,7 +397,7 @@ describe('Conflict copy (spec 012 T050)', () => {
     revisionNumber: 2,
     name: 'Cnc-Hall',
     grid: { rows: 1, cols: 1 },
-    tiles: [{ cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 0 }],
+    tiles: [{ cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
   };
 
   beforeEach(() => {
@@ -663,8 +663,8 @@ describe("The picker shows a tile's camera when the list arrives late (spec 048)
     name: 'Rolling Mill',
     grid: { rows: 1, cols: 2 },
     tiles: [
-      { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0 },
-      { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1 },
+      { cameraIdentifier: CAMERA_A, overlayIdentifier: OVERLAY_X, row: 0, col: 0, rowSpan: 1, colSpan: 1 },
+      { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1, rowSpan: 1, colSpan: 1 },
     ],
   };
 
