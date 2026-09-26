@@ -42,7 +42,7 @@ public sealed record Tile
     public OverlayIdentifier? OverlayValue { get; }
 
     /// <summary>
-    /// A 1×1 tile at <paramref name="position"/> (spec 258): delegates to
+    /// A 1×1 tile at <paramref name="position"/> (spec 262): delegates to
     /// the 4-argument constructor with <see cref="TileSpan.Cell"/>. Kept
     /// for the ~15 existing call sites and as the honest meaning of a
     /// single-cell tile (plan §2.2).
@@ -86,7 +86,7 @@ public sealed record Tile
     /// <summary>The tile's grid coordinate.</summary>
     public GridPosition Position => new(row, col);
 
-    /// <summary>The rectangle of cells this tile claims from <see cref="Position"/> (spec 258).</summary>
+    /// <summary>The rectangle of cells this tile claims from <see cref="Position"/> (spec 262).</summary>
     public TileSpan Span => new(rowSpan, colSpan);
 
     /// <summary>

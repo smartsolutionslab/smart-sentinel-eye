@@ -16,7 +16,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// ADR-0156 raises the cap from 4 to 9 as a ceiling to design toward, not
 /// a guarantee: it is <b>not yet verified safe on kiosk hardware</b> — a
 /// real-kiosk-hardware decode measurement is a precondition for shipping
-/// this cap to production (spec 258 §4). Dev-machine figures are recorded
+/// this cap to production (spec 262 §4). Dev-machine figures are recorded
 /// in <c>verification.md</c>, not a discharge of that gate.
 /// </para>
 /// </summary>
@@ -51,7 +51,7 @@ public sealed record GridDimensions(int Rows, int Cols) : IValueObject
 
     /// <summary>
     /// True when the full rectangle a tile at <paramref name="position"/>
-    /// with <paramref name="span"/> occupies fits inside this grid (spec 258,
+    /// with <paramref name="span"/> occupies fits inside this grid (spec 262,
     /// ADR-0156 §2) — not just its origin cell.
     ///
     /// <para>

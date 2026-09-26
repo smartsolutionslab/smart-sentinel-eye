@@ -1,7 +1,7 @@
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 
 /**
- * One cell of the rendered grid (spec 258 US2, ADR-0156). Either a tile's
+ * One cell of the rendered grid (spec 262 US2, ADR-0156). Either a tile's
  * origin — carrying its (clamped) span — or an uncovered cell rendered as a
  * placeholder (`tile: null`, span 1×1). A cell a tile's span covers but does
  * not originate emits no item at all: it is neither a tile nor a
@@ -28,7 +28,7 @@ export interface GridItem {
  * only so the renderer stays total.
  *
  * Row-major-by-origin keeps an all-1×1 wall's order identical to the
- * pre-feature auto-placement (spec 258 §8 characterisation), and tile keys
+ * pre-feature auto-placement (spec 262 §8 characterisation), and tile keys
  * stay the origin `row:col` so `useWallAlignment`'s keys do not move.
  */
 export function buildGridItems(rows: number, cols: number, tiles: LayoutTile[]): GridItem[] {

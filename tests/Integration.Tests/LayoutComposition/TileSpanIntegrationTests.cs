@@ -7,7 +7,7 @@ using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 
 /// <summary>
-/// Spec 258 (issue #2607, ADR-0156) — the US1 Gherkin in <c>spec.md</c> §2, one
+/// Spec 262 (issue #2607, ADR-0156) — the US1 Gherkin in <c>spec.md</c> §2, one
 /// <c>[Fact]</c> per scenario, against the real Aspire stack (ADR-0103).
 ///
 /// <para>

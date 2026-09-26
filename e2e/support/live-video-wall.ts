@@ -18,7 +18,7 @@ export interface LiveVideoWallCamera {
 }
 
 /**
- * Spec 225 US2, raised by spec 258 (ADR-0156, D1 option A) — nine tiles, the
+ * Spec 225 US2, raised by spec 262 (ADR-0156, D1 option A) — nine tiles, the
  * domain's real ceiling (`GridDimensions.MaxTiles` / `MaxCells`, now 9 —
  * `GridDimensions.cs:26,29`), not one and not the old four. All nine resolve
  * the **same** overlay and the same bound variable (`overlayName`/

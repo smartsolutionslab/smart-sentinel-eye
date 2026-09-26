@@ -10,7 +10,7 @@ namespace SmartSentinelEye.Shared.Contracts.LayoutComposition;
 /// isolation (ADR-0088).
 ///
 /// <para>
-/// Spec 258 (ADR-0156 §2) extends <see cref="LayoutTileV2"/> in place with
+/// Spec 262 (ADR-0156 §2) extends <see cref="LayoutTileV2"/> in place with
 /// <c>RowSpan</c>/<c>ColSpan</c> rather than cutting a V3: every existing
 /// published tile means exactly what the trailing default (<c>1</c>)
 /// reproduces, so this is additive, not a shape change (ADR-0073 / ADR-0040
@@ -39,7 +39,7 @@ public sealed record LayoutRevisionPublishedV2(
 /// <summary>
 /// A single tile on the published grid: a required camera, an optional
 /// overlay (<c>null</c> when unbound), at zero-indexed <c>(Row, Col)</c>,
-/// claiming a <c>RowSpan × ColSpan</c> rectangle from that origin (spec 258,
+/// claiming a <c>RowSpan × ColSpan</c> rectangle from that origin (spec 262,
 /// ADR-0156 §2; default <c>1×1</c> reproduces every tile published before
 /// this feature). Primitives only at the wire (ADR-0040).
 /// </summary>

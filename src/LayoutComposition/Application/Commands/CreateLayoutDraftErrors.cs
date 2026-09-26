@@ -44,7 +44,7 @@ public abstract record CreateLayoutDraftError(string Code, string Message, HttpS
             "A layout revision must contain at least one tile.",
             HttpStatusCode.BadRequest);
 
-    /// <summary>Spec 258 (ADR-0156 §2): generalises the old same-position case.</summary>
+    /// <summary>Spec 262 (ADR-0156 §2): generalises the old same-position case.</summary>
     public sealed record TileOverlap()
         : CreateLayoutDraftError(
             "LAYOUT_TILE_OVERLAP",

@@ -116,7 +116,7 @@ test('a tile shows an overlay label over video that is actually decoding', async
   // ---- half one: the picture, and it must be MOVING ----------------------
 
   // The domain's ceiling (GridDimensions.MaxTiles / MaxCells,
-  // GridDimensions.cs:26,29 — raised 4 -> 9 by ADR-0156/spec 258),
+  // GridDimensions.cs:26,29 — raised 4 -> 9 by ADR-0156/spec 262),
   // pinned as a literal (phase-6 review, should-fix S2): every assertion
   // below parametrizes on `wall.cameras.length`, so a fixture that silently
   // narrows — an edited LIVE_VIDEO_WALL_TILE_COUNT, a future refactor —
@@ -167,7 +167,7 @@ test('a tile shows an overlay label over video that is actually decoding', async
   );
 
   // There are `wall.cameras.length` tiles on this wall by construction — nine,
-  // the domain's ceiling (spec 225 US2, raised 4 -> 9 by ADR-0156/spec 258), not
+  // the domain's ceiling (spec 225 US2, raised 4 -> 9 by ADR-0156/spec 262), not
   // one. Asserted rather than assumed,
   // because the per-element check below is only as good as the set it
   // iterates: a wall that silently gained a tile would still be checked, but a

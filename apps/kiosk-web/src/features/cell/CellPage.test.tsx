@@ -160,7 +160,7 @@ function tile(overrides: Partial<LayoutTile> = {}): LayoutTile {
     overlayIdentifier: null,
     row: 0,
     col: 0,
-    // Spec 258 (#2607): `LayoutTile` gains these as required fields — the
+    // Spec 262 (#2607): `LayoutTile` gains these as required fields — the
     // backend always sends them (plan.md §4.1).
     rowSpan: 1,
     colSpan: 1,
@@ -394,7 +394,7 @@ describe('CellPage', () => {
   });
 
   /**
-   * Spec 258 (#2607) §8 declared pin — CHARACTERISATION, must stay GREEN.
+   * Spec 262 (#2607) §8 declared pin — CHARACTERISATION, must stay GREEN.
    * "A 1x1 wall renders exactly as today" (spec Gherkin, US2). A non-square
    * grid, so a row-major-only regression (columns and rows swapped, or a
    * transposed order) would show here even though the 2x2 case above would
@@ -421,7 +421,7 @@ describe('CellPage', () => {
   });
 
   /**
-   * RED (spec 258 US2, FR-008). `CellPage` does no explicit grid placement
+   * RED (spec 262 US2, FR-008). `CellPage` does no explicit grid placement
    * today — every tile flows into CSS grid auto-placement, one cell each
    * (spec.md §1 finding: "the kiosk places tiles one cell each ... by
    * auto-placement"). A hero tile therefore carries no `grid-row`/

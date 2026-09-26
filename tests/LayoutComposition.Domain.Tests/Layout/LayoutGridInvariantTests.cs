@@ -131,7 +131,7 @@ public class LayoutGridInvariantTests
     }
 
     /// <summary>
-    /// Code-review finding B1 (spec 258): <c>tileA</c>'s span
+    /// Code-review finding B1 (spec 262): <c>tileA</c>'s span
     /// (<c>int.MaxValue</c> rows) overflows the addition in both
     /// <c>GridDimensions.Contains(position, span)</c> and
     /// <c>Tile.Overlaps</c>, wrapping to a negative number that hides both

@@ -17,7 +17,7 @@ public sealed record GridRequest(int Rows, int Cols);
 /// <summary>
 /// One tile of the grid: a required camera, an optional overlay
 /// (<c>null</c> when unbound), at zero-indexed <c>(Row, Col)</c>, claiming
-/// a <c>RowSpan × ColSpan</c> rectangle from that origin (spec 258,
+/// a <c>RowSpan × ColSpan</c> rectangle from that origin (spec 262,
 /// ADR-0156 §2; default <c>1×1</c> means exactly what it meant before this
 /// feature).
 /// </summary>
