@@ -56,23 +56,6 @@ public sealed class RegisteredClientRepository(
             : Option<RegisteredClientAggregate>.Some(found);
     }
 
-    public async Task<Option<RegisteredClientAggregate>> GetWithinFabIncludingDisabledAsync(
-        FabIdentifier fab, ClientId clientId, CancellationToken cancellationToken)
-    {
-        Ensure.That(clientId).IsNotNull();
-        Ensure.That(fab).IsNotNull();
-
-        // Same fab-scoped predicate as GetWithinFabAsync, minus the DisabledAt
-        // filter (spec 264, #2206) — see the interface doc comment for why.
-        RegisteredClientAggregate? found = await dbContext.RegisteredClients
-            .Where(client => client.ClientId == clientId)
-            .Where(client => client.Fab == fab)
-            .FirstOrDefaultAsync(cancellationToken);
-        return found is null
-            ? Option<RegisteredClientAggregate>.None
-            : Option<RegisteredClientAggregate>.Some(found);
-    }
-
     public void Add(RegisteredClientAggregate client)
     {
         Ensure.That(client).IsNotNull();
