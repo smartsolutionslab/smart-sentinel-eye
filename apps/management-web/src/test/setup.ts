@@ -6,9 +6,13 @@ import { configure } from '@testing-library/react';
 // whole of #2520/#2419: the resolve-preview error advisory takes 29 ms to
 // appear on an idle machine and 319 ms under contention, so twenty polls ran
 // out on a loaded runner seven times in a week. 10_000 is the value
-// `useSessionExpiry.test.ts` and `CameraViewerCameraSwap.test.tsx` each
-// reached independently; a third number would be tuning, which is the habit
-// ADR-0150 was written against.
+// `apps/kiosk-web`'s `useSessionExpiry.test.ts` (a `waitFor` deadline) and
+// `apps/shared`'s `CameraViewerCameraSwap.test.tsx` (a per-test Vitest
+// timeout — a different mechanism, same number) had each reached
+// independently at their own call sites; #2536 replaced both with the
+// same workspace-level defaults in their own `apps/kiosk-web` and
+// `apps/shared` config, rather than folding them into this one. A third
+// number would be tuning, which is the habit ADR-0150 was written against.
 //
 // Do NOT reach for `vi.useFakeTimers()` to make a `waitFor` deterministic
 // instead. Under Vitest it HANGS: `@testing-library/dom`'s
