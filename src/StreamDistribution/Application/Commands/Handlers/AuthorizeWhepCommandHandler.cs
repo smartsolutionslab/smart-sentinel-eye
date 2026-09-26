@@ -13,11 +13,7 @@ public sealed class AuthorizeWhepCommandHandler(
     : ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>
 {
     /// <summary>
-    /// Watching a stream is a read, so this gate asks for the read scope —
-    /// still accepting the grandfathered management bundle, which is the rule
-    /// <c>RequireScopeExtensions</c> applies to every other endpoint through its
-    /// authorization policy. The two strings are repeated rather than referenced
-    /// because Application stays ASP.NET-free (ADR-0051).
+    /// Watching a stream is a read, so this gate asks for the read scope.
     ///
     /// <para>
     /// Spec 041: this asked for the management bundle <em>alone</em>, so no
@@ -27,8 +23,6 @@ public sealed class AuthorizeWhepCommandHandler(
     /// </para>
     /// </summary>
     private const string RequiredScope = "sse.streams.read";
-
-    private const string LegacyManagementBundle = "sse.management";
 
     public async Task<Result<MediaMtxPath, AuthorizeWhepError>> HandleAsync(
         AuthorizeWhepCommand command,
@@ -76,8 +70,7 @@ public sealed class AuthorizeWhepCommandHandler(
 
         WhepAuthSubject subject = authentication.Value;
 
-        if (!subject.Scopes.Contains(RequiredScope, StringComparer.Ordinal)
-            && !subject.Scopes.Contains(LegacyManagementBundle, StringComparer.Ordinal))
+        if (!subject.Scopes.Contains(RequiredScope, StringComparer.Ordinal))
         {
             return Failure(AuthorizeWhepFailures.Forbidden());
         }

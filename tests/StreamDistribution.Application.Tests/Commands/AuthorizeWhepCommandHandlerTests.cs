@@ -37,12 +37,45 @@ public class AuthorizeWhepCommandHandlerTests
     ];
 
     /// <summary>
-    /// management-web's actual token shape: the grandfathered bundle and
-    /// <b>no</b> <c>sse.streams.read</c>. It is the case the fallback exists to
-    /// keep working, and exactly what a naively-narrowed gate would break.
+    /// Mirrors management-web's <c>defaultClientScopes</c> since spec 200 US1
+    /// (realm <c>:157-188</c>) — a representative slice of its granular
+    /// <c>sse.*.read</c>/<c>.write</c> scopes, including <c>sse.streams.read</c>
+    /// and deliberately <b>not</b> <c>sse.management</c>. It need not be the
+    /// exact twenty the realm grants; it only needs to prove the read scope
+    /// alone is sufficient. Written out rather than referenced — Application
+    /// tests do not reach into the realm or another context.
+    /// </summary>
+    private static readonly string[] AConsolePersona =
+    [
+        "openid",
+        "sse.cameras.read",
+        "sse.cameras.write",
+        "sse.streams.read",
+        "sse.streams.write",
+        "sse.layouts.read",
+        "sse.layouts.write",
+        "sse.overlays.read",
+        "sse.overlays.write",
+        "sse.variables.read",
+        "sse.variables.write",
+        "sse.events.read",
+        "sse.events.write",
+    ];
+
+    /// <summary>
+    /// <b>#2486 (spec 258, the red).</b> The bundle is the token shape
+    /// management-web used to carry before spec 200 US1 narrowed the console
+    /// to its granular scopes. It is inert today — no realm client mints it —
+    /// but the handler's own <c>||</c> clause still admits it, independent of
+    /// <c>RequireScopeExtensions.AddScopePolicies</c>. This test inverts what
+    /// used to be
+    /// <c>Authorize_with_a_grandfathered_management_token_returns_success</c>:
+    /// the deliberate specification of the change, not an accommodation of it.
+    /// <see cref="Authorize_with_the_consoles_granular_token_returns_success"/>
+    /// is its control — the console's real token must still be admitted.
     /// </summary>
     [Fact]
-    public async Task Authorize_with_a_grandfathered_management_token_returns_success()
+    public async Task Authorize_with_only_the_legacy_management_bundle_returns_Forbidden()
     {
         FakeWhepAuthValidator validator = new()
         {
@@ -59,7 +92,37 @@ public class AuthorizeWhepCommandHandlerTests
                 ReportedMediaMtxAction.TryFrom("read")),
             CancellationToken.None);
 
-        result.IsSuccess.ShouldBeTrue();
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.Forbidden>();
+    }
+
+    /// <summary>
+    /// management-web's actual token shape since spec 200 US1: the granular
+    /// <c>sse.*</c> scopes the realm grants it, including <c>sse.streams.read</c>
+    /// and explicitly <b>not</b> <c>sse.management</c>. The over-correction
+    /// control for #2486 — a naively-narrowed gate would break this, not just
+    /// the bundle.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_with_the_consoles_granular_token_returns_success()
+    {
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AConsolePersona)),
+        };
+        InMemoryStreamRepository streams = new();
+        AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
+        MediaMtxPath path = MediaMtxPath.For(SomeCamera());
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                path,
+                "Bearer.xyz",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read),
+                ReportedMediaMtxAction.TryFrom("read")),
+            CancellationToken.None);
+
+        result.Value.ShouldBe(path);
     }
 
     /// <summary>
@@ -130,7 +193,7 @@ public class AuthorizeWhepCommandHandlerTests
     }
 
     [Fact]
-    public async Task Authorize_with_a_token_granting_neither_the_read_scope_nor_the_bundle_returns_Forbidden()
+    public async Task Authorize_with_a_token_without_the_read_scope_returns_Forbidden()
     {
         FakeWhepAuthValidator validator = new()
         {
@@ -168,7 +231,7 @@ public class AuthorizeWhepCommandHandlerTests
 
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["sse.management"])),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AKioskPersona)),
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -211,16 +274,17 @@ public class AuthorizeWhepCommandHandlerTests
     }
 
     /// <summary>
-    /// The grandfathered bundle is the broadest token that reaches this hook.
-    /// Breadth of scope is not the question a publish asks — the action is
-    /// refused for everyone, so an admin token is refused too.
+    /// The console's granular token is the broadest token that reaches this
+    /// hook (#2486 — the bundle no longer does). Breadth of scope is not the
+    /// question a publish asks — the action is refused for everyone, so this
+    /// token is refused too.
     /// </summary>
     [Fact]
-    public async Task Authorize_a_publish_with_the_grandfathered_bundle_is_refused()
+    public async Task Authorize_a_publish_with_the_consoles_broadest_token_is_refused()
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["openid", "sse.management"])),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AConsolePersona)),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
