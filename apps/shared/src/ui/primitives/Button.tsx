@@ -39,7 +39,9 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
    * Do not pass this together with `disabled` — the browser enforces
    * `disabled` regardless, and the control loses focus anyway.
    *
-   * This prop only ever emits the dimming class; cursor treatment (e.g.
+   * This prop only ever emits the neutral disabled/unavailable treatment
+   * (spec 268, issue #2336: a bordered, unfilled fill with a `text-fg-disabled`
+   * label — no opacity fade, ADR-0146 item 5); cursor treatment (e.g.
    * `aria-disabled:cursor-progress`) stays a call-site `className`, because
    * `cursor-progress` claims *busy*, not *unavailable*, and not every
    * unavailable control is mid-request.
@@ -51,13 +53,19 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
    */
   unavailable?: boolean;
   /**
-   * In flight. Announces `aria-busy`; never disables — pass `disabled` or
-   * `unavailable` for that (spec 268, issue #2336, US2).
+   * In flight. Announces `aria-busy` and shows `cursor-progress`; never
+   * disables — pass `disabled` or `unavailable` for that (spec 268, issue
+   * #2336, US2).
    *
-   * Declaration only for now (spec 268 T003): the phase-4a red commit adds
-   * the prop's type so `pnpm typecheck` stays green while `Button.test.tsx`'s
-   * new `busy` cases are red on behaviour. `Button` does not yet destructure
-   * or render anything from it — that lands with the implementation.
+   * **Busy wins over the disabled/unavailable look, not over disabled
+   * semantics.** At every adoption site the button is also `disabled` or
+   * `unavailable` while its request is in flight, so while `busy` is set the
+   * neutral disabled/unavailable *colour* treatment (and hover/pressed
+   * feedback) is dropped and the variant's rest fill holds instead — a
+   * control that is working, not one that has been refused. The native
+   * `disabled` attribute, `disabled:pointer-events-none` and `aria-disabled`
+   * are untouched: which one a call site uses is ADR-0151's call, unaffected
+   * by `busy`.
    */
   busy?: boolean;
 }
@@ -71,30 +79,57 @@ export function Button({
   className,
   type,
   unavailable,
+  busy,
   'aria-disabled': ariaDisabled,
-  ...rest
+  ...domProps
 }: ButtonProps) {
   const Component = asChild ? Slot : 'button';
   const base =
-    'inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium ' +
-    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ' +
-    'disabled:pointer-events-none disabled:opacity-50 transition-colors';
-  const variants: Record<ButtonVariant, string> = {
-    primary: 'bg-accent-active text-bg-base hover:opacity-90',
-    secondary: 'border border-fg-muted text-fg-primary hover:bg-bg-elevated',
-    ghost: 'text-fg-primary hover:bg-bg-elevated',
+    'inline-flex items-center justify-center rounded-md border border-transparent px-4 py-2 ' +
+    'text-sm font-medium transition-colors ' +
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ' +
+    'disabled:pointer-events-none';
+
+  // Omitted while busy (below), so an in-flight control keeps its rest fill.
+  const disabledTreatment = 'disabled:border-border-subtle disabled:bg-transparent disabled:text-fg-disabled';
+
+  const restFill: Record<ButtonVariant, string> = {
+    primary: 'bg-accent text-fg-on-accent',
+    secondary: 'border-border-strong text-fg-primary',
+    ghost: 'text-fg-primary',
     // Reuses the fault token rather than adding one: it is already the
     // product's red, on error banners and the Offline health badge. A
     // destructive action reading as the same red an operator already knows
     // means trouble is the point.
-    danger: 'bg-accent-fault text-bg-base hover:opacity-90',
+    danger: 'bg-accent-fault text-fg-on-fault',
   };
+
+  const interactive: Record<ButtonVariant, string> = {
+    primary: 'hover:bg-accent-hover active:bg-accent-pressed',
+    secondary: 'hover:bg-bg-hover active:bg-bg-pressed',
+    ghost: 'hover:bg-bg-hover active:bg-bg-pressed',
+    danger: 'hover:bg-accent-fault-hover active:bg-accent-fault-pressed',
+  };
+
+  // Omitted while busy (below), for the same reason as disabledTreatment.
+  const unavailableTreatment =
+    'aria-disabled:border-border-subtle aria-disabled:bg-transparent aria-disabled:text-fg-disabled';
+
   return (
     <Component
       type={asChild ? undefined : (type ?? 'button')}
       aria-disabled={unavailable ?? ariaDisabled}
-      className={clsx(base, variants[variant], unavailable !== undefined && 'aria-disabled:opacity-50', className)}
-      {...rest}
+      aria-busy={busy || undefined}
+      className={clsx(
+        base,
+        restFill[variant],
+        !busy && interactive[variant],
+        !busy && disabledTreatment,
+        !busy && unavailable !== undefined && unavailableTreatment,
+        busy && 'cursor-progress',
+        className,
+      )}
+      {...domProps}
     />
   );
 }
