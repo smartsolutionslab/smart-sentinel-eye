@@ -1,4 +1,4 @@
-# Spec 258 — A wall that changes its scene
+# Spec 263 — A wall that changes its scene
 
 **Issue:** [#2608](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2608)
 — *Deliver ADR-0157: event-driven scene rotation for walls*. **Supervised lane only**:
@@ -16,11 +16,14 @@ and reopens PD-1.
 must confirm it. It does not mean the author has no answer. This spec does not use the
 spec-kit marker anywhere as an open item.
 
-**Spec number.** Checked on 2026-09-26, after `git fetch origin`. On `origin/develop` the
-highest spec is 257. Among open PRs, `specs/256-*` is claimed twice (#2602, #2603), and
-240 and 232 are claimed by older fixes. No remote branch carries `specs/258-*` or
-higher. **Re-check before opening the PR**, because two unmerged branches can both claim
-the next number.
+**Spec number.** Originally drafted as spec 258, checked 2026-09-26 against `origin/develop`
+(then at 257). **Re-checked before opening the PR, same day**: `develop` had since advanced
+to `specs/261-the-face-the-fab-cannot-fetch`, and PR #2611 had independently claimed
+`specs/258-the-bundle-the-hook-still-honours` (a different feature) in the meantime — the
+exact collision this note warned about. **Renumbered 258 → 263** (past #2616's
+`specs/262-the-tile-that-claims-a-rectangle`, the highest number claimed anywhere at
+re-check time) before the PR was opened. If a future rebase reveals another collision at
+263, re-check again — this is a live race, not a one-time fact.
 
 **ADRs referenced:**
 

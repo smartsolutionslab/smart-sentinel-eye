@@ -1,4 +1,4 @@
-# Tasks 258: A wall that changes its scene
+# Tasks 263: A wall that changes its scene
 
 **Spec**: [spec.md](spec.md) · **Plan**: [plan.md](plan.md) · **Issue**: #2608 · **Phase**: 3
 (Tasks), **past the gate for US1**.
