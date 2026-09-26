@@ -40,6 +40,22 @@ public static class KeycloakScopeBundles
     /// </remarks>
     public const string AudienceScope = "sse-audience";
 
+    /// <summary>
+    /// Puts <c>/fabs/&lt;id&gt;</c> into the token via the realm's
+    /// group-membership mapper. Not a permission — appended at the call sites
+    /// for the same reason as <see cref="AudienceScope"/>: the bundles are
+    /// permission sets, and comparisons against them (e.g.
+    /// <c>RuntimeClientAudienceTests</c>) must not see it filtered in or out.
+    /// </summary>
+    /// <remarks>
+    /// Every dynamically-enrolled client's service-account is added to the
+    /// right Keycloak group, but without this scope on the client itself that
+    /// membership never surfaces in a token minted for it — the group join
+    /// alone is not enough (issue #2619). Mirrors the fix already made for the
+    /// realm's static <c>kiosk-web</c> client (spec 041, issue #1884).
+    /// </remarks>
+    public const string GroupsScope = "sse-groups";
+
     public static IReadOnlyList<string> Kiosk { get; } =
     [
         "sse.cameras.read",

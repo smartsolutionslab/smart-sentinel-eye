@@ -41,6 +41,15 @@ public class RuntimeClientAudienceTests
 {
     private const string AudienceScope = "sse-audience";
 
+    /// <summary>
+    /// Puts <c>/fabs/&lt;id&gt;</c> into the token. Not a permission — the same
+    /// defect class already fixed once for the realm's static <c>kiosk-web</c>
+    /// client (spec 041, issue #1884, guarded by <c>KioskScopeParityTests</c>).
+    /// Issue #2619: none of these three runtime-created clients carried it, so
+    /// every fab-scoped read with their tokens was refused.
+    /// </summary>
+    private const string GroupsScope = "sse-groups";
+
     private static readonly DateTimeOffset Now =
         DateTimeOffset.Parse("2026-09-04T08:00:00Z", CultureInfo.InvariantCulture);
 
@@ -98,6 +107,36 @@ public class RuntimeClientAudienceTests
             webhook.DefaultClientScopes,
             customMessage: Traded("webhook integration", nameof(KeycloakScopeBundles.WebhookIntegration)));
     }
+
+    [Fact]
+    public async Task An_enrolled_kiosk_carries_the_fab_claim()
+    {
+        KeycloakClientRepresentation kiosk = await EnrolledKioskAsync();
+
+        kiosk.DefaultClientScopes.ShouldContain(GroupsScope, customMessage: MissingGroups("kiosk"));
+    }
+
+    [Fact]
+    public async Task A_registered_device_carries_the_fab_claim()
+    {
+        KeycloakClientRepresentation device = await RegisteredDeviceAsync();
+
+        device.DefaultClientScopes.ShouldContain(GroupsScope, customMessage: MissingGroups("device"));
+    }
+
+    [Fact]
+    public async Task A_rotated_webhook_client_carries_the_fab_claim()
+    {
+        KeycloakClientRepresentation webhook = await RotatedWebhookClientAsync();
+
+        webhook.DefaultClientScopes.ShouldContain(GroupsScope, customMessage: MissingGroups("webhook integration"));
+    }
+
+    private static string MissingGroups(string persona) =>
+        $"the {persona} client is created without '{GroupsScope}', so its token carries no "
+        + $"'groups' claim and every fab-scoped read it makes is refused with "
+        + "403 RESOURCE_FAB_NOT_AUTHORIZED, even though the service account was correctly added "
+        + "to the fab's Keycloak group (issue #2619).";
 
     private static string Missing(string persona) =>
         $"the {persona} client is created without '{AudienceScope}', so the token it mints does "

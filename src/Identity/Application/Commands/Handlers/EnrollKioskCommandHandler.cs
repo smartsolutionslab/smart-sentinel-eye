@@ -35,7 +35,8 @@ public sealed class EnrollKioskCommandHandler(
             StandardFlowEnabled: false,
             DirectAccessGrantsEnabled: false,
             PublicClient: false,
-            DefaultClientScopes: [.. KeycloakScopeBundles.Kiosk, KeycloakScopeBundles.AudienceScope],
+            DefaultClientScopes:
+                [.. KeycloakScopeBundles.Kiosk, KeycloakScopeBundles.AudienceScope, KeycloakScopeBundles.GroupsScope],
             OptionalClientScopes: Array.Empty<string>(),
             Attributes: new Dictionary<string, string>
             {
