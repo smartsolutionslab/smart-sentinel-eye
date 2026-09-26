@@ -58,7 +58,7 @@ public class LayoutGridInvariantTests
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment)));
 
-        exception.Message.ShouldContain(nameof(GridViolation.DuplicatePosition));
+        exception.Message.ShouldContain(nameof(GridViolation.Overlap));
     }
 
     [Fact]
@@ -82,14 +82,14 @@ public class LayoutGridInvariantTests
     {
         IReadOnlyList<Tile> tiles = [TileAt(0, 0)];
 
-        // Direct constructor, not GridDimensions.From(3, 3): From's own
+        // Direct constructor, not GridDimensions.From(4, 3): From's own
         // Ensure.That guard already rejects > MaxCells, which would make this
         // pass for a reason that has nothing to do with the aggregate
         // (LayoutTests.cs:305-311 uses the same direct-constructor trick).
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
-            new GridDimensions(3, 3),
+            new GridDimensions(4, 3),
             tiles,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment)));
@@ -100,28 +100,65 @@ public class LayoutGridInvariantTests
     [Fact]
     public void CreateDraft_refuses_more_tiles_than_the_grid_allows()
     {
-        // A 2x2 grid (4 cells, at the MaxCells ceiling) with 5 tiles: the four
-        // valid corners plus one repeat. Rows*Cols (4) does not exceed
-        // MaxCells (4), so this can only trip the tiles.Count > MaxTiles
+        // A 3x3 grid (9 cells, at the MaxCells ceiling) with 10 tiles: the
+        // nine valid positions plus one repeat. Rows*Cols (9) does not exceed
+        // MaxCells (9), so this can only trip the tiles.Count > MaxTiles
         // disjunct of the TooLarge check, not the cells disjunct — unlike
         // CreateDraft_refuses_an_oversized_grid above, which trips the cells
-        // disjunct with a single tile. MaxCells == MaxTiles == 4 makes 5
-        // distinct in-bounds positions impossible to construct, so the 5th
+        // disjunct with a single tile. MaxCells == MaxTiles == 9 makes ten
+        // distinct in-bounds positions impossible to construct, so the 10th
         // tile repeats a position; the count check runs before the
-        // duplicate-position check, so TooLarge — not DuplicatePosition — is
-        // what actually fires.
-        IReadOnlyList<Tile> tiles =
-            [TileAt(0, 0), TileAt(0, 1), TileAt(1, 0), TileAt(1, 1), TileAt(0, 0)];
+        // overlap check, so TooLarge — not Overlap — is what actually fires.
+        List<Tile> tiles = [];
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                tiles.Add(TileAt(row, col));
+            }
+        }
+        tiles.Add(TileAt(0, 0));
 
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
-            GridDimensions.Default,
+            GridDimensions.From(3, 3),
             tiles,
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment)));
 
         exception.Message.ShouldContain(nameof(GridViolation.TooLarge));
+    }
+
+    /// <summary>
+    /// Code-review finding B1 (spec 262): <c>tileA</c>'s span
+    /// (<c>int.MaxValue</c> rows) overflows the addition in both
+    /// <c>GridDimensions.Contains(position, span)</c> and
+    /// <c>Tile.Overlaps</c>, wrapping to a negative number that hides both
+    /// the out-of-bounds origin and the overlap with <c>tileB</c> sitting
+    /// inside the (wrapped) claimed rectangle. The fix must reject
+    /// <c>tileA</c>'s own span as <see cref="GridViolation.OutOfBounds"/>
+    /// before <c>Overlaps</c> ever runs — not let the pair through as
+    /// valid.
+    /// </summary>
+    [Fact]
+    public void CreateDraft_refuses_a_tile_whose_overflowing_span_would_otherwise_hide_an_overlap()
+    {
+        Tile overflowing = new(
+            CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None,
+            GridPosition.From(1, 0), TileSpan.From(int.MaxValue, 1));
+        Tile insideWrappedRectangle = TileAt(2, 0);
+        IReadOnlyList<Tile> tiles = [overflowing, insideWrappedRectangle];
+
+        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+            FabIdentifier.From("munich"),
+            LayoutName.From("Line-1"),
+            GridDimensions.From(3, 3),
+            tiles,
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new LayoutBuilder.TestClock(FixedMoment)));
+
+        exception.Message.ShouldContain(nameof(GridViolation.OutOfBounds));
     }
 
     // ---- CreateDraft still accepts valid input (green from the start) ---
@@ -172,7 +209,7 @@ public class LayoutGridInvariantTests
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
             LayoutRevisionNumber.One, GridDimensions.Default, tiles, clock));
 
-        exception.Message.ShouldContain(nameof(GridViolation.DuplicatePosition));
+        exception.Message.ShouldContain(nameof(GridViolation.Overlap));
         Revision only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.Cell);
         only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
@@ -204,7 +241,7 @@ public class LayoutGridInvariantTests
         IReadOnlyList<Tile> tiles = [TileAt(0, 0)];
 
         InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
-            LayoutRevisionNumber.One, new GridDimensions(3, 3), tiles, clock));
+            LayoutRevisionNumber.One, new GridDimensions(4, 3), tiles, clock));
 
         exception.Message.ShouldContain(nameof(GridViolation.TooLarge));
         Revision only = layout.Revisions.Single();

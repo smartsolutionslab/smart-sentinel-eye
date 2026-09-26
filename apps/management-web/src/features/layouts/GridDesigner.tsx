@@ -3,7 +3,16 @@ import type { PublishedOverlay } from '@smart-sentinel-eye/shared/api/overlays.a
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useId } from 'react';
 import { useFieldArray, type UseFormReturn } from 'react-hook-form';
-import { buildCells, GRID_PRESETS, type GridDesignerValue } from './gridDesignerModel.js';
+import {
+  buildCells,
+  coveredBy,
+  GRID_PRESETS,
+  SELECT_CLASS,
+  spanOptions,
+  type DesignerCell,
+  type GridDesignerValue,
+} from './gridDesignerModel.js';
+import { TileSpanFields } from './TileSpanFields.js';
 
 export interface GridDesignerProps {
   form: UseFormReturn<GridDesignerValue>;
@@ -37,8 +46,6 @@ export interface GridDesignerProps {
    */
   cameraNoticeId?: string;
 }
-
-const SELECT_CLASS = 'w-full rounded-md border border-fg-muted/40 bg-bg-base px-3 py-2 text-fg-primary';
 
 /**
  * The wall designer (spec 010, FR-010): a grid-size preset picker plus a dense
@@ -125,6 +132,15 @@ export function GridDesigner({
   const { fields, replace } = useFieldArray({ control, name: 'cells' });
   const grid = watch('grid');
 
+  // The live cell values (camera, spans), unlike `fields` above which only
+  // reflects structural changes (replace/append) and not per-field edits —
+  // the same reason `selectedCameraOf` below reads through `watch` rather
+  // than the field-array snapshot.
+  const cellsValue: DesignerCell[] = watch('cells') ?? [];
+  // A cell another populated cell's span covers is not rendered at all
+  // (spec 262 US3): it disappears from the grid until the span shrinks.
+  const covered = coveredBy(cellsValue);
+
   /**
    * What this tile currently holds. The DOM may not be able to show it yet —
    * the camera list arrives after mount on every real load.
@@ -149,7 +165,7 @@ export function GridDesigner({
    * </p>
    */
   const retainedInUse: CameraSummary[] = [];
-  for (const cell of watch('cells') ?? []) {
+  for (const cell of cellsValue) {
     const held = cell?.cameraIdentifier ?? '';
     if (held === '' || cameras.some((camera) => camera.cameraIdentifier === held)) continue;
     const retained = knownCameras?.get(held);
@@ -250,13 +266,37 @@ export function GridDesigner({
         )}
       </fieldset>
 
-      <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))` }}>
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: `repeat(${grid.cols}, minmax(0, 1fr))`,
+          gridTemplateRows: `repeat(${grid.rows}, minmax(0, 1fr))`,
+        }}
+      >
         {fields.map((cell, index) => {
+          // A cell another populated cell's span covers renders nothing at
+          // all (spec 262 US3) — it stays in the dense `useFieldArray` below
+          // so `tiles[i]` ↔ cell-index mapping stays stable, but disappears
+          // from the grid until the covering span shrinks.
+          if (covered.has(index)) return null;
+
           const cameraError = errors.cells?.[index]?.cameraIdentifier?.message;
           const overlayError = errors.cells?.[index]?.overlayIdentifier?.message;
           const position = `${cell.row + 1},${cell.col + 1}`;
+          const camera = selectedCameraOf(index);
+          const populated = camera !== '';
+          const { rowSpan, colSpan } = cellsValue[index] ?? cell;
+          const cameraField = register(`cells.${index}.cameraIdentifier`);
+
           return (
-            <div key={cell.id} className="flex flex-col gap-2 rounded-md border border-fg-muted/30 bg-bg-base p-3">
+            <div
+              key={cell.id}
+              className="flex flex-col gap-2 rounded-md border border-fg-muted/30 bg-bg-base p-3"
+              style={{
+                gridRow: `${cell.row + 1} / span ${rowSpan}`,
+                gridColumn: `${cell.col + 1} / span ${colSpan}`,
+              }}
+            >
               <span className="text-xs font-medium text-fg-muted">Tile {position}</span>
               {/* row/col are not editable inputs — `useFieldArray` carries them
                   in the cell object so they survive submit without a registered
@@ -284,15 +324,23 @@ export function GridDesigner({
                   id={`tile-${index}-camera`}
                   className={SELECT_CLASS}
                   aria-describedby={cameraNoticeId}
-                  {...register(`cells.${index}.cameraIdentifier`)}
-                  value={selectedCameraOf(index)}
+                  {...cameraField}
+                  value={camera}
+                  onChange={(event) => {
+                    cameraField.onChange(event);
+                    // Spec 262 US3: a cell with no camera has nothing to span.
+                    if (event.target.value === '') {
+                      setValue(`cells.${index}.rowSpan`, 1);
+                      setValue(`cells.${index}.colSpan`, 1);
+                    }
+                  }}
                 >
                   <option value="">
                     {emptyCameraLabel(camerasLoading, camerasFailed, cameras.length === 0, cameraFilterActive)}
                   </option>
-                  {optionsFor(selectedCameraOf(index)).map((camera) => (
-                    <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
-                      {cameraLabel(camera, ambiguousCameraNames)}
+                  {optionsFor(camera).map((cameraOption) => (
+                    <option key={cameraOption.cameraIdentifier} value={cameraOption.cameraIdentifier}>
+                      {cameraLabel(cameraOption, ambiguousCameraNames)}
                     </option>
                   ))}
                 </select>
@@ -311,6 +359,7 @@ export function GridDesigner({
                   ))}
                 </select>
               </FormField>
+              {populated && <TileSpanFields form={form} index={index} options={spanOptions(cellsValue, index, grid)} />}
             </div>
           );
         })}

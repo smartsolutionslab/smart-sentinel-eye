@@ -20,6 +20,13 @@ public class CreateLayoutDraftCommandHandlerTests
             overlay.HasValue ? Option<OverlayIdentifier>.Some(overlay.Value) : Option<OverlayIdentifier>.None,
             GridPosition.From(row, col));
 
+    private static Tile TileAt(int row, int col, TileSpan span) =>
+        new(
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            Option<OverlayIdentifier>.None,
+            GridPosition.From(row, col),
+            span);
+
     private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
     private static readonly FabIdentifier Dresden = FabIdentifier.From("dresden");
 
@@ -98,7 +105,7 @@ public class CreateLayoutDraftCommandHandlerTests
     }
 
     [Fact]
-    public async Task A_duplicate_tile_position_returns_LAYOUT_TILE_POSITION_DUPLICATE()
+    public async Task Two_tiles_at_the_same_origin_return_LAYOUT_TILE_OVERLAP()
     {
         InMemoryLayoutRepository layouts = new();
         CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
@@ -107,7 +114,7 @@ public class CreateLayoutDraftCommandHandlerTests
             Command("Line-1", GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)]),
             CancellationToken.None);
 
-        result.Error.ShouldBeOfType<CreateLayoutDraftError.TilePositionDuplicate>();
+        result.Error.ShouldBeOfType<CreateLayoutDraftError.TileOverlap>();
     }
 
     [Fact]
@@ -121,6 +128,39 @@ public class CreateLayoutDraftCommandHandlerTests
             CancellationToken.None);
 
         result.Error.ShouldBeOfType<CreateLayoutDraftError.TileOutOfBounds>();
+    }
+
+    /// <summary>Spec 262: two spans that intersect are refused as LAYOUT_TILE_OVERLAP.</summary>
+    [Fact]
+    public async Task Two_overlapping_tiles_return_LAYOUT_TILE_OVERLAP()
+    {
+        InMemoryLayoutRepository layouts = new();
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command("Line-1", GridDimensions.From(3, 3), [TileAt(0, 0, TileSpan.From(2, 2)), TileAt(1, 1, TileSpan.Cell)]),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<CreateLayoutDraftError.TileOverlap>();
+        result.Error.Code.ShouldBe("LAYOUT_TILE_OVERLAP");
+        layouts.Layouts.ShouldBeEmpty();
+    }
+
+    /// <summary>Spec 262: a span that runs off the grid is refused as LAYOUT_TILE_OUT_OF_BOUNDS.</summary>
+    [Fact]
+    public async Task A_span_that_runs_off_the_grid_returns_LAYOUT_TILE_OUT_OF_BOUNDS()
+    {
+        InMemoryLayoutRepository layouts = new();
+        CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
+
+        Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
+            Command("Line-1", GridDimensions.From(3, 3), [TileAt(1, 1, TileSpan.From(1, 3))]),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<CreateLayoutDraftError.TileOutOfBounds>();
+        layouts.Layouts.ShouldBeEmpty();
     }
 
     [Fact]

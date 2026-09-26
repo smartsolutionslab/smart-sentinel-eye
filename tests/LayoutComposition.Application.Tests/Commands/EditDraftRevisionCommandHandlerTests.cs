@@ -22,6 +22,13 @@ public class EditDraftRevisionCommandHandlerTests
             overlay.HasValue ? Option<OverlayIdentifier>.Some(overlay.Value) : Option<OverlayIdentifier>.None,
             GridPosition.From(row, col));
 
+    private static Tile TileAt(int row, int col, TileSpan span) =>
+        new(
+            CameraIdentifier.From(Guid.CreateVersion7()),
+            Option<OverlayIdentifier>.None,
+            GridPosition.From(row, col),
+            span);
+
     [Fact]
     public async Task Editing_a_Draft_replaces_its_grid_and_tile_set()
     {
@@ -117,7 +124,7 @@ public class EditDraftRevisionCommandHandlerTests
     }
 
     [Fact]
-    public async Task A_duplicate_tile_position_returns_LAYOUT_TILE_POSITION_DUPLICATE()
+    public async Task Two_tiles_at_the_same_origin_return_LAYOUT_TILE_OVERLAP()
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
@@ -127,11 +134,51 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(0, 0)], 0),
             CancellationToken.None);
 
-        result.Error.ShouldBeOfType<EditDraftRevisionError.TilePositionDuplicate>();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.TileOverlap>();
+    }
+
+    /// <summary>Spec 262: two spans that intersect are refused as LAYOUT_TILE_OVERLAP.</summary>
+    [Fact]
+    public async Task Two_overlapping_tiles_return_LAYOUT_TILE_OVERLAP()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand([Munich],
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.From(3, 3),
+                [TileAt(0, 0, TileSpan.From(2, 2)), TileAt(1, 1, TileSpan.Cell)], 0),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.TileOverlap>();
+    }
+
+    /// <summary>Spec 262: a span that runs off the grid is refused as LAYOUT_TILE_OUT_OF_BOUNDS.</summary>
+    [Fact]
+    public async Task A_span_that_runs_off_the_grid_returns_LAYOUT_TILE_OUT_OF_BOUNDS()
+    {
+        InMemoryLayoutRepository layouts = new();
+        FakeClock clock = new(FixedMoment);
+        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
+        layouts.Add(layout);
+
+        EditDraftRevisionCommandHandler handler = new(
+            layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand([Munich],
+                layout.Id, LayoutRevisionNumber.One, GridDimensions.From(3, 3),
+                [TileAt(1, 1, TileSpan.From(1, 3))], 0),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.TileOutOfBounds>();
     }
 
     [Fact]

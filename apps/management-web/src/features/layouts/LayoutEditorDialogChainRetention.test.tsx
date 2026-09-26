@@ -130,7 +130,7 @@ function targetFor(layoutIdentifier: string) {
     revisionNumber: 1,
     name: 'Layout',
     grid: { rows: 1, cols: 1 },
-    tiles: [{ cameraIdentifier: CAMERA_ID, overlayIdentifier: null, row: 0, col: 0 }],
+    tiles: [{ cameraIdentifier: CAMERA_ID, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 }],
   };
 }
 

@@ -22,10 +22,14 @@ public enum GridViolation
     /// <summary>A revision must carry at least one tile.</summary>
     Empty,
 
-    /// <summary>Two tiles occupy the same <see cref="GridPosition"/>.</summary>
-    DuplicatePosition,
+    /// <summary>
+    /// Two tiles' spans share a cell (spec 262, ADR-0156 §2) — the general
+    /// form of the old "same <see cref="GridPosition"/>" check, of which a
+    /// shared origin between two 1×1 tiles is now the degenerate instance.
+    /// </summary>
+    Overlap,
 
-    /// <summary>A tile sits outside the grid bounds.</summary>
+    /// <summary>A tile's full span sits outside the grid bounds.</summary>
     OutOfBounds,
 
     /// <summary>The grid or populated-tile count exceeds the max-tiles ceiling.</summary>

@@ -5,10 +5,10 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout;
 public class GridDimensionsTests
 {
     [Fact]
-    public void MaxTiles_and_MaxCells_are_four()
+    public void MaxTiles_and_MaxCells_are_nine()
     {
-        GridDimensions.MaxTiles.ShouldBe(4);
-        GridDimensions.MaxCells.ShouldBe(4);
+        GridDimensions.MaxTiles.ShouldBe(9);
+        GridDimensions.MaxCells.ShouldBe(9);
     }
 
     [Fact]
@@ -30,6 +30,9 @@ public class GridDimensionsTests
     [InlineData(1, 2)]
     [InlineData(2, 1)]
     [InlineData(2, 2)]
+    [InlineData(3, 3)]
+    [InlineData(1, 9)]
+    [InlineData(3, 2)]
     public void From_accepts_grids_within_the_cell_cap(int rows, int cols)
     {
         GridDimensions grid = GridDimensions.From(rows, cols);
@@ -41,9 +44,9 @@ public class GridDimensionsTests
     [InlineData(0, 1)]   // non-positive rows
     [InlineData(1, 0)]   // non-positive cols
     [InlineData(-1, 1)]  // negative rows
-    [InlineData(2, 3)]   // exceeds the cell cap
-    [InlineData(3, 2)]   // exceeds the cell cap
-    [InlineData(5, 1)]   // exceeds the cell cap
+    [InlineData(2, 5)]   // exceeds the cell cap
+    [InlineData(4, 3)]   // exceeds the cell cap
+    [InlineData(10, 1)]  // exceeds the cell cap
     public void From_rejects_an_invalid_grid(int rows, int cols)
     {
         Action act = () => GridDimensions.From(rows, cols);
@@ -62,5 +65,38 @@ public class GridDimensionsTests
     public void Contains_is_false_for_an_out_of_bounds_position(int row, int col)
     {
         GridDimensions.Default.Contains(GridPosition.From(row, col)).ShouldBeFalse();
+    }
+
+    [Fact]
+    public void Contains_with_a_span_is_true_when_the_full_rectangle_fits()
+    {
+        GridDimensions.From(3, 3)
+            .Contains(GridPosition.From(0, 0), TileSpan.From(2, 2))
+            .ShouldBeTrue();
+    }
+
+    [Theory]
+    [InlineData(2, 0, 2, 1)] // rows run off the bottom
+    [InlineData(0, 2, 1, 2)] // cols run off the right
+    public void Contains_with_a_span_is_false_when_the_rectangle_runs_off_the_grid(
+        int row, int col, int rowSpan, int colSpan)
+    {
+        GridDimensions.From(3, 3)
+            .Contains(GridPosition.From(row, col), TileSpan.From(rowSpan, colSpan))
+            .ShouldBeFalse();
+    }
+
+    /// <summary>
+    /// Code-review finding B1 (spec 262): <c>position.Row + span.Rows</c>
+    /// wraps around <c>int.MaxValue</c> instead of overflowing past
+    /// <see cref="GridDimensions.Rows"/>, so an origin this far out of
+    /// bounds must not be reported as contained.
+    /// </summary>
+    [Fact]
+    public void Contains_with_a_span_is_false_when_the_row_addition_would_overflow()
+    {
+        GridDimensions.From(3, 3)
+            .Contains(GridPosition.From(int.MaxValue, 0), TileSpan.From(1, 1))
+            .ShouldBeFalse();
     }
 }

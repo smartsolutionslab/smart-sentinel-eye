@@ -115,18 +115,19 @@ test('a tile shows an overlay label over video that is actually decoding', async
 
   // ---- half one: the picture, and it must be MOVING ----------------------
 
-  // The domain's ceiling (GridDimensions.MaxTiles / MaxCells, Layout.cs:79),
+  // The domain's ceiling (GridDimensions.MaxTiles / MaxCells,
+  // GridDimensions.cs:26,29 — raised 4 -> 9 by ADR-0156/spec 262),
   // pinned as a literal (phase-6 review, should-fix S2): every assertion
   // below parametrizes on `wall.cameras.length`, so a fixture that silently
   // narrows — an edited LIVE_VIDEO_WALL_TILE_COUNT, a future refactor —
-  // would narrow every one of them with it, and the four-tile measurement
+  // would narrow every one of them with it, and the nine-tile measurement
   // US2 exists to guarantee would quietly regress with every check green.
-  expect(wall.cameras.length, 'the fixture wall must be at the domain ceiling').toBe(4);
+  expect(wall.cameras.length, 'the fixture wall must be at the domain ceiling').toBe(9);
 
   // Phase-6 review (spec 225 US2, blocker B1): gating on the SUM was correct
-  // for a one-tile wall (there was only one tile to be first), but with four
+  // for a one-tile wall (there was only one tile to be first), but with nine
   // it let the gate clear the instant tile 1 decoded its first frame while
-  // tiles 2-4 — separate WHEP sessions, separate MediaMTX paths, on a shared
+  // tiles 2-9 — separate WHEP sessions, separate MediaMTX paths, on a shared
   // CI runner — had not yet produced one. The very next block requires EVERY
   // element to already have frames within one SAMPLE_GAP_MS of that moment,
   // which is a real race the one-tile fixture could not have exposed. Gate on
@@ -165,8 +166,9 @@ test('a tile shows an overlay label over video that is actually decoding', async
       `(+${framesAdvanced}, threshold ${MINIMUM_FRAMES_PER_SAMPLE}) across ${second.elements} element(s)`,
   );
 
-  // There are `wall.cameras.length` tiles on this wall by construction — four,
-  // the domain's ceiling (spec 225 US2), not one. Asserted rather than assumed,
+  // There are `wall.cameras.length` tiles on this wall by construction — nine,
+  // the domain's ceiling (spec 225 US2, raised 4 -> 9 by ADR-0156/spec 262), not
+  // one. Asserted rather than assumed,
   // because the per-element check below is only as good as the set it
   // iterates: a wall that silently gained a tile would still be checked, but a
   // wall that silently lost one would pass a shorter loop.
@@ -1521,11 +1523,11 @@ test('the span from a value being submitted to it being visible', async ({ page,
   // **Spec 225 US2 T014 — every tile keeps contributing, not just draws
   // once at mount.** Not a tile count: a wall where three tiles never redraw
   // would still pass the `second.elements` check above (that counts
-  // `<video>` elements, taken once, before the span even starts). All four
-  // tiles here share one RTSP source (`FIXTURE_VIDEO_RTSP_URL`) through four
-  // independent WHEP sessions and decoders — this is four renders of one
-  // feed, not four distinct sources, and that is the right shape for a
-  // render-cost measurement.
+  // `<video>` elements, taken once, before the span even starts). All nine
+  // tiles here share one RTSP source (`FIXTURE_VIDEO_RTSP_URL`) through nine
+  // independent WHEP sessions and decoders (raised 4 -> 9 by ADR-0156/spec
+  // 258) — this is nine renders of one feed, not nine distinct sources, and
+  // that is the right shape for a render-cost measurement.
   //
   // Phase-6 review (should-fix S1): counting distinct `camera` values alone
   // is satisfiable by a single mount-time draw per tile — `measureOverlayDraw`

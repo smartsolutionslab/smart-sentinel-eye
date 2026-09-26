@@ -168,8 +168,8 @@ const EDIT_TARGET: LayoutEditTarget = {
   name: 'Rolling Mill',
   grid: { rows: 1, cols: 2 },
   tiles: [
-    { cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0 },
-    { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1 },
+    { cameraIdentifier: CAMERA_A, overlayIdentifier: null, row: 0, col: 0, rowSpan: 1, colSpan: 1 },
+    { cameraIdentifier: CAMERA_B, overlayIdentifier: null, row: 0, col: 1, rowSpan: 1, colSpan: 1 },
   ],
 };
 

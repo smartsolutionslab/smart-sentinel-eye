@@ -57,6 +57,37 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
         broadcaster.Published.Single().Layout.ShouldBe(layout);
     }
 
+    /// <summary>Spec 262: the published V2 carries each tile's span.</summary>
+    [Fact]
+    public async Task Handle_carries_each_tiles_span_onto_V2()
+    {
+        FakeEventBus bus = new();
+        LayoutRevisionPublishedDomainEventHandler handler = new(bus, new FakeLayoutLifecycleBroadcaster());
+
+        LayoutIdentifier layout = LayoutIdentifier.New();
+        CameraIdentifier hero = CameraIdentifier.From(Guid.CreateVersion7());
+        CameraIdentifier filler = CameraIdentifier.From(Guid.CreateVersion7());
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        IReadOnlyList<Tile> tiles =
+        [
+            new Tile(hero, Option<OverlayIdentifier>.None, GridPosition.From(0, 0), TileSpan.From(2, 2)),
+            new Tile(filler, Option<OverlayIdentifier>.None, GridPosition.From(2, 2)),
+        ];
+        LayoutRevisionPublishedDomainEvent domainEvent = new(
+            Munich, layout, LayoutRevisionNumber.One, LayoutName.From("Hero-Wall"),
+            GridDimensions.From(3, 3), tiles, FixedMoment, by);
+
+        await handler.Handle(domainEvent, CancellationToken.None);
+
+        LayoutRevisionPublishedV2 v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
+        LayoutTileV2 heroTile = v2.Tiles.Single(tile => tile.Camera == hero.Value);
+        heroTile.RowSpan.ShouldBe(2);
+        heroTile.ColSpan.ShouldBe(2);
+        LayoutTileV2 fillerTile = v2.Tiles.Single(tile => tile.Camera == filler.Value);
+        fillerTile.RowSpan.ShouldBe(1);
+        fillerTile.ColSpan.ShouldBe(1);
+    }
+
     // #2071. Twin of the archived handler's assertion: the V2's own metadata,
     // not the broadcast notification's fab. A row stored with fab = null is
     // readable by every operator of every fab (#1300), and only the publisher

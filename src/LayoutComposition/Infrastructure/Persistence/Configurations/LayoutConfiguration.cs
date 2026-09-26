@@ -164,6 +164,14 @@ public sealed class LayoutConfiguration : IEntityTypeConfiguration<Layout>
                 tiles.Ignore(tile => tile.Position);
                 tiles.Ignore(tile => tile.Overlay);
 
+                // Spec 262 (ADR-0156 §2): the span a tile claims from its
+                // origin. Additive columns, default 1 — every row written
+                // before this feature means exactly what row_span = col_span = 1
+                // says (plan §3.5).
+                tiles.Property<int>("rowSpan").HasColumnName("row_span").HasDefaultValue(1).IsRequired();
+                tiles.Property<int>("colSpan").HasColumnName("col_span").HasDefaultValue(1).IsRequired();
+                tiles.Ignore(tile => tile.Span);
+
                 tiles.Property(tile => tile.Camera)
                     .HasColumnName("camera_id")
                     .HasConversion(camera => camera.Value, value => CameraIdentifier.From(value))

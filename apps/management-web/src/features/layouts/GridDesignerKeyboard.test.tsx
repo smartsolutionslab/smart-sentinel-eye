@@ -89,14 +89,25 @@ describe('GridDesigner — the grid-size picker as a keyboard radio group', () =
     expect(screen.getAllByLabelText('Camera')).toHaveLength(4);
   });
 
-  /** Regression: FR-002's stability guarantee for existing role/name queries. */
+  /**
+   * Regression: FR-002's stability guarantee for existing role/name queries.
+   *
+   * Spec 262 (#2607), ADR-0156: the cap rose from four cells to nine, so the
+   * offered presets grow from four (`1×1`/`1×2`/`2×1`/`2×2`) to all nine
+   * `rows,cols ∈ {1,2,3}` combinations (plan.md §6.1).
+   */
   it('Is still addressable by role and name, grouped as "Grid size"', () => {
     render(<Harness />);
 
     expect(screen.getByRole('radio', { name: '1×1' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '1×2' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '1×3' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '2×1' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: '2×2' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '2×3' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '3×1' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '3×2' })).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: '3×3' })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: 'Grid size' })).toBeInTheDocument();
   });
 });
