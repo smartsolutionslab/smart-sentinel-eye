@@ -19,8 +19,9 @@ namespace SmartSentinelEye.Automation.Api;
 
 /// <summary>
 /// Minimal-API endpoints for Automation rules (spec 007 / ADR-0070).
-/// All writes require <see cref="AuthenticationDefaults.AdminPolicy"/>;
-/// read endpoints land in PR F (polish) along with the dry-run path.
+/// Writes require <see cref="Scope.Sse.Rules.Write"/>; reads (<c>GET /</c>,
+/// <c>GET /{name}</c>, <c>POST /{name}/dry-run</c>) require
+/// <see cref="Scope.Sse.Rules.Read"/>.
 /// </summary>
 public static class RulesEndpoints
 {
