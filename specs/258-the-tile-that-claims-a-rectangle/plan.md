@@ -298,7 +298,7 @@ Each is rewritten to the new boundary, not deleted or loosened. The PR lists the
   JSON without the fields deserialises as 1×1; round-trip with 2×2.
 - **Integration** (`tests/Integration.Tests/LayoutComposition/`, new
   `TileSpanIntegrationTests.cs`): the US1 Gherkin over HTTP against the Aspire
-  stack, including omitted spans, 401/403, 412, branch, and the migration default —
+  stack, including omitted spans, 401/403, 409, branch, and the migration default —
   insert one tile row with raw SQL naming no span column, then GET → 1×1.
 - **Architecture**: none new; `PrimitiveBoundaryTests` must stay green (proves §II).
 - **Frontend unit**: `layouts.schema` span refinements; `wallGrid.test.ts`
