@@ -98,10 +98,10 @@ public class RegisterDeviceCommandHandlerTests
     }
 
     /// <summary>
-    /// #2575: a null or empty deviceIdentifier passes the ClientId grammar
-    /// (it produces "plc-" or "inference-", both valid) so today nothing
-    /// stops it before Keycloak — this proves the gap the null-guard fix
-    /// closes. No client may be created for any of these rows.
+    /// A null or empty deviceIdentifier would otherwise pass the ClientId
+    /// grammar (it composes "plc-" or "inference-", both valid), so the
+    /// handler must refuse it before Keycloak or the repository are ever
+    /// reached. No client may be created for any of these rows.
     /// </summary>
     [Theory]
     [InlineData("plc", null)]
