@@ -6,6 +6,8 @@ import { LayoutsPage } from '../features/layouts/LayoutsPage.js';
 import { OverlaysPage } from '../features/overlays/OverlaysPage.js';
 import { RulesPage } from '../features/rules/RulesPage';
 import { SystemVariablesPage } from '../features/systemVariables/SystemVariablesPage.js';
+import { WallsPage } from '../features/walls/WallsPage.js';
+import { WallDetailPage } from '../features/walls/WallDetailPage.js';
 import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
 
 /**
@@ -49,6 +51,8 @@ export const createAppRouter = () =>
           errorElement: <SurfaceCrash />,
         },
         { path: 'layouts', element: <LayoutsPage />, errorElement: <SurfaceCrash /> },
+        { path: 'walls', element: <WallsPage />, errorElement: <SurfaceCrash /> },
+        { path: 'walls/:wallIdentifier', element: <WallDetailPage />, errorElement: <SurfaceCrash /> },
         { path: 'overlays', element: <OverlaysPage />, errorElement: <SurfaceCrash /> },
         { path: 'rules', element: <RulesPage />, errorElement: <SurfaceCrash /> },
         { path: 'system-variables', element: <SystemVariablesPage />, errorElement: <SurfaceCrash /> },

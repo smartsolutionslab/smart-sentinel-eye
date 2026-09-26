@@ -23,6 +23,7 @@ export function ShellLayout() {
       <nav className="flex items-center gap-3 border-b border-fg-muted/30 px-6 py-3">
         <NavItem to="/cameras">Cameras</NavItem>
         <NavItem to="/layouts">Layouts</NavItem>
+        <NavItem to="/walls">Walls</NavItem>
         <NavItem to="/overlays">Overlays</NavItem>
         <NavItem to="/rules">Rules</NavItem>
         <NavItem to="/system-variables">System variables</NavItem>
