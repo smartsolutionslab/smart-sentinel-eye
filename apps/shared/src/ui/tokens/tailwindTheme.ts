@@ -25,12 +25,15 @@ export const tailwindTheme = {
         elevated: 'var(--color-bg-elevated)',
         raised: 'var(--color-bg-raised)',
         video: 'var(--color-bg-video)',
+        hover: 'var(--color-bg-hover)',
+        pressed: 'var(--color-bg-pressed)',
       },
       fg: {
         primary: 'var(--color-fg-primary)',
         muted: 'var(--color-fg-muted)',
         disabled: 'var(--color-fg-disabled)',
         'on-accent': 'var(--color-fg-on-accent)',
+        'on-fault': 'var(--color-fg-on-fault)',
       },
       border: {
         subtle: 'var(--color-border-subtle)',
@@ -44,6 +47,8 @@ export const tailwindTheme = {
         subtle: 'var(--color-accent-subtle)',
         active: 'var(--color-accent-active)',
         fault: 'var(--color-accent-fault)',
+        'fault-hover': 'var(--color-accent-fault-hover)',
+        'fault-pressed': 'var(--color-accent-fault-pressed)',
         warning: 'var(--color-accent-warning)',
       },
       focus: {
