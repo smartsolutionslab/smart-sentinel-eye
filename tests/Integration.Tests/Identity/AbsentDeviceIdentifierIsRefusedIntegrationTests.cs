@@ -109,16 +109,16 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
     }
 
     /// <summary>
-    /// Not a silent double-create: today's gap does not let a second empty
-    /// identifier register a second colliding client, because both requests
-    /// build the identical clientId "plc-" and <c>GetByClientIdAsync</c>
-    /// refuses the repeat with 409 DEVICE_ALREADY_REGISTERED. Recorded as
-    /// evidence of the shape of today's bug — a misleading 409 rather than a
-    /// missing 400 — which the null-guard fix makes moot by refusing before
-    /// either call reaches the repository or Keycloak.
+    /// Once the null-guard fix lands, the identifier check runs before the
+    /// duplicate-clientId check (#2575's own designed invariant), so a
+    /// repeated empty identifier never reaches the repository or Keycloak on
+    /// either attempt — both are refused identically, not just the first.
+    /// Before the fix this collided as 409 DEVICE_ALREADY_REGISTERED on the
+    /// second call; that shape is now unreachable by design, not merely
+    /// untested.
     /// </summary>
     [Fact]
-    public async Task A_repeated_empty_device_identifier_collides_as_409_rather_than_double_creating()
+    public async Task A_repeated_empty_device_identifier_is_refused_both_times()
     {
         using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
         object emptyIdentifierBody = new { deviceType = "plc", deviceIdentifier = "" };
@@ -132,10 +132,11 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
         await RecordIfCreatedAsync(second);
 
         first.StatusCode.ShouldBe(
-            HttpStatusCode.Created, await aspire.DiagnoseAsync("identity", first));
+            HttpStatusCode.BadRequest, await aspire.DiagnoseAsync("identity", first));
+        (await ProblemCodeAsync(first)).ShouldBe("DEVICE_INVALID_IDENTIFIER");
         second.StatusCode.ShouldBe(
-            HttpStatusCode.Conflict, await aspire.DiagnoseAsync("identity", second));
-        (await ProblemCodeAsync(second)).ShouldBe("DEVICE_ALREADY_REGISTERED");
+            HttpStatusCode.BadRequest, await aspire.DiagnoseAsync("identity", second));
+        (await ProblemCodeAsync(second)).ShouldBe("DEVICE_INVALID_IDENTIFIER");
     }
 
     /// <summary>
