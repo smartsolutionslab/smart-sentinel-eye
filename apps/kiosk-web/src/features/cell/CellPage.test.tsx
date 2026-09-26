@@ -160,6 +160,12 @@ function tile(overrides: Partial<LayoutTile> = {}): LayoutTile {
     overlayIdentifier: null,
     row: 0,
     col: 0,
+    // Spec 258 (#2607): `LayoutTile` gains these as required fields — the
+    // backend always sends them (plan.md §4.1). Until it does, this is a
+    // type error against today's `LayoutTile`, not a runtime failure
+    // (ADR-0139 red-first; the type change is expected RED under typecheck).
+    rowSpan: 1,
+    colSpan: 1,
     ...overrides,
   };
 }
@@ -387,6 +393,59 @@ describe('CellPage', () => {
     renderPage();
     expect(screen.getAllByTestId('camera-viewer')).toHaveLength(3);
     expect(screen.getAllByTestId('layout-empty-cell')).toHaveLength(1);
+  });
+
+  /**
+   * Spec 258 (#2607) §8 declared pin — CHARACTERISATION, must stay GREEN.
+   * "A 1x1 wall renders exactly as today" (spec Gherkin, US2). A non-square
+   * grid, so a row-major-only regression (columns and rows swapped, or a
+   * transposed order) would show here even though the 2x2 case above would
+   * not. This is the literal green proof `wallGrid.test.ts`'s own
+   * characterisation case points back to, since that file cannot resolve
+   * until `wallGrid.ts` exists.
+   */
+  it('Renders every tile of an all-1x1 wall in row-major order, unchanged by this feature', () => {
+    mockLayout(
+      publishedRevision(2, 3, [
+        tile({ cameraIdentifier: 'cam-a', row: 0, col: 0 }),
+        tile({ cameraIdentifier: 'cam-b', row: 0, col: 1 }),
+        tile({ cameraIdentifier: 'cam-c', row: 0, col: 2 }),
+        tile({ cameraIdentifier: 'cam-d', row: 1, col: 0 }),
+        tile({ cameraIdentifier: 'cam-e', row: 1, col: 1 }),
+        tile({ cameraIdentifier: 'cam-f', row: 1, col: 2 }),
+      ]),
+    );
+
+    renderPage();
+    const viewers = screen.getAllByTestId('camera-viewer');
+    expect(viewers.map((v) => v.textContent)).toEqual(['cam-a', 'cam-b', 'cam-c', 'cam-d', 'cam-e', 'cam-f']);
+    expect(screen.queryByTestId('layout-empty-cell')).not.toBeInTheDocument();
+  });
+
+  /**
+   * RED (spec 258 US2, FR-008). `CellPage` does no explicit grid placement
+   * today — every tile flows into CSS grid auto-placement, one cell each
+   * (spec.md §1 finding: "the kiosk places tiles one cell each ... by
+   * auto-placement"). A hero tile therefore carries no `grid-row`/
+   * `grid-column` style yet, so this fails until `wallGrid.ts` /
+   * `buildGridItems` is wired into `CellPage` (plan.md §4.2).
+   */
+  it('Places a spanning hero tile at grid-row 1 / span 2 and grid-column 1 / span 2', () => {
+    mockLayout(
+      publishedRevision(3, 3, [
+        tile({ cameraIdentifier: 'cam-hero', row: 0, col: 0, rowSpan: 2, colSpan: 2 }),
+        tile({ cameraIdentifier: 'cam-a', row: 0, col: 2 }),
+        tile({ cameraIdentifier: 'cam-b', row: 1, col: 2 }),
+        tile({ cameraIdentifier: 'cam-c', row: 2, col: 0 }),
+        tile({ cameraIdentifier: 'cam-d', row: 2, col: 1 }),
+        tile({ cameraIdentifier: 'cam-e', row: 2, col: 2 }),
+      ]),
+    );
+
+    renderPage();
+    const heroTile = screen.getAllByTestId('layout-tile')[0];
+    expect(heroTile?.style.gridRow).toBe('1 / span 2');
+    expect(heroTile?.style.gridColumn).toBe('1 / span 2');
   });
 
   it('Renders the bound overlay label per tile', () => {
