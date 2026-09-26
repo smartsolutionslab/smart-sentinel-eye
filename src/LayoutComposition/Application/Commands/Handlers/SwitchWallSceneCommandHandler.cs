@@ -3,6 +3,7 @@ using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
+using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -57,10 +58,18 @@ public sealed class SwitchWallSceneCommandHandler(
             return Failure(SwitchWallSceneFailures.SceneNotPublished(wanted.Value));
         }
 
-        wall.SwitchTo(target, publishable, new SceneSwitchCause.Operator(by), clock);
+        Option<WallSceneSwitchedDomainEvent> switched =
+            wall.SwitchTo(target, publishable, new SceneSwitchCause.Operator(by), clock);
         await walls.SaveAsync(cancellationToken);
 
-        logger.SwitchedWallScene(wall.Id, by);
+        if (switched.HasValue)
+        {
+            logger.SwitchedWallScene(wall.Id, by);
+        }
+        else
+        {
+            logger.WallSceneSwitchWasNoOp(wall.Id, by);
+        }
 
         return Success(GetWallQueryHandler.Map(wall));
     }
