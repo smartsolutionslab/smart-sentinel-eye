@@ -113,4 +113,35 @@ describe('ConfirmDialog', () => {
 
     expect(screen.getByText(/this cannot be undone/i)).toBeVisible();
   });
+
+  // ---- Issue #2624 / ADR-0151: focus must survive an in-flight confirm ----
+
+  it('Announces both buttons as unavailable with aria-disabled, not native disabled, while pending', () => {
+    renderDialog({ pending: true });
+
+    const confirm = screen.getByRole('button', { name: /retire camera/i });
+    const cancel = screen.getByRole('button', { name: /cancel/i });
+
+    expect(confirm).toHaveAttribute('aria-disabled', 'true');
+    expect(confirm).not.toHaveAttribute('disabled');
+    expect(cancel).toHaveAttribute('aria-disabled', 'true');
+    expect(cancel).not.toHaveAttribute('disabled');
+  });
+
+  it('Refuses to close while pending, on a click on Cancel', () => {
+    const { onOpenChange } = renderDialog({ pending: true });
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(onOpenChange).not.toHaveBeenCalled();
+  });
+
+  it('Closes on a click on Cancel when nothing is pending', () => {
+    const { onOpenChange } = renderDialog({ pending: false });
+
+    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+    expect(onOpenChange).toHaveBeenCalledTimes(1);
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

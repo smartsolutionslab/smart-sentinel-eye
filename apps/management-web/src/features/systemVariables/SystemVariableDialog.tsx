@@ -8,7 +8,7 @@ import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { FormErrorSummary } from '@smart-sentinel-eye/shared/ui/composites/FormErrorSummary';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAssignedFabs } from '../../app/useAssignedFabs';
-import { useEffect, useEffectEvent, useState } from 'react';
+import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
 export interface SystemVariableDialogProps {
@@ -101,6 +101,17 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
     }
   });
 
+  // ADR-0151: `unavailable` keeps Define focusable and clickable, and no
+  // longer suppresses implicit submission (Enter in a field), so this is what
+  // refuses a second submit while the first is in flight.
+  function handleFormSubmit(event: FormEvent) {
+    if (isLoading) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
+
   const backendError = problemDetail(error, 'Could not save the variable. Try again.');
 
   // One boolean, read by both the visibility branch below and
@@ -120,7 +131,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
       title="New variable"
       description="Pick a name, type, and (optionally) an initial value."
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
         <FormField label="Name" htmlFor="variable-name" error={errors.name?.message}>
           <Input id="variable-name" autoFocus {...register('name')} />
         </FormField>
@@ -179,7 +190,7 @@ export function SystemVariableDialog({ open, onOpenChange }: SystemVariableDialo
           <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" unavailable={isLoading} className="aria-disabled:cursor-progress">
             {isLoading ? 'Saving…' : 'Define'}
           </Button>
         </div>
