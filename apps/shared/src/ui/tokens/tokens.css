@@ -98,6 +98,30 @@
   --color-accent-fault: var(--red-500);
   --color-accent-warning: var(--amber-500);
 
+  /* Interaction-state roles (spec 268, issue #2336, ADR-0146 item 5; ADR-0148
+     decision 2 — derived, not chosen; plan.md §2). */
+
+  /* A translucent tint of the foreground, not an opaque surface step: any
+     opaque token as a hover/pressed fill for secondary/ghost inverts on one
+     of bg-base/-elevated/-raised (a Dialog's bg-raised is lighter than
+     bg-elevated, so an opaque "elevated" hover would go darker inside it). A
+     tint of --color-fg-primary lightens every dark ground and darkens every
+     light one, and follows data-theme with no redeclaration (plan.md §2.2). */
+  --color-bg-hover: color-mix(in oklch, var(--color-fg-primary) 8%, transparent);
+  --color-bg-pressed: color-mix(in oklch, var(--color-fg-primary) 14%, transparent);
+
+  /* danger's own derivation, not a mirror of --color-accent-hover/-pressed's
+     88%/84% split (plan.md §2.1): at the accent's 84% the dark label on the
+     fault-pressed fill is 3.99:1, below the 4.5:1 text threshold; 92% gives
+     4.95:1 while keeping the pressed fill 1.42:1 from hover — still visibly
+     distinct. Hover lighter, pressed darker, same directions as the accent. */
+  --color-accent-fault-hover: color-mix(in oklch, var(--color-accent-fault) 88%, var(--white));
+  --color-accent-fault-pressed: color-mix(in oklch, var(--color-accent-fault) 92%, var(--black));
+  /* Dark in every theme, because the fault red itself is pinned across themes
+     (ADR-0148) and white on it is only 3.19:1. Replaces --color-fg-on-accent,
+     which only happened to be dark in the default theme. */
+  --color-fg-on-fault: var(--gray-950);
+
   /* Type scale — sizes equal Tailwind's stock scale (plan.md §2.3), so
      nothing jumps before #2333 (IBM Plex). Every leading is a multiple of
      4px. 2xl/3xl carry --tracking-tight, applied in tailwindTheme.ts. */
