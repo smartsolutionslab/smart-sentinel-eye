@@ -67,14 +67,7 @@ describe('buildGridItems — explicit placement for a wall of spanning tiles (sp
    * pin.
    */
   it('lays out an all-1x1 wall in the same row-major order as today (characterisation)', () => {
-    const tiles: LayoutTile[] = [
-      tileAt(0, 0),
-      tileAt(0, 1),
-      tileAt(0, 2),
-      tileAt(1, 0),
-      tileAt(1, 1),
-      tileAt(1, 2),
-    ];
+    const tiles: LayoutTile[] = [tileAt(0, 0), tileAt(0, 1), tileAt(0, 2), tileAt(1, 0), tileAt(1, 1), tileAt(1, 2)];
 
     const items = buildGridItems(2, 3, tiles);
 
