@@ -11,13 +11,15 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 ///
 /// <para>
 /// <b><see cref="A_smart_sentinel_eye_web_token_does_not_carry_the_bundle_and_is_refused"/>
-/// (SC-1) is the fact this spec exists to guard.</b> If
-/// <c>smart-sentinel-eye-web</c> ever again grants <c>sse.management</c> as a
-/// default client scope, the grandfather clause in
-/// <c>RequireScopeExtensions</c> accepts it for every <c>sse.*</c> policy but
-/// <c>sse.events.publish</c>, and a token minted for that client would answer
-/// 200 on <c>GET /system-variables</c> instead of the 403 asserted here — the
-/// exact shape of #2279.
+/// (SC-1) is the fact this spec exists to guard.</b> At the time this spec was
+/// written, <c>RequireScopeExtensions</c> carried a grandfather clause that
+/// accepted <c>sse.management</c> for every <c>sse.*</c> policy but
+/// <c>sse.events.publish</c>, so a <c>smart-sentinel-eye-web</c> token that
+/// re-acquired the bundle would have answered 200 on <c>GET /system-variables</c>
+/// instead of the 403 asserted here — the exact shape of #2279. That clause was
+/// withdrawn (spec 265 / #2486): the 403 now holds even if the bundle is
+/// re-granted, which is exactly what makes this SC-1 a durable guard rather
+/// than one describing a hole that has since closed.
 /// </para>
 ///
 /// <para>

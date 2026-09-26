@@ -72,10 +72,11 @@ public class KioskScopeParityTests
     }
 
     /// <summary>
-    /// <b>SC-002</b>, asserted as an absence. A kiosk holding the management
-    /// bundle lists layouts, opens walls and passes every behavioural check
-    /// identically to one holding nothing but reads — so behaviour cannot see
-    /// this, and only an assertion on the configuration can.
+    /// <b>SC-002</b>, asserted as an absence. The management bundle was later
+    /// withdrawn from every policy (spec 265 / #2486), but a kiosk should never
+    /// have been offered it in the first place — mintable is a hole even before
+    /// anything honours it, and nothing behavioural would ever have shown that
+    /// a kiosk carrying it looked any different from one holding only reads.
     /// </summary>
     [Fact]
     public void The_kiosk_client_does_not_carry_the_management_bundle()

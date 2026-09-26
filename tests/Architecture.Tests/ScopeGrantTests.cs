@@ -23,8 +23,9 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <b>Spec 143 plan §7 attributes this guard to <c>RealmIdentityTests</c> and it
 /// is not there.</b> That plan's own trap — "a green integration suite does not
 /// prove the realm edit landed", because the legacy <c>sse.management</c> bundle
-/// satisfies every <c>sse.*</c> policy — is real, and the test it names as the
-/// backstop does not perform the check. These two do.
+/// <i>used to</i> satisfy every <c>sse.*</c> policy before it was withdrawn
+/// (spec 265 / #2486) — is real, and the test it names as the backstop does not
+/// perform the check. These two do.
 /// </para>
 /// </summary>
 public class ScopeGrantTests
@@ -80,16 +81,17 @@ public class ScopeGrantTests
         {
             granted.ShouldContain(scope,
                 customMessage: $"'{scope}' is defined and held by nobody. Every caller is refused, and "
-                + "an integration suite that mints its tokens from a client carrying the legacy "
-                + "sse.management bundle passes anyway — that bundle satisfies every sse.* policy "
-                + "except sse.events.publish, so behaviour cannot see this and only configuration can.");
+                + "no integration suite can see it from behaviour alone — the legacy sse.management "
+                + "bundle that used to paper over exactly this gap was withdrawn (spec 265 / #2486), "
+                + "so only configuration can catch it now.");
         }
     }
 
     /// <summary>
-    /// Spec 143 FR-010 / A5, asserted as configuration because the seeded
-    /// operators pass the new policy through <c>sse.management</c> whether or
-    /// not the grant lands. <b>Red until T008.</b>
+    /// Spec 143 FR-010 / A5, asserted as configuration: whether the grant lands
+    /// is otherwise invisible to any integration suite, now that the
+    /// sse.management bundle no longer stands in for it (spec 265 / #2486).
+    /// <b>Red until T008.</b>
     /// </summary>
     [Fact]
     public void The_registry_write_scope_is_granted_to_the_operator_console()
@@ -102,8 +104,8 @@ public class ScopeGrantTests
         DefaultScopesOf(ClientNamed(OperatorConsoleClientId)).ShouldContain(
             RegistryWriteScope,
             customMessage: $"'{RegistryWriteScope}' is the operator's scope (spec 143 FR-010, A5). "
-            + "Defining it without granting it leaves POST /event-types reachable only by tokens "
-            + "carrying the grandfathered sse.management bundle.");
+            + "Defining it without granting it leaves POST /event-types reachable by nobody, now that "
+            + "the withdrawn sse.management bundle (spec 265 / #2486) no longer stands in for it.");
     }
 
     /// <summary>

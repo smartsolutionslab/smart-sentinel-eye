@@ -7,13 +7,14 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// Spec 200 (issue #2279), SC-7 — the bundle is granted to no client.
 ///
 /// <para>
-/// <c>sse.management</c> satisfies every catalogued <c>sse.*</c> policy except
-/// <c>sse.events.publish</c> (<c>RequireScopeExtensions.LegacyManagementBundle</c>),
-/// so a client that holds it holds effectively everything and no behavioural
-/// test in the suite can see that — a caller with the bundle passes every
-/// granular check identically to a caller with the full, explicit set. This is
-/// a <b>static, design-time guard</b>: it proves the realm file says the right
-/// thing. It does not prove the running system enforces it —
+/// <c>sse.management</c> is a <b>withdrawn</b> scope (spec 265 / #2486): no
+/// policy <c>AddScopePolicies</c> registers honours it any more, so a client
+/// that held it today would hold nothing extra. This guard exists to keep it
+/// that way — a realm edit, a merge, or a hand-made production client that
+/// re-grants the bundle is otherwise invisible to every behavioural test in the
+/// suite, since a caller carrying it looks identical to one carrying nothing.
+/// This is a <b>static, design-time guard</b>: it proves the realm file says the
+/// right thing. It does not prove the running system agrees —
 /// <c>ConsoleScopeGrantIntegrationTests</c>' SC-1 is what asks the running
 /// system. Both are required; neither substitutes for the other.
 /// </para>
@@ -44,15 +45,15 @@ public class LegacyBundleGrantTests
 
             ScopesNamedBy(client, "defaultClientScopes").ShouldNotContain(
                 Bundle,
-                customMessage: $"'{clientId}' default-grants '{Bundle}', which satisfies every catalogued "
-                + "sse.* policy but sse.events.publish (RequireScopeExtensions.LegacyManagementBundle). "
-                + "A client holding it holds effectively everything, and no behavioural test in the suite "
-                + "can see that it does.");
+                customMessage: $"'{clientId}' default-grants '{Bundle}', a scope withdrawn from every "
+                + "policy (spec 265 / #2486). A re-grant here is otherwise invisible — no behavioural "
+                + "test in the suite would notice a client holding a scope that grants nothing.");
 
             ScopesNamedBy(client, "optionalClientScopes").ShouldNotContain(
                 Bundle,
-                customMessage: $"'{clientId}' offers '{Bundle}' as an optional scope, which a caller could "
-                + "request and receive the same blanket authority the default grant would have given it.");
+                customMessage: $"'{clientId}' offers '{Bundle}' as an optional scope. A caller could "
+                + "still request it, and its being mintable at all is the thing this guard keeps "
+                + "closed, whether or not any policy still honours it.");
         }
     }
 
