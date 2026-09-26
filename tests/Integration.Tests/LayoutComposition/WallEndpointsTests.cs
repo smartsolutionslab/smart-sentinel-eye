@@ -61,7 +61,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 
         (Guid Wall, string Name) audited = await PollForAuditAsync<(Guid, string)>(
             "WallConfiguredV1", wall,
-            "wall_identifier::text || '|' || (payload->>'Name')",
+            "(payload->>'Wall') || '|' || (payload->>'Name')",
             row => (Guid.Parse(row.Split('|')[0]), row.Split('|')[1]));
         audited.Name.ShouldBe(name);
     }
@@ -485,18 +485,28 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     private async Task<T> PollForAuditAsync<T>(
         string eventKind, Guid wall, string selectExpression, Func<string, T> parse)
     {
+        // selectExpression is a hardcoded, test-authored SQL fragment (never
+        // user input), so it is spliced into the SQL text directly. Splicing
+        // it through SqlQuery's FormattableString hole instead would bind it
+        // as a literal string VALUE rather than raw SQL — every row's "Value"
+        // would come back as the C# expression's own text. eventKind/wall stay
+        // genuine bound parameters via SqlQueryRaw's positional {0}/{1}
+        // placeholders, the same mechanism DeadLetterReasonIntegrationTests
+        // uses for its LIKE parameter.
+        string sql = $$"""
+            SELECT {{selectExpression}} AS "Value"
+            FROM audit_events
+            WHERE event_kind = {0}
+              AND payload->>'Wall' = {1}
+            ORDER BY occurred_at DESC
+            """;
+
         for (int attempt = 0; attempt < 60; attempt++)
         {
             await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
 
             List<string> rows = await context.Database
-                .SqlQuery<string>($"""
-                    SELECT {selectExpression} AS "Value"
-                    FROM audit_events
-                    WHERE event_kind = {eventKind}
-                      AND payload->>'Wall' = {wall.ToString()}
-                    ORDER BY occurred_at DESC
-                    """)
+                .SqlQueryRaw<string>(sql, eventKind, wall.ToString())
                 .ToListAsync();
 
             if (rows.Count > 0)
