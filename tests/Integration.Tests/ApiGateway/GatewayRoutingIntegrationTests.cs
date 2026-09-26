@@ -88,29 +88,45 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// Spec 258 T002 (plan.md §4.5): a dedicated <c>/walls/{**catch-all}</c>
-    /// route to layout-composition, alongside the existing
-    /// <c>/layout-composition/{**catch-all}</c> context route (walls are
-    /// addressed directly, not under the context prefix).
+    /// Spec 258 T002 (plan.md §4.5, corrected premise): the plan's "add a
+    /// gateway route <c>/walls/{**catch-all}</c> mirroring the <c>/layouts</c>
+    /// route" describes a route that has never existed — every gateway route
+    /// is context-prefixed (see the <c>ReverseProxy:Routes</c> section of
+    /// <c>appsettings.json</c>), and the frontend already calls layouts as
+    /// <c>layout-composition/layouts</c> (<c>apps/shared/src/api/layouts.api.ts</c>).
+    /// Wall lives in the same LayoutComposition context as Layout, so once
+    /// its endpoints exist they are reachable at
+    /// <c>/layout-composition/walls/...</c> through the <b>existing</b>
+    /// <c>/layout-composition/{**catch-all}</c> route — no new route entry is
+    /// needed, and adding a bare <c>/walls/{**catch-all}</c> one would
+    /// duplicate CORS/rate-limiter config and break the one-route-per-context
+    /// convention (ADR-0109) for no reason.
     ///
     /// <para>
-    /// Asserted as "not the gateway's own unrouted-404", not as a specific
-    /// success code: an unauthenticated request that reaches the real
-    /// layout-composition service's <c>/walls/{id}</c> endpoint should hit
-    /// auth middleware and answer 401, whereas today — with no route
-    /// configured at all — YARP itself answers 404 before the request ever
-    /// leaves the gateway. That is the distinction this test exists to make:
-    /// "gateway routed it and the service rejected it" vs. "gateway had no
-    /// route for it". Today's 404 is the latter, so this is RED until the
-    /// route exists.
+    /// This test pins that claim against a sub-path that already exists
+    /// today, because <c>WallEndpoints</c> (T033) is not built yet on this
+    /// branch — a request to a not-yet-implemented <c>/walls/{id}</c> would
+    /// 404 whether or not the gateway had a route for it, which proves
+    /// nothing. <c>GET /layouts/{layoutIdentifier}</c> is the closest existing
+    /// stand-in under the same <c>layout-composition</c> cluster: it
+    /// requires <c>sse.layouts.read</c>
+    /// (<c>src/LayoutComposition/Api/LayoutEndpoints.cs</c>), so an
+    /// unauthenticated caller reaching it answers 401 — "gateway routed it
+    /// and the service rejected it" — whereas an unrouted path answers 404
+    /// from YARP itself, before the request ever leaves the gateway (see
+    /// <see cref="Gateway_returns_404_for_a_path_with_no_configured_route"/>).
+    /// That is the same forwarding-plus-prefix-stripping mechanism
+    /// <c>/layout-composition/walls/...</c> will use once <c>WallEndpoints</c>
+    /// exists, so this is a corrected-premise test observed green today, not
+    /// new behaviour.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task Gateway_forwards_a_walls_path_to_layout_composition()
+    public async Task Gateway_forwards_a_layout_composition_subpath_with_the_prefix_stripped()
     {
         using HttpClient gateway = await CreateGatewayClientAsync();
 
-        HttpResponseMessage response = await gateway.GetAsync($"/walls/{Guid.NewGuid()}");
+        HttpResponseMessage response = await gateway.GetAsync($"/layout-composition/layouts/{Guid.NewGuid()}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
