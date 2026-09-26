@@ -95,8 +95,24 @@ public sealed record Tile
     /// old "same <see cref="GridPosition"/>" check, which is now the 1×1
     /// instance of this. Two axis-aligned rectangles overlap exactly when
     /// they overlap on both axes.
+    ///
+    /// <para>
+    /// Written in subtraction form, not <c>row &lt; other.row + other.rowSpan</c>
+    /// (code review finding B1): <c>row</c>/<c>col</c> are bounded (by
+    /// <see cref="GridPosition.From"/>) but <c>rowSpan</c>/<c>colSpan</c> are
+    /// not upper-bounded here — a caller-supplied span up to
+    /// <see cref="int.MaxValue"/> would overflow that addition and wrap to a
+    /// negative number, silently reporting a real overlap as none.
+    /// <c>row - other.row</c> cannot itself overflow: both are non-negative
+    /// and individually bounded by <see cref="int.MaxValue"/>, so their
+    /// difference always fits in <see cref="int"/>. <see cref="Layout"/>'s
+    /// <see cref="Layout.ValidateGrid"/> already rejects an out-of-bounds
+    /// span before this ever runs, but this method is <c>public</c> and
+    /// callable on its own, so it must not depend on that ordering to be
+    /// correct.
+    /// </para>
     /// </summary>
     public bool Overlaps(Tile other) =>
-        row < other.row + other.rowSpan && other.row < row + rowSpan &&
-        col < other.col + other.colSpan && other.col < col + colSpan;
+        row - other.row < other.rowSpan && other.row - row < rowSpan &&
+        col - other.col < other.colSpan && other.col - col < colSpan;
 }

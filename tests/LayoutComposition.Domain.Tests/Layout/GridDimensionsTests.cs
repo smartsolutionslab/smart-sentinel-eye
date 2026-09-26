@@ -85,4 +85,18 @@ public class GridDimensionsTests
             .Contains(GridPosition.From(row, col), TileSpan.From(rowSpan, colSpan))
             .ShouldBeFalse();
     }
+
+    /// <summary>
+    /// Code-review finding B1 (spec 258): <c>position.Row + span.Rows</c>
+    /// wraps around <c>int.MaxValue</c> instead of overflowing past
+    /// <see cref="GridDimensions.Rows"/>, so an origin this far out of
+    /// bounds must not be reported as contained.
+    /// </summary>
+    [Fact]
+    public void Contains_with_a_span_is_false_when_the_row_addition_would_overflow()
+    {
+        GridDimensions.From(3, 3)
+            .Contains(GridPosition.From(int.MaxValue, 0), TileSpan.From(1, 1))
+            .ShouldBeFalse();
+    }
 }
