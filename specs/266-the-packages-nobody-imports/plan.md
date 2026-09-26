@@ -2,13 +2,15 @@
 
 **Spec**: [spec.md](spec.md) · **Issue**: #2335 · **Phase**: 2 (Plan)
 **Written against the defaults of spec §0 Q2–Q5.** An answer other than the default changes
-only the section named in that row. Q1 (command palette) changes nothing here.
+only the section named in that row. Q1 (command palette) is answered — **build** on
+`@radix-ui/react-dialog` (product owner, 2026-09-27) — and is planned here as US6 (§3.5,
+§4.4).
 
 ## Constitution / ADR check
 
 | Rule | How this plan meets it |
 |---|---|
-| ADR-0077 — primitives on Radix, visual code in the repo | Each primitive wraps the Radix package already installed. No new runtime dependency. |
+| ADR-0077 — primitives on Radix, visual code in the repo | Each primitive wraps the Radix package already installed. No new runtime dependency. `CommandPalette` wraps `@radix-ui/react-dialog` (already imported by `Dialog.tsx`) and hand-writes only the listbox — no second headless library, so no ADR amendment. |
 | ADR-0148 — cite the semantic layer only | §2 lists every class each primitive uses; all are semantic (`bg-bg-*`, `fg-*`, `border-*`, `accent-*`, `focus-ring`, `shadow-popover`, `z-popover`, `rounded-*`, spacing). Enforced by the existing `SharedUiTokenUsageTests` and `DesignTokenLayerTests`, unchanged. |
 | ADR-0146 — shadow only for what floats, no blur, triad is status | `shadow-popover` on floating content only; no `backdrop-blur`; no triad hue on any interactive affordance except the `danger` menu item, which reuses `Button`'s existing `danger` precedent (fault = destructive). |
 | ADR-0151 — `disabled` vs `unavailable` | Menu items and tabs use `disabled`: a Radix menu closes on select, so an item never holds focus as it becomes unavailable. The Select trigger takes `disabled` only; no call site disables it while focused. |
@@ -23,8 +25,9 @@ only the section named in that row. Q1 (command palette) changes nothing here.
 
 **None.** Frontend-only, in two workspaces:
 
-- `apps/shared/src/ui/primitives/` — four new primitives (the design system, ADR-0077).
-- `apps/management-web/src/features/{rules,layouts,cameras}/` — three consumers.
+- `apps/shared/src/ui/primitives/` — five new primitives (the design system, ADR-0077).
+- `apps/management-web/src/features/{rules,layouts,cameras}/` — three consumers, and
+  `apps/management-web/src/app/ShellLayout.tsx` — the palette's consumer.
 - `tests/Architecture.Tests/` — one source-scanning guard (C#, test code only).
 
 No entity, value object, domain event, integration event, endpoint or migration. The
@@ -34,7 +37,7 @@ No entity, value object, domain event, integration event, endpoint or migration.
 
 | Area | Files | Story |
 |---|---|---|
-| Foundation (serial, blocks all) | `apps/shared/package.json` (devDep + 4 `exports` entries), `apps/shared/src/test/radixJsdom.ts` (new), `apps/shared/src/test/setup.ts`, `apps/management-web/src/test/setup.ts`, `pnpm-lock.yaml` | — |
+| Foundation (serial, blocks all) | `apps/shared/package.json` (devDep + 5 `exports` entries), `apps/shared/src/test/radixJsdom.ts` (new), `apps/shared/src/test/setup.ts`, `apps/management-web/src/test/setup.ts`, `pnpm-lock.yaml` | — |
 | Guard | `tests/Architecture.Tests/SharedUiDependencyUsageTests.cs` | US5 |
 | Select | `apps/shared/src/ui/primitives/Select.tsx`, `Select.test.tsx` | US1 |
 | Select consumer | `apps/management-web/src/features/rules/RuleDialog.tsx`, `RuleDialog.test.tsx`, `e2e/rules.spec.ts` | US1 |
@@ -43,8 +46,15 @@ No entity, value object, domain event, integration event, endpoint or migration.
 | Popover | `apps/shared/src/ui/primitives/Popover.tsx`, `Popover.test.tsx` | US3 |
 | Popover consumer | `apps/management-web/src/features/cameras/StreamHealthBadge.tsx`, `StreamHealthBadge.test.tsx` | US3 |
 | Tabs | `apps/shared/src/ui/primitives/Tabs.tsx`, `Tabs.test.tsx` | US4 |
+| CommandPalette | `apps/shared/src/ui/primitives/CommandPalette.tsx`, `CommandPalette.test.tsx` | US6 |
+| CommandPalette consumer | `apps/management-web/src/app/ShellLayout.tsx`, `ShellLayout.test.tsx` (new), `e2e/command-palette.spec.ts` (new) | US6 |
 
-The four `exports` entries go in the **foundation** task so no story task touches
+`ShellLayout.tsx` is touched by no other story, so US6 fans out like the rest. #2336
+(spec 268) names it only in a **not-yet-filed follow-up** (the `CrashPanel`'s raw
+`<button>`, its plan §7 line 309), not in its own scope — so no cross-branch contention
+today; whichever lands second rebases a small hunk.
+
+The five `exports` entries go in the **foundation** task so no story task touches
 `apps/shared/package.json` — it is the one file every story would otherwise contend on.
 
 ## 2. Token mapping (every class a primitive may use)
@@ -68,6 +78,22 @@ so the border carries separation there with no per-theme code.
 | Popover trigger | caller-supplied (`asChild`) | — | caller's | — |
 | Tabs list | `flex gap-1 border-b border-border-subtle` | — | — | — |
 | Tab trigger | `px-3 py-2 text-sm text-fg-muted border-b-2 border-transparent` | `data-[state=active]:text-fg-primary data-[state=active]:border-accent` | `focus-visible:ring-2 focus-visible:ring-focus-ring` | `data-[disabled]:text-fg-disabled` |
+
+**CommandPalette** (US6) is modal, so it takes `Dialog`'s modal layer tokens rather than
+the popover recipe — and drops `Dialog`'s `backdrop-blur-sm` (ADR-0146; spec SC-5):
+
+| Element | Classes |
+|---|---|
+| Overlay | `fixed inset-0 z-overlay bg-scrim` |
+| Content | `fixed left-1/2 top-[15vh] z-overlay w-full max-w-lg -translate-x-1/2 rounded-lg border border-border-subtle bg-bg-raised text-fg-primary shadow-overlay` |
+| Title | Radix `Title` with `sr-only` (the `label` prop) — visible chrome would be noise; the input's placeholder carries the visible cue |
+| Search input | `w-full border-b border-border-subtle bg-transparent px-4 py-3 text-sm text-fg-primary placeholder:text-fg-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring` |
+| Listbox | `max-h-80 overflow-y-auto p-1` |
+| Option | as the Select item row: `px-3 py-2 text-sm rounded-sm`; `data-[highlighted]:bg-accent-subtle` |
+| Empty text | `px-4 py-3 text-sm text-fg-muted` |
+
+The option carries `data-highlighted` (present/absent, as Radix's own items do) so
+#2336's matrix styles it with the same selector as Select and menu items.
 
 Deliberately absent: `hover:` (Radix `data-highlighted` covers pointer and keyboard on
 items; triggers get their hover in #2336's matrix, guarded by `@media (hover: hover)`),
@@ -179,6 +205,59 @@ export interface TabsProps {
 - Inactive panels are unmounted (Radix default, no `forceMount`) — a panel with live media
   must not keep its session open behind another tab.
 
+### 3.5 `CommandPalette.tsx` (US6)
+
+```ts
+export interface CommandPaletteItem {
+  value: string;                   // unique; handed back to onSelect
+  label: string;                   // shown, and matched by the filter
+}
+
+export interface CommandPaletteProps {
+  open: boolean;                   // controlled — the consumer owns the chord and the trigger
+  onOpenChange: (open: boolean) => void;
+  items: readonly CommandPaletteItem[];
+  onSelect: (value: string) => void;   // called after the dialog has closed
+  label: string;                   // dialog title (sr-only) and the listbox's accessible name
+  placeholder: string;             // the search field's placeholder
+  emptyText: string;               // shown when the filter matches nothing
+}
+```
+
+No optional props: the one consumer supplies every one, and nothing else asks for a knob
+(ADR-0036). No global keyboard listener inside the primitive — the chord is an app-shell
+concern (§4.4), and a primitive that registered a document listener per mount would
+double-fire the moment a second consumer mounted it.
+
+- `RadixDialog.Root open onOpenChange` → `Portal` → `Overlay` + `Content`
+  (`aria-describedby={undefined}`: there is no description, and Radix otherwise warns) →
+  `Title` (`sr-only`, `label`) → an inner `PaletteBody` component holding the query and the
+  highlighted index. Because Radix unmounts `Content` on close, `PaletteBody`'s state resets
+  on every open — no reset effect (spec US6 "reopening shows an empty query").
+- **Search field**: `<input role="combobox" aria-expanded="true" aria-controls={listboxId}
+  aria-autocomplete="list" aria-activedescendant={highlightedOptionId}>`, auto-focused by
+  Radix's `FocusScope` (first tabbable). DOM focus never leaves it; the highlight is
+  virtual (`aria-activedescendant`), per the APG combobox pattern.
+- **Listbox**: `<ul role="listbox" id aria-label={label}>`, one `<li role="option"
+  id aria-selected={isHighlighted} data-highlighted={isHighlighted ? '' : undefined}>` per
+  match. Ids from `useId()`.
+- **Filter**: `label.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())`;
+  an empty query matches everything. Changing the query sets the highlight to 0.
+- **Keys on the input**: ArrowDown / ArrowUp move the highlight, clamped (no wrap —
+  spec US6); Enter activates the highlighted match, and does nothing with no matches;
+  Escape is Radix's. `preventDefault` on the arrows so the caret does not jump.
+- **Pointer**: `onPointerMove` on an option highlights it; `onClick` activates it.
+- **Activation without a timer**: store the chosen value in a ref, call
+  `onOpenChange(false)`, and in `Content`'s `onCloseAutoFocus` — if a value is pending —
+  `event.preventDefault()` (do not restore focus to the pre-open element) and call
+  `onSelect(value)`. With nothing pending (Escape, outside click), Radix restores focus to
+  the element that had it before opening — the "Go to…" button when it opened the
+  palette. Same ordering guarantee as DropdownMenu's deferred `onSelect` (§3.2), by
+  Radix's own lifecycle rather than a scheduled callback.
+- **Guard**: a duplicate `value` throws naming it, in every build (as Tabs, §3.4).
+- **Empty**: when nothing matches, the listbox renders no options and a
+  `<p role="status">{emptyText}</p>` follows it, so the change is announced.
+
 ## 4. Consumer changes
 
 ### 4.1 `RuleDialog.tsx` — Action (US1)
@@ -231,6 +310,34 @@ beside Edit and Archive move with their entries.
   `label={`Stream ${stream.state}`}`.
 - The `Tooltip` import goes. The tone map is not touched (Badge is its own spec).
 
+### 4.4 `ShellLayout.tsx` — the palette's consumer (US6)
+
+- **One destinations constant.** Extract
+  `const DESTINATIONS = [{ to: '/cameras', label: 'Cameras' }, …]` (the seven entries in
+  their current order) at module level. The nav maps it to `NavItem`s — markup and classes
+  unchanged — and the palette maps it to `{ value: to, label }`. One list, so the palette
+  can never offer a surface the nav does not (spec SC-6).
+- **State**: `const [paletteOpen, setPaletteOpen] = useState(false)`.
+- **Trigger**: at the nav's right edge (`ml-auto`), `<Button variant="ghost"
+  aria-keyshortcuts="Control+K Meta+K" onClick={() => setPaletteOpen(true)}>Go to…</Button>`.
+  A shortcut with no visible affordance is undiscoverable, and a pointer user needs one.
+- **Chord**, mounted once, in the shell (the one component that lives for the whole
+  signed-in session): a `useEffect` adding a `keydown` listener on `document`:
+  `(event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey &&
+  event.key.toLowerCase() === 'k'` → if
+  `document.querySelector('[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]')`
+  finds nothing, `event.preventDefault()` and `setPaletteOpen(true)`; otherwise do nothing
+  (spec US6 assumption — also covers the palette itself being open). Removed on unmount.
+  Both modifiers are accepted on every platform: no user-agent sniffing.
+- **Selection**: `onSelect={(to) => { navigate(to); linkRefs.current.get(to)?.focus(); }}`,
+  where `NavItem` forwards a `ref` into a `Map<string, HTMLAnchorElement>` keyed by `to`.
+  The nav survives navigation (it is outside the `Outlet`), so the destination's link is a
+  stable, deterministic focus target and carries `aria-current="page"` once the route
+  changes.
+- `label="Go to"`, `placeholder="Go to a surface…"`, `emptyText="No matching surfaces"`.
+- The existing JSDoc's "There are six" is left as is — a comment edit here is a drive-by
+  (ADR-0036); the constant makes the count self-evident.
+
 ## 5. Tests
 
 All frontend tests: Vitest + Testing Library + `user-event` 14.6.6,
@@ -264,6 +371,7 @@ All frontend tests: Vitest + Testing Library + `user-event` 14.6.6,
 | `DropdownMenu.test.tsx` | Enter on trigger opens `menu` and focuses the first enabled `menuitem`; ArrowDown moves; Escape closes and returns focus; `onSelect` fires once; a `disabled` item has `aria-disabled` and does not fire; separator renders `role="separator"`; **an item that opens a `ConfirmDialog`**: its Cancel has focus, and after Escape the menu trigger has focus and `document.body.style.pointerEvents` is not `none`. |
 | `Popover.test.tsx` | Enter on trigger opens a `dialog` named by `label` containing children; Escape closes and focus returns to trigger; outside pointer-down closes. |
 | `Tabs.test.tsx` | tablist named by `label`; ArrowRight moves focus without activating (manual); Enter activates and shows the panel; `activationMode="automatic"` activates on arrow; disabled tab skipped; duplicate value throws. |
+| `CommandPalette.test.tsx` | `open` renders a `dialog` named by `label` with focus on a `combobox`; the `listbox` lists every item and the first has `aria-selected="true"` + `data-highlighted` and is the input's `aria-activedescendant`; typing filters case-insensitively and re-highlights the first match; ArrowDown/ArrowUp move and clamp at both ends; Enter calls `onOpenChange(false)` and then `onSelect(value)` exactly once; Enter with no matches calls neither and shows `emptyText` in a `status`; clicking an option calls `onSelect`; Escape calls `onOpenChange(false)` and **not** `onSelect`, and focus returns to the element focused before opening (render with a harness button that opens it); reopening shows an empty query; duplicate value throws naming it. |
 
 ### 5.3 Consumer tests
 
@@ -283,6 +391,24 @@ All frontend tests: Vitest + Testing Library + `user-event` 14.6.6,
   *"Surfaces the error string in the tooltip content"* case: it cannot fail (spec §1
   finding 4) and waits a fixed 250 ms (ADR-0150). Its replacement is the Enter case above.
   The tone-class cases stay unchanged (declared green pins).
+- **`apps/management-web/src/app/ShellLayout.test.tsx`** (new) — renders `ShellLayout`
+  under `createMemoryRouter` with the seven paths as stub child routes (each a heading),
+  initial entry `/cameras`. Red: Control+K opens a `dialog` named "Go to" listing the
+  seven labels; Meta+K does too; the keydown's `defaultPrevented` is `true` (dispatch a
+  `KeyboardEvent` and read it back); typing "rul" + Enter shows the Rules stub heading and
+  the "Rules" link has focus and `aria-current="page"`; the "Go to…" button opens it and
+  Escape returns focus to that button; with a stub route rendering an open `Dialog`,
+  Control+K opens no second dialog. Pin (green today): the nav renders seven links with
+  their current names.
+
+### 5.4a e2e for US6
+
+- New `e2e/command-palette.spec.ts` (picked up by the `chromium` project's default
+  `testMatch`; no config change): `signInAsOperator` → `page.keyboard.press('Control+K')`
+  → `expect(getByRole('dialog', { name: 'Go to' })).toBeVisible()` → type `rul` → Enter →
+  `expect(page).toHaveURL(/\/rules$/)` and `expect(getByRole('link', { name: /^rules$/i }))
+  .toBeFocused()`; then the "Go to…" button → Escape → the button is focused. This is the
+  test that proves Chromium's own Control+K does not win, which jsdom cannot.
 
 ### 5.4 e2e
 
@@ -295,8 +421,9 @@ All frontend tests: Vitest + Testing Library + `user-event` 14.6.6,
   `page.getByRole('menuitem', { name: /^archive$/i })` — the menu content is portalled, so
   it is **not** inside `row`. The teardown's "row has no Archive" wait becomes "row has no
   More actions trigger, or its menu has no Archive item"; keep its timeouts.
-- No new e2e spec: the existing three exercise every consumer in a real browser, which
-  is where jsdom's shimmed pointer capture cannot mislead.
+- No new e2e spec for US1–US3: the existing three exercise those consumers in a real
+  browser, which is where jsdom's shimmed pointer capture cannot mislead. US6 has no
+  existing e2e path, so it gets one (§5.4a).
 
 ## 6. Red that lands on content (the stubs)
 
@@ -308,8 +435,11 @@ component body `return null;` — no Radix import. This means:
   "Failed to resolve import", which would prove nothing about behaviour;
 - the US5 guard stays red (the stubs import no Radix package).
 
+`CommandPalette`'s stub is the same shape (§3.5 interface, `return null;`). It does not
+affect the guard either way: `@radix-ui/react-dialog` is already imported by `Dialog.tsx`.
+
 Consumer tests need no stub: they run against today's native select / button row /
-tooltip and are red on content.
+tooltip / shell and are red on content.
 
 **Required 4a outcome** (quote verbatim): every case in §5.2 red (the stub renders
 nothing, so there is no primitive case that can pass). Every §5.3 new case red; the
@@ -334,13 +464,22 @@ as `"./test/radixJsdom"` in `apps/shared/package.json` and imported from
 3. `test(ui): pin every declared Radix package to an import, red-first` (US5 guard, red).
 4. Per story, two commits: `test(ui): <primitive> and its first consumer, red-first` (tests + stub + consumer test edits, red), then `feat(ui): <primitive> ...` (implementation + consumer + e2e edits, green).
    US1 → US2 → US3 → US4. After US4 the guard is green.
+5. `test(ui): the command palette and the shell's chord, red-first` (US6: `CommandPalette.test.tsx`
+   + stub, `ShellLayout.test.tsx`, `e2e/command-palette.spec.ts`), then
+   `feat(ui): open a command palette from the management shell` (implementation + shell).
+   Last because it is P5; it depends on nothing earlier except the foundation commit, so
+   it may be reordered without touching another story's files.
+
+Also this phase: `docs(266): add the command palette as a decided in-scope story`
+(product-owner decision on spec §0 Q1).
 
 ## 9. Verification (Phase 5)
 
 Spec §7, against a running stack, all three themes, with screenshots of each floating
 surface. Additionally: keyboard-only walk of each consumer with a screen reader's
 accessibility tree (Chromium DevTools) showing `combobox`/`listbox`, `menu`/`menuitem`,
-`dialog` names.
+`dialog` names, and for the palette the `combobox` → `listbox` relationship with
+`aria-activedescendant` tracking the highlight.
 
 ## 10. Risks
 
@@ -351,4 +490,7 @@ accessibility tree (Chromium DevTools) showing `combobox`/`listbox`, `menu`/`men
 | jsdom shims hide a real-browser failure | Every consumer is also exercised in Chromium by an existing e2e spec (§5.4). |
 | The teardown change breaks every layout e2e run | It is the one e2e edit on the critical path; it lands in US2's feat commit with `layouts.spec.ts` run locally before push. |
 | #2336 restyles these immediately | §2 builds only states the token file already expresses; #2336's matrix is additive (hover/pressed/loading), not a rewrite. |
+| Control+K collides with the browser (Chromium focuses omnibox search; Firefox the search bar) | The page receives the keydown first when it has focus; `preventDefault` suppresses the browser action. Held by the unit `defaultPrevented` case and by the Chromium e2e (§5.4a). When focus is in the browser chrome, the browser keeps the chord — correct, and out of reach. |
+| The chord navigates away from an unsaved form | Ignored while any Radix dialog/alertdialog is open (§4.4); unit case in `ShellLayout.test.tsx`. Surfaces with unsaved state *outside* a dialog do not exist today. |
+| Hand-written listbox accessibility (ADR-0077: "bugs in primitives are ours") | APG combobox pattern, pinned case by case in `CommandPalette.test.tsx`; §9's accessibility-tree walk includes the palette. |
 | Q3 answered "defer" | Drop US4's tasks; replace with removing `@radix-ui/react-tabs` from `dependencies` (+ its `exports` entry is never added). Guard still closes. |
