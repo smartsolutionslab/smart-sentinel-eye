@@ -9,10 +9,6 @@ namespace SmartSentinelEye.EventIngestion.Domain.SourceMode;
 /// per-aggregate folder is what makes this correct rather than a collision.
 /// Do not extract a shared one.
 ///
-/// <para>
-/// Withheld for phase A (tasks.md T001): <see cref="From"/> does not yet
-/// normalise to UTC. Phase C fills that in.
-/// </para>
 /// </summary>
 public sealed record DeclaredAt(DateTimeOffset Value) : IValueObject<DateTimeOffset>, IComparable<DeclaredAt>
 {
@@ -36,7 +32,7 @@ public sealed record DeclaredAt(DateTimeOffset Value) : IValueObject<DateTimeOff
     public static bool operator >=(DeclaredAt left, DeclaredAt right) =>
         Comparer<DeclaredAt>.Default.Compare(left, right) >= 0;
 
-    public static DeclaredAt From(DateTimeOffset value) => new(value);
+    public static DeclaredAt From(DateTimeOffset value) => new(value.ToUniversalTime());
 
     /// <summary>
     /// Implicit unwrap to <see cref="DateTimeOffset"/> so EF Core can

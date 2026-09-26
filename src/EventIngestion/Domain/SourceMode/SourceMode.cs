@@ -25,14 +25,7 @@ public sealed class SourceMode : AggregateRoot<SourceModeIdentifier>
     private SourceMode() { }
 
     /// <summary>
-    /// Mints a new declaration.
-    ///
-    /// <para>
-    /// Withheld for phase A (tasks.md T001): leaves <see cref="Mode"/> and
-    /// <see cref="Declaration"/> at <c>null!</c> and raises nothing. Phase C
-    /// (T004) fills in the assignment and the
-    /// <see cref="SourceModeDeclaredDomainEvent"/>.
-    /// </para>
+    /// Mints a new declaration. Raises <see cref="SourceModeDeclaredDomainEvent"/>.
     /// </summary>
     public static SourceMode Declare(
         FabIdentifier fab, Source source, EventTypeMode mode, OperatorIdentifier declaredBy, IClock clock)
@@ -42,33 +35,42 @@ public sealed class SourceMode : AggregateRoot<SourceModeIdentifier>
         Ensure.That(mode).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
+        DateTimeOffset now = clock.UtcNow;
+        DeclaredAt declaredAt = DeclaredAt.From(now);
         SourceMode sourceMode = new()
         {
             Id = SourceModeIdentifier.New(),
             Fab = fab,
             Source = source,
+            Mode = mode,
+            Declaration = Declaration.From(declaredAt, declaredBy),
         };
+
+        sourceMode.Raise(new SourceModeDeclaredDomainEvent(sourceMode.Id, fab, source, mode, now, declaredBy));
 
         return sourceMode;
     }
 
     /// <summary>
-    /// Changes the declared mode.
-    ///
-    /// <para>
-    /// Withheld for phase A (tasks.md T001): guards only. Phase C (T004)
-    /// fills in the idempotent early return, the flip and the
-    /// <see cref="SourceModeChangedDomainEvent"/> (spec.md FR-011).
-    /// </para>
+    /// Changes the declared mode. Idempotent by early return when the mode is
+    /// unchanged (spec.md FR-011): no event, no field assignment, so the
+    /// version does not bump.
     /// </summary>
     public void Change(EventTypeMode mode, OperatorIdentifier changedBy, IClock clock)
     {
         Ensure.That(mode).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        // Touches instance state so this stays an instance method rather than
-        // one CA1822/S2325 would flag as static — T004 fills in the idempotent
-        // comparison against this same property (plan.md §2).
-        _ = Mode;
+        if (mode == Mode)
+        {
+            return; // idempotent
+        }
+
+        EventTypeMode previousMode = Mode;
+        DateTimeOffset now = clock.UtcNow;
+        Mode = mode;
+        Declaration = Declaration.From(DeclaredAt.From(now), changedBy);
+
+        Raise(new SourceModeChangedDomainEvent(Id, Fab, Source, previousMode, mode, now, changedBy));
     }
 }
