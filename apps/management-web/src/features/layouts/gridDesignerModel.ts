@@ -2,7 +2,7 @@ import type { FieldError, FieldErrors, Resolver } from 'react-hook-form';
 import {
   createLayoutDraftSchema,
   editDraftRevisionSchema,
-  MAX_TILES,
+  MAX_CELLS,
   type LayoutTileInput,
 } from '@smart-sentinel-eye/shared/api/layouts.schema';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -12,12 +12,19 @@ import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
  * `(row, col)` position — but the wire shape (`tiles`) is *sparse*: a cell
  * with no camera is an empty cell and is dropped before POST/PATCH (ADR-0112
  * §2 — sparse grids allowed). `overlayIdentifier` is `''` for "(none)".
+ *
+ * `rowSpan`/`colSpan` default to 1 and claim a rectangle from this cell's
+ * origin (spec 258, ADR-0156); a cell another populated cell's span covers
+ * is not rendered (see `coveredBy`) but stays in this dense array so the
+ * resolver's `tiles[i]` ↔ cell-index mapping stays stable.
  */
 export interface DesignerCell {
   cameraIdentifier: string;
   overlayIdentifier: string;
   row: number;
   col: number;
+  rowSpan: number;
+  colSpan: number;
 }
 
 /**
@@ -39,13 +46,14 @@ export interface GridPreset {
   label: string;
 }
 
-// Derived from MAX_TILES / the schema's 1..2 row-col bounds: every rows×cols
-// with rows,cols ∈ {1,2} and rows*cols ≤ MAX_TILES. One source of truth.
+// Derived from MAX_CELLS / the schema's 1..3 row-col bounds: every rows×cols
+// with rows,cols ∈ {1,2,3} and rows*cols ≤ MAX_CELLS (ADR-0156 §2) — nine
+// presets. One source of truth.
 export const GRID_PRESETS: ReadonlyArray<GridPreset> = (() => {
   const presets: GridPreset[] = [];
-  for (let rows = 1; rows <= 2; rows += 1) {
-    for (let cols = 1; cols <= 2; cols += 1) {
-      if (rows * cols <= MAX_TILES) {
+  for (let rows = 1; rows <= 3; rows += 1) {
+    for (let cols = 1; cols <= 3; cols += 1) {
+      if (rows * cols <= MAX_CELLS) {
         presets.push({ rows, cols, label: `${rows}×${cols}` });
       }
     }
@@ -53,7 +61,13 @@ export const GRID_PRESETS: ReadonlyArray<GridPreset> = (() => {
   return presets;
 })();
 
-/** Build a dense `rows×cols` cell grid, carrying over any existing cell. */
+/**
+ * Build a dense `rows×cols` cell grid, carrying over any existing cell.
+ * A carried cell's span is clamped to the new grid from its own origin
+ * (spec 258 US3 "a smaller preset clamps spans") — shrinking a grid cannot
+ * create an overlap, since a valid wall's spans never intersected before the
+ * shrink either.
+ */
 export function buildCells(rows: number, cols: number, existing: ReadonlyArray<DesignerCell> = []): DesignerCell[] {
   const byPosition = new Map<string, DesignerCell>();
   for (const cell of existing) {
@@ -63,7 +77,17 @@ export function buildCells(rows: number, cols: number, existing: ReadonlyArray<D
   for (let row = 0; row < rows; row += 1) {
     for (let col = 0; col < cols; col += 1) {
       const carried = byPosition.get(`${row},${col}`);
-      cells.push(carried ?? { cameraIdentifier: '', overlayIdentifier: '', row, col });
+      if (carried === undefined) {
+        cells.push({ cameraIdentifier: '', overlayIdentifier: '', row, col, rowSpan: 1, colSpan: 1 });
+        continue;
+      }
+      cells.push({
+        ...carried,
+        row,
+        col,
+        rowSpan: Math.max(1, Math.min(carried.rowSpan, rows - row)),
+        colSpan: Math.max(1, Math.min(carried.colSpan, cols - col)),
+      });
     }
   }
   return cells;
@@ -76,6 +100,8 @@ export function cellsFromTiles(rows: number, cols: number, tiles: ReadonlyArray<
     overlayIdentifier: tile.overlayIdentifier ?? '',
     row: tile.row,
     col: tile.col,
+    rowSpan: tile.rowSpan,
+    colSpan: tile.colSpan,
   }));
   return buildCells(rows, cols, existing);
 }
@@ -89,7 +115,87 @@ export function tilesFromCells(cells: ReadonlyArray<DesignerCell>): LayoutTileIn
       overlayIdentifier: cell.overlayIdentifier === '' ? null : cell.overlayIdentifier,
       row: cell.row,
       col: cell.col,
+      rowSpan: cell.rowSpan,
+      colSpan: cell.colSpan,
     }));
+}
+
+/**
+ * Cells another populated cell's span covers, keyed by the covered cell's
+ * own index and mapping to the covering cell's index (spec 258 US3). Only a
+ * *populated* cell's span covers anything — an empty cell's span is always
+ * 1×1 (see `clearCameraAt`), so this never needs to consider one.
+ */
+export function coveredBy(cells: ReadonlyArray<DesignerCell>): Map<number, number> {
+  const indexByPosition = new Map<string, number>();
+  cells.forEach((cell, index) => indexByPosition.set(`${cell.row},${cell.col}`, index));
+
+  const covered = new Map<number, number>();
+  cells.forEach((cell, index) => {
+    if (cell.cameraIdentifier === '') return;
+    for (let row = cell.row; row < cell.row + cell.rowSpan; row += 1) {
+      for (let col = cell.col; col < cell.col + cell.colSpan; col += 1) {
+        if (row === cell.row && col === cell.col) continue;
+        const coveredIndex = indexByPosition.get(`${row},${col}`);
+        if (coveredIndex !== undefined) {
+          covered.set(coveredIndex, index);
+        }
+      }
+    }
+  });
+  return covered;
+}
+
+/**
+ * The row/column span values the cell at `index` may take without running
+ * off the grid or covering another *populated* cell — an empty (or covered)
+ * cell never blocks, since it disappears under the span (plan.md §4.3). Each
+ * axis is checked holding the other axis's current span fixed, symmetric
+ * with the sibling axis.
+ */
+export function spanOptions(
+  cells: ReadonlyArray<DesignerCell>,
+  index: number,
+  grid: { rows: number; cols: number },
+): { rows: number[]; cols: number[] } {
+  const cell = cells[index];
+  if (cell === undefined) return { rows: [], cols: [] };
+
+  const blocksOther = (rowSpan: number, colSpan: number): boolean =>
+    cells.some(
+      (other, otherIndex) =>
+        otherIndex !== index &&
+        other.cameraIdentifier !== '' &&
+        other.row >= cell.row &&
+        other.row < cell.row + rowSpan &&
+        other.col >= cell.col &&
+        other.col < cell.col + colSpan,
+    );
+
+  const rows: number[] = [];
+  for (let span = 1; span <= grid.rows - cell.row; span += 1) {
+    if (blocksOther(span, cell.colSpan)) break;
+    rows.push(span);
+  }
+
+  const cols: number[] = [];
+  for (let span = 1; span <= grid.cols - cell.col; span += 1) {
+    if (blocksOther(cell.rowSpan, span)) break;
+    cols.push(span);
+  }
+
+  return { rows, cols };
+}
+
+/**
+ * Clears the camera at `index` back to "(empty cell)" and resets its span to
+ * 1×1 (spec 258 US3) — a span on an empty cell would hide cells for nothing,
+ * and the cell is dropped from the wire on submit regardless.
+ */
+export function clearCameraAt(cells: ReadonlyArray<DesignerCell>, index: number): DesignerCell[] {
+  return cells.map((cell, candidateIndex) =>
+    candidateIndex === index ? { ...cell, cameraIdentifier: '', rowSpan: 1, colSpan: 1 } : cell,
+  );
 }
 
 /**

@@ -33,6 +33,8 @@ export default [
         URL: 'readonly',
         URLSearchParams: 'readonly',
         globalThis: 'readonly',
+        HTMLElement: 'readonly',
+        HTMLOptionElement: 'readonly',
       },
     },
     plugins: {
