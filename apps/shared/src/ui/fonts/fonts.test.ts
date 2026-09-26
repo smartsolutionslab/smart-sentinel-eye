@@ -251,7 +251,15 @@ describe('fonts.css (spec 261 US1/US2, issue #2333)', () => {
     const problems: string[] = [];
 
     for (const rule of rules) {
-      if (rule.unicodeRange === undefined || rule.urls.length === 0) {
+      if (rule.urls.length === 0) {
+        // A fallback face (`local()` only, no `url()`) has no cmap to check.
+        continue;
+      }
+
+      if (rule.unicodeRange === undefined) {
+        // No unicode-range implicitly claims to cover every code point —
+        // that is exactly the case this fact exists to catch, not skip.
+        problems.push(`${rule.family} ${rule.weight} (${rule.urls[0]}): has no unicode-range.`);
         continue;
       }
 

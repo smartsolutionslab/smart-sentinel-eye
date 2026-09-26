@@ -13,15 +13,14 @@
 // for no absolute URL either) — proved live by a planted counterfactual
 // (plan.md §6.5 #1), not by this test going red on develop.
 //
-// R2 (plan.md §10): if the programmatic `build()` cannot run inside the
-// vitest worker (nested Vite), the fallback spawns `vite build` via
-// node:child_process. The assertion list below is unchanged either way.
+// R2 (plan.md §10) named a fallback for the case where programmatic
+// `build()` cannot run inside the vitest worker (nested Vite). It has never
+// been needed — programmatic `build()` runs fine here — and there is no
+// fallback in this file: a failure surfaces as `build()`'s own thrown error.
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
 
@@ -60,21 +59,12 @@ let builtCss: string;
 beforeAll(async () => {
   outDir = mkdtempSync(path.join(tmpdir(), 'sse-fonts-build-'));
 
-  try {
-    const viteModule = await import('vite');
-    await viteModule.build({
-      root: appRoot,
-      logLevel: 'silent',
-      build: { outDir, emptyOutDir: true, write: true },
-    });
-  } catch {
-    // Permitted fallback (plan.md R2) — the same build `pnpm build` runs.
-    execFileSync(
-      process.platform === 'win32' ? 'npx.cmd' : 'npx',
-      ['vite', 'build', '--outDir', outDir, '--emptyOutDir', '--logLevel', 'silent'],
-      { cwd: appRoot, stdio: 'pipe' },
-    );
-  }
+  const viteModule = await import('vite');
+  await viteModule.build({
+    root: appRoot,
+    logLevel: 'silent',
+    build: { outDir, emptyOutDir: true, write: true },
+  });
 
   const indexHtmlPath = path.join(outDir, 'index.html');
   indexHtml = existsSync(indexHtmlPath) ? readFileSync(indexHtmlPath, 'utf8') : '';
