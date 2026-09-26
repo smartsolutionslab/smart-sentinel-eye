@@ -93,22 +93,19 @@ public class RequireScopePolicyTests
     /// registers.
     ///
     /// <para>
-    /// Written as the literal <c>"sse.management"</c>, not
-    /// <see cref="RequireScopeExtensions.LegacyManagementBundle"/> — the constant
-    /// is deleted in the phase-4b change that makes this pass, and a test that
-    /// referenced it would stop compiling.
+    /// Written as the literal <c>"sse.management"</c>, not the
+    /// <c>acceptLegacyBundle</c> clause that used to live in
+    /// <see cref="RequireScopeExtensions.AddScopePolicies"/> — that clause is
+    /// gone, so a test referencing it by name would no longer compile.
     /// </para>
     ///
     /// <para>
     /// Collects every scope the bundle passes rather than stopping at the
-    /// first, so a failing run names them all: today that is every entry in
-    /// <see cref="Scope.All"/> except <see cref="Scope.Sse.Events.Publish"/>
-    /// (reserved for MQTT-publishing devices, ADR-0100), which is the
-    /// grandfather clause laid bare rather than one odd policy. Replaces
-    /// <c>Legacy_management_bundle_passes_a_normal_sse_policy</c> and
-    /// <c>Legacy_management_bundle_does_not_pass_the_events_publish_policy</c> —
-    /// a deliberate inversion of a green test, written as the specification of
-    /// the change (ADR-0139).
+    /// first, so a failing run would have named them all: before this fix,
+    /// that was every entry in <see cref="Scope.All"/> except
+    /// <see cref="Scope.Sse.Events.Publish"/> (reserved for MQTT-publishing
+    /// devices, ADR-0100) — the grandfather clause laid bare rather than one
+    /// odd policy.
     /// </para>
     /// </summary>
     [Fact]
@@ -128,8 +125,86 @@ public class RequireScopePolicyTests
         }
 
         passed.ShouldBeEmpty(
-            $"the sse.management bundle was withdrawn (spec 200 US2 / #2486) and must not "
+            $"the sse.management bundle was withdrawn (spec 265, #2486) and must not "
             + $"substitute for any scope, but it still passes: {string.Join(", ", passed)}.");
+    }
+
+    private static readonly string[] RepresentativeScopesForExclusivity =
+    [
+        Scope.Sse.Cameras.Write,
+        Scope.Sse.Streams.Read,
+        Scope.Sse.Layouts.Read,
+        Scope.Sse.Overlays.Write,
+        Scope.Sse.Variables.Read,
+        Scope.Sse.Rules.Write,
+        Scope.Sse.Events.Write,
+        Scope.Sse.Webhooks.Write,
+        Scope.Sse.Identity.DeviceClients.Write,
+        Scope.Sse.Identity.KioskClients.Write,
+        Scope.Sse.Audit.Read,
+    ];
+
+    /// <summary>
+    /// Spec 265 (#2486) — closes the gap the withdrawn bundle exposed three
+    /// times under three different spellings (the WHEP handler's own copy,
+    /// <c>AuthenticationDefaults.AdminPolicy</c>, and this extension's own
+    /// <c>acceptLegacyBundle</c> clause). <see cref="A_principal_carrying_only_the_legacy_bundle_fails_every_policy"/>
+    /// only proves the exact strings <c>"sse.management"</c> and
+    /// <c>"admin"</c> fail; it does not prove a policy accepts nothing but its
+    /// own exact scope. This does, for a representative sample of
+    /// <see cref="Scope.All"/> against a set of near-miss strings a future
+    /// regression might plausibly reintroduce.
+    /// </summary>
+    [Fact]
+    public async Task A_principal_carrying_only_a_hostile_near_miss_fails_the_real_scopes_policy()
+    {
+        IAuthorizationService authorization = BuildAuthorizationService();
+
+        List<string> unexpectedlyPassed = [];
+        foreach (string scope in RepresentativeScopesForExclusivity)
+        {
+            foreach (string nearMiss in HostileNearMisses(scope))
+            {
+                ClaimsPrincipal user = UserWithScopes(nearMiss);
+                AuthorizationResult result = await authorization.AuthorizeAsync(user, null, scope);
+                if (result.Succeeded)
+                {
+                    unexpectedlyPassed.Add($"{scope} via \"{nearMiss}\"");
+                }
+            }
+        }
+
+        unexpectedlyPassed.ShouldBeEmpty(
+            "a scope policy must accept only its own exact scope string, but a near-miss "
+            + $"passed: {string.Join(", ", unexpectedlyPassed)}.");
+    }
+
+    /// <summary>
+    /// The withdrawn bundle itself, a sibling bundle-shaped guess, two
+    /// wildcard shapes, a case variant, a trailing-character variant, and
+    /// every proper dot-prefix of <paramref name="scope"/> shorter than the
+    /// whole thing (e.g. for <c>sse.identity.kiosks.write</c>:
+    /// <c>sse.identity</c> and <c>sse.identity.kiosks</c>).
+    /// </summary>
+    private static List<string> HostileNearMisses(string scope)
+    {
+        List<string> nearMisses =
+        [
+            "sse.management",
+            "sse.admin",
+            "sse.*",
+            "*",
+            scope.ToUpperInvariant(),
+            scope + "x",
+        ];
+
+        string[] segments = scope.Split('.');
+        for (int length = 2; length < segments.Length; length++)
+        {
+            nearMisses.Add(string.Join('.', segments[..length]));
+        }
+
+        return nearMisses;
     }
 
     [Fact]
