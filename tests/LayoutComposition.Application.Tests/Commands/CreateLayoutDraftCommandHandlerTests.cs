@@ -138,7 +138,7 @@ public class CreateLayoutDraftCommandHandlerTests
         CreateLayoutDraftCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<CreateLayoutDraftCommandHandler>.Instance);
 
         Result<LayoutIdentifier, CreateLayoutDraftError> result = await handler.HandleAsync(
-            Command("Line-1", GridDimensions.From(3, 3), [TileAt(0, 0, TileSpan.From(2, 2)), TileAt(1, 1, TileSpan.Single)]),
+            Command("Line-1", GridDimensions.From(3, 3), [TileAt(0, 0, TileSpan.From(2, 2)), TileAt(1, 1, TileSpan.Cell)]),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

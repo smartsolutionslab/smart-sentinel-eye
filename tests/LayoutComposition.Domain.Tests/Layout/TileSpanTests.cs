@@ -11,10 +11,10 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout;
 public class TileSpanTests
 {
     [Fact]
-    public void Single_is_a_1x1_span()
+    public void Cell_is_a_1x1_span()
     {
-        TileSpan.Single.Rows.ShouldBe(1);
-        TileSpan.Single.Cols.ShouldBe(1);
+        TileSpan.Cell.Rows.ShouldBe(1);
+        TileSpan.Cell.Cols.ShouldBe(1);
     }
 
     [Theory]

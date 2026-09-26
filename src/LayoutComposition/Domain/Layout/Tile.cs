@@ -43,12 +43,12 @@ public sealed record Tile
 
     /// <summary>
     /// A 1×1 tile at <paramref name="position"/> (spec 258): delegates to
-    /// the 4-argument constructor with <see cref="TileSpan.Single"/>. Kept
+    /// the 4-argument constructor with <see cref="TileSpan.Cell"/>. Kept
     /// for the ~15 existing call sites and as the honest meaning of a
     /// single-cell tile (plan §2.2).
     /// </summary>
     public Tile(CameraIdentifier camera, Option<OverlayIdentifier> overlay, GridPosition position)
-        : this(camera, overlay, position, TileSpan.Single)
+        : this(camera, overlay, position, TileSpan.Cell)
     {
     }
 
