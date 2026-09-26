@@ -30,7 +30,8 @@ apps/shared/src/ui/primitives/Input.tsx         focus outline; disabled     US3
 apps/shared/src/ui/composites/DataTable.tsx     focus outline               US3
 apps/shared/src/ui/composites/ChainRecoveryNotice.tsx  disabled label       US3
 apps/management-web/src/features/layouts/GridDesigner.tsx  focus outline   US3
-apps/management-web/src/features/**/{8 dialogs/panels}     busy={…}        US2 (§6)
+apps/management-web/src/features/walls/WallForm.tsx        disabled label; busy   US3, US2
+apps/management-web/src/features/**/{8 more dialogs/panels} busy={…}       US2 (§6)
 tests/Architecture.Tests/InteractionStateTests.cs          NEW             all
 tests/Architecture.Tests/TypeScriptSource.cs               NEW (lifted)    helper
 apps/{management-web,kiosk-web}/src/styles/tokens.build.test.ts   +candidates
@@ -43,6 +44,10 @@ e2e/interaction-states.spec.ts                             NEW (chromium project
 ---
 
 ## 1. Blast radius, measured on `7aab60de`
+
+Counts are as of `7aab60de`. Spec 258's Walls feature has since added `<Button>` elements
+in `WallForm.tsx`, `WallsPage.tsx` and `WallDetailPage.tsx`, so the totals below are a
+floor. The files that change behaviour are the ones listed above.
 
 | Surface | Count | What changes for it |
 |---|---|---|
@@ -134,7 +139,11 @@ const base =
   'inline-flex items-center justify-center rounded-md border border-transparent px-4 py-2 ' +
   'text-sm font-medium transition-colors ' +
   'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ' +
-  'disabled:pointer-events-none disabled:border-border-subtle disabled:bg-transparent disabled:text-fg-disabled';
+  'disabled:pointer-events-none';
+
+// Omitted while busy (below), so an in-flight control keeps its rest fill.
+const disabledTreatment =
+  'disabled:border-border-subtle disabled:bg-transparent disabled:text-fg-disabled';
 
 const rest: Record<ButtonVariant, string> = {
   primary:   'bg-accent text-fg-on-accent',
@@ -161,7 +170,7 @@ const unavailableTreatment =
 | Focus | `outline`, not `ring` | Forced-colors mode drops `box-shadow`, which is what `ring-*` is; an outline survives (spec 257 §3 handover). `outline-offset-2` keeps it off the fill (§2.3). `focus-visible:outline-none` is removed. |
 | Disabled (native) | `disabled:` | Emitted after `active:` (28310), so it overrides every interactive fill. `pointer-events-none` kept. |
 | Unavailable | `aria-disabled:`, only when `unavailable !== undefined` (as today) | Emitted last (29481), so it overrides hover and pressed without `pointer-events-none` — the control must stay clickable and focusable (ADR-0151). |
-| Busy | `aria-busy="true"`, `cursor-progress`, `interactive[variant]` omitted | Rest fill held; nothing invites a second press. Default for open decision D1 (spec §4). |
+| Busy | `aria-busy="true"`, `cursor-progress`; `interactive[variant]`, `disabledTreatment` and `unavailableTreatment` all omitted | Rest fill held; nothing invites a second press. D1 option (a) (spec §4). The two treatments are omitted because every adoption site is also `disabled` or `unavailable` while in flight (spec §1 finding 7); otherwise the rest fill would never be seen. Only the *colour* classes go: `disabled:pointer-events-none`, the `disabled` attribute and `aria-disabled` are untouched. |
 
 - **Cascade order is Tailwind's, not ours, and the design depends on it**, so the build
   test pins it (§5.3): hover < active < disabled < aria-disabled.
@@ -182,7 +191,8 @@ busy?: boolean;
 ```
 
 `busy` is destructured (never reaches the DOM), sets `aria-busy={busy || undefined}`, adds
-`cursor-progress`, and drops `interactive[variant]`. It does **not** set `disabled` or
+`cursor-progress`, and drops `interactive[variant]`, `disabledTreatment` and
+`unavailableTreatment` (the table above gives the reason). It does **not** set `disabled` or
 `aria-disabled`: whether an in-flight control may keep focus is ADR-0151's call per site,
 and six sites currently get it wrong (§7) in a way this spec must not silently change.
 
@@ -194,6 +204,7 @@ and six sites currently get it wrong (§7) in a way this spec must not silently 
 | `DataTable.tsx` (sort header) | `focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-active rounded` | the same three outline utilities + `rounded` |
 | `GridDesigner.tsx` (preset chip `<label>`) | `has-[:focus-visible]:outline-none …:ring-2 …:ring-offset-2 …:ring-accent-active` | `has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus-ring` |
 | `ChainRecoveryNotice.tsx:302` | `underline aria-disabled:opacity-50 aria-disabled:cursor-progress` | `underline aria-disabled:text-fg-disabled aria-disabled:cursor-progress` |
+| `WallForm.tsx:134,143` (Up/Down raw buttons, spec 258) | `… text-xs disabled:opacity-40` | `… text-xs disabled:text-fg-disabled`. Class only. The raw `<button>` → `<Button>` conversion stays in the §7 follow-up. |
 
 No shared "focus ring" constant is introduced: four sites, one of them under a
 `has-[…]` variant a constant cannot express, and the architecture test (§5.1) enforces the
@@ -207,7 +218,7 @@ Scans the string-literal content of `apps/*/src/**/*.{ts,tsx}`, tests excluded �
 reader `SharedUiTokenUsageTests` uses, **lifted** (below). Facts:
 
 1. **No opacity behind a state variant.** `\b(?:hover|active|focus|focus-visible|focus-within|disabled|enabled|aria-disabled|aria-busy|group-hover|peer-disabled):opacity-\d+`.
-   Red on develop: `Button.tsx` ×3, `Input.tsx`, `ChainRecoveryNotice.tsx`.
+   Red on develop: `Button.tsx` ×3, `Input.tsx`, `ChainRecoveryNotice.tsx`, `WallForm.tsx` ×2.
 2. **No triad colour draws a focus indicator.** `\b(?:ring|outline|ring-offset)-accent-(?:active|fault|warning)\b` (any variant prefix).
    Red: `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx`.
 3. **No box-shadow focus ring.** `(?:focus-visible|focus|:focus-visible\]):ring-\d`.
@@ -243,7 +254,9 @@ The `color-mix` extension (fact 6) is added *after* the lift, as new behaviour.
 - New: `busy` → `aria-busy="true"`; no `aria-busy` attribute without it; `busy` alone sets
   neither `disabled` nor `aria-disabled`; `busy` + `disabled` → native disabled; `busy` +
   `unavailable` → `aria-disabled="true"` and focusable; `busy` → no `hover:`/`active:`
-  class present; `busy` never reaches the DOM as an attribute.
+  class present; `busy` never reaches the DOM as an attribute; `busy` + `disabled` → none
+  of `disabledTreatment`'s classes present, but `disabled:pointer-events-none` is still
+  there; `busy` + `unavailable` → none of `unavailableTreatment`'s classes present.
 - `ConfirmDialog.test.tsx`: `pending` → the confirm button has `aria-busy="true"`.
 - `LayoutEditorDialogSaveGate.test.tsx:227`, `OverlayEditorDialogSaveGate.test.tsx:247`:
   `toHaveClass('aria-disabled:text-fg-disabled', 'aria-disabled:cursor-progress')`.
@@ -290,6 +303,11 @@ the subject is the Button's computed style, the reference is the token).
    `color` equals the `--color-fg-disabled` probe, `hover()` changes nothing. Repeat with
    `aria-disabled="true"` on a Button rendered with `unavailable` (the Layout editor's
    Save while blocked).
+6. Busy (US2): open *Rename camera*, hold the rename request with `page.route` (release it
+   in `finally`), submit, and wait for `aria-busy="true"` on the submit Button. Read its
+   `cursor` (`progress`) and `backgroundColor` (equals the `--color-accent` probe, **not**
+   transparent). The site is `disabled` on develop, or `unavailable` once #2631 lands.
+   The assertion holds either way, and that is the point of spec §1 finding 7.
 
 Waits by condition, never by timeout (ADR-0150).
 
@@ -298,8 +316,18 @@ Waits by condition, never by timeout (ADR-0150).
 `busy={isLoading}` next to the existing prop at: `EditCameraAddressDialog.tsx:95`,
 `RegisterCameraDialog.tsx:147`, `RenameCameraDialog.tsx:108`, `DryRunPanel.tsx:61`,
 `RuleDialog.tsx:229`, `SystemVariableDialog.tsx:182`, `LayoutEditorDialog.tsx:460`,
-`OverlayEditorDialog.tsx:357`; and `busy={pending}` on `ConfirmDialog`'s confirm button.
-The label swaps stay. **No `disabled` / `unavailable` is added, removed or swapped.**
+`OverlayEditorDialog.tsx:357`, `WallForm.tsx:162` (spec 258); and `busy={pending}` on
+`ConfirmDialog`'s confirm button. Ten sites in all. The label swaps stay. **No
+`disabled` / `unavailable` is added, removed or swapped**, and no call-site
+`aria-disabled:cursor-progress` class is removed. It becomes redundant with busy's
+cursor, but it is harmless and it belongs to ADR-0151's sites.
+
+**Merge order with #2631.** PR #2631 (spec 267, open) edits the same Button element at
+seven of these sites: the three camera dialogs, `DryRunPanel`, `RuleDialog`,
+`SystemVariableDialog` and `ConfirmDialog` (plus `ConfirmDialog.test.tsx`, T004's file).
+Line numbers above are `develop`'s. If #2631 merges first, rebase and add `busy` beside
+its `unavailable`. If this spec merges first, #2631 rebases. Either conflict is a
+one-attribute textual merge.
 
 ## 7. Inventory for the follow-ups (not done here)
 
@@ -315,8 +343,10 @@ The label swaps stay. **No `disabled` / `unavailable` is added, removed or swapp
   (#2342 owns those files). The kiosk ones are the actual touch targets; they need
   pressed states and should be scheduled with #2337's render gate in view.
 - **ADR-0151 focus loss on submit**: the six `disabled={isLoading}` sites in §6 and
-  `ConfirmDialog`'s two `disabled={pending}` buttons. Each needs a guard and an Enter-key
-  Playwright test per ADR-0151.
+  `ConfirmDialog`'s two `disabled={pending}` buttons. **Filed as #2624; PR #2631 open.**
+  Not covered by #2624, and still unfiled: `WallForm.tsx:162` (`disabled={isLoading}`)
+  and `WallDetailPage.tsx:126,157` (`disabled={switchState.isLoading…}`), all added by
+  spec 258. Each needs a guard and an Enter-key Playwright test per ADR-0151.
 
 ## 8. Expected visible change (the Phase-5 screenshot checklist)
 

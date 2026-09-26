@@ -23,6 +23,20 @@ and every local worktree's `specs/` directory (tracked **and** untracked) were l
 committed number otherwise is 265. **268 is free.** Re-check immediately before
 opening the PR — parked PRs can still land a 268 between now and then.
 
+**Scope: existing primitives only.** This spec covers the primitives that exist on
+`develop` today, `apps/shared/src/ui/primitives/{Button,ConfirmDialog,Dialog,Input,Tooltip}.tsx`,
+plus the composites and feature sites named in §3. Of those, `Dialog.tsx` and
+`Tooltip.tsx` declare no hover, focus, disabled or opacity utility at all, so they need
+no change. It **excludes** #2335's new primitives: Select, Tabs, Popover, DropdownMenu,
+the command palette, Switch/Checkbox, and any other primitive that is not on `develop`.
+Those are mid-flight on `feat/2335-radix-primitives` (`D:\Github\sse-2335`, spec 266)
+and adopt this spec's recipe when they are built (§3 "Deferred").
+
+**Re-measured on the rebased tree (`2f477474`, 2026-09-27).** Spec 258 (Walls) landed
+after `7aab60de` and added two things this spec must account for: `WallForm.tsx:134,143`
+(`disabled:opacity-40` on two raw buttons, which fact 1 of plan §5.1 scans) and a
+ninth label-swap site, `WallForm.tsx:162` (`'Saving…'`). Both are folded into §3.
+
 **ADRs referenced:**
 
 - **ADR-0146** (one discipline, two surfaces), discipline item 5: *"Real interaction
@@ -57,7 +71,7 @@ open decision rather than a guess.
 | Focus ring has no colour | **True for `Button`** (`ring-2 ring-offset-2`, no colour). `Input.tsx`, `DataTable.tsx` and `GridDesigner.tsx` *do* state one — `ring-accent-active`, the triad's green, which ADR-0146 forbids as affordance colour. |
 | Disabled is `opacity-50` on already-muted text | **True.** `Button` (`disabled:` and `aria-disabled:`), `Input` (`disabled:`), `ChainRecoveryNotice` (`aria-disabled:`). |
 | Touch panels latch hover after a tap | **Already false on this tree, by the framework.** Tailwind **4.3.3** wraps every `hover:` utility in `@media (hover: hover)` (`tailwindcss/dist/lib.js`: `i.static("hover", … B("@media","(hover: hover)", …))`), and compiling `hover:bg-accent-hover` through management-web's real config confirms it. No hand-written `:hover` exists in any `apps/**/*.css`. Requirement 3 is therefore a **pin** (§6), not work. |
-| Async actions give no feedback | **Partly false.** Eight call sites swap their label (`'Saving…'`, `'Registering…'`, `'Running…'`, `'Creating…'`) while a mutation is in flight. What is missing is a *state* — `aria-busy`, and a treatment that is not "disabled". |
+| Async actions give no feedback | **Partly false.** Nine call sites (eight on `7aab60de`, plus `WallForm.tsx:162` from spec 258) swap their label (`'Saving…'`, `'Registering…'`, `'Running…'`, `'Creating…'`) while a mutation is in flight. What is missing is a *state* — `aria-busy`, and a treatment that is not "disabled". |
 
 Findings the issue does not mention, each material to scope:
 
@@ -85,7 +99,15 @@ Findings the issue does not mention, each material to scope:
 6. **Six call sites natively `disabled={isLoading}` a mutation button, and `ConfirmDialog` does the same with `disabled={pending}` on both its buttons** — the ADR-0151
    focus-loss shape. Not this spec's defect to fix (it changes focus behaviour, and
    ADR-0151 requires a guard and an Enter-key Playwright test per site); recorded in
-   plan §7.
+   plan §7. **Filed and in flight since:** #2624, PR #2631 (spec 267, open on
+   2026-09-27) converts exactly these seven buttons from `disabled` to `unavailable`.
+   Spec 258 then added three more of the same shape that #2624 does not cover:
+   `WallForm.tsx:162` and `WallDetailPage.tsx:126,157`.
+7. **At every busy adoption site, `busy` is never true alone.** Each site already sets
+   `disabled={isLoading}` (or, after #2631, `unavailable={isLoading}`; the two editor
+   dialogs have `unavailable={saveBlocked}`, which includes in-flight). If the disabled
+   or unavailable *colour* treatment won while busy, US2's "keeps its rest fill" would
+   never render at any real site. So `busy` takes visual precedence (US2, plan §3).
 
 ## 2. User stories
 
@@ -185,6 +207,12 @@ variant's rest fill (it is working, not refused), and suppresses hover and press
 feedback so a second press is not invited. The call site's existing label swap
 (`'Saving…'`) stays where it is — the copy belongs to the feature.
 
+**Busy wins over the disabled look, not over disabled semantics.** At every adoption
+site the Button is also `disabled` or `unavailable` while in flight (§1 finding 7).
+While `busy` is set, the neutral disabled/unavailable *colour* treatment is not
+applied, so the rest fill holds. The native `disabled` attribute, `pointer-events-none`
+and `aria-disabled` are untouched: which one a site uses is ADR-0151's call, and #2624's.
+
 **Decision D1 (§4) is resolved: option (a), the static busy state below.** It ships in this PR;
 #2334 may add an indicator later without changing the `busy` prop.
 
@@ -208,6 +236,15 @@ Feature: Button busy state
     Then it is natively disabled
     And given a Button with busy and unavailable set
     Then it is aria-disabled and still focusable
+
+  Scenario Outline: busy keeps the rest fill even while disabled or unavailable (conflict: the two treatments)
+    Given a primary Button with busy set that is <how>
+    Then its background resolves to its rest fill, not the disabled treatment
+    And its label colour is its rest label colour
+    Examples:
+      | how                    |
+      | natively disabled      |
+      | unavailable (ADR-0151) |
 
   Scenario: busy suppresses hover and pressed feedback
     Given a primary Button with busy set
@@ -265,18 +302,19 @@ Feature: One focus indicator
 |---|---|---|
 | 1 | Five derived colour roles in `tokens.css` (plan §2), mapped in `tailwindTheme.ts` | US1 |
 | 2 | `Button.tsx`: the state matrix per variant; `primary` → accent; outline focus; neutral disabled for `disabled` and `unavailable` | US1 |
-| 3 | `Button.tsx`: `busy` prop; adopted at `ConfirmDialog`'s confirm button and the eight label-swap call sites (plan §6) as a pure addition beside their existing `disabled`/`unavailable` | US2 |
-| 4 | `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx`: focus outline; `Input` disabled; `ChainRecoveryNotice.tsx`: `aria-disabled:opacity-50` → the disabled label colour | US3 (+US1 disabled rule) |
+| 3 | `Button.tsx`: `busy` prop; adopted at `ConfirmDialog`'s confirm button and the nine label-swap call sites (plan §6) as a pure addition beside their existing `disabled`/`unavailable` | US2 |
+| 4 | `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx`: focus outline; `Input` disabled; `ChainRecoveryNotice.tsx`: `aria-disabled:opacity-50` → the disabled label colour; `WallForm.tsx:134,143`: `disabled:opacity-40` → the disabled label colour (class only; the raw buttons stay raw) | US3 (+US1 disabled rule) |
 | 5 | One C# architecture test, additions to both `tokens.build.test.ts`, `Button.test.tsx` cases, one Playwright spec | all |
 
 ### Deferred, and to where
 
 | What | Owner | Reason |
 |---|---|---|
-| New primitives' state matrices (Select, Tabs, Switch, …) | **#2335** | They adopt this spec's recipe as they are built; `--color-accent-disabled` is kept for their tracks. |
+| New primitives' state matrices (Select, Tabs, Popover, DropdownMenu, command palette, Switch, Checkbox, …) — none of them on `develop` | **#2335** | They adopt this spec's recipe as they are built; `--color-accent-disabled` is kept for their tracks. |
 | Motion on press (scale, spring), an animated busy indicator, reduced-motion | **#2334** | ADR-0146 allows console motion "on state change … transform and opacity only"; the *language* is #2334's. This spec's only motion is the existing `transition-colors` at `--duration-fast`. |
 | 32 raw `<button>` elements → `<Button>`; triad-as-selection chips and triad-green raw buttons (`App.tsx`, `ShellLayout.tsx`, `LayoutsPage.tsx`, `OverlaysPage.tsx`, `SystemVariablesPage.tsx`, `GridDesigner.tsx` chip fill, kiosk `App.tsx`/`PickerPage.tsx`/`CellPage.tsx`/`ReconnectingScreen.tsx`) | **Follow-up issue — not yet filed** | Two apps, ~20 files, and the kiosk's touch targets; not independently reviewable alongside the primitive. Inventory in plan §7 so it is not re-measured. |
-| Six `disabled={isLoading}` buttons and `ConfirmDialog`'s `disabled={pending}` (ADR-0151 focus-loss shape) | **Follow-up issue — not yet filed** | Changes focus behaviour; ADR-0151 demands a guard and an Enter-key Playwright test per site. |
+| Six `disabled={isLoading}` buttons and `ConfirmDialog`'s `disabled={pending}` (ADR-0151 focus-loss shape) | **#2624, PR #2631 (open)** | Changes focus behaviour; ADR-0151 demands a guard and an Enter-key Playwright test per site. Seven of this spec's ten busy sites are the files #2631 edits: whichever PR merges second rebases, and `busy` stays an addition beside whatever `disabled`/`unavailable` it finds. |
+| The same shape at `WallForm.tsx:162` and `WallDetailPage.tsx:126,157` (spec 258, not in #2624) | **Follow-up issue — not yet filed** (plan §7) | Same reason. |
 | Light-theme triad text contrast | Spec 257 §4 item 1 (open) | Unchanged here; the danger label is dark on red in every theme (plan §2.1), so this spec does not depend on it. |
 
 ## 4. Decisions: what is settled, and the one that is not

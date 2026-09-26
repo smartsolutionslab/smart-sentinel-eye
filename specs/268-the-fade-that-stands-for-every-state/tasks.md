@@ -14,9 +14,14 @@ Format: `[ID] [P?] [Story] description`.
 No Shared.Kernel, Shared.Contracts or AppHost work.
 **Parallelism** (ADR-0109, disjoint files): in 4a, T002 ∥ T003 ∥ T004 ∥ T005 ∥ T006 (T002
 after T001). In 4b, after T010: T011 ∥ T012; T013 after T011 (same file, `Button.tsx`).
-T014 (the nine adoption sites) is disjoint from T012 but depends on T013.
-**D1 resolved (2026-09-26): option (a).** T013–T014 are no longer held. (Previously: US1 + US3 could ship without them;
-the "(b) hold" path is no longer needed.)
+T014 (the ten adoption sites) depends on T013. It shares one file with T012,
+`WallForm.tsx` (T012 edits lines 134/143, T014 line 162), so run T014 after T012 or give
+both to one engineer.
+**D1 resolved (2026-09-26): option (a).** T013–T014 are not held.
+**Scope**: existing primitives only (spec header). Nothing for #2335's Select, Tabs,
+Popover, DropdownMenu or command palette.
+**Sibling PR #2631** (#2624, spec 267) edits seven of T014's sites and T004's test file.
+The merge order and the conflict rule are in plan §6.
 
 **Do not** touch: any raw `<button>` (plan §7 follow-up); any selection fill using
 `accent-active` (plan §7); `OverlayEditor.tsx`, `BackdropControls.tsx`,
@@ -40,7 +45,8 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
   instead. Constants for the thresholds (4.5, 3) cite WCAG 1.4.3 / 1.4.11 and spec §4.
 - [ ] **T003 [P] [US1][US2]** `apps/shared/src/ui/primitives/Button.test.tsx`: rewrite cases 1
   and 4 per plan §5.2 (keep the ADR-0151 halves verbatim; update the file's doc comment to
-  say which spec rewrote them and why); add the `busy` cases. Add `busy?: boolean` to
+  say which spec rewrote them and why); add the `busy` cases, including busy's precedence
+  over `disabledTreatment` / `unavailableTreatment` (plan §5.2). Add `busy?: boolean` to
   `ButtonProps` **as a declaration only** so `pnpm typecheck` stays green (plan §5.2).
 - [ ] **T004 [P] [US2]** `apps/shared/src/ui/primitives/ConfirmDialog.test.tsx`: `pending` →
   confirm button `aria-busy="true"`.
@@ -49,7 +55,7 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
   `aria-disabled:text-fg-disabled`; the comment above each names spec 268.
 - [ ] **T006 [P] [US1]** Both `apps/{management-web,kiosk-web}/src/styles/tokens.build.test.ts`:
   plan §5.3's candidates and assertions; the three pins marked as such in a comment.
-- [ ] **T007 [P] [US1][US3]** `e2e/interaction-states.spec.ts`: plan §5.4 items 1–5, sign-in
+- [ ] **T007 [P] [US1][US2][US3]** `e2e/interaction-states.spec.ts`: plan §5.4 items 1–6, sign-in
   and camera seeding mirrored from `camera-detail.spec.ts`, colours compared against token
   probes, waits by condition (ADR-0150). Item 4 (touch) is a pin — say so in its comment.
 - [ ] **T008** Run and capture **verbatim**: the architecture filter
@@ -59,7 +65,7 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
   **Required**: InteractionState facts 1–6 red, naming exactly the files plan §5.1 lists.
   Button cases 1, 4 and every `busy` case red; case 2 green (pin). ConfirmDialog busy red.
   SaveGate lines red. Build test: the five role candidates red, three pins green. E2e: items
-  1, 2, 3, 5 red; item 4 green (pin). Typecheck green.
+  1, 2, 3, 5, 6 red; item 4 green (pin). Typecheck green.
   If anything expected red arrives green, stop and report — do not adjust it until it is red.
   Commit T002–T007 as `test(interaction-states): pin every state red-first`.
 
@@ -76,13 +82,16 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
   comment's "only ever emits the dimming class" to name the new treatment. Commit
   `feat(shared): design Button's state matrix`.
 - [ ] **T012 [P] [US3]** `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx` focus outline and
-  `Input` disabled; `ChainRecoveryNotice.tsx:302` disabled label — exactly plan §4's table.
+  `Input` disabled; `ChainRecoveryNotice.tsx:302` and `WallForm.tsx:134,143` disabled label —
+  exactly plan §4's table.
   Commit `feat(shared): one focus outline on Input, DataTable and GridDesigner`.
 - [ ] **T013 [US2]** `Button.tsx`: implement `busy` per plan §3 — destructured,
-  `aria-busy={busy || undefined}`, `cursor-progress`, `interactive[variant]` omitted, no
-  change to `disabled`/`aria-disabled`.
-- [ ] **T014 [US2]** `busy={…}` at the nine sites of plan §6, additions only;
-  `ConfirmDialog.tsx`'s confirm button. Commit T013–T014 as
+  `aria-busy={busy || undefined}`, `cursor-progress`; `interactive[variant]`,
+  `disabledTreatment` and `unavailableTreatment` omitted; no change to
+  `disabled`/`aria-disabled`/`disabled:pointer-events-none`.
+- [ ] **T014 [US2]** `busy={…}` at the ten sites of plan §6 (nine call sites, including
+  `WallForm.tsx:162`, plus `ConfirmDialog.tsx`'s confirm button), additions only. Rebase
+  over #2631 first if it has merged (plan §6). Commit T013–T014 as
   `feat(shared): add a busy state to Button and adopt it`.
 - [ ] **T015** Re-run T008's commands; every red test green, nothing else changed. Then the
   counterfactuals of plan §5.1 (fact 1, fact 6), quoted and reverted. `pnpm lint`,
@@ -95,8 +104,8 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
   CI run cited in the verification note.
 - [ ] **T021** Re-check the spec number against every remote branch and worktree
   immediately before `gh pr create --base develop` (spec header).
-- [ ] **T022** Report the two follow-ups of plan §7 (raw buttons + triad-as-selection;
-  ADR-0151 focus loss on in-flight disable) to the orchestrator for filing. **Do not file
+- [ ] **T022** Report the two unfiled follow-ups of plan §7 (raw buttons + triad-as-selection;
+  the three spec-258 in-flight-disable sites #2624 does not cover) to the orchestrator for filing. **Do not file
   or label them from the lane.**
 
 ## Dependencies
@@ -104,8 +113,8 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
 ```
 T001 ──► T002 ─┐
 T003 ─────────┤
-T004 ─────────┼─► T008 ──► T010 ──► T011 ──► T013* ──► T014* ──► T015 ──► T020 ──► T021
-T005 ─────────┤                 └─► T012 ─────────────────────────┘
+T004 ─────────┼─► T008 ──► T010 ──► T011 ──► T013 ──► T014 ──► T015 ──► T020 ──► T021
+T005 ─────────┤                 └─► T012 ──────────────┘ (WallForm.tsx shared with T014)
 T006 ─────────┤
 T007 ─────────┘                                
 ```
