@@ -454,7 +454,8 @@ public static partial class LayoutEndpoints
                     tile.OverlayIdentifier is { } overlayId
                         ? Option<OverlayIdentifier>.Some(OverlayIdentifier.From(overlayId))
                         : Option<OverlayIdentifier>.None,
-                    GridPosition.From(tile.Row, tile.Col));
+                    GridPosition.From(tile.Row, tile.Col),
+                    TileSpan.From(tile.RowSpan, tile.ColSpan));
             })
             .ToList();
     }

@@ -66,6 +66,8 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
                 CameraIdentifier: tile.Camera.Value,
                 OverlayIdentifier: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
                 Row: tile.Position.Row,
-                Col: tile.Position.Col))
+                Col: tile.Position.Col,
+                RowSpan: tile.Span.Rows,
+                ColSpan: tile.Span.Cols))
             .ToList();
 }

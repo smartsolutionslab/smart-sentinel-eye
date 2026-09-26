@@ -67,7 +67,7 @@ public sealed class Revision
         // harmless copy on the create path (fresh grid + tiles).
         foreach (Tile tile in tiles)
         {
-            revision.tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position));
+            revision.tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position, tile.Span));
         }
 
         return revision;
