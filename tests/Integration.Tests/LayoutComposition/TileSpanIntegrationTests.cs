@@ -128,11 +128,15 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             "audit-observability", "operator", "Operator1234");
         JsonElement row = await PollForPublishedAuditRowAsync(auditReader, layoutIdentifier);
 
+        // The raw audit payload column is JsonSerializer.Serialize(message, message.GetType())
+        // with no options (IntegrationEventAuditHandler.AuditAsync) -- PascalCase, unlike the
+        // live HTTP API's camelCase (ASP.NET default), confirmed by the established convention
+        // in UnresolvedFabAuditRowIntegrationTests.ParsePayload(row).GetProperty("ToState").
         JsonElement payload = JsonDocument.Parse(row.GetProperty("payload").GetString()!).RootElement;
-        JsonElement hero = payload.GetProperty("tiles").EnumerateArray().Single(
-            tile => tile.GetProperty("row").GetInt32() == 0 && tile.GetProperty("col").GetInt32() == 0);
-        hero.GetProperty("rowSpan").GetInt32().ShouldBe(2);
-        hero.GetProperty("colSpan").GetInt32().ShouldBe(2);
+        JsonElement hero = payload.GetProperty("Tiles").EnumerateArray().Single(
+            tile => tile.GetProperty("Row").GetInt32() == 0 && tile.GetProperty("Col").GetInt32() == 0);
+        hero.GetProperty("RowSpan").GetInt32().ShouldBe(2);
+        hero.GetProperty("ColSpan").GetInt32().ShouldBe(2);
     }
 
     [Fact]
