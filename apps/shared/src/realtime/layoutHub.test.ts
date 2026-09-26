@@ -282,10 +282,7 @@ describe('layout hub WallSceneChanged subscription (spec 258 US1)', () => {
 
   it('Registers a WallSceneChanged handler on the hub connection when one is supplied', () => {
     const onWallSceneChanged = vi.fn();
-    createLayoutHubClient(
-      { accessTokenFactory: () => 'token' },
-      { onWallSceneChanged },
-    );
+    createLayoutHubClient({ accessTokenFactory: () => 'token' }, { onWallSceneChanged });
 
     const connection = lastConnection();
     expect(connection.handlers.has('WallSceneChanged')).toBe(true);
@@ -293,10 +290,7 @@ describe('layout hub WallSceneChanged subscription (spec 258 US1)', () => {
 
   it('Forwards a WallSceneChanged frame to the supplied callback unchanged', () => {
     const onWallSceneChanged = vi.fn();
-    createLayoutHubClient(
-      { accessTokenFactory: () => 'token' },
-      { onWallSceneChanged },
-    );
+    createLayoutHubClient({ accessTokenFactory: () => 'token' }, { onWallSceneChanged });
 
     const connection = lastConnection();
     const handler = connection.handlers.get('WallSceneChanged');

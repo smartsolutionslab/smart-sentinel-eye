@@ -31,12 +31,7 @@ export function WallDetailPage() {
   const { wallIdentifier = '' } = useParams<{ wallIdentifier: string }>();
   const auth = useAuth();
   const dispatch = useDispatch<AppDispatch>();
-  const {
-    data: wall,
-    isLoading,
-    error,
-    refetch,
-  } = useGetWallQuery(wallIdentifier, { skip: wallIdentifier === '' });
+  const { data: wall, isLoading, error, refetch } = useGetWallQuery(wallIdentifier, { skip: wallIdentifier === '' });
   const [switchWallScene, switchState] = useSwitchWallSceneMutation();
   const { data: layoutsData } = useListLayoutsQuery('Published');
 
