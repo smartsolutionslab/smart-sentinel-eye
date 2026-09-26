@@ -60,7 +60,7 @@ export function DryRunPanel({ ruleName, fabId }: { ruleName: string; fabId: stri
         </p>
       )}
 
-      <Button type="button" onClick={onRun} unavailable={isLoading} className="aria-disabled:cursor-progress">
+      <Button type="button" onClick={onRun} unavailable={isLoading} busy={isLoading}>
         {isLoading ? 'Running…' : 'Run'}
       </Button>
 

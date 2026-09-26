@@ -89,7 +89,7 @@ export function ConfirmDialog({
             <Button
               variant="danger"
               unavailable={pending}
-              className="aria-disabled:cursor-progress"
+              busy={pending}
               onClick={() => {
                 if (pending) return;
                 onConfirm();
