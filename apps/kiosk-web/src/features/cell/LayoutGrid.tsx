@@ -203,13 +203,15 @@ export function LayoutGrid({ layoutIdentifier, onUnavailable, headerTitle }: Lay
         message="Layout is no longer available."
         header={wallHeader}
         action={
-          <button
-            type="button"
-            className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
-            onClick={() => navigate('/')}
-          >
-            Back to picker
-          </button>
+          headerTitle === undefined ? (
+            <button
+              type="button"
+              className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
+              onClick={() => navigate('/')}
+            >
+              Back to picker
+            </button>
+          ) : undefined
         }
       />
     );
