@@ -299,7 +299,7 @@ export function ChainRecoveryNotice({
   // success or failure alike.
   const chainArmActive = origin !== 'reload' && (readFailed || (reReading && origin === 'retry'));
 
-  const controlClassName = 'underline aria-disabled:opacity-50 aria-disabled:cursor-progress';
+  const controlClassName = 'underline aria-disabled:text-fg-disabled aria-disabled:cursor-progress';
 
   return (
     <>
