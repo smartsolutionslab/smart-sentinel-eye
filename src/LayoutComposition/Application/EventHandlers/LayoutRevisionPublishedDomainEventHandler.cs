@@ -38,7 +38,9 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
                 Camera: tile.Camera.Value,
                 Overlay: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
                 Row: tile.Position.Row,
-                Col: tile.Position.Col))
+                Col: tile.Position.Col,
+                RowSpan: tile.Span.Rows,
+                ColSpan: tile.Span.Cols))
             .ToList();
 
         await events.PublishAsync(
