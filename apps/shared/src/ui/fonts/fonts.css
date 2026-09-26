@@ -36,7 +36,7 @@
  * own metrics (`@capsizecss/metrics`), so the fallback occupies the same line
  * box while Plex loads (`font-display: swap`) and nothing reflows on swap.
  * Fact S4 recomputes and compares every value. The three `U+0030-0039`-only
- * faces exist because Plex's digits are narrower, relative to Arial's, than
+ * faces exist because Plex's digits are wider, relative to Arial's, than
  * its prose letters are (spec 261 §1 finding 4) — measured, not derived from
  * capsize, whose letter-frequency weighting doesn't cover an all-digit
  * string. Fact S4b recomputes those.

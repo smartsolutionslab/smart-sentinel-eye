@@ -18,8 +18,11 @@ import type { HtmlTagDescriptor, Plugin, ResolvedConfig } from 'vite';
  * `config.root`; `order: 'pre'` puts the tag in before Vite's HTML asset
  * pass, which rewrites that relative href to the same hashed
  * `/assets/….woff2` URL the built CSS's `url()` gets, as one emitted asset.
- * `crossorigin` is mandatory — fonts are fetched in CORS mode, and a preload
- * without it is a second, uncredentialled request.
+ * `crossorigin` is mandatory — a `@font-face` `src` is always fetched in
+ * anonymous-CORS mode, but a preload without `crossorigin` is fetched in
+ * no-cors mode instead. The two modes don't share a cache key, so the font
+ * fetch can't reuse the preloaded response: the browser fetches the same
+ * bytes a second time, and the preload bought nothing.
  */
 export function fontPreload(files: readonly string[]): Plugin {
   let config: ResolvedConfig;

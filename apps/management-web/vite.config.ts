@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
-import { fontPreload } from '../shared/src/ui/fonts/fontPreload';
+import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
 
 // Aspire injects backend service URLs as environment variables (ADR-0074).
 // Local dev port chosen to match the Aspire JS resource wiring.

@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
-import { fontPreload } from '../shared/src/ui/fonts/fontPreload';
+import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
 
 // The realtime SignalR hub (LayoutComposition) stays OFF the API gateway — it's
 // not on the §IV REST path (see api/gateway.ts). The browser opens it at the
@@ -29,8 +29,11 @@ const layoutComposition =
 export default defineConfig({
   plugins: [
     react(),
-    // The wall's screen headings and its overlay labels (fontWeight: 600)
-    // are both Sans Regular/SemiBold Latin1 — this app's first-paint faces.
+    // Every kiosk screen's initial <h1> and its overlay labels (fontWeight: 600)
+    // are both Sans SemiBold Latin1; Sans Regular Latin1 is for body text. Both
+    // are this app's first-paint faces. CellPage's heading (font-medium) renders
+    // only after the layout fetch, so Medium isn't part of the above-the-fold
+    // set — same reasoning as not preloading Mono.
     fontPreload(['IBMPlexSans-Regular-Latin1.woff2', 'IBMPlexSans-SemiBold-Latin1.woff2']),
   ],
   server: {
