@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
+import './radixJsdom.js';
 
 // ADR-0150 §1: the deadline is a FAILURE BOUND, not a wait. 10_000 mirrors
 // `apps/management-web/src/test/setup.ts` and `apps/kiosk-web/src/test/setup.ts`

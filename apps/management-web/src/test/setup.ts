@@ -1,5 +1,6 @@
 import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
+import '@smart-sentinel-eye/shared/test/radixJsdom';
 
 // ADR-0150 §1: the deadline is a FAILURE BOUND, not a wait. Testing Library's
 // 1000 ms default is not a bound this repository ever chose, and it is the
