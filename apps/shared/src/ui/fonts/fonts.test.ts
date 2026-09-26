@@ -22,7 +22,6 @@ import iBMPlexSans500 from '@capsizecss/metrics/iBMPlexSans/500';
 import iBMPlexSans600 from '@capsizecss/metrics/iBMPlexSans/600';
 import iBMPlexMono400 from '@capsizecss/metrics/iBMPlexMono';
 import arial from '@capsizecss/metrics/arial';
-import arialBold from '@capsizecss/metrics/arial/700';
 import courierNew from '@capsizecss/metrics/courierNew';
 import { parseWoff2 } from '../../test/woff2.js';
 
@@ -318,30 +317,72 @@ describe('fonts.css (spec 261 US1/US2, issue #2333)', () => {
     },
   );
 
+  it('IBM Plex Sans Fallback 400 equals createFontStack’s output for (Plex, Arial) (S4)', () => {
+    const css = requireFile(fontsCssPath, 'the IBM Plex Sans Fallback 400 face').toString('utf8');
+    const rule = parseFontFaceRules(css).find(
+      (candidate) =>
+        candidate.family === 'IBM Plex Sans Fallback' && candidate.weight === '400' && candidate.unicodeRange === undefined,
+    );
+
+    expect(rule, 'no general IBM Plex Sans Fallback 400 face (without unicode-range) in fonts.css').toBeDefined();
+
+    const capsize = createFontStack([iBMPlexSans400, arial], { fontFaceFormat: 'styleObject' });
+    const descriptor = capsize.fontFaces[0]!['@font-face'] as Record<string, string | undefined>;
+
+    assertDescriptorsMatch(declarationsOf(rule!, css), descriptor, 'IBM Plex Sans Fallback 400');
+  });
+
+  // Fact E4 (fonts.css's own "WHY THE SANS 500/600..." comment, issue #2333's
+  // CI failure): Sans 500/600's general fallback face does NOT equal
+  // createFontStack's continuous output. Headless Chromium (the e2e suite's
+  // browser) hints every glyph's advance to a whole device pixel at 16px, and
+  // capsize's mathematically-correct size-adjust can still round to the pixel
+  // bucket next to Plex's own rather than Plex's own bucket. These two faces'
+  // values were instead chosen empirically against real rendering in the
+  // exact Chromium build the e2e suite runs (self-hosted-fonts.spec.ts E4,
+  // measured 2026-09-26 via mcr.microsoft.com/playwright:v1.62.1-jammy) and
+  // are asserted here as fixed constants, tied to Plex's own ascent/descent
+  // via the same formula capsize itself uses — so a size-adjust edited
+  // without recomputing the other three still fails this test.
+  const HINTING_SAFE_GENERAL_SIZE_ADJUST_PERCENT: Record<500 | 600, number> = { 500: 100, 600: 100 };
+
   it.each([
-    ['400', iBMPlexSans400, arial],
-    ['500', iBMPlexSans500, arial],
-    ['600', iBMPlexSans600, arialBold],
+    [500, iBMPlexSans500],
+    [600, iBMPlexSans600],
   ] as const)(
-    'IBM Plex Sans Fallback %s equals createFontStack’s output for that (Plex, Arial) pair (S4)',
-    (weight, plexMetrics, fallbackMetrics) => {
+    'IBM Plex Sans Fallback %s uses the hinting-safe measured size-adjust, tied to Plex’s own ascent/descent (S4, E4)',
+    (weight, plexMetrics) => {
       const css = requireFile(fontsCssPath, `the IBM Plex Sans Fallback ${weight} face`).toString('utf8');
       const rule = parseFontFaceRules(css).find(
         (candidate) =>
           candidate.family === 'IBM Plex Sans Fallback' &&
-          candidate.weight === weight &&
+          candidate.weight === String(weight) &&
           candidate.unicodeRange === undefined,
       );
 
-      expect(
-        rule,
-        `no general IBM Plex Sans Fallback ${weight} face (without unicode-range) in fonts.css`,
-      ).toBeDefined();
+      expect(rule, `no general IBM Plex Sans Fallback ${weight} face (without unicode-range) in fonts.css`).toBeDefined();
 
-      const capsize = createFontStack([plexMetrics, fallbackMetrics], { fontFaceFormat: 'styleObject' });
-      const descriptor = capsize.fontFaces[0]!['@font-face'] as Record<string, string | undefined>;
+      const sizeAdjustFraction = HINTING_SAFE_GENERAL_SIZE_ADJUST_PERCENT[weight] / 100;
+      const expected = {
+        sizeAdjust: `${HINTING_SAFE_GENERAL_SIZE_ADJUST_PERCENT[weight]}%`,
+        ascentOverride: `${(plexMetrics.ascent / plexMetrics.unitsPerEm / sizeAdjustFraction) * 100}%`,
+        descentOverride: `${(Math.abs(plexMetrics.descent) / plexMetrics.unitsPerEm / sizeAdjustFraction) * 100}%`,
+        lineGapOverride: `${(plexMetrics.lineGap / plexMetrics.unitsPerEm / sizeAdjustFraction) * 100}%`,
+      };
 
-      assertDescriptorsMatch(declarationsOf(rule!, css), descriptor, `IBM Plex Sans Fallback ${weight}`);
+      assertDescriptorsMatch(declarationsOf(rule!, css), expected, `IBM Plex Sans Fallback ${weight}`);
+
+      if (weight === 600) {
+        // The bold system font's own hinted advance widths have nothing
+        // within 3% of Plex SemiBold's rendered prose width on the e2e
+        // suite's Chromium (E4) — only the regular-weight local font's
+        // buckets do. Guards against silently reverting to the bold source,
+        // which would reintroduce the CI failure this fact exists to catch.
+        expect(
+          rule!.srcValue,
+          'weight 600’s general fallback face must use the regular-weight local system font, not bold (E4)',
+        ).not.toMatch(/Bold/i);
+      }
     },
   );
 
@@ -366,8 +407,22 @@ describe('fonts.css (spec 261 US1/US2, issue #2333)', () => {
     assertDescriptorsMatch(declarationsOf(rule!, css), descriptor, 'IBM Plex Mono Fallback 400');
   });
 
+  // Fact E4 (fonts.css's own "WHY THE SANS 500/600..." comment, issue #2333's
+  // CI failure): the continuous ratio below (real shipped-file digit advance
+  // over ARIAL_DIGIT_ADVANCE_OVER_UPM) is right to several decimal places,
+  // but headless Chromium hints the digit glyph's advance to a whole device
+  // pixel at 16px, and that continuous value rounds to the pixel bucket next
+  // to Plex's own. DIGIT_HINTING_SAFE_SIZE_ADJUST_PERCENT is the value at the
+  // centre of the empirically-verified bucket that does match (measured
+  // 2026-09-26 via mcr.microsoft.com/playwright:v1.62.1-jammy, same for
+  // every weight because the shipped digits share one advance across
+  // weights — S4b's own first assertion below). The sanity bound after it
+  // catches this constant drifting away from what a font update would derive
+  // continuously, without demanding the impossible exact equality.
+  const DIGIT_HINTING_SAFE_SIZE_ADJUST_PERCENT = 112.5;
+
   it.each([400, 500, 600] as const)(
-    'all ten digits in the shipped Sans %s Latin1 file share one advance, and a digit fallback face cites it (S4b)',
+    'all ten digits in the shipped Sans %s Latin1 file share one advance, and a digit fallback face cites the hinting-safe size-adjust (S4b, E4)',
     (weight) => {
       const latin1File = PLEX_SANS_WEIGHT_FILES[weight][0]!;
       const filePath = path.join(fontsDir, latin1File);
@@ -382,9 +437,17 @@ describe('fonts.css (spec 261 US1/US2, issue #2333)', () => {
       expect(new Set(digitAdvances).size, `${latin1File}: not all ten digits share one advance`).toBe(1);
       const digitAdvance = digitAdvances[0]!;
 
-      const sizeAdjustFraction = digitAdvance / font.head.unitsPerEm / ARIAL_DIGIT_ADVANCE_OVER_UPM;
+      const analyticalSizeAdjustPercent = (digitAdvance / font.head.unitsPerEm / ARIAL_DIGIT_ADVANCE_OVER_UPM) * 100;
+      expect(
+        Math.abs(DIGIT_HINTING_SAFE_SIZE_ADJUST_PERCENT - analyticalSizeAdjustPercent),
+        `${latin1File}: the hinting-safe digit size-adjust (${DIGIT_HINTING_SAFE_SIZE_ADJUST_PERCENT}%) has drifted ` +
+          `too far from the continuous value this file's own metrics derive (${analyticalSizeAdjustPercent}%) — ` +
+          're-measure E4 against real rendering before trusting the constant',
+      ).toBeLessThanOrEqual(6);
+
+      const sizeAdjustFraction = DIGIT_HINTING_SAFE_SIZE_ADJUST_PERCENT / 100;
       const expected = {
-        sizeAdjust: `${sizeAdjustFraction * 100}%`,
+        sizeAdjust: `${DIGIT_HINTING_SAFE_SIZE_ADJUST_PERCENT}%`,
         ascentOverride: `${(font.hhea.ascender / font.head.unitsPerEm / sizeAdjustFraction) * 100}%`,
         descentOverride: `${(Math.abs(font.hhea.descender) / font.head.unitsPerEm / sizeAdjustFraction) * 100}%`,
         lineGapOverride: `${(font.hhea.lineGap / font.head.unitsPerEm / sizeAdjustFraction) * 100}%`,

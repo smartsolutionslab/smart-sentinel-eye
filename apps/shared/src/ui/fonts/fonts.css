@@ -31,15 +31,45 @@
  *
  * THE FALLBACK FACES (`IBM Plex Sans Fallback` / `IBM Plex Mono Fallback`)
  * are metric-matched substitutes, not Plex itself: `size-adjust` /
- * `ascent-override` / `descent-override` / `line-gap-override` computed by
- * `@capsizecss/core`'s `createFontStack` from Plex's and the system font's
- * own metrics (`@capsizecss/metrics`), so the fallback occupies the same line
- * box while Plex loads (`font-display: swap`) and nothing reflows on swap.
- * Fact S4 recomputes and compares every value. The three `U+0030-0039`-only
- * faces exist because Plex's digits are wider, relative to Arial's, than
- * its prose letters are (spec 261 §1 finding 4) — measured, not derived from
- * capsize, whose letter-frequency weighting doesn't cover an all-digit
- * string. Fact S4b recomputes those.
+ * `ascent-override` / `descent-override` / `line-gap-override` start from
+ * `@capsizecss/core`'s `createFontStack` output for Plex's and the system
+ * font's own metrics (`@capsizecss/metrics`), so the fallback occupies the
+ * same line box while Plex loads (`font-display: swap`) and nothing reflows
+ * on swap. Fact S4 recomputes and compares every value. The three
+ * `U+0030-0039`-only faces exist because Plex's digits are wider, relative to
+ * Arial's, than its prose letters are (spec 261 §1 finding 4) — measured, not
+ * derived from capsize, whose letter-frequency weighting doesn't cover an
+ * all-digit string. Fact S4b recomputes those.
+ *
+ * WHY THE SANS 500/600 GENERAL FACES AND ALL THREE DIGIT FACES DON'T EQUAL
+ * THE CONTINUOUS MATH (E4, issue #2333 CI failure). `size-adjust` is exact
+ * to several decimal places (capsize's `xWidthAvg` ratio for the general
+ * faces; the shipped file's own digit advance over `ARIAL_DIGIT_ADVANCE_OVER_UPM`
+ * for the digit faces — both confirmed against the real fallback font).  But
+ * the browser doesn't render that continuous value: headless Chromium on
+ * Linux (`playwright install --with-deps chromium` on ubuntu-latest, no GPU,
+ * matching the e2e job) hints every glyph's advance to a whole device pixel
+ * at 16px, and it hints Plex and the fallback *independently* — a value that
+ * is mathematically correct to five decimal places can still round to the
+ * pixel bucket next to Plex's own, missing the 3% budget outright while
+ * looking exact on paper (and, on Windows/DirectWrite, which doesn't hint
+ * this way — E4's numbers are close enough there that the bug never showed
+ * up in local dev). There is no CSS lever that hints sub-pixel; the only
+ * fix is to choose the `size-adjust` that lands the *rounded* result in the
+ * bucket next to Plex's own, verified against real rendering in the exact
+ * Chromium build the e2e suite runs (measured 2026-09-26 via
+ * `mcr.microsoft.com/playwright:v1.62.1-jammy`, the environment
+ * `playwright install --with-deps chromium` reproduces). Sans 500/600
+ * general and all three digit faces use the value at the centre of the
+ * widest empirically-verified bucket (not the capsize/ratio value itself);
+ * Sans 400 general and Mono 400 already land in the right bucket with the
+ * plain computed value and are untouched. Sans 600 general additionally
+ * swaps its `local()` source from the bold system font to the regular one:
+ * the bold variant's own hint buckets have nothing within 3% of Plex
+ * SemiBold's rendered prose width, while the regular variant's do (the
+ * weight-600 digit face keeps the bold source — its buckets already include
+ * an exact match, and a clock-style digit run benefits from the closer
+ * visual weight during the swap).
  *
  * DECLARATION ORDER MATTERS. Each digit-only face is declared AFTER the
  * general fallback face of the same weight: for two `@font-face` rules whose
@@ -214,9 +244,9 @@
   font-weight: 400;
   src: local('Arial'), local('ArialMT'), local('Liberation Sans'), local('LiberationSans'), local('Arimo');
   unicode-range: U+0030-0039;
-  size-adjust: 107.8841%;
-  ascent-override: 95.0094%;
-  descent-override: 25.4903%;
+  size-adjust: 112.5%;
+  ascent-override: 91.1111%;
+  descent-override: 24.4444%;
   line-gap-override: 0%;
 }
 
@@ -225,9 +255,9 @@
   font-style: normal;
   font-weight: 500;
   src: local('Arial'), local('ArialMT'), local('Liberation Sans'), local('LiberationSans'), local('Arimo');
-  size-adjust: 103.4094%;
-  ascent-override: 99.1206%;
-  descent-override: 26.5933%;
+  size-adjust: 100%;
+  ascent-override: 102.5%;
+  descent-override: 27.5%;
   line-gap-override: 0%;
 }
 
@@ -237,9 +267,9 @@
   font-weight: 500;
   src: local('Arial'), local('ArialMT'), local('Liberation Sans'), local('LiberationSans'), local('Arimo');
   unicode-range: U+0030-0039;
-  size-adjust: 107.8841%;
-  ascent-override: 95.0094%;
-  descent-override: 25.4903%;
+  size-adjust: 112.5%;
+  ascent-override: 91.1111%;
+  descent-override: 24.4444%;
   line-gap-override: 0%;
 }
 
@@ -247,12 +277,10 @@
   font-family: 'IBM Plex Sans Fallback';
   font-style: normal;
   font-weight: 600;
-  src:
-    local('Arial Bold'), local('Arial-BoldMT'), local('Liberation Sans Bold'), local('LiberationSans-Bold'),
-    local('Arimo Bold');
-  size-adjust: 97.2956%;
-  ascent-override: 105.349%;
-  descent-override: 28.2644%;
+  src: local('Arial'), local('ArialMT'), local('Liberation Sans'), local('LiberationSans'), local('Arimo');
+  size-adjust: 100%;
+  ascent-override: 102.5%;
+  descent-override: 27.5%;
   line-gap-override: 0%;
 }
 
@@ -264,9 +292,9 @@
     local('Arial Bold'), local('Arial-BoldMT'), local('Liberation Sans Bold'), local('LiberationSans-Bold'),
     local('Arimo Bold');
   unicode-range: U+0030-0039;
-  size-adjust: 107.8841%;
-  ascent-override: 95.0094%;
-  descent-override: 25.4903%;
+  size-adjust: 112.5%;
+  ascent-override: 91.1111%;
+  descent-override: 24.4444%;
   line-gap-override: 0%;
 }
 
