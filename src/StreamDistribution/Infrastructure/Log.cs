@@ -63,4 +63,12 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "The realm's OIDC discovery document was obtained again; WHEP bearer tokens are being checked. This closes the outage the preceding warning opened.")]
     public static partial void WhepIdentityProviderReachable(this ILogger logger);
+
+    // Spec 270 (ADR-0160). ServiceDefaults.Log carries the REST bearer
+    // pipeline's copy of this same message; that one is internal to its own
+    // assembly, so WhepAuthValidator needs its own (no project shares its
+    // Log class across assembly boundaries — CapturingLogger's doc comment
+    // records the same choice for tests).
+    [LoggerMessage(Level = LogLevel.Information, Message = "Refused a token for '{ClientId}': its client was disabled after the token was minted (ADR-0160).")]
+    public static partial void TokenRefusedAsRevoked(this ILogger logger, string clientId);
 }

@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
@@ -157,7 +158,7 @@ public sealed class WhepValidatorRefreshRestraintTests : IDisposable
     private async Task DiscoveryIsNotRefetchedAfterAsync(string bearerToken, string failure)
     {
         CountingMetadata retriever = new(DiscoveryDocument, JsonWebKeySet());
-        WhepAuthValidator validator = new(MetadataOver(retriever), NullLogger<WhepAuthValidator>.Instance);
+        WhepAuthValidator validator = new(MetadataOver(retriever), new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
 
         Result<WhepAuthSubject, WhepAuthFailure> firstCall = await validator.ValidateAsync(bearerToken, CancellationToken.None);
         Result<WhepAuthSubject, WhepAuthFailure> secondCall = await validator.ValidateAsync(bearerToken, CancellationToken.None);

@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
@@ -44,6 +45,7 @@ public sealed class WhepAuthValidatorResolutionTests
                 Authority = "https://keycloak.invalid/realms/smart-sentinel-eye",
             }));
         services.AddSingleton<IConfigurationManager<OpenIdConnectConfiguration>>(new UnusedMetadata());
+        services.AddSingleton<IRevokedClientRegistry>(new RevokedClientRegistry());
         services.AddSingleton<IWhepAuthValidator, WhepAuthValidator>();
 
         using ServiceProvider provider = services.BuildServiceProvider();

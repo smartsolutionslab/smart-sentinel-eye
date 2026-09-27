@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
@@ -118,7 +119,7 @@ public sealed class WhepValidatorRotationTests : IDisposable
     [Fact]
     public async Task A_token_signed_with_the_rotated_key_is_authorized_on_a_later_call()
     {
-        WhepAuthValidator validator = new(MetadataOver(RotatingKeys()), NullLogger<WhepAuthValidator>.Instance);
+        WhepAuthValidator validator = new(MetadataOver(RotatingKeys()), new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
         string token = TokenFor(rotatedKey, RotatedKeyIdentifier, RealmIssuer);
 
         Result<WhepAuthSubject, WhepAuthFailure> firstCall = await validator.ValidateAsync(token, CancellationToken.None);
@@ -146,7 +147,7 @@ public sealed class WhepValidatorRotationTests : IDisposable
     [Fact]
     public async Task A_token_carrying_the_rotated_issuer_is_authorized_on_a_later_call()
     {
-        WhepAuthValidator validator = new(MetadataOver(RotatingIssuer()), NullLogger<WhepAuthValidator>.Instance);
+        WhepAuthValidator validator = new(MetadataOver(RotatingIssuer()), new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
         string token = TokenFor(originalKey, OriginalKeyIdentifier, RotatedIssuer);
 
         Result<WhepAuthSubject, WhepAuthFailure> firstCall = await validator.ValidateAsync(token, CancellationToken.None);
@@ -174,7 +175,7 @@ public sealed class WhepValidatorRotationTests : IDisposable
     public async Task A_token_signed_with_the_superseded_key_is_refused_once_the_rotation_has_landed()
     {
         ConfigurationManager<OpenIdConnectConfiguration> metadata = MetadataOver(RotatingKeys());
-        WhepAuthValidator validator = new(metadata, NullLogger<WhepAuthValidator>.Instance);
+        WhepAuthValidator validator = new(metadata, new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
         string superseded = TokenFor(originalKey, OriginalKeyIdentifier, RealmIssuer);
 
         Result<WhepAuthSubject, WhepAuthFailure> beforeRotation = await validator.ValidateAsync(superseded, CancellationToken.None);
