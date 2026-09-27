@@ -75,7 +75,7 @@ export function ShellLayout() {
 
   return (
     <main className="min-h-screen bg-bg-base text-fg-primary">
-      <nav className="flex items-center gap-3 border-b border-fg-muted/30 px-6 py-3">
+      <nav className="flex items-center gap-3 overflow-x-auto border-b border-fg-muted/30 px-6 py-3">
         {DESTINATIONS.map((destination) => (
           <NavItem
             key={destination.to}
