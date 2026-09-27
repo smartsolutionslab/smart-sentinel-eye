@@ -214,14 +214,15 @@ export function LayoutsPage() {
                 {draft !== undefined && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
+                    unavailable={disabled}
+                    onClick={() => {
+                      if (disabled) return;
                       void publishRevision({
                         layoutIdentifier: chain.layoutIdentifier,
                         revisionNumber: draft.revisionNumber,
                         version: chain.version,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Publish
                   </Button>
@@ -235,8 +236,9 @@ export function LayoutsPage() {
                 {(live !== undefined || fullyArchived) && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
+                    unavailable={disabled}
                     onClick={() => {
+                      if (disabled) return;
                       const baseline = live ?? newest;
                       if (baseline !== undefined) {
                         void onEdit(chain, baseline);
@@ -249,7 +251,7 @@ export function LayoutsPage() {
                 {moreActions.length > 0 && (
                   <DropdownMenu
                     trigger={
-                      <Button variant="ghost" disabled={disabled} aria-label={`More actions for ${chain.name}`}>
+                      <Button variant="ghost" unavailable={disabled} aria-label={`More actions for ${chain.name}`}>
                         More actions
                       </Button>
                     }
