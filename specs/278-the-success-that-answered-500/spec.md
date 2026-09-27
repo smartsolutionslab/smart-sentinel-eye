@@ -1,4 +1,4 @@
-# Spec 274 — The success that answered 500
+# Spec 278 — The success that answered 500
 
 **Issue**: #2490 · **Branch**: `fix-2490-idempotent-durability-write-failure` · **Phase**: 1 (Specify)
 **Date**: 2026-09-27 · **Base**: `1a51bd18` (`origin/develop`)
