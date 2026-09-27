@@ -1,6 +1,6 @@
 import * as RadixDropdownMenu from '@radix-ui/react-dropdown-menu';
 import clsx from 'clsx';
-import type { ReactNode } from 'react';
+import { useRef, type ComponentRef, type ReactNode } from 'react';
 
 export type MenuEntry =
   | { kind: 'item'; label: string; onSelect: () => void; disabled?: boolean; variant?: 'default' | 'danger' }
@@ -19,12 +19,16 @@ export interface DropdownMenuProps {
  * / issue #2335 US2, plan.md §3.2).
  */
 export function DropdownMenu({ trigger, entries, align = 'end' }: DropdownMenuProps) {
+  const triggerRef = useRef<ComponentRef<typeof RadixDropdownMenu.Trigger>>(null);
+
   return (
     // `modal={false}` is load-bearing (plan.md §3.2): a modal menu that closes
     // while a Radix dialog opens from its `onSelect` leaves
     // `pointer-events: none` on `<body>` and races the two focus scopes.
     <RadixDropdownMenu.Root modal={false}>
-      <RadixDropdownMenu.Trigger asChild>{trigger}</RadixDropdownMenu.Trigger>
+      <RadixDropdownMenu.Trigger ref={triggerRef} asChild>
+        {trigger}
+      </RadixDropdownMenu.Trigger>
       <RadixDropdownMenu.Portal>
         <RadixDropdownMenu.Content
           align={align}
@@ -39,21 +43,21 @@ export function DropdownMenu({ trigger, entries, align = 'end' }: DropdownMenuPr
                 key={entry.label}
                 disabled={entry.disabled}
                 onSelect={() => {
-                  // Deferred, not called inline: Radix's own `onClose()` runs
-                  // synchronously right after this callback returns (plan.md
-                  // §3.2), so calling the caller's handler here would open a
-                  // dialog while the menu is still mid-close. A single
-                  // `setTimeout` fires before the closing menu's own
-                  // FocusScope has unmounted (its focus-restoration teardown
-                  // is itself scheduled via a `setTimeout` once React commits
-                  // the close) — nesting a second one lets that teardown run
-                  // first, so the dialog that opens here is never the thing a
-                  // stale, already-removed menu item tries to refocus later.
-                  // Proven by the ConfirmDialog case's observable outcome
-                  // (focus ends on the trigger, not the document body), not
-                  // by counting ticks (ADR-0150).
-                  const onSelect = entry.onSelect;
-                  setTimeout(() => setTimeout(() => onSelect(), 0), 0);
+                  // Focus the trigger BEFORE calling the caller's handler,
+                  // synchronously — not deferred. A dialog the handler opens
+                  // (e.g. a ConfirmDialog) captures "whatever had focus" the
+                  // moment it mounts; without this, that is transiently the
+                  // menu item itself (Presence unmounts the closing menu's
+                  // content on a LATER render pass, and React batches this
+                  // item's own state update with the menu's close into the
+                  // SAME commit), which the dialog then tries to refocus
+                  // after it closes — a detached node a browser silently
+                  // refuses to focus, dropping focus to `<body>` (plan.md
+                  // §3.2's whole reason for existing). Forcing it here makes
+                  // the *trigger* the pre-open element instead, with no
+                  // reliance on how many ticks anything else takes.
+                  triggerRef.current?.focus();
+                  entry.onSelect();
                 }}
                 className={clsx(
                   'cursor-default select-none px-3 py-2 text-sm rounded-sm outline-none',
