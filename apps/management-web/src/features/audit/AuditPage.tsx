@@ -75,10 +75,13 @@ export function AuditPage() {
 
   const { data, isLoading, isFetching, error, refetch } = useSearchAuditQuery(applied);
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
-  // ADR-0151: hoisted once so Next's `unavailable` prop and its guard read the
-  // same value — activating Next on the terminal page would otherwise set
-  // cursor: undefined, the FIRST page, not a no-op.
+  // ADR-0151: hoisted once so the click guard reads the same value — activating
+  // Next on the terminal page would otherwise set cursor: undefined, the FIRST
+  // page, not a no-op.
   const onTerminalPage = data?.nextCursor === null || data?.nextCursor === undefined;
+  // Also unavailable mid-fetch, matching CamerasPage's Previous/Next — otherwise
+  // a page transition never marks Next unavailable until its own response lands.
+  const nextUnavailable = onTerminalPage || isFetching;
 
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -192,7 +195,7 @@ export function AuditPage() {
         )}
         <Button
           variant="secondary"
-          unavailable={onTerminalPage}
+          unavailable={nextUnavailable}
           onClick={() => {
             // ADR-0151: without this, activating Next on the terminal page
             // sets cursor: undefined — the FIRST page, not a no-op.
