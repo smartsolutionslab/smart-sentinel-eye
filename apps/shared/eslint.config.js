@@ -19,6 +19,7 @@ export default [
       globals: {
         window: 'readonly',
         document: 'readonly',
+        Element: 'readonly',
         HTMLElement: 'readonly',
         HTMLButtonElement: 'readonly',
         HTMLInputElement: 'readonly',
@@ -34,6 +35,7 @@ export default [
         requestAnimationFrame: 'readonly',
         AbortController: 'readonly',
         AbortSignal: 'readonly',
+        ResizeObserver: 'readonly',
         DOMException: 'readonly',
         Response: 'readonly',
         Request: 'readonly',
