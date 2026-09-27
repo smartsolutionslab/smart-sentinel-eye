@@ -118,8 +118,9 @@
   --color-accent-fault-hover: color-mix(in oklch, var(--color-accent-fault) 88%, var(--white));
   --color-accent-fault-pressed: color-mix(in oklch, var(--color-accent-fault) 92%, var(--black));
   /* Dark in every theme, because the fault red itself is pinned across themes
-     (ADR-0148) and white on it is only 3.19:1. Replaces --color-fg-on-accent,
-     which only happened to be dark in the default theme. */
+     (ADR-0148) and white on it is only 3.19:1. Replaces text-bg-base, danger's
+     old label class (Button.tsx); --color-fg-on-accent is untouched and still
+     used by primary's label. */
   --color-fg-on-fault: var(--gray-950);
 
   /* Type scale — sizes equal Tailwind's stock scale (plan.md §2.3), so
