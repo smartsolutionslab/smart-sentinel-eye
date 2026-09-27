@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
@@ -138,7 +138,16 @@ describe('CamerasPage', () => {
     expect(lastCall?.[0]).toMatchObject({ sort: 'name', order: 'asc', offset: 0 });
   });
 
-  it('Disables the Previous button while the first page is showing', () => {
+  /**
+   * Spec 273 (#2632) / ADR-0151 T004 — **declared rewrite**, not an edit to
+   * evade. `toBeDisabled()` reads native `disabled` only; once Previous
+   * announces unavailability through `Button`'s `unavailable` prop instead
+   * (FR-001), this assertion's *mechanism* moves. The claim it pins —
+   * Previous is unavailable on page 1 — is unchanged, and it is RED on
+   * unmodified `develop`: today `aria-disabled` is absent (native `disabled`
+   * is what applies), so neither half of this assertion holds yet.
+   */
+  it('Marks the Previous button unavailable, not natively disabled, while the first page is showing', () => {
     listCamerasMock.mockReturnValue({
       data: populatedPage(),
       isLoading: false,
@@ -149,7 +158,9 @@ describe('CamerasPage', () => {
 
     render_page();
 
-    expect(screen.getByRole('button', { name: /previous/i })).toBeDisabled();
+    const previous = screen.getByRole('button', { name: /previous/i });
+    expect(previous).toHaveAttribute('aria-disabled', 'true');
+    expect(previous).not.toHaveAttribute('disabled');
   });
 
   it('Shows a retry control when the list query fails', async () => {
@@ -168,5 +179,101 @@ describe('CamerasPage', () => {
     const retry = screen.getByRole('button', { name: /retry/i });
     await user.click(retry);
     expect(refetch).toHaveBeenCalledOnce();
+  });
+});
+
+/**
+ * Spec 273 (#2632) / ADR-0151 — C1/C2, new behaviour, RED. `CamerasPage`
+ * still passes native `disabled={offset === 0 || isFetching}` to Previous
+ * (`:177`) and `disabled={offset + items.length >= totalCount || isFetching}`
+ * to Next (`:184`). Without C2's guard a click during `isFetching` queues a
+ * second page move (plan.md §3.5), which the guard test below pins by
+ * asserting the query is never asked for a second page while fetching.
+ */
+describe('CamerasPage — Previous and Next keep focus while unavailable (spec 273 C1/C2)', () => {
+  beforeEach(() => {
+    listCamerasMock.mockReset();
+  });
+
+  it('Sends no page change from Previous while on the first page', () => {
+    listCamerasMock.mockReturnValue({
+      data: populatedPage(),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    render_page();
+    fireEvent.click(screen.getByRole('button', { name: /previous/i }));
+
+    const lastCall = listCamerasMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toMatchObject({ offset: 0 });
+  });
+
+  it('Marks Next unavailable, not natively disabled, on the last page', () => {
+    listCamerasMock.mockReturnValue({
+      data: populatedPage(),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    render_page();
+
+    const next = screen.getByRole('button', { name: /^next$/i });
+    expect(next).toHaveAttribute('aria-disabled', 'true');
+    expect(next).not.toHaveAttribute('disabled');
+  });
+
+  it('Sends no page change from Next on the last page', () => {
+    listCamerasMock.mockReturnValue({
+      data: populatedPage(),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    render_page();
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+
+    const lastCall = listCamerasMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toMatchObject({ offset: 0 });
+  });
+
+  it('Marks Next unavailable, not natively disabled, while a page is in flight, even mid-catalogue', () => {
+    // count (100) is well beyond items.length (2): the boundary condition
+    // alone is false here, so `isFetching` is the only reason Next disables.
+    listCamerasMock.mockReturnValue({
+      data: { ...populatedPage(), count: 100 },
+      isLoading: false,
+      isFetching: true,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    render_page();
+
+    const next = screen.getByRole('button', { name: /^next$/i });
+    expect(next).toHaveAttribute('aria-disabled', 'true');
+    expect(next).not.toHaveAttribute('disabled');
+  });
+
+  it('Sends no second page request from Next while a page is already in flight', () => {
+    listCamerasMock.mockReturnValue({
+      data: { ...populatedPage(), count: 100 },
+      isLoading: false,
+      isFetching: true,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    render_page();
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+
+    const lastCall = listCamerasMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toMatchObject({ offset: 0 });
   });
 });

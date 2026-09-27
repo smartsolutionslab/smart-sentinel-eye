@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -129,5 +129,53 @@ describe('WallForm', () => {
     const saveButton = screen.getByRole('button', { name: /saving…/i });
 
     expect(saveButton).toHaveAttribute('aria-busy', 'true');
+  });
+});
+
+/**
+ * Spec 273 (#2632) / ADR-0151 — W3, new behaviour, RED. `WallForm.tsx:162`'s
+ * Save still passes native `disabled={isLoading}` alongside the existing
+ * `busy={isLoading}` — the exact #2624 form-submit shape (spec.md §1),
+ * mirroring `RegisterCameraDialog.test.tsx`'s own pair of assertions and its
+ * form-level guard test.
+ */
+describe('WallForm — Save keeps focus while a create request is in flight (spec 273 W3)', () => {
+  it('Announces Save as unavailable with aria-disabled, not native disabled, while saving', () => {
+    createWallMutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+    renderForm();
+
+    const saveButton = screen.getByRole('button', { name: /saving…/i });
+    expect(saveButton).toHaveAttribute('aria-disabled', 'true');
+    expect(saveButton).not.toHaveAttribute('disabled');
+  });
+
+  it('Refuses a form-level submit while a create is in flight', async () => {
+    const user = userEvent.setup();
+    // Filled with valid values FIRST: an empty/invalid form would refuse the
+    // submit on validation grounds regardless of `isLoading`, which would
+    // pass this assertion for the wrong reason and prove nothing about the
+    // guard under test.
+    createWallMutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
+    const { rerender } = renderForm();
+
+    await user.type(screen.getByLabelText(/name/i), 'Line 3 rotation');
+    await user.click(screen.getByRole('checkbox', { name: /layout a/i }));
+    await user.click(screen.getByRole('checkbox', { name: /layout b/i }));
+
+    createWallMutationState.current = { isLoading: true, error: undefined, reset: vi.fn() };
+    rerender(
+      <Provider store={store}>
+        <WallForm />
+      </Provider>,
+    );
+
+    // The form-level guard (plan.md §3.7's `handleFormSubmit`), not a click
+    // or an implicit-submission proof — that is e2e/in-flight-focus.spec.ts.
+    await act(async () => {
+      fireEvent.submit(document.querySelector('form')!);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    expect(createWallMock).not.toHaveBeenCalled();
   });
 });

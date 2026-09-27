@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { store } from '../../app/store.js';
@@ -28,6 +28,11 @@ const listMock = vi.fn();
 const setValueMock = vi.fn(async () => ({ data: 'noop' }) as unknown);
 let setValueState: { isLoading: boolean; error?: unknown } = { isLoading: false };
 const defineMock = vi.fn(async () => ({ data: 'noop' }));
+// Spec 273 (#2632) — mutable, mirroring `setValueState` above. The archive
+// mutation's *state* is what S2's `unavailable`/guard tests below need to
+// flip per test; the fixed-literal `{ isLoading: false }` this used to return
+// gave no test a way to put the row mid-archive.
+let archiveMutationState: { isLoading: boolean } = { isLoading: false };
 
 vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
@@ -36,7 +41,7 @@ vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOrigi
     useListVariablesQuery: (...args: unknown[]) => listMock(...args),
     useSetVariableValueMutation: () => [setValueMock, setValueState],
     useDefineVariableMutation: () => [defineMock, { isLoading: false, error: undefined, reset: vi.fn() }],
-    useArchiveVariableMutation: () => [archiveMock, { isLoading: false }],
+    useArchiveVariableMutation: () => [archiveMock, archiveMutationState],
   };
 });
 
@@ -70,6 +75,7 @@ function renderPage() {
 describe('SystemVariablesPage', () => {
   beforeEach(() => {
     setValueState = { isLoading: false };
+    archiveMutationState = { isLoading: false };
     setValueMock.mockImplementation(async () => ({ data: 'noop' }) as unknown);
     listMock.mockReset();
     setValueMock.mockClear();
@@ -393,5 +399,99 @@ describe('SystemVariablesPage — the state filter is asked of the server', () =
     await user.click(screen.getByRole('button', { name: /^all$/i }));
 
     expect(listMock).toHaveBeenLastCalledWith({ includeArchived: true });
+  });
+});
+
+/**
+ * Spec 273 (#2632) / ADR-0151 — S1, new behaviour, RED. `SystemVariablesPage`
+ * still passes native `disabled={inProgress || editValue === undefined ||
+ * editValue === ''}` to Set value (`:167`), which drops keyboard focus to
+ * `<body>` the instant the button natively disables — jsdom cannot observe
+ * that half (`e2e/in-flight-focus.spec.ts` does), but the markup half
+ * (`aria-disabled`, not native `disabled`) is observable here, mirroring
+ * `RegisterCameraDialog.test.tsx`'s own pair of assertions for the same
+ * ADR-0151 shape. The guard case is a **green pin**: native `disabled`
+ * already blocks the click today, with no guard code involved yet.
+ */
+describe('SystemVariablesPage — Set value keeps focus while unavailable (spec 273 S1)', () => {
+  beforeEach(() => {
+    listMock.mockReset();
+    listMock.mockReturnValue({
+      data: [variable()],
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    setValueMock.mockClear();
+  });
+
+  it('Announces Set value as unavailable with aria-disabled, not native disabled, while saving', async () => {
+    const user = userEvent.setup();
+    setValueState = { isLoading: true };
+    renderPage();
+
+    const input = screen.getByPlaceholderText(/new value/i);
+    await user.type(input, '1');
+
+    const setValue = screen.getByRole('button', { name: /^set value$/i });
+    expect(setValue).toHaveAttribute('aria-disabled', 'true');
+    expect(setValue).not.toHaveAttribute('disabled');
+  });
+
+  it('Announces Set value as unavailable with aria-disabled when no value has been typed yet', () => {
+    renderPage();
+
+    const setValue = screen.getByRole('button', { name: /^set value$/i });
+    expect(setValue).toHaveAttribute('aria-disabled', 'true');
+    expect(setValue).not.toHaveAttribute('disabled');
+  });
+
+  it('Sends no second Set value request while saving', () => {
+    setValueState = { isLoading: true };
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /^set value$/i }));
+
+    expect(setValueMock).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Spec 273 (#2632) / ADR-0151 — S2, new behaviour, RED. Archive (`:174`)
+ * still passes native `disabled={inProgress || archiving}`, the focus-return
+ * shape (`ConfirmDialog`'s `onCloseAutoFocus` refocuses this button once the
+ * archive is in flight and it has already natively disabled). The guard case
+ * is a **green pin**: native `disabled` already blocks the click today.
+ */
+describe('SystemVariablesPage — Archive keeps focus on the opener while archiving (spec 273 S2)', () => {
+  beforeEach(() => {
+    listMock.mockReset();
+    listMock.mockReturnValue({
+      data: [variable()],
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    archiveMock.mockClear();
+  });
+
+  it('Announces Archive as unavailable with aria-disabled, not native disabled, while archiving', () => {
+    archiveMutationState = { isLoading: true };
+    renderPage();
+
+    const archiveButton = screen.getByRole('button', { name: /^archive$/i });
+    expect(archiveButton).toHaveAttribute('aria-disabled', 'true');
+    expect(archiveButton).not.toHaveAttribute('disabled');
+  });
+
+  it('Opens no second confirmation while archiving', () => {
+    archiveMutationState = { isLoading: true };
+    renderPage();
+
+    fireEvent.click(screen.getByRole('button', { name: /^archive$/i }));
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

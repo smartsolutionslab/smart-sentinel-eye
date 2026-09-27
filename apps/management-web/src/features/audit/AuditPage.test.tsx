@@ -227,3 +227,42 @@ describe('AuditPage', () => {
     expect(screen.getByLabelText(/Until \(your local time\)/i)).toBeInTheDocument();
   });
 });
+
+/**
+ * Spec 273 (#2632) / ADR-0151 — A1, new behaviour, RED. `AuditPage` still
+ * passes native `disabled={data?.nextCursor === null || data?.nextCursor ===
+ * undefined}` to Next (`:200`) — the terminal mechanism (spec.md §3): once
+ * the loaded page is the last one, Next disables itself as a *result* of its
+ * own activation, not merely on click.
+ */
+describe('AuditPage — Next keeps focus on the terminal page (spec 273 A1)', () => {
+  beforeEach(() => {
+    searchMock.mockReset();
+  });
+
+  it('Announces Next as unavailable with aria-disabled, not native disabled, once nextCursor is null', () => {
+    searchMock.mockReturnValue(result([auditRow()], null));
+    renderPage();
+
+    const next = screen.getByRole('button', { name: /^next$/i });
+    expect(next).toHaveAttribute('aria-disabled', 'true');
+    expect(next).not.toHaveAttribute('disabled');
+  });
+
+  /**
+   * Plan.md §3.6 — this guard prevents a real regression: an unguarded
+   * activation here sets `cursor: data?.nextCursor ?? undefined`, which is
+   * the FIRST page (spec.md §3). A green pin today: native `disabled` already
+   * blocks the click before any guard code exists, so no re-render (and so no
+   * re-search) follows it.
+   */
+  it('Triggers no re-search — and so no reset to the first page — while Next is unavailable on the terminal page', () => {
+    searchMock.mockReturnValue(result([auditRow()], null));
+    renderPage();
+
+    const callsBefore = searchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+
+    expect(searchMock.mock.calls.length).toBe(callsBefore);
+  });
+});
