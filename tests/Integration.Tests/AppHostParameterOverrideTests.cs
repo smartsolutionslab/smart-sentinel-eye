@@ -54,6 +54,7 @@ public class AppHostParameterOverrideTests
         ["EventIngestionMqttClientSecret"] = "dev-only-event-ingestion-secret",
         ["StreamDistributionAttributionClientSecret"] = "dev-only-stream-distribution-secret",
         ["SystemVariablesSeederClientSecret"] = "dev-only-system-variables-seeder-secret",
+        ["RevocationListReaderClientSecret"] = "dev-only-revocation-list-reader-secret",
     };
 
     /// <summary>
@@ -93,8 +94,9 @@ public class AppHostParameterOverrideTests
     /// is the exact drift #2254 exists to close.
     ///
     /// <para>
-    /// Expected RED on the current tree for all ten: the literal overload
-    /// returns its own declared default regardless of the override argument.
+    /// Expected RED on the current tree for all eleven (spec 270 added the
+    /// eleventh): the literal overload returns its own declared default
+    /// regardless of the override argument.
     /// </para>
     /// </summary>
     [Fact]
@@ -129,17 +131,18 @@ public class AppHostParameterOverrideTests
             resolved[name].ShouldBe(
                 OverrideValueFor(name),
                 $"'{name}' did not resolve to the value its own 'Parameters:{name}=' argument "
-                + $"supplied (resolved '{resolved[name]}' instead). Every one of the ten "
-                + "declared parameters must honour its own override, not only the four "
-                + "arguments that happen to be passed today (spec.md §2).");
+                + $"supplied (resolved '{resolved[name]}' instead). Every one of the declared "
+                + "parameters must honour its own override, not only the four arguments that "
+                + "happen to be passed today (spec.md §2).");
         }
     }
 
     /// <summary>
     /// Spec.md §3's third US1 scenario — the conflict case. Must be GREEN
     /// already: a fix that broke this would break every boot in the repo,
-    /// because nothing passes a <c>Parameters:</c> argument for most of these
-    /// ten today (spec.md §2's table).
+    /// because nothing passes a <c>Parameters:</c> argument for most of
+    /// these eleven today (spec.md §2's table; spec 270 added the
+    /// eleventh).
     /// </summary>
     [Fact]
     public async Task A_parameter_with_no_argument_keeps_its_default()
@@ -156,7 +159,7 @@ public class AppHostParameterOverrideTests
         observedNames.ShouldBe(
             expectedNames,
             "the set of ParameterResource names the AppHost composed does not match spec.md §2's "
-            + "ten declared parameters — either a parameter was added or removed, or this test's "
+            + "declared parameters — either a parameter was added or removed, or this test's "
             + "transcription of AppHost.cs is stale.");
 
         foreach (ParameterResource parameter in parameters)
