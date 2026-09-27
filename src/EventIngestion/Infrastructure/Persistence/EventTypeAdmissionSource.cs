@@ -1,34 +1,40 @@
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
+using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 
 /// <summary>
-/// EF-backed <see cref="IEventTypeAdmissionSource"/> (plan.md §7).
-///
-/// <para>
-/// Withheld for phase A (tasks.md T002): both methods return empty sets
-/// without querying — no <c>source_modes</c> table exists yet (that is T008),
-/// and <see cref="EventTypeAdmission"/> does not call this class until T005
-/// either way. Phase C (T007) fills in the two no-tracking queries against
-/// <c>EventIngestionDbContext</c>.
-/// </para>
+/// EF-backed <see cref="IEventTypeAdmissionSource"/> (plan.md §7). Both
+/// queries are no-tracking: this is the ingest-shaped read seam, not the
+/// write-side repositories.
 /// </summary>
-public sealed class EventTypeAdmissionSource : IEventTypeAdmissionSource
+public sealed class EventTypeAdmissionSource(EventIngestionDbContext dbContext) : IEventTypeAdmissionSource
 {
-    public Task<IReadOnlySet<(FabIdentifier Fab, Source Source)>> StrictSourcesAsync(
+    public async Task<IReadOnlySet<(FabIdentifier Fab, Source Source)>> StrictSourcesAsync(
         IReadOnlyCollection<FabIdentifier> fabs, CancellationToken cancellationToken)
     {
-        _ = fabs;
-        return Task.FromResult<IReadOnlySet<(FabIdentifier Fab, Source Source)>>(
-            new HashSet<(FabIdentifier, Source)>());
+        List<SourceMode> strict = await dbContext.SourceModes
+            .AsNoTracking()
+            .Where(sourceMode => fabs.Contains(sourceMode.Fab) && sourceMode.Mode == EventTypeMode.Strict)
+            .ToListAsync(cancellationToken);
+
+        return strict.Select(sourceMode => (sourceMode.Fab, sourceMode.Source)).ToHashSet();
     }
 
-    public Task<IReadOnlySet<Kind>> RegisteredKindsAsync(
+    public async Task<IReadOnlySet<Kind>> RegisteredKindsAsync(
         FabIdentifier fab, IReadOnlyCollection<Kind> kinds, CancellationToken cancellationToken)
     {
-        _ = fab;
-        _ = kinds;
-        return Task.FromResult<IReadOnlySet<Kind>>(new HashSet<Kind>());
+        List<Kind> registered = await dbContext.RegisteredEventTypes
+            .AsNoTracking()
+            .Where(eventType => eventType.Fab == fab
+                && kinds.Contains(eventType.Kind)
+                && eventType.State == RegistrationState.Registered)
+            .Select(eventType => eventType.Kind)
+            .ToListAsync(cancellationToken);
+
+        return registered.ToHashSet();
     }
 }
