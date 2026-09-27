@@ -67,15 +67,36 @@ async function probeToken(
 }
 
 /**
+ * Converts Oklab's L/a/b to WCAG relative luminance (Björn Ottosson's
+ * reference matrices). The conversion's output is already linear-light
+ * sRGB, so the WCAG coefficients apply directly with no gamma step.
+ */
+function relativeLuminanceFromOklab(L: number, a: number, b: number): number {
+  const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  const s_ = L - 0.0894841775 * a - 1.291485548 * b;
+
+  const l = l_ ** 3;
+  const m = m_ ** 3;
+  const s = s_ ** 3;
+
+  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const bLinear = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
+
+  return 0.2126 * r + 0.7152 * g + 0.0722 * bLinear;
+}
+
+/**
  * WCAG relative luminance from a `getComputedStyle` colour string.
  *
  * Chromium serializes `backgroundColor` as `rgb()`/`rgba()` for colours that
- * fit in sRGB, but as `oklab()` once a token (here a `--red-500` derived from
- * `oklch(67.864% 0.20948 24.66)`, ADR-0146) resolves outside the sRGB gamut —
- * the same computed value, a different wire format. Both are handled: `oklab`
- * converts to linear-light sRGB (Björn Ottosson's reference matrices) and the
- * WCAG coefficients apply directly, since that conversion's output is already
- * linear and needs no gamma step.
+ * fit in sRGB, but once a token (here a `--red-500` derived from
+ * `oklch(67.864% 0.20948 24.66)`, ADR-0146) resolves outside the sRGB gamut,
+ * as either `oklab()` or `oklch()` depending on the computed value — the same
+ * underlying colour, two out-of-gamut wire formats. `oklch` is `oklab` in
+ * polar form (`a = C·cos(H)`, `b = C·sin(H)`, H in degrees) and is converted
+ * to `oklab` before the same matrices apply.
  */
 function relativeLuminance(colour: string): number {
   const rgbMatch = colour.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
@@ -91,26 +112,19 @@ function relativeLuminance(colour: string): number {
   const oklabMatch = colour.match(/oklab\(\s*([\d.]+)%?\s+(-?[\d.]+)\s+(-?[\d.]+)/);
   if (oklabMatch) {
     const [, lRaw, aRaw, bRaw] = oklabMatch;
-    const L = Number(lRaw);
-    const a = Number(aRaw);
-    const b = Number(bRaw);
-
-    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
-    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
-    const s_ = L - 0.0894841775 * a - 1.291485548 * b;
-
-    const l = l_ ** 3;
-    const m = m_ ** 3;
-    const s = s_ ** 3;
-
-    const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
-    const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
-    const bLinear = -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s;
-
-    return 0.2126 * r + 0.7152 * g + 0.0722 * bLinear;
+    return relativeLuminanceFromOklab(Number(lRaw), Number(aRaw), Number(bRaw));
   }
 
-  throw new Error(`not an rgb()/rgba()/oklab() colour: ${colour}`);
+  const oklchMatch = colour.match(/oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+(-?[\d.]+)/);
+  if (oklchMatch) {
+    const [, lRaw, cRaw, hRaw] = oklchMatch;
+    const L = Number(lRaw);
+    const C = Number(cRaw);
+    const hRadians = (Number(hRaw) * Math.PI) / 180;
+    return relativeLuminanceFromOklab(L, C * Math.cos(hRadians), C * Math.sin(hRadians));
+  }
+
+  throw new Error(`not an rgb()/rgba()/oklab()/oklch() colour: ${colour}`);
 }
 
 async function backgroundColorOf(locator: Locator): Promise<string> {
