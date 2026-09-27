@@ -74,3 +74,43 @@ touching them (spec's explicit out-of-scope boundary).
   in the dashboard for this specific new call. The mechanism is identical to
   the already-shipped #2290 `ReleaseQuietlyAsync` case, which was previously
   verified this way, so the marginal risk is low but unconfirmed here.
+
+## 5. Phase 6 review findings and resolution
+
+Two independent phase-6 passes ran (`backend-reviewer`, `/code-review`
+medium). **No blockers** from either. Both fixed in follow-up commit
+`5b7ee63e`:
+
+- **Should-fix (both reviews) — `ReleaseQuietlyAsync` duplicated
+  `RecordQuietlyAsync`'s catch/`Activity.AddException` body.** Fixed:
+  `ReleaseQuietlyAsync` now delegates to `RecordQuietlyAsync`; the #2290
+  work-failure-path rationale (why not rethrown, why the release failure is
+  the less informative of a correlated pair, the stale-reclaim note) moved to
+  its call site's comment in `RunAndRecordAsync`'s `catch` block rather than
+  being dropped.
+- **Should-fix (backend-reviewer, S1) — spec artifacts (this file included)
+  were uncommitted.** Fixed: committed as `docs(274): ...`, the last commit
+  on the branch.
+- **Nit (backend-reviewer, N1) — the FR-003 comment implied the reserved-key
+  guard eliminates the duplicate-resource risk rather than delaying it.**
+  Fixed: comment now states a retry after `IdempotencyReclamation.StaleAfter`
+  re-runs the work — a delayed duplicate, accepted as out of scope here, not
+  eliminated.
+- **Nit (backend-reviewer, N2) — the release-after-refusal residual (key
+  stays reserved up to `StaleAfter`, not a regression) was unexplained.**
+  Fixed: added as a comment on `RunAndRecordAsync`'s `else` branch.
+- **Nit (backend-reviewer, N4) — no test covered `Activity` recording for
+  the release-after-refusal path, only for completion.** Fixed: added
+  `A_release_that_throws_after_a_refusal_records_its_failure_on_the_current_activity`,
+  written green directly (it closes a coverage gap in already-correct
+  behaviour, not a new-behaviour red/green cycle).
+- **Nit (backend-reviewer, N3) — issue references in code comments (`#2490`,
+  `#2290`).** Not changed: this follows the file's own pre-existing
+  precedent (`#2290 US2` was already there), and the reviewer flagged it as
+  non-blocking.
+
+Re-confirmed green after the follow-up commit: 15/15
+(`dotnet test tests/ServiceDefaults.Tests -c Release --filter
+"FullyQualifiedName~IdempotentRequestTests"`), and the 10 pre-existing
+baseline facts plus the 4 facts added in `278dd9d8` are byte-identical to
+before this commit — only the one new N4 fact was inserted.
