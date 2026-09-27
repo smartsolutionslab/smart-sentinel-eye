@@ -49,6 +49,8 @@ export const tailwindTheme = {
         fault: 'var(--color-accent-fault)',
         'fault-hover': 'var(--color-accent-fault-hover)',
         'fault-pressed': 'var(--color-accent-fault-pressed)',
+        'fault-subtle': 'var(--color-accent-fault-subtle)',
+        'fault-border': 'var(--color-accent-fault-border)',
         warning: 'var(--color-accent-warning)',
       },
       focus: {
