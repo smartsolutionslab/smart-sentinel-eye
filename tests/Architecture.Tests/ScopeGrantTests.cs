@@ -146,6 +146,48 @@ public class ScopeGrantTests
     /// </summary>
     private const string RegistryWriteScope = "sse.events.types.write";
 
+    /// <summary>
+    /// Spec 270 (ADR-0160) FR-007. Spelled as a literal for the same reason
+    /// <see cref="RegistryWriteScope"/> is: <c>Scope.Sse.Identity.Revocations.Read</c>
+    /// does not exist until T012 lands, and a test that will not compile is
+    /// not a red test. <b>Red until T012</b>: the realm defines no such scope
+    /// and no such client today, so <c>ClientNamed</c> throws.
+    /// </summary>
+    private const string RevocationListReadScope = "sse.identity.revocations.read";
+
+    private const string RevocationListReaderClientId = "revocation-list-reader";
+
+    /// <summary>
+    /// The mirror of <see cref="The_registry_write_scope_is_granted_to_the_operator_console"/>
+    /// for spec 270's new scope: it must be defined, and granted to exactly
+    /// one client — the shared read-only service account (ADR-0160 §4), not
+    /// the operator console and not a kiosk. ADR-0160's "one shared read-only
+    /// service account" reasoning is the same argument FR-010 makes for the
+    /// registry-write scope above: granting it more widely than its one
+    /// purpose needs is the failure this guard exists to catch.
+    /// </summary>
+    [Fact]
+    public void The_revocation_list_scope_is_defined_and_granted_only_to_the_revocation_list_reader()
+    {
+        DefinedScopes().ShouldContain(
+            RevocationListReadScope,
+            customMessage: $"the realm must define '{RevocationListReadScope}'; a client scope named "
+            + "and not defined is discarded at import with a warning only (ADR-0160 §4, FR-007).");
+
+        DefaultScopesOf(ClientNamed(RevocationListReaderClientId)).ShouldContain(
+            RevocationListReadScope,
+            customMessage: $"'{RevocationListReaderClientId}' must hold '{RevocationListReadScope}' — it "
+            + "is the one client this scope exists for (ADR-0160 §4).");
+
+        DefaultScopesOf(ClientNamed(OperatorConsoleClientId)).ShouldNotContain(
+            RevocationListReadScope,
+            customMessage: "the operator console must not hold the revocation-list scope; ADR-0160 §4 "
+            + "chose one dedicated service account precisely so this permission is not spread onto "
+            + "clients that do not need it.");
+
+        DefaultScopesOf(ClientNamed(KioskClientId)).ShouldNotContain(RevocationListReadScope);
+    }
+
     private static IReadOnlyCollection<string> DefinedScopes() =>
         [.. Realm().GetProperty("clientScopes").EnumerateArray()
             .Select(scope => scope.GetProperty("name").GetString() ?? string.Empty)];
