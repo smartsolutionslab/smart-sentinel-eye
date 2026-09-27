@@ -44,31 +44,32 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 /// never a fixed sleep in place of that condition (constitution §Testing) —
 /// because <c>AspireCollection</c> serialises every test class here against one
 /// running stack; a test that returns with the window still exhausted would
-/// poison whichever test runs next. <b>Corrected (spec 208 review S10):</b> once
-/// admission is observed, <see cref="WaitUntilAdmittedAgainAsync"/> deliberately
-/// holds for one additional full <c>Window</c> before returning — a fixed
-/// <c>Task.Delay(Window)</c>, but layered on top of the condition wait, not
-/// instead of it. See that method's own comment (S9) for why a delay of
-/// exactly <c>Window</c>, anchored at the moment admission was confirmed, is
-/// load-bearing rather than an arbitrary safety margin.
+/// poison whichever test runs next. <b>Corrected, then replaced (spec 208
+/// review S10, spec 251/#2537):</b> <see cref="WaitUntilAdmittedAgainAsync"/>
+/// used to hold for one additional full <c>Window</c> after an observed
+/// admission before returning, on the theory that a delay of exactly
+/// <c>Window</c> reliably lands the next fact just past the following
+/// boundary. It does not: the limiter's boundary is heartbeat-driven (one
+/// heartbeat every 100 ms replenishes the window only once
+/// <c>now - lastReplenishment >= Window</c>), so that fixed delay could drift
+/// past the boundary under heartbeat lateness, handing the next fact a
+/// window that already held a spent permit. Every limiter-counting fact now
+/// observes its own starting boundary directly, through
+/// <see cref="BeginCountingAsync"/>, rather than inheriting one from a
+/// recovery delay; see that method's own doc comment for the mechanism.
 /// </para>
 ///
 /// <para>
-/// <b>Spec 251 (#2537), phase 4a.</b> The premise every fact's arithmetic
-/// rests on — "this fact begins in a fresh window with all <c>PermitLimit</c>
-/// permits" — was, until now, produced by <see cref="WaitUntilAdmittedAgainAsync"/>'s
-/// fixed delay rather than observed, and the limiter's heartbeat (100 ms,
-/// first tick at or after <c>Window</c>) could drift that delay's anchor past
-/// the next boundary, straddling the following fact's own count. This phase
-/// introduces the alignment seam, <see cref="BeginCountingAsync"/>, as a
-/// no-op that simply returns <c>PermitLimit</c> — today's premise, made
-/// explicit rather than changed — so every fact below is a characterisation
-/// of the present protocol. Recovery also moves here to
-/// <see cref="DisposeAsync"/>, so it runs after a failing fact too, but its
-/// body is still today's <see cref="WaitUntilAdmittedAgainAsync"/>, delay
-/// included. Phase 4b implements <see cref="BeginCountingAsync"/> for real
-/// (observe a refusal-then-admission boundary) and removes the delay; see
-/// that method's own doc comment for the mechanism.
+/// <b>Spec 251 (#2537).</b> The premise every fact's arithmetic rests on —
+/// "this fact begins in a fresh window with all <c>PermitLimit</c> permits"
+/// — is now observed rather than guessed: every limiter-counting fact calls
+/// the alignment seam, <see cref="BeginCountingAsync"/>, which sends until
+/// refused and polls until admitted again, proving a reset happened between
+/// the two before the fact spends a single counted request. Recovery moved
+/// to <see cref="DisposeAsync"/>, so it runs after a failing fact too and no
+/// longer poisons whichever fact in <c>AspireCollection</c> runs next (spec
+/// 251 §1.1, run 35845632059's <c>Repeated…</c> cascade after a failed
+/// <c>A_throttled…</c>).
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -162,16 +163,12 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// directly.
     /// </summary>
     /// <remarks>
-    /// <b>Phase 4a (this phase):</b> a no-op — <c>return PermitLimit;</c>, no
-    /// requests, no waits. This is today's premise made explicit rather than
-    /// changed: every fact's arithmetic below is identical to what it was
-    /// before this seam existed, which is what makes this phase's capture a
-    /// characterisation rather than new behaviour.
-    /// <para>
-    /// <b>Phase 4b:</b> sends <see cref="PermitLimit"/> + 1 requests until one
-    /// is refused with <c>429</c> (bounded — fails "the window never
-    /// refused" if none of them is), then polls every
-    /// <see cref="AlignmentPollInterval"/> until a request is admitted again.
+    /// Sends <see cref="NoTokenBody"/> requests until one is refused with
+    /// <c>429</c> (bounded — fails "the window never refused" if
+    /// <see cref="PermitLimit"/> + 1 sends never see one), then shares
+    /// <see cref="PollUntilAdmittedAsync"/>'s condition to observe the window
+    /// reopening: poll every <see cref="AlignmentPollInterval"/> until a
+    /// non-<c>429</c> answer, bounded by <see cref="AdmissionRecoveryTimeout"/>.
     /// A refusal followed by an admission proves a reset happened between
     /// them; at a 50 ms cadence the boundary is known to within roughly that
     /// poll interval plus one round trip, and the *next* boundary is a full
@@ -179,9 +176,30 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// lengthen, by heartbeat drift, never shorten). The admitted probe
     /// itself spent one permit in the fresh window, so the fact's budget is
     /// <c>PermitLimit - 1</c>.
-    /// </para>
     /// </remarks>
-    private static Task<int> BeginCountingAsync() => Task.FromResult(PermitLimit);
+    private async Task<int> BeginCountingAsync()
+    {
+        bool refused = false;
+
+        for (int attempt = 0; attempt < PermitLimit + 1; attempt++)
+        {
+            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                refused = true;
+                break;
+            }
+        }
+
+        refused.ShouldBeTrue(
+            $"the window never refused after {PermitLimit + 1} requests — is another limiter "
+            + "configuration live?");
+
+        await PollUntilAdmittedAsync();
+
+        return PermitLimit - 1;
+    }
 
     /// <summary>
     /// US1 acceptance scenario 2 / FR-001. The cheapest admitted shape — no
@@ -645,41 +663,22 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
 
             if (status != HttpStatusCode.TooManyRequests)
             {
-                // The admission probe above consumed one permit slot in
-                // *this* window. Returning immediately would hand the next
-                // fact in AspireCollection's sequence (milliseconds later,
-                // well inside this 10s test-mode Window) a window with 1
-                // slot already spent rather than a fresh PermitLimit-sized
-                // budget — exactly what poisoned
-                // A_throttled_authorize_never_reaches_the_handler's own
-                // admitted-request math.
-                //
-                // S9 (spec 208 review) — the stronger, load-bearing reason a
-                // full extra Window is needed, not merely "one slot back":
-                // FixedWindowRateLimiter replenishes on a timer anchored at
-                // limiter *creation*, not per caller and not per partition.
-                // A fact that starts at an arbitrary phase within that
-                // server-wide window boundary only has whatever time remains
-                // until the *next* boundary to run its own admit/exhaust
-                // sequence — which can be anywhere from almost a full Window
-                // down to almost none. Delaying a full Window after an
-                // *observed* admission reliably lands the next fact just
-                // past the following boundary instead, handing it close to a
-                // full Window of its own to work with regardless of where in
-                // the server's cycle this fact happened to run. Do not
-                // "optimise" this down to Window/2 or similar — that
-                // reintroduces exactly the intermittent, phase-dependent
-                // flakiness this delay exists to remove, with nothing left
-                // to explain it.
-                //
-                // Spec 251 (#2537): this is exactly the guess that can drift
-                // past the following boundary under heartbeat lateness,
-                // straddling the *next* fact's own count — see spec 251 §1.2.
-                // Phase 4b replaces the fixed delay with an observed
-                // boundary (BeginCountingAsync) rather than removing this
-                // recovery step, which still only needs to leave the window
-                // in a state some later fact can safely align from.
-                await Task.Delay(Window);
+                // Spec 251 (#2537) FR-003: this recovery step only has to
+                // leave the window in a state some later fact can safely
+                // align from — it no longer guesses at the boundary itself.
+                // It used to hold here for one additional full Window (spec
+                // 208 review S9/S10, a fixed Task.Delay(Window) anchored at
+                // this observed admission), on the theory that a delay of
+                // exactly Window reliably lands the next fact just past the
+                // following boundary. It does not: FixedWindowRateLimiter
+                // replenishes on a heartbeat (100 ms, first tick at or after
+                // Window) anchored at limiter creation, not per caller or
+                // partition, so that fixed delay could drift past the
+                // boundary under heartbeat lateness — handing the next fact
+                // a window that already held this probe's spent permit (spec
+                // 251 §1.2). Every limiter-counting fact now observes its own
+                // starting boundary directly through BeginCountingAsync
+                // instead of inheriting one from here.
                 return;
             }
 
