@@ -154,8 +154,10 @@ test('operator looks at the overlay action, lands back on set-a-variable, and th
   await page.locator('#rule-kind').fill('PlcCycleStart');
   await page.locator('#rule-predicate').fill('$.payload.cycleTime <= 30');
 
-  await page.locator('#rule-action-type').selectOption('HighlightOverlay');
-  await page.locator('#rule-action-type').selectOption('SetVariableValue');
+  await page.getByRole('combobox', { name: /^action$/i }).click();
+  await page.getByRole('option', { name: 'Highlight an overlay' }).click();
+  await page.getByRole('combobox', { name: /^action$/i }).click();
+  await page.getByRole('option', { name: 'Set a system variable' }).click();
 
   await page.locator('#rule-variable').fill('oeeLine1');
   await page.locator('#rule-value-expression').fill('100 - $.payload.cycleTime * 2');
