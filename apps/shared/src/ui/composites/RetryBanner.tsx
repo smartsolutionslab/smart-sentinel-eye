@@ -3,11 +3,9 @@ export interface RetryBannerProps {
   onRetry: () => void;
 }
 
-// Spec 274 (issue #2523): the seven call sites (six list-page "replace"
-// banners plus CameraDetailPage's "stale" banner) rendered this identical
-// fragment inline. `message` alone carries the replace/stale distinction —
-// no `variant` prop, because nothing about the DOM or behaviour differs
-// between the two, only the sentence (plan.md §2, ADR-0036).
+// Call sites differ only in the sentence (a failed load vs. stale data
+// shown below), so `message` carries the distinction and there is no
+// `variant` prop.
 export function RetryBanner({ message, onRetry }: RetryBannerProps) {
   return (
     <div

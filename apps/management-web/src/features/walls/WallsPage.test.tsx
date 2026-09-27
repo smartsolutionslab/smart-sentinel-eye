@@ -6,10 +6,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { store } from '../../app/store.js';
 
 /**
- * Spec 274 T2f-baseline: `WallsPage.tsx` has no covering test today
- * (confirmed absent — spec 274 §1.2). This characterises the page's current,
- * unchanged behaviour before T2f swaps its inline banner for `RetryBanner`;
- * this case must keep passing, unmodified, after that swap.
+ * Characterises the retry banner: role=alert, exact message, Retry calls
+ * refetch.
  */
 
 const listWallsMock = vi.fn();
