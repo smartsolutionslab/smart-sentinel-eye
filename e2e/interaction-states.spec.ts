@@ -66,18 +66,53 @@ async function probeToken(
   );
 }
 
-/** WCAG relative luminance from a `getComputedStyle` `rgb(r, g, b)`/`rgba(...)` string. */
-function relativeLuminance(rgb: string): number {
-  const match = rgb.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (!match) {
-    throw new Error(`not an rgb()/rgba() colour: ${rgb}`);
+/**
+ * WCAG relative luminance from a `getComputedStyle` colour string.
+ *
+ * Chromium serializes `backgroundColor` as `rgb()`/`rgba()` for colours that
+ * fit in sRGB, but as `oklab()` once a token (here a `--red-500` derived from
+ * `oklch(67.864% 0.20948 24.66)`, ADR-0146) resolves outside the sRGB gamut —
+ * the same computed value, a different wire format. Both are handled: `oklab`
+ * converts to linear-light sRGB (Björn Ottosson's reference matrices) and the
+ * WCAG coefficients apply directly, since that conversion's output is already
+ * linear and needs no gamma step.
+ */
+function relativeLuminance(colour: string): number {
+  const rgbMatch = colour.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+  if (rgbMatch) {
+    function linearize(component: string | undefined): number {
+      const c = Number(component ?? 0) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    }
+    const [, r, g, b] = rgbMatch;
+    return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
   }
-  function linearize(component: string | undefined): number {
-    const c = Number(component ?? 0) / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+
+  const oklabMatch = colour.match(
+    /oklab\(\s*([\d.]+)%?\s+(-?[\d.]+)\s+(-?[\d.]+)/,
+  );
+  if (oklabMatch) {
+    const [, lRaw, aRaw, bRaw] = oklabMatch;
+    const L = Number(lRaw);
+    const a = Number(aRaw);
+    const b = Number(bRaw);
+
+    const l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+    const m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+    const s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+
+    const l = l_ ** 3;
+    const m = m_ ** 3;
+    const s = s_ ** 3;
+
+    const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+    const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+    const bLinear = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bLinear;
   }
-  const [, r, g, b] = match;
-  return 0.2126 * linearize(r) + 0.7152 * linearize(g) + 0.0722 * linearize(b);
+
+  throw new Error(`not an rgb()/rgba()/oklab() colour: ${colour}`);
 }
 
 async function backgroundColorOf(locator: Locator): Promise<string> {
