@@ -1,4 +1,4 @@
-# Plan 274: The banner every page repeats
+# Plan 277: The banner every page repeats
 
 **Spec:** `spec.md` · **Issue:** #2523 · **Lane:** supervised (ADR-0037)
 

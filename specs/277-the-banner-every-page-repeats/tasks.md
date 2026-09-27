@@ -1,4 +1,4 @@
-# Tasks 274: The banner every page repeats
+# Tasks 277: The banner every page repeats
 
 **Spec**: [spec.md](spec.md) · **Plan**: [plan.md](plan.md) · **Issue**: #2523 (feature-level; no
 per-task issues)
@@ -28,11 +28,13 @@ touches).
 
 ## Pre-work
 
-- [ ] **T0** Re-check the spec number is still free: `git worktree list` from
+- [x] **T0** Re-check the spec number is still free: `git worktree list` from
   `D:\Github\smart-sentinel-eye`, then `ls specs` in every worktree it lists, plus
   `git ls-tree -d --name-only origin/<branch> -- specs` for every `origin/*` branch not checked
-  out. Confirm nothing claims `274-*`. If something does, renumber before continuing (memory:
-  *spec number: origin/develop isn't enough*).
+  out. Confirm nothing claims the current number. Re-run before opening the PR, not just at
+  dispatch (memory: *spec number: origin/develop isn't enough*). **Done at PR time**: found a
+  3-way collision on 274 (`sse-2358` committed it first, this spec second, `sse-2490` third —
+  the latter renumbered to 278); renumbered this spec to 277, confirmed free.
 
 ## Phase 4a: characterisation baseline + the one new test (frontend-engineer)
 
