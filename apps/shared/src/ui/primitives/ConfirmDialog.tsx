@@ -65,9 +65,12 @@ export function ConfirmDialog({
     <RadixAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixAlertDialog.Portal>
         <RadixAlertDialog.Overlay className="fixed inset-0 z-overlay bg-scrim backdrop-blur-sm" />
+        {/* z-popover, not z-overlay: see Dialog.tsx — the same tie let the
+            Overlay's compositor layer win the hit-test for a click meant for
+            Content (issue #2335, PR #2637). */}
         <RadixAlertDialog.Content
           className={
-            'fixed left-1/2 top-1/2 z-overlay w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
+            'fixed left-1/2 top-1/2 z-popover w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
             'max-h-[90vh] overflow-y-auto ' +
             'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary'
           }
