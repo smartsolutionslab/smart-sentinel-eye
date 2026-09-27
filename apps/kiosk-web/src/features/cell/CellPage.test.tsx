@@ -1058,7 +1058,7 @@ describe('CellPage', () => {
      * RED. US1 — the opening label, which no push is involved in at all.
      *
      * <p>
-     * `GET /system-variables/snapshot` has always been able to resolve in a
+     * `GET /system-variables/-/snapshot` has always been able to resolve in a
      * named fab; what it was never told is which one. This asserts the argument
      * the page hands the query, because that argument is also its RTK Query
      * cache key (plan.md, Risk 1) — and a cache key that disagrees with the

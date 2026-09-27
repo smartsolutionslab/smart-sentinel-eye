@@ -27,7 +27,7 @@ describe('getOverlaySnapshot cache tags (spec 011 FR-008)', () => {
   });
 
   it("Refetches a mounted snapshot query when the 'ALL' sentinel is invalidated", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(snapshotResponse()));
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) => Promise.resolve(snapshotResponse()));
     vi.stubGlobal('fetch', fetchMock);
     const store = createStore();
 
@@ -35,6 +35,9 @@ describe('getOverlaySnapshot cache tags (spec 011 FR-008)', () => {
       systemVariablesApi.endpoints.getOverlaySnapshot.initiate({ overlayIdentifier: 'ovl-1', fabId: 'munich' }),
     );
     expect(fetchMock).toHaveBeenCalledTimes(1);
+    const requested = fetchMock.mock.calls[0]?.[0];
+    const requestedUrl = new URL(requested instanceof Request ? requested.url : (requested as string));
+    expect(requestedUrl.pathname).toBe('/system-variables/system-variables/-/snapshot');
 
     store.dispatch(systemVariablesApi.util.invalidateTags([{ type: 'OverlaySnapshot', id: 'ALL' }]));
 
@@ -92,7 +95,7 @@ describe('resolveOverlayText (spec 148 US1)', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const requested = fetchMock.mock.calls[0]?.[0];
     const requestedUrl = new URL(requested instanceof Request ? requested.url : (requested as string));
-    expect(requestedUrl.pathname.endsWith('/resolve')).toBe(true);
+    expect(requestedUrl.pathname).toBe('/system-variables/system-variables/-/resolve');
     expect(requestedUrl.searchParams.get('text')).toBe('{{temperature}}');
     expect(requestedUrl.searchParams.has('fabId')).toBe(false);
   });
