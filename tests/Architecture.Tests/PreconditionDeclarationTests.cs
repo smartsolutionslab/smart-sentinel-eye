@@ -184,9 +184,10 @@ public class PreconditionDeclarationTests
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually: a
     /// single total lets one file stop being read while the others carry it.
-    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14.
+    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14. Spec 270 (ADR-0160)
+    /// added RevocationEndpoints.cs: 14 -&gt; 15.
     /// </summary>
-    private const int EndpointFileCount = 14;
+    private const int EndpointFileCount = 15;
 
     private static readonly Regex MappingCall = new(
         @"\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",
@@ -609,7 +610,7 @@ public class PreconditionDeclarationTests
     /// nothing about a file it is never given.
     /// </summary>
     [Fact]
-    public void The_endpoint_file_glob_still_finds_fourteen_files()
+    public void The_endpoint_file_glob_still_finds_fifteen_files()
     {
         IReadOnlyList<string> files = TheSurface.Value.EndpointSources;
 

@@ -100,14 +100,17 @@ public class StatusProducerDeclarationTests
     /// <summary>
     /// Every <c>.Map(Get|Post|Put|Patch|Delete)(</c> site under <c>src/*/Api</c>.
     /// Spec 258 US1 added WallEndpoints.cs's five route handlers: 60 -&gt; 65.
+    /// Spec 270 (ADR-0160) added <c>src/Identity/Api/RevocationEndpoints.cs</c>'s
+    /// one route handler (<c>GET /registered-clients/revoked</c>): 65 -&gt; 66.
     /// </summary>
-    private const int RouteHandlerMappingCount = 65;
+    private const int RouteHandlerMappingCount = 66;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
-    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14.
+    /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14. Spec 270 added
+    /// RevocationEndpoints.cs: 14 -&gt; 15.
     /// </summary>
-    private const int EndpointFileCount = 14;
+    private const int EndpointFileCount = 15;
 
     /// <summary>Where the exception handlers this census classifies are registered.</summary>
     private const string RegistrationSource = "src/ServiceDefaults/AuthenticationDefaults.cs";
