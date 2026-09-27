@@ -333,10 +333,14 @@ OpenTelemetry (provided by Aspire defaults).
   with payload and error, audit-only and never fanned out. A fab-scoped
   event-type registry now exists (spec 143, the first third of issue
   1972) — an operator can declare, list and retire the event types a fab
-  expects — but nothing reads it yet: there is still **no per-source
-  strict/discovery mode (issue 2324) and no promotion path (issue 2325)**,
-  so an *unknown* type is ingested like any other rather than quarantined
-  for review. The intended guarantee stands as a requirement (ADR-018,
+  expects. A per-`(fab, Source)` strict/discovery admission mode now
+  exists too (spec 269, the second third of issue 1972): an undeclared
+  or explicitly `discovery` pair defaults to today's open behaviour, and
+  a source an operator has declared `strict` has an event refused at the
+  door when its type has no `Registered` entry for that fab. **There is
+  still no promotion path (issue 2325)**, so an *unknown* type under
+  `discovery` is ingested like any other rather than quarantined for
+  review. The intended guarantee stands as a requirement (ADR-018,
   ADR-0130, issue 1972), **not as a description of today**.
 - **Kiosks.** Device-bound credentials **exist** — `POST /kiosks/enroll`
   mints a per-kiosk confidential client with a service account and a
