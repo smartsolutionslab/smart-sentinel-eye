@@ -6,8 +6,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { store } from '../../app/store.js';
 
 /**
- * Characterises the retry banner: role=alert, exact message, Retry calls
- * refetch.
+ * WallsPage had no covering test for its retry banner. This characterises
+ * the current behaviour (role=alert, exact message, Retry calls refetch) so
+ * it must keep passing unmodified once the inline banner is swapped for the
+ * shared RetryBanner composite.
  */
 
 const listWallsMock = vi.fn();
