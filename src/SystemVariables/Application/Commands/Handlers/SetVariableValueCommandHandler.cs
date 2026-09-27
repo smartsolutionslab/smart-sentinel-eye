@@ -40,10 +40,6 @@ public sealed class SetVariableValueCommandHandler(
         {
             return Failure(SetVariableValueFailures.VariableStale(name.Value, expectedVersion.Value, variable.Version));
         }
-        if (variable.State == VariableState.Archived)
-        {
-            return Failure(SetVariableValueFailures.VariableArchived(name.Value));
-        }
 
         VariableValue typedValue;
         try

@@ -12,12 +12,6 @@ public abstract record SetVariableValueError(string Code, string Message, HttpSt
             $"System variable '{Name}' does not exist.",
             HttpStatusCode.NotFound);
 
-    public sealed record VariableArchived(string Name)
-        : SetVariableValueError(
-            "VARIABLE_ARCHIVED",
-            $"System variable '{Name}' is archived and cannot be updated.",
-            HttpStatusCode.Conflict);
-
     public sealed record VariableTypeMismatch(string ExpectedType, string Reason)
         : SetVariableValueError(
             "VARIABLE_TYPE_MISMATCH",
@@ -46,9 +40,6 @@ public static class SetVariableValueFailures
 {
     public static SetVariableValueError VariableNotFound(string name) =>
         new SetVariableValueError.VariableNotFound(name);
-
-    public static SetVariableValueError VariableArchived(string name) =>
-        new SetVariableValueError.VariableArchived(name);
 
     public static SetVariableValueError VariableTypeMismatch(string expectedType, string reason) =>
         new SetVariableValueError.VariableTypeMismatch(expectedType, reason);
