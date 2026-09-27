@@ -81,7 +81,7 @@ export function Button({
   unavailable,
   busy,
   'aria-disabled': ariaDisabled,
-  ...domProps
+  ...rest
 }: ButtonProps) {
   const Component = asChild ? Slot : 'button';
   // No `border-transparent` here — it used to sit here unconditionally, tied
@@ -136,7 +136,7 @@ export function Button({
         busy && 'cursor-progress',
         className,
       )}
-      {...domProps}
+      {...rest}
     />
   );
 }
