@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
@@ -306,7 +307,7 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     }
 
     private WhepAuthValidator ValidatorOver(IConfigurationManager<OpenIdConnectConfiguration> metadata) =>
-        new(metadata, logs);
+        new(metadata, new RevokedClientRegistry(), logs);
 
     private WhepAuthValidator ValidatorOver(IDocumentRetriever retriever) =>
         new(
@@ -314,6 +315,7 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
                 $"{Authority}/.well-known/openid-configuration",
                 new OpenIdConnectConfigurationRetriever(),
                 retriever),
+            new RevokedClientRegistry(),
             logs);
 
     private static string DiscoveryDocument =>

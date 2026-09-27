@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
@@ -128,7 +129,7 @@ public sealed class WhepValidatorAudienceTests : IDisposable
             new OpenIdConnectConfigurationRetriever(),
             new StubbedMetadata(DiscoveryDocument, JsonWebKeySet()));
 
-        return new WhepAuthValidator(metadata, NullLogger<WhepAuthValidator>.Instance);
+        return new WhepAuthValidator(metadata, new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
     }
 
     private static string DiscoveryDocument =>

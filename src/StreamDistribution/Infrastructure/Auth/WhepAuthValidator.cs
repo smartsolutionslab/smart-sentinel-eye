@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 
@@ -20,6 +21,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 public sealed class WhepAuthValidator : IWhepAuthValidator
 {
     private readonly IConfigurationManager<OpenIdConnectConfiguration> oidc;
+    private readonly IRevokedClientRegistry revokedClients;
     private readonly ILogger<WhepAuthValidator> logger;
 
     // 0 while the realm is answering, 1 while it is not. Flipped with Interlocked
@@ -37,8 +39,9 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     // needs its own adversarial pass over malformed inputs (spec 089 D4).
     private readonly JwtSecurityTokenHandler handler = new();
 
-    public WhepAuthValidator(IOptions<WhepAuthOptions> options, ILogger<WhepAuthValidator> logger)
-        : this(MetadataSourceFor(options), logger)
+    public WhepAuthValidator(
+        IOptions<WhepAuthOptions> options, IRevokedClientRegistry revokedClients, ILogger<WhepAuthValidator> logger)
+        : this(MetadataSourceFor(options), revokedClients, logger)
     {
     }
 
@@ -50,12 +53,15 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     /// </summary>
     internal WhepAuthValidator(
         IConfigurationManager<OpenIdConnectConfiguration> metadata,
+        IRevokedClientRegistry revokedClients,
         ILogger<WhepAuthValidator> logger)
     {
         Ensure.That(metadata).IsNotNull();
+        Ensure.That(revokedClients).IsNotNull();
         Ensure.That(logger).IsNotNull();
 
         oidc = metadata;
+        this.revokedClients = revokedClients;
         this.logger = logger;
 
         parameters = CreateParameters();
@@ -168,11 +174,22 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             validationParameters.ValidIssuers = [configuration.Issuer];
             validationParameters.IssuerSigningKeys = configuration.SigningKeys;
 
-            ClaimsPrincipal principal = handler.ValidateToken(bearerToken, validationParameters, out _);
+            ClaimsPrincipal principal = handler.ValidateToken(bearerToken, validationParameters, out SecurityToken validated);
 
             string? subject = principal.FindFirst("sub")?.Value;
             if (subject is null)
             {
+                return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
+            }
+
+            // Spec 270 (ADR-0160): refuse a token whose client was disabled
+            // after it was minted. No RequestRefreshIfAStaleDocumentCouldExplain
+            // here — a fresher discovery document cannot cure a revocation
+            // (plan.md §4.4).
+            string? azp = principal.FindFirst("azp")?.Value;
+            if (revokedClients.Refuses(azp, IssuedAtOf(validated)))
+            {
+                logger.TokenRefusedAsRevoked(azp ?? string.Empty);
                 return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
             }
 
@@ -204,6 +221,20 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
         }
     }
+
+    /// <summary>
+    /// Unlike the bearer pipeline (<see cref="AuthenticationDefaults"/>), this
+    /// handler is the legacy <see cref="JwtSecurityTokenHandler"/>, so
+    /// <paramref name="securityToken"/> is a <see cref="JwtSecurityToken"/>
+    /// whose own <c>IssuedAt</c> answers <see cref="DateTime.MinValue"/> when
+    /// the token carries no <c>iat</c> — mapped to <see langword="null"/>,
+    /// the same "anomalous" case <see cref="RevokedClientSnapshot.Refuses"/>
+    /// already refuses for a listed client.
+    /// </summary>
+    private static DateTimeOffset? IssuedAtOf(SecurityToken securityToken) =>
+        securityToken is JwtSecurityToken { IssuedAt: var issuedAt } && issuedAt != DateTime.MinValue
+            ? new DateTimeOffset(issuedAt, TimeSpan.Zero)
+            : null;
 
     /// <summary>
     /// Mirrors what <c>JwtBearerHandler</c> does for the nine REST APIs, which is
