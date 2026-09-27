@@ -58,6 +58,7 @@
     { "name": "sse.identity.kiosks.write", "description": "Enroll and disable kiosk clients.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.identity.devices.read", "description": "List registered device clients.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.identity.kiosks.read", "description": "List enrolled kiosk clients.", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
+    { "name": "sse.identity.revocations.read", "description": "Read every disabled client id and its latest DisabledAt (spec 270, ADR-0160).", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     { "name": "sse.audit.read", "description": "Read the bus-fed audit trail (spec 009).", "protocol": "openid-connect", "attributes": { "include.in.token.scope": "true", "display.on.consent.screen": "false" } },
     {
       "name": "sse-groups",
@@ -278,6 +279,23 @@
       "defaultClientScopes": [
         "sse-identity",
         "sse-audience"
+      ]
+    },
+    {
+      "clientId": "revocation-list-reader",
+      "name": "Smart Sentinel Eye — Revocation list reader (service account)",
+      "description": "Spec 270, ADR-0160 section 4. Shared read-only account every non-Identity API presents to GET /registered-clients/revoked. In no fab group: the endpoint is not fab-scoped.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-revocation-list-reader-secret",
+      "protocol": "openid-connect",
+      "defaultClientScopes": [
+        "sse-identity",
+        "sse-audience",
+        "sse.identity.revocations.read"
       ]
     },
     {
@@ -601,6 +619,11 @@
       "username": "service-account-event-ingestion",
       "enabled": true,
       "serviceAccountClientId": "event-ingestion"
+    },
+    {
+      "username": "service-account-revocation-list-reader",
+      "enabled": true,
+      "serviceAccountClientId": "revocation-list-reader"
     }
   ]
 }
