@@ -16,12 +16,13 @@ public sealed class EventTypeAdmissionSource(EventIngestionDbContext dbContext) 
     public async Task<IReadOnlySet<(FabIdentifier Fab, Source Source)>> StrictSourcesAsync(
         IReadOnlyCollection<FabIdentifier> fabs, CancellationToken cancellationToken)
     {
-        List<SourceMode> strict = await dbContext.SourceModes
+        var strict = await dbContext.SourceModes
             .AsNoTracking()
             .Where(sourceMode => fabs.Contains(sourceMode.Fab) && sourceMode.Mode == EventTypeMode.Strict)
+            .Select(sourceMode => new { sourceMode.Fab, sourceMode.Source })
             .ToListAsync(cancellationToken);
 
-        return strict.Select(sourceMode => (sourceMode.Fab, sourceMode.Source)).ToHashSet();
+        return strict.Select(row => (row.Fab, row.Source)).ToHashSet();
     }
 
     public async Task<IReadOnlySet<Kind>> RegisteredKindsAsync(

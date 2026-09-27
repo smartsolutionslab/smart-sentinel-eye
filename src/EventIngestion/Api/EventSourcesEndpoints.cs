@@ -25,7 +25,12 @@ namespace SmartSentinelEye.EventIngestion.Api;
 /// </summary>
 public static class EventSourcesEndpoints
 {
-    /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
+    /// <summary>
+    /// Route identity an idempotency key is scoped to (ADR-0142). The resolved
+    /// <c>fab/source</c> is appended at the call site, not folded in here: a
+    /// multi-fab operator who reuses a key across two fabs (or two sources)
+    /// must get two declarations, not the first one replayed onto the second.
+    /// </summary>
     private const string DeclareEndpoint = "POST /event-sources";
 
     public static IEndpointRouteBuilder MapEventSourcesEndpoints(this IEndpointRouteBuilder app)
@@ -120,7 +125,9 @@ public static class EventSourcesEndpoints
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
                 key.Map(supplied => IdempotencyScope.For(
-                    supplied, DeclareEndpoint, declaredBy.Value.ToString())),
+                    supplied,
+                    $"{DeclareEndpoint} {fab.Value}/{source.Value}",
+                    declaredBy.Value.ToString())),
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-sources/{source.Value}",
