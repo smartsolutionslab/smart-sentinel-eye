@@ -174,7 +174,11 @@ async function archiveByName(page: Page, name: string): Promise<Outcome> {
 
   try {
     await moreActions.click({ timeout: 15_000 });
-    // The menu is portalled, so its items are not inside `row`.
+    // The menu is portalled, so its items are not inside `row`. Wait for it
+    // to actually render before counting — `.count()` does not wait, so
+    // counting right after the click can read the pre-open DOM and treat a
+    // row that does offer Archive as nothing-to-do.
+    await expect(page.getByRole('menu')).toBeVisible({ timeout: 15_000 });
     const archiveItem = page.getByRole('menuitem', { name: /^archive$/i });
     if ((await archiveItem.count()) === 0) {
       await page.keyboard.press('Escape');
@@ -194,7 +198,19 @@ async function archiveByName(page: Page, name: string): Promise<Outcome> {
     await expect(async () => {
       const triggerCount = await moreActions.count();
       if (triggerCount === 0) return;
+      // A previous attempt in this same retry can have opened the menu and
+      // then thrown before reaching its own Escape below, leaving it open.
+      // Clicking the trigger again would then toggle it CLOSED, and the
+      // menuitem count below would read 0 because the menu is shut, not
+      // because Archive is gone — the check passing without proving the
+      // thing it checks (an assertion must not check its own input).
+      const menu = page.getByRole('menu');
+      if (await menu.isVisible().catch(() => false)) {
+        await page.keyboard.press('Escape');
+        await expect(menu).toBeHidden();
+      }
       await moreActions.click();
+      await expect(menu).toBeVisible();
       await expect(page.getByRole('menuitem', { name: /^archive$/i })).toHaveCount(0);
       await page.keyboard.press('Escape');
     }).toPass({ timeout: 20_000 });
