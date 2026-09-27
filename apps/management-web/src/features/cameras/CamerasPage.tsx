@@ -59,6 +59,10 @@ export function CamerasPage() {
   const totalCount = data?.count ?? 0;
   const showingFrom = totalCount === 0 ? 0 : offset + 1;
   const showingTo = Math.min(offset + items.length, totalCount);
+  // ADR-0151: hoisted once each so Previous/Next's `unavailable` prop and its
+  // guard read the same value.
+  const previousUnavailable = offset === 0 || isFetching;
+  const nextUnavailable = offset + items.length >= totalCount || isFetching;
 
   const visibleCameraIds = useMemo(() => items.map((row) => row.cameraIdentifier), [items]);
 
@@ -165,9 +169,9 @@ export function CamerasPage() {
         <div className="flex gap-2">
           <Button
             variant="secondary"
-            unavailable={offset === 0 || isFetching}
+            unavailable={previousUnavailable}
             onClick={() => {
-              if (offset === 0 || isFetching) return;
+              if (previousUnavailable) return;
               setOffset(Math.max(0, offset - PAGE_SIZE));
             }}
           >
@@ -175,9 +179,9 @@ export function CamerasPage() {
           </Button>
           <Button
             variant="secondary"
-            unavailable={offset + items.length >= totalCount || isFetching}
+            unavailable={nextUnavailable}
             onClick={() => {
-              if (offset + items.length >= totalCount || isFetching) return;
+              if (nextUnavailable) return;
               setOffset(offset + PAGE_SIZE);
             }}
           >

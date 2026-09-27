@@ -147,29 +147,34 @@ export function WallDetailPage() {
       )}
 
       <ul className="flex flex-col gap-2">
-        {wall.scenes.map((scene) => (
-          <li
-            key={scene}
-            className="flex items-center justify-between rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3"
-          >
-            <span>{nameFor(scene)}</span>
-            <Button
-              variant="secondary"
-              unavailable={switchState.isLoading || scene === wall.showing}
-              onClick={() => {
-                if (switchState.isLoading || scene === wall.showing) return;
-                void switchWallScene({
-                  wallIdentifier: wall.wallIdentifier,
-                  version: wall.version,
-                  target: 'layout',
-                  layout: scene,
-                });
-              }}
+        {wall.scenes.map((scene) => {
+          // ADR-0151: hoisted once so Show's `unavailable` prop and its guard
+          // read the same value.
+          const showUnavailable = switchState.isLoading || scene === wall.showing;
+          return (
+            <li
+              key={scene}
+              className="flex items-center justify-between rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3"
             >
-              Show
-            </Button>
-          </li>
-        ))}
+              <span>{nameFor(scene)}</span>
+              <Button
+                variant="secondary"
+                unavailable={showUnavailable}
+                onClick={() => {
+                  if (showUnavailable) return;
+                  void switchWallScene({
+                    wallIdentifier: wall.wallIdentifier,
+                    version: wall.version,
+                    target: 'layout',
+                    layout: scene,
+                  });
+                }}
+              >
+                Show
+              </Button>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
