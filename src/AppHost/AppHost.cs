@@ -62,6 +62,12 @@ var streamDistributionAttributionClientSecret = builder.AddOverridableParameter(
 // (scope sse.overlays.read) for the startup seed of the reverse index —
 // the half of spec 005 T061 that never shipped (#2158, spec 126).
 var systemVariablesSeederClientSecret = builder.AddOverridableParameter("SystemVariablesSeederClientSecret", "dev-only-system-variables-seeder-secret", secret: true);
+// Mirrors the `revocation-list-reader` confidential client seeded in
+// Realms/smart-sentinel-eye-realm.json (spec 270, ADR-0160 section 4). Every
+// non-Identity API reads it as `RevocationList:ClientSecret` to mint a
+// client_credentials token (scope sse.identity.revocations.read) for its
+// 5-second revocation-snapshot refresh (ServiceDefaults.Revocation).
+var revocationListReaderClientSecret = builder.AddOverridableParameter("RevocationListReaderClientSecret", "dev-only-revocation-list-reader-secret", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
@@ -522,6 +528,26 @@ var auditObservability = builder
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(auditArchiveBlobs);
+
+// Spec 270 (ADR-0160): every non-Identity API refreshes an in-process
+// revocation snapshot from Identity every 5 s
+// (ServiceDefaults.Revocation.RevokedClientRefresher). WithReference only —
+// not WaitFor — because the refresher is fail-static (Degraded, not down)
+// and must not gate host start on Identity being up (ADR-0160 section 3),
+// the same "must not gate host start" reasoning already applied to the
+// CameraCatalog attribution reference above. One small loop rather than
+// eight copies of the same three calls.
+foreach (IResourceBuilder<ProjectResource> consumer in new[]
+{
+    cameraCatalog, streamDistribution, layoutComposition, eventIngestion,
+    overlayDesigner, systemVariables, automation, auditObservability,
+})
+{
+    consumer
+        .WithReference(identity)
+        .WithEnvironment("RevocationList__ClientId", "revocation-list-reader")
+        .WithEnvironment("RevocationList__ClientSecret", revocationListReaderClientSecret);
+}
 
 // Services must not boot until the schema exists — Wolverine builds its outbox
 // storage on startup (AutoBuildMessageStorageOnStartup), and this is the
