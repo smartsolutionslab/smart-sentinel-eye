@@ -163,19 +163,41 @@ type Outcome = 'archived' | 'nothing-to-do' | 'refused';
  */
 async function archiveByName(page: Page, name: string): Promise<Outcome> {
   const row = page.getByRole('listitem').filter({ hasText: name }).first();
-  const archive = row.getByRole('button', { name: /^archive$/i });
+  const moreActions = row.getByRole('button', { name: /more actions/i });
 
-  // Only a chain with a live revision offers Archive, and only a live revision
-  // is on the kiosk picker. A draft-only chain is not residue worth chasing.
-  if ((await archive.count()) === 0) return 'nothing-to-do';
+  // Only a chain with a live revision offers Archive at all, and only a live
+  // revision is on the kiosk picker. A draft-only chain offers no "More
+  // actions" trigger — or one whose menu has no Archive item, since spec 266
+  // moved Archive off the row and behind it (Discard draft can still be the
+  // trigger's only entry). Neither is residue worth chasing.
+  if ((await moreActions.count()) === 0) return 'nothing-to-do';
 
   try {
-    await archive.click({ timeout: 15_000 });
+    await moreActions.click({ timeout: 15_000 });
+    // The menu is portalled, so its items are not inside `row`.
+    const archiveItem = page.getByRole('menuitem', { name: /^archive$/i });
+    if ((await archiveItem.count()) === 0) {
+      await page.keyboard.press('Escape');
+      return 'nothing-to-do';
+    }
+
+    await archiveItem.click({ timeout: 15_000 });
     await page
       .getByRole('alertdialog')
       .getByRole('button', { name: /^archive$/i })
       .click({ timeout: 15_000 });
-    await expect(row.getByRole('button', { name: /^archive$/i })).toHaveCount(0, { timeout: 20_000 });
+
+    // Archiving the live revision never leaves Archive behind: either the
+    // row now offers no "More actions" trigger at all (no draft survives
+    // it), or the trigger remains for a surviving draft but its menu no
+    // longer offers Archive.
+    await expect(async () => {
+      const triggerCount = await moreActions.count();
+      if (triggerCount === 0) return;
+      await moreActions.click();
+      await expect(page.getByRole('menuitem', { name: /^archive$/i })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+    }).toPass({ timeout: 20_000 });
     return 'archived';
   } catch {
     return 'refused';

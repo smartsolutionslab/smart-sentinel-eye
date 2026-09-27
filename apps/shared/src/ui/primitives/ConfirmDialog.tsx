@@ -1,5 +1,5 @@
 import * as RadixAlertDialog from '@radix-ui/react-alert-dialog';
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, type ReactNode } from 'react';
 import { Button } from './Button.js';
 
 export interface ConfirmDialogProps {
@@ -46,6 +46,21 @@ export function ConfirmDialog({
   pending = false,
   onConfirm,
 }: ConfirmDialogProps) {
+  // This component has no `RadixAlertDialog.Trigger` (it is driven entirely
+  // by the caller's `open` state), so `context.triggerRef` — what Radix's
+  // own `onCloseAutoFocus` falls back to — is always null and its default
+  // restoration is a silent no-op, dropping focus to `<body>` on
+  // Escape/outside-dismiss. A layout effect captures the pre-open element
+  // instead: React runs every layout effect, however deep, before any
+  // component's passive effect — so this always beats Radix's own
+  // mount-autofocus (a plain `useEffect`) moving focus onto Cancel.
+  const previouslyFocusedRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (open) {
+      previouslyFocusedRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    }
+  }, [open]);
+
   return (
     <RadixAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixAlertDialog.Portal>
@@ -56,6 +71,10 @@ export function ConfirmDialog({
             'max-h-[90vh] overflow-y-auto ' +
             'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary'
           }
+          onCloseAutoFocus={(event) => {
+            event.preventDefault();
+            previouslyFocusedRef.current?.focus();
+          }}
         >
           <RadixAlertDialog.Title className="text-lg font-semibold">{title}</RadixAlertDialog.Title>
           <RadixAlertDialog.Description asChild>
