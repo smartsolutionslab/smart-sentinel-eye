@@ -12,12 +12,10 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// <c>/system-variables/-/snapshot</c> and <c>/system-variables/-/resolve</c>.
 ///
 /// <para>
-/// <b>Red today, and for a different reason than <see cref="ShadowedVariableNameIntegrationTests"/>.</b>
-/// <c>SystemVariableEndpoints.cs</c> does not map either <c>/-/</c> path yet,
-/// so both facts here 404 — no endpoint at all, not the wrong one. Each
-/// exercises the real handler end-to-end (a resolved overlay snapshot, a
-/// resolved preview), not merely that the route exists, so a fix that maps
-/// the new path but breaks what it returns is still caught.
+/// Each fact exercises the real handler end-to-end (a resolved overlay
+/// snapshot, a resolved preview), not merely that the route exists, so a
+/// regression that maps the new path but breaks what it returns is still
+/// caught.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -62,8 +60,7 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
         string body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
-            "GET /system-variables/-/snapshot did not answer 200 — the moved route does not exist yet "
-            + $"(SystemVariableEndpoints.cs still maps only /snapshot, issue #2358). Response: {body}");
+            $"GET /system-variables/-/snapshot did not answer 200. Response: {body}");
 
         OverlaySnapshotReadiness.ResolvedTextIn(body).ShouldBe("Value: 42");
     }
@@ -87,8 +84,7 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
         string body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
-            "GET /system-variables/-/resolve did not answer 200 — the moved route does not exist yet "
-            + $"(SystemVariableEndpoints.cs still maps only /resolve, issue #2358). Response: {body}");
+            $"GET /system-variables/-/resolve did not answer 200. Response: {body}");
 
         JsonDocument.Parse(body).RootElement.GetProperty("resolvedText").GetString().ShouldBe("7");
     }
