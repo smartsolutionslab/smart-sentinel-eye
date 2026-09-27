@@ -315,12 +315,28 @@ Waits by condition, never by timeout (ADR-0150).
 
 `busy={isLoading}` next to the existing prop at: `EditCameraAddressDialog.tsx:95`,
 `RegisterCameraDialog.tsx:147`, `RenameCameraDialog.tsx:108`, `DryRunPanel.tsx:61`,
-`RuleDialog.tsx:229`, `SystemVariableDialog.tsx:182`, `LayoutEditorDialog.tsx:460`,
-`OverlayEditorDialog.tsx:357`, `WallForm.tsx:162` (spec 258); and `busy={pending}` on
-`ConfirmDialog`'s confirm button. Ten sites in all. The label swaps stay. **No
-`disabled` / `unavailable` is added, removed or swapped**, and no call-site
-`aria-disabled:cursor-progress` class is removed. It becomes redundant with busy's
-cursor, but it is harmless and it belongs to ADR-0151's sites.
+`RuleDialog.tsx:229`, `SystemVariableDialog.tsx:182`, `WallForm.tsx:162` (spec 258); and
+`busy={pending}` on `ConfirmDialog`'s confirm button. **Eight sites adopted in this PR**,
+not the ten originally planned. The label swaps stay. **No `disabled` / `unavailable` is
+added, removed or swapped**, and no call-site `aria-disabled:cursor-progress` class is
+removed. It becomes redundant with busy's cursor, but it is harmless and it belongs to
+ADR-0151's sites.
+
+**Follow-up, not done here: `LayoutEditorDialog.tsx:460` and `OverlayEditorDialog.tsx:357`
+still need `busy={isLoading}`.** Wiring it there conflicts with the pinned SaveGate tests'
+existing assertions at the in-flight moment (`LayoutEditorDialogSaveGate.test.tsx`,
+`OverlayEditorDialogSaveGate.test.tsx`), which assert
+`aria-disabled:text-fg-disabled`-family classes while `isLoading` is true. The follow-up
+is to move that assertion to the chain-re-read / 409-refetch moment where `saveBlocked` is
+true but `isLoading` is false, and add an `aria-busy="true"` assertion at the in-flight
+moment instead, before adding `busy` at these two sites.
+
+**Known, documented limitation of the eight adopted sites, not fixed here:** each still
+passes native `disabled` alongside `busy`, and `disabled:pointer-events-none` (Button.tsx
+`base`) makes the browser show the cursor of the element underneath rather than the
+`cursor-progress` `busy` sets — so the busy cursor is currently invisible everywhere it
+was adopted. This becomes visible once #2631 (fix/2624) converts these call sites from
+`disabled` to `unavailable`, which does not carry `pointer-events-none`.
 
 **Merge order with #2631.** PR #2631 (spec 267, open) edits the same Button element at
 seven of these sites: the three camera dialogs, `DryRunPanel`, `RuleDialog`,
