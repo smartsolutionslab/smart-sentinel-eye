@@ -298,7 +298,7 @@ public class ConcurrencyConflictDeclarationTests
             + "idempotency"),
         new(
             "Automation POST /rules/{name}/publish",
-            "refusal (PublishRuleFailures.RuleStale, RuleAlreadyArchived); lost update "
+            "refusal (PublishRuleFailures.RuleStale); lost update "
             + "(rule.Publish(clock) then SaveAsync)"),
         new(
             "Automation POST /rules/{name}/archive",
