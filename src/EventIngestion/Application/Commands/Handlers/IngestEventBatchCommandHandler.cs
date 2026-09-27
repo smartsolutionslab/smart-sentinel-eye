@@ -145,12 +145,15 @@ public sealed class IngestEventBatchCommandHandler(
     }
 
     /// <summary>
-    /// Builds the aggregate, or the reason it cannot be built. The future-skew
-    /// rule (spec 006 FR-014) is the only way this fails, and it fails the same
-    /// way every time — so the envelope is left out of the insert here rather
-    /// than failing the batch and sending the other 199 down the slow path once
-    /// per retry, for ever. The reason is built once and carried out rather than
-    /// constructed to log its code and thrown away (spec 213, issue #2428).
+    /// Builds the aggregate, or the reason it cannot be built. Two rules can
+    /// fail it: the future-skew rule (spec 006 FR-014) and, since spec 269, a
+    /// strict source's admission verdict — future skew outranks the verdict
+    /// (FR-007), the same precedence as the single-event handler. Either way it
+    /// fails the same way every time — so the envelope is left out of the
+    /// insert here rather than failing the batch and sending the other 199 down
+    /// the slow path once per retry, for ever. The reason is built once and
+    /// carried out rather than constructed to log its code and thrown away
+    /// (spec 213, issue #2428).
     /// </summary>
     private Result<EventAggregate, IngestEventError> Build(EventEnvelope envelope, EventTypeVerdicts verdicts)
     {

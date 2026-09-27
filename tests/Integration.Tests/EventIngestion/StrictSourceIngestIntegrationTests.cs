@@ -90,6 +90,13 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
         }
     }
 
+    /// <summary>
+    /// The one case the HTTP tests cannot stand in for (spec.md §6's closing
+    /// note): if the batch path's <c>Build</c> ever lost its
+    /// <c>verdicts.Refuses</c> check, this is the test that would notice —
+    /// every HTTP test above would stay green regardless (plan.md §9
+    /// counterfactual 4).
+    /// </summary>
     [Fact]
     public async Task A_strict_inference_source_dead_letters_an_unregistered_kind_published_over_MQTT()
     {
@@ -113,10 +120,8 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// The one case the HTTP tests cannot stand in for (spec.md §6's closing
-    /// note): if the batch path's <c>Build</c> ever lost its
-    /// <c>verdicts.Refuses</c> check, this is the test that would notice —
-    /// every HTTP test above would stay green regardless.
+    /// The characterisation half of strict mode: a pair left undeclared in the
+    /// same fab as a declared-strict source stays open, over MQTT.
     /// </summary>
     [Fact]
     public async Task Strict_on_inference_leaves_plc_in_the_same_fab_open()
