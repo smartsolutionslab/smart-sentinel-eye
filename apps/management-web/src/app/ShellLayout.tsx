@@ -43,11 +43,12 @@ export function ShellLayout() {
   // signed-in session (spec 266 US6, plan.md §4.4). The listener is inline
   // (an `AbortController` handles cleanup, not a named reference) so its
   // `event` parameter is inferred from `addEventListener`'s own overload
-  // rather than spelled `KeyboardEvent` — this app's eslint config has no
-  // per-tag/event DOM lib globals, and naming such a type literally trips
-  // `no-undef` (see `ComponentRef<'a'>` above, and spec 154's
-  // `LayoutEditorDialog.tsx` for the established reasoning: widening the
-  // config would be the gate-weakening ADR-0144 rules out).
+  // rather than spelled `KeyboardEvent`. This file still avoids the literal
+  // type: `KeyboardEvent` was added to eslint.config.js's globals only for
+  // `ShellLayout.test.tsx`'s `new KeyboardEvent(...)` dispatch, not to let
+  // production code name it (see `ComponentRef<'a'>` above, and spec 154's
+  // `LayoutEditorDialog.tsx` for the established reasoning: naming DOM event
+  // types in this app's own code is the gate-weakening ADR-0144 rules out).
   useEffect(() => {
     const controller = new AbortController();
     document.addEventListener(

@@ -142,6 +142,7 @@ function PaletteBody({ items, label, placeholder, emptyText, onActivate }: Palet
     <>
       <input
         role="combobox"
+        aria-label={label}
         aria-expanded="true"
         aria-controls={listboxId}
         aria-autocomplete="list"
