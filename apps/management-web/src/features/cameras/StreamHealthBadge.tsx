@@ -1,6 +1,6 @@
 import clsx from 'clsx';
 import type { StreamHealth, StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
-import { Tooltip } from '@smart-sentinel-eye/shared/ui/primitives/Tooltip';
+import { Popover } from '@smart-sentinel-eye/shared/ui/primitives/Popover';
 
 export interface StreamHealthBadgeProps {
   stream: StreamHealth | undefined;
@@ -17,10 +17,12 @@ const TONES: Record<StreamState | 'unknown', string> = {
 const PILL = 'inline-flex items-center rounded border px-2 py-0.5 text-xs';
 
 /**
- * Pill rendering the current StreamState for a single camera, with a
- * Radix tooltip carrying `lastSuccessAt` and (for non-Healthy states) the
- * error string. The page polls `useListStreamsQuery` once for the visible
- * rows and hands each badge its slice — avoids N independent polls.
+ * Pill rendering the current StreamState for a single camera, with a Radix
+ * popover carrying `lastSuccessAt` and (for non-Healthy states) the error
+ * string — a focusable trigger, not a hover-only tooltip, so the detail is
+ * reachable from the keyboard (spec 266 §1 finding 4). The page polls
+ * `useListStreamsQuery` once for the visible rows and hands each badge its
+ * slice — avoids N independent polls.
  */
 export function StreamHealthBadge({ stream }: StreamHealthBadgeProps) {
   if (stream === undefined) {
@@ -32,14 +34,29 @@ export function StreamHealthBadge({ stream }: StreamHealthBadgeProps) {
   }
 
   return (
-    <Tooltip
-      trigger={<span className={clsx(PILL, TONES[stream.state] ?? TONES.unknown)}>{stream.state}</span>}
-      content={buildTooltip(stream.state, stream.lastSuccessAt, stream.error)}
-    />
+    <Popover
+      trigger={
+        <button
+          type="button"
+          className={clsx(
+            PILL,
+            TONES[stream.state] ?? TONES.unknown,
+            'focus-visible:ring-2 focus-visible:ring-focus-ring',
+          )}
+        >
+          {stream.state}
+        </button>
+      }
+      label={`Stream ${stream.state}`}
+    >
+      {detailLines(stream.state, stream.lastSuccessAt, stream.error).map((line) => (
+        <p key={line}>{line}</p>
+      ))}
+    </Popover>
   );
 }
 
-function buildTooltip(state: StreamState, lastSuccessAt: string | null, error: string | null): string {
+function detailLines(state: StreamState, lastSuccessAt: string | null, error: string | null): readonly string[] {
   const lines: string[] = [`State: ${state}`];
   if (lastSuccessAt !== null) {
     lines.push(`Last frame: ${new Date(lastSuccessAt).toLocaleString()}`);
@@ -47,5 +64,5 @@ function buildTooltip(state: StreamState, lastSuccessAt: string | null, error: s
   if (state !== 'Healthy' && error !== null) {
     lines.push(`Error: ${error}`);
   }
-  return lines.join('\n');
+  return lines;
 }

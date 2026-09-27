@@ -1,3 +1,4 @@
+import * as RadixPopover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
 
 export interface PopoverProps {
@@ -11,12 +12,25 @@ export interface PopoverProps {
 }
 
 /**
- * Spec 266 (issue #2335) phase 4a signature-only stub — plan.md §3.3 and §6.
- *
- * Renders nothing and imports no Radix package, so `Popover.test.tsx` fails
- * on content, not on a missing module (ADR-0139/0144), and the US5
- * dependency guard stays red until the real component lands.
+ * Design-system disclosure on `@radix-ui/react-popover` (spec 266 / issue
+ * #2335 US3, plan.md §3.3). Read-only content: no close button, Escape and
+ * outside-click dismiss.
  */
-export function Popover(_props: PopoverProps) {
-  return null;
+export function Popover({ trigger, children, label, side = 'bottom' }: PopoverProps) {
+  return (
+    <RadixPopover.Root>
+      <RadixPopover.Trigger asChild>{trigger}</RadixPopover.Trigger>
+      <RadixPopover.Portal>
+        <RadixPopover.Content
+          side={side}
+          sideOffset={4}
+          aria-label={label}
+          className="z-popover rounded-md border border-border-subtle bg-bg-raised px-3 py-2 text-xs text-fg-primary shadow-popover"
+        >
+          {children}
+          <RadixPopover.Arrow className="fill-bg-raised" />
+        </RadixPopover.Content>
+      </RadixPopover.Portal>
+    </RadixPopover.Root>
+  );
 }
