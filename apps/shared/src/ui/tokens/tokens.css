@@ -117,6 +117,16 @@
      distinct. Hover lighter, pressed darker, same directions as the accent. */
   --color-accent-fault-hover: color-mix(in oklch, var(--color-accent-fault) 88%, var(--white));
   --color-accent-fault-pressed: color-mix(in oklch, var(--color-accent-fault) 92%, var(--black));
+  /* RetryBanner's box (issue #2523): SharedUiTokenUsageTests forbids a
+     call-site alpha modifier on a semantic colour (spec 257 US3), so the
+     tint and border live here instead of as border-accent-fault/40 and
+     bg-accent-fault/10 at the call site. Same one-theme rationale as
+     -hover/-pressed above: the border mixes toward transparent (theme-
+     invariant, like mixing toward white/black); the tint mixes toward
+     --color-bg-base so it still reads against whichever surface is active,
+     without needing a per-theme redeclaration. */
+  --color-accent-fault-subtle: color-mix(in oklch, var(--color-accent-fault) 10%, var(--color-bg-base));
+  --color-accent-fault-border: color-mix(in oklch, var(--color-accent-fault) 40%, transparent);
   /* Dark in every theme, because the fault red itself is pinned across themes
      (ADR-0148) and white on it is only 3.19:1. Replaces text-bg-base, danger's
      old label class (Button.tsx); --color-fg-on-accent is untouched and still
