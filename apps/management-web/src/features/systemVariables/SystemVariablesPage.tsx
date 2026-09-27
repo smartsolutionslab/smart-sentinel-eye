@@ -51,11 +51,6 @@ export function SystemVariablesPage() {
   const variables = data ?? [];
 
   const onValueSubmit = async (variable: Variable) => {
-    // ADR-0151: `unavailable` keeps Set value focusable and clickable while a
-    // save is already in flight, so this guard is what refuses a second
-    // submit — before the empty-value check too, since nothing should be
-    // re-validated mid-request.
-    if (saving) return;
     const raw = pendingEdit[variable.variableIdentifier];
     if (raw === undefined || raw === '') return;
     const result = await setVariableValue({
@@ -133,6 +128,7 @@ export function SystemVariablesPage() {
         {variables.map((variable) => {
           const inProgress = saving;
           const editValue = pendingEdit[variable.variableIdentifier];
+          const archiveUnavailable = inProgress || archiving;
           return (
             <li
               key={variable.variableIdentifier}
@@ -161,19 +157,27 @@ export function SystemVariablesPage() {
                   <Button
                     variant="secondary"
                     unavailable={inProgress || editValue === undefined || editValue === ''}
-                    onClick={() => void onValueSubmit(variable)}
+                    onClick={() => {
+                      // ADR-0151: `unavailable` keeps Set value focusable and
+                      // clickable while a save is already in flight, so this
+                      // guard is what refuses a second submit — before the
+                      // empty-value check too, since nothing should be
+                      // re-validated mid-request.
+                      if (inProgress) return;
+                      void onValueSubmit(variable);
+                    }}
                   >
                     Set value
                   </Button>
                   <Button
                     variant="secondary"
-                    unavailable={inProgress || archiving}
+                    unavailable={archiveUnavailable}
                     onClick={() => {
                       // ADR-0151: focus-return (ConfirmDialog reopens on this
                       // button once archiving natively disabled it before);
                       // refuse a second confirmation while one archive is
                       // already in flight.
-                      if (inProgress || archiving) return;
+                      if (archiveUnavailable) return;
                       setArchiveFor({
                         name: variable.name,
                         version: variable.version,
