@@ -36,6 +36,10 @@ public partial class RealmImportMirrorTests
         { "EventIngestionMqttClientSecret", "event-ingestion" },
         { "StreamDistributionAttributionClientSecret", "stream-distribution-attribution" },
         { "SystemVariablesSeederClientSecret", "system-variables-seeder" },
+        // Spec 270 (ADR-0160) T008/T012/T014. Red until T012 adds the realm
+        // client and T014 adds the AppHost parameter default: SecretForClient
+        // throws "no such client" for 'revocation-list-reader' today.
+        { "RevocationListReaderClientSecret", "revocation-list-reader" },
     };
 
     [Theory]
