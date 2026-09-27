@@ -165,15 +165,21 @@ export function CamerasPage() {
         <div className="flex gap-2">
           <Button
             variant="secondary"
-            disabled={offset === 0 || isFetching}
-            onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
+            unavailable={offset === 0 || isFetching}
+            onClick={() => {
+              if (offset === 0 || isFetching) return;
+              setOffset(Math.max(0, offset - PAGE_SIZE));
+            }}
           >
             Previous
           </Button>
           <Button
             variant="secondary"
-            disabled={offset + items.length >= totalCount || isFetching}
-            onClick={() => setOffset(offset + PAGE_SIZE)}
+            unavailable={offset + items.length >= totalCount || isFetching}
+            onClick={() => {
+              if (offset + items.length >= totalCount || isFetching) return;
+              setOffset(offset + PAGE_SIZE);
+            }}
           >
             Next
           </Button>
