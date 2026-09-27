@@ -17,12 +17,6 @@ public abstract record PublishRuleError(string Code, string Message, HttpStatusC
             $"No rule named '{Name}' exists.",
             HttpStatusCode.NotFound);
 
-    public sealed record RuleAlreadyArchived(string Name)
-        : PublishRuleError(
-            "RULE_ALREADY_ARCHIVED",
-            $"Rule '{Name}' is Archived; clone it to author a new one.",
-            HttpStatusCode.Conflict);
-
     /// <summary>
     /// The caller acted on a version of the rule that has since moved on
     /// (ADR-0113 Layer 1). 409 rather than 412 so it reads as the domain
@@ -45,9 +39,6 @@ public static class PublishRuleFailures
 {
     public static PublishRuleError RuleNotFound(string name) =>
         new PublishRuleError.RuleNotFound(name);
-
-    public static PublishRuleError RuleAlreadyArchived(string name) =>
-        new PublishRuleError.RuleAlreadyArchived(name);
 
     public static PublishRuleError RuleStale(string name, int expectedVersion, int actualVersion) =>
         new PublishRuleError.RuleStale(name, expectedVersion, actualVersion);

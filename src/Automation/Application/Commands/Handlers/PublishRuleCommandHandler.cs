@@ -36,14 +36,7 @@ public sealed class PublishRuleCommandHandler(
         {
             return Failure(PublishRuleFailures.RuleStale(name.Value, expectedVersion, rule.Version));
         }
-        try
-        {
-            rule.Publish(clock);
-        }
-        catch (InvalidOperationException)
-        {
-            return Failure(PublishRuleFailures.RuleAlreadyArchived(name.Value));
-        }
+        rule.Publish(clock);
 
         await rules.SaveAsync(cancellationToken);
 
