@@ -89,11 +89,19 @@ async function pressAndReadBackgroundColor(page: Page, locator: Locator): Promis
   if (box === null) {
     throw new Error('element has no bounding box to press');
   }
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  const centerX = box.x + box.width / 2;
+  const centerY = box.y + box.height / 2;
+  await page.mouse.move(centerX, centerY);
   await page.mouse.down();
   try {
     return await backgroundColorOf(locator);
   } finally {
+    // Release off the target, not on it: a mousedown/mouseup pair on the SAME
+    // element fires a real `click`, which would activate the control (open or
+    // close a dialog) here rather than at the caller's own, later, explicit
+    // `.click()` — the "pressed" read above only wants the `:active` fill,
+    // not the activation.
+    await page.mouse.move(centerX, centerY - (box.height + 20));
     await page.mouse.up();
   }
 }
@@ -280,7 +288,14 @@ test.describe('Button interaction states (US1)', () => {
         element.setAttribute('data-e2e-save-probe', 'unclicked');
         element.addEventListener('click', () => element.setAttribute('data-e2e-save-probe', 'clicked'));
       });
-      await save.click();
+      // `force: true`: Playwright's own actionability check treats
+      // `aria-disabled="true"` as "not enabled" and refuses to click,
+      // retrying until the test times out — that is Playwright's synthetic
+      // click being stricter than a real browser, which is exactly the gap
+      // ADR-0151 relies on (a real click still reaches an `aria-disabled`
+      // control). Forcing bypasses that check without bypassing anything the
+      // control itself does.
+      await save.click({ force: true });
       await expect(save).toHaveAttribute('data-e2e-save-probe', 'clicked');
 
       // Still holds focus after the click — a natively `disabled` button
@@ -310,6 +325,12 @@ test.describe('One focus indicator (US3)', () => {
     await page.getByRole('button', { name: /cancel/i }).click();
 
     // A DataTable sort header button — the Cameras list's "Name" column.
+    // The two real mouse clicks above (opening and cancelling the Register
+    // dialog) left Chromium's input-modality tracker on "mouse", under which
+    // a script-triggered `.focus()` on a button does not match
+    // `:focus-visible` at all — a real browser heuristic, not a Button
+    // defect. One keyboard event restores "keyboard" modality first.
+    await page.keyboard.press('Tab');
     const sortHeader = page.getByRole('columnheader', { name: /name/i }).getByRole('button');
     await sortHeader.focus();
     await expect(sortHeader).toHaveCSS('outline-style', 'solid');
@@ -319,6 +340,9 @@ test.describe('One focus indicator (US3)', () => {
     // A GridDesigner preset chip's wrapping <label> (has-[:focus-visible]).
     await page.getByRole('link', { name: /^layouts$/i }).click();
     await page.getByRole('button', { name: /new layout/i }).click();
+    // Same mouse-modality reset as above: the two clicks just used would
+    // otherwise leave the radio's `.focus()` without `:focus-visible`.
+    await page.keyboard.press('Tab');
     const presetRadio = page.getByRole('radio', { name: '2×2' });
     const presetLabel = page.locator('label').filter({ has: presetRadio });
     await presetRadio.focus();
