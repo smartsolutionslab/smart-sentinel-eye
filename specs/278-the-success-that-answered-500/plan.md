@@ -1,4 +1,4 @@
-# Plan 274 — The success that answered 500
+# Plan 278 — The success that answered 500
 
 **Spec**: [spec.md](spec.md) · **Issue**: #2490 · **Phase**: 2 (Plan)
 **ADRs**: ADR-0142, ADR-0050, ADR-0036, ADR-0139 · **New ADR**: none

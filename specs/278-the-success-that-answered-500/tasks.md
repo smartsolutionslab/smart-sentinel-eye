@@ -1,4 +1,4 @@
-# Tasks 274 — The success that answered 500
+# Tasks 278 — The success that answered 500
 
 **Spec**: [spec.md](spec.md) · **Plan**: [plan.md](plan.md) · **Issue**: #2490 · **Phase**: 3 (Tasks)
 **Board**: feature-level issue **#2490** is the one to add to Project #13 (no per-task issues — CLAUDE.md

@@ -1,4 +1,4 @@
-# Verification 274 — #2490
+# Verification 278 — #2490
 
 **Phase**: 5 (Verify) · **Tree**: `841e4083` (phase 4 tip) · **Latency budget: N/A** — error-handling path on idempotency bookkeeping (`IdempotentRequest.RunAndRecordAsync`), not on the event-to-overlay path (constitution §IV). Confirmed: this file has no relation to camera/SFU/overlay rendering; it guards HTTP write endpoints only.
 
@@ -114,3 +114,16 @@ Re-confirmed green after the follow-up commit: 15/15
 "FullyQualifiedName~IdempotentRequestTests"`), and the 10 pre-existing
 baseline facts plus the 4 facts added in `278dd9d8` are byte-identical to
 before this commit — only the one new N4 fact was inserted.
+
+## 6. Spec renumbering (post merge-readiness)
+
+This spec was originally numbered 274. A 3-way collision was found after PR
+#2649 was already open: #2358's `274-the-names-a-route-swallowed` (committed
+20:34:01) and #2523's `274-the-banner-every-page-repeats` (committed
+20:35:27) both claimed 274 before this spec did (21:09:33), so this one
+renumbers to **278** (275/#2521, 276/#2200, 277/#2523 already spoken for).
+The directory and every internal heading/self-reference were updated; the
+`docs(274): ...` commit-message quote in §5 above is left unchanged because
+it accurately names an already-existing commit (`818d53e6`) and rewriting it
+would misdescribe real git history. No code change resulted from this —
+the fix, its tests, and all prior verification stand as recorded above.
