@@ -84,8 +84,15 @@ export function Button({
   ...domProps
 }: ButtonProps) {
   const Component = asChild ? Slot : 'button';
+  // No `border-transparent` here — it used to sit here unconditionally, tied
+  // in specificity with `restFill.secondary`'s `border-border-strong`, and
+  // Tailwind 4.3.3 emits `.border-transparent` after `.border-border-strong`
+  // in the compiled sheet, so the later rule won the tie and secondary's rest
+  // border never rendered. Each variant now supplies its own border colour
+  // below, so at most one border-colour utility is ever in play per variant
+  // and there is nothing left to race.
   const base =
-    'inline-flex items-center justify-center rounded-md border border-transparent px-4 py-2 ' +
+    'inline-flex items-center justify-center rounded-md border px-4 py-2 ' +
     'text-sm font-medium transition-colors ' +
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ' +
     'disabled:pointer-events-none';
@@ -94,14 +101,14 @@ export function Button({
   const disabledTreatment = 'disabled:border-border-subtle disabled:bg-transparent disabled:text-fg-disabled';
 
   const restFill: Record<ButtonVariant, string> = {
-    primary: 'bg-accent text-fg-on-accent',
+    primary: 'border-transparent bg-accent text-fg-on-accent',
     secondary: 'border-border-strong text-fg-primary',
-    ghost: 'text-fg-primary',
+    ghost: 'border-transparent text-fg-primary',
     // Reuses the fault token rather than adding one: it is already the
     // product's red, on error banners and the Offline health badge. A
     // destructive action reading as the same red an operator already knows
     // means trouble is the point.
-    danger: 'bg-accent-fault text-fg-on-fault',
+    danger: 'border-transparent bg-accent-fault text-fg-on-fault',
   };
 
   const interactive: Record<ButtonVariant, string> = {
