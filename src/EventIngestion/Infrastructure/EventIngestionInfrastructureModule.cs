@@ -120,12 +120,29 @@ public static class EventIngestionInfrastructureModule
                 Result<RegisteredEventTypeIdentifier, RetireEventTypeError>>,
             RetireEventTypeCommandHandler>();
 
+        // Spec 269: registered alongside T009's /event-sources mapping, the
+        // first (and only) route that reaches them — see the comment this
+        // replaces, above the repository/query-source registrations.
+        builder.Services.AddScoped<DeclareSourceModeCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<
+                DeclareSourceModeCommand,
+                Result<SourceModeIdentifier, DeclareSourceModeError>>,
+            DeclareSourceModeCommandHandler>();
+        builder.Services.AddScoped<ChangeSourceModeCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<
+                ChangeSourceModeCommand,
+                Result<SourceModeIdentifier, ChangeSourceModeError>>,
+            ChangeSourceModeCommandHandler>();
+
         // Query handlers.
         builder.Services.AddScoped<GetEventQueryHandler>();
         builder.Services.AddScoped<ListEventsQueryHandler>();
         builder.Services.AddScoped<ListDeadLettersQueryHandler>();
         builder.Services.AddScoped<ListWebhookIntegrationsQueryHandler>();
         builder.Services.AddScoped<ListEventTypesQueryHandler>();
+        builder.Services.AddScoped<ListSourceModesQueryHandler>();
 
         // Bounded channel + ingress.
         builder.Services.AddSingleton<IIngestChannel>(_ => new BoundedIngestChannel());

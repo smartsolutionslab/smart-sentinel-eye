@@ -173,21 +173,27 @@ public class PreconditionDeclarationTests
     /// Mappings whose handler reads <c>If-Match</c>, spread over
     /// <see cref="PreconditionFileCount"/> files. Pinned, not merely compared —
     /// see the class doc. Spec 258 US1 added two (PUT /walls/{id}/scenes,
-    /// POST /walls/{id}/switch): 18 -&gt; 20.
+    /// POST /walls/{id}/switch): 18 -&gt; 20. Spec 269 added one
+    /// (PUT /event-sources/{source}/mode): 20 -&gt; 21.
     /// </summary>
-    private const int PreconditionEndpointCount = 20;
+    private const int PreconditionEndpointCount = 21;
 
-    /// <summary>Spec 258 US1 added WallEndpoints.cs as a ninth file: 8 -&gt; 9.</summary>
-    private const int PreconditionFileCount = 9;
+    /// <summary>
+    /// Spec 258 US1 added WallEndpoints.cs as a ninth file: 8 -&gt; 9. Spec 269
+    /// added EventSourcesEndpoints.cs as a tenth: 9 -&gt; 10.
+    /// </summary>
+    private const int PreconditionFileCount = 10;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually: a
     /// single total lets one file stop being read while the others carry it.
     /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14. Spec 270 (ADR-0160)
-    /// added RevocationEndpoints.cs: 14 -&gt; 15.
+    /// added RevocationEndpoints.cs: 14 -&gt; 15. Spec 269 added
+    /// EventSourcesEndpoints.cs, independently, from the same 14 baseline:
+    /// 15 -&gt; 16.
     /// </summary>
-    private const int EndpointFileCount = 15;
+    private const int EndpointFileCount = 16;
 
     private static readonly Regex MappingCall = new(
         @"\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",
@@ -559,7 +565,7 @@ public class PreconditionDeclarationTests
     /// turn that into a failure.
     /// </summary>
     [Fact]
-    public void The_precondition_corpus_is_twenty_endpoints_across_nine_files()
+    public void The_precondition_corpus_is_twenty_one_endpoints_across_ten_files()
     {
         ResolvedMapping[] requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
         string[] files = requiring
@@ -610,7 +616,7 @@ public class PreconditionDeclarationTests
     /// nothing about a file it is never given.
     /// </summary>
     [Fact]
-    public void The_endpoint_file_glob_still_finds_fifteen_files()
+    public void The_endpoint_file_glob_still_finds_sixteen_files()
     {
         IReadOnlyList<string> files = TheSurface.Value.EndpointSources;
 

@@ -102,15 +102,19 @@ public class StatusProducerDeclarationTests
     /// Spec 258 US1 added WallEndpoints.cs's five route handlers: 60 -&gt; 65.
     /// Spec 270 (ADR-0160) added <c>src/Identity/Api/RevocationEndpoints.cs</c>'s
     /// one route handler (<c>GET /registered-clients/revoked</c>): 65 -&gt; 66.
+    /// Spec 269 added EventSourcesEndpoints.cs's three, independently, from the
+    /// same 65 baseline: 66 -&gt; 69.
     /// </summary>
-    private const int RouteHandlerMappingCount = 66;
+    private const int RouteHandlerMappingCount = 69;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14. Spec 270 added
-    /// RevocationEndpoints.cs: 14 -&gt; 15.
+    /// RevocationEndpoints.cs: 14 -&gt; 15. Spec 269 added
+    /// EventSourcesEndpoints.cs, independently, from the same 14 baseline:
+    /// 15 -&gt; 16.
     /// </summary>
-    private const int EndpointFileCount = 15;
+    private const int EndpointFileCount = 16;
 
     /// <summary>Where the exception handlers this census classifies are registered.</summary>
     private const string RegistrationSource = "src/ServiceDefaults/AuthenticationDefaults.cs";
