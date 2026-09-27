@@ -21,10 +21,7 @@ const ACTION_LABELS: Record<'SetVariableValue' | 'HighlightOverlay', string> = {
   HighlightOverlay: 'Highlight an overlay',
 };
 
-async function chooseAction(
-  user: ReturnType<typeof userEvent.setup>,
-  value: 'SetVariableValue' | 'HighlightOverlay',
-) {
+async function chooseAction(user: ReturnType<typeof userEvent.setup>, value: 'SetVariableValue' | 'HighlightOverlay') {
   await user.click(screen.getByRole('combobox', { name: /action/i }));
   await user.click(await screen.findByRole('option', { name: ACTION_LABELS[value] }));
 }
