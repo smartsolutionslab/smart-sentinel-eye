@@ -65,10 +65,13 @@ export function CommandPalette({
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-overlay bg-scrim" />
+        {/* z-popover, not z-overlay: see Dialog.tsx — the same tie let the
+            Overlay's compositor layer win the hit-test for a click meant for
+            Content (issue #2335, PR #2637). */}
         <RadixDialog.Content
           aria-describedby={undefined}
           className={
-            'fixed left-1/2 top-[15vh] z-overlay w-full max-w-lg -translate-x-1/2 rounded-lg border ' +
+            'fixed left-1/2 top-[15vh] z-popover w-full max-w-lg -translate-x-1/2 rounded-lg border ' +
             'border-border-subtle bg-bg-raised text-fg-primary shadow-overlay'
           }
           onCloseAutoFocus={(event) => {
