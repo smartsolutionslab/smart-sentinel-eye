@@ -647,16 +647,38 @@ describe('LayoutsPage — archive confirmation', () => {
       ],
     ];
 
+    // Spec 266 (issue #2335) Q4 default — Discard draft, Revert and Archive
+    // now render as menuitems behind a per-row "More actions" trigger rather
+    // than as direct buttons (see the "LayoutsPage — archive and discard on
+    // one chain" describe below for the same trigger→menuitem mechanism).
+    // The expected set per shape is unchanged; only how each action is
+    // discovered changes. `{A}` never renders a trigger at all — `moreActions`
+    // is empty for a fully-archived chain (LayoutsPage.tsx) — so it is the one
+    // shape this loop must not try to open.
     for (const [name, revisions, expected] of shapes) {
-      it(`${name} offers ${expected.join(', ')}`, () => {
+      it(`${name} offers ${expected.join(', ')}`, async () => {
+        const user = userEvent.setup();
         showing(revisions);
         renderPage();
 
-        const offered = screen
+        const inlineButtons = screen
           .getAllByRole('button')
           .map((button) => button.textContent ?? '')
-          .filter((label) => expected.includes(label) || ACTION_LABELS.includes(label));
+          .filter((label) => ACTION_LABELS.includes(label));
 
+        const trigger = screen.queryByRole('button', { name: /more actions/i });
+        let menuItems: string[] = [];
+        if (trigger) {
+          await user.click(trigger);
+          const menu = await screen.findByRole('menu');
+          menuItems = within(menu)
+            .getAllByRole('menuitem')
+            .map((item) => item.textContent ?? '')
+            .filter((label) => ACTION_LABELS.includes(label));
+          await user.keyboard('{Escape}');
+        }
+
+        const offered = [...inlineButtons, ...menuItems];
         expect(offered.sort()).toEqual([...expected].sort());
       });
     }
