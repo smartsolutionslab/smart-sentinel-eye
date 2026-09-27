@@ -31,34 +31,34 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
 
 ## Phase 4a: characterise, then red (test-writer)
 
-- [ ] **T001 [US1][US3]** Lift, unchanged, `SharedUiTokenUsageTests.StringLiteralContent`
+- [x] **T001 [US1][US3]** Lift, unchanged, `SharedUiTokenUsageTests.StringLiteralContent`
   into `tests/Architecture.Tests/TypeScriptSource.cs` (`internal static class`) and
   `DesignTokenLayerTests`' OKLCH/hex → 8-bit sRGB resolver into its own internal class; both
   existing classes call the lifted members. **Characterisation**: run
   `dotnet test tests/Architecture.Tests --filter "FullyQualifiedName~SharedUiTokenUsage|FullyQualifiedName~DesignTokenLayer"`
   before and after and quote both — identical pass counts, no assertion edited. Commit
   `refactor(tests): lift the string-literal reader and the OKLCH resolver`.
-- [ ] **T002 [P] [US1][US3]** `tests/Architecture.Tests/InteractionStateTests.cs`: facts 1–6
+- [x] **T002 [P] [US1][US3]** `tests/Architecture.Tests/InteractionStateTests.cs`: facts 1–6
   of plan §5.1, scanning `apps/*/src/**/*.{ts,tsx}` minus tests via `TypeScriptSource`. Fact 6
   extends the lifted resolver with `color-mix(in oklch, var(a) N%, var(b))` for opaque
   operands and reads each theme block. Failure messages name the file and say what to use
   instead. Constants for the thresholds (4.5, 3) cite WCAG 1.4.3 / 1.4.11 and spec §4.
-- [ ] **T003 [P] [US1][US2]** `apps/shared/src/ui/primitives/Button.test.tsx`: rewrite cases 1
+- [x] **T003 [P] [US1][US2]** `apps/shared/src/ui/primitives/Button.test.tsx`: rewrite cases 1
   and 4 per plan §5.2 (keep the ADR-0151 halves verbatim; update the file's doc comment to
   say which spec rewrote them and why); add the `busy` cases, including busy's precedence
   over `disabledTreatment` / `unavailableTreatment` (plan §5.2). Add `busy?: boolean` to
   `ButtonProps` **as a declaration only** so `pnpm typecheck` stays green (plan §5.2).
-- [ ] **T004 [P] [US2]** `apps/shared/src/ui/primitives/ConfirmDialog.test.tsx`: `pending` →
+- [x] **T004 [P] [US2]** `apps/shared/src/ui/primitives/ConfirmDialog.test.tsx`: `pending` →
   confirm button `aria-busy="true"`.
-- [ ] **T005 [P] [US1]** `LayoutEditorDialogSaveGate.test.tsx:227` and
+- [x] **T005 [P] [US1]** `LayoutEditorDialogSaveGate.test.tsx:227` and
   `OverlayEditorDialogSaveGate.test.tsx:247`: `aria-disabled:opacity-50` →
   `aria-disabled:text-fg-disabled`; the comment above each names spec 268.
-- [ ] **T006 [P] [US1]** Both `apps/{management-web,kiosk-web}/src/styles/tokens.build.test.ts`:
+- [x] **T006 [P] [US1]** Both `apps/{management-web,kiosk-web}/src/styles/tokens.build.test.ts`:
   plan §5.3's candidates and assertions; the three pins marked as such in a comment.
-- [ ] **T007 [P] [US1][US2][US3]** `e2e/interaction-states.spec.ts`: plan §5.4 items 1–6, sign-in
+- [x] **T007 [P] [US1][US2][US3]** `e2e/interaction-states.spec.ts`: plan §5.4 items 1–6, sign-in
   and camera seeding mirrored from `camera-detail.spec.ts`, colours compared against token
   probes, waits by condition (ADR-0150). Item 4 (touch) is a pin — say so in its comment.
-- [ ] **T008** Run and capture **verbatim**: the architecture filter
+- [x] **T008** Run and capture **verbatim**: the architecture filter
   `FullyQualifiedName~InteractionState`; `pnpm --filter @smart-sentinel-eye/shared exec vitest run src/ui/primitives`;
   `pnpm --filter @smart-sentinel-eye/management-web exec vitest run src/styles/tokens.build.test.ts src/features/layouts/LayoutEditorDialogSaveGate.test.tsx src/features/overlays/OverlayEditorDialogSaveGate.test.tsx`;
   kiosk-web's build test; the e2e against a booted stack; `pnpm typecheck`.
@@ -71,28 +71,31 @@ keyframe (#2334); anything under `apps/kiosk-web/src` except `tokens.build.test.
 
 ## Phase 4b: implement (frontend-engineer)
 
-- [ ] **T010 [US1]** `tokens.css` `:root`: the five roles of plan §2.1–2.2, beside the
+- [x] **T010 [US1]** `tokens.css` `:root`: the five roles of plan §2.1–2.2, beside the
   existing derived accent roles, with a comment giving the 92 % reason and the tint reason.
   No theme block changes. `tailwindTheme.ts`: `bg.hover`, `bg.pressed`,
   `fg['on-fault']`, `accent['fault-hover']`, `accent['fault-pressed']`. Commit
   `feat(tokens): derive hover, pressed and on-fault roles`. T006 and fact 6 go green.
-- [ ] **T011 [US1]** `Button.tsx`: plan §3's `base` / `rest` / `interactive` /
+- [x] **T011 [US1]** `Button.tsx`: plan §3's `base` / `rest` / `interactive` /
   `unavailableTreatment` split; remove every `opacity` and `ring` utility and
   `focus-visible:outline-none`; keep the `danger` comment. Update the `unavailable` doc
   comment's "only ever emits the dimming class" to name the new treatment. Commit
   `feat(shared): design Button's state matrix`.
-- [ ] **T012 [P] [US3]** `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx` focus outline and
+- [x] **T012 [P] [US3]** `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx` focus outline and
   `Input` disabled; `ChainRecoveryNotice.tsx:302` and `WallForm.tsx:134,143` disabled label —
   exactly plan §4's table.
   Commit `feat(shared): one focus outline on Input, DataTable and GridDesigner`.
-- [ ] **T013 [US2]** `Button.tsx`: implement `busy` per plan §3 — destructured,
+- [x] **T013 [US2]** `Button.tsx`: implement `busy` per plan §3 — destructured,
   `aria-busy={busy || undefined}`, `cursor-progress`; `interactive[variant]`,
   `disabledTreatment` and `unavailableTreatment` omitted; no change to
   `disabled`/`aria-disabled`/`disabled:pointer-events-none`.
-- [ ] **T014 [US2]** `busy={…}` at the ten sites of plan §6 (nine call sites, including
-  `WallForm.tsx:162`, plus `ConfirmDialog.tsx`'s confirm button), additions only. Rebase
-  over #2631 first if it has merged (plan §6). Commit T013–T014 as
-  `feat(shared): add a busy state to Button and adopt it`.
+- [x] **T014 [US2]** `busy={…}` at eight of the ten sites of plan §6 (seven call sites,
+  including `WallForm.tsx:162`, plus `ConfirmDialog.tsx`'s confirm button), additions only.
+  **`LayoutEditorDialog.tsx:460` and `OverlayEditorDialog.tsx:357` deferred** — wiring `busy`
+  there conflicts with the pinned `LayoutEditorDialogSaveGate.test.tsx` /
+  `OverlayEditorDialogSaveGate.test.tsx` assertions at the in-flight moment; follow-up filed
+  per plan §6 / spec §3. Rebase over #2631 first if it has merged (plan §6). Commit
+  T013–T014 as `feat(shared): add a busy state to Button and adopt it`.
 - [ ] **T015** Re-run T008's commands; every red test green, nothing else changed. Then the
   counterfactuals of plan §5.1 (fact 1, fact 6), quoted and reverted. `pnpm lint`,
   `pnpm format:check`, `dotnet build -c Release` clean.

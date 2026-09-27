@@ -302,7 +302,7 @@ Feature: One focus indicator
 |---|---|---|
 | 1 | Five derived colour roles in `tokens.css` (plan §2), mapped in `tailwindTheme.ts` | US1 |
 | 2 | `Button.tsx`: the state matrix per variant; `primary` → accent; outline focus; neutral disabled for `disabled` and `unavailable` | US1 |
-| 3 | `Button.tsx`: `busy` prop; adopted at `ConfirmDialog`'s confirm button and the nine label-swap call sites (plan §6) as a pure addition beside their existing `disabled`/`unavailable` | US2 |
+| 3 | `Button.tsx`: `busy` prop; adopted at `ConfirmDialog`'s confirm button and seven of the nine label-swap call sites (plan §6) as a pure addition beside their existing `disabled`/`unavailable` — **eight sites in this PR**, not the ten originally planned; `LayoutEditorDialog.tsx:460` and `OverlayEditorDialog.tsx:357` are deferred (see below) | US2 |
 | 4 | `Input.tsx`, `DataTable.tsx`, `GridDesigner.tsx`: focus outline; `Input` disabled; `ChainRecoveryNotice.tsx`: `aria-disabled:opacity-50` → the disabled label colour; `WallForm.tsx:134,143`: `disabled:opacity-40` → the disabled label colour (class only; the raw buttons stay raw) | US3 (+US1 disabled rule) |
 | 5 | One C# architecture test, additions to both `tokens.build.test.ts`, `Button.test.tsx` cases, one Playwright spec | all |
 
@@ -315,7 +315,15 @@ Feature: One focus indicator
 | 32 raw `<button>` elements → `<Button>`; triad-as-selection chips and triad-green raw buttons (`App.tsx`, `ShellLayout.tsx`, `LayoutsPage.tsx`, `OverlaysPage.tsx`, `SystemVariablesPage.tsx`, `GridDesigner.tsx` chip fill, kiosk `App.tsx`/`PickerPage.tsx`/`CellPage.tsx`/`ReconnectingScreen.tsx`) | **Follow-up issue — not yet filed** | Two apps, ~20 files, and the kiosk's touch targets; not independently reviewable alongside the primitive. Inventory in plan §7 so it is not re-measured. |
 | Six `disabled={isLoading}` buttons and `ConfirmDialog`'s `disabled={pending}` (ADR-0151 focus-loss shape) | **#2624, PR #2631 (open)** | Changes focus behaviour; ADR-0151 demands a guard and an Enter-key Playwright test per site. Seven of this spec's ten busy sites are the files #2631 edits: whichever PR merges second rebases, and `busy` stays an addition beside whatever `disabled`/`unavailable` it finds. |
 | The same shape at `WallForm.tsx:162` and `WallDetailPage.tsx:126,157` (spec 258, not in #2624) | **Follow-up issue — not yet filed** (plan §7) | Same reason. |
+| `busy={isLoading}` at `LayoutEditorDialog.tsx:460` and `OverlayEditorDialog.tsx:357` (2 of the original ten busy sites) | **Follow-up issue — not yet filed** (plan §6) | Wiring `busy` there conflicts with `LayoutEditorDialogSaveGate.test.tsx` / `OverlayEditorDialogSaveGate.test.tsx`'s pinned assertions of the `aria-disabled:text-fg-disabled`-family classes at the in-flight (`isLoading`) moment. The follow-up moves that assertion to the chain-re-read/409-refetch moment (`saveBlocked` true, `isLoading` false) and adds an `aria-busy="true"` assertion at the in-flight moment instead, then adds `busy`. |
 | Light-theme triad text contrast | Spec 257 §4 item 1 (open) | Unchanged here; the danger label is dark on red in every theme (plan §2.1), so this spec does not depend on it. |
+
+**Known, documented limitation of the eight adopted sites, not fixed here:** each still
+passes native `disabled` alongside `busy`, and `Button.tsx`'s `disabled:pointer-events-none`
+makes the browser show the cursor of the element underneath instead of `busy`'s
+`cursor-progress` — so the busy cursor is currently invisible at all eight. This becomes
+visible once #2631 (fix/2624) converts these call sites from `disabled` to `unavailable`,
+which carries no `pointer-events-none`.
 
 ## 4. Decisions: what is settled, and the one that is not
 
