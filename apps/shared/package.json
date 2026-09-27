@@ -69,8 +69,8 @@
     "@radix-ui/react-tooltip": "1.2.16",
     "clsx": "2.1.1",
     "react-rnd": "10.5.3",
-    "tailwind-merge": "3.6.0",
-    "zod": "4.4.3"
+    "tailwind-merge": "3.7.0",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@capsizecss/core": "4.1.3",
