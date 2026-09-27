@@ -202,6 +202,59 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     }
 
     /// <summary>
+    /// Spec 271 §10 — the alignment seam's own transition-log side effect,
+    /// for the two facts that measure that exact signal.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="BeginCountingAsync"/>'s forced refusal is itself a genuine
+    /// throttle transition, debounced by <c>Program.cs</c>'s
+    /// <c>IsNewWhepAuthorizeThrottleTransition</c> (an absolute TTL equal to
+    /// <see cref="Window"/>, keyed only on partition). Under the pre-#2537
+    /// protocol, the prior fact's own trailing <c>Task.Delay(Window)</c>
+    /// happened to leave that debounce cold by the time the next fact
+    /// measured it; the fast-aligned seam does not, since alignment and the
+    /// fact's own measured action now both fall inside the same debounce
+    /// window. Rather than changing what
+    /// <see cref="A_partition_entering_the_throttled_state_is_logged_once"/>
+    /// and <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
+    /// assert, this variant restores the precondition those assertions were
+    /// always written against: it forces a transition exactly like
+    /// <see cref="BeginCountingAsync"/>, then waits out both the limiter's
+    /// window and the debounce's TTL (the same duration, so one wait clears
+    /// both) before returning — a passive wait, not a request, since the
+    /// limiter's heartbeat replenishes on its own schedule regardless of
+    /// traffic. No permit is spent by this method, so it returns
+    /// <see cref="PermitLimit"/> in full, unlike <see cref="BeginCountingAsync"/>'s
+    /// <c>PermitLimit - 1</c>.
+    /// </remarks>
+    private async Task<int> BeginCountingWithClearDebounceAsync()
+    {
+        bool refused = false;
+
+        for (int attempt = 0; attempt < PermitLimit + 1; attempt++)
+        {
+            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+
+            if (response.StatusCode == HttpStatusCode.TooManyRequests)
+            {
+                refused = true;
+                break;
+            }
+        }
+
+        refused.ShouldBeTrue(
+            $"the window never refused after {PermitLimit + 1} requests — is another limiter "
+            + "configuration live?");
+
+        // Comfortably longer than both Window and the transition-log
+        // debounce's TTL (the same duration) so heartbeat lateness cannot
+        // leave either one still live.
+        await Task.Delay(Window + TimeSpan.FromSeconds(2));
+
+        return PermitLimit;
+    }
+
+    /// <summary>
     /// US1 acceptance scenario 2 / FR-001. The cheapest admitted shape — no
     /// token — mirrors <c>WhepAuthIntegrationTests.Authorize_without_a_token_returns_401</c>,
     /// so every one of the <c>budget + 1</c> requests answers <c>401</c>
@@ -386,7 +439,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_partition_entering_the_throttled_state_is_logged_once()
     {
-        int budget = await BeginCountingAsync();
+        int budget = await BeginCountingWithClearDebounceAsync();
 
         // S6 (spec 208 review): anchors on a sentinel's position in the log
         // tail instead of a baseline-count delta. aspire.RecentLogs(...,
@@ -457,7 +510,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
     {
-        int budget = await BeginCountingAsync();
+        int budget = await BeginCountingWithClearDebounceAsync();
 
         // S6 (spec 208 review): sentinel-position anchor — see the identical
         // comment in A_partition_entering_the_throttled_state_is_logged_once.

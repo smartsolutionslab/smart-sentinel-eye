@@ -260,3 +260,65 @@ No open PR or remote branch (other than stale `origin/main`) touches `WhepAuthor
 Re-verified 2026-09-27 against `origin/develop` and every active local worktree: **271** is free. No
 open PR or remote branch touches `WhepAuthorizeRateLimitTests.cs`, `AspireFixture*.cs` or
 `StreamDistribution/Api/Program.cs` other than this one.
+
+## 10. Phase 4b finding — the aligned seam's own probe is a real, debounced transition (2026-09-27)
+
+PR #2648's Docker-integration CI run (job 108665467074, run 36335155612) failed exactly two facts —
+`A_partition_entering_the_throttled_state_is_logged_once` (`transitionLogCount` expected `1`, was `0`)
+and `Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record` (`afterTransition`
+expected `1`, was `0`). All other facts, including the four other characterisation facts and the
+adversarial fact, passed (233/235 total). The scratch harness in §1.3 could not have caught this: it
+drove a bare `PartitionedRateLimiter` directly and never modelled the mechanism below, which lives
+entirely in `Program.cs` and is orthogonal to the limiter's own counting.
+
+**The mechanism** (`StreamDistribution/Api/Program.cs:36-52`,
+`IsNewWhepAuthorizeThrottleTransition`): the FR-009 "log once per transition" guard is an
+`IMemoryCache` entry per partition, set with an **absolute expiration of `whepAuthorizeWindow`**
+(10 s in the integration lane) the moment a transition is first logged. It is a pure time debounce —
+keyed only on partition (IP), with no awareness of the rate limiter's own window generation and no
+reset on an intervening admission. Any further transition on the same partition inside that 10 s is
+silently suppressed, however it was caused.
+
+**Why the seam trips it.** `BeginCountingAsync()` (plan.md §3.1 4b) opens by sending until refused —
+a *real* `429`, which is a real, first-of-its-kind transition on the shared partition and therefore
+logs and caches the debounce entry — then polls until admitted and returns. Every fact that calls it
+now causes exactly this event, milliseconds before running its own counted sequence. For most facts
+that is invisible: they do not read the transition log. The two FR-009 facts do, and their own
+throttled request lands well inside the 10 s the alignment step's own transition just started, so
+`IsNewWhepAuthorizeThrottleTransition` correctly returns `false` for the fact's *own* refusal and
+nothing new is logged.
+
+**This did not exist before this spec.** Under the pre-271 protocol, the analogous event — a recovery
+probe forcing a transition — happened in the *previous* fact's `WaitUntilAdmittedAgainAsync` teardown,
+fully decoupled from the next fact's own transition-log assertions. Moving boundary observation into a
+seam called at the *start* of the fact that reads the log is what brings the two events inside one
+fact's own execution for the first time.
+
+**Disposition.** `Program.cs`'s debounce is out of scope (§2) and is correct, intentional production
+behaviour on its own terms — a flood guard is not obliged to survive a test deliberately manufacturing
+a transition on the same IP moments earlier. `A_partition_entering_the_throttled_state_is_logged_once`
+and `Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record`'s own assertions were
+built on a premise — that the alignment step is invisible to the transition-log signal — that phase 4b
+disproved.
+
+**Resolution (escalated to and decided by the product owner directly, not by an implementer).** An
+anchor-based fix (repositioning what the two facts count "since") was designed and found insufficient
+on closer analysis: the debounce's absolute TTL starts ticking at `BeginCountingAsync()`'s own forced
+refusal regardless of where a later reader anchors, and the fact's own action always lands well inside
+that same 10 s window under the fast-aligned protocol — no anchor position changes whether the
+debounce is still hot. The decision taken: **restore the precondition these two facts' assertions were
+always written against, rather than change the assertions.** A second alignment helper,
+`BeginCountingWithClearDebounceAsync()`, does the same forced-refusal alignment as
+`BeginCountingAsync()` but then waits `Window + 2s` — comfortably longer than both the limiter's own
+window and the debounce's TTL (numerically the same duration) — before returning. The wait is passive
+(no request sent): the limiter's heartbeat replenishes on its own schedule independent of traffic, so
+by the time the wait ends the window is fully fresh (all `PermitLimit` permits, hence this helper
+returns `PermitLimit` rather than `BeginCountingAsync`'s `PermitLimit - 1`) and the debounce has fully
+expired. This mirrors what the pre-271 protocol provided by accident (the previous fact's own trailing
+`Task.Delay(Window)` incidentally left the debounce cold by the time the next fact ran) and provides it
+on purpose, only for the two facts that read the transition-log signal directly.
+
+**Not a fact-body edit.** Only these two facts' first line changes — which alignment helper they call.
+No assertion, expected value, or failure message in either fact changed. The two facts pay a ~12 s
+alignment cost the other four do not; everything else in this spec (the seam, the adversarial fact, the
+other four facts) is unaffected.
