@@ -224,7 +224,11 @@ test.describe('Button interaction states (US1)', () => {
    * utility in `@media (hover: hover)`, spec §1). Not phase-4a evidence.
    */
   test('a touch tap does not latch a hover fill', async ({ browser }) => {
-    test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+    // No FIRST_WRITE_TEST_TIMEOUT_MS here: the register dialog is opened and
+    // cancelled, never submitted, so there is no first write to budget for.
+    // The default 60s test timeout stays in force, so a genuine hang (a stuck
+    // click waiting out an actionability check that never resolves) fails
+    // loudly well before the 5-minute ceiling that constant would grant.
     const context = await browser.newContext({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
     try {
       const page = await context.newPage();
