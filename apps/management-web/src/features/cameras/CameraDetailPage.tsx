@@ -1,5 +1,6 @@
 import { useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
+import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
@@ -126,15 +127,10 @@ export function CameraDetailPage() {
       </header>
 
       {error !== undefined && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
-          Could not refresh this camera — what you see may be out of date.{' '}
-          <button type="button" className="underline" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </div>
+        <RetryBanner
+          message="Could not refresh this camera — what you see may be out of date."
+          onRetry={() => void refetch()}
+        />
       )}
 
       {/* FR-001/FR-002: the picture is part of the page, not something opened
