@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ConfirmDialog } from './ConfirmDialog.js';
 
@@ -170,5 +172,50 @@ describe('ConfirmDialog', () => {
 
     expect(onOpenChange).toHaveBeenCalledTimes(1);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  /**
+   * ConfirmDialog renders no `Trigger` of its own — the caller drives `open`
+   * — so Radix's own close-focus (which falls back to a `Trigger` this
+   * component never mounts) would silently drop focus to `<body>` on
+   * Escape. A layout effect captures whatever had focus before the dialog
+   * opened instead (see the component). `DropdownMenu.test.tsx`'s own
+   * ConfirmDialog consumer case proves this too, but only through a
+   * DropdownMenu's trigger; every other caller relies on the same
+   * mechanism directly, so it is pinned here on its own.
+   */
+  it('Escape returns focus to whatever opened the dialog, not to the document body', async () => {
+    const user = userEvent.setup();
+
+    function Harness() {
+      const [open, setOpen] = useState(false);
+      return (
+        <>
+          <button type="button" onClick={() => setOpen(true)}>
+            Retire
+          </button>
+          <ConfirmDialog
+            open={open}
+            onOpenChange={setOpen}
+            title="Retire this camera?"
+            confirmLabel="Retire camera"
+            onConfirm={() => setOpen(false)}
+          >
+            <p>This cannot be undone.</p>
+          </ConfirmDialog>
+        </>
+      );
+    }
+
+    render(<Harness />);
+
+    const opener = screen.getByRole('button', { name: /^retire$/i });
+    await user.click(opener);
+    await screen.findByRole('alertdialog');
+
+    await user.keyboard('{Escape}');
+
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(opener).toHaveFocus();
   });
 });
