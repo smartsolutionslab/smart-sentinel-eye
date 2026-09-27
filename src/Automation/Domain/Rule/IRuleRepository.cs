@@ -19,6 +19,12 @@ public interface IRuleRepository
 {
     Task<Option<Rule>> GetByIdentifierAsync(RuleIdentifier rule, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Looks up a rule by name, deliberately excluding Archived rows so the
+    /// name is free for re-use (FR-002; see the class remarks). Consequently,
+    /// every command that resolves a rule this way — <c>Publish</c> among
+    /// them — treats an archived name as not-found rather than as a conflict.
+    /// </summary>
     Task<Option<Rule>> GetByNameAsync(FabIdentifier fab, RuleName name, CancellationToken cancellationToken);
 
     void Add(Rule rule);

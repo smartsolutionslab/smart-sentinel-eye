@@ -24,7 +24,9 @@ public sealed class RuleRepository(
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        // FR-002: archived names are released for re-use; ignore Archived rows.
+        // FR-002: archived names are released for re-use; ignore Archived rows. See
+        // IRuleRepository.GetByNameAsync — a command resolving by name therefore
+        // treats an archived rule as not-found, not a conflict.
         // Fab first: a name is unique only within one (spec 013), so without
         // it this could return another fab's rule.
         RuleAggregate? found = await dbContext.Rules
