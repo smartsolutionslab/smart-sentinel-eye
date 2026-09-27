@@ -104,7 +104,7 @@ test.describe('Button interaction states (US1)', () => {
   }) => {
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
-    await registerCamera(page, 'E2E States Primary');
+    const primaryCameraName = await registerCamera(page, 'E2E States Primary');
 
     // primary: "Register camera" on the Cameras list.
     const primary = page.getByRole('button', { name: /register camera/i });
@@ -135,7 +135,7 @@ test.describe('Button interaction states (US1)', () => {
 
     // ghost: "Cancel" in the "Correct the address" dialog, opened from a
     // camera's detail page.
-    await page.getByRole('link', { name: /e2e states primary/i }).click();
+    await page.getByRole('link', { name: primaryCameraName }).click();
     await page.getByRole('button', { name: /correct the address/i }).click();
     const ghost = page.getByRole('dialog').getByRole('button', { name: /cancel/i });
     const ghostRest = await backgroundColorOf(ghost);
