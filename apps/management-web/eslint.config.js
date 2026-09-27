@@ -33,6 +33,8 @@ export default [
         URL: 'readonly',
         URLSearchParams: 'readonly',
         globalThis: 'readonly',
+        AbortController: 'readonly',
+        KeyboardEvent: 'readonly',
       },
     },
     plugins: {

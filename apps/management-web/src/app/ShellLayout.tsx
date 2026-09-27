@@ -1,6 +1,23 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ComponentRef, type ReactNode, type Ref } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate, useRouteError } from 'react-router-dom';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
+import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { CommandPalette } from '@smart-sentinel-eye/shared/ui/primitives/CommandPalette';
+
+/**
+ * The nav's destinations — the single source both the nav bar and the
+ * command palette render, so the palette can never offer a surface the nav
+ * does not (spec 266 SC-6). There are seven.
+ */
+const DESTINATIONS: ReadonlyArray<{ to: string; label: string }> = [
+  { to: '/cameras', label: 'Cameras' },
+  { to: '/layouts', label: 'Layouts' },
+  { to: '/walls', label: 'Walls' },
+  { to: '/overlays', label: 'Overlays' },
+  { to: '/rules', label: 'Rules' },
+  { to: '/system-variables', label: 'System variables' },
+  { to: '/audit', label: 'Audit' },
+];
 
 /**
  * The management shell: navigation that is always visible, and the current
@@ -18,18 +35,83 @@ import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/res
  * </p>
  */
 export function ShellLayout() {
+  const navigate = useNavigate();
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const linkRefs = useRef(new Map<string, ComponentRef<'a'>>());
+
+  // Mounted once, in the shell — the one component that lives for the whole
+  // signed-in session (spec 266 US6, plan.md §4.4). The listener is inline
+  // (an `AbortController` handles cleanup, not a named reference) so its
+  // `event` parameter is inferred from `addEventListener`'s own overload
+  // rather than spelled `KeyboardEvent` — this app's eslint config has no
+  // per-tag/event DOM lib globals, and naming such a type literally trips
+  // `no-undef` (see `ComponentRef<'a'>` above, and spec 154's
+  // `LayoutEditorDialog.tsx` for the established reasoning: widening the
+  // config would be the gate-weakening ADR-0144 rules out).
+  useEffect(() => {
+    const controller = new AbortController();
+    document.addEventListener(
+      'keydown',
+      (event) => {
+        if (event.altKey || event.shiftKey) return;
+        if (!(event.ctrlKey || event.metaKey)) return;
+        if (event.key.toLowerCase() !== 'k') return;
+
+        // A stray chord must not navigate an operator out of an unsaved
+        // form — this also covers the palette itself already being open.
+        const anotherDialogOpen = document.querySelector(
+          '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]',
+        );
+        if (anotherDialogOpen !== null) return;
+
+        event.preventDefault();
+        setPaletteOpen(true);
+      },
+      { signal: controller.signal },
+    );
+    return () => controller.abort();
+  }, []);
+
   return (
     <main className="min-h-screen bg-bg-base text-fg-primary">
       <nav className="flex items-center gap-3 border-b border-fg-muted/30 px-6 py-3">
-        <NavItem to="/cameras">Cameras</NavItem>
-        <NavItem to="/layouts">Layouts</NavItem>
-        <NavItem to="/walls">Walls</NavItem>
-        <NavItem to="/overlays">Overlays</NavItem>
-        <NavItem to="/rules">Rules</NavItem>
-        <NavItem to="/system-variables">System variables</NavItem>
-        <NavItem to="/audit">Audit</NavItem>
+        {DESTINATIONS.map((destination) => (
+          <NavItem
+            key={destination.to}
+            to={destination.to}
+            ref={(element) => {
+              if (element === null) {
+                linkRefs.current.delete(destination.to);
+              } else {
+                linkRefs.current.set(destination.to, element);
+              }
+            }}
+          >
+            {destination.label}
+          </NavItem>
+        ))}
+        <Button
+          variant="ghost"
+          className="ml-auto"
+          aria-keyshortcuts="Control+K Meta+K"
+          onClick={() => setPaletteOpen(true)}
+        >
+          Go to…
+        </Button>
       </nav>
       <Outlet />
+      <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        items={DESTINATIONS.map(({ to, label }) => ({ value: to, label }))}
+        onSelect={(to) => {
+          navigate(to);
+          linkRefs.current.get(to)?.focus();
+        }}
+        label="Go to"
+        placeholder="Go to a surface…"
+        emptyText="No matching surfaces"
+      />
     </main>
   );
 }
@@ -80,9 +162,10 @@ export function SurfaceCrash() {
  * what having real locations is for. Keeping selectors green by making the
  * markup wrong is paying for the router and not collecting.
  */
-function NavItem({ to, children }: { to: string; children: ReactNode }) {
+function NavItem({ to, children, ref }: { to: string; children: ReactNode; ref?: Ref<ComponentRef<'a'>> }) {
   return (
     <NavLink
+      ref={ref}
       to={to}
       className={({ isActive }) =>
         isActive
