@@ -1016,9 +1016,11 @@ describe('LayoutsPage — Edit (new draft) keeps focus while unavailable (spec 2
  * L3 carries no new guard (plan.md §3.3): every menu entry already refuses
  * on the same `disabled` local, so the fix does not add a handler-level
  * guard on the trigger itself — see T014's counterfactual for the proof that
- * the entries' own `disabled` is what does the refusing. Here, today, the
- * trigger cannot even open the menu once natively disabled, which is a more
- * basic reason for the same green pin.
+ * the entries' own `disabled` is what does the refusing. Radix's
+ * `DropdownMenu.Trigger` opens on its own internal `onPointerDown`, which our
+ * code never gates (spec 273 J2) — only the menu *items* underneath carry
+ * `disabled` and refuse `onSelect`. So the trigger opens the menu even while
+ * unavailable; it is the item, not the trigger, that refuses.
  */
 describe('LayoutsPage — More actions trigger keeps focus while unavailable (spec 273 L3)', () => {
   function publishedOnly() {
@@ -1061,13 +1063,17 @@ describe('LayoutsPage — More actions trigger keeps focus while unavailable (sp
     expect(trigger).not.toHaveAttribute('disabled');
   });
 
-  it('Opens no menu and sends no revert while the trigger is unavailable', () => {
+  it('Opens the menu but sends no revert while the trigger is unavailable', async () => {
+    const user = userEvent.setup();
     publishState = { isLoading: true };
     renderPage();
 
-    fireEvent.click(screen.getByRole('button', { name: /more actions/i }));
+    const trigger = screen.getByRole('button', { name: /more actions/i });
+    await user.click(trigger);
 
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    const menu = await screen.findByRole('menu');
+    await user.click(within(menu).getByRole('menuitem', { name: /^revert$/i }));
+
     expect(revertMock).not.toHaveBeenCalled();
   });
 });

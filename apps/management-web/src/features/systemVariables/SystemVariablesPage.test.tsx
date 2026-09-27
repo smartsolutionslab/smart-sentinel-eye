@@ -447,9 +447,16 @@ describe('SystemVariablesPage — Set value keeps focus while unavailable (spec 
     expect(setValue).not.toHaveAttribute('disabled');
   });
 
-  it('Sends no second Set value request while saving', () => {
+  it('Sends no second Set value request while saving', async () => {
+    const user = userEvent.setup();
     setValueState = { isLoading: true };
     renderPage();
+
+    // A real pending value, typed first: without it the pre-existing
+    // `raw === undefined || raw === ''` check refuses the call on its own,
+    // and this test could not tell the `saving` guard apart from that check.
+    const input = screen.getByPlaceholderText(/new value/i);
+    await user.type(input, 'new-value');
 
     fireEvent.click(screen.getByRole('button', { name: /^set value$/i }));
 
