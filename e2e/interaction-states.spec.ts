@@ -376,7 +376,11 @@ test.describe('Button busy state (US2)', () => {
     try {
       const field = page.locator('#rename-camera-name');
       await field.fill(`${original} corrected`);
-      const submit = page.getByRole('button', { name: /^save$/i });
+      // Not `getByRole('button', { name: /^save$/i })`: the label swaps to
+      // "Saving…" the instant the click lands, and a lazy role-by-name
+      // locator re-resolves on every use, so it would stop matching anything
+      // right when the assertions below need to find it.
+      const submit = page.getByRole('dialog').locator('button[type="submit"]');
       await submit.click();
 
       await expect(submit).toHaveAttribute('aria-busy', 'true');
