@@ -188,6 +188,81 @@ public class IdempotentRequestTests
         store.Released.ShouldBe(1);
     }
 
+    /// <summary>
+    /// #2490. A completion failure happens after the work already succeeded, so
+    /// the caller must still see that success rather than a 500 for an operation
+    /// that in fact went through.
+    /// </summary>
+    [Fact]
+    public async Task A_completion_that_throws_after_the_work_succeeded_still_answers_with_the_work_s_response()
+    {
+        RecordingStore store = new() { CompleteThrows = new InvalidOperationException("store unavailable") };
+
+        IResult result = await Run(store);
+
+        ShouldBeOk(result, "done");
+    }
+
+    /// <summary>
+    /// #2490. Symmetric case for a refusal: the release records that the key is
+    /// free again, but its own failure must not turn the refusal response into an
+    /// exception.
+    /// </summary>
+    [Fact]
+    public async Task A_release_that_throws_after_a_refusal_still_answers_with_the_refusal()
+    {
+        RecordingStore store = new() { CreatesNothing = true, ReleaseThrows = new InvalidOperationException("store unavailable") };
+
+        IResult result = await Run(store);
+
+        ShouldBeOk(result, "refused");
+    }
+
+    /// <summary>
+    /// #2490. Same listener pattern as
+    /// <see cref="A_release_that_throws_records_its_failure_on_the_current_activity"/>:
+    /// a real listener is needed because <see cref="Activity.Current"/> is
+    /// <c>null</c> in a bare xUnit test.
+    /// </summary>
+    [Fact]
+    public async Task A_completion_that_throws_records_its_failure_on_the_current_activity()
+    {
+        using ActivitySource source = new($"{nameof(IdempotentRequestTests)}.{Guid.NewGuid():N}");
+        using ActivityListener listener = new()
+        {
+            ShouldListenTo = activitySource => activitySource == source,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        RecordingStore store = new() { CompleteThrows = new InvalidOperationException("completion failed") };
+
+        using Activity? activity = source.StartActivity("idempotent-request-test");
+
+        await Run(store);
+
+        activity.ShouldNotBeNull("the listener above must have sampled it, or this assertion is vacuous.");
+        activity.Events.ShouldContain(
+            recorded => recorded.Name == "exception"
+                && recorded.Tags.Any(tag => tag.Key == "exception.message" && Equals(tag.Value, "completion failed")),
+            "the completion failure must be recorded on the activity rather than discarded silently.");
+    }
+
+    /// <summary>
+    /// #2490 FR-003. Releasing after a failed completion would let an immediate
+    /// retry with the same key re-run the work and create a second resource, so
+    /// the failed completion must not be followed by a release.
+    /// </summary>
+    [Fact]
+    public async Task A_completion_that_throws_is_not_followed_by_a_release()
+    {
+        RecordingStore store = new() { CompleteThrows = new InvalidOperationException("store unavailable") };
+
+        await Run(store);
+
+        store.Released.ShouldBe(0);
+    }
+
     private static Task<IResult> Run(RecordingStore store) => Run(store, TimeProvider.System);
 
     private static Task<IResult> Run(RecordingStore store, TimeProvider clock) =>
@@ -234,6 +309,9 @@ public class IdempotentRequestTests
         /// <summary>When set, <see cref="ReleaseAsync"/> throws this instead of succeeding (#2290 US2).</summary>
         public Exception? ReleaseThrows { get; set; }
 
+        /// <summary>When set, <see cref="CompleteAsync"/> throws this instead of succeeding (#2490).</summary>
+        public Exception? CompleteThrows { get; set; }
+
         /// <summary>Answer the call successfully, having created nothing.</summary>
         public bool CreatesNothing { get; set; }
 
@@ -268,6 +346,11 @@ public class IdempotentRequestTests
 
         public Task CompleteAsync(IdempotencyScope scope, Guid resourceIdentifier, CancellationToken cancellationToken)
         {
+            if (CompleteThrows is not null)
+            {
+                return Task.FromException(CompleteThrows);
+            }
+
             Completed = resourceIdentifier;
 
             return Task.CompletedTask;
