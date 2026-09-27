@@ -192,8 +192,20 @@ public static class AuthenticationDefaults
         // resolves this named client from the factory on every fetch.
         builder.Services.AddHttpClient(HttpRevokedClientSource.HttpClientName, client =>
         {
+            // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
+            // applies: "identity" is a logical resource name and Aspire rewrites
+            // the whole URI, scheme included (same reasoning as
+            // StreamDistributionInfrastructureModule's CameraCatalogFabLookup
+            // client). "https+http" — try https, fall back to http — is wrong
+            // here: it resolved to Aspire's dev-mode HTTPS endpoint in CI, whose
+            // self-signed certificate this HttpClient does not trust, and every
+            // fetch failed with AuthenticationException: UntrustedRoot. Every
+            // other inter-service client in this codebase uses plain "http",
+            // matching AddBearerAuthentication's own RequireHttpsMetadata = false
+            // reasoning above: there is no Helm overlay or production deployment
+            // for an https default to be backed by.
 #pragma warning disable S1075, S5332
-            client.BaseAddress = new Uri("https+http://identity");
+            client.BaseAddress = new Uri("http://identity");
 #pragma warning restore S1075, S5332
         }).AddHttpMessageHandler<RevocationListAuthorizationHandler>();
         builder.Services.TryAddSingleton<IRevokedClientSource, HttpRevokedClientSource>();
