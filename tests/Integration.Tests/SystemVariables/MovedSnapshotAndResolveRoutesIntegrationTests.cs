@@ -52,9 +52,9 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
             overlays, $"Value: {{{{{variableName}}}}}", "Rst");
 
         await PublishAMunichLayoutReferencingAsync(overlay);
-        // Waits via the OLD /snapshot path (unmoved fixture, out of scope for
-        // this change) purely as a readiness signal that the reverse index
-        // has picked the overlay up; the assertion below reads the NEW path.
+        // Polls the NEW /-/snapshot path purely as a readiness signal that the
+        // reverse index has picked the overlay up; the assertion below reads
+        // the same path.
         await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName);
 
         HttpResponseMessage response = await variables.GetAsync(
