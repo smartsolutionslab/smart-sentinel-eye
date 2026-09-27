@@ -747,6 +747,11 @@ test.describe('US4 — an operator paging through cameras keeps their place (spe
 
     let release!: () => void;
     const gate = new Promise<void>((resolve) => (release = resolve));
+    // Counted at the route, not inferred from the page-2 marker text alone:
+    // without this, a second activation's request would still eventually
+    // resolve to the same page-2 payload, and the test could not tell a
+    // present guard from an absent one (mirroring `holdWrites` above).
+    let secondPageRequests = 0;
 
     // Registered BEFORE sign-in: Cameras is the landing page, so its very
     // first GET must already be caught by this route.
@@ -758,6 +763,7 @@ test.describe('US4 — an operator paging through cameras keeps their place (spe
         if (offset === 0) {
           return route.fulfill({ json: cameraPage(0, 'E2E Focus Page1 Cam') });
         }
+        secondPageRequests += 1;
         await gate;
         return route.fulfill({ json: cameraPage(50, 'E2E Focus Page2 Cam') });
       },
@@ -771,6 +777,8 @@ test.describe('US4 — an operator paging through cameras keeps their place (spe
     await expect(next).toBeFocused();
     await page.keyboard.press('Enter');
 
+    await expect.poll(() => secondPageRequests).toBe(1);
+
     // The red assertion.
     await expect(next).toBeFocused();
     await expect(next).toHaveAttribute('aria-disabled', 'true');
@@ -781,6 +789,7 @@ test.describe('US4 — an operator paging through cameras keeps their place (spe
 
     release();
     await expect(page.getByText('E2E Focus Page2 Cam')).toBeVisible();
+    expect(secondPageRequests).toBe(1);
   });
 });
 
@@ -911,7 +920,10 @@ test.describe('US6 — an operator switching a wall scene keeps their place (spe
     );
 
     try {
-      const show = page.getByRole('listitem').filter({ hasText: layoutBName }).getByRole('button', { name: /^show$/i });
+      const show = page
+        .getByRole('listitem')
+        .filter({ hasText: layoutBName })
+        .getByRole('button', { name: /^show$/i });
       await show.focus();
       await expect(show).toBeFocused();
       await page.keyboard.press('Enter');

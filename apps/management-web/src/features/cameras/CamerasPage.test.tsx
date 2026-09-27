@@ -211,6 +211,44 @@ describe('CamerasPage — Previous and Next keep focus while unavailable (spec 2
     expect(lastCall?.[0]).toMatchObject({ offset: 0 });
   });
 
+  /**
+   * Spec 273 (#2632) phase-6 remediation: at offset 0 the unguarded handler's
+   * own `Math.max(0, 0 - PAGE_SIZE)` already clamps to 0, so the test above
+   * cannot tell a present guard from an absent one. This one reaches offset
+   * 50 first, then flips `isFetching` mid-catalogue and proves Previous's
+   * `isFetching` guard — not the clamping math — is what refuses the click.
+   */
+  it('Sends no page change from Previous while a page is already in flight, mid-catalogue', () => {
+    let fetching = false;
+    listCamerasMock.mockImplementation(() => ({
+      data: { ...populatedPage(), count: 100 },
+      isLoading: false,
+      isFetching: fetching,
+      error: undefined,
+      refetch: vi.fn(),
+    }));
+
+    const { rerender } = render_page();
+
+    fireEvent.click(screen.getByRole('button', { name: /^next$/i }));
+    let lastCall = listCamerasMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toMatchObject({ offset: 50 });
+
+    fetching = true;
+    rerender(
+      <Provider store={store}>
+        <MemoryRouter>
+          <CamerasPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /previous/i }));
+
+    lastCall = listCamerasMock.mock.calls.at(-1);
+    expect(lastCall?.[0]).toMatchObject({ offset: 50 });
+  });
+
   it('Marks Next unavailable, not natively disabled, on the last page', () => {
     listCamerasMock.mockReturnValue({
       data: populatedPage(),
