@@ -1,4 +1,4 @@
-# Spec 274: The banner every page repeats
+# Spec 277: The banner every page repeats
 
 **Issue**: #2523 (feature-level; no per-task issues, CLAUDE.md Phase 3)
 **Lane**: supervised (ADR-0037). Phases 1–3 only in this artifact set.
@@ -12,13 +12,15 @@ characterisation, not red — see §6), **ADR-0109** (disjoint files enable para
 **New ADR needed**: No. Extracting a repeated presentational fragment into
 `apps/shared/src/ui/composites/` is the established pattern (see the three composites above);
 nothing about locked tech, a boundary, or a cross-cutting policy changes.
-**Spec number**: 274. Checked 2026-09-27 against every `specs/` directory in every local
-worktree (`smart-sentinel-eye`, `sse-2200`, `sse-2324`, `sse-2332`, `sse-2337`, `sse-2358`,
-`sse-2365`, `sse-2450`, `sse-2490`, `sse-2521`, `sse-2523`, `sse-2526`, `sse-2570`, `sse-2579`,
-`sse-2582`, `sse-2586`, `sse-2589`, `sse-2632` — highest found: 273, in `sse-2632`) and every
-`origin/*` branch not checked out as a worktree (highest found: 272, on the two `chore/2638-*`
-branches). No branch or worktree holds 274. **Re-check before opening the PR** (memory: *spec
-number: origin/develop isn't enough*).
+**Spec number**: 277. Originally taken as 274 (checked 2026-09-27 against every `specs/`
+directory in every local worktree and every `origin/*` branch not checked out — see git history
+of this file for the original check). A pre-PR re-check found a 3-way collision on 274: `sse-2358`
+committed its `274-the-names-a-route-swallowed` first (2026-09-27 20:34:01), this spec's
+`274-the-banner-every-page-repeats` was committed second (20:35:27), and `sse-2490`'s
+`274-the-success-that-answered-500` third — that one has since been renumbered to 278. Renumbered
+this spec to **277**, confirmed free: 275 = `sse-2521`, 276 = `sse-2200`, 278 = `sse-2490`, no
+worktree or `origin/*` branch holds 277. Exactly the failure mode *spec number: origin/develop
+isn't enough* warns about — re-check after every parked-PR merge, not just at dispatch.
 **Latency budget (constitution §IV)**: **N/A.** Operator console only (`management-web` +
 `apps/shared`). Nothing on the event→overlay path, nothing in `kiosk-web`.
 
