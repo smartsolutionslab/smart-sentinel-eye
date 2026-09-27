@@ -115,16 +115,18 @@ public class StaleCodeConventionTests
                 "LAYOUT_REVISION_STALE",
                 "OVERLAY_REVISION_STALE",
                 "RULE_STALE",
+                "SOURCE_MODE_STALE",
                 "VARIABLE_STALE",
                 "WALL_STALE",
                 "WEBHOOK_CLIENT_STALE",
                 "WEBHOOK_INTEGRATION_STALE",
             ],
             ignoreOrder: true,
-            "Ten codes: nine per-context refusals plus AGGREGATE_VERSION_STALE, the shared Layer-2 "
+            "Eleven codes: ten per-context refusals plus AGGREGATE_VERSION_STALE, the shared Layer-2 "
             + "handler in ServiceDefaults that covers the true database race for every mutating endpoint. "
             + "WALL_STALE (spec 258 US1) is one code shared by EditWallScenesError.Stale and "
-            + "SwitchWallSceneError.Stale. If this list shrank, a context lost its concurrency "
+            + "SwitchWallSceneError.Stale. SOURCE_MODE_STALE (spec 269) is ChangeSourceModeError.SourceModeStale. "
+            + "If this list shrank, a context lost its concurrency "
             + "refusal; if it grew, a new one arrived and the shared client's tests should cover it too "
             + "(specs/031-stale-version-convention).");
     }

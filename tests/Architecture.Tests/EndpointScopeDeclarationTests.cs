@@ -352,14 +352,15 @@ public class EndpointScopeDeclarationTests
     /// Adding or removing an endpoint edits one of these numbers in the same
     /// diff as the endpoint. Spec 258 US1 added WallEndpoints.cs with five
     /// route handlers: 13 -&gt; 14 files, 60 -&gt; 65 mappings. Spec 270 (ADR-0160)
-    /// T011 adds <c>src/Identity/Api/RevocationEndpoints.cs</c> with one route
+    /// T011 added <c>src/Identity/Api/RevocationEndpoints.cs</c> with one route
     /// handler (<c>GET /registered-clients/revoked</c>): 14 -&gt; 15 files,
-    /// 65 -&gt; 66 mappings. <b>Red until T011</b>: that file does not exist on
-    /// <c>develop</c>, so the sweep still finds 14 files and 65 mappings.
+    /// 65 -&gt; 66 mappings. Spec 269 added <c>EventSourcesEndpoints.cs</c> with
+    /// three route handlers, independently, from the same 14/65 baseline:
+    /// 15 -&gt; 16 files, 66 -&gt; 69 mappings.
     /// </summary>
-    private const int EndpointFileCount = 15;
+    private const int EndpointFileCount = 16;
 
-    private const int RouteHandlerMappingCount = 66;
+    private const int RouteHandlerMappingCount = 69;
 
     /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that

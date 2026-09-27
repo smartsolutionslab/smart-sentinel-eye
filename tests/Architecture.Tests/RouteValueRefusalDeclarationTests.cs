@@ -191,16 +191,20 @@ public class RouteValueRefusalDeclarationTests
     /// <c>src/*/Api</c>. Pinned, not merely compared — see G4. Spec 258 US1
     /// added WallEndpoints.cs's five route handlers: 60 -&gt; 65. Spec 270
     /// (ADR-0160) added RevocationEndpoints.cs's one route handler: 65 -&gt; 66.
+    /// Spec 269 added EventSourcesEndpoints.cs's three, independently, from the
+    /// same 65 baseline: 66 -&gt; 69.
     /// </summary>
-    private const int RouteHandlerMappingCount = 66;
+    private const int RouteHandlerMappingCount = 69;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.
     /// Each is asserted to contribute at least one mapping, individually.
     /// Spec 258 US1 added WallEndpoints.cs: 13 -&gt; 14. Spec 270 added
-    /// RevocationEndpoints.cs: 14 -&gt; 15.
+    /// RevocationEndpoints.cs: 14 -&gt; 15. Spec 269 added
+    /// EventSourcesEndpoints.cs, independently, from the same 14 baseline:
+    /// 15 -&gt; 16.
     /// </summary>
-    private const int EndpointFileCount = 15;
+    private const int EndpointFileCount = 16;
 
     private static readonly Regex MappingCall = new(
         @"(?<receiver>[A-Za-z_]\w*)\.Map(?<verb>Get|Post|Put|Patch|Delete)\s*\(",

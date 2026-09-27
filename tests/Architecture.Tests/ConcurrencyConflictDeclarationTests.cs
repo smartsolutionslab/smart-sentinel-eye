@@ -218,11 +218,14 @@ public class ConcurrencyConflictDeclarationTests
     /// mutating endpoint edits one of these numbers in the same diff. Spec 258
     /// US1 added three (POST /walls, PUT /walls/{id}/scenes,
     /// POST /walls/{id}/switch) in a new file, WallEndpoints.cs: 35 -&gt; 38
-    /// mappings, 12 -&gt; 13 files.
+    /// mappings, 12 -&gt; 13 files. Spec 269 added two (POST /event-sources,
+    /// PUT /event-sources/{source}/mode) in a new file, EventSourcesEndpoints.cs:
+    /// 38 -&gt; 40 mappings, 13 -&gt; 14 files. The context count is unchanged —
+    /// EventIngestion already contributed mutating mappings.
     /// </summary>
-    private const int MutatingMappingCount = 38;
+    private const int MutatingMappingCount = 40;
 
-    private const int MutatingMappingFileCount = 13;
+    private const int MutatingMappingFileCount = 14;
 
     private const int MutatingMappingContextCount = 8;
 
@@ -340,6 +343,14 @@ public class ConcurrencyConflictDeclarationTests
             "EventIngestion DELETE /event-types/{kind}",
             "refusal (RetireEventTypeError.EventTypeStale); lost update "
             + "(eventType.Retire(...) then SaveAsync)"),
+        new(
+            "EventIngestion POST /event-sources/",
+            "refusal (DeclareSourceModeError.SourceModeAlreadyDeclared); unique race "
+            + "(ux_source_modes_fab_source); idempotency"),
+        new(
+            "EventIngestion PUT /event-sources/{source}/mode",
+            "refusal (ChangeSourceModeError.SourceModeStale); lost update (SourceMode.Version "
+            + "concurrency token)"),
         new(
             "Identity POST /devices/register",
             "refusal (RegisterDeviceErrors); unique race (ux_registered_clients_clientid_active); "
@@ -512,7 +523,7 @@ public class ConcurrencyConflictDeclarationTests
     /// or started, a context that gained or lost a write surface.
     /// </summary>
     [Fact]
-    public void The_mutating_surface_is_thirty_eight_mappings_in_thirteen_files_across_eight_contexts()
+    public void The_mutating_surface_is_forty_mappings_in_fourteen_files_across_eight_contexts()
     {
         IReadOnlyList<MutatingMapping> mappings = TheMappings.Value;
 
