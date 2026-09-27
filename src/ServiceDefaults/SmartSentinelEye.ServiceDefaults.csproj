@@ -9,6 +9,12 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Shared.CQRS\SmartSentinelEye.Shared.CQRS.csproj" />
+    <!-- Spec 270 (ADR-0160): the revocation snapshot's HTTP DTO
+         (RevokedClientsResponse / RevokedClientEntry) lives in Shared.Contracts,
+         the same edge every other cross-context HTTP call uses (constitution
+         §III). Shared.Contracts depends only on Shared.Kernel, so this adds no
+         cycle. -->
+    <ProjectReference Include="..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

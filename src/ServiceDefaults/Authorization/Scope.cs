@@ -102,6 +102,17 @@ public static class Scope
                 public const string Read = "sse.identity.kiosks.read";
                 public const string Write = "sse.identity.kiosks.write";
             }
+
+            /// <summary>
+            /// Spec 270 (ADR-0160 §4). Held by exactly one client,
+            /// <c>revocation-list-reader</c> — a shared, read-only service
+            /// account every non-Identity API presents to
+            /// <c>GET /registered-clients/revoked</c>.
+            /// </summary>
+            public static class Revocations
+            {
+                public const string Read = "sse.identity.revocations.read";
+            }
         }
 
         public static class Audit
@@ -128,6 +139,7 @@ public static class Scope
         Sse.Webhooks.Write,
         Sse.Identity.DeviceClients.Read, Sse.Identity.DeviceClients.Write,
         Sse.Identity.KioskClients.Read, Sse.Identity.KioskClients.Write,
+        Sse.Identity.Revocations.Read,
         Sse.Audit.Read,
     ];
 }

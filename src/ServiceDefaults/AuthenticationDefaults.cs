@@ -1,9 +1,17 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Persistence;
+using SmartSentinelEye.ServiceDefaults.Resilience;
+using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults;
@@ -71,6 +79,43 @@ public static class AuthenticationDefaults
                 options.MapInboundClaims = false;
             });
 
+        // Spec 270 (ADR-0160): refuse a token whose client was disabled after
+        // it was minted. A separate, DI-aware Configure<JwtBearerOptions,...>
+        // rather than wiring this inside AddJwtBearer's own plain
+        // Action<JwtBearerOptions> above, because IRevokedClientRegistry has to
+        // come from the container — every configure delegate for the same
+        // named options runs in registration order against the *same*
+        // JwtBearerOptions instance, so this still chains after whatever a
+        // caller set before AddBearerAuthentication() ran and still survives
+        // LayoutComposition's later Configure<JwtBearerOptions>, which only
+        // replaces OnMessageReceived (plan.md §4.3).
+        //
+        // IServiceProvider, not ILoggerFactory, as the second dependency: it is
+        // always resolvable, where ILoggerFactory is not on the bare
+        // HostApplicationBuilder this file's own tests build (no AddLogging()),
+        // so requiring it here would fail every one of them at options-resolve
+        // time rather than only failing to log.
+        builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Configure<IRevokedClientRegistry, IServiceProvider>((options, registry, services) =>
+            {
+                ILogger? logger = services.GetService<ILoggerFactory>()?
+                    .CreateLogger("SmartSentinelEye.ServiceDefaults.AuthenticationDefaults");
+
+                options.Events ??= new JwtBearerEvents();
+                Func<TokenValidatedContext, Task>? previousOnTokenValidated = options.Events.OnTokenValidated;
+                options.Events.OnTokenValidated = async context =>
+                {
+                    if (previousOnTokenValidated is not null)
+                    {
+                        await previousOnTokenValidated(context);
+                    }
+
+                    RefuseIfRevoked(context, registry, logger);
+                };
+            });
+
+        AddRevocationCheck(builder, keycloakBaseUrl, realm);
+
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
         // First: a request the caller got wrong is not a server failure, and
         // saying 500 sends them away to retry something that cannot succeed.
@@ -91,6 +136,112 @@ public static class AuthenticationDefaults
 
         return builder;
     }
+
+    /// <summary>
+    /// Spec 270 (ADR-0160): the shared registry/refresher/health-check/source
+    /// every one of the nine APIs needs to enforce revocation. <c>TryAdd</c>
+    /// throughout, so a caller that pre-registers <see cref="IRevokedClientRegistry"/>
+    /// — a test double, or Identity's own <c>LocalRevokedClientSource</c> for
+    /// <see cref="IRevokedClientSource"/> registered afterwards via
+    /// <c>services.Replace</c> — wins over this default.
+    /// </summary>
+    private static void AddRevocationCheck(IHostApplicationBuilder builder, string keycloakBaseUrl, string realm)
+    {
+        // Every context's own Infrastructure module registers the system
+        // TimeProvider too, later in the same composition root. TryAdd here
+        // just means a bare host that calls only AddBearerAuthentication —
+        // every test in this file's own test class — still has one to
+        // resolve the health check and the refresher with.
+        builder.Services.TryAddSingleton(TimeProvider.System);
+        builder.Services.TryAddSingleton<RevokedClientRegistry>();
+        builder.Services.TryAddSingleton<IRevokedClientRegistry>(
+            sp => sp.GetRequiredService<RevokedClientRegistry>());
+
+        // Validated only against whichever IRevokedClientSource this host
+        // ends up with, resolved once the container is built — after
+        // Identity's own Replace has already run (phase-6 review, S6). A
+        // missing credential is then a startup failure on the eight services
+        // that actually mint this token, not a silent, permanent fail-open
+        // discoverable only through a Degraded health tag. Identity itself
+        // replaces the source and never sets this credential, so it must not
+        // be validated there — the predicate short-circuits true the moment
+        // the resolved source is not HttpRevokedClientSource.
+        builder.Services.AddOptions<RevocationListOptions>()
+            .Configure(options =>
+            {
+                builder.Configuration.GetSection(RevocationListOptions.SectionName).Bind(options);
+                options.KeycloakUrl = keycloakBaseUrl;
+                options.Realm = realm;
+            })
+            .Validate<IServiceProvider>(
+                (options, services) =>
+                    services.GetRequiredService<IRevokedClientSource>() is not HttpRevokedClientSource
+                    || (!string.IsNullOrWhiteSpace(options.ClientId) && !string.IsNullOrWhiteSpace(options.ClientSecret)),
+                "RevocationList:ClientId and RevocationList:ClientSecret must both be set for the "
+                + "HTTP revocation-list source.")
+            .ValidateOnStart();
+
+        // Idempotent POST (ADR-0143): a second token supersedes the first.
+        builder.Services.AddHttpClient(RevocationListTokenProvider.HttpClientName).RetryEveryMethod();
+        builder.Services.TryAddSingleton<RevocationListTokenProvider>();
+        builder.Services.TryAddTransient<RevocationListAuthorizationHandler>();
+        // A named client, not AddHttpClient<IRevokedClientSource, HttpRevokedClientSource>
+        // (S3): that ties the wrapper's own lifetime to the client, which is
+        // transient, while the singleton RevokedClientRefresher captures the
+        // wrapper for the process lifetime. HttpRevokedClientSource instead
+        // resolves this named client from the factory on every fetch.
+        builder.Services.AddHttpClient(HttpRevokedClientSource.HttpClientName, client =>
+        {
+#pragma warning disable S1075, S5332
+            client.BaseAddress = new Uri("https+http://identity");
+#pragma warning restore S1075, S5332
+        }).AddHttpMessageHandler<RevocationListAuthorizationHandler>();
+        builder.Services.TryAddSingleton<IRevokedClientSource, HttpRevokedClientSource>();
+
+        builder.Services.TryAddSingleton<RevokedClientRefresher>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<RevokedClientRefresher>());
+
+        builder.Services.AddHealthChecks().AddCheck<RevokedClientSnapshotHealthCheck>(
+            "revocation-snapshot",
+            failureStatus: HealthStatus.Degraded,
+            tags: ["ready"]);
+    }
+
+    /// <summary>
+    /// The revocation half of FR-001/FR-002: refuses a token whose client was
+    /// disabled after it was minted, taking the same 401 <c>invalid_token</c>
+    /// shape any other rejected token gets.
+    /// </summary>
+    private static void RefuseIfRevoked(TokenValidatedContext context, IRevokedClientRegistry registry, ILogger? logger)
+    {
+        Ensure.That(context).IsNotNull();
+
+        string? azp = context.Principal?.FindFirst("azp")?.Value;
+        DateTimeOffset? issuedAt = IssuedAtOf(context.SecurityToken);
+
+        if (!registry.Refuses(azp, issuedAt))
+        {
+            return;
+        }
+
+        logger?.TokenRefusedAsRevoked(azp ?? string.Empty);
+        context.Fail("client revoked");
+    }
+
+    /// <summary>
+    /// <c>AddJwtBearer</c>'s default token handler is <c>JsonWebTokenHandler</c>,
+    /// so <see cref="TokenValidatedContext.SecurityToken"/> is a
+    /// <see cref="JsonWebToken"/> at runtime even though it is typed as the
+    /// base <see cref="SecurityToken"/>. <see cref="JsonWebToken.IssuedAt"/>
+    /// answers <see cref="DateTime.MinValue"/> when the token carries no
+    /// <c>iat</c>, which this maps to <see langword="null"/> — the same
+    /// "anomalous, and a listed client is exactly where anomalous must not
+    /// pass" case <see cref="RevokedClientSnapshot.Refuses"/> already handles.
+    /// </summary>
+    private static DateTimeOffset? IssuedAtOf(SecurityToken? securityToken) =>
+        securityToken is JsonWebToken { IssuedAt: var issuedAt } && issuedAt != DateTime.MinValue
+            ? new DateTimeOffset(issuedAt, TimeSpan.Zero)
+            : null;
 
     /// <summary>
     /// The realm client a browser kiosk authenticates as, carried in the token's
