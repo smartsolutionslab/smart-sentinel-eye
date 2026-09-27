@@ -149,7 +149,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
     });
     const requested = fetchMock.mock.calls[0]?.[0];
     const requestedUrl = new URL(requested instanceof Request ? requested.url : (requested as string));
-    expect(requestedUrl.pathname.endsWith('/resolve')).toBe(true);
+    expect(requestedUrl.pathname).toBe('/system-variables/system-variables/-/resolve');
     expect(requestedUrl.searchParams.get('text')).toBe('{{temperature}}');
 
     // The input keeps the raw text; the canvas box shows the resolved value.

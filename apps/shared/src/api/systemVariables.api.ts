@@ -199,7 +199,7 @@ export const systemVariablesApi = createApi({
     }),
     getOverlaySnapshot: build.query<ResolvedOverlaySnapshot, OverlaySnapshotInput>({
       query: ({ overlayIdentifier, fabId }) => ({
-        url: '/snapshot',
+        url: '/-/snapshot',
         method: 'GET',
         // Sent unconditionally, where every sibling above omits an empty
         // `fabId`: here there is no empty case to omit, and omitting one would
@@ -222,7 +222,7 @@ export const systemVariablesApi = createApi({
     }),
     resolveOverlayText: build.query<ResolvedTextPreview, ResolveOverlayTextInput>({
       query: ({ text, fabId }) => ({
-        url: '/resolve',
+        url: '/-/resolve',
         method: 'GET',
         params: fabId === undefined || fabId === '' ? { text } : { text, fabId },
       }),
