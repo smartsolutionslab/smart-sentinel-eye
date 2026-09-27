@@ -51,8 +51,13 @@ export function SystemVariablesPage() {
   const variables = data ?? [];
 
   const onValueSubmit = async (variable: Variable) => {
+    // ADR-0151: `unavailable` keeps Set value focusable and clickable while a
+    // save is already in flight, so this guard is what refuses a second
+    // submit — before the empty-value check too, since nothing should be
+    // re-validated mid-request.
+    if (saving) return;
     const raw = pendingEdit[variable.variableIdentifier];
-    if (raw === undefined) return;
+    if (raw === undefined || raw === '') return;
     const result = await setVariableValue({
       name: variable.name,
       value: raw,
@@ -155,21 +160,26 @@ export function SystemVariablesPage() {
                   />
                   <Button
                     variant="secondary"
-                    disabled={inProgress || editValue === undefined || editValue === ''}
+                    unavailable={inProgress || editValue === undefined || editValue === ''}
                     onClick={() => void onValueSubmit(variable)}
                   >
                     Set value
                   </Button>
                   <Button
                     variant="secondary"
-                    disabled={inProgress || archiving}
-                    onClick={() =>
+                    unavailable={inProgress || archiving}
+                    onClick={() => {
+                      // ADR-0151: focus-return (ConfirmDialog reopens on this
+                      // button once archiving natively disabled it before);
+                      // refuse a second confirmation while one archive is
+                      // already in flight.
+                      if (inProgress || archiving) return;
                       setArchiveFor({
                         name: variable.name,
                         version: variable.version,
                         fab: variable.fab,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Archive
                   </Button>
