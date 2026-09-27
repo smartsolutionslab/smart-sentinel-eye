@@ -157,14 +157,15 @@ export function OverlaysPage() {
                 {draft !== undefined && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
+                    unavailable={disabled}
+                    onClick={() => {
+                      if (disabled) return;
                       void publishRevision({
                         overlayIdentifier: chain.overlayIdentifier,
                         revisionNumber: draft.revisionNumber,
                         version: chain.version,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Publish
                   </Button>
@@ -172,16 +173,19 @@ export function OverlaysPage() {
                 {draft !== undefined && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
+                    unavailable={disabled}
+                    onClick={() => {
+                      // ADR-0151 focus-return: refuse a second confirmation
+                      // while a mutation on this row is already in flight.
+                      if (disabled) return;
                       setDiscardFor({
                         overlayIdentifier: chain.overlayIdentifier,
                         name: chain.name,
                         revisionNumber: draft.revisionNumber,
                         version: chain.version,
                         liveRevision: live?.revisionNumber,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Discard draft
                   </Button>
@@ -219,14 +223,17 @@ export function OverlaysPage() {
                 {(live !== undefined || fullyArchived) && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
+                    unavailable={disabled}
                     // The gate above already proves a baseline exists: `live`
                     // defined covers the first half directly, and
                     // `fullyArchived` (chainView.ts) is true only when
                     // `newest` is defined too. A guarded no-op here would be
                     // a click that does nothing and says nothing — the
                     // defect class FR-013 exists to reject by name.
-                    onClick={() => void onEdit(chain, live ?? newest!)}
+                    onClick={() => {
+                      if (disabled) return;
+                      void onEdit(chain, live ?? newest!);
+                    }}
                   >
                     Edit (new draft)
                   </Button>
@@ -234,14 +241,15 @@ export function OverlaysPage() {
                 {live !== undefined && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
+                    unavailable={disabled}
+                    onClick={() => {
+                      if (disabled) return;
                       void revertRevision({
                         overlayIdentifier: chain.overlayIdentifier,
                         revisionNumber: live.revisionNumber,
                         version: chain.version,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Revert
                   </Button>
@@ -255,15 +263,18 @@ export function OverlaysPage() {
                 {live !== undefined && (
                   <Button
                     variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
+                    unavailable={disabled}
+                    onClick={() => {
+                      // ADR-0151 focus-return: refuse a second confirmation
+                      // while a mutation on this row is already in flight.
+                      if (disabled) return;
                       setArchiveFor({
                         overlayIdentifier: chain.overlayIdentifier,
                         name: chain.name,
                         revisionNumber: live.revisionNumber,
                         version: chain.version,
-                      })
-                    }
+                      });
+                    }}
                   >
                     Archive
                   </Button>
