@@ -1,5 +1,5 @@
 import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
-import { useForm } from 'react-hook-form';
+import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
 import { useAssignedFabs } from '../../app/useAssignedFabs';
@@ -8,6 +8,7 @@ import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
+import { Select, type SelectOption } from '@smart-sentinel-eye/shared/ui/primitives/Select';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { FormErrorSummary } from '@smart-sentinel-eye/shared/ui/composites/FormErrorSummary';
 import { AelHelpPanel } from './AelHelpPanel';
@@ -24,6 +25,11 @@ const DEFAULT_INPUT: CreateRuleInput = {
   predicate: '',
   actionType: 'SetVariableValue',
 } as CreateRuleInput;
+
+const ACTION_OPTIONS: readonly SelectOption[] = [
+  { value: 'SetVariableValue', label: 'Set a system variable' },
+  { value: 'HighlightOverlay', label: 'Highlight an overlay' },
+];
 
 export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   const [createRule, { isLoading, error, reset: resetMutationState }] = useCreateRuleMutation();
@@ -42,6 +48,7 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     handleSubmit,
     watch,
     unregister,
+    control,
     formState: { errors },
     reset,
   } = useForm<CreateRuleInput>({
@@ -179,14 +186,21 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
         <AelHelpPanel />
 
         <FormField label="Action" htmlFor="rule-action-type" error={errors.actionType?.message}>
-          <select
-            id="rule-action-type"
-            className="w-full rounded-md border border-fg-muted/30 bg-transparent p-2 text-sm"
-            {...register('actionType')}
-          >
-            <option value="SetVariableValue">Set a system variable</option>
-            <option value="HighlightOverlay">Highlight an overlay</option>
-          </select>
+          <Controller
+            name="actionType"
+            control={control}
+            render={({ field }) => (
+              <Select
+                id="rule-action-type"
+                value={field.value}
+                onValueChange={field.onChange}
+                onBlur={field.onBlur}
+                ref={field.ref}
+                options={ACTION_OPTIONS}
+                aria-invalid={errors.actionType !== undefined}
+              />
+            )}
+          />
         </FormField>
 
         {setsVariable ? (
