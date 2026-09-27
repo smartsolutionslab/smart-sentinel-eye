@@ -7,7 +7,7 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 namespace SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 
 /// <summary>
-/// <c>GET /system-variables/resolve</c>'s handler (spec 148 US1). Calls
+/// <c>GET /system-variables/-/resolve</c>'s handler (spec 148 US1). Calls
 /// <see cref="IVariableSnapshotBuilder.BuildAsync"/> once and uses the
 /// result twice: projected into the dictionary shape
 /// <see cref="IResolver.Resolve"/> takes, and mapped onto one

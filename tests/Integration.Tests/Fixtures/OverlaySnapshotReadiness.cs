@@ -11,7 +11,7 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// <see cref="OverlayRequests"/> in shape and doc-comment style.
 ///
 /// <para>
-/// Until the reverse index picks an overlay up, <c>GET /system-variables/snapshot</c>
+/// Until the reverse index picks an overlay up, <c>GET /system-variables/-/snapshot</c>
 /// answers 404 and the label still carries its literal placeholder.
 /// <see cref="ResolvedTextAsync"/> tells the two states apart with <c>null</c> rather than
 /// <see cref="string.Empty"/> — <c>string.Empty.Contains(anything non-empty)</c> answers
@@ -24,7 +24,7 @@ internal static class OverlaySnapshotReadiness
 
     internal static Task<HttpResponseMessage> SnapshotAsync(
         HttpClient variables, Guid overlay, CancellationToken cancellationToken = default) =>
-        variables.GetAsync($"/system-variables/snapshot?overlayIdentifier={overlay}", cancellationToken);
+        variables.GetAsync($"/system-variables/-/snapshot?overlayIdentifier={overlay}", cancellationToken);
 
     /// <summary>
     /// The resolved text, or <c>null</c> when the snapshot did not answer 200 — the two are

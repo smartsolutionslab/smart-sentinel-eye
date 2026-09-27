@@ -54,7 +54,7 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
         // Authorization runs ahead of model binding, so the identifier and the
         // name below need not exist. Before the scope lands these answer 404;
         // after it, 403 — the caller never reaches the lookup.
-        $"/system-variables/snapshot?overlayIdentifier={Guid.Empty}",
+        $"/system-variables/-/snapshot?overlayIdentifier={Guid.Empty}",
         "/system-variables/a-name-no-fab-holds",
     ];
 

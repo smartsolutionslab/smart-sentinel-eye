@@ -64,7 +64,7 @@ public static class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
-        group.MapGet("/snapshot", GetSnapshot)
+        group.MapGet("/-/snapshot", GetSnapshot)
             .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("GetOverlaySnapshot")
             .WithSummary(
@@ -78,7 +78,7 @@ public static class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
-        group.MapGet("/resolve", ResolveText)
+        group.MapGet("/-/resolve", ResolveText)
             .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("ResolveOverlayText")
             .WithSummary(

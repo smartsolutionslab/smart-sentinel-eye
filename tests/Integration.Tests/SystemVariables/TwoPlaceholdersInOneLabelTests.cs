@@ -4,7 +4,7 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 
 /// <summary>
 /// Spec 100 T002/T003 (#494) — one label carrying two placeholders, both
-/// resolved, read over <c>GET /system-variables/snapshot</c>.
+/// resolved, read over <c>GET /system-variables/-/snapshot</c>.
 ///
 /// <para>
 /// <b>What this proves.</b> The multi-name snapshot loop in

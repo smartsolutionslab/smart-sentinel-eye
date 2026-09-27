@@ -138,7 +138,7 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
 
         using HttpClient readers = await aspire.CreateAdminClientAsync("system-variables");
         HttpResponseMessage snapshot = await readers.GetAsync(
-            $"/system-variables/snapshot?overlayIdentifier={overlay}&fabId=munich");
+            $"/system-variables/-/snapshot?overlayIdentifier={overlay}&fabId=munich");
         snapshot.EnsureSuccessStatusCode();
 
         JsonElement payload = await snapshot.Content.ReadFromJsonAsync<JsonElement>();

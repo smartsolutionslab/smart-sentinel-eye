@@ -11,7 +11,7 @@ using VariableAggregate = SmartSentinelEye.SystemVariables.Domain.Variable.Varia
 namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 
 /// <summary>
-/// Spec 148 T008 — <c>GET /system-variables/resolve</c> over the real stack
+/// Spec 148 T008 — <c>GET /system-variables/-/resolve</c> over the real stack
 /// (ADR-0103: a new endpoint gets an integration test proving it answers
 /// correctly through the real stack, not unit tests alone). Covers every
 /// scenario <c>tasks.md:34</c> lists: the happy path plus Number/Boolean
@@ -184,7 +184,7 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
     {
         using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
 
-        HttpResponseMessage refused = await variables.GetAsync("/system-variables/resolve?text=");
+        HttpResponseMessage refused = await variables.GetAsync("/system-variables/-/resolve?text=");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await refused.Content.ReadAsStringAsync());
         JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
@@ -237,7 +237,7 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
             await aspire.CreateAuthenticatedClientAsync("system-variables", DresdenOperator, OperatorPassword);
 
         HttpResponseMessage refused =
-            await variables.GetAsync("/system-variables/resolve?text=" + Uri.EscapeDataString("{{temperature}}") + "&fabId=munich");
+            await variables.GetAsync("/system-variables/-/resolve?text=" + Uri.EscapeDataString("{{temperature}}") + "&fabId=munich");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await refused.Content.ReadAsStringAsync());
         JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
@@ -247,7 +247,7 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
     private static async Task<(HttpStatusCode Status, string Body)> ResolveAsync(HttpClient client, string text)
     {
         HttpResponseMessage response =
-            await client.GetAsync($"/system-variables/resolve?text={Uri.EscapeDataString(text)}");
+            await client.GetAsync($"/system-variables/-/resolve?text={Uri.EscapeDataString(text)}");
         string body = await response.Content.ReadAsStringAsync();
         return (response.StatusCode, body);
     }
@@ -255,7 +255,7 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
     private static async Task<JsonElement> ResolveOkAsync(HttpClient client, string text)
     {
         HttpResponseMessage response =
-            await client.GetAsync($"/system-variables/resolve?text={Uri.EscapeDataString(text)}");
+            await client.GetAsync($"/system-variables/-/resolve?text={Uri.EscapeDataString(text)}");
         string body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(HttpStatusCode.OK, body);
         return JsonDocument.Parse(body).RootElement;

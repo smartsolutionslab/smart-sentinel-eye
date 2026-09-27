@@ -37,10 +37,11 @@ namespace SmartSentinelEye.Architecture.Tests;
 public class SystemVariableReadScopeTests
 {
     private const string List = "/system-variables";
-    private const string Snapshot = "/system-variables/snapshot";
+    private const string Snapshot = "/system-variables/-/snapshot";
+    private const string Resolve = "/system-variables/-/resolve";
     private const string One = "/system-variables/{name}";
 
-    public static TheoryData<string> Reads() => [List, Snapshot, One];
+    public static TheoryData<string> Reads() => [List, Snapshot, Resolve, One];
 
     public static TheoryData<string, string> Writes()
     {
