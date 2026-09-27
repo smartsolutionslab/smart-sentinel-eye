@@ -131,7 +131,18 @@ async function backgroundColorOf(locator: Locator): Promise<string> {
   return locator.evaluate((el) => getComputedStyle(el).backgroundColor);
 }
 
-async function pressAndReadBackgroundColor(page: Page, locator: Locator): Promise<string> {
+/**
+ * `background-color` is `transition-colors` (Button.tsx), so the fill that
+ * lands under `:active` arrives a frame or two after `mousedown`, not in the
+ * same tick — a bare read right after `mouse.down()` can still catch the
+ * *hover* fill (or, for the translucent secondary/ghost tokens, an
+ * in-flight oklab/oklch interpolation that merely differs in wire format
+ * from `beforeColor` without having moved toward the pressed target at all).
+ * Poll until the read genuinely leaves `beforeColor` behind, the same way
+ * the hover read above waits out the rest→hover transition, rather than
+ * trusting a single post-mousedown sample.
+ */
+async function pressAndReadBackgroundColor(page: Page, locator: Locator, beforeColor: string): Promise<string> {
   const box = await locator.boundingBox();
   if (box === null) {
     throw new Error('element has no bounding box to press');
@@ -141,6 +152,7 @@ async function pressAndReadBackgroundColor(page: Page, locator: Locator): Promis
   await page.mouse.move(centerX, centerY);
   await page.mouse.down();
   try {
+    await expect.poll(() => backgroundColorOf(locator)).not.toBe(beforeColor);
     return await backgroundColorOf(locator);
   } finally {
     // Release off the target, not on it: a mousedown/mouseup pair on the SAME
@@ -167,7 +179,7 @@ test.describe('Button interaction states (US1)', () => {
     await primary.hover();
     await expect.poll(() => backgroundColorOf(primary)).not.toBe(primaryRest);
     const primaryHover = await backgroundColorOf(primary);
-    const primaryPressed = await pressAndReadBackgroundColor(page, primary);
+    const primaryPressed = await pressAndReadBackgroundColor(page, primary, primaryHover);
     expect(new Set([primaryRest, primaryHover, primaryPressed]).size).toBe(3);
     await expect(primary).toHaveCSS('opacity', '1');
 
@@ -184,7 +196,7 @@ test.describe('Button interaction states (US1)', () => {
     await secondary.hover();
     await expect.poll(() => backgroundColorOf(secondary)).not.toBe(secondaryRest);
     const secondaryHover = await backgroundColorOf(secondary);
-    const secondaryPressed = await pressAndReadBackgroundColor(page, secondary);
+    const secondaryPressed = await pressAndReadBackgroundColor(page, secondary, secondaryHover);
     expect(new Set([secondaryRest, secondaryHover, secondaryPressed]).size).toBe(3);
     await secondary.click();
 
@@ -197,7 +209,7 @@ test.describe('Button interaction states (US1)', () => {
     await ghost.hover();
     await expect.poll(() => backgroundColorOf(ghost)).not.toBe(ghostRest);
     const ghostHover = await backgroundColorOf(ghost);
-    const ghostPressed = await pressAndReadBackgroundColor(page, ghost);
+    const ghostPressed = await pressAndReadBackgroundColor(page, ghost, ghostHover);
     expect(new Set([ghostRest, ghostHover, ghostPressed]).size).toBe(3);
     await ghost.click();
 
@@ -210,7 +222,7 @@ test.describe('Button interaction states (US1)', () => {
     await danger.hover();
     await expect.poll(() => backgroundColorOf(danger)).not.toBe(dangerRest);
     const dangerHover = await backgroundColorOf(danger);
-    const dangerPressed = await pressAndReadBackgroundColor(page, danger);
+    const dangerPressed = await pressAndReadBackgroundColor(page, danger, dangerHover);
     expect(new Set([dangerRest, dangerHover, dangerPressed]).size).toBe(3);
 
     expect(relativeLuminance(dangerHover)).toBeGreaterThan(relativeLuminance(dangerRest));
