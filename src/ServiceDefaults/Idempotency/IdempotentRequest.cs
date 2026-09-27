@@ -176,6 +176,16 @@ public static class IdempotentRequest
             // this path runs is that the caller gave up, and a release that
             // inherits the cancelled token would not run at all — leaving the key
             // reserved forever by the very request that abandoned it.
+            //
+            // #2290 US2. A release failure here is not rethrown: that would take
+            // this catch block's place, and the caller would never learn what
+            // actually failed. The release runs on the same connection that just
+            // failed the work, so the two failures are correlated and the
+            // release's is the less informative of the pair — the caller needs to
+            // know the work failed, not that the cleanup afterwards also failed.
+            // The row it could not delete is no longer permanent either:
+            // BeginAsync reclaims a reservation older than
+            // IdempotencyReclamation.StaleAfter.
             await ReleaseQuietlyAsync(execution.Store, scope);
 
             throw;
@@ -188,6 +198,13 @@ public static class IdempotentRequest
         }
         else
         {
+            // A release failure here (a validation refusal whose key could not be
+            // freed) leaves the row reserved exactly as a failed CompleteAsync
+            // does below: a caller who fixes the request and retries with the
+            // same key sees 409 IDEMPOTENT_REQUEST_IN_PROGRESS for up to
+            // IdempotencyReclamation.StaleAfter. Not a regression — that is the
+            // same wait a genuine duplicate has always earned, just now without a
+            // spurious 500 first.
             await RecordQuietlyAsync(() => execution.Store.ReleaseAsync(scope, CancellationToken.None));
         }
 
@@ -210,15 +227,18 @@ public static class IdempotentRequest
         catch (Exception recordingFailure)
         {
             // Not rethrown, and the codebase's own rule says a swallowed
-            // exception is a review blocker — so this states its case, as
-            // ReleaseQuietlyAsync does for the #2290 failure path. Rethrowing
-            // would discard the response the work already earned. A failed
-            // CompleteAsync is deliberately not retried as a ReleaseAsync
-            // either: that would free the key for an immediate retry to redo
-            // the work and create a second resource, where leaving the row
-            // reserved instead means such a retry gets 409
+            // exception is a review blocker — so this states its case, as this
+            // helper's use from ReleaseQuietlyAsync does for the #2290 failure
+            // path (see that call site's comment in RunAndRecordAsync).
+            // Rethrowing would discard the response the work already earned. A
+            // failed CompleteAsync is deliberately not retried as a
+            // ReleaseAsync either: that would free the key for an immediate
+            // retry to redo the work and create a second resource, where
+            // leaving the row reserved instead means such a retry gets 409
             // IDEMPOTENT_REQUEST_IN_PROGRESS until BeginAsync reclaims it
-            // after IdempotencyReclamation.StaleAfter.
+            // after IdempotencyReclamation.StaleAfter — after which a retry
+            // re-runs the work, a delayed duplicate risk accepted until a
+            // bookkeeping-retry design exists (out of scope here).
             Activity.Current?.AddException(recordingFailure);
         }
     }
@@ -227,24 +247,6 @@ public static class IdempotentRequest
     /// #2290 US2. Releases the reservation without letting a failure here
     /// replace the exception that put us on this path.
     /// </summary>
-    private static async Task ReleaseQuietlyAsync(IIdempotencyStore store, IdempotencyScope scope)
-    {
-        try
-        {
-            await store.ReleaseAsync(scope, CancellationToken.None);
-        }
-        catch (Exception releaseFailure)
-        {
-            // Not rethrown, and the codebase's own rule says a swallowed
-            // exception is a review blocker — so this states its case.
-            // Rethrowing here would take the outer catch block's place and the
-            // caller would never learn what actually failed; the release runs
-            // on the same connection that just failed the work, so the two
-            // failures are correlated and this one is the less informative of
-            // the pair. The row it could not delete is no longer permanent
-            // either: BeginAsync now reclaims a reservation older than
-            // IdempotencyReclamation.StaleAfter.
-            Activity.Current?.AddException(releaseFailure);
-        }
-    }
+    private static Task ReleaseQuietlyAsync(IIdempotencyStore store, IdempotencyScope scope) =>
+        RecordQuietlyAsync(() => store.ReleaseAsync(scope, CancellationToken.None));
 }

@@ -219,6 +219,41 @@ public class IdempotentRequestTests
     }
 
     /// <summary>
+    /// #2490 N4. Same listener pattern as
+    /// <see cref="A_release_that_throws_records_its_failure_on_the_current_activity"/>:
+    /// proves the release-after-refusal path also records its failure via the
+    /// shared <c>RecordQuietlyAsync</c> helper, closing a coverage gap left
+    /// after the completion path's equivalent fact was added.
+    /// </summary>
+    [Fact]
+    public async Task A_release_that_throws_after_a_refusal_records_its_failure_on_the_current_activity()
+    {
+        using ActivitySource source = new($"{nameof(IdempotentRequestTests)}.{Guid.NewGuid():N}");
+        using ActivityListener listener = new()
+        {
+            ShouldListenTo = activitySource => activitySource == source,
+            Sample = (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllData,
+        };
+        ActivitySource.AddActivityListener(listener);
+
+        RecordingStore store = new()
+        {
+            CreatesNothing = true,
+            ReleaseThrows = new InvalidOperationException("release failed"),
+        };
+
+        using Activity? activity = source.StartActivity("idempotent-request-test");
+
+        await Run(store);
+
+        activity.ShouldNotBeNull("the listener above must have sampled it, or this assertion is vacuous.");
+        activity.Events.ShouldContain(
+            recorded => recorded.Name == "exception"
+                && recorded.Tags.Any(tag => tag.Key == "exception.message" && Equals(tag.Value, "release failed")),
+            "the release-after-refusal failure must be recorded on the activity rather than discarded silently.");
+    }
+
+    /// <summary>
     /// #2490. Same listener pattern as
     /// <see cref="A_release_that_throws_records_its_failure_on_the_current_activity"/>:
     /// a real listener is needed because <see cref="Activity.Current"/> is
