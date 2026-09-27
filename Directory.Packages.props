@@ -22,16 +22,16 @@
     <PackageVersion Include="Moq" Version="4.20.72" />
 
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.4" />
 
     <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
 
     <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
          Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.5.3-preview.1.26425.3" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.5.4-preview.1.26464.4" />
 
     <!-- Aspire client integration for ASP.NET Core services that consume Postgres -->
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.5.2" />
@@ -78,8 +78,8 @@
          locally/in CI, so no real Azure subscription is needed. Replaces
          CommunityToolkit.Aspire.Hosting.Minio / .Minio.Client (ADR-0155)
          after MinIO's registry access broke (#2265, #2266, #2267). -->
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.3" />
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.3" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.5.4" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.5.4" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
