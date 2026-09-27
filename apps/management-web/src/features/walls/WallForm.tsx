@@ -1,3 +1,4 @@
+import type { FormEvent } from 'react';
 import { useCreateWallMutation, type CreateWallInput } from '@smart-sentinel-eye/shared/api/walls.api';
 import { createWallSchema, MIN_SCENES } from '@smart-sentinel-eye/shared/api/walls.schema';
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -83,8 +84,20 @@ export function WallForm({ onSaved }: WallFormProps) {
 
   const backendError = problemDetail(error, 'Could not save the wall. Try again.');
 
+  // ADR-0151: `unavailable` keeps Save focusable and clickable, and no longer
+  // suppresses implicit submission (Enter in a field), so this is what
+  // refuses a second submit while the first is in flight — mirrors
+  // RegisterCameraDialog.tsx:107-113.
+  function handleFormSubmit(event: FormEvent) {
+    if (isLoading) {
+      event.preventDefault();
+      return;
+    }
+    void onSubmit(event);
+  }
+
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={handleFormSubmit} className="flex flex-col gap-4">
       <FormField label="Name" htmlFor="wall-name" error={errors.name?.message}>
         <Input id="wall-name" autoFocus {...register('name')} />
       </FormField>
@@ -159,7 +172,7 @@ export function WallForm({ onSaved }: WallFormProps) {
       )}
 
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={isLoading} busy={isLoading}>
+        <Button type="submit" unavailable={isLoading} busy={isLoading}>
           {isLoading ? 'Saving…' : 'Save'}
         </Button>
       </div>
