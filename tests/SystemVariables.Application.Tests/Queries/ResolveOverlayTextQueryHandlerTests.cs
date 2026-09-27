@@ -10,7 +10,7 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Queries;
 
 /// <summary>
-/// Spec 148 T006 — <c>GET /system-variables/resolve</c>'s handler. Covers
+/// Spec 148 T006 — <c>GET /system-variables/-/resolve</c>'s handler. Covers
 /// US1 acceptance scenarios 1-5 and 11.
 /// </summary>
 public class ResolveOverlayTextQueryHandlerTests

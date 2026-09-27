@@ -40,7 +40,7 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 ///
 /// <para>
 /// What is measured: <c>PUT /system-variables/{name}/value</c> returning, then
-/// polling <c>GET /system-variables/snapshot</c> until the resolved text
+/// polling <c>GET /system-variables/-/snapshot</c> until the resolved text
 /// carries the new value. That spans the value write, the domain event, the
 /// reverse-index lookup and the resolve — the whole of the leg that lives in
 /// this context. It excludes the SignalR hop to the kiosk, which
@@ -128,7 +128,7 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     /// Kept at 3 even after #2201 corrected
     /// <see cref="OverlaySnapshotReadiness.WaitUntilResolvableAsync"/> to
     /// actually wait: the readiness wait exercises only <c>GET
-    /// /system-variables/snapshot</c> — the read path. The measured loop below exercises a
+    /// /system-variables/-/snapshot</c> — the read path. The measured loop below exercises a
     /// different path entirely — the version read, <c>PUT .../value</c>, the domain event,
     /// the outbox, and the resolve — so warmup round 0 remains that write-and-propagate
     /// path's first execution, absorbing first-call JIT, Wolverine handler resolution and EF

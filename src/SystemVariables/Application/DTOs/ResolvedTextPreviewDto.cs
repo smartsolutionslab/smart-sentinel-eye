@@ -1,7 +1,7 @@
 namespace SmartSentinelEye.SystemVariables.Application.DTOs;
 
 /// <summary>
-/// The wire shape of <c>GET /system-variables/resolve</c> (spec 148
+/// The wire shape of <c>GET /system-variables/-/resolve</c> (spec 148
 /// plan.md "The endpoint"). <see cref="ResolvedText"/> is exactly what the
 /// wall would render for this text (FR-011); <see cref="Placeholders"/> is
 /// what only the server can tell the operator, since the resolved text alone
