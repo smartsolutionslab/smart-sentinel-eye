@@ -123,10 +123,11 @@ export function WallDetailPage() {
       <header className="mb-2 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">{wall.name}</h1>
         <Button
-          disabled={switchState.isLoading}
-          onClick={() =>
-            void switchWallScene({ wallIdentifier: wall.wallIdentifier, version: wall.version, target: 'next' })
-          }
+          unavailable={switchState.isLoading}
+          onClick={() => {
+            if (switchState.isLoading) return;
+            void switchWallScene({ wallIdentifier: wall.wallIdentifier, version: wall.version, target: 'next' });
+          }}
         >
           Next
         </Button>
@@ -154,15 +155,16 @@ export function WallDetailPage() {
             <span>{nameFor(scene)}</span>
             <Button
               variant="secondary"
-              disabled={switchState.isLoading || scene === wall.showing}
-              onClick={() =>
+              unavailable={switchState.isLoading || scene === wall.showing}
+              onClick={() => {
+                if (switchState.isLoading || scene === wall.showing) return;
                 void switchWallScene({
                   wallIdentifier: wall.wallIdentifier,
                   version: wall.version,
                   target: 'layout',
                   layout: scene,
-                })
-              }
+                });
+              }}
             >
               Show
             </Button>
