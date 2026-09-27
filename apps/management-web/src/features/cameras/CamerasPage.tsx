@@ -5,6 +5,7 @@ import {
   type CameraSummary,
 } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { useListStreamsQuery, type StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
+import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import {
@@ -120,17 +121,7 @@ export function CamerasPage() {
         <Button onClick={() => setDialogOpen(true)}>Register camera</Button>
       </header>
 
-      {error !== undefined && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
-          Could not load cameras.{' '}
-          <button type="button" className="underline" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </div>
-      )}
+      {error !== undefined && <RetryBanner message="Could not load cameras." onRetry={() => void refetch()} />}
 
       {/*
         Spec 055. A search input above the table rather than a control that

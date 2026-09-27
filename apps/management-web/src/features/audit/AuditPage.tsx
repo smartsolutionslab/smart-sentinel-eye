@@ -2,6 +2,7 @@ import { useMemo, useState, type FormEvent } from 'react';
 import { useSearchAuditQuery, type AuditRow, type SearchAuditInput } from '@smart-sentinel-eye/shared/api/audit.api';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
+import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 
@@ -162,17 +163,7 @@ export function AuditPage() {
         </div>
       </form>
 
-      {error !== undefined && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
-          Could not load the audit trail.{' '}
-          <button type="button" className="underline" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </div>
-      )}
+      {error !== undefined && <RetryBanner message="Could not load the audit trail." onRetry={() => void refetch()} />}
 
       <DataTable
         columns={columns}

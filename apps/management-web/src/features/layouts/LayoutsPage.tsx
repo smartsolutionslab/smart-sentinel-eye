@@ -14,6 +14,7 @@ import {
   isStaleConflict,
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
+import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
 import { useState } from 'react';
@@ -115,17 +116,7 @@ export function LayoutsPage() {
         ))}
       </div>
 
-      {error !== undefined && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
-          Could not load layouts.{' '}
-          <button type="button" className="underline" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </div>
-      )}
+      {error !== undefined && <RetryBanner message="Could not load layouts." onRetry={() => void refetch()} />}
 
       {mutationError !== undefined && (
         <div

@@ -1,5 +1,6 @@
 import { useListWallsQuery } from '@smart-sentinel-eye/shared/api/walls.api';
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
+import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Dialog } from '@smart-sentinel-eye/shared/ui/primitives/Dialog';
 import { useState } from 'react';
@@ -31,17 +32,7 @@ export function WallsPage() {
         <Button onClick={() => setCreating(true)}>New wall</Button>
       </header>
 
-      {error !== undefined && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
-          Could not load walls.{' '}
-          <button type="button" className="underline" onClick={() => void refetch()}>
-            Retry
-          </button>
-        </div>
-      )}
+      {error !== undefined && <RetryBanner message="Could not load walls." onRetry={() => void refetch()} />}
 
       {isLoading && <p className="text-sm text-fg-muted">Loading…</p>}
       {!isLoading && walls.length === 0 && <p className="text-sm text-fg-muted">No walls to show.</p>}
