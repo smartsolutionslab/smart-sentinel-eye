@@ -52,9 +52,27 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 /// exactly <c>Window</c>, anchored at the moment admission was confirmed, is
 /// load-bearing rather than an arbitrary safety margin.
 /// </para>
+///
+/// <para>
+/// <b>Spec 251 (#2537), phase 4a.</b> The premise every fact's arithmetic
+/// rests on — "this fact begins in a fresh window with all <c>PermitLimit</c>
+/// permits" — was, until now, produced by <see cref="WaitUntilAdmittedAgainAsync"/>'s
+/// fixed delay rather than observed, and the limiter's heartbeat (100 ms,
+/// first tick at or after <c>Window</c>) could drift that delay's anchor past
+/// the next boundary, straddling the following fact's own count. This phase
+/// introduces the alignment seam, <see cref="BeginCountingAsync"/>, as a
+/// no-op that simply returns <c>PermitLimit</c> — today's premise, made
+/// explicit rather than changed — so every fact below is a characterisation
+/// of the present protocol. Recovery also moves here to
+/// <see cref="DisposeAsync"/>, so it runs after a failing fact too, but its
+/// body is still today's <see cref="WaitUntilAdmittedAgainAsync"/>, delay
+/// included. Phase 4b implements <see cref="BeginCountingAsync"/> for real
+/// (observe a refusal-then-admission boundary) and removes the delay; see
+/// that method's own doc comment for the mechanism.
+/// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
-public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
+public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string StreamDistributionResource = "stream-distribution";
 
@@ -81,6 +99,17 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(10);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// Spec 251 FR-001: the poll cadence for observing a window boundary —
+    /// short enough that the boundary is known to lie within it. Used by
+    /// <see cref="BeginCountingAsync"/> (from phase 4b) and by
+    /// <see cref="PollUntilAdmittedAsync"/>, which both this class's own
+    /// adversarial-phase fact and (from 4b) <see cref="BeginCountingAsync"/>
+    /// share — deliberately not <see cref="PollInterval"/>, which is coarser
+    /// and only ever used for log-tail polling.
+    /// </summary>
+    private static readonly TimeSpan AlignmentPollInterval = TimeSpan.FromMilliseconds(50);
 
     // Comfortably longer than Window so a slow CI runner does not read "never
     // recovers" where the truth is "recovers a little late".
@@ -109,26 +138,69 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     private static readonly string[] ThrottleTransitionMarkers = ["whep-authorize", "throttl"];
 
     /// <summary>
+    /// xUnit 2.9.3 lifecycle hook (spec 251 FR-003) — no per-fact setup is
+    /// needed, only the paired <see cref="DisposeAsync"/>.
+    /// </summary>
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    /// <summary>
+    /// Spec 251 FR-003: recovery moves here from each fact's own trailing
+    /// call so it also runs when a fact fails — today a failed fact skips
+    /// its own recovery and poisons whichever fact in
+    /// <see cref="AspireCollection"/> runs next (spec 251 §1.1, run
+    /// 35845632059's <c>Repeated…</c> cascade after a failed
+    /// <c>A_throttled…</c>). Phase 4a: still today's
+    /// <see cref="WaitUntilAdmittedAgainAsync"/>, delay included, so this
+    /// phase changes only *where* recovery runs, not what it does.
+    /// </summary>
+    public Task DisposeAsync() => WaitUntilAdmittedAgainAsync();
+
+    /// <summary>
+    /// Spec 251 FR-001 — the alignment seam. Every limiter-counting fact
+    /// calls this once, before sending any request whose outcome it counts,
+    /// and works from the budget it returns rather than <see cref="PermitLimit"/>
+    /// directly.
+    /// </summary>
+    /// <remarks>
+    /// <b>Phase 4a (this phase):</b> a no-op — <c>return PermitLimit;</c>, no
+    /// requests, no waits. This is today's premise made explicit rather than
+    /// changed: every fact's arithmetic below is identical to what it was
+    /// before this seam existed, which is what makes this phase's capture a
+    /// characterisation rather than new behaviour.
+    /// <para>
+    /// <b>Phase 4b:</b> sends <see cref="PermitLimit"/> + 1 requests until one
+    /// is refused with <c>429</c> (bounded — fails "the window never
+    /// refused" if none of them is), then polls every
+    /// <see cref="AlignmentPollInterval"/> until a request is admitted again.
+    /// A refusal followed by an admission proves a reset happened between
+    /// them; at a 50 ms cadence the boundary is known to within roughly that
+    /// poll interval plus one round trip, and the *next* boundary is a full
+    /// <see cref="Window"/> after it (spec 251 §1.2: windows only ever
+    /// lengthen, by heartbeat drift, never shorten). The admitted probe
+    /// itself spent one permit in the fresh window, so the fact's budget is
+    /// <c>PermitLimit - 1</c>.
+    /// </para>
+    /// </remarks>
+    private static Task<int> BeginCountingAsync() => Task.FromResult(PermitLimit);
+
+    /// <summary>
     /// US1 acceptance scenario 2 / FR-001. The cheapest admitted shape — no
     /// token — mirrors <c>WhepAuthIntegrationTests.Authorize_without_a_token_returns_401</c>,
-    /// so every one of the <c>PermitLimit + 1</c> requests answers <c>401</c>
+    /// so every one of the <c>budget + 1</c> requests answers <c>401</c>
     /// on its own merits until the ceiling engages.
     /// </summary>
     /// <remarks>
     /// Mirrors <c>GatewayRateLimitIntegrationTests</c>' shape (send until the
     /// target status, assert it was reached) rather than inventing one.
-    /// <b>Expected red:</b> nothing throttles today, so every response —
-    /// including the last — is <c>401</c>, and the assertion fails comparing
-    /// <c>Unauthorized</c> to <c>TooManyRequests</c>.
     /// </remarks>
     [Fact]
     public async Task Authorize_refuses_a_source_over_its_window_with_429()
     {
-        HttpStatusCode last = await ExhaustWindowAsync();
+        int budget = await BeginCountingAsync();
+
+        HttpStatusCode last = await ExhaustWindowAsync(budget);
 
         last.ShouldBe(HttpStatusCode.TooManyRequests);
-
-        await WaitUntilAdmittedAgainAsync();
     }
 
     /// <summary>
@@ -151,32 +223,41 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// </para>
     /// <para>
     /// One admitted request just before the throttled one carries a "sentinel"
-    /// path, polled for in the tail first — establishing that log delivery for
-    /// this exact request shape is not merely slow before trusting an absence
-    /// for the very next one.
-    /// </para>
-    /// <para>
-    /// <b>Expected red:</b> today every request reaches the handler, so the
-    /// throttled request's own marker appears in the tail exactly like the
-    /// sentinel's did, and the assertion that it must be absent fails.
+    /// path — its own response is asserted <c>403</c> (spec 251 FR-004) before
+    /// any log is read. Spec 251 FR-002 moves both log polls (the sentinel's
+    /// presence, the throttled path's absence) to after every counted request
+    /// has been sent, so a slow log read can never land between two requests
+    /// whose timing the limiter's boundary is sensitive to.
     /// </para>
     /// </remarks>
     [Fact]
     public async Task A_throttled_authorize_never_reaches_the_handler()
     {
-        for (int i = 0; i < PermitLimit - 1; i++)
+        int budget = await BeginCountingAsync();
+
+        for (int i = 0; i < budget - 1; i++)
         {
-            await PostAsync(NoActionBody(NewPath()));
+            HttpResponseMessage response = await PostAsync(NoActionBody(NewPath()));
+            response.StatusCode.ShouldNotBe(
+                HttpStatusCode.TooManyRequests,
+                $"filler request {i + 1} of {budget - 1} should still be admitted; if this fails the "
+                + "fact's own admitted-request budget is wrong, not the throttled assertion below.");
         }
 
         string sentinelPath = NewPath();
-        await PostAsync(NoActionBody(sentinelPath));
+        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
-        sentinelLogged.ShouldBeTrue(
-            $"the ({PermitLimit})th request should still be admitted and should have logged its own "
-            + "path via RefusedAbsentWhepAction; if this fails the test's own admitted-request budget "
-            + "is wrong, not the throttled assertion below.");
+        // S7 (spec 208 review), extended by spec 251 FR-004: the sentinel's
+        // own status is asserted here — before any log is read — so a
+        // limiter that silently let it through (or a handler that answered
+        // something other than the anonymous 403) is caught by its own
+        // precondition rather than surfacing as a confusing log-absence
+        // failure below.
+        sentinelResponse.StatusCode.ShouldBe(
+            HttpStatusCode.Forbidden,
+            $"the ({budget})th request should still be admitted and refused only by the handler's own "
+            + $"action check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
+            + $"{sentinelResponse.StatusCode}.");
 
         string throttledPath = NewPath();
         HttpResponseMessage throttledResponse = await PostAsync(NoActionBody(throttledPath));
@@ -190,28 +271,27 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         // precondition had failed to hold.
         throttledResponse.StatusCode.ShouldBe(
             HttpStatusCode.TooManyRequests,
-            $"request {PermitLimit + 1} in the window should have been refused by the limiter; it "
-            + $"was not, so the absence of a handler log below proves nothing about FR-002.");
+            $"request {budget + 1} in the window should have been refused by the limiter; it "
+            + "was not, so the absence of a handler log below proves nothing about FR-002.");
+
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        sentinelLogged.ShouldBeTrue(
+            $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail via "
+            + "RefusedAbsentWhepAction; if this fails the test's own admitted-request budget is "
+            + "wrong, not the throttled assertion above. stream-distribution log:"
+            + $"{Environment.NewLine}{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
 
         bool throttledMarkerLogged = await MarkerEverAppearsInLogsAsync(throttledPath, LogAbsenceGraceWindow);
         throttledMarkerLogged.ShouldBeFalse(
             $"path '{throttledPath}' was logged by AuthorizeWhepCommandHandler even though request "
-            + $"{PermitLimit + 1} in the window should have been refused by the limiter before the "
+            + $"{budget + 1} in the window should have been refused by the limiter before the "
             + $"handler ran. Response was {(int)throttledResponse.StatusCode} {throttledResponse.StatusCode}.");
-
-        await WaitUntilAdmittedAgainAsync();
     }
 
     /// <summary>
     /// FR-007 (US1 acceptance scenario 8): the authorize mapping's generated
     /// OpenAPI document names <c>429</c> alongside its <c>200</c>/<c>401</c>/<c>403</c>.
     /// </summary>
-    /// <remarks>
-    /// <b>Expected red:</b> <c>StreamEndpoints.cs:63-80</c> declares only
-    /// <c>200</c>, <c>401</c> and <c>403</c> today (no <c>.ProducesProblem(StatusCodes.Status429TooManyRequests)</c>
-    /// yet), so the generated document carries no <c>429</c> response for this
-    /// operation.
-    /// </remarks>
     [Fact]
     public async Task Authorize_declares_the_429_it_can_answer()
     {
@@ -239,28 +319,17 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// three <c>/streams</c> routes — because the policy is attached to the
     /// one mapping, never to the group or the pipeline at large.
     /// </summary>
-    /// <remarks>
-    /// Not red today for a different reason than the other four facts: with
-    /// no limiter installed at all, every route is trivially "never throttled"
-    /// regardless of how many authorize requests precede it. It starts proving
-    /// something only once T007-T008 exist — a standing guard, not phase-4a
-    /// red evidence, the same distinction
-    /// <c>WhepAuthorizePartitionKeyTests.Authorize_partitions_the_rate_limiter_by_remote_address_not_a_global_bucket</c>
-    /// makes for a different reason (that one never depends on T007-T008 at
-    /// all, since it reads <c>Program.cs</c>'s source rather than observing
-    /// runtime behaviour). That fact moved to <c>tests/Architecture.Tests/</c>
-    /// (spec 221, #2514) — it makes no HTTP call and needs no stack, so it no
-    /// longer lives in this <c>[Collection(AspireCollection.Name)]</c> class.
-    /// </remarks>
     [Fact]
     public async Task Health_and_readiness_are_never_throttled()
     {
+        int budget = await BeginCountingAsync();
+
         // S7 (spec 208 review): this fact's whole premise is that the source
         // below is actually throttled on /streams/authorize by this point —
         // discarding ExhaustWindowAsync's return value meant that if the
         // limiter stopped working entirely, every route below would trivially
         // read as "not throttled" while proving nothing about FR-005.
-        (await ExhaustWindowAsync()).ShouldBe(
+        (await ExhaustWindowAsync(budget)).ShouldBe(
             HttpStatusCode.TooManyRequests,
             "the window-exhaustion helper's own last response was not 429 — this fact's premise "
             + "(a source over the ceiling) does not hold, so the assertions below prove nothing.");
@@ -285,8 +354,6 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         HttpResponseMessage kioskLatency = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/kiosk-latency", new { });
         kioskLatency.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
-
-        await WaitUntilAdmittedAgainAsync();
     }
 
     /// <summary>
@@ -298,14 +365,11 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// same path for the realm-unreachable case (ADR-0118: one sink, kept
     /// readable at exactly the moment a flood would otherwise drown it).
     /// </summary>
-    /// <remarks>
-    /// <b>Expected red:</b> the count is <c>0</c>, not <c>1</c> — no
-    /// <c>OnRejected</c> callback is registered today, so nothing logs
-    /// anything about the rate limiter's own state transitions.
-    /// </remarks>
     [Fact]
     public async Task A_partition_entering_the_throttled_state_is_logged_once()
     {
+        int budget = await BeginCountingAsync();
+
         // S6 (spec 208 review): anchors on a sentinel's position in the log
         // tail instead of a baseline-count delta. aspire.RecentLogs(...,
         // lines: 400) is the *entire* retained ring-buffer tail (AspireFixture
@@ -317,13 +381,32 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         // that problem: once found, everything counted after it is provably
         // after it, however much has scrolled off the far end.
         string sentinelPath = NewPath();
-        await PostAsync(NoActionBody(sentinelPath));
+        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+
+        // Spec 251 FR-004: the sentinel's own status is asserted before any
+        // log is read — see the identical reasoning in
+        // A_throttled_authorize_never_reaches_the_handler.
+        sentinelResponse.StatusCode.ShouldBe(
+            HttpStatusCode.Forbidden,
+            $"the sentinel request should be admitted and refused only by the handler's own action "
+            + $"check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
+            + $"{sentinelResponse.StatusCode}.");
+
+        // Spec 251 FR-002: every counted request — the sentinel above, then
+        // the exhaust below — is sent before any log is polled.
+        HttpStatusCode last = await ExhaustWindowAsync(budget - 1);
+        last.ShouldBe(
+            HttpStatusCode.TooManyRequests,
+            "the window-exhaustion helper's own last response was not 429 after the sentinel — this "
+            + "fact's premise (a source over the ceiling) does not hold, so the count below proves "
+            + "nothing.");
+
         bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
-            + "without it there is no reliable position to count throttle-transition records after.");
-
-        await ExhaustWindowAsync();
+            + "without it there is no reliable position to count throttle-transition records after. "
+            + $"stream-distribution log:{Environment.NewLine}"
+            + $"{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
 
         int transitionLogCount = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
 
@@ -331,9 +414,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
             1,
             $"expected exactly one throttle-transition log record after '{sentinelPath}'; "
             + $"found {transitionLogCount}. stream-distribution log:{Environment.NewLine}"
-            + $"{aspire.RecentLogs(StreamDistributionResource)}");
-
-        await WaitUntilAdmittedAgainAsync();
+            + $"{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
     }
 
     /// <summary>
@@ -347,39 +428,57 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
     /// a different failure mode (ADR-0118: one sink, not flooded).
     /// </summary>
     /// <remarks>
-    /// Drives a source past the ceiling, waits for the transition record,
-    /// then sends several more refused requests inside the same window and
-    /// asserts the count has not grown beyond the one transition.
-    /// <b>Expected red:</b> the count never reaches <c>1</c> at all — today
-    /// nothing logs anything about the rate limiter's own state, so the
-    /// transition this asserts happened first is itself unmet (count stays
-    /// at <c>0</c> where FR-009 requires it to reach and hold at <c>1</c>).
+    /// Drives a source past the ceiling, sends several more refused requests
+    /// inside the same window (spec 251 FR-004: each individually asserted
+    /// <c>429</c> — closing the gap where a repeat that happened to cross a
+    /// window boundary and was silently admitted would make the count below
+    /// prove nothing), then — only once every counted request has been sent
+    /// (FR-002) — polls for the transition record and confirms the count
+    /// still holds at one.
     /// </remarks>
     [Fact]
     public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
     {
+        int budget = await BeginCountingAsync();
+
         // S6 (spec 208 review): sentinel-position anchor — see the identical
         // comment in A_partition_entering_the_throttled_state_is_logged_once.
         // A fresh sentinel also naturally excludes a prior fact's own
-        // leftover transition record (e.g. left by
-        // A_throttled_authorize_never_reaches_the_handler throwing before it
-        // reached WaitUntilAdmittedAgainAsync): that record sits before this
-        // fact's own sentinel, so it is never counted.
+        // leftover transition record.
         string sentinelPath = NewPath();
-        await PostAsync(NoActionBody(sentinelPath));
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
-        sentinelLogged.ShouldBeTrue(
-            $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
-            + "without it there is no reliable position to count throttle-transition records after.");
+        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+        sentinelResponse.StatusCode.ShouldBe(
+            HttpStatusCode.Forbidden,
+            $"the sentinel request should be admitted and refused only by the handler's own action "
+            + $"check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
+            + $"{sentinelResponse.StatusCode}.");
 
-        await ExhaustWindowAsync();
-
-        int afterTransition = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
+        HttpStatusCode last = await ExhaustWindowAsync(budget - 1);
+        last.ShouldBe(
+            HttpStatusCode.TooManyRequests,
+            "the window-exhaustion helper's own last response was not 429 after the sentinel — this "
+            + "fact's premise (a source over the ceiling) does not hold, so the repeats below prove "
+            + "nothing.");
 
         for (int i = 0; i < 5; i++)
         {
-            await PostAsync(NoTokenBody(NewPath()));
+            HttpResponseMessage repeat = await PostAsync(NoTokenBody(NewPath()));
+            repeat.StatusCode.ShouldBe(
+                HttpStatusCode.TooManyRequests,
+                $"repeat refusal {i + 1} of 5 should still be refused by the limiter inside the same "
+                + $"window; got {(int)repeat.StatusCode} {repeat.StatusCode}. A repeat that crossed a "
+                + "window boundary and was admitted would make the counts below prove nothing about "
+                + "FR-009's repeated-refusal silence.");
         }
+
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        sentinelLogged.ShouldBeTrue(
+            $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
+            + "without it there is no reliable position to count throttle-transition records after. "
+            + $"stream-distribution log:{Environment.NewLine}"
+            + $"{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+
+        int afterTransition = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
 
         // Nothing to poll *for* here: on a healthy implementation the repeats
         // must not log at all, so there is no delivery to wait on. A short
@@ -397,9 +496,82 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
             $"five further refused requests inside the same window added "
             + $"{afterRepeats - afterTransition} more throttle-transition log record(s) after "
             + $"'{sentinelPath}'; FR-009 requires silence on the repeats. stream-distribution "
-            + $"log:{Environment.NewLine}{aspire.RecentLogs(StreamDistributionResource)}");
+            + $"log:{Environment.NewLine}{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+    }
 
-        await WaitUntilAdmittedAgainAsync();
+    /// <summary>
+    /// Spec 251 (#2537) §7 — the adversarial-phase regression guard for the
+    /// boundary race spec 251 §1.2 diagnoses: a fact that begins its counted
+    /// sequence one to two heartbeats before a window boundary must still
+    /// see exactly one whole window's worth of budget, because it aligns to
+    /// the boundary first via <see cref="BeginCountingAsync"/> rather than
+    /// assuming it is already past one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pre-positions deterministically — exhausts the window, polls every
+    /// <see cref="AlignmentPollInterval"/> until admitted again (a boundary
+    /// has just passed), then waits until <c>Window - 150ms</c> has elapsed
+    /// since — so the fact's own body starts one to two heartbeats
+    /// <b>before</b> the next boundary. This is a deliberate "drive" into the
+    /// hazardous phase (ADR-0150 §1's driving use, not a synchronisation
+    /// wait), not something later assertions depend on being exact: with the
+    /// 4b seam, any starting phase must pass.
+    /// </para>
+    /// <para>
+    /// Then runs <see cref="A_throttled_authorize_never_reaches_the_handler"/>'s
+    /// own request shape — <c>budget - 1</c> fillers, a sentinel asserted
+    /// <c>403</c>, one request asserted <c>429</c> — through the seam.
+    /// Status assertions only, no log reads, so the red below is fast and
+    /// unambiguous.
+    /// </para>
+    /// <para>
+    /// <b>Phase 4a (this phase): expected red.</b> <see cref="BeginCountingAsync"/>
+    /// is still the no-op, so nothing here aligns to the boundary the
+    /// pre-position manufactured — the fact fails by straddle, either a
+    /// filler or the sentinel refused early (a late heartbeat consumed the
+    /// window first) or the final request admitted instead of refused (the
+    /// boundary landed mid-sequence and reset the counter).
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public async Task A_fact_that_starts_just_before_a_window_boundary_still_counts_one_whole_window()
+    {
+        for (int i = 0; i < PermitLimit + 1; i++)
+        {
+            await PostAsync(NoTokenBody(NewPath()));
+        }
+
+        await PollUntilAdmittedAsync();
+        await Task.Delay(Window - TimeSpan.FromMilliseconds(150));
+
+        int budget = await BeginCountingAsync();
+
+        for (int i = 0; i < budget - 1; i++)
+        {
+            HttpResponseMessage response = await PostAsync(NoActionBody(NewPath()));
+            response.StatusCode.ShouldNotBe(
+                HttpStatusCode.TooManyRequests,
+                $"filler request {i + 1} of {budget - 1} should still be admitted; a fact that starts "
+                + "just before a window boundary must still see one whole window's budget once it has "
+                + "aligned to the following boundary.");
+        }
+
+        string sentinelPath = NewPath();
+        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+        sentinelResponse.StatusCode.ShouldBe(
+            HttpStatusCode.Forbidden,
+            $"the sentinel request should be admitted and refused only by the handler's own action "
+            + $"check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
+            + $"{sentinelResponse.StatusCode}.");
+
+        string throttledPath = NewPath();
+        HttpResponseMessage throttledResponse = await PostAsync(NoActionBody(throttledPath));
+        throttledResponse.StatusCode.ShouldBe(
+            HttpStatusCode.TooManyRequests,
+            $"request {budget + 1} in the window should have been refused by the limiter; a fact "
+            + "that starts just before a boundary must still land its throttled request outside the "
+            + "window it aligned to.");
     }
 
     /// <summary>Fresh per call so log-tail assertions can key on one request.</summary>
@@ -435,19 +607,24 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
         aspire.StreamDistributionThrottleProbe.PostAsJsonAsync("/streams/authorize", body);
 
     /// <summary>
-    /// Sends <c>PermitLimit + 1</c> no-token requests and returns the last
-    /// response's status — the shape tasks.md T003 asks for.
+    /// Sends <paramref name="budget"/> no-token requests — each asserted not
+    /// <c>429</c> (spec 251 FR-004: the arithmetic this fact's count rests on
+    /// is checked, not merely assumed) — then one more, and returns that
+    /// last response's status.
     /// </summary>
-    private async Task<HttpStatusCode> ExhaustWindowAsync()
+    private async Task<HttpStatusCode> ExhaustWindowAsync(int budget)
     {
-        HttpStatusCode last = HttpStatusCode.OK;
-        for (int attempt = 0; attempt < PermitLimit + 1; attempt++)
+        for (int attempt = 0; attempt < budget; attempt++)
         {
             using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
-            last = response.StatusCode;
+            response.StatusCode.ShouldNotBe(
+                HttpStatusCode.TooManyRequests,
+                $"request {attempt + 1} of {budget} should still be admitted; if this fails the "
+                + "fact's own admitted-request budget is wrong, not the refusal asserted after it.");
         }
 
-        return last;
+        using HttpResponseMessage overflow = await PostAsync(NoTokenBody(NewPath()));
+        return overflow.StatusCode;
     }
 
     /// <summary>
@@ -494,11 +671,52 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire)
                 // reintroduces exactly the intermittent, phase-dependent
                 // flakiness this delay exists to remove, with nothing left
                 // to explain it.
+                //
+                // Spec 251 (#2537): this is exactly the guess that can drift
+                // past the following boundary under heartbeat lateness,
+                // straddling the *next* fact's own count — see spec 251 §1.2.
+                // Phase 4b replaces the fixed delay with an observed
+                // boundary (BeginCountingAsync) rather than removing this
+                // recovery step, which still only needs to leave the window
+                // in a state some later fact can safely align from.
                 await Task.Delay(Window);
                 return;
             }
 
             await Task.Delay(PollInterval);
+        }
+        while (DateTimeOffset.UtcNow < deadline);
+
+        status.ShouldNotBe(
+            HttpStatusCode.TooManyRequests,
+            $"the window did not reopen within {AdmissionRecoveryTimeout} of being exhausted; "
+            + "every later test on this shared fixture's address is now at risk of a false 429.");
+    }
+
+    /// <summary>
+    /// The condition-only half of a recovery poll: waits until a request is
+    /// admitted again, at <see cref="AlignmentPollInterval"/>'s finer cadence
+    /// and with no trailing delay. Spec 251: used today only by
+    /// <see cref="A_fact_that_starts_just_before_a_window_boundary_still_counts_one_whole_window"/>'s
+    /// deliberate pre-position; from phase 4b, <see cref="BeginCountingAsync"/>'s
+    /// own boundary detection shares this same condition.
+    /// </summary>
+    private async Task PollUntilAdmittedAsync()
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + AdmissionRecoveryTimeout;
+        HttpStatusCode status;
+
+        do
+        {
+            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+            status = response.StatusCode;
+
+            if (status != HttpStatusCode.TooManyRequests)
+            {
+                return;
+            }
+
+            await Task.Delay(AlignmentPollInterval);
         }
         while (DateTimeOffset.UtcNow < deadline);
 
