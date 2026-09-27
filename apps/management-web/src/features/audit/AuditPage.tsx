@@ -188,8 +188,11 @@ export function AuditPage() {
         )}
         <Button
           variant="secondary"
-          disabled={data?.nextCursor === null || data?.nextCursor === undefined}
+          unavailable={data?.nextCursor === null || data?.nextCursor === undefined}
           onClick={() => {
+            // ADR-0151: without this, activating Next on the terminal page
+            // sets cursor: undefined — the FIRST page, not a no-op.
+            if (data?.nextCursor === null || data?.nextCursor === undefined) return;
             setApplied((current: SearchAuditInput) => ({ ...current, cursor: data?.nextCursor ?? undefined }));
             setSelected(null);
           }}
