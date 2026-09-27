@@ -238,20 +238,62 @@ test.describe('Button interaction states (US1)', () => {
   test('an unavailable Button (ADR-0151) still reads unavailable, keeps focus and fires onClick', async ({ page }) => {
     await signInAsOperator(page);
 
-    // The Layout editor's Save is rendered with `unavailable` while blocked
-    // (`LayoutEditorDialog.tsx`); opening a fresh draft with no changes and
-    // an invalid grid keeps Save blocked without any network wait.
-    await page.getByRole('link', { name: /^layouts$/i }).click();
-    await page.getByRole('button', { name: /new layout/i }).click();
+    // `LayoutEditorDialog.tsx`'s `saveBlocked` for a NEW layout is
+    // `isLoading || knownCameras.size === 0` — grid validity plays no part
+    // (`isEdit` is false here). Earlier tests in this file, and other specs
+    // against a persistent stack, may already have registered cameras, so
+    // relying on "zero cameras exist" would race. Holding the camera-choices
+    // GET open keeps `knownCameras` at its initial empty Map deterministically,
+    // the same `page.route`-hold pattern the busy-state test above uses.
+    let releaseCameras: (() => void) | undefined;
+    const held = new Promise<void>((resolve) => {
+      releaseCameras = resolve;
+    });
+    const cameraChoicesPath = (url: URL): boolean => /\/camera-catalog\/cameras$/i.test(url.pathname);
+    await page.route(cameraChoicesPath, async (route) => {
+      if (route.request().method() !== 'GET') {
+        return route.fallback();
+      }
+      await held;
+      return route.fallback();
+    });
 
-    const save = page.getByRole('button', { name: /save as draft/i });
-    await expect(save).toHaveAttribute('aria-disabled', 'true');
+    try {
+      await page.getByRole('link', { name: /^layouts$/i }).click();
+      await page.getByRole('button', { name: /new layout/i }).click();
 
-    const fgDisabledProbe = await probeToken(page, '--color-fg-disabled', 'color');
-    await expect(save).toHaveCSS('color', fgDisabledProbe);
+      const save = page.getByRole('button', { name: /save as draft/i });
+      await expect(save).toHaveAttribute('aria-disabled', 'true');
 
-    await save.focus();
-    await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-disabled'))).toBe('true');
+      const fgDisabledProbe = await probeToken(page, '--color-fg-disabled', 'color');
+      await expect(save).toHaveCSS('color', fgDisabledProbe);
+
+      await save.focus();
+      await expect
+        .poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-disabled')))
+        .toBe('true');
+
+      // `onClick` still fires: an `aria-disabled` control is not natively
+      // disabled, so the click event reaches its listeners — unlike a native
+      // `disabled` button, which never dispatches one at all. A probe
+      // attribute (rather than an `ElementHandle`) both records the click and
+      // gives `document.activeElement` something unique to compare against.
+      await save.evaluate((element) => {
+        element.setAttribute('data-e2e-save-probe', 'unclicked');
+        element.addEventListener('click', () => element.setAttribute('data-e2e-save-probe', 'clicked'));
+      });
+      await save.click();
+      await expect(save).toHaveAttribute('data-e2e-save-probe', 'clicked');
+
+      // Still holds focus after the click — a natively `disabled` button
+      // blurs to `<body>` the instant it disables, and nothing here does.
+      expect(
+        await page.evaluate(() => document.activeElement?.getAttribute('data-e2e-save-probe')),
+      ).toBe('clicked');
+    } finally {
+      releaseCameras?.();
+      await page.unroute(cameraChoicesPath);
+    }
   });
 });
 
