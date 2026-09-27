@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
+using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
@@ -40,6 +41,11 @@ internal sealed class TestRegisteredEventTypeQuerySource(IEnumerable<RegisteredE
 {
     public IQueryable<RegisteredEventType> RegisteredEventTypes { get; } =
         new TestAsyncEnumerable<RegisteredEventType>(seed);
+}
+
+internal sealed class TestSourceModeQuerySource(IEnumerable<SourceMode> seed) : ISourceModeQuerySource
+{
+    public IQueryable<SourceMode> SourceModes { get; } = new TestAsyncEnumerable<SourceMode>(seed);
 }
 
 internal sealed class TestAsyncEnumerable<T>(IEnumerable<T> enumerable)
