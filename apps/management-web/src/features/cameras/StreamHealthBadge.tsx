@@ -41,7 +41,7 @@ export function StreamHealthBadge({ stream }: StreamHealthBadgeProps) {
           className={clsx(
             PILL,
             TONES[stream.state] ?? TONES.unknown,
-            'focus-visible:ring-2 focus-visible:ring-focus-ring',
+            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
           )}
         >
           {stream.state}

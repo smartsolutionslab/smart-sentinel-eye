@@ -70,7 +70,7 @@ export function Select({
           'bg-bg-elevated px-3 py-2 text-sm text-fg-primary',
           'data-[placeholder]:text-fg-muted',
           'data-[state=open]:border-accent',
-          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
+          'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
           'disabled:text-fg-disabled disabled:border-border-subtle',
         )}
       >

@@ -55,7 +55,7 @@ export function Tabs({ tabs, label, value, defaultValue, onValueChange, activati
             className={clsx(
               'px-3 py-2 text-sm text-fg-muted border-b-2 border-transparent',
               'data-[state=active]:text-fg-primary data-[state=active]:border-accent',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring',
+              'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
               'data-[disabled]:text-fg-disabled',
             )}
           >
