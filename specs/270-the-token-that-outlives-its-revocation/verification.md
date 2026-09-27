@@ -7,20 +7,22 @@ below the AspireFixture actually ran, green, against the real production
 code (not just reported by a subagent — re-run independently in this
 phase):
 
-- `dotnet build -c Release` on the whole solution: **0 Error(s)**, 231
-  warnings, all pre-existing SonarAnalyzer code-metric advisories in files
-  this change didn't touch (`LayoutEndpoints.Commands.cs`, `AppHost.cs`,
-  `CameraEndpoints.cs`, `OverlayEndpoints*.cs`) — these are the
-  ADR-0084 advisory carve-out, not new.
+- `dotnet build -c Release` on the whole solution: **0 Error(s)**,
+  re-verified after the spec-269-to-270 renumber and the full phase 4b
+  commit sequence — all pre-existing SonarAnalyzer code-metric advisories
+  are in files this change didn't touch, the ADR-0084 advisory carve-out,
+  not new.
 - `dotnet test tests/ServiceDefaults.Tests -c Release --no-build`:
-  **213/213 passed** — includes `RevokedClientSnapshotTests` (the §2
+  **219/219 passed** — includes `RevokedClientSnapshotTests` (the §2
   refusal-rule truth table), `RevokedClientRefresherTests` (refresh-ahead
-  snapshot, fail-static on error, health-check staleness), and
-  `BearerRevocationHookTests` (the `OnTokenValidated` hook: refuses,
-  admits, chains a pre-existing handler, survives LayoutComposition's
-  later `Configure<JwtBearerOptions>`).
+  snapshot, fail-static on error, health-check staleness),
+  `RevokedClientRefresherWiringTests` (phase-6 review S7: `AddRevocationCheck`
+  wiring), `RevocationListOptionsValidationTests` (phase-6 review S6: a
+  missing/empty option is refused), and `BearerRevocationHookTests` (the
+  `OnTokenValidated` hook: refuses, admits, chains a pre-existing handler,
+  survives LayoutComposition's later `Configure<JwtBearerOptions>`).
 - `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --no-build`:
-  **40/40 passed** — includes `WhepRevocationTests`, which drives
+  **42/42 passed** — includes `WhepRevocationTests`, which drives
   `WhepAuthValidator` through its internal test seam with **real signed
   JWTs** (not mocks of the refusal rule): a revoked `azp` is refused with
   `TokenRejected`, a re-registered client's later-`iat` token is admitted,
@@ -31,17 +33,36 @@ phase):
   **94/94 passed** — includes `ListRevokedClientsQueryHandlerTests`
   (excludes active clients, covers all kinds/fabs, latest-`DisabledAt`
   wins per client id).
+- `dotnet test tests/Integration.Tests --filter FullyQualifiedName~RealmImportMirrorTests`:
+  **45/45 passed** (offline, no `AspireCollection`/Docker dependency) —
+  the new `RevocationListReaderClientSecret` parameter's default matches
+  the `revocation-list-reader` client's seeded secret.
+- `dotnet test tests/Integration.Tests --filter FullyQualifiedName~ListRevokedClientsQueryTranslationTests`
+  (offline): pins that `ListRevokedClientsQueryHandler.BuildQuery`
+  translates to SQL. Added by a phase-6 review that found grouping by the
+  value-converted `ClientId.Value` directly silently falls back to client
+  evaluation and then throws — the in-memory fake in
+  `ListRevokedClientsQueryHandlerTests` could not have caught this; fixed
+  by grouping on the value object and projecting `.Value` only in the
+  final `Select`.
 - `dotnet test tests/Architecture.Tests -c Release --no-build`:
   **521/521 passed** — includes the new `ScopeGrantTests` fact (the
   `sse.identity.revocations.read` scope exists and is granted only to
   `revocation-list-reader`) and the bumped `EndpointScopeDeclarationTests`
   / `StatusProducerDeclarationTests` / `RouteValueRefusalDeclarationTests`
-  / `PreconditionDeclarationTests` pinned counts (15 endpoint files, 66
+  / `PreconditionDeclarationTests` pinned counts (14 endpoint files, 66
   route mappings) — proving `RevocationEndpoints.cs` is wired the way
   every other endpoint file is.
-- `RealmImportMirrorTests`' AppHost/realm secret-pairing theory:
-  **6/6 passed** — the new `RevocationListReaderClientSecret` parameter's
-  default matches the `revocation-list-reader` client's seeded secret.
+
+**The compile red itself was re-verified fresh in this phase**, by
+building the final test files against the pre-implementation source
+(`git stash` + selective `git checkout` of only the test files and the
+`Shared.Contracts` DTO, source otherwise at `origin/develop`'s tip): 18
+errors in `ServiceDefaults.Tests`, 9 in `StreamDistribution.Infrastructure.Tests`,
+1 in `Identity.Application.Tests`, all `CS0234`/`CS0246` naming exactly
+the types `T009` predicted as missing. The full implementation was then
+restored byte-for-byte (verified via `git diff` against the stash before
+dropping it) and re-built green as recorded above.
 
 Commands run and their exact output are quoted above from this phase's
 own execution, not copied from an earlier subagent's report.
@@ -72,6 +93,12 @@ fourth full stack (with a freshly deleted Keycloak volume, since the
 realm changed) would not have produced a trustworthy signal even if it
 appeared to pass, and risked taking down the other in-flight work sharing
 this machine.
+
+Re-checked in this phase (after the renumber and the full commit
+sequence): `docker ps` still shows multiple stack suffixes running
+(`b7072591`, `989008e5`, plus tunnel-proxy/pgadmin containers), and `C:`
+is still at **~6.3 GB free**. The precondition has not cleared; the gap
+stands as recorded.
 
 **This is the honest gap.** The unit-level evidence (real JWTs through
 `WhepAuthValidator`, the exact refusal-rule truth table, the full realm/
