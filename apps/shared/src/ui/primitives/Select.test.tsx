@@ -108,9 +108,9 @@ describe('Select', () => {
       { value: 'x', label: 'Something' },
     ];
 
-    expect(() =>
-      render(<Select id="bad-select" value="x" onValueChange={vi.fn()} options={badOptions} />),
-    ).toThrow(/Nothing chosen/);
+    expect(() => render(<Select id="bad-select" value="x" onValueChange={vi.fn()} options={badOptions} />)).toThrow(
+      /Nothing chosen/,
+    );
   });
 
   it('Shows the placeholder when value is undefined, rather than treating "" as an option', () => {
