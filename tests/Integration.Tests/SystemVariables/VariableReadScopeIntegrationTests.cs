@@ -55,6 +55,7 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
         // name below need not exist. Before the scope lands these answer 404;
         // after it, 403 — the caller never reaches the lookup.
         $"/system-variables/-/snapshot?overlayIdentifier={Guid.Empty}",
+        $"/system-variables/-/resolve?text={Uri.EscapeDataString("{{a-name-no-fab-holds}}")}",
         "/system-variables/a-name-no-fab-holds",
     ];
 
