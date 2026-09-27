@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
@@ -12,9 +13,12 @@ using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Persistence;
+using SmartSentinelEye.Identity.Infrastructure.Revocation;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Resilience;
+using SmartSentinelEye.ServiceDefaults.Revocation;
+using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -109,6 +113,18 @@ public static class IdentityInfrastructureModule
         builder.Services.AddScoped<
             IQueryHandler<ListWebhookClientsQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
             ListWebhookClientsQueryHandler>();
+
+        // Spec 270 (ADR-0160 §3): Identity reads its own table for the
+        // revocation snapshot rather than calling its own API. Replace, not
+        // TryAdd — AddBearerAuthentication (called before this, per
+        // Api/Program.cs) already registered the default HttpRevokedClientSource,
+        // and this is the one context that must not use it.
+        builder.Services.AddScoped<ListRevokedClientsQueryHandler>();
+        builder.Services.AddScoped<
+            IQueryHandler<ListRevokedClientsQuery, Result<IReadOnlyList<RevokedClientEntry>, ListClientsError>>,
+            ListRevokedClientsQueryHandler>();
+        builder.Services.Replace(
+            ServiceDescriptor.Singleton<IRevokedClientSource, LocalRevokedClientSource>());
 
         builder.AddWolverineForContext<IdentityDbContext>(
             moduleQueuePrefix: ContextName,

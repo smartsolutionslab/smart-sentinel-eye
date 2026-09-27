@@ -21,6 +21,7 @@ app.UseAuthorization();
 app.MapDevicesEndpoints();
 app.MapKiosksEndpoints();
 app.MapWebhookRotationEndpoints();
+app.MapRevocationEndpoints();
 
 if (app.Environment.IsDevelopment())
 {
