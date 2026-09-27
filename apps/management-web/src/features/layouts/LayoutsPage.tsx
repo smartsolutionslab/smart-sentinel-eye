@@ -15,6 +15,7 @@ import {
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
@@ -158,6 +159,58 @@ export function LayoutsPage() {
           // out of service.
           const { live, draft, newest, summarised, fullyArchived } = chainView(chain.revisions);
           const disabled = publishing || archiving || branching || reverting;
+
+          // Discard draft, Revert and Archive move behind one "More actions"
+          // trigger per row (spec 266 Q4 default) — same condition and same
+          // handler body each has always had. Publish and Edit (new draft)
+          // stay inline, below.
+          const moreActions: MenuEntry[] = [];
+          if (draft !== undefined) {
+            moreActions.push({
+              kind: 'item',
+              label: 'Discard draft',
+              disabled,
+              onSelect: () =>
+                setDiscardFor({
+                  layoutIdentifier: chain.layoutIdentifier,
+                  name: chain.name,
+                  revisionNumber: draft.revisionNumber,
+                  version: chain.version,
+                  liveRevision: live?.revisionNumber,
+                }),
+            });
+          }
+          if (live !== undefined) {
+            moreActions.push({
+              kind: 'item',
+              label: 'Revert',
+              disabled,
+              onSelect: () =>
+                void revertRevision({
+                  layoutIdentifier: chain.layoutIdentifier,
+                  revisionNumber: live.revisionNumber,
+                  version: chain.version,
+                }),
+            });
+            // Archive targets the LIVE revision. It used to target `newest`,
+            // so on a chain with an open draft it archived the draft while
+            // the confirmation said the layout was going out of service.
+            // Both requests succeed, which is why that went unnoticed.
+            moreActions.push({
+              kind: 'item',
+              label: 'Archive',
+              variant: 'danger',
+              disabled,
+              onSelect: () =>
+                setArchiveFor({
+                  layoutIdentifier: chain.layoutIdentifier,
+                  name: chain.name,
+                  revisionNumber: live.revisionNumber,
+                  version: chain.version,
+                }),
+            });
+          }
+
           return (
             <li key={chain.layoutIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
               <header className="flex items-center justify-between">
@@ -182,23 +235,6 @@ export function LayoutsPage() {
                     Publish
                   </Button>
                 )}
-                {draft !== undefined && (
-                  <Button
-                    variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
-                      setDiscardFor({
-                        layoutIdentifier: chain.layoutIdentifier,
-                        name: chain.name,
-                        revisionNumber: draft.revisionNumber,
-                        version: chain.version,
-                        liveRevision: live?.revisionNumber,
-                      })
-                    }
-                  >
-                    Discard draft
-                  </Button>
-                )}
                 {/*
                   Offered while a draft is open as well (spec 038 FR-003). That
                   is also the app's route to a chain with two open drafts —
@@ -219,42 +255,15 @@ export function LayoutsPage() {
                     Edit (new draft)
                   </Button>
                 )}
-                {live !== undefined && (
-                  <Button
-                    variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
-                      void revertRevision({
-                        layoutIdentifier: chain.layoutIdentifier,
-                        revisionNumber: live.revisionNumber,
-                        version: chain.version,
-                      })
+                {moreActions.length > 0 && (
+                  <DropdownMenu
+                    trigger={
+                      <Button variant="ghost" disabled={disabled} aria-label={`More actions for ${chain.name}`}>
+                        More actions
+                      </Button>
                     }
-                  >
-                    Revert
-                  </Button>
-                )}
-                {/*
-                  Archive targets the LIVE revision. It used to target `newest`,
-                  so on a chain with an open draft it archived the draft while
-                  the confirmation said the layout was going out of service.
-                  Both requests succeed, which is why that went unnoticed.
-                */}
-                {live !== undefined && (
-                  <Button
-                    variant="secondary"
-                    disabled={disabled}
-                    onClick={() =>
-                      setArchiveFor({
-                        layoutIdentifier: chain.layoutIdentifier,
-                        name: chain.name,
-                        revisionNumber: live.revisionNumber,
-                        version: chain.version,
-                      })
-                    }
-                  >
-                    Archive
-                  </Button>
+                    entries={moreActions}
+                  />
                 )}
               </div>
             </li>
