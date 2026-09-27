@@ -544,23 +544,37 @@ jobs:
   # leaves this synthesis job showing `failure` on the same `needs` chain.
   # Arguably clearer (a silent `skipped` used to read as "nothing to see"),
   # but undocumented until now -- noted here since it changes what the
-  # four-bucket manual read sees on a backend failure.
+  # four-bucket manual read sees on a backend failure. #2521: a cancelled
+  # upstream now carries its own annotation title ("Upstream cancelled
+  # (...)"), so the log line below is no longer the only discriminator.
   integration:
     name: integration tests (Docker)
     runs-on: ubuntu-latest
-    needs: [integration-shards, integration-shard-coverage]
+    needs: [backend, integration-shards, integration-shard-coverage]
     if: always()
     steps:
       # Phase 6 review S5: names the actual needs.*.result values so a reader
-      # can tell "genuinely red" from "superseded" (e.g. cancelled by a
-      # force-push landing in the same concurrency group) rather than both
-      # reading as an identical, unqualified "did not succeed".
-      - name: Check shard and coverage-guard results
+      # can tell "genuinely red" from "superseded" rather than both reading as
+      # an identical, unqualified "did not succeed".
+      #
+      # #2521: `backend` is a direct need only so its result is readable here
+      # (the needs context holds direct needs alone). When it was cancelled --
+      # a #2409 timeout or a superseded run -- the shards were skipped, never
+      # ran, and this check holds no verdict on the PR. It stays red (a
+      # cancellation must never read as a pass, #2247), but says so in the
+      # title, which is what separates it from a regression.
+      - name: Check upstream, shard and coverage-guard results
         run: |
+          backend="${{ needs.backend.result }}"
           shards="${{ needs.integration-shards.result }}"
           guard="${{ needs.integration-shard-coverage.result }}"
+          if [ "$backend" = "cancelled" ]; then
+            echo "::error title=Upstream cancelled (backend)::backend was cancelled, so integration-shards and integration-shard-coverage never ran. This check holds no verdict on this PR: re-run the workflow (or read the newer run, if this one was superseded). Do not read it as a regression."
+            echo "**integration tests (Docker): no verdict.** Upstream \`backend\` was cancelled; the shards never ran. Re-run the workflow." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           if [ "$shards" != "success" ] || [ "$guard" != "success" ]; then
-            echo "::error::integration-shards=$shards integration-shard-coverage=$guard (expected success/success)."
+            echo "::error::backend=$backend integration-shards=$shards integration-shard-coverage=$guard (expected success/success)."
             exit 1
           fi
 
@@ -857,15 +871,39 @@ jobs:
   e2e:
     name: e2e (Playwright, full stack)
     runs-on: ubuntu-latest
-    needs: [e2e-shards, e2e-shard-coverage]
+    needs: [backend, frontend, e2e-shards, e2e-shard-coverage]
     if: always()
     steps:
-      # Phase 6 review S5: same reasoning as `integration`'s identical step.
-      - name: Check shard and coverage-guard results
+      # Phase 6 review S5 and #2521: same reasoning as `integration`'s
+      # identical step. e2e-shards needs frontend as well as backend, so
+      # either (or both) can be the cancelled upstream.
+      #
+      # Review finding S1: backend and frontend are two independent jobs, so
+      # one can be cancelled while the other genuinely fails at the same
+      # time. The cancelled branch must not fire in that case -- it would
+      # tell the reader "do not read it as a regression" about an upstream
+      # that regressed. So it only fires when neither upstream is a genuine
+      # `failure`; a genuine failure alongside a cancellation falls through
+      # to the generic annotation below, which names both accurately and
+      # carries no reassurance.
+      - name: Check upstream, shard and coverage-guard results
         run: |
+          backend="${{ needs.backend.result }}"
+          frontend="${{ needs.frontend.result }}"
           shards="${{ needs.e2e-shards.result }}"
           guard="${{ needs.e2e-shard-coverage.result }}"
+          cancelled=""
+          if [ "$backend" = "cancelled" ]; then cancelled="backend"; fi
+          if [ "$frontend" = "cancelled" ]; then cancelled="${cancelled:+$cancelled }frontend"; fi
+          failed=""
+          if [ "$backend" = "failure" ]; then failed="backend"; fi
+          if [ "$frontend" = "failure" ]; then failed="${failed:+$failed }frontend"; fi
+          if [ -n "$cancelled" ] && [ -z "$failed" ]; then
+            echo "::error title=Upstream cancelled ($cancelled)::Upstream job(s) cancelled: $cancelled. e2e-shards never ran. This check holds no verdict on this PR: re-run the workflow (or read the newer run, if this one was superseded). Do not read it as a regression."
+            echo "**e2e (Playwright, full stack): no verdict.** Upstream \`$cancelled\` cancelled; the shards never ran. Re-run the workflow." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
           if [ "$shards" != "success" ] || [ "$guard" != "success" ]; then
-            echo "::error::e2e-shards=$shards e2e-shard-coverage=$guard (expected success/success)."
+            echo "::error::backend=$backend frontend=$frontend e2e-shards=$shards e2e-shard-coverage=$guard (expected success/success)."
             exit 1
           fi
