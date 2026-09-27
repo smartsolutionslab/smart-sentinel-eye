@@ -183,14 +183,44 @@ public static class IdempotentRequest
 
         if (outcome.ResourceIdentifier.HasValue)
         {
-            await execution.Store.CompleteAsync(scope, outcome.ResourceIdentifier.Value, CancellationToken.None);
+            await RecordQuietlyAsync(
+                () => execution.Store.CompleteAsync(scope, outcome.ResourceIdentifier.Value, CancellationToken.None));
         }
         else
         {
-            await execution.Store.ReleaseAsync(scope, CancellationToken.None);
+            await RecordQuietlyAsync(() => execution.Store.ReleaseAsync(scope, CancellationToken.None));
         }
 
         return outcome.Response;
+    }
+
+    /// <summary>
+    /// #2490. Records the key's outcome without letting a failure here turn a
+    /// succeeded operation into a 500: by this point <c>work()</c> has already
+    /// returned, so <c>outcome.Response</c> is a decided answer that this
+    /// bookkeeping write must not replace.
+    /// </summary>
+    /// <param name="record">Either the completion or the release call, already bound to its scope.</param>
+    private static async Task RecordQuietlyAsync(Func<Task> record)
+    {
+        try
+        {
+            await record();
+        }
+        catch (Exception recordingFailure)
+        {
+            // Not rethrown, and the codebase's own rule says a swallowed
+            // exception is a review blocker — so this states its case, as
+            // ReleaseQuietlyAsync does for the #2290 failure path. Rethrowing
+            // would discard the response the work already earned. A failed
+            // CompleteAsync is deliberately not retried as a ReleaseAsync
+            // either: that would free the key for an immediate retry to redo
+            // the work and create a second resource, where leaving the row
+            // reserved instead means such a retry gets 409
+            // IDEMPOTENT_REQUEST_IN_PROGRESS until BeginAsync reclaims it
+            // after IdempotencyReclamation.StaleAfter.
+            Activity.Current?.AddException(recordingFailure);
+        }
     }
 
     /// <summary>
