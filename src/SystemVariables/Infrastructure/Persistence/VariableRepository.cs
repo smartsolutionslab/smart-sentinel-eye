@@ -23,7 +23,9 @@ public sealed class VariableRepository(
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        // FR-005: archived names are released for re-use; only return non-Archived rows.
+        // FR-005: archived names are released for re-use; only return non-Archived
+        // rows. See IVariableRepository.GetByNameAsync — a command resolving by
+        // name therefore treats an archived variable as not-found, not a conflict.
         Variable? found = await dbContext.Variables
             .Where(variable => variable.Fab == fab)
             .Where(variable => variable.Name == name)

@@ -23,6 +23,12 @@ public interface IVariableRepository
 {
     Task<Option<Variable>> GetByIdentifierAsync(VariableIdentifier variable, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// Looks up a variable by name, deliberately excluding Archived rows so the
+    /// name is free for re-use (FR-005; see the class remarks). Consequently,
+    /// every command that resolves a variable this way — <c>SetValue</c> among
+    /// them — treats an archived name as not-found rather than as a conflict.
+    /// </summary>
     Task<Option<Variable>> GetByNameAsync(FabIdentifier fab, VariableName name, CancellationToken cancellationToken);
 
     /// <summary>
