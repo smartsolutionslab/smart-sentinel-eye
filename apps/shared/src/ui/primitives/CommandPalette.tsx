@@ -151,7 +151,7 @@ function PaletteBody({ items, label, placeholder, emptyText, onActivate }: Palet
         placeholder={placeholder}
         className={
           'w-full border-b border-border-subtle bg-transparent px-4 py-3 text-sm text-fg-primary ' +
-          'placeholder:text-fg-muted outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-focus-ring'
+          'placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring'
         }
         onChange={(event) => {
           setQuery(event.target.value);
