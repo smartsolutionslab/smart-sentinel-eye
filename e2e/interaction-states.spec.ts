@@ -269,9 +269,7 @@ test.describe('Button interaction states (US1)', () => {
       await expect(save).toHaveCSS('color', fgDisabledProbe);
 
       await save.focus();
-      await expect
-        .poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-disabled')))
-        .toBe('true');
+      await expect.poll(() => page.evaluate(() => document.activeElement?.getAttribute('aria-disabled'))).toBe('true');
 
       // `onClick` still fires: an `aria-disabled` control is not natively
       // disabled, so the click event reaches its listeners — unlike a native
@@ -287,9 +285,7 @@ test.describe('Button interaction states (US1)', () => {
 
       // Still holds focus after the click — a natively `disabled` button
       // blurs to `<body>` the instant it disables, and nothing here does.
-      expect(
-        await page.evaluate(() => document.activeElement?.getAttribute('data-e2e-save-probe')),
-      ).toBe('clicked');
+      expect(await page.evaluate(() => document.activeElement?.getAttribute('data-e2e-save-probe'))).toBe('clicked');
     } finally {
       releaseCameras?.();
       await page.unroute(cameraChoicesPath);
