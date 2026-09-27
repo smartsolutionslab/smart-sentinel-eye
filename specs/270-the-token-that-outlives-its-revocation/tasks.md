@@ -194,3 +194,6 @@ are independent of T010 and of each other's files.
 
 - [ ] **T021** File the follow-up the spec defers: *"A revoked client's established WebRTC session and SignalR connection outlive the revocation"*. Reference ADR-0160's Consequences. Add it to Project #13 (`gh project item-add 13 --owner smartsolutionslab --url <url>`). Do **not** label it `agent:ready`; it needs a decision first.
   - **Depends on:** T020.
+
+- [ ] **T022** File the second follow-up phase-6 security review found: a wrong (not missing) `RevocationList__ClientSecret` produces the same Degraded-forever `revocation-snapshot` health check as an unreachable Identity, with no separate signal that it will never self-recover. Reference ADR-0160's Consequences. Add it to Project #13. Do **not** label it `agent:ready`; it needs a decision on the health-check contract (whether "never loaded after N minutes" should become Unhealthy) before implementation.
+  - **Depends on:** T020.

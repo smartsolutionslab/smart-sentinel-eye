@@ -80,6 +80,17 @@ into it, which is why it is recorded here and not only in a plan.
    dependency of every wall, which is the live dependency the decision
    excludes.
 
+   **Two narrower cases this does not cover** (phase-6 security review,
+   spec 270): a *network partition* isolating one consumer from a still-live,
+   still-revoking Identity leaves that consumer admitting newly revoked
+   clients until the partition heals — the "same Identity" argument above
+   assumes reachability, not just liveness; the exposure is bounded by token
+   lifetime. And a *wrong* `RevocationList__ClientSecret` (as opposed to a
+   missing one) produces the same Degraded-forever state as an unreachable
+   Identity, indistinguishable from it by this health check, with no separate
+   signal for "this will never recover on its own." Both are accepted for
+   this change; the second is filed as a follow-up (tasks.md).
+
 4. **One shared read-only service account** reads the list:
    `revocation-list-reader`, holding only `sse.identity.revocations.read`.
    ADR-0116's pattern is one account per purpose. The purpose here is a single

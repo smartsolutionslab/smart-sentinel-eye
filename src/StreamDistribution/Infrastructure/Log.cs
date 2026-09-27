@@ -68,7 +68,10 @@ internal static partial class Log
     // pipeline's copy of this same message; that one is internal to its own
     // assembly, so WhepAuthValidator needs its own (no project shares its
     // Log class across assembly boundaries — CapturingLogger's doc comment
-    // records the same choice for tests).
-    [LoggerMessage(Level = LogLevel.Information, Message = "Refused a token for '{ClientId}': its client was disabled after the token was minted (ADR-0160).")]
+    // records the same choice for tests). Debug, not Information (phase-6
+    // review): this is WHEP media setup, where a revoked kiosk's reconnect
+    // loop retries the refusal continuously, and every retry would
+    // otherwise log at a level nobody filters out.
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Refused a token for '{ClientId}': its client was disabled after the token was minted (ADR-0160).")]
     public static partial void TokenRefusedAsRevoked(this ILogger logger, string clientId);
 }
