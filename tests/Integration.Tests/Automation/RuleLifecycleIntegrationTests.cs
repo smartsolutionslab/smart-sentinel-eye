@@ -157,6 +157,30 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         (await ReadAsync(rules, name)).GetProperty("state").GetString().ShouldBe("Active");
     }
 
+    // #2200: PublishRuleCommandHandler's now-deleted catch around rule.Publish's
+    // domain exception could never be reached — GetByNameAsync already excludes
+    // Archived rows, so the lookup answers not-found first (FR-002; the name is
+    // free for re-use). Rule.Publish's own Archived throw is untouched; this
+    // proves no caller through this endpoint can still reach it by name.
+    [Fact]
+    public async Task Publishing_an_archived_rule_is_refused_as_not_found()
+    {
+        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        string name = UniqueName();
+        (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
+        int version = await RuleRequests.VersionAsync(rules, name);
+
+        HttpResponseMessage archived = await rules.SendAsync(RuleRequests.Conditional(name, "archive", version));
+        archived.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archived));
+
+        HttpResponseMessage refused = await rules.SendAsync(RuleRequests.Conditional(name, "publish", version));
+
+        refused.StatusCode.ShouldBe(
+            HttpStatusCode.NotFound,
+            $"publishing archived rule '{name}' must read as not-found (FR-002), not a conflict: "
+                + await DiagnoseAsync(refused));
+    }
+
     // #2497: an out-of-range numeric literal in the predicate used to escape
     // AelParser.ParseInt as an uncaught OverflowException, so the create
     // endpoint answered 500 instead of the typed 400 every other malformed
