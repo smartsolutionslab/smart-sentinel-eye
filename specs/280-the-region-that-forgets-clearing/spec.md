@@ -2,7 +2,15 @@
 
 **Issue**: #2365 · **Branch**: `fix-2365-always-mount-error-alerts` · **Phase**: 1 (Specify)
 **Date**: 2026-09-28 · **Base**: `c709495b` (`origin/develop`)
-**Context**: `apps/shared/src/ui/composites/OverlayGeometryFields.tsx` and its test file only.
+**Context**: `apps/shared/src/ui/composites/OverlayGeometryFields.tsx` and its test file, **plus a cascade
+discovered mid-implementation** (§7): `OverlayGeometryFields` is embedded via `OverlayEditor` inside
+dialogs that carry their own separate `role="alert"` regions (`ChainRecoveryNotice`, `BackdropControls`'
+frame-capture failure, `OverlayEditorDialog`'s own label-text validation error) — always-mounting four
+alert regions in one component breaks every unscoped `getByRole('alert')` anywhere in a tree that
+contains it, in two apps. Final touched set: `OverlayGeometryFields.{tsx,test.tsx}`,
+`FrameCapture.test.tsx`, `OverlayEditorUndo.test.tsx`, `BackdropControls.tsx`,
+`ChainRecoveryNotice.tsx`, `OverlayEditorDialog.{tsx,test.tsx}`,
+`OverlayEditorDialogChainRecovery.test.tsx`.
 **Engineer**: delivered directly in this session · **Reviewer**: self-review against the diff (§6)
 **Phase 4a colour**: **behaviour-preserving refactor for the four field error regions' accessibility
 shape** (always-mounted vs on-demand is an implementation detail; the operator-visible content — which
@@ -104,3 +112,33 @@ one `data-testid` per field keyed on `spec.field` (already the map key, so no co
 candidates and the live span — `within(...).getByRole('alert')` would work too, but a direct testid on the
 live span itself is one call instead of two and matches the advisory region's own
 `data-testid="overlay-geometry-advisory"` convention exactly (that one has no `within` step either).
+
+## 7. The cascade (discovered mid-implementation, not in the original estimate)
+
+`OverlayGeometryFields` renders inside `OverlayEditor`, which is itself embedded in
+`OverlayEditorDialog` (management-web). That tree already carries three other on-demand
+`role="alert"` regions of its own, none previously needing a testid because at most one alert ever
+existed in the whole tree at a time:
+
+- `BackdropControls.tsx`'s frame-capture-failure alert (`captureState === 'failed'`).
+- `ChainRecoveryNotice.tsx`'s two alert `<p>`s (chain-read failure and backend-conflict/stale-version) —
+  shared by both `OverlayEditorDialog` and `LayoutEditorDialog`.
+- `OverlayEditorDialog.tsx`'s own label-text validation error.
+
+Always-mounting four `role="alert"` elements inside `OverlayGeometryFields` means **any** test
+anywhere in the app that renders one of these parent trees and queries `getByRole('alert')` /
+`queryByRole('alert')` / `queryAllByRole('alert')` unscoped now finds more than one match and throws.
+This surfaced as 20 failures across 5 test files in 2 apps (`apps/shared`:
+`OverlayGeometryFields.test.tsx`, `FrameCapture.test.tsx`, `OverlayEditorUndo.test.tsx`;
+`apps/management-web`: `OverlayEditorDialog.test.tsx`, `OverlayEditorDialogChainRecovery.test.tsx`) —
+far beyond the ~8-in-one-file estimate this spec's §1–§6 were written against. Surfaced to, and
+confirmed by, the product owner before continuing (not decided unilaterally) rather than either
+silently absorbing the larger diff or unilaterally reverting to on-demand mounting.
+
+**Fix, same shape as §6, extended to the other three regions:** a stable `data-testid` on each
+(`frame-capture-alert`, `chain-recovery-alert` — shared by both of `ChainRecoveryNotice`'s alert `<p>`s,
+since they are mutually exclusive and one test's node-identity comparison depends on the testid tracking
+the same logical region across a `key`-driven remount — and `overlay-editor-dialog-label-error`), with
+every affected test rescoped to the specific alert it concerns. No component's own conditional-mount
+logic, `key` usage, or visible behaviour changed anywhere outside `OverlayGeometryFields.tsx` itself —
+every other file's diff is additive (`data-testid` attributes) or test-only (query rescoping).
