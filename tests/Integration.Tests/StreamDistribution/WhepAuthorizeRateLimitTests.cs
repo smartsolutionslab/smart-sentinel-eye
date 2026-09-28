@@ -305,6 +305,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     public async Task A_throttled_authorize_never_reaches_the_handler()
     {
         int budget = await BeginCountingAsync();
+        using LogCapture capture = aspire.CaptureLogs(StreamDistributionResource);
 
         for (int i = 0; i < budget - 1; i++)
         {
@@ -345,14 +346,14 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             $"request {budget + 1} in the window should have been refused by the limiter; it "
             + "was not, so the absence of a handler log below proves nothing about FR-002.");
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail via "
             + "RefusedAbsentWhepAction; if this fails the test's own admitted-request budget is "
             + "wrong, not the throttled assertion above. stream-distribution log:"
-            + $"{Environment.NewLine}{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+            + $"{Environment.NewLine}{CapturedEvidence(capture, sentinelPath, throttledPath)}");
 
-        bool throttledMarkerLogged = await MarkerEverAppearsInLogsAsync(throttledPath, LogAbsenceGraceWindow);
+        bool throttledMarkerLogged = await MarkerEverAppearsInLogsAsync(capture, throttledPath, LogAbsenceGraceWindow);
         throttledMarkerLogged.ShouldBeFalse(
             $"path '{throttledPath}' was logged by AuthorizeWhepCommandHandler even though request "
             + $"{budget + 1} in the window should have been refused by the limiter before the "
@@ -440,17 +441,18 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     public async Task A_partition_entering_the_throttled_state_is_logged_once()
     {
         int budget = await BeginCountingWithClearDebounceAsync();
+        using LogCapture capture = aspire.CaptureLogs(StreamDistributionResource);
 
-        // S6 (spec 208 review): anchors on a sentinel's position in the log
-        // tail instead of a baseline-count delta. aspire.RecentLogs(...,
-        // lines: 400) is the *entire* retained ring-buffer tail (AspireFixture
-        // caps it at exactly 400 lines) — a baseline captured now and
-        // subtracted from a count read later can undercount or go negative if
-        // enough other log lines (Wolverine's own periodic chatter, other
-        // requests) scroll the baseline's own matching lines out of the tail
-        // before the later read. A sentinel line's position does not have
-        // that problem: once found, everything counted after it is provably
-        // after it, however much has scrolled off the far end.
+        // S6 (spec 208 review): anchors on a sentinel's position in the
+        // capture instead of a baseline-count delta. Spec 291 §1.2: the
+        // 400-line ring this used to read is one 50 ms StreamHealthWatcher
+        // sweep at 40 provisioned streams, so a baseline captured now and
+        // subtracted from a count read later can undercount or go negative —
+        // enough other log lines (the sweep's own chatter, other requests)
+        // can scroll the baseline's own matching lines out of the ring before
+        // the later read. A sentinel line's position in the capture does not
+        // have that problem: the capture cannot evict it, so once found,
+        // everything counted after it is provably after it.
         string sentinelPath = NewPath();
         HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
 
@@ -472,20 +474,20 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             + "fact's premise (a source over the ceiling) does not hold, so the count below proves "
             + "nothing.");
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
             + "without it there is no reliable position to count throttle-transition records after. "
             + $"stream-distribution log:{Environment.NewLine}"
-            + $"{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+            + $"{CapturedEvidence(capture, sentinelPath)}");
 
-        int transitionLogCount = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
+        int transitionLogCount = await ThrottleTransitionCountSinceAsync(capture, sentinelPath, LogAbsenceGraceWindow);
 
         transitionLogCount.ShouldBe(
             1,
             $"expected exactly one throttle-transition log record after '{sentinelPath}'; "
             + $"found {transitionLogCount}. stream-distribution log:{Environment.NewLine}"
-            + $"{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+            + $"{CapturedEvidence(capture, sentinelPath)}");
     }
 
     /// <summary>
@@ -511,6 +513,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
     {
         int budget = await BeginCountingWithClearDebounceAsync();
+        using LogCapture capture = aspire.CaptureLogs(StreamDistributionResource);
 
         // S6 (spec 208 review): sentinel-position anchor — see the identical
         // comment in A_partition_entering_the_throttled_state_is_logged_once.
@@ -542,21 +545,21 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
                 + "FR-009's repeated-refusal silence.");
         }
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(sentinelPath, LogAbsenceGraceWindow);
+        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
             + "without it there is no reliable position to count throttle-transition records after. "
             + $"stream-distribution log:{Environment.NewLine}"
-            + $"{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+            + $"{CapturedEvidence(capture, sentinelPath)}");
 
-        int afterTransition = await ThrottleTransitionCountSinceAsync(sentinelPath, LogAbsenceGraceWindow);
+        int afterTransition = await ThrottleTransitionCountSinceAsync(capture, sentinelPath, LogAbsenceGraceWindow);
 
         // Nothing to poll *for* here: on a healthy implementation the repeats
         // must not log at all, so there is no delivery to wait on. A short
         // fixed pause only guards against a slow-but-real second delivery
         // being missed by reading the tail before it lands.
         await Task.Delay(PollInterval);
-        int afterRepeats = ThrottleTransitionCountSince(sentinelPath);
+        int afterRepeats = ThrottleTransitionCountSince(capture, sentinelPath);
 
         afterTransition.ShouldBe(
             1,
@@ -567,7 +570,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             $"five further refused requests inside the same window added "
             + $"{afterRepeats - afterTransition} more throttle-transition log record(s) after "
             + $"'{sentinelPath}'; FR-009 requires silence on the repeats. stream-distribution "
-            + $"log:{Environment.NewLine}{aspire.RecentLogs(StreamDistributionResource, lines: 400)}");
+            + $"log:{Environment.NewLine}{CapturedEvidence(capture, sentinelPath)}");
     }
 
     /// <summary>
@@ -779,19 +782,19 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     }
 
     /// <summary>
-    /// Polls the fixture's log tail for <paramref name="marker"/> and returns
-    /// whether it ever appeared within <paramref name="timeout"/>. Mirrors
-    /// <c>LogTailDeliversIntegrationTests.PollForAsync</c>'s shape, but answers
-    /// a boolean because both callers here need to tell "arrived" from
-    /// "definitely never arriving" rather than surface the last tail read.
+    /// Polls <paramref name="capture"/> for <paramref name="marker"/> and
+    /// returns whether it ever appeared within <paramref name="timeout"/>.
+    /// Mirrors <c>LogTailDeliversIntegrationTests.PollForAsync</c>'s shape,
+    /// but answers a boolean because both callers here need to tell "arrived"
+    /// from "definitely never arriving" rather than surface the last read.
     /// </summary>
-    private async Task<bool> MarkerEverAppearsInLogsAsync(string marker, TimeSpan timeout)
+    private static async Task<bool> MarkerEverAppearsInLogsAsync(LogCapture capture, string marker, TimeSpan timeout)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            if (aspire.RecentLogs(StreamDistributionResource).Contains(marker, StringComparison.Ordinal))
+            if (capture.Contains(marker))
             {
                 return true;
             }
@@ -799,7 +802,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             await Task.Delay(PollInterval);
         }
 
-        return aspire.RecentLogs(StreamDistributionResource).Contains(marker, StringComparison.Ordinal);
+        return capture.Contains(marker);
     }
 
     /// <summary>
@@ -811,19 +814,21 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// because <see cref="Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record"/>
     /// needs to see the count hold, not merely appear.
     /// </summary>
+    /// <param name="capture">The fact's own log capture — see <see cref="ThrottleTransitionCountSince"/>.</param>
     /// <param name="settleTimeout">How long to keep polling for the count to move off zero.</param>
     /// <param name="sentinelPath">
     /// The caller's own fact-local marker — see <see cref="ThrottleTransitionCountSince"/>.
     /// </param>
-    private async Task<int> ThrottleTransitionCountSinceAsync(string sentinelPath, TimeSpan settleTimeout)
+    private static async Task<int> ThrottleTransitionCountSinceAsync(
+        LogCapture capture, string sentinelPath, TimeSpan settleTimeout)
     {
         DateTimeOffset deadline = DateTimeOffset.UtcNow + settleTimeout;
-        int count = ThrottleTransitionCountSince(sentinelPath);
+        int count = ThrottleTransitionCountSince(capture, sentinelPath);
 
         while (count == 0 && DateTimeOffset.UtcNow < deadline)
         {
             await Task.Delay(PollInterval);
-            count = ThrottleTransitionCountSince(sentinelPath);
+            count = ThrottleTransitionCountSince(capture, sentinelPath);
         }
 
         return count;
@@ -832,34 +837,42 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// <summary>
     /// S6 (spec 208 review): counts throttle-transition markers (see
     /// <see cref="ThrottleTransitionMarkers"/>) that appear <b>after</b>
-    /// <paramref name="sentinelPath"/>'s own line in the log tail, rather
-    /// than a raw-count-minus-baseline delta. <c>aspire.RecentLogs(...,
-    /// lines: 400)</c> is the entire retained ring-buffer tail; enough
-    /// intervening log lines (Wolverine's own chatter, other requests) can
-    /// scroll a baseline's own matching lines out of the tail before a later
-    /// read, making a subtracted delta undercount or go negative. A
-    /// sentinel's position does not have that problem: everything counted
-    /// after it is provably after it, however much has scrolled off the far
-    /// end of the tail.
+    /// <paramref name="sentinelPath"/>'s own line in <paramref name="capture"/>,
+    /// rather than a raw-count-minus-baseline delta. Spec 291 §1.2: the
+    /// 400-line ring this used to read is one 50 ms StreamHealthWatcher sweep
+    /// at 40 provisioned streams, so a baseline captured now and subtracted
+    /// from a count read later can undercount or go negative — enough
+    /// intervening log lines (the sweep's own chatter, other requests) can
+    /// scroll a baseline's own matching lines out of the ring before a later
+    /// read. A sentinel's position in the capture does not have that
+    /// problem: the capture cannot evict it, so everything counted after it
+    /// is provably after it.
     /// </summary>
+    /// <param name="capture">The fact's own log capture, open since before the sentinel request.</param>
     /// <param name="sentinelPath">
-    /// A path unique to this fact, already confirmed present in the tail (via
-    /// <see cref="MarkerEverAppearsInLogsAsync"/>) before this is called —
-    /// callers post a <see cref="NoActionBody"/> request with this path and
-    /// wait for it to appear, establishing a position every later line in
-    /// this fact's own behaviour is guaranteed to follow.
+    /// A path unique to this fact, already confirmed present in the capture
+    /// (via <see cref="MarkerEverAppearsInLogsAsync"/>) before this is
+    /// called — callers post a <see cref="NoActionBody"/> request with this
+    /// path and wait for it to appear, establishing a position every later
+    /// line in this fact's own behaviour is guaranteed to follow.
     /// </param>
-    private int ThrottleTransitionCountSince(string sentinelPath)
+    private static int ThrottleTransitionCountSince(LogCapture capture, string sentinelPath)
     {
-        string[] lines = aspire.RecentLogs(StreamDistributionResource, lines: 400)
-            .Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
+        IReadOnlyList<string> lines = capture.Lines;
 
-        int sentinelIndex = Array.FindLastIndex(
-            lines, line => line.Contains(sentinelPath, StringComparison.Ordinal));
+        int sentinelIndex = -1;
+        for (int i = lines.Count - 1; i >= 0; i--)
+        {
+            if (lines[i].Contains(sentinelPath, StringComparison.Ordinal))
+            {
+                sentinelIndex = i;
+                break;
+            }
+        }
 
-        // If the sentinel itself has already scrolled out of the tail, there
-        // is no reliable "since" boundary left — read as "none yet" rather
-        // than silently counting from the start of the tail, so a caller
+        // If the sentinel itself has not been captured yet, there is no
+        // reliable "since" boundary left — read as "none yet" rather than
+        // silently counting from the start of the capture, so a caller
         // polling via ThrottleTransitionCountSinceAsync keeps trying instead
         // of reporting a false count.
         if (sentinelIndex < 0)
@@ -871,5 +884,24 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             .Skip(sentinelIndex + 1)
             .Count(line => ThrottleTransitionMarkers.Any(
                 marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>
+    /// FR-007 — a failure-message dump over <paramref name="capture"/> rather
+    /// than a 400-line ring tail that spec 291 §1.2 shows is pure
+    /// <c>StreamHealthWatcher</c> sweep noise at the stream counts this class
+    /// runs under. Returns the capture's line count plus the lines
+    /// containing any of <paramref name="paths"/> or a
+    /// <see cref="ThrottleTransitionMarkers"/> entry.
+    /// </summary>
+    private static string CapturedEvidence(LogCapture capture, params string[] paths)
+    {
+        IReadOnlyList<string> lines = capture.Lines;
+
+        IEnumerable<string> relevant = lines.Where(line =>
+            paths.Any(path => line.Contains(path, StringComparison.Ordinal))
+            || ThrottleTransitionMarkers.Any(marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
+
+        return $"{lines.Count} lines captured; relevant:{Environment.NewLine}{string.Join(Environment.NewLine, relevant)}";
     }
 }
