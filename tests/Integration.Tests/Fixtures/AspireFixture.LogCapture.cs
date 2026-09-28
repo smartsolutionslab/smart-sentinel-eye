@@ -14,17 +14,18 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 public sealed partial class AspireFixture
 {
     /// <summary>
-    /// FR-001/FR-004 — a fact-scoped log capture for a tailed resource.
-    ///
-    /// <para>
-    /// <b>Skeleton (phase 4a, spec 291 T001).</b> The <see cref="LogCapture"/>
-    /// returned here is ring-backed: its <c>Lines</c>/<c>Contains</c> read
-    /// <see cref="RecentLogs(string, int)"/> on demand — today's 400-line
-    /// semantics, unchanged. It is not yet fed by <see cref="RecordLogLine"/>'s
-    /// fan-out (that arrives in phase 4b, plan.md D2); this method exists only
-    /// so <c>A_capture_keeps_a_line_the_tail_has_already_evicted</c> compiles
-    /// and fails at the one assertion FR-001 is about, not anywhere else.
-    /// </para>
+    /// Active captures per resource (plan.md D1's exact shape). Populated by
+    /// <see cref="CaptureLogs"/>, drained by <see cref="UnregisterCapture"/>,
+    /// fanned out to by <see cref="RecordLogLine"/>. The inner dictionary is a
+    /// set — the <see langword="byte"/> value is unused.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, ConcurrentDictionary<LogCapture, byte>> activeCaptures =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// FR-001/FR-004 — a fact-scoped log capture for a tailed resource,
+    /// registered so <see cref="RecordLogLine"/>'s fan-out (D2) feeds it every
+    /// line the ring also receives, from now until <see cref="LogCapture.Dispose"/>.
     /// </summary>
     public LogCapture CaptureLogs(string resourceName)
     {
@@ -37,14 +38,33 @@ public sealed partial class AspireFixture
                 + "capturing its logs.");
         }
 
-        return new LogCapture(this, resourceName);
+        var capture = new LogCapture(this, resourceName);
+        ConcurrentDictionary<LogCapture, byte> captures =
+            activeCaptures.GetOrAdd(resourceName, _ => new ConcurrentDictionary<LogCapture, byte>());
+        captures.TryAdd(capture, 0);
+
+        return capture;
     }
 
     /// <summary>
-    /// FR-003 — the one place a line is recorded into the 400-line ring,
-    /// extracted from <see cref="TailResourceLogsAsync"/>'s per-line loop body
-    /// (D2) so the ring and — from phase 4b — every active capture read the
-    /// same recording rather than two copies that could disagree.
+    /// Removes a disposed capture from the active-capture registry so it no
+    /// longer receives lines. Called only from <see cref="LogCapture.Dispose"/>,
+    /// which guards against calling this more than once per capture.
+    /// </summary>
+    internal void UnregisterCapture(string resourceName, LogCapture capture)
+    {
+        if (activeCaptures.TryGetValue(resourceName, out ConcurrentDictionary<LogCapture, byte>? captures))
+        {
+            captures.TryRemove(capture, out _);
+        }
+    }
+
+    /// <summary>
+    /// FR-003 — the one place a line is recorded, extracted from
+    /// <see cref="TailResourceLogsAsync"/>'s per-line loop body (D2) so the
+    /// ring and every active capture read the same recording rather than two
+    /// copies that could disagree. Feeds the 400-line ring first, then fans
+    /// the same line out to every capture currently open on this resource.
     ///
     /// <para>
     /// <c>internal</c>: it is also the seam spec 291 SC-1/SC-2 use to force
@@ -57,9 +77,11 @@ public sealed partial class AspireFixture
     /// once per delivered line, and an exception here is caught by that
     /// method's own handler, recorded as a tail fault and re-subscribed,
     /// dropping lines for every test until the re-subscribe completes.
-    /// <see cref="ConcurrentQueue{T}.Enqueue"/> and
+    /// <see cref="ConcurrentQueue{T}.Enqueue"/>,
     /// <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey,System.Func{TKey,TValue})"/>
-    /// cannot throw here; keep it that way.
+    /// and enumerating a <see cref="ConcurrentDictionary{TKey,TValue}"/>'s
+    /// <c>Keys</c> while it is written concurrently cannot throw here; keep it
+    /// that way.
     /// </para>
     /// </summary>
     internal void RecordLogLine(string resourceName, string content)
@@ -69,6 +91,14 @@ public sealed partial class AspireFixture
         while (tail.Count > 400)
         {
             tail.TryDequeue(out _);
+        }
+
+        if (activeCaptures.TryGetValue(resourceName, out ConcurrentDictionary<LogCapture, byte>? captures))
+        {
+            foreach (LogCapture capture in captures.Keys)
+            {
+                capture.Record(content);
+            }
         }
     }
 }
