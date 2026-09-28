@@ -2,6 +2,16 @@ import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
+// #2365: OverlayGeometryFields always mounts one role="alert" per field now
+// (`overlay-geometry-error-${field}`), so a bare `getByRole('alert')` on any
+// page showing the geometry panel matches more than one element.
+const GEOMETRY_ERROR_TEST_IDS = [
+  'overlay-geometry-error-normalizedX',
+  'overlay-geometry-error-normalizedY',
+  'overlay-geometry-error-normalizedWidth',
+  'overlay-geometry-error-normalizedHeight',
+];
+
 // ADR-0108 — overlays "read" vertical slice. An operator signs in, opens the
 // Overlays surface, and the list loads from the overlay-designer service
 // *through the API gateway* (ADR-0106). A 401 / 404 / CORS / scope failure
@@ -110,8 +120,12 @@ test('operator types an exact geometry and the saved overlay carries it through 
   await page.keyboard.press('Tab');
 
   // FR-005/FR-006 — an exact, in-range value is accepted outright; nothing
-  // on the panel refuses it.
-  await expect(page.getByRole('alert')).toHaveCount(0);
+  // on the panel refuses it. Scoped, not a bare role query (#2365):
+  // OverlayGeometryFields always mounts four role="alert" regions now, one
+  // per field, empty when clear — present-with-empty-text, not absent.
+  for (const testId of GEOMETRY_ERROR_TEST_IDS) {
+    await expect(page.getByTestId(testId)).toHaveText('');
+  }
 
   // The teardown's DISPOSABLE pattern (archive-e2e-overlays.teardown.ts) matches
   // "E2E " (space), not "E2E-" — every other disposable in this suite uses the
@@ -460,8 +474,9 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     await saveButtonTwo.focus();
     await expect(saveButtonTwo).toBeFocused();
 
-    // The conflict lands and the chain re-read starts.
-    const alertTwo = pageTwo.getByRole('alert');
+    // The conflict lands and the chain re-read starts. Scoped (#2365): a bare
+    // role query now also matches OverlayGeometryFields' four (empty) regions.
+    const alertTwo = pageTwo.getByTestId('chain-recovery-alert');
     await expect(alertTwo).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
     await expect(saveButtonTwo).toBeFocused();
 
@@ -645,7 +660,13 @@ test('a refusal message appearing on blur does not move the Save button (spec 25
 
   await widthField.blur();
 
-  await expect(page.getByRole('alert')).toBeVisible();
+  // Scoped, not a bare role query (#2365): OverlayGeometryFields always
+  // mounts four role="alert" regions now, and the claim here is specifically
+  // that Width's own carries the refusal text, not merely that some alert
+  // somewhere is visible.
+  await expect(page.getByTestId('overlay-geometry-error-normalizedWidth')).toHaveText(
+    'Width must be greater than 0% and at most 100%.',
+  );
   const after = await saveButton.boundingBox();
   if (after === null) {
     throw new Error('the Save button should still have a bounding box after the refusal renders');
