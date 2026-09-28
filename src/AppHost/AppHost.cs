@@ -725,7 +725,12 @@ if (isRunMode && !isE2ETests)
     // directory and blocks the app on it. This repo installs once, at the pnpm
     // workspace root; npm doesn't understand the workspace:* protocol the apps
     // depend on, so left at its default the installer fails and every app
-    // waits on it forever.
+    // waits on it forever. install: false only removes the wait, not the
+    // resource: the installer still shows in the dashboard as a startable,
+    // explicit-start child (StackStatusReport skips it, so it can't stall
+    // e2e's readiness wait) — don't start it by hand, it runs npm against a
+    // pnpm workspace and can leave a stray package-lock.json/node_modules
+    // behind that shadows the real install.
     builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
         .WithNpm(install: false)
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
