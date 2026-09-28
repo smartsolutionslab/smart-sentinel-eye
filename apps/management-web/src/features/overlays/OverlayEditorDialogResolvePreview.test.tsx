@@ -279,12 +279,12 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
    * only thing that ever refused it. This test injects a delay the old
    * default cannot survive, so a future reduction of `asyncUtilTimeout`
    * (src/test/setup.ts) below roughly `SLOW_RESPONSE_MS` (1.5 s) fails the
-   * build here instead of on someone
-   * else's unrelated pull request — a reduction that stays above that mark
-   * (10_000 → 2_000, say) would still pass silently, which is why the bound
-   * itself is not asserted directly: `configure(...)`'s value is this guard's
-   * input, and asserting it back would only prove the input was read, not that
-   * it does anything (MEMORY: an assertion must not check its own input).
+   * build here instead of on someone else's unrelated pull request — a
+   * reduction that stays above that mark (10_000 → 2_000, say) would still
+   * pass silently, which is why the bound itself is not asserted directly:
+   * `configure(...)`'s value is this guard's input, and asserting it back
+   * would only prove the input was read, not that it does anything (MEMORY:
+   * an assertion must not check its own input).
    *
    * The delay is a real `setTimeout` inside the fetch mock, injecting latency —
    * not a fixed-count settle before an assertion and not inside a loop, so it
