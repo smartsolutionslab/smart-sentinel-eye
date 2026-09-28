@@ -295,6 +295,67 @@ test("@types/node declared as '>=22' — fails, unreadable (a >= range could res
   assert.match(problems[0], /package\.json/i, describeProblems(problems));
 });
 
+test("a quoted uses: line (uses: 'actions/setup-node@v4') is still detected as a setup-node step (both single- and double-quoted are valid YAML)", () => {
+  const stepsTextSingleQuoted =
+    "      - name: Set up Node (single-quoted)\n" +
+    "        uses: 'actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020' # v4\n" +
+    "        with:\n" +
+    "          node-version: '24'\n" +
+    "          cache: pnpm";
+  const stepsTextDoubleQuoted =
+    '      - name: Set up Node (double-quoted)\n' +
+    '        uses: "actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020" # v4\n' +
+    '        with:\n' +
+    "          node-version: '24'\n" +
+    '          cache: pnpm';
+
+  const problems = checkNodeTypesAlignment({
+    workflows: [
+      workflowFile('.github/workflows/ci.yml', stepsTextSingleQuoted),
+      workflowFile('.github/workflows/nightly.yml', stepsTextDoubleQuoted),
+    ],
+    manifest: manifest(),
+    runningVersion: '22.22.2',
+  });
+
+  // Aligned CI at 24 vs a manifest still declaring 22 — a real mismatch, not
+  // the `[]` a silently-skipped quoted `uses:` would have produced.
+  assert.equal(problems.length, 2, describeProblems(problems));
+  assert.ok(
+    problems.some((problem) => /24/.test(problem) && /22/.test(problem) && /package\.json/i.test(problem)),
+    describeProblems(problems),
+  );
+});
+
+test('a `#`-comment line shaped like a setup-node `uses:` step, appearing before any real step, is ignored rather than read to EOF and borrowing a later job\'s matrix node-version', () => {
+  const workflowText =
+    '# previously: uses: actions/setup-node@v3\n' +
+    'name: CI\n' +
+    '\n' +
+    'jobs:\n' +
+    '  other-job:\n' +
+    '    strategy:\n' +
+    '      matrix:\n' +
+    '        node-version: 24\n' +
+    '    runs-on: ubuntu-latest\n' +
+    '    steps:\n' +
+    `${nonSetupNodeStepText()}\n` +
+    '  example:\n' +
+    '    runs-on: ubuntu-latest\n' +
+    `    steps:\n${setupNodeStepText({ nodeVersion: "'22'" })}\n`;
+
+  const problems = checkNodeTypesAlignment({
+    workflows: [{ path: '.github/workflows/ci.yml', text: workflowText }],
+    manifest: manifest(),
+    runningVersion: '22.22.2',
+  });
+
+  // Aligned at 22 throughout the real step — a wrong major borrowed from
+  // `other-job`'s `strategy.matrix.node-version: 24` would either mismatch
+  // package.json or disagree with the real step, neither of which is `[]`.
+  assert.deepEqual(problems, [], describeProblems(problems));
+});
+
 test("engines.node is '<23' — fails, unreadable (a < alternative names no floor)", () => {
   const problems = checkNodeTypesAlignment({
     workflows: [alignedWorkflow()],

@@ -21,7 +21,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 
 const WORKFLOW_FILE_PATTERN = /\.ya?ml$/;
-const SETUP_NODE_USES_PATTERN = /uses:\s*actions\/setup-node@[^\s]*/g;
+const SETUP_NODE_USES_PATTERN = /uses:\s*['"]?actions\/setup-node@/g;
 const STEP_BOUNDARY_PATTERN = /^([ \t]*)-[ \t]/gm;
 const NODE_VERSION_LINE_PATTERN = /^[ \t]*node-version:[ \t]*(.+?)[ \t]*$/m;
 const LEADING_INTEGER_PATTERN = /^(\d+)/;
@@ -46,6 +46,18 @@ function majorFromLeadingInteger(text) {
   return match ? Number(match[1]) : null;
 }
 
+// A `#`-comment line whose text happens to look like `uses:
+// actions/setup-node@…` is not a step and must not be treated as one — it
+// has no `with:`/`node-version:` of its own to read.
+function isCommentLine(text, matchIndex) {
+  const lineStart = text.lastIndexOf('\n', matchIndex) + 1;
+  let index = lineStart;
+  while (index < text.length && (text[index] === ' ' || text[index] === '\t')) {
+    index += 1;
+  }
+  return text[index] === '#';
+}
+
 function findStepBoundaries(text) {
   const boundaries = [];
   STEP_BOUNDARY_PATTERN.lastIndex = 0;
@@ -59,6 +71,10 @@ function findStepBoundaries(text) {
 // The slice from a setup-node step's own dash line up to the next sibling
 // step (a boundary at an indent <= this step's own), or EOF — so a following,
 // unrelated step's `node-version`-shaped line is never read into this step.
+// `null` means the match has no enclosing `- ` step at all — reading to EOF
+// in that case would risk borrowing a neighboring step's or job's
+// `node-version` (e.g. a `strategy.matrix.node-version`), so the caller
+// treats it as unreadable instead of slicing.
 function sliceForStep(text, matchIndex, boundaries) {
   let own = null;
   for (const boundary of boundaries) {
@@ -67,7 +83,7 @@ function sliceForStep(text, matchIndex, boundaries) {
     }
   }
   if (own === null) {
-    own = { index: matchIndex, indent: 0 };
+    return null;
   }
 
   let end = text.length;
@@ -98,7 +114,14 @@ function collectCiSteps(workflows) {
     SETUP_NODE_USES_PATTERN.lastIndex = 0;
     let match;
     while ((match = SETUP_NODE_USES_PATTERN.exec(workflow.text)) !== null) {
+      if (isCommentLine(workflow.text, match.index)) {
+        continue;
+      }
       const stepSlice = sliceForStep(workflow.text, match.index, boundaries);
+      if (stepSlice === null) {
+        steps.push({ path: workflow.path, present: false, raw: null, major: null });
+        continue;
+      }
       const { present, raw } = extractNodeVersion(stepSlice);
       const major = present ? majorFromLeadingInteger(raw) : null;
       steps.push({ path: workflow.path, present, raw, major });
