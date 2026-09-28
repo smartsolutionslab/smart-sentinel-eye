@@ -359,7 +359,9 @@ describe('OverlayEditor undo/redo (spec 154, issue #2347)', () => {
 
       fireEvent.change(field('Left'), { target: { value: 'abc' } });
       fireEvent.keyDown(field('Left'), { key: 'Enter' });
-      expect(screen.getByRole('alert').textContent).toBe('Enter a number.');
+      // #2365: scoped — OverlayGeometryFields always mounts one role="alert"
+      // per field now, so an unscoped query matches all four.
+      expect(screen.getByTestId('overlay-geometry-error-normalizedX').textContent).toBe('Enter a number.');
 
       expect(isDisabled(getUndoButton())).toBe(true);
       pressUndo();

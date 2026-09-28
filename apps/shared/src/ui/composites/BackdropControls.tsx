@@ -205,7 +205,11 @@ function CameraCaptureSection({
         {captureState === 'capturing' ? `Capturing a frame from ${cameraName}…` : ''}
       </p>
       {captureState === 'failed' && (
-        <p role="alert" style={ALERT_STYLE}>
+        // #2365: unrelated to this file's own #2342 carve-out (colour tokens) —
+        // a plain data-testid so a test can address this alert without an
+        // unscoped role query, now that OverlayGeometryFields always mounts
+        // four of its own in the same tree.
+        <p role="alert" data-testid="frame-capture-alert" style={ALERT_STYLE}>
           The frame could not be captured. The backdrop is unchanged — try again, or pick a different camera.
         </p>
       )}
