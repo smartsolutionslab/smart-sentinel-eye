@@ -191,9 +191,9 @@ function CrashPanel({ message, onRetry }: { message: string; onRetry: () => void
     >
       <h1 className="text-2xl font-semibold">Something went wrong</h1>
       <p className="text-fg-muted">{message}</p>
-      <button type="button" className="rounded-md bg-accent-active px-6 py-3 text-bg-base" onClick={onRetry}>
+      <Button variant="primary" onClick={onRetry}>
         Try again
-      </button>
+      </Button>
     </section>
   );
 }
