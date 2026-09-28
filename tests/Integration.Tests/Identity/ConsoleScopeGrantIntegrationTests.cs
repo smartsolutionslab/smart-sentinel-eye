@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -195,6 +196,65 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
         response.StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized,
             $"an anonymous caller must be refused with 401, never 403. {await Diagnose(response, SystemVariablesResource)}");
+    }
+
+    /// <summary>
+    /// SC-9 — spec 286 (issue #2488). Posts the password grant directly to the
+    /// token endpoint via <see cref="AspireFixture.CreateKeycloakClient"/>
+    /// rather than <see cref="AspireFixture.GetAccessTokenForClientAsync"/>,
+    /// which throws on a non-success response and would hide the status this
+    /// fact needs to observe. The positive control mints for
+    /// <c>management-web</c> with the same <c>operator</c> credentials through
+    /// the identical raw call shape, so a wrong password
+    /// (<c>invalid_grant</c>) can never be mistaken for the retirement working.
+    /// </summary>
+    [Fact]
+    public async Task The_retired_client_cannot_mint_a_token()
+    {
+        (HttpStatusCode status, JsonElement body) = await RawPasswordGrantAsync(
+            "smart-sentinel-eye-web", Operator, OperatorPassword);
+
+        status.ShouldBe(
+            HttpStatusCode.Unauthorized,
+            "smart-sentinel-eye-web is retired (spec 286 / #2488) and must no longer mint a token. "
+            + $"Observed: {(int)status} {body}");
+        body.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
+            $"expected an 'error' field on the refusal. Observed: {(int)status} {body}");
+        error.GetString().ShouldBe(
+            "invalid_client",
+            $"the refusal must be about the client, not the credentials. Observed: {(int)status} {body}");
+
+        (HttpStatusCode controlStatus, JsonElement controlBody) = await RawPasswordGrantAsync(
+            "management-web", Operator, OperatorPassword);
+
+        controlStatus.ShouldBe(
+            HttpStatusCode.OK,
+            "the positive control failed: the same operator credentials against management-web, "
+            + $"through the identical raw call shape, must still mint a token. Observed: "
+            + $"{(int)controlStatus} {controlBody}");
+        controlBody.TryGetProperty("access_token", out _).ShouldBeTrue(
+            $"the control response did not carry an access_token. Observed: {controlBody}");
+    }
+
+    private async Task<(HttpStatusCode Status, JsonElement Body)> RawPasswordGrantAsync(
+        string clientId, string username, string password)
+    {
+        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        Dictionary<string, string> form = new()
+        {
+            ["grant_type"] = "password",
+            ["client_id"] = clientId,
+            ["username"] = username,
+            ["password"] = password,
+            ["scope"] = "openid",
+        };
+
+        HttpResponseMessage response = await keycloak.PostAsync(
+            "/realms/smart-sentinel-eye/protocol/openid-connect/token",
+            new FormUrlEncodedContent(form));
+
+        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return (response.StatusCode, body);
     }
 
     private HttpClient ClientFor(string resourceName, string jwt)
