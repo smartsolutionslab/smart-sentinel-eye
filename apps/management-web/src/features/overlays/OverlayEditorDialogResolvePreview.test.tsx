@@ -1,3 +1,4 @@
+import { configureStore } from '@reduxjs/toolkit';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
@@ -9,7 +10,7 @@ import { DEBOUNCE_MS } from '@smart-sentinel-eye/shared/hooks';
 // `fetchBaseQuery` builds absolute URLs — Node's `Request` rejects relative
 // ones, unlike a browser.
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { store } = await import('../../app/store.js');
+const { overlaysApi } = await import('@smart-sentinel-eye/shared/api/overlays.api');
 const { systemVariablesApi } = await import('@smart-sentinel-eye/shared/api/systemVariables.api');
 
 /**
@@ -64,7 +65,17 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
 
 const { OverlayEditorDialog } = await import('./OverlayEditorDialog.js');
 
-function renderDialog() {
+function createStore() {
+  return configureStore({
+    reducer: {
+      [overlaysApi.reducerPath]: overlaysApi.reducer,
+      [systemVariablesApi.reducerPath]: systemVariablesApi.reducer,
+    },
+    middleware: (getDefault) => getDefault().concat(overlaysApi.middleware, systemVariablesApi.middleware),
+  });
+}
+
+function renderDialog(store: ReturnType<typeof createStore>) {
   return render(
     <Provider store={store}>
       <OverlayEditorDialog open={true} onOpenChange={() => {}} />
@@ -93,14 +104,15 @@ const SLOW_RESPONSE_MS = 1500;
 
 describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
+  let store: ReturnType<typeof createStore>;
 
   beforeEach(() => {
     createDraftMock.mockClear();
-    // The store is the app's real singleton (`OverlayEditorDialog` is not
-    // given a store of its own to mount into) — reset its RTK Query cache
-    // between tests, or an earlier test's `{{temperature}}` response would
-    // be served from cache here instead of hitting `fetchMock`.
-    store.dispatch(systemVariablesApi.util.resetApiState());
+    // Spec 290: a fresh store per test, not a shared singleton — the
+    // auto-batch enhancer's `notificationQueued` latch lives in the store's
+    // own closure rather than its reducer state, so resetting the RTK Query
+    // cache (`resetApiState`) on a shared store can't clear it.
+    store = createStore();
     useListAllCameraChoicesQueryMock.mockReturnValue({
       data: { items: [], count: 0, complete: true },
       isLoading: false,
@@ -125,7 +137,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
     // clock (phase 6 should-fix 7).
     vi.useFakeTimers();
     try {
-      renderDialog();
+      renderDialog(store);
 
       fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: 'Line 1 static text' } });
 
@@ -140,7 +152,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
   });
 
   it('Resolves a typed placeholder and passes it down: the canvas shows the resolved value and the panel names it (spec 148 US1 scenario 1, US3 scenario 1)', async () => {
-    renderDialog();
+    renderDialog(store);
 
     fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: '{{temperature}}' } });
 
@@ -168,7 +180,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
    * reviewer's probe demonstrated live.
    */
   it('Falls back to the raw text once the placeholder is cleared, not the previous resolve (phase 6 blocker 2)', async () => {
-    renderDialog();
+    renderDialog(store);
 
     fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: '{{temperature}}' } });
     await waitFor(() => {
@@ -191,7 +203,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
    * debounce-plus-round-trip window — the reviewer's PROBE B.
    */
   it('Never flags a second, still-settling placeholder as malformed while the response is for the first one (phase 6 blocker 3)', async () => {
-    renderDialog();
+    renderDialog(store);
 
     fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: '{{temperature}}' } });
     // Real time to let the first resolve settle — fetch's own promise chain
@@ -233,7 +245,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
     fetchMock = vi.fn(async () => failedResolveResponse());
     vi.stubGlobal('fetch', fetchMock);
     const user = userEvent.setup();
-    renderDialog();
+    renderDialog(store);
 
     await user.type(screen.getByLabelText(/name/i), 'Line-1 Title');
     fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: '{{bogus}}' } });
@@ -261,13 +273,13 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
 
   /**
    * #2520/#2419 guard. "Never blocks submission on a failed resolve" (should-fix
-   * 5, US1 scenario 15) above is the test CI outran seven times, and the reason
-   * is the deadline rather than the assertion: the error advisory does arrive,
-   * ~29 ms after the response on an idle machine and ~319 ms under contention,
-   * and Testing Library's 1000 ms default is the only thing that ever refused
-   * it. This test injects a delay the old default cannot survive, so a future
-   * reduction of `asyncUtilTimeout` (src/test/setup.ts) below roughly
-   * `SLOW_RESPONSE_MS` (1.5 s) fails the build here instead of on someone
+   * 5, US1 scenario 15) above is the test CI outran seven times: the error
+   * advisory does arrive, ~29 ms after the response on an idle machine and
+   * ~319 ms under contention, and Testing Library's 1000 ms default is the
+   * only thing that ever refused it. This test injects a delay the old
+   * default cannot survive, so a future reduction of `asyncUtilTimeout`
+   * (src/test/setup.ts) below roughly `SLOW_RESPONSE_MS` (1.5 s) fails the
+   * build here instead of on someone
    * else's unrelated pull request — a reduction that stays above that mark
    * (10_000 → 2_000, say) would still pass silently, which is why the bound
    * itself is not asserted directly: `configure(...)`'s value is this guard's
@@ -284,7 +296,7 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
       return failedResolveResponse();
     });
     vi.stubGlobal('fetch', fetchMock);
-    renderDialog();
+    renderDialog(store);
 
     fireEvent.change(screen.getByTestId('overlay-editor-text'), { target: { value: '{{bogus}}' } });
 
