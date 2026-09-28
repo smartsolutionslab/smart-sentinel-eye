@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.Integration.Tests.Identity;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
@@ -29,6 +30,17 @@ namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 [Collection(AspireCollection.Name)]
 public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
+    private readonly RealmProbe realm = new(aspire);
+
+    /// <summary>
+    /// The retired <c>smart-sentinel-eye-web</c> client's exact default scope
+    /// set (spec 286 / #2488), reproduced on a planted client: it grants no
+    /// <c>sse.layouts.*</c> scope, which is all
+    /// <see cref="A_caller_without_sse_layouts_write_is_refused_403"/> needs.
+    /// </summary>
+    private static readonly string[] ProbeScopes =
+        ["sse-identity", "sse-audience", "sse-groups", "sse.audit.read"];
+
     public Task InitializeAsync() => aspire.ResetLayoutCompositionAsync();
 
     public Task DisposeAsync() => Task.CompletedTask;
@@ -404,28 +416,40 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     /// <summary>
     /// Declared pin (spec §8) — authorization is unchanged.
-    /// <c>smart-sentinel-eye-web</c> is a real Keycloak client that grants no
-    /// <c>sse.layouts.write</c> (nor any <c>sse.layouts.*</c>) by default,
-    /// mirroring <c>ConsoleScopeGrantIntegrationTests</c>.
+    /// <c>smart-sentinel-eye-web</c> was retired (spec 286 / #2488); this now
+    /// mints from a client this test plants with exactly that retired
+    /// client's default scopes, which grant no <c>sse.layouts.write</c> (nor
+    /// any <c>sse.layouts.*</c>), mirroring
+    /// <c>ConsoleScopeGrantIntegrationTests</c>.
     /// </summary>
     [Fact]
     public async Task A_caller_without_sse_layouts_write_is_refused_403()
     {
-        string token = await aspire.GetAccessTokenForClientAsync(
-            "smart-sentinel-eye-web", AspireFixture.AdminUsername, AspireFixture.AdminPassword, "openid");
-        using HttpClient layouts = aspire.CreateServiceClient("layout-composition");
-        layouts.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        string clientId = $"tile-span-probe-{Guid.CreateVersion7():N}";
+        await realm.PlantPasswordGrantClientAsync(clientId, ProbeScopes, CancellationToken.None);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
-            "/layouts",
-            new
-            {
-                name = UniqueName(),
-                grid = new { rows = 1, cols = 1 },
-                tiles = new[] { Tile(Guid.CreateVersion7(), 0, 0) },
-            });
+        try
+        {
+            string token = await aspire.GetAccessTokenForClientAsync(
+                clientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, "openid");
+            using HttpClient layouts = aspire.CreateServiceClient("layout-composition");
+            layouts.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        response.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(response));
+            HttpResponseMessage response = await layouts.PostAsJsonAsync(
+                "/layouts",
+                new
+                {
+                    name = UniqueName(),
+                    grid = new { rows = 1, cols = 1 },
+                    tiles = new[] { Tile(Guid.CreateVersion7(), 0, 0) },
+                });
+
+            response.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(response));
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
     }
 
     // ---- helpers --------------------------------------------------------

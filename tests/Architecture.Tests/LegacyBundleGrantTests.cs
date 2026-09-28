@@ -15,7 +15,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// suite, since a caller carrying it looks identical to one carrying nothing.
 /// This is a <b>static, design-time guard</b>: it proves the realm file says the
 /// right thing. It does not prove the running system agrees —
-/// <c>ConsoleScopeGrantIntegrationTests</c>' SC-1 is what asks the running
+/// <c>ConsoleScopeGrantIntegrationTests</c>' SC-4 is what asks the running
 /// system. Both are required; neither substitutes for the other.
 /// </para>
 ///

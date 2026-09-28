@@ -10,16 +10,31 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// what a policy does with it, on the real stack.
 ///
 /// <para>
-/// <b><see cref="A_smart_sentinel_eye_web_token_does_not_carry_the_bundle_and_is_refused"/>
+/// <b><see cref="A_token_holding_neither_the_bundle_nor_variables_read_is_refused"/>
 /// (SC-1) is the fact this spec exists to guard.</b> At the time this spec was
 /// written, <c>RequireScopeExtensions</c> carried a grandfather clause that
 /// accepted <c>sse.management</c> for every <c>sse.*</c> policy but
-/// <c>sse.events.publish</c>, so a <c>smart-sentinel-eye-web</c> token that
-/// re-acquired the bundle would have answered 200 on <c>GET /system-variables</c>
-/// instead of the 403 asserted here — the exact shape of #2279. That clause was
-/// withdrawn (spec 265 / #2486): the 403 now holds even if the bundle is
-/// re-granted, which is exactly what makes this SC-1 a durable guard rather
-/// than one describing a hole that has since closed.
+/// <c>sse.events.publish</c>, so a token that re-acquired the bundle would have
+/// answered 200 on <c>GET /system-variables</c> instead of the 403 asserted
+/// here — the exact shape of #2279. That clause was withdrawn (spec 265 /
+/// #2486): the 403 now holds even if the bundle is re-granted, which is
+/// exactly what makes this SC-1 a durable guard rather than one describing a
+/// hole that has since closed.
+/// </para>
+///
+/// <para>
+/// <b>Spec 286 (issue #2488) retired the <c>smart-sentinel-eye-web</c> client
+/// this fact used to mint from.</b> SC-1 and SC-2 now mint from a throwaway
+/// public password-grant client this class plants with exactly that retired
+/// client's default scopes (<c>sse-identity</c>, <c>sse-audience</c>,
+/// <c>sse-groups</c>, <c>sse.audit.read</c>) and deletes afterwards, the same
+/// pattern <c>EventTypeRegistryAuthorizationIntegrationTests</c> uses. The
+/// API-answer assertions (403 on <c>/system-variables</c>, 200 on
+/// <c>/audit</c>) are unchanged; only how the token is obtained changed. The
+/// <c>sse.management</c>-absence check in SC-1 is now a probe-shape control —
+/// on a client whose scopes this test itself chose, it checks its own input —
+/// kept anyway because a probe that somehow acquired the bundle would still be
+/// the wrong probe to reason from.
 /// </para>
 ///
 /// <para>
@@ -47,47 +62,78 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     private const string SystemVariablesRoute = "/system-variables";
     private const string AuditRoute = "/audit?pageSize=1";
 
+    private readonly RealmProbe realm = new(aspire);
+
+    /// <summary>
+    /// The retired <c>smart-sentinel-eye-web</c> client's exact default scope
+    /// set (spec 286 measurement table), reproduced on a planted client so
+    /// SC-1 and SC-2 keep proving the same thing about that scope shape rather
+    /// than about any specific realm client.
+    /// </summary>
+    private static readonly string[] ProbeScopes =
+        ["sse-identity", "sse-audience", "sse-groups", "sse.audit.read"];
+
     /// <summary>SC-1 — the reason this spec exists.</summary>
     [Fact]
-    public async Task A_smart_sentinel_eye_web_token_does_not_carry_the_bundle_and_is_refused()
+    public async Task A_token_holding_neither_the_bundle_nor_variables_read_is_refused()
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(
-            "smart-sentinel-eye-web", Operator, OperatorPassword, "openid");
+        string clientId = $"console-scope-probe-{Guid.CreateVersion7():N}";
+        await realm.PlantPasswordGrantClientAsync(clientId, ProbeScopes, CancellationToken.None);
 
-        string[] granted = ScopesOf(jwt);
-        granted.ShouldNotContain(
-            "sse.management",
-            customMessage: "smart-sentinel-eye-web should no longer default-grant the legacy bundle. "
-            + $"Scopes: {string.Join(" ", granted)}");
+        try
+        {
+            string jwt = await aspire.GetAccessTokenForClientAsync(
+                clientId, Operator, OperatorPassword, "openid");
 
-        using HttpClient client = ClientFor(SystemVariablesResource, jwt);
-        HttpResponseMessage response = await client.GetAsync(SystemVariablesRoute);
+            string[] granted = ScopesOf(jwt);
+            granted.ShouldNotContain(
+                "sse.management",
+                customMessage: "probe-shape control: the planted client must not somehow carry the "
+                + $"legacy bundle. Scopes: {string.Join(" ", granted)}");
 
-        response.StatusCode.ShouldBe(
-            HttpStatusCode.Forbidden,
-            $"GET {SystemVariablesRoute} admitted a smart-sentinel-eye-web token that should hold no "
-            + $"sse.variables.read. {await Diagnose(response, SystemVariablesResource)}");
+            using HttpClient client = ClientFor(SystemVariablesResource, jwt);
+            HttpResponseMessage response = await client.GetAsync(SystemVariablesRoute);
+
+            response.StatusCode.ShouldBe(
+                HttpStatusCode.Forbidden,
+                $"GET {SystemVariablesRoute} admitted a token holding neither the bundle nor "
+                + $"sse.variables.read. {await Diagnose(response, SystemVariablesResource)}");
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
     }
 
     /// <summary>
-    /// SC-2 — the control on SC-1. <c>sse.audit.read</c> stays a default scope of
-    /// <c>smart-sentinel-eye-web</c>, so this proves SC-1's 403 is about the
-    /// missing scope specifically, not a broken mint, a rejected issuer or
-    /// audience, or a stack refusing every caller.
+    /// SC-2 — the control on SC-1. <c>sse.audit.read</c> is one of the probe's
+    /// planted default scopes, so this proves SC-1's 403 is about the missing
+    /// scope specifically, not a broken mint, a rejected issuer or audience, or
+    /// a stack refusing every caller.
     /// </summary>
     [Fact]
     public async Task The_same_refused_token_still_reads_audit()
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(
-            "smart-sentinel-eye-web", Operator, OperatorPassword, "openid");
+        string clientId = $"console-scope-probe-{Guid.CreateVersion7():N}";
+        await realm.PlantPasswordGrantClientAsync(clientId, ProbeScopes, CancellationToken.None);
 
-        using HttpClient client = ClientFor(AuditResource, jwt);
-        HttpResponseMessage response = await client.GetAsync(AuditRoute);
+        try
+        {
+            string jwt = await aspire.GetAccessTokenForClientAsync(
+                clientId, Operator, OperatorPassword, "openid");
 
-        response.StatusCode.ShouldBe(
-            HttpStatusCode.OK,
-            "the positive control failed: a smart-sentinel-eye-web token could not read audit either, "
-            + $"so SC-1's refusal would prove nothing. {await Diagnose(response, AuditResource)}");
+            using HttpClient client = ClientFor(AuditResource, jwt);
+            HttpResponseMessage response = await client.GetAsync(AuditRoute);
+
+            response.StatusCode.ShouldBe(
+                HttpStatusCode.OK,
+                "the positive control failed: the planted token could not read audit either, so "
+                + $"SC-1's refusal would prove nothing. {await Diagnose(response, AuditResource)}");
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
     }
 
     /// <summary>
