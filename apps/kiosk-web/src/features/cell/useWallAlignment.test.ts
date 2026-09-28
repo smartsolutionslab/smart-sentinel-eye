@@ -407,4 +407,24 @@ describe('useWallAlignment', () => {
 
     expect(result.current.frameAgeFor('departing')).toBeNull();
   });
+
+  /**
+   * #2498. The settle cycle that prunes `lagsRef` only ran when `aligning`
+   * (tileCount >= 2, FR-004), so a departed tile's last reported age on a
+   * one-tile wall was held forever instead of aging out like every other
+   * wall size — proven here against the same threshold the three-tile fact
+   * above uses.
+   */
+  it('Reports no frame age for a departed tile on a one-tile wall, same as a larger one', () => {
+    const { result } = renderHook(() => useWallAlignment(1));
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 150, 70);
+    });
+    expect(result.current.frameAgeFor('a'), 'the precondition, observed').toBe(150);
+
+    cycle(8); // > LAG_STALE_AFTER_MS (15_000ms) at 2_000ms/cycle
+
+    expect(result.current.frameAgeFor('a')).toBeNull();
+  });
 });
