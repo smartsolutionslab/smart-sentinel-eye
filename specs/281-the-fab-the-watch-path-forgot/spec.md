@@ -86,23 +86,24 @@ of what fabs the caller holds.
 
 ## 5. Design
 
-See ADR-0161 in full for the mechanism and its alternatives. Placement of the check: after
-`RequiredScope`, before `StreamState.Offline` — a caller refused on fab learns nothing about the
-stream's health, matching the "wrong fab and doesn't exist read the same" precedent
-`StreamFabScopingIntegrationTests.Another_fabs_stream_is_indistinguishable_from_a_camera_with_no_stream`
-already sets for the read path (that test's exact indistinguishability guarantee is not re-asserted here
-— WHEP's contract is status-only, per `AuthorizeWhepErrors.cs`'s own top comment, so there is no response
-body for two refusals to differ in the way that test cares about).
+See ADR-0161 in full for the mechanism, its alternatives, and the existence-oracle consequence this
+placement discloses (it hides stream *health* from a fab-refused caller, not stream *existence* — an
+unregistered path stays admitted, so the two do not read the same; corrected here after phase-6 review
+found the original draft overclaimed the read path's own indistinguishability guarantee for this one
+too).
 
 **Integration test location**: added to `WhepAuthIntegrationTests.cs` rather than a new file — it already
 holds the endpoint's real-HTTP, real-Keycloak-token coverage, and this is one more fact in the same
 shape, not a new concern needing its own class.
 
-**Cross-fab principal**: realm seed's `wall-berlin` / `Wall-berlin-1234`, `/fabs/berlin` only, minted
-against the `kiosk-wall` client with `openid sse.streams.read` explicitly requested (via
-`GetAccessTokenForClientAsync`, not the cached `GetAccessTokenAsync(username, password)` overload, which
-always uses `management-web` and would not prove a wall's own token shape). A camera registered in
-`munich` (via `camera-catalog`, an operator holding `munich`), its stream awaited via the existing
+**Cross-fab principal**: realm seed's `wall-berlin` / `Wall-berlin-1234`, `/fabs/berlin` only, minted via
+the cached `GetAccessTokenAsync(username, password)` helper — **not** `GetAccessTokenForClientAsync` against
+`kiosk-wall` as originally planned. `kiosk-wall` is PKCE-only (`directAccessGrantsEnabled: false`, spec
+052); a password grant against it is refused by Keycloak itself before ever reaching the WHEP hook,
+found by running the live fact rather than assumed. The cached helper's client (`management-web`) grants
+`sse.streams.read` by default, and `wall-berlin`'s `groups` claim — the thing actually under test — is
+identical regardless of which client minted the token. A camera registered in `munich` (via
+`camera-catalog`, an operator holding `munich`), its stream awaited via the existing
 `WaitForStreamAsync`-shaped poll (`StreamFabScopingIntegrationTests` already establishes this pattern —
 mirrored, not duplicated, since it lives in a different test class with a different fixture reset).
 

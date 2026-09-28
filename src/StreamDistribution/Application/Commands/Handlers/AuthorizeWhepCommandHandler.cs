@@ -78,17 +78,21 @@ public sealed class AuthorizeWhepCommandHandler(
         Option<Stream> stream = await streams.GetByPathAsync(path, cancellationToken);
 
         // ADR-0161. Before the stream-state check, so a caller refused on fab
-        // learns nothing about whether the stream happens to be online — the
-        // same "wrong fab and doesn't exist read the same" shape the read
-        // path already gives (spec 016 FR-006). A null Fab (not yet
-        // attributed, ADR-0116) is refused too: "visible to nobody" applies
-        // here exactly as it does everywhere else that decision reaches.
+        // learns nothing about whether the stream happens to be online — this
+        // hides stream *health*, not stream *existence*: a registered path in
+        // another fab now answers 403 where an unregistered one still answers
+        // 200 (see below), which is a real, disclosed existence oracle
+        // (ADR-0161 Consequences), not the same shape spec 016 FR-006 gives
+        // the read path. A null Fab (not yet attributed, ADR-0116) is refused
+        // too: "visible to nobody" applies here exactly as it does everywhere
+        // else that decision reaches.
         // An unregistered path (no stream at all) is unaffected — falls
         // through to admission, unchanged from today (WhepAuthIntegrationTests
         // already documents why: MediaMTX itself 404s a nonexistent source).
         if (stream.HasValue &&
             (stream.Value.Fab is null || !subject.Fabs.Contains(stream.Value.Fab.Value, StringComparer.Ordinal)))
         {
+            logger.RefusedWhepFab(subject.Subject, path, stream.Value.Fab);
             return Failure(AuthorizeWhepFailures.FabNotAuthorized());
         }
 
