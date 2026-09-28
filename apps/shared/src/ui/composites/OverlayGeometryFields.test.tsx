@@ -129,6 +129,24 @@ function field(label: string): HTMLInputElement {
   return screen.getByLabelText(label) as HTMLInputElement;
 }
 
+/** Maps a field's visible label (what `field()` takes) to its internal `FIELD_SPECS` key. */
+const FIELD_NAME_BY_LABEL: Record<string, string> = {
+  Left: 'normalizedX',
+  Top: 'normalizedY',
+  Width: 'normalizedWidth',
+  Height: 'normalizedHeight',
+};
+
+/**
+ * The field's own always-mounted `role="alert"` region (#2365), by the same
+ * label `field()` takes. Scoped rather than `getByRole('alert')`: all four
+ * fields render one each, so an unscoped role query throws on finding more
+ * than one the moment any test needs a specific field's message.
+ */
+function errorFor(label: string): HTMLElement {
+  return screen.getByTestId(`overlay-geometry-error-${FIELD_NAME_BY_LABEL[label]}`);
+}
+
 /**
  * Feeds every `onCommit` field/value pair back into `value`, the way
  * `OverlayEditor.tsx`'s `handleGeometryCommit` does against the real dialog's
@@ -334,7 +352,7 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     fireEvent.change(field('Width'), { target: { value: 'abc' } });
     fireEvent.keyDown(field('Width'), { key: 'Enter' });
 
-    expect(screen.getByRole('alert').textContent).toBe('Enter a number.');
+    expect(errorFor('Width').textContent).toBe('Enter a number.');
     expect(field('Width').value).toBe('abc');
     expect(onCommit).not.toHaveBeenCalled();
   });
@@ -346,7 +364,7 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     fireEvent.change(field('Height'), { target: { value: '0' } });
     fireEvent.keyDown(field('Height'), { key: 'Enter' });
 
-    expect(screen.getByRole('alert').textContent).toBe('Height must be greater than 0% and at most 100%.');
+    expect(errorFor('Height').textContent).toBe('Height must be greater than 0% and at most 100%.');
     expect(onCommit).not.toHaveBeenCalled();
   });
 
@@ -357,7 +375,7 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     fireEvent.change(field('Top'), { target: { value: '150' } });
     fireEvent.keyDown(field('Top'), { key: 'Enter' });
 
-    expect(screen.getByRole('alert').textContent).toBe('Top must be between 0% and 100%.');
+    expect(errorFor('Top').textContent).toBe('Top must be between 0% and 100%.');
     expect(onCommit).not.toHaveBeenCalled();
   });
 
@@ -368,7 +386,7 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     fireEvent.change(field('Left'), { target: { value: '-5' } });
     fireEvent.keyDown(field('Left'), { key: 'Enter' });
 
-    expect(screen.getByRole('alert').textContent).toBe('Left must be between 0% and 100%.');
+    expect(errorFor('Left').textContent).toBe('Left must be between 0% and 100%.');
     expect(onCommit).not.toHaveBeenCalled();
   });
 
@@ -378,12 +396,15 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
 
     fireEvent.change(field('Left'), { target: { value: '-5' } });
     fireEvent.keyDown(field('Left'), { key: 'Enter' });
-    expect(screen.getByRole('alert')).toBeVisible();
+    expect(errorFor('Left').textContent).toBe('Left must be between 0% and 100%.');
 
     fireEvent.keyDown(field('Left'), { key: 'Escape' });
 
     expect(field('Left').value).toBe('25');
-    expect(screen.queryByRole('alert')).toBeNull();
+    // #2365: present with empty text, not absent — the region stays mounted
+    // (a live region inserted along with its content is not reliably
+    // announced), same shape as the advisory region's own "cleared" test.
+    expect(errorFor('Left').textContent).toBe('');
     expect(onCommit).not.toHaveBeenCalled();
   });
 
@@ -392,13 +413,30 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
 
     fireEvent.change(field('Width'), { target: { value: 'abc' } });
     fireEvent.keyDown(field('Width'), { key: 'Enter' });
-    expect(screen.getByRole('alert')).toBeVisible();
+    expect(errorFor('Width').textContent).toBe('Enter a number.');
 
     fireEvent.change(field('Width'), { target: { value: '60' } });
     fireEvent.keyDown(field('Width'), { key: 'Enter' });
 
-    expect(screen.queryByRole('alert')).toBeNull();
+    // #2365: present with empty text, not absent — see the identical comment
+    // on the Escape test above.
+    expect(errorFor('Width').textContent).toBe('');
     expect(field('Width').value).toBe('60');
+  });
+
+  /**
+   * #2365. All four regions exist from first render, matching the advisory
+   * region's own always-mounted guarantee — a live region inserted into the
+   * DOM at the same instant as its content is not reliably announced, so the
+   * region must pre-exist, not appear alongside its first message.
+   */
+  it('Every field has its error region mounted, and empty, before any refusal', () => {
+    render(<OverlayGeometryFields value={buildLabel()} preview={null} onCommit={vi.fn()} />);
+
+    expect(screen.getAllByRole('alert')).toHaveLength(4);
+    for (const label of ['Left', 'Top', 'Width', 'Height']) {
+      expect(errorFor(label).textContent, `${label}'s error region`).toBe('');
+    }
   });
 
   /**
@@ -449,7 +487,10 @@ describe('OverlayGeometryFields (FR-001–FR-012, FR-017)', () => {
     fireEvent.keyDown(field('Left'), { key: 'Enter' });
 
     expect(onCommitSpy).toHaveBeenCalledWith('normalizedX', 0.9);
-    expect(screen.queryByRole('alert')).toBeNull();
+    // Genuinely never shown (not "shown then cleared") — #2365 leaves this
+    // claim as-is; only the query is scoped, since an unscoped role query now
+    // always finds all four (empty) regions and throws on the ambiguity.
+    expect(errorFor('Left').textContent).toBe('');
     expect(screen.getByRole('status').textContent).toContain('clipped');
   });
 
@@ -579,7 +620,10 @@ describe('OverlayGeometryFields reserves message space so a blur-triggered rende
   it('The reserved copies never reach the accessibility tree, with or without a live refusal', () => {
     render(<OverlayGeometryFields value={buildLabel({ normalizedWidth: 0.5 })} preview={null} onCommit={vi.fn()} />);
 
-    expect(screen.queryAllByRole('alert')).toHaveLength(0);
+    // #2365: always four (one per field), not zero — the regions are always
+    // mounted now. Emptiness, not absence, is what "no live refusal" means.
+    expect(screen.getAllByRole('alert')).toHaveLength(4);
+    expect(errorFor('Width').textContent).toBe('');
     expect(screen.getByRole('status').textContent).toBe('');
 
     fireEvent.change(field('Width'), { target: { value: '0' } });
@@ -605,7 +649,7 @@ describe('OverlayGeometryFields reserves message space so a blur-triggered rende
     fireEvent.change(field('Width'), { target: { value: '0' } });
     fireEvent.blur(field('Width'));
 
-    expect(screen.getByRole('alert')).toBeVisible();
+    expect(errorFor('Width').textContent).toBe('Width must be greater than 0% and at most 100%.');
     expect(column.children.length).toBe(childCountBefore);
   });
 });
