@@ -145,6 +145,28 @@ public class SystemVariableLifecycleIntegrationTests(AspireFixture aspire) : IAs
         (await ReadAsync(variables, name)).GetProperty("value").GetString().ShouldBe("3");
     }
 
+    // #2200: SetVariableValueCommandHandler's now-deleted Archived check could
+    // never be reached — GetByNameAsync already excludes Archived rows, so the
+    // lookup answers not-found first (FR-005; the name is free for re-use).
+    [Fact]
+    public async Task Setting_a_value_on_an_archived_variable_is_refused_as_not_found()
+    {
+        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        string name = UniqueName();
+        (await DefineNumberAsync(variables, name, "1")).EnsureSuccessStatusCode();
+        int version = await VariableRequests.VersionAsync(variables, name);
+        (await VariableRequests.ArchiveAsync(variables, name)).EnsureSuccessStatusCode();
+
+        HttpRequestMessage write = VariableRequests.Conditional(HttpMethod.Put, name, "value", version);
+        write.Content = JsonContent.Create(new { value = "2" });
+        HttpResponseMessage refused = await variables.SendAsync(write);
+
+        refused.StatusCode.ShouldBe(
+            HttpStatusCode.NotFound,
+            $"setting a value on archived variable '{name}' must read as not-found (FR-005), not a "
+                + $"conflict: {await refused.Content.ReadAsStringAsync()}");
+    }
+
     [Fact]
     public async Task An_unknown_variable_reads_as_404()
     {
