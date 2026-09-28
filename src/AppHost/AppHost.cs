@@ -719,7 +719,15 @@ if (isRunMode && !isE2ETests)
     // hygiene — each vite.config.ts reads the environment once, at
     // config-evaluation time, so the endpoint should be resolvable before the
     // app starts.
-    builder.AddNpmApp("management-web", "../../apps/management-web", "dev")
+    //
+    // WithNpm(install: false): Aspire.Hosting.JavaScript installs packages by
+    // default, adding a "<name>-installer" child that npm-installs the app
+    // directory and blocks the app on it. This repo installs once, at the pnpm
+    // workspace root; npm doesn't understand the workspace:* protocol the apps
+    // depend on, so left at its default the installer fails and every app
+    // waits on it forever.
+    builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
+        .WithNpm(install: false)
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
         .WithReference(apiGateway)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
@@ -729,7 +737,8 @@ if (isRunMode && !isE2ETests)
         // Dashboard grouping: nest the SPAs under the gateway they call.
         .WithParentRelationship(apiGateway);
 
-    builder.AddNpmApp("kiosk-web", "../../apps/kiosk-web", "dev")
+    builder.AddJavaScriptApp("kiosk-web", "../../apps/kiosk-web", "dev")
+        .WithNpm(install: false)
         .WithHttpEndpoint(env: "PORT", port: 5174, isProxied: false)
         .WithReference(apiGateway)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
@@ -751,7 +760,8 @@ if (isRunMode && !isE2ETests)
     //
     // It exists in the dev stack so the difference is exercised rather than
     // described. Without it, wall mode would be a code path nothing runs.
-    builder.AddNpmApp("kiosk-wall", "../../apps/kiosk-web", "dev")
+    builder.AddJavaScriptApp("kiosk-wall", "../../apps/kiosk-web", "dev")
+        .WithNpm(install: false)
         .WithHttpEndpoint(env: "PORT", port: 5175, isProxied: false)
         .WithReference(apiGateway)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
