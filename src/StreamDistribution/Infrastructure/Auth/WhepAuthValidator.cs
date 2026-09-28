@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
@@ -196,7 +197,13 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             string scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
             string[] scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
-            return Result<WhepAuthSubject, WhepAuthFailure>.Success(new WhepAuthSubject(subject, scopes));
+            // ADR-0161: the same groups-claim parsing every other fab-checked
+            // endpoint uses, read off this hand-validated principal since this
+            // hook has no ASP.NET Core authenticated-request principal to run
+            // IFabAuthorizationGuard against.
+            IReadOnlyList<string> fabs = FabClaims.AssignedFabs(principal);
+
+            return Result<WhepAuthSubject, WhepAuthFailure>.Success(new WhepAuthSubject(subject, scopes, fabs));
         }
         catch (SecurityTokenException exception)
         {

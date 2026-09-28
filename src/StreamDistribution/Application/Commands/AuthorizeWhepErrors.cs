@@ -29,6 +29,20 @@ public abstract record AuthorizeWhepError(string Code, string Message, HttpStatu
             HttpStatusCode.Forbidden);
 
     /// <summary>
+    /// ADR-0161. The caller's token names none of the stream's fab (or the
+    /// stream has none attributed yet — ADR-0116: a null-fab stream is
+    /// visible to nobody). Distinct from <see cref="Forbidden"/>, whose
+    /// message is specifically about the read scope and would misdescribe
+    /// this refusal's real reason in logs and the response body, even though
+    /// MediaMTX itself only reads the status, and both are 403.
+    /// </summary>
+    public sealed record FabNotAuthorized()
+        : AuthorizeWhepError(
+            "WHEP_FAB_NOT_AUTHORIZED",
+            "Bearer token does not grant access to this stream's fab.",
+            HttpStatusCode.Forbidden);
+
+    /// <summary>
     /// The hook named an operation this product never grants through it.
     /// <c>403</c> and never <c>401</c>: upstream documents <c>401</c> as how an
     /// auth server asks a client to come back with credentials, and no
@@ -95,6 +109,9 @@ public static class AuthorizeWhepFailures
 
     public static AuthorizeWhepError StreamUnavailable() =>
         new AuthorizeWhepError.StreamUnavailable();
+
+    public static AuthorizeWhepError FabNotAuthorized() =>
+        new AuthorizeWhepError.FabNotAuthorized();
 
     public static AuthorizeWhepError ActionNotPermitted() =>
         new AuthorizeWhepError.ActionNotPermitted();
