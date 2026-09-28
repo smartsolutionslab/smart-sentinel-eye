@@ -24,8 +24,8 @@
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.5.4" />
 
-    <!-- Aspire NodeJs integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
-    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
+    <!-- Aspire JavaScript integration: AppHost registers management-web and kiosk-web npm apps (ADR-0074) -->
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.5.4" />
 
     <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
          Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->

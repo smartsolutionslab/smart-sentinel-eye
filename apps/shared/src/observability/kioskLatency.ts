@@ -87,7 +87,7 @@ export function reportKioskLatency(
   // never restarted, so a line per sample is retained console buffer
   // forever. The line is for manual verification and spec 108/225's e2e
   // harvest, both of which run the kiosk under `vite dev`
-  // (`import.meta.env.DEV === true`) — see `AppHost.cs`'s `AddNpmApp(...,
+  // (`import.meta.env.DEV === true`) — see `AppHost.cs`'s `AddJavaScriptApp(...,
   // "dev")`. The POST below is unconditional either way: production
   // observability must not go dark along with the console line.
   if (import.meta.env.DEV) {
