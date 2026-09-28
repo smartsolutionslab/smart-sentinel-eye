@@ -216,7 +216,12 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     //    both states); only its `role` toggles off and back on. That reuse
     //    is a real regression (blocker 1, phase-6 review) — see "Announces
     //    a second refusal" below.
-    expect(screen.queryByRole('alert')).toBeNull();
+    // #2365: the element persists (chainArmActive spans both states) with a
+    // stable testid; only its `role` attribute toggles — checked directly,
+    // since `queryByRole('alert')` can no longer distinguish "role absent"
+    // from "found the wrong, unrelated alert" now that OverlayGeometryFields
+    // always mounts four of its own.
+    expect(screen.getByTestId('chain-recovery-alert').getAttribute('role')).toBeNull();
 
     await act(async () => {
       setChainQueryState({
@@ -257,7 +262,7 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
       setChainQueryState({ data: undefined, isError: true, isFetching: false });
     });
 
-    const alert = screen.getByRole('alert');
+    const alert = screen.getByTestId('chain-recovery-alert');
     expect(alert).toHaveTextContent(/could not be read/i);
     const retryAgain = screen.getByRole('button', { name: /retry/i });
     expect(retryAgain).not.toHaveAttribute('aria-disabled', 'true');
@@ -295,7 +300,7 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     const user = userEvent.setup();
     renderDialog();
 
-    const firstAlert = screen.getByRole('alert');
+    const firstAlert = screen.getByTestId('chain-recovery-alert');
 
     const retryButton = screen.getByRole('button', { name: /retry/i });
     await user.click(retryButton);
@@ -306,7 +311,7 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
     // The discriminating assertion: today this is the SAME node (only its
     // `role` came back), so it fails — proving the operator earns no fresh
     // insertion-announcement on a repeat failure.
-    const secondAlert = screen.getByRole('alert');
+    const secondAlert = screen.getByTestId('chain-recovery-alert');
     expect(secondAlert).not.toBe(firstAlert);
   });
 

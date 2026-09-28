@@ -321,7 +321,10 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
           )}
         />
         {errors.label?.text?.message !== undefined && (
-          <p role="alert" className="text-sm text-accent-fault">
+          // #2365: a stable testid so a test can address this alert without an
+          // unscoped role query, now that OverlayEditor's own OverlayGeometryFields
+          // always mounts four `role="alert"` regions in the same tree.
+          <p role="alert" data-testid="overlay-editor-dialog-label-error" className="text-sm text-accent-fault">
             {errors.label.text.message}
           </p>
         )}
