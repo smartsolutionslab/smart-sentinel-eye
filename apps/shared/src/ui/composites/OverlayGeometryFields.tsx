@@ -285,11 +285,18 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
                   textStyle={FIELD_ALERT_STYLE}
                   testId={`overlay-geometry-message-slot-${spec.field}`}
                 >
-                  {error !== undefined && (
-                    <span id={errorId} role="alert" style={FIELD_ALERT_STYLE}>
-                      {error}
-                    </span>
-                  )}
+                  {/* Always rendered, not mounted only while `error` is set — a live
+                      region inserted into the DOM at the same instant as its content
+                      is not reliably announced. Matches this file's own advisory
+                      region (below) and `OverlayEditor.tsx:534` (#2365). */}
+                  <span
+                    id={errorId}
+                    role="alert"
+                    data-testid={`overlay-geometry-error-${spec.field}`}
+                    style={FIELD_ALERT_STYLE}
+                  >
+                    {error ?? ''}
+                  </span>
                 </ReservedMessageSlot>
               </div>
             );
