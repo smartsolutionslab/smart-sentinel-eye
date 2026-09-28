@@ -24,13 +24,19 @@ import '@smart-sentinel-eye/shared/test/radixJsdom';
 // `testTimeout` with no `waitFor` message at all (spec 216 §Claim 7).
 //
 // This deadline is necessary but not sufficient: 3 of 20 contended runs still
-// outran it before the fix below. The cause, per CI's own `frontend` job log
-// (run 35725455764, `ubuntu-latest` = 4 cores): `apps/kiosk-web` and
-// `apps/management-web` ran their Vitest suites concurrently, each sizing its
-// own fork pool from the runner's core count -- 8 processes demanded on 4
-// cores, a measured 2.0x oversubscription, on every single CI run. The
-// workspace root's `test` script now caps `--workspace-concurrency` at 1 to
-// remove it (spec 216 §R2 materialised).
+// outran it under the earlier `--workspace-concurrency=1` fix alone (spec 216
+// §R2). Spec 290 found the actual cause: a test file that shared the app's
+// singleton Redux store across its tests, where RTK's auto-batch enhancer
+// schedules the callback that clears its `notificationQueued` latch on
+// `requestAnimationFrame`/`setTimeout`, captured from the globals at dispatch
+// time. A real RTK Query timer firing while a test had swapped in fake timers
+// mid-test landed that callback on the fake clock, where `vi.useRealTimers()`
+// discarded it — the latch stayed set for the rest of the file, so later
+// tests' dialog re-renders silently stopped happening and `waitFor` burned
+// this whole deadline waiting for an element that would never arrive. The
+// fix is a fresh store per test (spec 290), not a longer deadline;
+// `--workspace-concurrency=1` only made the race rarer by reducing
+// contention, and stays for that reason.
 // Spec 228 US2 (item 3): CameraViewer's always-mounted status region mirrors
 // the visible overlay's text verbatim (FR-005), so while a stream is not
 // live the two are the *same* string in the DOM by design — a screen reader
