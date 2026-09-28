@@ -79,9 +79,11 @@ public sealed partial class AspireFixture
     /// dropping lines for every test until the re-subscribe completes.
     /// <see cref="ConcurrentQueue{T}.Enqueue"/>,
     /// <see cref="ConcurrentDictionary{TKey,TValue}.GetOrAdd(TKey,System.Func{TKey,TValue})"/>
-    /// and enumerating a <see cref="ConcurrentDictionary{TKey,TValue}"/>'s
-    /// <c>Keys</c> while it is written concurrently cannot throw here; keep it
-    /// that way.
+    /// and reading a <see cref="ConcurrentDictionary{TKey,TValue}"/>'s
+    /// <c>Keys</c> cannot throw here even under concurrent writes — <c>Keys</c>
+    /// takes every bucket's lock and copies the keys into a snapshot before
+    /// returning, so the <see langword="foreach"/> below iterates that copy,
+    /// never the live dictionary. Keep it that way.
     /// </para>
     /// </summary>
     internal void RecordLogLine(string resourceName, string content)
