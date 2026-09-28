@@ -99,7 +99,7 @@ export function OverlaysPage() {
             onClick={() => setFilter(option)}
             className={
               option === filter
-                ? 'rounded-md border border-accent-active bg-accent-active/10 px-3 py-1 text-sm text-accent-active'
+                ? 'rounded-md border border-accent bg-accent-subtle px-3 py-1 text-sm text-accent'
                 : 'rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted'
             }
           >

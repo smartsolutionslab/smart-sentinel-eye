@@ -233,7 +233,7 @@ export function GridDesigner({
                 key={preset.label}
                 className={
                   (active
-                    ? 'relative rounded-md border border-accent-active bg-accent-active/10 px-3 py-1 text-sm text-accent-active'
+                    ? 'relative rounded-md border border-accent bg-accent-subtle px-3 py-1 text-sm text-accent'
                     : 'relative rounded-md border border-fg-muted/30 px-3 py-1 text-sm text-fg-muted') +
                   ' cursor-pointer has-[:focus-visible]:outline-2' +
                   ' has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus-ring'
