@@ -271,7 +271,9 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     // Transport has negotiated but never reported `connected`.
     expect(isDisabled(screen.getByRole('radio', { name: 'Captured frame' }))).toBe(true);
-    expect(screen.queryByRole('alert')).toBeNull();
+    // #2365: scoped, not a bare role query — OverlayGeometryFields now always
+    // mounts four `role="alert"` regions of its own in the same tree.
+    expect(screen.queryByTestId('frame-capture-alert')).toBeNull();
   });
 
   /** FR-010, asserted on the `fetch` stub — not a mocked `WhepClient` method. */
@@ -304,7 +306,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     });
 
     expect(FakePeerConnection.lastInstance().closed).toBe(true);
-    expect(screen.getByRole('alert')).toBeVisible();
+    expect(screen.getByTestId('frame-capture-alert')).toBeVisible();
     expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
     // The operator is not stuck: capture can be tried again.
     expect(isDisabled(screen.getByRole('button', { name: /^capture frame$/i }))).toBe(false);
@@ -366,7 +368,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       });
       await flushMicrotasks();
 
-      expect(screen.getByRole('alert')).toBeVisible();
+      expect(screen.getByTestId('frame-capture-alert')).toBeVisible();
       expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
       expect(FakePeerConnection.lastInstance().closed).toBe(true);
       expect(fetchMock).toHaveBeenCalledWith(SESSION_URL_42, expect.objectContaining({ method: 'DELETE' }));
@@ -408,7 +410,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       expect(failed).toHaveLength(1);
       expect(failed[0]![1]).toMatchObject({ subsystem: 'stream', cameraIdentifier: CAMERA_42.cameraIdentifier });
       expect(String((failed[0]![1] as { error: unknown }).error)).not.toContain('SecurityError');
-      expect(screen.getByRole('alert')).toBeVisible();
+      expect(screen.getByTestId('frame-capture-alert')).toBeVisible();
     });
 
     /** Guard — FR-003's negative, green before and after (spec §6). Nothing logs on a successful capture, and the picture never reaches the channel. */
@@ -595,7 +597,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
 
-    expect(screen.getByRole('alert')).toBeVisible();
+    expect(screen.getByTestId('frame-capture-alert')).toBeVisible();
     expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
     expect(FakePeerConnection.instances).toHaveLength(0);
   });
