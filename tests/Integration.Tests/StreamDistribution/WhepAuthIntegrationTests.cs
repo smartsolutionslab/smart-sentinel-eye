@@ -1,4 +1,7 @@
+using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 
@@ -99,6 +102,135 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             new { token, path = $"cam-{Guid.CreateVersion7()}", action = "publish" });
 
         await AssertStatusAsync(response, HttpStatusCode.Forbidden);
+    }
+
+    private const string MunichOperator = "op-3@munich.test";
+    private const string OperatorPassword = "Operator1234";
+    private const string WallBerlinUsername = "wall-berlin";
+    private const string WallBerlinPassword = "Wall-berlin-1234";
+
+    private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
+
+    /// <summary>
+    /// ADR-0161, issue #2092. A real, single-fab (<c>berlin</c>) token
+    /// against a real stream provisioned in <c>munich</c> — the exact shape
+    /// the issue describes: a wall or operator holding the read scope, but
+    /// not the fab, must not reach the camera's video.
+    /// </summary>
+    /// <remarks>
+    /// Minted via the cached admin-token helper's client (<c>management-web</c>,
+    /// <c>directAccessGrantsEnabled: true</c>), not <c>kiosk-wall</c>: that
+    /// client is PKCE-only (<c>directAccessGrantsEnabled: false</c>, by
+    /// design — spec 052 wall sign-in never accepts a password directly), so
+    /// a resource-owner password grant against it is refused before this
+    /// test ever reaches the WHEP hook, on Keycloak's own
+    /// <c>unauthorized_client</c>, not on anything this fix touches. The
+    /// <c>wall-berlin</c> user's <c>groups</c> claim (the thing actually
+    /// under test) is identical however the token was minted.
+    /// </remarks>
+    [Fact]
+    public async Task Authorize_for_a_stream_in_another_fab_is_refused()
+    {
+        Guid camera = await RegisterCameraInMunichAsync();
+        await WaitForStreamAsync(camera);
+
+        string berlinToken = await aspire.GetAccessTokenAsync(WallBerlinUsername, WallBerlinPassword);
+
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { token = berlinToken, path = $"cam-{camera}", action = "read" });
+
+        await AssertStatusAsync(response, HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>
+    /// The control for the fact above: the same munich stream, a token that
+    /// actually names munich, admitted. Without this, a hook that refused
+    /// every WHEP open would also satisfy the cross-fab fact.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_for_a_stream_in_the_callers_own_fab_returns_200()
+    {
+        Guid camera = await RegisterCameraInMunichAsync();
+        await WaitForStreamAsync(camera);
+
+        string munichToken = await aspire.GetAccessTokenAsync(MunichOperator, OperatorPassword);
+
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { token = munichToken, path = $"cam-{camera}", action = "read" });
+
+        await AssertStatusAsync(response, HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// ADR-0116 applied to the WHEP path: a stream with no fab attributed
+    /// yet — the shape a pre-spec-016 legacy row has before
+    /// <c>StreamFabAttributionService</c> backfills it — is refused to
+    /// everyone, not merely to callers outside a fab it doesn't have. The
+    /// domain's own public surface (<c>Stream.Provision</c>) never produces
+    /// this state deliberately (every new stream is provisioned with its
+    /// fab already known); reached here by nulling the column directly,
+    /// the same shape EF's own materialisation of a genuine legacy row would
+    /// have — not something achievable through any command this product
+    /// exposes.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_for_a_stream_with_no_fab_attributed_yet_is_refused()
+    {
+        Guid camera = await RegisterCameraInMunichAsync();
+        await WaitForStreamAsync(camera);
+
+        await using StreamDistributionDbContext db = await aspire.CreateStreamDistributionDbContextAsync();
+        int updated = await db.Database.ExecuteSqlAsync($"UPDATE streams SET fab = NULL WHERE camera_id = {camera}");
+        updated.ShouldBe(1, "the stream this test just provisioned should be the only row updated");
+
+        string munichToken = await aspire.GetAccessTokenAsync(MunichOperator, OperatorPassword);
+
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { token = munichToken, path = $"cam-{camera}", action = "read" });
+
+        await AssertStatusAsync(response, HttpStatusCode.Forbidden);
+    }
+
+    private async Task<Guid> RegisterCameraInMunichAsync()
+    {
+        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+            "camera-catalog", MunichOperator, OperatorPassword);
+
+        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+            "/cameras?fabId=munich",
+            new
+            {
+                name = $"Cam-{Guid.NewGuid():N}"[..12],
+                rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264",
+            });
+
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+
+        return await created.Content.ReadFromJsonAsync<Guid>();
+    }
+
+    private async Task WaitForStreamAsync(Guid camera)
+    {
+        using HttpClient streams = await aspire.CreateAuthenticatedClientAsync(
+            "stream-distribution", MunichOperator, OperatorPassword);
+        DateTime deadline = DateTime.UtcNow + ProvisionTimeout;
+        while (DateTime.UtcNow < deadline)
+        {
+            HttpResponseMessage response = await streams.GetAsync($"/streams/{camera}");
+            if (response.StatusCode == HttpStatusCode.OK)
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+
+        throw new TimeoutException(
+            $"Stream for camera {camera} did not appear within {ProvisionTimeout.TotalSeconds:F0}s.{Environment.NewLine}" +
+            $"stream-distribution log:{Environment.NewLine}{aspire.RecentLogs("stream-distribution")}");
     }
 
     // Asserts the status and, on mismatch, surfaces the response body. The
