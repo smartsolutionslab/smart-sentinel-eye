@@ -91,8 +91,10 @@ describe('App affordance — sign-in and crash actions use the shared Button (sp
       </Provider>,
     );
 
-    act(() => sessionCallbacks.expired?.());
+    expect(sessionCallbacks.expired).toBeDefined();
+    act(() => sessionCallbacks.expired!());
 
+    await screen.findByRole('heading', { name: /^session expired$/i });
     const signIn = await screen.findByRole('button', { name: /^sign in$/i });
     expect(signIn.className).toMatch(/hover:bg-accent-hover/);
     expect(signIn.className).not.toMatch(/accent-active/);
