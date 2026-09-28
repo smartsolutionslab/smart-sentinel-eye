@@ -29,7 +29,7 @@ public abstract record AuthorizeWhepError(string Code, string Message, HttpStatu
             HttpStatusCode.Forbidden);
 
     /// <summary>
-    /// ADR-0161. The caller's token names none of the stream's fab (or the
+    /// ADR-0161. The caller's token does not name the stream's fab (or the
     /// stream has none attributed yet — ADR-0116: a null-fab stream is
     /// visible to nobody). Distinct from <see cref="Forbidden"/>, whose
     /// message is specifically about the read scope and would misdescribe

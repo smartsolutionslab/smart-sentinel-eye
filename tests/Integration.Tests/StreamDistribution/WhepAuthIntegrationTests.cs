@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
@@ -14,6 +15,13 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 [Collection(AspireCollection.Name)]
 public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
+    private const string MunichOperator = "op-3@munich.test";
+    private const string OperatorPassword = "Operator1234";
+    private const string WallBerlinUsername = "wall-berlin";
+    private const string WallBerlinPassword = "Wall-berlin-1234";
+
+    private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
+
     public async Task InitializeAsync()
     {
         await aspire.ResetMediaMtxAsync();
@@ -104,18 +112,10 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         await AssertStatusAsync(response, HttpStatusCode.Forbidden);
     }
 
-    private const string MunichOperator = "op-3@munich.test";
-    private const string OperatorPassword = "Operator1234";
-    private const string WallBerlinUsername = "wall-berlin";
-    private const string WallBerlinPassword = "Wall-berlin-1234";
-
-    private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
-
     /// <summary>
-    /// ADR-0161, issue #2092. A real, single-fab (<c>berlin</c>) token
-    /// against a real stream provisioned in <c>munich</c> — the exact shape
-    /// the issue describes: a wall or operator holding the read scope, but
-    /// not the fab, must not reach the camera's video.
+    /// ADR-0161. A real, single-fab (<c>berlin</c>) token against a real
+    /// stream provisioned in <c>munich</c>: a wall or operator holding the
+    /// read scope, but not the fab, must not reach the camera's video.
     /// </summary>
     /// <remarks>
     /// Minted via the cached admin-token helper's client (<c>management-web</c>,
@@ -140,7 +140,10 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             "/streams/authorize",
             new { token = berlinToken, path = $"cam-{camera}", action = "read" });
 
-        await AssertStatusAsync(response, HttpStatusCode.Forbidden);
+        // Not merely 403 — Forbidden (scope) and StreamUnavailable are also
+        // 403, and a regression that dropped the fab check for one that
+        // reused either would still pass a status-only assertion.
+        await AssertStatusAndTitleAsync(response, HttpStatusCode.Forbidden, "WHEP_FAB_NOT_AUTHORIZED");
     }
 
     /// <summary>
@@ -191,7 +194,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             "/streams/authorize",
             new { token = munichToken, path = $"cam-{camera}", action = "read" });
 
-        await AssertStatusAsync(response, HttpStatusCode.Forbidden);
+        await AssertStatusAndTitleAsync(response, HttpStatusCode.Forbidden, "WHEP_FAB_NOT_AUTHORIZED");
     }
 
     private async Task<Guid> RegisterCameraInMunichAsync()
@@ -247,5 +250,21 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         string body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(expected,
             $"unexpected status. response body:\n{(body.Length > 4000 ? body[..4000] : body)}");
+    }
+
+    /// <summary>
+    /// Like <see cref="AssertStatusAsync"/>, plus the problem body's
+    /// <c>title</c> — several of this handler's refusals share a status, so
+    /// the status alone cannot tell a regression that swapped in a different
+    /// one of them from a genuine pass.
+    /// </summary>
+    private static async Task AssertStatusAndTitleAsync(
+        HttpResponseMessage response, HttpStatusCode expectedStatus, string expectedTitle)
+    {
+        string body = await response.Content.ReadAsStringAsync();
+        response.StatusCode.ShouldBe(expectedStatus, $"unexpected status. response body:\n{body}");
+
+        string? title = JsonDocument.Parse(body).RootElement.GetProperty("title").GetString();
+        title.ShouldBe(expectedTitle, $"unexpected problem title. response body:\n{body}");
     }
 }

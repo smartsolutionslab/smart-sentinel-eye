@@ -64,4 +64,7 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a WHEP request on path {Path}: MediaMTX sent no action field at all — the field was absent, not merely unfamiliar. Check for MediaMTX version skew first — the broker image is pinned, so compare that pin against the release that moved or dropped the field; every viewer stays refused closed until this build reads it from wherever it went.")]
     public static partial void RefusedAbsentWhepAction(this ILogger logger, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a WHEP open on path {Path}: subject {Subject} does not hold stream fab {StreamFab}. The only refusal in this handler that signals attempted cross-fab access rather than a merely-unscoped or malformed caller.")]
+    public static partial void RefusedWhepFab(this ILogger logger, string subject, MediaMtxPath path, FabIdentifier? streamFab);
 }
