@@ -88,6 +88,42 @@ public sealed class RealmProbe(AspireFixture aspire)
     }
 
     /// <summary>
+    /// Plants a public, password-grant-only client with exactly the given
+    /// default client scopes — the shape spec 286 needs to reproduce a token
+    /// of a chosen scope set without depending on any specific realm client
+    /// still holding it. Modeled on
+    /// <c>EventTypeRegistryAuthorizationIntegrationTests.PlantEventSourceClientAsync</c>,
+    /// which keeps its own private copy (ADR-0036 — a second call site is not
+    /// yet a reason to widen it).
+    /// </summary>
+    public async Task PlantPasswordGrantClientAsync(
+        string clientId,
+        IReadOnlyList<string> defaultClientScopes,
+        CancellationToken cancellationToken)
+    {
+        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+
+        HttpResponseMessage created = await admin.PostAsJsonAsync(
+            $"admin/realms/{Realm}/clients",
+            new
+            {
+                clientId,
+                enabled = true,
+                publicClient = true,
+                standardFlowEnabled = false,
+                serviceAccountsEnabled = false,
+                directAccessGrantsEnabled = true,
+                defaultClientScopes,
+                optionalClientScopes = Array.Empty<string>(),
+            },
+            cancellationToken);
+
+        created.IsSuccessStatusCode.ShouldBeTrue(
+            $"planting '{clientId}' failed with {(int)created.StatusCode}; without it the "
+            + "assertions below prove nothing");
+    }
+
+    /// <summary>
     /// What the provider says the client's service account effectively holds —
     /// composites resolved, which is what actually decides whether a long-lived
     /// grant is issued.
