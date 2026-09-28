@@ -188,6 +188,21 @@ public class ScopeGrantTests
         DefaultScopesOf(ClientNamed(KioskClientId)).ShouldNotContain(RevocationListReadScope);
     }
 
+    /// <summary>
+    /// Spec 286 (issue #2488) — <c>smart-sentinel-eye-web</c> has no code
+    /// consumer left but was still a live password-grant surface. The realm
+    /// entry is deleted, not disabled (plan §D1). <b>Red until the realm
+    /// edit lands</b>: the client is declared today.
+    /// </summary>
+    [Fact]
+    public void The_retired_console_client_is_not_declared()
+    {
+        Clients().Select(client => client.GetProperty("clientId").GetString()).ShouldNotContain(
+            "smart-sentinel-eye-web",
+            customMessage: "smart-sentinel-eye-web has no code consumer left (spec 286 / #2488) and "
+            + "must be deleted from the realm, not merely disabled.");
+    }
+
     private static IReadOnlyCollection<string> DefinedScopes() =>
         [.. Realm().GetProperty("clientScopes").EnumerateArray()
             .Select(scope => scope.GetProperty("name").GetString() ?? string.Empty)];
