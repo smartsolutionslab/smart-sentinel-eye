@@ -79,7 +79,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["openid", "sse.management"])),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", ["openid", "sse.management"], [])),
         };
         InMemoryStreamRepository streams = new();
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
@@ -108,7 +108,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AConsolePersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AConsolePersona, [])),
         };
         InMemoryStreamRepository streams = new();
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
@@ -137,7 +137,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -198,7 +198,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("user-id", ["openid", "profile"])),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("user-id", ["openid", "profile"], [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -230,9 +230,12 @@ public class AuthorizeWhepCommandHandlerTests
         streams.Add(stream);
         await streams.SaveAsync(CancellationToken.None);
 
+        // StreamBuilder's default fab is "munich" (ADR-0161's own check would
+        // otherwise refuse this caller on fab before ever reaching the offline
+        // check this test exists to prove).
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, ["munich"])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -258,7 +261,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -284,7 +287,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AConsolePersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("admin-id", AConsolePersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -334,7 +337,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -360,7 +363,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -531,7 +534,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
@@ -558,7 +561,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         FakeWhepAuthValidator validator = new()
         {
-            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)),
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
         MediaMtxPath path = MediaMtxPath.For(SomeCamera());
@@ -570,8 +573,79 @@ public class AuthorizeWhepCommandHandlerTests
         result.Value.ShouldBe(path);
     }
 
+    /// <summary>
+    /// ADR-0161, issue #2092 (phase-6 security review of #2090). The gap in
+    /// one fact: a caller holding the read scope but not the stream's fab is
+    /// refused, even though nothing about scope or stream health would have
+    /// stopped them before this fix.
+    /// </summary>
+    /// <remarks>
+    /// <b>Expected red today:</b> the handler admits this — it never reads
+    /// <c>Fab</c> at all — so <c>result.IsSuccess</c> is true and this fails
+    /// on the very first assertion.
+    /// </remarks>
+    [Fact]
+    public async Task Authorize_for_a_stream_in_a_fab_the_caller_does_not_hold_is_refused()
+    {
+        CameraIdentifier camera = SomeCamera();
+        InMemoryStreamRepository streams = new();
+        streams.Add(new StreamBuilder().ForCamera(camera).WithFab(FabIdentifier.From("munich")).At(FixedMoment).Build());
+        await streams.SaveAsync(CancellationToken.None);
+
+        FakeWhepAuthValidator validator = new()
+        {
+            // A real wall/operator token naming only berlin — never munich.
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("wall-berlin-id", AKioskPersona, ["berlin"])),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                MediaMtxPath.For(camera),
+                "Bearer.wall-berlin",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read),
+                ReportedMediaMtxAction.TryFrom("read")),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.FabNotAuthorized>();
+    }
+
+    /// <summary>
+    /// The over-correction guard for the fact above: a caller holding
+    /// <em>more than one</em> fab is admitted for a stream in either of
+    /// them, not only the first-listed one — a naive single-fab compare
+    /// (<c>subject.Fabs[0] == stream.Fab</c> rather than
+    /// <c>subject.Fabs.Contains(stream.Fab)</c>) would wrongly refuse this.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_for_a_stream_in_the_second_of_the_callers_two_fabs_returns_success()
+    {
+        CameraIdentifier camera = SomeCamera();
+        InMemoryStreamRepository streams = new();
+        streams.Add(new StreamBuilder().ForCamera(camera).WithFab(FabIdentifier.From("dresden")).At(FixedMoment).Build());
+        await streams.SaveAsync(CancellationToken.None);
+
+        FakeWhepAuthValidator validator = new()
+        {
+            Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("multi-fab-id", AKioskPersona, ["munich", "dresden"])),
+        };
+        AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
+        MediaMtxPath path = MediaMtxPath.For(camera);
+
+        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+            new AuthorizeWhepCommand(
+                path,
+                "Bearer.multi-fab",
+                Option<MediaMtxAction>.Some(MediaMtxAction.Read),
+                ReportedMediaMtxAction.TryFrom("read")),
+            CancellationToken.None);
+
+        result.Value.ShouldBe(path);
+    }
+
     private static CameraIdentifier SomeCamera() => CameraIdentifier.From(Guid.CreateVersion7());
 
     private static FakeWhepAuthValidator AKioskValidator() =>
-        new() { Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona)) };
+        new() { Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])) };
 }
