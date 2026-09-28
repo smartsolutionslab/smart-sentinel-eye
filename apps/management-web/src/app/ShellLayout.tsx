@@ -170,7 +170,7 @@ function NavItem({ to, children, ref }: { to: string; children: ReactNode; ref?:
       to={to}
       className={({ isActive }) =>
         isActive
-          ? 'rounded-md bg-accent-active/10 px-3 py-1 text-sm font-medium text-accent-active'
+          ? 'rounded-md bg-accent-subtle px-3 py-1 text-sm font-medium text-accent'
           : 'rounded-md px-3 py-1 text-sm text-fg-muted hover:text-fg-primary'
       }
     >
