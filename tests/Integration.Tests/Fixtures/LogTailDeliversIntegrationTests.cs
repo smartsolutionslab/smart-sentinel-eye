@@ -39,6 +39,18 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// back, which is a better message than "the token is missing, here is the
 /// string" — but only if they are reached.
 /// </para>
+///
+/// <para>
+/// Spec 291 (#2656) — <c>A_capture_keeps_a_line_the_tail_has_already_evicted</c>
+/// proves the fixture's companion to this same 400-line ring:
+/// <c>AspireFixture.CaptureLogs</c> keeps a line the ring itself has already
+/// dropped. That is a different claim from every fact above, which all read
+/// the ring directly and never claim to survive its eviction — it exists
+/// because <c>WhepAuthorizeRateLimitTests</c>' log-reading facts can lose
+/// their own sentinel to exactly this eviction under stream-distribution's
+/// health-sweep volume (spec 291 §1.2), and this fact is the fixture-level
+/// proof that a capture is the fix.
+/// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
 public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHelper output)
@@ -82,6 +94,90 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
         string tail = await PollForAsync(CameraCatalogResource, token);
 
         ShouldCarry(CameraCatalogResource, token, tail);
+    }
+
+    /// <summary>
+    /// Spec 291 (#2656) T004 / FR-001 — a line the 400-line ring has already
+    /// evicted must still be readable through a capture that was open before
+    /// it arrived.
+    ///
+    /// <para>
+    /// <b>Counterfactual first</b> (memory: prove a guard by counterfactual;
+    /// an assertion must not check its own input): the ring's own eviction is
+    /// asserted <i>before</i> the capture is trusted, so a capture that is
+    /// merely a no-op wrapper around <see cref="AspireFixture.RecentLogs"/>
+    /// cannot pass by accident — the eviction has to have actually happened.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Phase 4a: expected red at the final assertion</b>
+    /// (<c>capture.Contains(token)</c>), not before it. Real delivery into the
+    /// capture (the poll below) and the ring's own eviction both hold on the
+    /// phase-4a skeleton — <c>CaptureLogs</c> today returns a capture whose
+    /// <c>Lines</c>/<c>Contains</c> read <c>RecentLogs(resourceName, lines:
+    /// 400)</c> on demand, so it sees exactly what the ring sees and no more.
+    /// FR-001 is that a capture keeps what the ring has already dropped, and a
+    /// ring-backed skeleton cannot — that gap is this fact's whole point, and
+    /// closing it is phase 4b's, not this commit's.
+    /// </para>
+    ///
+    /// <para>
+    /// The synthetic filler lines deliberately do <b>not</b> embed
+    /// <paramref name="token"/>'s value in their own text — see the local
+    /// variable's comment below — because they land in the shared
+    /// camera-catalog ring and would otherwise satisfy the counterfactual's
+    /// own <c>Contains(token)</c> check regardless of whether the real line
+    /// had been evicted, making the counterfactual vacuous.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_capture_keeps_a_line_the_tail_has_already_evicted()
+    {
+        using LogCapture capture = aspire.CaptureLogs(CameraCatalogResource);
+
+        string token = InventedToken("logtail-capture");
+
+        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+            CameraCatalogResource, MultiFabOperator, OperatorPassword);
+
+        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+            "/cameras?fabId=munich",
+            new { name = token, rtspUrl = "rtsp://10.0.5.43/h264" });
+        created.StatusCode.ShouldBe(
+            HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+
+        // Real delivery reaches the capture, not only the synthetic seam T004
+        // exercises below — otherwise a capture that only ever saw
+        // RecordLogLine's synthetic input would prove nothing about the
+        // production path this spec exists to fix.
+        bool delivered = await PollCaptureAsync(capture, token);
+        delivered.ShouldBeTrue(
+            $"'{token}' never reached the capture within {DeliveryTimeoutSeconds}s — the camera "
+            + "registration itself did not log, which the eviction assertions below cannot then "
+            + "test anything meaningful against.");
+
+        // Force eviction of the 400-line ring with 401 labelled synthetic
+        // lines — more than the ring's own capacity, so the real line above
+        // (already the newest entry when the poll succeeded) is guaranteed to
+        // be pushed out. Not the token's own text: see the class doc.
+        for (int i = 0; i < 401; i++)
+        {
+            aspire.RecordLogLine(
+                CameraCatalogResource,
+                $"synthetic eviction filler {i} (spec 291 T004 log-capture eviction test)");
+        }
+
+        // Counterfactual first: the ring really did evict the token, so the
+        // capture assertion below is not vacuous.
+        aspire.RecentLogs(CameraCatalogResource, lines: 400)
+            .Contains(token, StringComparison.Ordinal)
+            .ShouldBeFalse(
+                $"the ring should have evicted '{token}' after 401 synthetic lines; if it is still "
+                + "present the capture assertion below proves nothing about surviving eviction.");
+
+        capture.Contains(token).ShouldBeTrue(
+            $"'{token}' was evicted from the 400-line ring by 401 synthetic lines recorded after "
+            + "it, but a capture opened before it arrived should have kept it regardless.");
     }
 
     /// <summary>
@@ -202,6 +298,23 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
         }
 
         return tail;
+    }
+
+    /// <summary>
+    /// <see cref="PollForAsync"/>'s shape, over a <see cref="LogCapture"/>
+    /// instead of <see cref="AspireFixture.RecentLogs"/>: delivery has
+    /// latency, so this re-reads rather than asserting once.
+    /// </summary>
+    private static async Task<bool> PollCaptureAsync(LogCapture capture, string token)
+    {
+        DateTimeOffset deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
+
+        while (!capture.Contains(token) && DateTimeOffset.UtcNow < deadline)
+        {
+            await Task.Delay(PollInterval);
+        }
+
+        return capture.Contains(token);
     }
 
     private static void ShouldCarry(string resourceName, string token, string tail)

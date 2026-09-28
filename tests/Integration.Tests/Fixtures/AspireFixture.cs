@@ -1253,8 +1253,6 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             return;
         }
 
-        ConcurrentQueue<string> tail = _logTails.GetOrAdd(resourceName, _ => new ConcurrentQueue<string>());
-
         try
         {
             Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
@@ -1306,11 +1304,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     {
                         foreach (LogLine line in batch)
                         {
-                            tail.Enqueue(line.Content);
-                            while (tail.Count > 400)
-                            {
-                                tail.TryDequeue(out _);
-                            }
+                            RecordLogLine(resourceName, line.Content);
                         }
                     }
                 }
