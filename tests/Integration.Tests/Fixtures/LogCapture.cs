@@ -8,12 +8,11 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 /// unbounded by design because it lives for one fact (FR-001).
 ///
 /// <para>
-/// <b>Storage (phase 4b, plan.md D1).</b> Backed by its own
-/// <see cref="ConcurrentQueue{T}"/>, fed by
+/// Backed by its own <see cref="ConcurrentQueue{T}"/>, fed by
 /// <see cref="AspireFixture.RecordLogLine"/>'s fan-out — the same call that
 /// feeds the 400-line ring — so a line the ring has already evicted is still
-/// readable here. <see cref="Lines"/> and <see cref="Contains"/> no longer
-/// read <see cref="AspireFixture.RecentLogs(string, int)"/>.
+/// readable here. <see cref="Lines"/> and <see cref="Contains"/> read only
+/// this queue, independent of <see cref="AspireFixture.RecentLogs(string, int)"/>.
 /// </para>
 /// </summary>
 public sealed class LogCapture : IDisposable

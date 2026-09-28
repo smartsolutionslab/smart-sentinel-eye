@@ -110,15 +110,11 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// </para>
     ///
     /// <para>
-    /// <b>Phase 4a: expected red at the final assertion</b>
-    /// (<c>capture.Contains(token)</c>), not before it. Real delivery into the
-    /// capture (the poll below) and the ring's own eviction both hold on the
-    /// phase-4a skeleton — <c>CaptureLogs</c> today returns a capture whose
-    /// <c>Lines</c>/<c>Contains</c> read <c>RecentLogs(resourceName, lines:
-    /// 400)</c> on demand, so it sees exactly what the ring sees and no more.
-    /// FR-001 is that a capture keeps what the ring has already dropped, and a
-    /// ring-backed skeleton cannot — that gap is this fact's whole point, and
-    /// closing it is phase 4b's, not this commit's.
+    /// A capture that is only a wrapper around <see cref="AspireFixture.RecentLogs"/>
+    /// cannot pass this fact: the ring's eviction is asserted before
+    /// <c>capture.Contains(token)</c> runs, so a ring-backed capture would
+    /// already have lost the token by the time it is read. Passing therefore
+    /// requires the capture to hold storage independent of the ring.
     /// </para>
     ///
     /// <para>
