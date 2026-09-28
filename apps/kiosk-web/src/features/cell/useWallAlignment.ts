@@ -110,6 +110,25 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
 
   const aligning = tileCount >= 2;
 
+  // Always on, independent of `aligning` (#2498). The settle cycle below also
+  // prunes stale samples, but it never runs under two tiles (FR-004), so a
+  // one-tile wall needs its own pruning or a departed tile's last reported
+  // age is held forever instead of aging out like every other wall size.
+  // Redundant with the settle cycle's own pruning while aligning — deleting
+  // an already-absent key is a no-op, so it is not worth branching around.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const now = performance.now();
+      for (const [tileKey, sample] of lagsRef.current) {
+        if (now - sample.at > LAG_STALE_AFTER_MS) {
+          lagsRef.current.delete(tileKey);
+        }
+      }
+    }, SETTLE_INTERVAL_MS);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     if (!aligning) {
       // **The wall stops claiming anything.** A previous version returned here
@@ -234,8 +253,10 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
   );
 
   // The tile's own measured lateness, straight from the sample the controller
-  // already keeps. Stale samples age out of `lagsRef` on the settle cycle, so a
-  // departed tile stops reporting an age rather than reporting an old one.
+  // already keeps. Stale samples age out of `lagsRef` on a fixed interval that
+  // runs regardless of tile count (#2498), so a departed tile stops reporting
+  // an age rather than reporting an old one — on every wall size, not only
+  // one that is aligning.
   const frameAgeFor = useCallback((tileKey: string) => lagsRef.current.get(tileKey)?.lagMilliseconds ?? null, []);
 
   return {
