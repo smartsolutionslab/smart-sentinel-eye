@@ -86,4 +86,26 @@ describe('ShellLayout crash panel', () => {
       consoleError.mockRestore();
     }
   });
+
+  /**
+   * Spec 287 (issue #2623) T003 — RED, appended (the T002 case above is
+   * committed 5a evidence and stays unmodified). jsdom computes no colours,
+   * so this checks the Button contract rather than a resolved fill: only
+   * `Button`'s `primary` variant emits `hover:bg-accent-hover`, and today's
+   * raw `<button className="rounded-md bg-accent-active px-6 py-3 …">`
+   * carries neither that class nor the absence of `/accent-active/`.
+   */
+  it('The "Try again" button is Button\'s primary variant, not the raw triad fill', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const counter = { loaderCalls: 0 };
+    try {
+      renderShellWithCrashingChild(counter);
+
+      const tryAgain = await screen.findByRole('button', { name: /^try again$/i });
+      expect(tryAgain.className).toMatch(/hover:bg-accent-hover/);
+      expect(tryAgain.className).not.toMatch(/accent-active/);
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
 });

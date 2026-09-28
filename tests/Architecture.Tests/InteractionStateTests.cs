@@ -309,6 +309,67 @@ public class InteractionStateTests
         problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
     }
 
+    /// <summary>
+    /// Fact 7 (spec 287, issue #2623, plan.md §4) — PIN, reusing fact 6's
+    /// resolver. Spec 287 moves five console selection sites (filter chips,
+    /// the GridDesigner preset, the nav's active link) off
+    /// <c>--color-accent-active</c> onto <c>border-accent bg-accent-subtle
+    /// text-accent</c> (ADR-0146 items 4-5: the triad is status, never
+    /// selection). This is a new label/fill pairing on those surfaces, so it
+    /// must itself hold WCAG 1.4.3's 4.5:1 in every theme before that swap
+    /// ships. Both tokens already exist on develop (spec 268, ADR-0148) —
+    /// this is declared green in advance, not phase-4a red evidence for new
+    /// behaviour. Per plan.md §4: red here is a block, not a fix — swapping
+    /// to a different selection token pair is a design decision the lane may
+    /// not make on its own.
+    /// </summary>
+    [Fact]
+    public void Accent_text_on_accent_subtle_meets_contrast_in_every_theme()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        File.Exists(tokenFile.FullName).ShouldBeTrue($"expected {tokenFile.FullName}.");
+
+        string css = StripCssComments(File.ReadAllText(tokenFile.FullName));
+        List<Declaration> declarations = ParseDeclarations(css);
+
+        Dictionary<string, string> rootMap = declarations
+            .Where(declaration => declaration.Selector.Trim() == ":root")
+            .ToDictionary(declaration => declaration.Name, declaration => declaration.Value, StringComparer.Ordinal);
+
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+
+        List<string> problems = [];
+
+        foreach ((string themeName, Dictionary<string, string> map) in new[]
+                 {
+                     ("dark", rootMap),
+                     ("light", lightMap),
+                     ("high-contrast", highContrastMap),
+                 })
+        {
+            if (!map.ContainsKey("--color-accent") || !map.ContainsKey("--color-accent-subtle"))
+            {
+                problems.Add($"[{themeName}] {tokenFile.Name} does not declare --color-accent and --color-accent-subtle.");
+                continue;
+            }
+
+            double ratio = ContrastRatio(
+                ToSrgb(ResolveOklch("--color-accent", map, [])),
+                ToSrgb(ResolveOklch("--color-accent-subtle", map, [])));
+
+            if (ratio < MinimumTextContrast)
+            {
+                problems.Add(
+                    $"[{themeName}] --color-accent on --color-accent-subtle is {ratio:F2}:1, below the "
+                    + $"{MinimumTextContrast}:1 WCAG 1.4.3 threshold for a selected-state label.");
+            }
+        }
+
+        problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
+    }
+
     // =====================================================================
     // File scanning (mirrors SharedUiTokenUsageTests / DesignTokenLayerTests'
     // shape, over apps/*/src rather than one subtree).

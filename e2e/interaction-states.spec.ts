@@ -480,3 +480,90 @@ test.describe('Button busy state (US2)', () => {
     });
   });
 });
+
+/**
+ * Spec 287 (issue #2623), plan.md §5b — RED. ADR-0146 items 4-5: the triad is
+ * status vocabulary, never affordance or selection. Today these four sites
+ * still draw selection/affordance in `--color-accent-active` (the triad's
+ * green, also the Healthy stream badge's colour); this describe block proves
+ * each one now resolves to `--color-accent` instead. Reuses `probeToken` and
+ * `signInAsOperator` from the top of this file; no existing test above is
+ * edited (R2).
+ */
+test.describe('Console affordance and selection use the accent (spec 287)', () => {
+  test('the signed-out "Sign in" button is drawn in the accent, not the triad, and has real hover/focus states', async ({
+    browser,
+  }) => {
+    // A fresh, signed-out context (R3) — signInAsOperator would sign in and
+    // never leave this screen visible.
+    const context = await browser.newContext();
+    try {
+      const page = await context.newPage();
+      await page.goto('/');
+
+      const signIn = page.getByRole('button', { name: /^sign in$/i });
+      const accentProbe = await probeToken(page, '--color-accent', 'backgroundColor');
+      const accentActiveProbe = await probeToken(page, '--color-accent-active', 'backgroundColor');
+      const restColor = await backgroundColorOf(signIn);
+      expect(restColor).toBe(accentProbe);
+      expect(restColor).not.toBe(accentActiveProbe);
+
+      await signIn.hover();
+      await expect.poll(() => backgroundColorOf(signIn)).not.toBe(restColor);
+
+      await signIn.focus();
+      const focusRingProbe = await probeToken(page, '--color-focus-ring', 'outlineColor');
+      await expect(signIn).toHaveCSS('outline-color', focusRingProbe);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test('the active nav link is drawn in the accent, not the triad', async ({ page }) => {
+    await signInAsOperator(page);
+
+    await page.getByRole('link', { name: /^rules$/i }).click();
+
+    const rulesLink = page.getByRole('link', { name: /^rules$/i });
+    await expect(rulesLink).toHaveAttribute('aria-current', 'page');
+
+    const accentProbe = await probeToken(page, '--color-accent', 'color');
+    const accentActiveProbe = await probeToken(page, '--color-accent-active', 'color');
+    await expect(rulesLink).toHaveCSS('color', accentProbe);
+    expect(await rulesLink.evaluate((el) => getComputedStyle(el).color)).not.toBe(accentActiveProbe);
+  });
+
+  test('a selected filter chip is drawn in the accent, and an unselected one is not', async ({ page }) => {
+    await signInAsOperator(page);
+    await page.getByRole('link', { name: /^layouts$/i }).click();
+    await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+
+    const archived = page.getByRole('button', { name: /^archived$/i });
+    await archived.click();
+
+    const accentProbe = await probeToken(page, '--color-accent', 'backgroundColor');
+    const accentActiveProbe = await probeToken(page, '--color-accent-active', 'backgroundColor');
+    expect(await archived.evaluate((el) => getComputedStyle(el).borderColor)).toBe(accentProbe);
+    expect(await archived.evaluate((el) => getComputedStyle(el).borderColor)).not.toBe(accentActiveProbe);
+
+    const all = page.getByRole('button', { name: /^all$/i });
+    expect(await all.evaluate((el) => getComputedStyle(el).borderColor)).not.toBe(accentProbe);
+  });
+
+  test('the checked grid preset is drawn in the accent, not the triad', async ({ page }) => {
+    await signInAsOperator(page);
+    await page.getByRole('link', { name: /^layouts$/i }).click();
+    await page.getByRole('button', { name: /new layout/i }).click();
+
+    const presetRadio = page.getByRole('radio', { name: '2×2' });
+    await presetRadio.check();
+    const presetLabel = page.locator('label').filter({ has: presetRadio });
+
+    const accentProbe = await probeToken(page, '--color-accent', 'backgroundColor');
+    const accentActiveProbe = await probeToken(page, '--color-accent-active', 'backgroundColor');
+    expect(await presetLabel.evaluate((el) => getComputedStyle(el).borderColor)).toBe(accentProbe);
+    expect(await presetLabel.evaluate((el) => getComputedStyle(el).borderColor)).not.toBe(accentActiveProbe);
+
+    await page.getByRole('button', { name: /cancel/i }).click();
+  });
+});
