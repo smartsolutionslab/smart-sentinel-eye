@@ -343,7 +343,17 @@ export function ChainRecoveryNotice({
         success path.
       */}
       {chainArmActive && (
-        <p key={retryFailureKey} role={readFailed ? 'alert' : undefined} className="text-sm text-accent-fault">
+        // #2365: a stable testid so a test can address this notice without an
+        // unscoped role query — OverlayGeometryFields now always mounts four
+        // `role="alert"` regions of its own wherever this notice's callers
+        // render alongside it. Does not affect the `key`-driven remount this
+        // component's own node-identity guarantee (blocker 1) depends on.
+        <p
+          key={retryFailureKey}
+          role={readFailed ? 'alert' : undefined}
+          data-testid="chain-recovery-alert"
+          className="text-sm text-accent-fault"
+        >
           {readFailed && <>The {noun} could not be read. </>}
           <button
             ref={retryButtonRef}
@@ -357,7 +367,7 @@ export function ChainRecoveryNotice({
         </p>
       )}
       {!chainArmActive && backendError !== null && (
-        <p role="alert" className="text-sm text-accent-fault">
+        <p role="alert" data-testid="chain-recovery-alert" className="text-sm text-accent-fault">
           {backendError}{' '}
           {offerReload && (
             // Reload, never retry: refetching the chain replaces the version

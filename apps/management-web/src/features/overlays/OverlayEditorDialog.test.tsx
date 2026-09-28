@@ -171,7 +171,7 @@ describe('Conflict copy (spec 012 T050)', () => {
     createError = { status: 409, data: { title: 'OVERLAY_NAME_TAKEN' } };
     renderDialog();
 
-    const alert = await screen.findByRole('alert');
+    const alert = await screen.findByTestId('chain-recovery-alert');
     expect(alert.textContent).toContain('already taken');
     expect(alert.textContent).not.toContain('Try again');
   });
@@ -183,14 +183,14 @@ describe('Conflict copy (spec 012 T050)', () => {
     };
     renderDialog();
 
-    expect((await screen.findByRole('alert')).textContent).toContain("named 'Line-1 Title'");
+    expect((await screen.findByTestId('chain-recovery-alert')).textContent).toContain("named 'Line-1 Title'");
   });
 
   it('Keeps retry wording for a failure that is not a name collision', async () => {
     createError = { status: 500, data: {} };
     renderDialog();
 
-    expect((await screen.findByRole('alert')).textContent).toContain('Try again');
+    expect((await screen.findByTestId('chain-recovery-alert')).textContent).toContain('Try again');
   });
 });
 
@@ -317,7 +317,7 @@ describe('OverlayEditorDialog — edit', () => {
       await user.click(saveButton);
       expect(editDraftMock).not.toHaveBeenCalled();
 
-      const alert = screen.getByRole('alert');
+      const alert = screen.getByTestId('chain-recovery-alert');
       expect(alert.textContent).toMatch(/could not be read/i);
 
       await user.click(screen.getByRole('button', { name: /retry/i }));
@@ -336,7 +336,7 @@ describe('OverlayEditorDialog — edit', () => {
       };
       renderDialog(EDIT_TARGET);
 
-      const alert = await screen.findByRole('alert');
+      const alert = await screen.findByTestId('chain-recovery-alert');
       expect(alert.textContent).toContain('changed since version 7');
       expect(alert.textContent).not.toMatch(/try again/i);
       expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
@@ -360,7 +360,7 @@ describe('OverlayEditorDialog — edit', () => {
       };
       renderDialog(EDIT_TARGET);
 
-      const alert = await screen.findByRole('alert');
+      const alert = await screen.findByTestId('chain-recovery-alert');
       expect(alert.textContent).toContain('no longer a draft');
       expect(alert.textContent).not.toMatch(/someone else changed this/i);
       expect(screen.getByRole('button', { name: /reload/i })).toBeInTheDocument();
@@ -400,7 +400,7 @@ describe('OverlayEditorDialog — edit', () => {
       data: { title: 'OVERLAY_REVISION_NOT_DRAFT', detail: 'Revision 1 of Line-1 Title is no longer a draft.' },
     };
     const { rerender } = renderDialog(EDIT_TARGET);
-    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(await screen.findByTestId('chain-recovery-alert')).toBeInTheDocument();
 
     // Close — `open` and `editTarget` fall together, as OverlaysPage.tsx
     // always drives them.
@@ -424,7 +424,7 @@ describe('OverlayEditorDialog — edit', () => {
     );
 
     expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 4');
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('chain-recovery-alert')).not.toBeInTheDocument();
   });
 });
 
@@ -611,7 +611,7 @@ describe('Frame capture (spec 147)', () => {
       await vi.advanceTimersByTimeAsync(10_000);
     });
 
-    expect(screen.getByRole('alert')).toHaveTextContent(/could not be captured/i);
+    expect(screen.getByTestId('frame-capture-alert')).toHaveTextContent(/could not be captured/i);
 
     fireEvent.click(screen.getByRole('button', { name: /save as draft/i }));
     await act(async () => {
