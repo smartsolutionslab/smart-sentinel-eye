@@ -526,6 +526,7 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
 
     const rulesLink = page.getByRole('link', { name: /^rules$/i });
     await expect(rulesLink).toHaveAttribute('aria-current', 'page');
+    await expect(page.getByRole('alert')).toHaveCount(0);
 
     const accentProbe = await probeToken(page, '--color-accent', 'color');
     const accentActiveProbe = await probeToken(page, '--color-accent-active', 'color');
@@ -537,6 +538,7 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
     await signInAsOperator(page);
     await page.getByRole('link', { name: /^layouts$/i }).click();
     await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
 
     const archived = page.getByRole('button', { name: /^archived$/i });
     await archived.click();
@@ -553,6 +555,8 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
   test('the checked grid preset is drawn in the accent, not the triad', async ({ page }) => {
     await signInAsOperator(page);
     await page.getByRole('link', { name: /^layouts$/i }).click();
+    await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: /new layout/i }).click();
 
     const presetRadio = page.getByRole('radio', { name: '2×2' });
