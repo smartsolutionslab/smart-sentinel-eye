@@ -123,6 +123,88 @@ public sealed class LegacyHighlightRuleBodyTests
             "$.device == 'odd-station' && $.payload.value >= 5");
     }
 
+    /// <summary>
+    /// The 12 pinned assets above are all sourced <c>"plc"</c>, so that fact alone
+    /// cannot tell a real sensor-source lookup from a hardcoded <c>"plc"</c>
+    /// literal. This proves the lookup itself: one asset's sensor source
+    /// (<c>"camera"</c>) is carried through when it matches the highlight's
+    /// trigger kind, and a second asset with no matching sensor falls back to
+    /// <c>"plc"</c>.
+    /// </summary>
+    [Fact]
+    public async Task A_sensor_source_matching_the_trigger_kind_is_used_and_an_unmatched_trigger_kind_falls_back_to_plc()
+    {
+        RecordingAutomationHandler automation = new();
+        Guid overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+
+        ScenarioOptions options = new()
+        {
+            Active = ["mixed-source-plant"],
+            Scenarios = new Dictionary<string, ScenarioDefinition>
+            {
+                ["mixed-source-plant"] = new()
+                {
+                    Name = "Mixed Source Plant",
+                    Assets =
+                    [
+                        new AssetDefinition
+                        {
+                            Key = "vision-station",
+                            Name = "Vision Station",
+                            Camera = new CameraDefinition { Path = "vision-station", Clip = "vision.mp4" },
+                            Overlay = new OverlayDefinition
+                            {
+                                Label = "VISION", X = 0.1, Y = 0.1, Width = 0.5, Height = 0.2, FontSize = 24,
+                            },
+                            Tile = new TileDefinition { Row = 0, Col = 0 },
+                            Highlight = new HighlightDefinition
+                            {
+                                TriggerKind = "DefectCount",
+                                Comparison = "gte",
+                                Threshold = 3,
+                                DurationMs = 1000,
+                            },
+                            Sensors =
+                            [
+                                new SensorDefinition { Kind = "DefectCount", Unit = "unit", Behaviour = "steady", Source = "camera", Mean = 3 },
+                            ],
+                        },
+                        new AssetDefinition
+                        {
+                            Key = "unsensed-station",
+                            Name = "Unsensed Station",
+                            Camera = new CameraDefinition { Path = "unsensed-station", Clip = "unsensed.mp4" },
+                            Overlay = new OverlayDefinition
+                            {
+                                Label = "UNSENSED", X = 0.1, Y = 0.1, Width = 0.5, Height = 0.2, FontSize = 24,
+                            },
+                            Tile = new TileDefinition { Row = 0, Col = 1 },
+                            Highlight = new HighlightDefinition
+                            {
+                                TriggerKind = "Temperature",
+                                Comparison = "gte",
+                                Threshold = 100,
+                                DurationMs = 1000,
+                            },
+                            Sensors =
+                            [
+                                new SensorDefinition { Kind = "Humidity", Unit = "unit", Behaviour = "steady", Source = "plc", Mean = 50 },
+                            ],
+                        },
+                    ],
+                },
+            },
+        };
+
+        await RunSeederAsync(options, automation, overlay);
+
+        automation.Creates.Count.ShouldBe(2);
+        automation.Creates.Single(call => call.Body.Name == "mixed-source-plant-vision-station-highlight")
+            .Body.TriggerSource.ShouldBe("camera");
+        automation.Creates.Single(call => call.Body.Name == "mixed-source-plant-unsensed-station-highlight")
+            .Body.TriggerSource.ShouldBe("plc");
+    }
+
     private static void AssertRule(
         RecordingAutomationHandler automation,
         string name,
