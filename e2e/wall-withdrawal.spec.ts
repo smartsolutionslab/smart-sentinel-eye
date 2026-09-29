@@ -60,7 +60,8 @@ async function signIn(page: Page): Promise<string> {
 
 /** The session a grant belongs to, which is what withdrawal has to target. */
 function sessionOf(refreshToken: string): string {
-  return (claimsOf(refreshToken)['sid'] as string | undefined) ?? '';
+  const sid = claimsOf(refreshToken)['sid'];
+  return typeof sid === 'string' ? sid : '';
 }
 
 test.describe('Withdrawing one screen (spec 050 US3)', () => {
