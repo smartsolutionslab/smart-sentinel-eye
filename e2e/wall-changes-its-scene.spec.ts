@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { signInToKiosk } from './support/kiosk-session';
 import { openSection } from './support/management-navigation';
+import { createPublishedLayout } from './support/management-layouts';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 /**
@@ -45,45 +46,6 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
  * testids already work, not inventing a new naming style.
  */
 
-/**
- * Registers a camera and authors + publishes a one-tile layout named `name`.
- * Leaves the page on the Layouts list. Returns the registered camera's
- * identifier (a GUID) — extracted from its Cameras-page row link — because
- * that, not the camera's name, is what ends up embedded in the kiosk's
- * layout-tile content (see the file header for why).
- */
-async function createPublishedLayout(
-  page: import('@playwright/test').Page,
-  name: string,
-  cameraName: string,
-): Promise<string> {
-  // Navigate to Cameras explicitly rather than assuming the caller is already
-  // there — the second call in a row starts on the Layouts list left by the
-  // first call's own ending, where "Register camera" does not exist.
-  await openSection(page, 'Cameras');
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(cameraName);
-  await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${Math.floor(Math.random() * 200) + 2}/stream`);
-  await page.getByRole('button', { name: /^register$/i }).click();
-  const cameraRow = page.getByRole('cell', { name: cameraName });
-  await expect(cameraRow).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-  const cameraHref = await cameraRow.getByRole('link').getAttribute('href');
-  const cameraIdentifier = cameraHref!.split('/').pop()!;
-
-  await openSection(page, 'Layouts');
-  await page.getByRole('button', { name: /new layout/i }).click();
-  await page.locator('#layout-name').fill(name);
-  await page.locator('#tile-0-camera').selectOption({ label: cameraName });
-  await page.getByRole('button', { name: /save as draft/i }).click();
-  await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-
-  const row = page.getByRole('listitem').filter({ hasText: name });
-  await row.getByRole('button', { name: /^publish$/i }).click();
-  await expect(row.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-
-  return cameraIdentifier;
-}
-
 /** Creates a wall named `wallName` with the given ordered scene (layout) names. Leaves the page on the wall's detail view. */
 async function createWall(page: import('@playwright/test').Page, wallName: string, sceneLayoutNames: string[]) {
   await openSection(page, 'Walls');
@@ -120,7 +82,9 @@ test('an admin switches a wall by hand and the kiosk follows within about a seco
   const cameraBName = `E2E Wall Cam B ${stamp}`;
 
   await signInAsOperator(page);
+  await openSection(page, 'Cameras');
   const cameraAIdentifier = await createPublishedLayout(page, layoutAName, cameraAName);
+  await openSection(page, 'Cameras');
   const cameraBIdentifier = await createPublishedLayout(page, layoutBName, cameraBName);
   await createWall(page, wallName, [layoutAName, layoutBName]);
 
@@ -168,7 +132,9 @@ test('a kiosk that missed a switch while its hub connection was down reconciles 
   const cameraBName = `E2E Reconcile Cam B ${stamp}`;
 
   await signInAsOperator(page);
+  await openSection(page, 'Cameras');
   const cameraAIdentifier = await createPublishedLayout(page, layoutAName, cameraAName);
+  await openSection(page, 'Cameras');
   const cameraBIdentifier = await createPublishedLayout(page, layoutBName, cameraBName);
   await createWall(page, wallName, [layoutAName, layoutBName]);
 
