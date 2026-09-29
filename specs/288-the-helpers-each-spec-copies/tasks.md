@@ -54,55 +54,61 @@ Branch `refactor/2661-us1-wall-session-rig`, cut from `develop`.
 
 ### Foundation: inventory tooling (RED). Blocks every characterisation task in all three PRs.
 
-- [ ] **T001** [Found] `scripts/e2e-assertion-inventory.test.mjs`: the eight `node:test` cases in plan §4.3 against `collapseRuns`/`diffInventories`. Commit alone. Red run 1 (`ERR_MODULE_NOT_FOUND`) captured verbatim.
-- [ ] **T002** [Found] Stub `scripts/e2e-assertion-inventory.mjs` exporting a `diffInventories` that reports no differences and a pass-through `collapseRuns`. Red run 2 captured verbatim: each case expecting a difference or collapse fails for its own reason.
+- [x] **T001** [Found] `scripts/e2e-assertion-inventory.test.mjs`: the eight `node:test` cases in plan §4.3 against `collapseRuns`/`diffInventories`. Commit alone. Red run 1 (`ERR_MODULE_NOT_FOUND`) captured verbatim.
+- [x] **T002** [Found] Stub `scripts/e2e-assertion-inventory.mjs` exporting a `diffInventories` that reports no differences and a pass-through `collapseRuns`. Red run 2 captured verbatim: each case expecting a difference or collapse fails for its own reason. (Run transiently, not committed on its own — output quoted in PR 1 per the test file's header comment.)
   - **Depends on:** T001.
-- [ ] **T003** [Found] Real `scripts/e2e-assertion-inventory.mjs`:
+- [x] **T003** [Found] Real `scripts/e2e-assertion-inventory.mjs`:
   - the default-export reporter (plan §4.2: `expect`-category steps, `{title, subtitle}`, no location, `retry === 0`, output path from `E2E_ASSERTION_INVENTORY_FILE`);
   - `collapseRuns`, `diffInventories` (with noisy-test detection) and the CLI entry.
   - `node --test scripts/e2e-assertion-inventory.test.mjs` green, test file unmodified.
   - **Depends on:** T002.
+  - Revised post-review: `params` recorded per entry (should-fix 2), volatile-token normalisation plus a wildcard/both-baselines fallback for tests still noisy after normalising (should-fix 1) — 10/10 cases green, including two new cases pinning the normalisation and fallback behaviour.
 - [ ] **T004** [Found] Smoke-check that the reporter records real steps: with the stack up, `pnpm test:e2e --project=chromium e2e/audit.spec.ts --reporter=list,./scripts/e2e-assertion-inventory.mjs` produces an inventory whose one test lists its `expect` steps in source order (`toBeVisible` heading, …). Quote the JSON in the PR. This proves the reporter hooks `onStepEnd` at all; T003's tests only cover the pure functions.
   - **Depends on:** T003.
+  - Not independently re-verified this pass (no live stack available); the reporter's `params` addition should be smoke-checked against a real run before the PR body quotes it.
 
 ### US1 characterisation baseline
 
-- [ ] **T101** [US1] On the branch **before T102** (spec files still identical to `develop`):
+- [x] **T101** [US1] On the branch **before T102** (spec files still identical to `develop`):
   - `pnpm test:e2e --list > us1-before.list`;
   - stack up; `pnpm test:e2e --project=wall --reporter=list,./scripts/e2e-assertion-inventory.mjs` **twice**, into `us1-baseline-a.json` and `us1-baseline-b.json` (`E2E_ASSERTION_INVENTORY_FILE`);
   - record the pass/fail summary of each run.
   - Artefacts stay in the scratchpad, not the repository.
   - **Depends on:** T004.
+  - Done (both runs: 20 passed, `EXIT:0`); artefacts in the scratchpad, reused as valid input for the revised tool (old shape, no `params` field — the diff logic defaults a missing `params` to `''`).
 
 ### US1 extraction (plan §5.1)
 
-- [ ] **T102** [US1] `e2e/support/wall-session.ts`: `WALL_USER`, `WALL_PASSWORD`, `signInAsWallDisplay(page, { url, timeout, expectPopulatedPicker })`, `claimsOf`, `issuerOf`, `storedAccessToken(page, message)`, `expireStoredAccessToken(page, message)`, with bodies taken from the existing copies. In the same commit, switch `wall-survives-a-process-death.spec.ts` to it (its copies deleted; passes the absolute URL, `90_000`, `expectPopulatedPicker: true` and its own messages). Update its "copied rather than extracted" header comment.
+- [x] **T102** [US1] `e2e/support/wall-session.ts`: `WALL_USER`, `WALL_PASSWORD`, `signInAsWallDisplay(page, { url, timeout, expectPopulatedPicker })`, `claimsOf`, `issuerOf`, `storedAccessToken(page, message)`, `expireStoredAccessToken(page, message)`, with bodies taken from the existing copies. In the same commit, switch `wall-survives-a-process-death.spec.ts` to it (its copies deleted; passes the absolute URL, `90_000`, `expectPopulatedPicker: true` and its own messages). Update its "copied rather than extracted" header comment.
   - **Depends on:** T101.
-- [ ] **T103** [US1] `e2e/support/kiosk-session.ts:openFirstLayout` gains `options?: { timeout?: number }`, with the default behaviour unchanged. `wall-survives-a-process-death` uses it with `{ timeout: 90_000 }` and its local copy is deleted.
+- [x] **T103** [US1] `e2e/support/kiosk-session.ts:openFirstLayout` gains `options?: { timeout?: number }`, with the default behaviour unchanged. `wall-survives-a-process-death` uses it with `{ timeout: 90_000 }` and its local copy is deleted.
   - **Depends on:** T102.
-- [ ] **T104** [US1] `wall-survives-a-lockout.spec.ts`: delete its five copied helpers and its `WALL_*` constants, import from `wall-session.ts` / `kiosk-session.ts` with its own variants (plan §5.1 table), and update its header comment.
+- [x] **T104** [US1] `wall-survives-a-lockout.spec.ts`: delete its five copied helpers and its `WALL_*` constants, import from `wall-session.ts` / `kiosk-session.ts` with its own variants (plan §5.1 table), and update its header comment.
   - **Depends on:** T103.
-- [ ] **T105** [US1] `wall-outlives-its-session.spec.ts`: `signInAsWallDisplay` (defaults: `'/'`, `60_000`, no populated-picker check), `claimsOf`, `WALL_*`. `storedGrant` stays local (single caller).
+- [x] **T105** [US1] `wall-outlives-its-session.spec.ts`: `signInAsWallDisplay` (defaults: `'/'`, `60_000`, no populated-picker check), `claimsOf`, `WALL_*`. `storedGrant` stays local (single caller).
   - **Depends on:** T102.
   - **[P] with T104** (disjoint files).
-- [ ] **T106** [US1] `wall-withdrawal.spec.ts`: its `signIn` keeps the refresh-token read but calls `signInAsWallDisplay(page)` for the form half. `claimsOf` and `issuerOf` are imported (narrow `'sid'`/`'iss'` at use). `sessionOf` stays local.
+- [x] **T106** [US1] `wall-withdrawal.spec.ts`: its `signIn` keeps the refresh-token read but calls `signInAsWallDisplay(page)` for the form half. `claimsOf` and `issuerOf` are imported (narrow `'sid'`/`'iss'` at use). `sessionOf` stays local.
   - **Depends on:** T102.
   - **[P] with T104, T105.**
-- [ ] **T107** [US1] `wall-authority.spec.ts`:
+- [x] **T107** [US1] `wall-authority.spec.ts`:
   - `signInAndReadToken` keeps its gateway-request capture and token read, but calls `signInAsWallDisplay(page)` for the form half;
   - `scopesOf` uses `claimsOf` instead of its inline decode;
   - `WALL_*` imported.
   - **Depends on:** T102.
   - **[P] with T104-T106.**
-- [ ] **T108** [US1] Verify SC-001: each of `signInAsWallDisplay`, `claimsOf`, `openFirstLayout`, `storedAccessToken`, `expireStoredAccessToken`, `issuerOf` has exactly one `function` definition under `e2e/` (Grep, quoted in the PR).
+- [x] **T108** [US1] Verify SC-001: each of `signInAsWallDisplay`, `claimsOf`, `openFirstLayout`, `storedAccessToken`, `expireStoredAccessToken`, `issuerOf` has exactly one `function` definition under `e2e/` (Grep, quoted in the PR).
   - **Depends on:** T104-T107.
+  - Verified: one `export ... function <name>` per name, all under `e2e/support/`.
 
 ### US1 characterisation evidence
 
 - [ ] **T109** [US1] `pnpm test:e2e --list > us1-after.list`; `diff us1-before.list us1-after.list` must be empty.
   - **Depends on:** T108.
-- [ ] **T110** [US1] Stack up; one `--project=wall` run with the reporter into `us1-after.json`; `node scripts/e2e-assertion-inventory.mjs us1-baseline-a.json us1-baseline-b.json us1-after.json` exits 0. Name every noisy test.
+  - The raw diff is **not** empty (`--list` embeds `file:line:col`, which shifts when duplicated code is deleted in favour of an import); a line/col-normalised diff of the same two files is empty, and `pnpm exec playwright test --list` still reports 114 tests in 36 files. Left unchecked because the task's literal criterion (raw diff) isn't met — confirm the normalised comparison is the intended one before ticking this.
+- [x] **T110** [US1] Stack up; one `--project=wall` run with the reporter into `us1-after.json`; `node scripts/e2e-assertion-inventory.mjs us1-baseline-a.json us1-baseline-b.json us1-after.json` exits 0. Name every noisy test.
   - **Depends on:** T109.
+  - Re-run with the revised tool against the existing `us1-baseline-a/b.json`/`us1-after.json`: exit 0, noisy list shrank from 7 to 2 tests (both `cleanup` teardowns, a genuine entry-count difference, not token noise).
 - [ ] **T111** [US1] Deliberate breaks, one at a time, reverted with `git checkout --` and a clean `git status` between each (plan §4.4 step 4):
   1. `signInAsWallDisplay` heading;
   2. its populated-picker check;
@@ -112,8 +118,10 @@ Branch `refactor/2661-us1-wall-session-rig`, cut from `develop`.
 
   For each, run one consuming wall test and quote the failure showing the helper's file:line.
   - **Depends on:** T110.
-- [ ] **T112** [US1] Local gates: `pnpm lint:e2e`, `pnpm typecheck:e2e`, `pnpm format:check`, `pnpm test:guards`. Memory: *typecheck:e2e fails on a clean develop*. Stash-check before blaming the branch.
+  - Not done this pass — needs the live stack.
+- [x] **T112** [US1] Local gates: `pnpm lint:e2e`, `pnpm typecheck:e2e`, `pnpm format:check`, `pnpm test:guards`. Memory: *typecheck:e2e fails on a clean develop*. Stash-check before blaming the branch.
   - **Depends on:** T111.
+  - All four green after the review-fix commits.
 
 ### PR 1 phases 5-7
 
