@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { clickSidebarLink, openSection } from './support/management-navigation';
+import { createOverlayDraft } from './support/management-overlays';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // #2365: OverlayGeometryFields always mounts one role="alert" per field now
@@ -167,11 +168,8 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
 
   await openSection(page, 'Overlays');
 
-  await page.getByRole('button', { name: /new overlay/i }).click();
   const name = `E2E Edit ${Date.now()}`;
-  await page.locator('#overlay-name').fill(name);
-  await page.getByRole('button', { name: /save as draft/i }).click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await createOverlayDraft(page, name);
 
   // Before this spec the row offers only Publish and Discard draft — this is
   // the observable that fails on develop.
@@ -217,11 +215,8 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
 
   await openSection(page, 'Overlays');
 
-  await page.getByRole('button', { name: /new overlay/i }).click();
   const name = `E2E Undo ${Date.now()}`;
-  await page.locator('#overlay-name').fill(name);
-  await page.getByRole('button', { name: /save as draft/i }).click();
-  await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await createOverlayDraft(page, name);
 
   const row = page.getByRole('listitem').filter({ hasText: name });
   await row.getByRole('button', { name: /^edit draft$/i }).click();
@@ -351,10 +346,7 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     const pageOne = await first.newPage();
     await signInAsOperator(pageOne);
     await clickSidebarLink(pageOne, 'Overlays');
-    await pageOne.getByRole('button', { name: /new overlay/i }).click();
-    await pageOne.locator('#overlay-name').fill(name);
-    await pageOne.getByRole('button', { name: /save as draft/i }).click();
-    await expect(pageOne.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+    await createOverlayDraft(pageOne, name);
 
     // The second context opens the editor *now*, before the first writer's
     // edit lands, so it holds the version that edit is about to supersede.
