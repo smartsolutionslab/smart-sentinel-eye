@@ -158,9 +158,9 @@ test('a define the service is slow to answer still appears in the list', async (
     },
   );
 
-  await openSection(page, 'System variables');
   // The read is NOT delayed: this heading follows the list `GET` through the
   // same route handler and still resolves at the default budget.
+  await openSection(page, 'System variables');
 
   await page.getByRole('button', { name: /new variable/i }).click();
   const name = `E2E_Slow_${Date.now()}`;

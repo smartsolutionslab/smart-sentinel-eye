@@ -160,7 +160,7 @@ Branch `refactor/2661-us2-console-navigation`, cut from `develop` **after PR 1 m
 - [ ] **T207** [US2] Migrate the three seeds: `seed-bound-overlay-wall.setup.ts`, `seed-live-video-wall.setup.ts`, `seed-published-layout.setup.ts`.
   - **Depends on:** T203.
   - **[P] with T204-T206.**
-- [ ] **T208** [US2] Verify SC-002: no file outside `management-navigation.ts` contains `getByRole('link', { name: /^(cameras|layouts|walls|overlays|system variables|rules|audit)$/i })` (Grep, quoted).
+- [ ] **T208** [US2] Verify SC-002: no file outside `management-navigation.ts` **clicks** a sidebar link via `getByRole('link', { name: /^(cameras|layouts|walls|overlays|system variables|rules|audit)$/i })` (Grep, quoted), except where the locator is the test's own subject per ADR-0162 §4 — `interaction-states.spec.ts:528`'s `rulesLink` (an `aria-current`/colour assertion) and `command-palette.spec.ts:28` (a post-keyboard-nav focus assertion), neither of which clicks it.
   - **Depends on:** T204-T207.
 - [ ] **T209** [US2] Evidence:
   - empty `--list` diff;
