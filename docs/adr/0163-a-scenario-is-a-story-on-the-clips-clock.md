@@ -1,6 +1,6 @@
 # ADR-0163: A scenario is a story, and its detections run on the clip's clock
 
-**Status:** Proposed. It becomes Accepted when spec 289's Phase 2 gate is passed.
+**Status:** Accepted. Spec 289's Phase 2 gate passed 2026-09-29.
 **Date:** 2026-09-29
 **Amends:** ADR-0111 (Scenario Simulator): the M2 "timeline" clause and the scenario definition
 **Supersedes:** —
