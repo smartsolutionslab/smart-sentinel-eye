@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
+import { clickSidebarLink } from './support/management-navigation';
 import { readBoundOverlayWall } from './support/bound-overlay-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
@@ -74,7 +75,7 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
   try {
     // Phase 1 — a value changed during the outage arrives after reconnect.
     await withKioskOffline(page, async () => {
-      await admin.getByRole('link', { name: /^system variables$/i }).click();
+      await clickSidebarLink(admin, 'System variables');
       const row = admin.getByRole('listitem').filter({ hasText: wall.variableName });
       await row.getByPlaceholder('New value').fill(wall.variableChangedValue);
       await row.getByRole('button', { name: /^set value$/i }).click();
@@ -85,7 +86,7 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
 
     // Phase 2 — an overlay archived during the outage leaves the tile unbound.
     await withKioskOffline(page, async () => {
-      await admin.getByRole('link', { name: /^overlays$/i }).click();
+      await clickSidebarLink(admin, 'Overlays');
       const row = admin.getByRole('listitem').filter({ hasText: wall.overlayName });
       await row.getByRole('button', { name: /^archive$/i }).click();
       await admin

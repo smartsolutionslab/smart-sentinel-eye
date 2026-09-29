@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { clickSidebarLink, openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // ADR-0108 — layouts "read" vertical slice. An operator signs in, opens the
@@ -11,11 +12,9 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 test('operator opens layouts and the list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-
+  await openSection(page, 'Layouts');
   // The Layouts surface renders and the authenticated GET
   // /layout-composition/layouts succeeded: no error alert.
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
@@ -48,8 +47,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
 
   // (2) Create an overlay draft, then publish it: the layout dialog only lists
   // *published* overlays (useListOverlaysQuery('Published')).
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
   await page.getByRole('button', { name: /new overlay/i }).click();
   await page.locator('#overlay-name').fill(overlayName);
   await page.getByRole('button', { name: /save as draft/i }).click();
@@ -63,8 +61,7 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
   await expect(overlayCard.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
   // (3) Open Layouts and create a draft referencing the camera and overlay.
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+  await openSection(page, 'Layouts');
 
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(layoutName);
@@ -115,7 +112,7 @@ test('a second operator publishing the same revision is refused, not silently ap
     await pageOne.getByRole('button', { name: /^register$/i }).click();
     await expect(pageOne.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-    await pageOne.getByRole('link', { name: /^layouts$/i }).click();
+    await clickSidebarLink(pageOne, 'Layouts');
     await pageOne.getByRole('button', { name: /new layout/i }).click();
     await pageOne.locator('#layout-name').fill(layoutName);
     await pageOne.locator('#tile-0-camera').selectOption({ label: cameraName });
@@ -127,7 +124,7 @@ test('a second operator publishing the same revision is refused, not silently ap
     // publish below would hand it the current version and prove nothing.
     const pageTwo = await second.newPage();
     await signInAsOperator(pageTwo);
-    await pageTwo.getByRole('link', { name: /^layouts$/i }).click();
+    await clickSidebarLink(pageTwo, 'Layouts');
     const rowTwo = pageTwo.getByRole('listitem').filter({ hasText: layoutName });
     await expect(rowTwo.getByRole('button', { name: /^publish$/i })).toBeVisible();
 

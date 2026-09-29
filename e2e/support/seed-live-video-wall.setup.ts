@@ -1,5 +1,6 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
+import { clickSidebarLink, openSection } from './management-navigation';
 import { newLiveVideoWall, writeLiveVideoWall } from './live-video-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
@@ -61,8 +62,7 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
 
   // 1. The variable the label resolves from, and which the span measurement
   //    later changes.
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
 
   await page.getByRole('button', { name: /new variable/i }).click();
   await page.locator('#variable-name').fill(wall.variableName);
@@ -81,8 +81,7 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   // 2. An overlay whose text is a token, so the service holds a resolved
   //    snapshot for it — a static label has none, and the label could then be
   //    right without the binding working at all.
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
   await page.locator('#overlay-name').fill(wall.overlayName);
@@ -106,7 +105,7 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   //    site for this message kind — registrations 2-9 repeat it within the
   //    same test and pay the ordinary warm cost instead (`cold-stack.ts`:
   //    "not for a repeat write of the same kind inside one test").
-  await page.getByRole('link', { name: /^cameras$/i }).click();
+  await clickSidebarLink(page, 'Cameras');
   for (const [index, camera] of wall.cameras.entries()) {
     await page.getByRole('button', { name: /register camera/i }).click();
     await page.locator('#register-camera-name').fill(camera.name);
@@ -121,8 +120,7 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   //    overlay (spec 225 US2, raised from 2×2/four by ADR-0156/spec 262) —
   //    so a per-tile render cost is distinguishable from fixed overhead,
   //    without a ninth overlay write to pay for it.
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+  await openSection(page, 'Layouts');
 
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(wall.layoutName);

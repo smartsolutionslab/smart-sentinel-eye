@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { signInToKiosk } from './support/kiosk-session';
+import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 /**
@@ -83,8 +84,7 @@ test('a hero-and-thumbnails wall is authored, published and drawn at its real si
   // (0,2), (1,2), (2,0), (2,1), (2,2). Tile ids are the dense grid index,
   // row-major (`GridDesigner.tsx`): (0,0)=0, (0,2)=2, (1,2)=5, (2,0)=6,
   // (2,1)=7, (2,2)=8.
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+  await openSection(page, 'Layouts');
 
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(layoutName);

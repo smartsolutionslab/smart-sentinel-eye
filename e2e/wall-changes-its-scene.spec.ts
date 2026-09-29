@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { signInToKiosk } from './support/kiosk-session';
+import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 /**
@@ -59,8 +60,7 @@ async function createPublishedLayout(
   // Navigate to Cameras explicitly rather than assuming the caller is already
   // there — the second call in a row starts on the Layouts list left by the
   // first call's own ending, where "Register camera" does not exist.
-  await page.getByRole('link', { name: /^cameras$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
+  await openSection(page, 'Cameras');
   await page.getByRole('button', { name: /register camera/i }).click();
   await page.locator('#register-camera-name').fill(cameraName);
   await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${Math.floor(Math.random() * 200) + 2}/stream`);
@@ -70,8 +70,7 @@ async function createPublishedLayout(
   const cameraHref = await cameraRow.getByRole('link').getAttribute('href');
   const cameraIdentifier = cameraHref!.split('/').pop()!;
 
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+  await openSection(page, 'Layouts');
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(name);
   await page.locator('#tile-0-camera').selectOption({ label: cameraName });
@@ -87,8 +86,7 @@ async function createPublishedLayout(
 
 /** Creates a wall named `wallName` with the given ordered scene (layout) names. Leaves the page on the wall's detail view. */
 async function createWall(page: import('@playwright/test').Page, wallName: string, sceneLayoutNames: string[]) {
-  await page.getByRole('link', { name: /^walls$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Walls', exact: true })).toBeVisible();
+  await openSection(page, 'Walls');
   await page.getByRole('button', { name: /new wall/i }).click();
   await page.locator('#wall-name').fill(wallName);
   for (const layoutName of sceneLayoutNames) {

@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Issue #2624 / ADR-0151 — spec 267. Eight in-flight-disable sites used native
@@ -190,8 +191,7 @@ test.describe('US1 — a keyboard operator submitting a dialog form keeps their 
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^rules$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
+    await openSection(page, 'Rules');
 
     await page.getByRole('button', { name: /new rule/i }).click();
     const name = `e2e-focus-rule-${Date.now()}`;
@@ -225,8 +225,7 @@ test.describe('US1 — a keyboard operator submitting a dialog form keeps their 
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^system variables$/i }).click();
-    await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+    await openSection(page, 'System variables');
 
     await page.getByRole('button', { name: /new variable/i }).click();
     const name = `E2E_Focus_Variable_${Date.now()}`;
@@ -265,8 +264,7 @@ test.describe('US2 — a keyboard operator running a dry run keeps their place',
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^rules$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
+    await openSection(page, 'Rules');
 
     await page.getByRole('button', { name: /new rule/i }).click();
     const name = `e2e-focus-dry-run-${Date.now()}`;
@@ -428,8 +426,7 @@ test.describe('US1 — an operator setting a system variable value keeps their p
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^system variables$/i }).click();
-    await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+    await openSection(page, 'System variables');
 
     const name = `E2E_Focus_SetValue_${Date.now()}`;
     await page.getByRole('button', { name: /new variable/i }).click();
@@ -475,8 +472,7 @@ test.describe('US1 — an operator archiving a system variable keeps their place
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^system variables$/i }).click();
-    await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+    await openSection(page, 'System variables');
 
     const name = `E2E_Focus_Archive_${Date.now()}`;
     await page.getByRole('button', { name: /new variable/i }).click();
@@ -529,8 +525,7 @@ test.describe('US2 — an operator publishing a layout keeps their place (spec 2
     await page.getByRole('button', { name: /^register$/i }).click();
     await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-    await page.getByRole('link', { name: /^layouts$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+    await openSection(page, 'Layouts');
 
     const layoutName = `E2E Focus Publish Layout ${Date.now()}`;
     await page.getByRole('button', { name: /new layout/i }).click();
@@ -580,8 +575,7 @@ test.describe('US2 — an operator reverting a layout through More actions keeps
     await page.getByRole('button', { name: /^register$/i }).click();
     await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-    await page.getByRole('link', { name: /^layouts$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+    await openSection(page, 'Layouts');
 
     const layoutName = `E2E Focus Revert Layout ${Date.now()}`;
     await page.getByRole('button', { name: /new layout/i }).click();
@@ -634,8 +628,7 @@ test.describe('US3 — an operator publishing an overlay keeps their place (spec
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^overlays$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+    await openSection(page, 'Overlays');
 
     const overlayName = `E2E Focus Publish Overlay ${Date.now()}`;
     await page.getByRole('button', { name: /new overlay/i }).click();
@@ -677,8 +670,7 @@ test.describe('US3 — an operator archiving an overlay keeps their place (spec 
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^overlays$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+    await openSection(page, 'Overlays');
 
     const overlayName = `E2E Focus Archive Overlay ${Date.now()}`;
     await page.getByRole('button', { name: /new overlay/i }).click();
@@ -838,8 +830,7 @@ test.describe('US5 — an operator paging through audit keeps their place (spec 
       },
     );
 
-    await page.getByRole('link', { name: /^audit$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Audit', exact: true })).toBeVisible();
+    await openSection(page, 'Audit');
     await expect(page.getByText('E2EFocusFirstPageV1')).toBeVisible();
 
     const next = page.getByRole('button', { name: /^next$/i });
@@ -880,16 +871,14 @@ test.describe('US6 — an operator switching a wall scene keeps their place (spe
     const wallName = `E2E Focus Wall ${stamp}`;
 
     async function publishSimpleLayout(cameraName: string, layoutName: string) {
-      await page.getByRole('link', { name: /^cameras$/i }).click();
-      await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
+      await openSection(page, 'Cameras');
       await page.getByRole('button', { name: /register camera/i }).click();
       await page.locator('#register-camera-name').fill(cameraName);
       await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${Math.floor(Math.random() * 200) + 2}/stream`);
       await page.getByRole('button', { name: /^register$/i }).click();
       await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-      await page.getByRole('link', { name: /^layouts$/i }).click();
-      await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+      await openSection(page, 'Layouts');
       await page.getByRole('button', { name: /new layout/i }).click();
       await page.locator('#layout-name').fill(layoutName);
       await page.locator('#tile-0-camera').selectOption({ label: cameraName });
@@ -904,8 +893,7 @@ test.describe('US6 — an operator switching a wall scene keeps their place (spe
     await publishSimpleLayout(cameraAName, layoutAName);
     await publishSimpleLayout(cameraBName, layoutBName);
 
-    await page.getByRole('link', { name: /^walls$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Walls', exact: true })).toBeVisible();
+    await openSection(page, 'Walls');
     await page.getByRole('button', { name: /new wall/i }).click();
     await page.locator('#wall-name').fill(wallName);
     await page.getByRole('checkbox', { name: layoutAName }).check();
@@ -958,16 +946,14 @@ test.describe('US7 — an operator creating a wall keeps their place (spec 273 W
     const wallName = `E2E Focus New Wall ${stamp}`;
 
     async function publishSimpleLayout(cameraName: string, layoutName: string) {
-      await page.getByRole('link', { name: /^cameras$/i }).click();
-      await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
+      await openSection(page, 'Cameras');
       await page.getByRole('button', { name: /register camera/i }).click();
       await page.locator('#register-camera-name').fill(cameraName);
       await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${Math.floor(Math.random() * 200) + 2}/stream`);
       await page.getByRole('button', { name: /^register$/i }).click();
       await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-      await page.getByRole('link', { name: /^layouts$/i }).click();
-      await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+      await openSection(page, 'Layouts');
       await page.getByRole('button', { name: /new layout/i }).click();
       await page.locator('#layout-name').fill(layoutName);
       await page.locator('#tile-0-camera').selectOption({ label: cameraName });
@@ -982,8 +968,7 @@ test.describe('US7 — an operator creating a wall keeps their place (spec 273 W
     await publishSimpleLayout(cameraAName, layoutAName);
     await publishSimpleLayout(cameraBName, layoutBName);
 
-    await page.getByRole('link', { name: /^walls$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Walls', exact: true })).toBeVisible();
+    await openSection(page, 'Walls');
     await page.getByRole('button', { name: /new wall/i }).click();
 
     const nameField = page.locator('#wall-name');
