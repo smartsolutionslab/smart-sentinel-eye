@@ -3,15 +3,15 @@
 **Spec:** 288 (next free number after 287, which sits on the unmerged `enhancement/2623-raw-button-to-button-primitive`; 284 appears on no ref this checkout can see and was left alone in case it is reserved elsewhere)
 **Feature Branch**: `refactor/2661-e2e-page-layer` (cut from `origin/develop` at `aa08ce16`)
 **Created**: 2026-09-28
-**Status**: Draft — Phase 1, awaiting gate review. **Deliberately unsettled:** the pattern choice is the decision this spec exists to put in front of a human, not one it makes.
+**Status**: Phase 1 gate passed 2026-09-29. Q1 = C, Q2 = (a), Q3 = (b) + (c), relayed by the orchestrator; recorded in **ADR-0162**. Phases 2-3: [plan.md](./plan.md), [tasks.md](./tasks.md).
 **Issue**: [#2661](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2661) — *e2e specs re-type the same locators file to file; no Page Object layer exists*. Label `tech-debt`; no comments. **Lane:** supervised.
 **Input**: "Restructuring … around a Page Object (or fixture-based equivalent) convention is a behaviour-preserving refactor … picking the pattern, deciding what lives in `e2e/support/` vs. a new `e2e/pages/`, and sequencing the migration."
 
 **ADRs referenced:** ADR-0108 (Playwright; real Keycloak login per test; specs under `e2e/`), ADR-0109 (parallel worktrees; **`e2e/support/*` is a named contention file**), ADR-0036 (smallest change; no speculative generality), ADR-0037 (phases), ADR-0139 and constitution §Testing (a refactor stays green; characterisation), ADR-0144 (Phase 4a colours).
 
-**ADR gap, flagged, not filled.** No ADR governs how e2e code is organised. ADR-0108 picks the tool and says nothing about locators or page structure; ADR-0109 only names `e2e/support/*` as a contention file. Whichever option Q1 selects is a **new convention** and needs its own ADR before Phase 2 — this spec does not write it.
+**ADR gap, now filled by ADR-0162.** No ADR governed how e2e code is organised. ADR-0108 picks the tool and says nothing about locators or page structure; ADR-0109 only names `e2e/support/*` as a contention file. The convention chosen at the gate is recorded in [ADR-0162](../../docs/adr/0162-e2e-helpers-are-plain-functions-per-surface.md), written before Phase 2.
 
-**Colour (ADR-0144 §4a): behaviour-preserving → characterisation.** Every existing spec is its own characterisation test. But this refactor edits the specs themselves, so "the covering tests pass unmodified" cannot be literally true here — see Q3, which is the open question about what the safety net is instead.
+**Colour (ADR-0144 §4a): behaviour-preserving → characterisation.** Every existing spec is its own characterisation test. But this refactor edits the specs themselves, so "the covering tests pass unmodified" cannot be literally true here. Q3 settled what the safety net is instead (ADR-0162 §6).
 
 ---
 
@@ -184,7 +184,7 @@ Scenario: the test still owns its assertion (conflict)
 - **The `.test.mjs` exclusion.** `e2e/support/*.test.mjs` are `node:test` files excluded from Playwright (`playwright.config.ts:44-56`). A new directory must not reintroduce that collision.
 - **Messages in `expect(..., 'message')`.** The copies carry different failure messages ("the wall display should be holding a grant" vs "the recovered wall display should be holding a grant"). Unifying them changes what a red run says; treat the message as part of the helper's contract, parameterised or kept per call.
 - **Two apps, one role name.** Kiosk and wall are the same app on different ports (`:5174`/`:5175`); management-web is a different app. A "page" is per app, not per port.
-- **The `e2e/` lint question** (#2154) stays open; nothing here depends on it.
+- **Lint does not catch a dropped `await`.** `e2e/` is linted (`pnpm lint:e2e`, #2219), but `eslint.config.mjs` has no type-aware rules, so `no-floating-promises` is off. A helper whose `expect` is not awaited passes silently. This is why Q3(c)'s deliberate-break run exists. #2154's remaining questions are not touched.
 
 ## 3. Requirements *(mandatory)*
 
@@ -197,18 +197,32 @@ Scenario: the test still owns its assertion (conflict)
 - **FR-005**: Where copies differ (URL, timeout budget, extra arrival assertion, failure message — §1.6), the shared helper MUST preserve each caller's variant; no caller's budget or assertion set may change.
 - **FR-006**: The real Keycloak sign-in MUST still run per test as it does today (ADR-0108). Sharing authenticated state across tests is out of scope.
 - **FR-007**: New shared modules MUST NOT match any project's `testMatch`, and MUST NOT be named `*.spec.*`, `*.test.*`, `*.setup.ts` or `*.teardown.ts`.
-- **FR-008**: The organisation pattern MUST be the one selected in Q1 and recorded in a new ADR before Phase 2. [NEEDS CLARIFICATION: Q1 — which pattern?]
-- **FR-009**: Scope and location MUST follow Q2. [NEEDS CLARIFICATION: Q2 — duplicated clusters only, or every spec; and where do the modules live?]
-- **FR-010**: Each story's PR MUST carry the characterisation evidence defined by Q3. [NEEDS CLARIFICATION: Q3 — what is the safety net when the specs themselves are edited?]
+- **FR-008**: Shared e2e code MUST be plain exported functions taking the `Page` or `BrowserContext` they drive, one module per surface in `e2e/support/`. No classes, no `test.extend` fixtures, and no change to the `test` specs import (Q1 = C; ADR-0162 §1-2).
+- **FR-009**: Only code with a second caller in a different file is extracted. Repetition within one file is left alone, and specs with no cross-file duplication are not touched. Each user story ships as its own PR (Q2 = (a); ADR-0162 §3).
+- **FR-010**: Each story's PR MUST carry, for every test in the files it touches:
+  - identical `pnpm test:e2e --list` output before and after;
+  - the affected projects green on the full stack before and after;
+  - an unchanged ordered assertion inventory, captured by the repository's `expect`-step reporter;
+  - for each extracted helper that asserts arrival, one deliberate-break run observed red and then reverted.
+
+  (Q3 = (b) + (c); ADR-0162 §6.)
 
 ### Key Entities
 
 - **Surface helper module**: the one place a surface's (an app section's, or a session's) locators and multi-step actions are named. Takes a page; returns nothing or a value read from the page.
 - **Session rig**: sign-in, grant reading/expiry, claim decoding — per app, because storage differs (kiosk/wall `localStorage`, management `sessionStorage`).
 
-## 4. Open questions *(for the Phase 1 gate)*
+## 4. Questions put to the Phase 1 gate, and their answers
 
-### Q1 — Which pattern? [NEEDS CLARIFICATION]
+**Resolved 2026-09-29:**
+
+- **Q1 = C.** Recorded in ADR-0162.
+- **Q2 = (a).** Duplicated clusters only, in `support/`, one PR per story.
+- **Q3 = (b) + (c).** One correction to (b) as first written: CI's JSON report **cannot** supply the assertion inventory. Playwright's JSON reporter keeps only `test.step` entries and drops every `expect` step (`_serializeTestResult` filters on `category === "test.step"`, checked in the pinned `playwright@1.63.0`). The inventory therefore comes from a small repository reporter that records `expect` steps (plan §4.1).
+
+The analysis below is kept as the record of why.
+
+### Q1 — Which pattern?
 
 | Option | Shape | Trade-off in one line |
 |---|---|---|
@@ -219,7 +233,7 @@ Scenario: the test still owns its assertion (conflict)
 
 **Recommendation: C.** The measured duplication (§1) is session rigs, a navigate-and-arrive pair, and a handful of form flows — functions, not object graphs. The suite already has this convention (`signInAsOperator`, `signInToKiosk`, `openFirstLayout`, `readManagementAccessToken`), so C is "use what exists", which is what ADR-0036 asks and what the deferral comments in §1.5 were waiting for. It reaches manually launched contexts without adaptation (FR-003) and keeps each surface in its own file, which is what limits ADR-0109 contention. B's strengths answer a problem the project graph already solves, and its cost (a single hot module, a changed `test` import in every file) is exactly the contention that caused the duplication. A is defensible, but its value grows with locator count per surface, and no surface here has a large locator set that crosses files — the only such set measured (§1.3) lives in one file.
 
-### Q2 — Scope and location [NEEDS CLARIFICATION]
+### Q2 — Scope and location
 
 - **(a) Duplicated clusters only (recommended)** — Stories 1-3 as ordered, each its own PR on a disjoint file set; specs with no cross-file duplication (e.g. `kiosk-shows-a-label-over-video.spec.ts`'s measurement helpers, `click-to-first-frame.spec.ts`'s clock) are not touched. Modules stay in `e2e/support/`, named per surface.
 - **(b) Every spec file** — a uniform convention across all 30; roughly 30 files churned, and every in-flight e2e branch conflicts.
@@ -227,27 +241,27 @@ Scenario: the test still owns its assertion (conflict)
 
 On sequencing: the issue asks for "no window where both conventions are half-applied". With option C there is no new convention to half-apply — each PR finishes one cluster — so per-story PRs are safe. A single big-bang PR across 30 files is the option most likely to collide with parallel work (ADR-0109) and I would not recommend it.
 
-### Q3 — The characterisation net [NEEDS CLARIFICATION]
+### Q3 — The characterisation net
 
 CLAUDE.md's rule is that covering tests pass **unmodified**. Here the covering tests *are* what is modified. Candidate evidence, cumulative:
 
 - **(a)** `pnpm test:e2e --list` byte-identical before/after (the identity CI's shard guard already relies on) **plus** the affected projects green on the full stack before and after.
-- **(b)** (a) plus **the `expect` inventory per test unchanged**: the same number of assertions, in the same order, with the same matchers and messages — checked by the runtime step list from Playwright's JSON report (`test-results/e2e-report.json`, already produced in CI), not by grepping source.
+- **(b)** (a) plus **the `expect` inventory per test unchanged**: the same number of assertions, in the same order, with the same matchers and messages — checked from the runtime `expect` steps, not by grepping the source. *(As first written, this proposed reading the steps from CI's JSON report. That report does not contain them — see the resolution above.)*
 - **(c)** (b) plus **one counterfactual per extracted helper**: break the UI (or the helper's locator) once and observe the consuming test go red, proving the extraction did not turn an assertion into a no-op.
 
 **Recommendation: (b), with (c) for helpers that assert arrival** (sign-in, navigate). (a) alone would pass a refactor that silently dropped an `expect` into a helper that no longer awaits it — the exact failure mode an extraction of assertion-bearing helpers invites.
 
-### Q4 — ADR authorship
+### Q4 — ADR authorship (resolved)
 
-Flagged, not asked as a marker: the selected pattern needs an ADR. Proposed: write it as the first task of Phase 2 once Q1-Q3 are answered, citing ADR-0108 and ADR-0109, and amend ADR-0109's contention-file entry if new modules change what "`e2e/support/*`" covers.
+Written before Phase 2 as ADR-0162. ADR-0109 needed no amendment: the new modules live under `e2e/support/`, which its existing contention glob already covers.
 
 ## 5. Success Criteria *(mandatory)*
 
 - **SC-001**: After Story 1, each of the six wall-rig helpers in §1.5 has exactly one definition under `e2e/` (from 2-4 today).
 - **SC-002**: After Story 2, zero spec files outside the shared layer contain a sidebar-nav link locator for the seven sections (from 61 sites in 15 files).
 - **SC-003**: For every story, the discovered test list is identical before and after, and the affected Playwright projects pass on the full stack.
-- **SC-004**: For every story, the per-test assertion inventory is unchanged, per whatever Q3 selects.
-- **SC-005**: No story's diff touches a file outside its own cluster, so any two stories can be in flight at once without conflicting.
+- **SC-004**: For every story, the ordered per-test assertion inventory of every affected test is unchanged (noise masked only where two baseline runs on `develop` already disagree), and every extracted arrival-asserting helper has one observed deliberate-break red.
+- **SC-005**: No story's diff touches a file outside its own cluster. US1 is file-disjoint from US2 and US3. US2 and US3 share spec files and so run in sequence (plan §6).
 
 ## 6. Latency budget impact
 
@@ -256,7 +270,7 @@ Flagged, not asked as a marker: the selected pattern needs an ADR. Proposed: wri
 ## 7. Out of scope
 
 - Sharing authenticated state across tests (`storageState`) — a change to what ADR-0108's e2e proves.
-- Whether `e2e/` is linted (#2154).
+- #2154's open lint questions, and adding type-aware lint rules to `eslint.config.mjs`.
 - Changes to seed/teardown projects, `playwright.config.ts` projects, or CI sharding.
 - Any product (`apps/*`) change, including adding test ids.
 
