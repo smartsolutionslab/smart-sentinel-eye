@@ -134,17 +134,15 @@ public class AutomationRulesClientTests
 
         HttpClient http = new(automation) { BaseAddress = new Uri("https://automation.test") };
 
+        RuleSeed seed = new(
+            "press-hot",
+            "plc",
+            "PlcCycleStart",
+            "$.device == 'press-1' && $.payload.value >= 80",
+            new RuleSeedAction.HighlightOverlay(Guid.CreateVersion7(), 5_000));
+
         return new AutomationRulesClient(http, provider, NullLogger<AutomationRulesClient>.Instance)
-            .EnsureRuleAsync(
-                name: "press-hot",
-                triggerSource: "plc",
-                triggerKind: "PlcCycleStart",
-                device: "press-1",
-                comparison: "gte",
-                threshold: 80,
-                overlay: Guid.CreateVersion7(),
-                durationMs: 5_000,
-                CancellationToken.None);
+            .EnsureRuleAsync(seed, CancellationToken.None);
     }
 
     private static HttpResponseMessage Respond(HttpStatusCode status) => new(status);

@@ -147,19 +147,6 @@ public sealed class ScenarioSeeder(
             return;
         }
 
-        string triggerSource = asset.Sensors
-                .FirstOrDefault(sensor => string.Equals(sensor.Kind, asset.Highlight.TriggerKind, StringComparison.Ordinal))?.Source
-            ?? "plc";
-
-        await rules.EnsureRuleAsync(
-            $"{scenario}-{asset.Key}-highlight",
-            triggerSource,
-            asset.Highlight.TriggerKind,
-            assetKey,
-            asset.Highlight.Comparison,
-            asset.Highlight.Threshold,
-            overlay,
-            asset.Highlight.DurationMs,
-            cancellationToken);
+        await rules.EnsureRuleAsync(HighlightRuleSeed.From(scenario, asset, overlay), cancellationToken);
     }
 }

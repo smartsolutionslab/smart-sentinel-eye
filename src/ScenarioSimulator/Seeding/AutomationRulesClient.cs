@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
@@ -22,19 +21,19 @@ public sealed class AutomationRulesClient(
     KeycloakTokenProvider tokens,
     ILogger<AutomationRulesClient> logger)
 {
-    public async Task EnsureRuleAsync(
-        string name,
-        string triggerSource,
-        string triggerKind,
-        string device,
-        string comparison,
-        double threshold,
-        Guid overlay,
-        int durationMs,
-        CancellationToken cancellationToken)
+    internal async Task EnsureRuleAsync(RuleSeed seed, CancellationToken cancellationToken)
     {
-        string predicate =
-            $"$.device == '{device}' && $.payload.value {Operator(comparison)} {threshold.ToString(CultureInfo.InvariantCulture)}";
+        Ensure.That(seed).IsNotNull();
+
+        (string name, string triggerSource, string triggerKind, string predicate, RuleSeedAction action) = seed;
+
+        if (action is not RuleSeedAction.HighlightOverlay highlight)
+        {
+            throw new NotSupportedException($"Unsupported rule seed action '{action.GetType().Name}'.");
+        }
+
+        CreateRuleBody body = new(
+            name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, highlight.Overlay, highlight.DurationMs);
 
         string token = await tokens.GetAccessTokenAsync(cancellationToken);
 
@@ -44,8 +43,7 @@ public sealed class AutomationRulesClient(
         // happens to be assigned to.
         using HttpRequestMessage create = new(HttpMethod.Post, $"/rules?fabId={FabId}")
         {
-            Content = JsonContent.Create(
-                new CreateRuleBody(name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, overlay, durationMs)),
+            Content = JsonContent.Create(body),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
@@ -81,7 +79,7 @@ public sealed class AutomationRulesClient(
         using HttpResponseMessage published = await http.SendAsync(publish, cancellationToken);
         published.EnsureSuccessStatusCode();
 
-        logger.RuleSeeded(name, overlay);
+        logger.RuleSeeded(name, highlight.Overlay);
     }
 
     /// <summary>
@@ -116,17 +114,6 @@ public sealed class AutomationRulesClient(
     private const string FabId = "munich";
 
     private const string DraftState = "Draft";
-
-    private static string Operator(string comparison) => (comparison ?? string.Empty).ToLowerInvariant() switch
-    {
-        "gte" => ">=",
-        "lte" => "<=",
-        "gt" => ">",
-        "lt" => "<",
-        "eq" => "==",
-        "ne" => "!=",
-        _ => ">=",
-    };
 
     /// <summary>
     /// Just the two fields the seeder acts on. Deliberately not the full
