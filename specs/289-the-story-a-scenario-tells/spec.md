@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-28
 
-**Status**: Draft (Phase 1 gate). **Supervised lane, exploratory.** Phase 1 only: no `plan.md` and no `tasks.md` until the owner answers §4.
+**Status**: Phases 1-3 drafted, awaiting review. **Supervised lane.** The five §4 questions were settled on 2026-09-29. The coordinator relayed the owner's instruction to adopt the recommended option for each. See [`plan.md`](plan.md), [`tasks.md`](tasks.md), and ADR-0163 (`docs/adr/0163-a-scenario-is-a-story-on-the-clips-clock.md`), which records the decision.
 
 **Input**: The owner's request (in their own words): extend the dev-only Scenario Simulator so that simulated data, meaning sensor readings and simulated computer-vision detections, is generated **in sync with the simulated video** and can **drive the reactions, actions and overlays** a scenario sets up. A scenario should read as one story: *this happens on the video, this rule reacts, this action fires, this overlay changes.*
 
@@ -12,7 +12,7 @@
 
 **ADRs and constitution sections referenced:** ADR-0111 (Scenario Simulator: asset model, M1/M2, dev-only gating), ADR-0095 (event ingestion / MQTT topic convention), ADR-0099 (AEL, the rule expression language), ADR-0129 (a label is aged to match its picture, not frame-matched), ADR-0128 (nothing we own sits in the media path), ADR-0114 (explicit `fabId` on seeded rules), ADR-0142/0143 (retry safety for the seeding POSTs), ADR-0103 (Aspire-fixture tests), ADR-0139 + constitution §Testing (red first), constitution §IV (latency budget), ADR-0037 (phases). `0000-initial-decisions.md` decision 018 and spec 143 cover the event-type registry. That registry exists but nothing enforces it; see §1.4.
 
-**ADR gap: probably one.** ADR-0111 describes M2 as "a timeline" and says nothing about clip-relative timing, simulated detections, or the scenario file declaring reactions. If the owner picks the recommended options in §4, the scenario becomes a **declarative story format with a clip-phase clock**. That is a decision, and it should be recorded as an ADR-0111 amendment (or a new ADR) at the Phase 2 gate. I do not write that ADR here (ADR-0144 does not apply to this lane, but ADR-0037 still asks for the decision to be made by a human first).
+**ADR gap: closed by ADR-0163.** ADR-0111 describes M2 as "a timeline" and says nothing about clip-relative timing, simulated detections, or the scenario file declaring reactions. With §4 settled, the scenario becomes a **declarative story format with a clip-phase clock**. ADR-0163 amends ADR-0111 to say so, and ADR-0111 now carries an `Amended by` line pointing to it.
 
 ---
 
@@ -94,7 +94,7 @@ A presenter watching the rolling-mill wall sees a worker walk into the roughing 
 
 **Why this priority**: this is the smallest slice that exercises everything new: a clip-cue manifest, the clip-phase clock, the detection payload, and a reaction whose predicate is richer than `$.payload.value >= n`. It reuses the only action shape already proven end to end (`HighlightOverlay`), so no Automation, SystemVariables or kiosk code changes.
 
-**Independent Test**: boot the dev stack. Open the rolling-mill wall in a kiosk. Record the screen for three clip loops (about 60 s). In the recording, the roughing tile's highlight starts within the Q1-chosen tolerance of the frame where the annotated person appears, on every loop. In the Aspire structured logs, each emitted cue shows its clip offset and the matching `FabEventIngestedV1` / `OverlayHighlightRequestedV1` pair for that loop. Then close the wall for more than 10 s and reopen it. camera-sim restarts the clip from 0, and the highlight still lines up with the person rather than with the old phase.
+**Independent Test**: boot the dev stack. Open the rolling-mill wall in a kiosk. Record the screen for three clip loops (about 60 s). In the recording, the roughing tile's highlight starts within ±500 ms (SC-001) of the frame where the annotated person appears, on every loop. In the Aspire structured logs, each emitted cue shows its clip offset and the matching `FabEventIngestedV1` / `OverlayHighlightRequestedV1` pair for that loop. Then close the wall for more than 10 s and reopen it. camera-sim restarts the clip from 0, and the highlight still lines up with the person rather than with the old phase.
 
 **Acceptance Scenarios**:
 
@@ -210,12 +210,12 @@ A developer adds a reaction on `ObjectDetected` to an asset whose clip declares 
 
 ### Edge Cases
 
-- **No reader, no video.** With `runOnDemand`, a clip nobody watches is not playing. The recommended answer to Q1 emits no clip cues for such a path. Sensors on the billet clock are unaffected and keep emitting as they do today.
+- **No reader, no video.** With `runOnDemand`, a clip nobody watches is not playing. Under Q1-A (decided), no clip cues are emitted for such a path. Sensors on the billet clock are unaffected and keep emitting as they do today.
 - **Two kiosks, one path.** MediaMTX runs one FFmpeg per path however many readers there are. The phase is per path, not per viewer, so both kiosks see the same picture and the same cue.
-- **Clip shared between assets.** `sim-loop.mp4` is the default clip. If cues live with the clip (Q2 option A), every asset playing it inherits its cues. The device on each emitted event is still the asset's camera path, so reactions stay per-tile.
+- **Clip shared between assets.** `sim-loop.mp4` is the default clip. Cues live with the clip (Q2-A, decided), so every asset playing it inherits its cues. The device on each emitted event is still the asset's camera path, so reactions stay per-tile.
 - **Loop drift.** `-stream_loop -1 -c copy` loops at the container's duration, and `-re` paces on wall time. Over long runs the phase estimate may drift by up to a GOP. The phase anchor is re-read per loop (FR-004) rather than extrapolated forever.
 - **The kiosk sees the frame later than the event arrives.** camera-sim publish → SFU → decode → presentation buffer is ≤ 400 ms by budget, and event → overlay state is ≤ 200 ms. By ADR-0129 a label is aged, not frame-matched, so a cue published at the frame's publish instant lands inside the picture's own lag. The sync tolerance (SC-001) must be wider than that difference.
-- **Scenario file edited after first boot.** Seeding is create-once (§1.1). A changed reaction or label does not reach an existing database. This is recorded, not fixed, unless the owner picks Q4(b) with reconciliation.
+- **Scenario file edited after first boot.** Seeding is create-once (§1.1). A changed reaction or label does not reach an existing database. This is recorded, not fixed: Q4 was decided as (b) **without** reconciliation. To re-seed, delete the rule or overlay, or the volume.
 - **Only the first active scenario animates today.** Clip cues are per-path and stateless, so FR-006 runs them for **every** active scenario whose paths have readers. That differs from the billet timeline, and the difference is stated so nobody later "fixes" it.
 - **High-rate cues.** A cue list may declare several detections per second. EventIngestion's batch fast path absorbs this, but a manifest with more than 10 cues/s per clip is refused at load (FR-003) so that a typo cannot flood the dev broker.
 
@@ -223,18 +223,18 @@ A developer adds a reaction on `ObjectDetected` to an asset whose clip declares 
 
 ### Functional Requirements
 
-- **FR-001 (cue manifest)**: A clip MUST be able to declare an ordered list of **cues**. Each cue has `atMs` (offset into the clip, `0 ≤ atMs < clip duration`), a `kind`, a `source` (default `inference`), and a `payload` object. Where cues live is Q2. [NEEDS CLARIFICATION: Q2]
+- **FR-001 (cue manifest)**: A clip MAY have a sidecar `<clip basename>.cues.json` in the clips directory (`src/AppHost/Resources/clips/`), next to the `.mp4` (Q2-A). The sidecar declares the clip's `DurationMs` and an ordered list of **detection cues**. Each cue has `AtMs` (`0 ≤ AtMs < DurationMs`), `Kind` (default `ObjectDetected`), `Source` (default `inference`), and the FR-002 detection fields. Cues are typed detections, not free-form payloads. No other cue shape has a consumer yet (ADR-0036).
 - **FR-002 (detection payload)**: A detection cue MUST produce **one** MQTT event per detection on `fab/munich/{source}/{camera path}` with body `{ eventId, kind, occurredAt, payload }`. `payload` carries at least `class` (string), `confidence` (0..1), and `station` (asset key). Optional fields are `label` (human text), `zone` (string), `box` `{ x, y, width, height }` (normalised 0..1, the same convention as overlay geometry), and `trackIdentifier` (string, which lets enter/exit cues pair). One event per detection is forced by AEL's lack of arrays (§1.3). The kind name is an assumption; see A-3.
 - **FR-003 (manifest validation)**: At load, the simulator MUST refuse a clip's cues if any `atMs` lies outside the clip's duration, if the cues are not in ascending order, or if the list exceeds 10 cues per second of clip. The refusal is a warning naming the scenario, asset, clip and offending cue index. The rest of the scenario seeds.
-- **FR-004 (clip-phase clock)**: Cues MUST be emitted relative to the clip's **actual playback position on camera-sim**, not a simulator-local clock. The anchor is re-established every loop and on every camera-sim path restart. The mechanism is Q1. [NEEDS CLARIFICATION: Q1]
-- **FR-005 (no reader, no cue)**: While a camera-sim path has no running source, its clip's cues MUST NOT be emitted. (This holds under Q1-A. Under Q1-C it is moot.)
+- **FR-004 (clip-phase clock)**: Cues MUST be emitted relative to the clip's **actual playback position on camera-sim**, not a simulator-local clock (Q1-A). The anchor is camera-sim's `readyTime` for the path, read from `GET /v3/paths/get/{path}`. That field was verified present on the pinned `bluenviron/mediamtx:1.21.0-ffmpeg` on 2026-09-29 (plan §2). The playback offset is `(now − readyTime) mod DurationMs`. The anchor is re-read before every cue, so a restart (a changed `readyTime`) is picked up before the next emission.
+- **FR-005 (no reader, no cue)**: While a camera-sim path is not `ready`, its clip's cues MUST NOT be emitted.
 - **FR-006 (all active scenarios)**: Cue emission MUST run for every active scenario, not only `ScenarioOptions.Animated`. The billet timeline's one-plant restriction stays as it is.
-- **FR-007 (sensor timing)**: Sensor samples either stay on the billet clock or move to the clip-phase clock. That is Q3. [NEEDS CLARIFICATION: Q3]
-- **FR-008 (reactions)**: A scenario MUST be able to declare, per asset, **zero or more reactions**. Each reaction has a trigger (`source`, `kind`), an AEL predicate, and an action. Actions in scope are `HighlightOverlay` (on the asset's seeded overlay, with a duration) and `SetVariableValue` (a variable name and an AEL value expression). The action list MUST be open to `SwitchWallScene` once #2618 ships, without a format change. The predicate is prefixed with `$.device == '<camera path>' &&` by the seeder, so a reaction always stays on its own tile. How reactions reach Automation is Q4. [NEEDS CLARIFICATION: Q4]
+- **FR-007 (sensor timing)**: Sensor samples MUST stay on the billet clock, unchanged (Q3-a). `BilletTimelineHostedService` is not modified.
+- **FR-008 (reactions)**: A scenario MUST be able to declare, per asset, **zero or more reactions**. Each reaction has a trigger (`source`, `kind`), an AEL predicate, and an action. Actions in scope are `HighlightOverlay` (on the asset's seeded overlay, with a duration) and `SetVariableValue` (a variable name and an AEL value expression). The action list MUST be open to `SwitchWallScene` once #2618 ships, without a format change. The seeder wraps the predicate as `$.device == '<camera path>' && (<predicate>)`, so a reaction always stays on its own tile. The parentheses keep a declared `||` from escaping the device guard. Reactions reach Automation through the existing `AutomationRulesClient`, with the same idempotent create-then-publish pattern and no reconciliation of changed definitions (Q4-b). Each seeded rule is named `{scenario}-{asset}-{reaction}`. That name must satisfy Automation's `RuleName`: 2-63 characters, a lowercase letter first, then lowercase letters, digits and `-`. A reaction whose name does not fit is refused at load.
 - **FR-009 (backward compatibility)**: The existing `Highlight` object MUST keep seeding the identical rule, with the same name, predicate and action. It is read as shorthand for one reaction. All three shipped scenario files MUST seed unchanged rules and overlays without being edited (characterisation, observed green).
 - **FR-010 (variables)**: A scenario MUST be able to declare system variables (`name`, `type` ∈ `String|Number|Boolean`, and `BooleanLabels` where applicable). The simulator seeds them idempotently. An existing variable with a different type is reported and its dependent reactions are skipped, not overwritten.
 - **FR-011 (live labels)**: An overlay label in a scenario MAY contain `{{variable}}` placeholders. They are stored verbatim and resolved by SystemVariables as they are today. No OverlayDesigner change is needed.
-- **FR-012 (grant)**: The `scenario-simulator` realm client MUST gain `sse.variables.write` (and `sse.variables.read`, so it can read back on a 409). No other client changes.
+- **FR-012 (grant)**: The `scenario-simulator` realm client MUST gain `sse.variables.write`, and `sse.variables.read` so it can read back on a 409. No other client changes. **Consequence found at Phase 2:** two integration tests use `scenario-simulator` as their principal *without* `sse.variables.read`: `VariableReadScopeIntegrationTests` (which says in its own doc comment to swap in `stream-distribution-attribution` if this ever happens) and `ResolveOverlayTextTests`' 403-unscoped fact. Both move to `stream-distribution-attribution` in the same PR, *before* the realm edit (plan §6).
 - **FR-013 (story check)**: At load, every reaction whose trigger `(source, kind)` is emitted by **no** sensor and **no** cue on the same asset MUST be reported (US3). The `plc` fallback in `SeedOverlayAndRuleAsync` MUST be replaced by this report.
 - **FR-014 (registry, forward)**: When strict mode (#2324) lands, the simulator must register the kinds it emits. That is out of scope here. It is recorded so #2324's spec finds it.
 - **FR-015 (dev-only)**: No change reaches CI, E2E or production composition. camera-sim and the simulator stay behind ADR-0111's gate. No `Shared.Contracts` change, no new integration event, and no change to Automation, SystemVariables, OverlayDesigner, LayoutComposition or the kiosk.
@@ -250,7 +250,7 @@ A developer adds a reaction on `ObjectDetected` to an asset whose clip declares 
 
 ### Proposed scenario-file shape (illustrative, for the owner to react to)
 
-This shows Q2 option A (cues beside the clip) and Q4 option (b) (reactions seeded from the scenario):
+The decided shape: cues beside the clip (Q2-A), reactions seeded from the scenario (Q4-b). Data-model details are in plan §3.
 
 ```jsonc
 // src/AppHost/Resources/clips/mill-roughing.cues.json   (beside mill-roughing.mp4)
@@ -258,9 +258,9 @@ This shows Q2 option A (cues beside the clip) and Q4 option (b) (reactions seede
   "Clip": "mill-roughing.mp4",
   "DurationMs": 20000,
   "Cues": [
-    { "AtMs": 4000,  "Kind": "ObjectDetected", "Payload": { "Class": "person", "Confidence": 0.55, "Zone": "walkway" } },
-    { "AtMs": 12000, "Kind": "ObjectDetected", "Payload": { "Class": "person", "Confidence": 0.92, "Zone": "exclusion", "Label": "PERSON IN EXCLUSION ZONE",
-                                                             "Box": { "X": 0.61, "Y": 0.40, "Width": 0.08, "Height": 0.31 } } }
+    { "AtMs": 4000,  "Class": "person", "Confidence": 0.55, "Zone": "walkway" },
+    { "AtMs": 12000, "Class": "person", "Confidence": 0.92, "Zone": "exclusion", "Label": "PERSON IN EXCLUSION ZONE",
+      "Box": { "X": 0.61, "Y": 0.40, "Width": 0.08, "Height": 0.31 } }
   ]
 }
 
@@ -286,9 +286,17 @@ This shows Q2 option A (cues beside the clip) and Q4 option (b) (reactions seede
 
 The seeded rule names would be `{scenario}-{asset}-{reaction name}`, and `{scenario}-{asset}-highlight` stays for the legacy field (FR-009).
 
-## 4. Open questions *(for the Phase 1 gate)*
+## 4. Decisions *(settled 2026-09-29; the options are kept for the record)*
 
-### Q1: How does the simulator learn where each clip is in its loop? [NEEDS CLARIFICATION]
+| # | Decision |
+|---|---|
+| Q1 | **A.** Anchor on camera-sim's `readyTime`. Tolerance ±500 ms. |
+| Q2 | **A.** A `<clip>.cues.json` sidecar next to each `.mp4`. |
+| Q3 | **(a).** Sensors stay on the billet clock. |
+| Q4 | **(b).** `Reactions[]` + `Variables[]` seeded through the existing clients, `Highlight` kept as shorthand, no reconciliation. |
+| Q5 | **(a).** Nothing draws the box. It travels in the payload only. |
+
+### Q1: How does the simulator learn where each clip is in its loop? (decided: A)
 
 | Option | Mechanism | Trade-off in one line |
 |---|---|---|
@@ -299,7 +307,7 @@ The seeded rule names would be `{scenario}-{asset}-{reaction name}`, and `{scena
 
 **Recommendation: A.** It is the only option that stays correct across the `runOnDemand` restarts that happen every time a wall is closed and reopened. It adds no always-on load, and it touches neither the SFU nor camera-sim's configuration. **I also recommend fixing the acceptable tolerance now: ±500 ms between the annotated frame and the start of the overlay change, as seen on the kiosk.** That is looser than FFmpeg's start-up jitter and tighter than a presenter would notice. If A's measured accuracy cannot meet it, fall back to B for the affected paths rather than loosening the number.
 
-### Q2: Where do cues live: beside the clip, or inside the scenario? [NEEDS CLARIFICATION]
+### Q2: Where do cues live: beside the clip, or inside the scenario? (decided: A)
 
 - **(A) A sidecar per clip, `<clip>.cues.json` next to the `.mp4` (recommended).** Cues describe *what is on the footage*, which is a property of the clip, not the plant. `sim-loop.mp4` is reused, and the four `mill-*` clips come from one film. The regeneration script (`scripts/generate-sim-clips.sh`) and the `.ATTRIBUTION.txt` files already treat the clip directory as the home for per-clip facts. The scenario references the clip and so inherits its cues. `ClipLibrary` already resolves clips there, so it gains a sibling lookup.
 - **(B) Inline per asset in the scenario JSON (`Camera.Cues`).** One file tells the whole story, which is closest to the request's wording. But two assets on the same clip must repeat the cues, and a re-cut clip silently invalidates annotations held in three scenario files.
@@ -307,7 +315,7 @@ The seeded rule names would be `{scenario}-{asset}-{reaction name}`, and `{scena
 
 **Recommendation: A.** The owner asked for "one declarative story". With A, the *story* (assets, reactions, variables, labels) is still one scenario file. Only the *facts about the footage* live beside the footage, where re-cutting a clip forces its annotation to be looked at.
 
-### Q3: Do sensor samples move to the clip clock too? [NEEDS CLARIFICATION]
+### Q3: Do sensor samples move to the clip clock too? (decided: a)
 
 - **(a) No. Sensors stay on the billet clock, and only cues are clip-anchored (recommended for this spec).** Sensor readings (temperature, force, weight) are process data that the footage does not show at a readable precision. The billet narrative spans stations and is intentionally longer than any single clip. Leaving it alone keeps FR-009's "shipped scenarios seed and animate unchanged" trivially true.
 - **(b) Sensors become clip-relative too:** each station's billet dwell becomes that station's clip loop, and `StepAtFraction` and the other behaviour parameters are read against clip phase. This moment-matches, for example, the coiler weight step with the coil visibly dropping. It is a larger change, and it ends the "billet travels the line" narrative, because four clips loop independently.
@@ -315,7 +323,7 @@ The seeded rule names would be `{scenario}-{asset}-{reaction name}`, and `{scena
 
 **Recommendation: (a) now, and (c) as a follow-up story only if a scenario turns out to need a sensor moment-matched to the picture.** Nobody has yet asked for a specific sensor to match a specific frame, and cues can already carry numeric payloads for the moments that matter.
 
-### Q4: How does a scenario's declared reaction reach Automation? [NEEDS CLARIFICATION]
+### Q4: How does a scenario's declared reaction reach Automation? (decided: b, without reconciliation)
 
 - **(a) The scenario emits data only. Rules, variables and overlays are configured separately through the console.** There is no coupling, but it **reverses what exists today**: the simulator already seeds overlays, rules and walls (§1.1). It also leaves the "complete declarative story" to documentation.
 - **(b) Generalise the existing seeding: `Reactions[]` and `Variables[]` in the scenario, seeded through the same REST clients with the same idempotent create-then-publish pattern (recommended).** `Highlight` stays as shorthand (FR-009). `AutomationRulesClient` takes a predicate string instead of building one, and a `SystemVariablesClient` is added beside it. This extends a working pattern and invents nothing. The cost is one realm scope (FR-012) and create-once semantics: a reaction edited after first boot does not update (§1.1). **Sub-question:** should (b) also *reconcile*, meaning update a rule or overlay whose definition changed? My recommendation is **no**, not in this spec. Reconciling means versioned updates with `If-Match` against rules a human may have edited in the console, and that is a policy decision about who owns a seeded rule. Document "delete the volume or the rule to re-seed" instead.
@@ -323,7 +331,7 @@ The seeded rule names would be `{scenario}-{asset}-{reaction name}`, and `{scena
 
 **Recommendation: (b), without reconciliation.** US3's story check covers what (c) would have added, at load time and without a round trip.
 
-### Q5: Do "overlays update" include drawing the detection box on the video? [NEEDS CLARIFICATION]
+### Q5: Do "overlays update" include drawing the detection box on the video? (decided: a)
 
 This decides whether the spec stays inside the simulator or reaches OverlayDesigner, LayoutComposition and the kiosk.
 
@@ -338,18 +346,22 @@ This decides whether the spec stays inside the simulator or reaches OverlayDesig
 
 ## 6. Success Criteria *(mandatory)*
 
-- **SC-001**: On the rolling-mill wall, over 10 consecutive clip loops, the roughing tile's highlight begins within **±500 ms** (pending Q1) of the frame where the annotated person appears, on every loop. This is measured from a screen recording and quoted in the verification note with the per-loop offsets.
+- **SC-001**: On the rolling-mill wall, over 10 consecutive clip loops, the roughing tile's highlight begins within **±500 ms** of the frame where the annotated person appears, on every loop. This is measured from a screen recording and quoted in the verification note with the per-loop offsets.
 - **SC-002**: After closing a wall for 15 s and reopening it, the first cue after the restart meets SC-001's tolerance. Pass/fail is on the first loop, not the average.
 - **SC-003**: The three shipped scenario files, unedited, seed rules and overlays that are byte-identical in name, predicate, action and label to `origin/develop @ 2cbd044b`. This is captured before the change and re-read after it (characterisation).
 - **SC-004**: A scenario with one orphaned reaction produces exactly one `ScenarioReactionUnreachable` warning and seeds every other reaction.
 - **SC-005**: No file under `src/{Automation,SystemVariables,OverlayDesigner,LayoutComposition,EventIngestion,Shared.Contracts}` or `apps/` changes (checked with `git diff --stat` against the base). The only edits outside `src/ScenarioSimulator` are the realm file, the clip directory and, if needed, the AppHost wiring.
 
-## 7. Slicing (for Phase 3, subject to §4)
+## 7. Slicing
 
-1. **US1** (P1): cue sidecar + validation, the clip-phase clock (Q1), detection publishing, generalised `Reactions[]` with `HighlightOverlay` only, and FR-009 characterisation. One PR. This is independently demonstrable on one tile.
-2. **US2** (P2): `Variables[]`, `SystemVariablesClient`, the realm scope, `SetVariableValue` reactions, and a placeholder label in the electronics scenario. One PR, after US1, because it depends on US1's reaction format.
-3. **US3** (P3): the story check and removal of the `plc` fallback. It can run in parallel with US2 once US1 has merged, since it owns the loader validation files and not the clients.
-4. Scenario authoring: annotating cues on all 13 clips is **content work, not code**. Recommend annotating one clip per plant in US1/US2 and leaving the rest for a follow-up issue.
+Settled in plan §7. There are four PRs, in sequence:
+
+- **PR-A**: a behaviour-preserving refactor. The legacy `Highlight` field becomes a rule seed, pinned byte-for-byte by characterisation tests (FR-009, SC-003).
+- **PR-B**: US1.
+- **PR-C**: US2.
+- **PR-D**: US3.
+
+Phase 3 revised the Phase 1 draft here. US3 is no longer parallel with US2, because both edit `ScenarioSeeder.cs`. Clip annotation stays minimal: `mill-roughing` in PR-B and `electronics-inspection` in PR-C. The other 11 clips are a follow-up content issue.
 
 ## 8. Assumptions (explicit guesses)
 
