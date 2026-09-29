@@ -116,6 +116,15 @@ public sealed class AssetDefinition
     /// the wall.
     /// </summary>
     public TileDefinition? Tile { get; set; }
+
+    /// <summary>
+    /// Spec 289 declared reactions (plan.md §3.3): fired when a sensor sample
+    /// or a clip cue matches the reaction's trigger. Seeded as rules, in file
+    /// order, after the legacy <see cref="Highlight"/>. Empty by default and
+    /// replaced, never appended, by the binder — same reasoning as
+    /// <see cref="ScenarioOptions.Active"/>.
+    /// </summary>
+    public List<ReactionDefinition> Reactions { get; set; } = [];
 }
 
 /// <summary>Camera leg of an asset: the MediaMTX path and which loop clip.</summary>

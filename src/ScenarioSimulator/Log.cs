@@ -161,4 +161,66 @@ internal static partial class Log
             + "The gap in the timeline is the outage; nothing was buffered, because a replayed "
             + "sample carries a stale occurredAt at a live wall.")]
     public static partial void MqttSamplesDropped(this ILogger logger, long count, double seconds);
+
+    // --- M2 reactions (Phase B rules from declared Reactions[]) ---
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Asset '{Asset}' reaction '{Reaction}' was not seeded: {Reason}.")]
+    public static partial void ReactionRefused(this ILogger logger, string asset, string reaction, string reason);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Asset '{Asset}' reaction '{Reaction}' was skipped: its trigger '{Source}'/'{Kind}' is satisfied "
+            + "only by a cue, and this clip's sidecar was refused.")]
+    public static partial void ReactionSkippedRefusedManifest(
+        this ILogger logger, string asset, string reaction, string source, string kind);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Asset '{Asset}' declares {ReactionCount} reaction(s) but has no seeded overlay; none of them were seeded.")]
+    public static partial void ReactionsSkippedNoOverlay(this ILogger logger, string asset, int reactionCount);
+
+    // --- Spec 289: clip cues (Cues/ClipCueHostedService) ---
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "camera-sim path '{Path}' could not be read: {Reason}.")]
+    public static partial void CameraSimPathUnreadable(this ILogger logger, string path, string reason);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Scenario '{Scenario}' asset '{Asset}' clip cue sidecar for '{Clip}' was refused: "
+            + "{Violations}. No cues will be emitted for it.")]
+    public static partial void ClipManifestRefused(
+        this ILogger logger, string scenario, string asset, string clip, string violations);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "camera-sim path '{Path}' readyTime changed from {OldAnchor} to {NewAnchor}; re-anchoring its cue schedule.")]
+    public static partial void ClipAnchorChanged(this ILogger logger, string path, DateTimeOffset oldAnchor, DateTimeOffset newAnchor);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Emitted cue for '{Path}' (loop {Loop}, index {Index}, offset {OffsetMs}ms), {LatenessMs}ms after due.")]
+    public static partial void ClipCueEmitted(
+        this ILogger logger, string path, int loop, int index, int offsetMs, double latenessMs);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Skipped a cue for '{Path}' (loop {Loop}, index {Index}, offset {OffsetMs}ms): "
+            + "{LatenessMs}ms late, past the {ToleranceMs}ms tolerance.")]
+    public static partial void ClipCueSkippedLate(
+        this ILogger logger, string path, int loop, int index, int offsetMs, double latenessMs, double toleranceMs);
+
+    // A separate message from CameraSimPathUnreadable: that one names a
+    // camera-sim-specific failure (and CameraSimPathClient logs its own
+    // anyway, so this path is mostly unreachable after it stopped throwing).
+    // This one is the loop's backstop for anything else — a publish fault, a
+    // mapper fault, a scheduling fault — which must not be reported under a
+    // message that says "camera-sim" when camera-sim was not the problem.
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Clip cue loop for '{Path}' failed: {Error}. Waiting before the next attempt.")]
+    public static partial void ClipCueLoopFailed(this ILogger logger, string path, string error);
 }

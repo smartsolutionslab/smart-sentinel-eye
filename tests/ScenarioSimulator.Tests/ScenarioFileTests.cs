@@ -1,7 +1,9 @@
 using Microsoft.Extensions.Configuration;
 using Shouldly;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
+using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
+using SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
 
@@ -94,6 +96,73 @@ public sealed class ScenarioFileTests
         ScenarioOptions options = new();
         builder.Build().GetSection(ScenarioOptions.SectionName).Bind(options);
         return options;
+    }
+
+    /// <summary>
+    /// Spec 289 / PR-B, T-B09. Every <c>*.cues.json</c> sidecar that actually
+    /// exists in the clips directory must name a clip that is really there and
+    /// pass <see cref="ClipManifestValidation"/>. No longer vacuous:
+    /// <c>mill-roughing.cues.json</c> ships as real content (T-B16).
+    /// </summary>
+    [Fact]
+    public void Every_cues_json_sidecar_names_a_clip_that_exists_and_is_itself_valid()
+    {
+        string directory = ClipsDirectory();
+
+        foreach (string sidecar in Directory.EnumerateFiles(directory, "*.cues.json"))
+        {
+            string clip = Path.GetFileName(sidecar).Replace(".cues.json", ".mp4", StringComparison.Ordinal);
+
+            File.Exists(Path.Combine(directory, clip))
+                .ShouldBeTrue($"{Path.GetFileName(sidecar)} names a clip that is not in the clips directory");
+
+            ClipManifestLoadResult result = ClipManifestLoader.Load(directory, clip);
+
+            result.Violations.ShouldBeEmpty(
+                $"{Path.GetFileName(sidecar)}: " + string.Join("; ", result.Violations.Select(v => v.Message)));
+            result.Manifest.HasValue.ShouldBeTrue();
+        }
+    }
+
+    /// <summary>
+    /// Backend-reviewer finding S5 (should-fix). <c>ClipManifest.cs</c>'s own
+    /// doc comment claims <c>DurationMs</c> is "content-checked against the
+    /// file, T-B09" — nothing has ever done that. Reads each shipped
+    /// sidecar's clip via its <c>moov/mvhd</c> box (plan.md T-B09: "no ffprobe
+    /// dependency") and asserts the declared <c>DurationMs</c> matches the
+    /// file's actual duration to within 1ms, so a re-cut clip whose duration
+    /// silently drifted from its sidecar is caught here rather than by a
+    /// cue firing against the wrong offset.
+    /// </summary>
+    [Fact]
+    public void Every_cues_json_sidecars_DurationMs_matches_its_clips_actual_duration_within_1ms()
+    {
+        string directory = ClipsDirectory();
+
+        foreach (string sidecar in Directory.EnumerateFiles(directory, "*.cues.json"))
+        {
+            string clipName = Path.GetFileName(sidecar).Replace(".cues.json", ".mp4", StringComparison.Ordinal);
+            string clipPath = Path.Combine(directory, clipName);
+            if (!File.Exists(clipPath))
+            {
+                continue; // named-but-missing is already asserted by the sibling fact above
+            }
+
+            ClipManifestLoadResult result = ClipManifestLoader.Load(directory, clipName);
+            if (!result.Manifest.HasValue)
+            {
+                continue; // an invalid sidecar is already asserted by the sibling fact above
+            }
+
+            double? actualDurationMs = Mp4Duration.ReadMs(clipPath);
+            actualDurationMs.ShouldNotBeNull($"{clipName} has no mvhd box to read a duration from");
+
+            ((double)result.Manifest.Value.DurationMs).ShouldBe(
+                actualDurationMs.Value, tolerance: 1.0,
+                $"{Path.GetFileName(sidecar)} declares DurationMs={result.Manifest.Value.DurationMs}, "
+                + $"but {clipName}'s own mvhd box says {actualDurationMs}ms — the clip was re-cut "
+                + "without its sidecar being updated");
+        }
     }
 
     /// <summary>

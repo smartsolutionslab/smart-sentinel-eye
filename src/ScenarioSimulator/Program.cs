@@ -5,6 +5,7 @@ using SmartSentinelEye.ScenarioSimulator;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
+using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.EventHandlers;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
@@ -58,6 +59,7 @@ builder.Services.AddHttpClient<CameraSimProvisioner>((sp, client) =>
 // M2 (ADR-0111): overlay/rule/layout seed clients + the asset correlation
 // table, and the billet timeline that publishes correlated sensor MQTT.
 builder.AddScenarioSeeding();
+builder.AddClipCues();
 builder.AddBilletTimeline();
 
 // FR-007: lets the reconciler refuse a clip that is not there, naming it, rather

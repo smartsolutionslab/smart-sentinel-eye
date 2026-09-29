@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
+using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 
 namespace SmartSentinelEye.ScenarioSimulator.Seeding;
@@ -126,6 +127,11 @@ public sealed class ScenarioSeeder(
     {
         if (asset.Overlay is null || asset.Tile is null)
         {
+            if (asset.Reactions.Count > 0)
+            {
+                logger.ReactionsSkippedNoOverlay(asset.Key, asset.Reactions.Count);
+            }
+
             return;
         }
 
@@ -144,9 +150,62 @@ public sealed class ScenarioSeeder(
         if (asset.Highlight is null)
         {
             logger.AssetMissingField(asset.Key, "highlight");
+        }
+        else
+        {
+            await rules.EnsureRuleAsync(HighlightRuleSeed.From(scenario, asset, overlay), cancellationToken);
+        }
+
+        await SeedReactionsAsync(scenario, asset, overlay, cancellationToken);
+    }
+
+    /// <summary>
+    /// Seeds <see cref="AssetDefinition.Reactions"/> in file order (plan.md
+    /// §5.4), after the legacy <see cref="HighlightDefinition"/>. A refused
+    /// reaction is logged by name and skipped; the others still seed. A
+    /// reaction whose trigger only a cue could satisfy is also skipped,
+    /// without ever reaching <see cref="ReactionRuleSeed"/>, when this
+    /// asset's clip's sidecar was itself refused (spec 289 US1, "malformed
+    /// manifest") — nothing on the asset will ever emit that trigger, so
+    /// seeding it would be a rule that can never fire.
+    /// </summary>
+    private async Task SeedReactionsAsync(string scenario, AssetDefinition asset, Guid overlay, CancellationToken cancellationToken)
+    {
+        if (asset.Reactions.Count == 0)
+        {
             return;
         }
 
-        await rules.EnsureRuleAsync(HighlightRuleSeed.From(scenario, asset, overlay), cancellationToken);
+        ClipManifestLoadResult clip = ClipManifestLoader.Load(scenarioOptions.Value.ClipsDirectory, asset.Camera.Clip);
+        bool clipRefused = clip.Violations.Count > 0;
+
+        foreach (ReactionDefinition reaction in asset.Reactions)
+        {
+            (string source, string kind) = (reaction.When.Source, reaction.When.Kind);
+
+            bool sensorSatisfiesTrigger = asset.Sensors.Any(sensor =>
+                string.Equals(sensor.Source, source, StringComparison.Ordinal)
+                && string.Equals(sensor.Kind, kind, StringComparison.Ordinal));
+            bool cueSatisfiesTrigger = clip.Manifest.HasValue && clip.Manifest.Value.Cues.Any(cue =>
+                string.Equals(cue.Source, source, StringComparison.Ordinal)
+                && string.Equals(cue.Kind, kind, StringComparison.Ordinal));
+
+            if (!sensorSatisfiesTrigger && !cueSatisfiesTrigger && clipRefused)
+            {
+                logger.ReactionSkippedRefusedManifest(asset.Key, reaction.Name, source, kind);
+                continue;
+            }
+
+            ReactionSeedResult result = ReactionRuleSeed.From(scenario, asset, reaction, overlay);
+            switch (result)
+            {
+                case ReactionSeedResult.Valid valid:
+                    await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
+                    break;
+                case ReactionSeedResult.Refused refused:
+                    logger.ReactionRefused(asset.Key, reaction.Name, refused.Reason);
+                    break;
+            }
+        }
     }
 }
