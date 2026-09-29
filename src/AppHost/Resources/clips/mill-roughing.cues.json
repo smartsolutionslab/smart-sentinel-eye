@@ -1,0 +1,20 @@
+{
+  "Clip": "mill-roughing.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    {
+      "AtMs": 4000,
+      "Class": "billet",
+      "Confidence": 0.87,
+      "Zone": "roughing-conveyor",
+      "Label": "BILLET ON ROUGHING CONVEYOR",
+      "Box": { "X": 0.12, "Y": 0.6, "Width": 0.55, "Height": 0.26 }
+    },
+    {
+      "AtMs": 13000,
+      "Class": "billet",
+      "Confidence": 0.52,
+      "Zone": "roughing-conveyor"
+    }
+  ]
+}
