@@ -54,10 +54,11 @@
 //
 // Red run 1 (this commit, alone): every case below fails with
 // `ERR_MODULE_NOT_FOUND` — `./e2e-assertion-inventory.mjs` does not exist.
-// Red run 2 (a later commit, a stub `diffInventories` that always reports no
-// differences and a pass-through `collapseRuns`): every case that expects a
-// difference or a collapse then fails for its own reason instead. Both runs
-// are quoted verbatim in PR 1 (ADR-0139); this file is not touched by
+// Red run 2 (a stub `diffInventories` that always reports no differences and
+// a pass-through `collapseRuns`): run transiently against this file and
+// never committed on its own — its output was captured and is quoted
+// verbatim in PR 1 instead (ADR-0139): `ℹ tests 8 / pass 1 / fail 7`, every
+// case failing for its own reason except case 1. This file is not touched by
 // either the stub or the real implementation.
 
 import assert from 'node:assert/strict';
@@ -66,8 +67,31 @@ import { collapseRuns, diffInventories } from './e2e-assertion-inventory.mjs';
 
 // ---- fixture builders ------------------------------------------------------
 
-function entry(title, subtitle) {
-  return { title, subtitle };
+function entry(title, subtitle, params = '') {
+  return { title, subtitle, params };
+}
+
+/**
+ * A `params` string as the real reporter's `serializeParams` would produce
+ * it — `JSON.stringify` with every object's keys sorted, recursively (so a
+ * nested `expected: { timeout }` round-trips, unlike an array replacer,
+ * which would filter it as an unlisted key). Mirrors `matchers/expect.js`'s
+ * `callMatcherAsStep`: `params = { ...suffixes.params }`, then
+ * `params.expected = args[0]` when the matcher was called with an argument.
+ */
+function paramsOf(fields) {
+  const sortKeysReplacer = (_key, value) => {
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      return Object.keys(value)
+        .sort()
+        .reduce((sorted, key) => {
+          sorted[key] = value[key];
+          return sorted;
+        }, {});
+    }
+    return value;
+  };
+  return JSON.stringify(fields, sortKeysReplacer);
 }
 
 function escapeForRegex(text) {
@@ -139,10 +163,10 @@ test('a matcher changes from toBeVisible to toHaveCount at the same position —
 //      ADR-0162 §4) =========================================================
 
 test("a custom expect(…, message) text changes while the matcher and locator stay the same — a difference (the message is part of the helper's contract)", () => {
-  const baselineA = { [TEST_SURVIVES_LOCKOUT]: [entry('the wall display should be holding a grant', "locator")] };
-  const baselineB = { [TEST_SURVIVES_LOCKOUT]: [entry('the wall display should be holding a grant', "locator")] };
+  const baselineA = { [TEST_SURVIVES_LOCKOUT]: [entry('the wall display should be holding a grant', 'locator')] };
+  const baselineB = { [TEST_SURVIVES_LOCKOUT]: [entry('the wall display should be holding a grant', 'locator')] };
   const after = {
-    [TEST_SURVIVES_LOCKOUT]: [entry('the recovered wall display should be holding a grant', "locator")],
+    [TEST_SURVIVES_LOCKOUT]: [entry('the recovered wall display should be holding a grant', 'locator')],
   };
 
   const result = diffInventories(baselineA, baselineB, after);
@@ -156,7 +180,7 @@ test("a custom expect(…, message) text changes while the matcher and locator s
 //      (plan §4.3 row 5) — collapsed, not a difference ======================
 
 test('the same expect repeats three times in both baselines and five times in after, consecutively — collapsed by collapseRuns, no difference', () => {
-  const repeated = entry('Expect "toBeVisible"', "listitem.first()");
+  const repeated = entry('Expect "toBeVisible"', 'listitem.first()');
 
   // collapseRuns itself, directly: a variable-length run of identical
   // consecutive entries collapses to the one entry, whatever the count.
@@ -177,24 +201,32 @@ test('the same expect repeats three times in both baselines and five times in af
 //      genuine difference on an unrelated test Y is still caught ===========
 
 test('baselineA and baselineB disagree on test X — X is reported noisy and excluded from differences, while a genuine difference on test Y is still reported', () => {
+  // TEST_SURVIVES_LOCKOUT's entry below is shaped as the real reporter would
+  // produce it for a non-Locator receiver (e.g. `expect(azp).toBe('kiosk-wall')`):
+  // the default title (`Expect "<matcher>"`, no custom message), an empty
+  // subtitle (subtitle is only populated for a `Locator` receiver — see
+  // `computeMatcherTitleSuffix`), and the expected value carried in `params`
+  // instead — exactly what should-fix 2 exists to catch, since neither title
+  // nor subtitle changes when only the expected value does.
   const baselineA = {
-    [TEST_HOLDS_NO_EXPIRY]: [entry('Expect "toBeVisible"', "listitem.first()")],
-    [TEST_SURVIVES_LOCKOUT]: [entry('toBe', 'kiosk-wall')],
+    [TEST_HOLDS_NO_EXPIRY]: [entry('Expect "toBeVisible"', 'listitem.first()')],
+    [TEST_SURVIVES_LOCKOUT]: [entry('Expect "toBe"', '', paramsOf({ expected: 'kiosk-wall' }))],
   };
   const baselineB = {
     // X: the baselines themselves disagree — an extra step baselineA never saw.
     [TEST_HOLDS_NO_EXPIRY]: [
-      entry('Expect "toBeVisible"', "listitem.first()"),
-      entry('Expect "toBeVisible"', "listitem.nth(1)"),
+      entry('Expect "toBeVisible"', 'listitem.first()'),
+      entry('Expect "toBeVisible"', 'listitem.nth(1)'),
     ],
-    [TEST_SURVIVES_LOCKOUT]: [entry('toBe', 'kiosk-wall')],
+    [TEST_SURVIVES_LOCKOUT]: [entry('Expect "toBe"', '', paramsOf({ expected: 'kiosk-wall' }))],
   };
   const after = {
     // X: matches baselineA exactly — would be a false positive against
     // baselineB if noise were not masked.
-    [TEST_HOLDS_NO_EXPIRY]: [entry('Expect "toBeVisible"', "listitem.first()")],
-    // Y: a real, unrelated difference.
-    [TEST_SURVIVES_LOCKOUT]: [entry('toBe', 'kiosk-wall-wide')],
+    [TEST_HOLDS_NO_EXPIRY]: [entry('Expect "toBeVisible"', 'listitem.first()')],
+    // Y: a real, unrelated difference — title and subtitle are unchanged;
+    // only the expected value (`params`) differs.
+    [TEST_SURVIVES_LOCKOUT]: [entry('Expect "toBe"', '', paramsOf({ expected: 'kiosk-wall-wide' }))],
   };
 
   const result = diffInventories(baselineA, baselineB, after);
@@ -241,4 +273,48 @@ test("a locator's subtitle changes (exact: true dropped) while the title stays t
 
   assert.equal(result.differences.length, 1, describeResult(result));
   assert.match(result.differences[0], /exact: true/, describeResult(result));
+});
+
+// ==== volatile-token normalisation (reviewer should-fix 1) ==================
+//
+// The real shape from `e2e/support/seed-published-layout.setup.ts`:
+// `expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout:
+// FIRST_WRITE_TIMEOUT_MS })` where `cameraName` is `Kiosk Seed Cam
+// ${Date.now()}` — a Locator receiver, so both `subtitle` and `params.locator`
+// embed the timestamp, and `params.expected` carries the (non-volatile)
+// timeout.
+
+const TEST_SEED_PUBLISHED_LAYOUT =
+  'seed › seed-published-layout.setup.ts › a published layout exists for the kiosk to open';
+
+function seedCamEntry(stamp) {
+  const subtitle = `getByRole('cell', { name: 'Kiosk Seed Cam ${stamp}' })`;
+  return entry('Expect "toBeVisible"', subtitle, paramsOf({ locator: subtitle, expected: { timeout: 45000 } }));
+}
+
+test('a seed-cam locator differs only in its Date.now() stamp across baselineA, baselineB and after — normalisation collapses it to a match, and the test is no longer noisy', () => {
+  const baselineA = { [TEST_SEED_PUBLISHED_LAYOUT]: [seedCamEntry('1790662172252')] };
+  const baselineB = { [TEST_SEED_PUBLISHED_LAYOUT]: [seedCamEntry('1790662299999')] };
+  const after = { [TEST_SEED_PUBLISHED_LAYOUT]: [seedCamEntry('1790662355555')] };
+
+  const result = diffInventories(baselineA, baselineB, after);
+
+  assert.deepEqual(result.noisyTests, [], describeResult(result));
+  assert.deepEqual(result.differences, [], describeResult(result));
+});
+
+test('after normalisation the baselines still disagree in shape (a teardown-style entry-count difference) — a genuinely different after value is still caught, not silently dropped because the test is noisy', () => {
+  const baselineA = { [TEST_HOLDS_NO_EXPIRY]: [seedCamEntry('1790662172252')] };
+  const baselineB = {
+    [TEST_HOLDS_NO_EXPIRY]: [seedCamEntry('1790662299999'), entry('Expect "toBeVisible"', 'listitem.nth(1)')],
+  };
+  // A genuinely different value — not a timestamp/UUID variant of the
+  // baselines' entry, and not merely a different entry count either.
+  const after = { [TEST_HOLDS_NO_EXPIRY]: [entry('Expect "toBeHidden"', "heading 'Pick a layout'")] };
+
+  const result = diffInventories(baselineA, baselineB, after);
+
+  assert.deepEqual(result.noisyTests, [TEST_HOLDS_NO_EXPIRY], describeResult(result));
+  assert.equal(result.differences.length, 1, describeResult(result));
+  assert.match(result.differences[0], new RegExp(escapeForRegex(TEST_HOLDS_NO_EXPIRY)), describeResult(result));
 });
