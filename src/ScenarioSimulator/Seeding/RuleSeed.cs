@@ -4,8 +4,8 @@ namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 /// Everything <see cref="AutomationRulesClient.EnsureRuleAsync"/> needs to
 /// create and publish one rule, independent of which scenario-file construct
 /// produced it (spec 289 plan.md §3.4). <see cref="HighlightRuleSeed"/> builds
-/// one from the legacy <c>Highlight</c> field; <c>ReactionRuleSeed</c> (PR-B)
-/// builds one from a declared <c>Reaction</c>.
+/// one from the legacy <c>Highlight</c> field; a future <c>ReactionRuleSeed</c>
+/// will build one from a declared <c>Reaction</c>.
 /// </summary>
 internal sealed record RuleSeed(string Name, string TriggerSource, string TriggerKind, string Predicate, RuleSeedAction Action);
 
