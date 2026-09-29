@@ -17,19 +17,43 @@
 //   - **Reporter** (default export): a Playwright reporter recording, per
 //     test, the ordered `expect`-category steps of the FIRST attempt only
 //     (`result.retry === 0` — a retry loop's step count is not behaviour).
-//     Writes the inventory to `E2E_ASSERTION_INVENTORY_FILE`
-//     (default `test-results/assertion-inventory.json`) in `onEnd`.
+//     Each entry also carries `step.params` (Playwright 1.63's
+//     `TestStep.params`, e.g. the matcher's expected value or a locator
+//     description) serialised to a stable string — `title`/`subtitle` alone
+//     miss a changed expected value or matcher option (`{ timeout }`) when
+//     the receiver isn't a `Locator`. Writes the inventory to
+//     `E2E_ASSERTION_INVENTORY_FILE` (default
+//     `test-results/assertion-inventory.json`) in `onEnd`.
 //
 //   - **Diff** (named exports `collapseRuns`, `diffInventories`, plus a CLI
 //     entry point when this file is run directly): pure, file-I/O-free
 //     comparison of inventory objects, pinned by
 //     `scripts/e2e-assertion-inventory.test.mjs` (this module is implemented
 //     to match that file — ADR-0144 Phase 4 split — not the other way round).
+//     Before comparing, every `title`/`subtitle`/`params` is normalised:
+//     runs of 10+ digits (a `Date.now()` stamp) become `<n>` and UUID-shaped
+//     substrings become `<uuid>`, so a seed's timestamp does not make its
+//     test look noisy. A test that still disagrees between the two
+//     baselines after normalising is genuinely noisy (e.g. a cleanup
+//     teardown whose entry count varies) — it is never silently dropped:
+//     `after` is checked against both baselines (positions where the
+//     baselines themselves disagree are wildcards when they're the same
+//     length; a length mismatch falls back to a whole-array match against
+//     either baseline), and a difference is reported only when it matches
+//     neither.
+//
+// `collapseRuns` has two known limits, left as-is (documented, not fixed):
+// a `toPass` body asserting 2+ different `expect`s produces an A,B,A,B,…
+// pattern that will NOT collapse — it fails safe (a false positive noisy/
+// diff report, never a false negative); and deleting one of two identical
+// *consecutive* entries is invisible to it (three of the same collapse the
+// same as two), a real blind spot rather than a safety margin.
 //
 // CLI usage:
 //   node scripts/e2e-assertion-inventory.mjs baseline-a.json baseline-b.json after.json
 // Exits 0 when `differences` is empty, 1 otherwise. `noisyTests` is always
-// printed, whichever way it exits — a noisy test is not silently green.
+// printed, whichever way it exits — a noisy test is not silently green, and
+// staying in that list does not mean it was excluded from the comparison.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
@@ -58,9 +82,40 @@ function testKey(test) {
   return [projectName, fileBase, ...rest].join(' › ');
 }
 
+/**
+ * A stable, deterministic serialisation of a step's `params` (Playwright
+ * 1.63's `TestStep.params`) — the matcher's expected value / options and, for
+ * a `Locator` receiver, the locator description. Object keys are sorted so
+ * two calls with the same params always serialise identically regardless of
+ * property insertion order; a `RegExp` or function value (neither of which
+ * `JSON.stringify` renders usefully) is coerced to a readable string instead
+ * of being silently dropped or replaced with `{}`/`null`.
+ */
+function serializeParams(params) {
+  if (params === undefined) return '';
+  const sortKeysReplacer = (_key, value) => {
+    if (value instanceof RegExp) return value.toString();
+    if (typeof value === 'function') return '<function>';
+    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+      return Object.keys(value)
+        .sort()
+        .reduce((sorted, key) => {
+          sorted[key] = value[key];
+          return sorted;
+        }, {});
+    }
+    return value;
+  };
+  try {
+    return JSON.stringify(params, sortKeysReplacer) ?? '';
+  } catch {
+    return String(params);
+  }
+}
+
 export default class AssertionInventoryReporter {
   constructor() {
-    /** @type {Record<string, Array<{title: string, subtitle: string}>>} */
+    /** @type {Record<string, Array<{title: string, subtitle: string, params: string}>>} */
     this.inventory = {};
   }
 
@@ -78,7 +133,11 @@ export default class AssertionInventoryReporter {
     if (result.retry !== 0) return;
 
     const key = testKey(test);
-    (this.inventory[key] ??= []).push({ title: step.title, subtitle: step.subtitle ?? '' });
+    (this.inventory[key] ??= []).push({
+      title: step.title,
+      subtitle: step.subtitle ?? '',
+      params: serializeParams(step.params),
+    });
   }
 
   onEnd() {
@@ -93,15 +152,15 @@ export default class AssertionInventoryReporter {
 // ---------------------------------------------------------------------------
 
 /**
- * Merges *consecutive* identical `{title, subtitle}` entries into one. A
- * `toPass`-style retry loop re-runs the same `expect` a variable number of
- * times, and that count is not behaviour.
+ * Merges *consecutive* identical `{title, subtitle, params}` entries into
+ * one. A `toPass`-style retry loop re-runs the same `expect` a variable
+ * number of times, and that count is not behaviour.
  */
 export function collapseRuns(entries) {
   const collapsed = [];
   for (const entry of entries) {
     const last = collapsed[collapsed.length - 1];
-    if (last !== undefined && last.title === entry.title && last.subtitle === entry.subtitle) {
+    if (last !== undefined && entryFieldsEqual(last, entry)) {
       continue;
     }
     collapsed.push(entry);
@@ -117,13 +176,41 @@ function collapseInventory(inventory) {
   return collapsed;
 }
 
+// ---- volatile-token normalisation -----------------------------------------
+//
+// A seed's `Kiosk Seed Cam ${Date.now()}` (or a generated UUID) makes an
+// otherwise-identical test look different between two baseline runs, purely
+// because the stamp itself changed — that is noise, not a behaviour
+// difference, and this normalisation is what tells the two apart.
+
+const UUID_PATTERN = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
+const LONG_DIGIT_RUN_PATTERN = /\d{10,}/g;
+
+function normalizeVolatileTokens(text) {
+  return text.replace(UUID_PATTERN, '<uuid>').replace(LONG_DIGIT_RUN_PATTERN, '<n>');
+}
+
+function normalizeEntry(entry) {
+  return {
+    title: normalizeVolatileTokens(entry.title),
+    subtitle: normalizeVolatileTokens(entry.subtitle),
+    params: normalizeVolatileTokens(entry.params ?? ''),
+  };
+}
+
+function entryFieldsEqual(a, b) {
+  return a.title === b.title && a.subtitle === b.subtitle && (a.params ?? '') === (b.params ?? '');
+}
+
 function entriesEqual(a, b) {
   if (a.length !== b.length) return false;
-  return a.every((entry, index) => entry.title === b[index].title && entry.subtitle === b[index].subtitle);
+  return a.every((entry, index) => entryFieldsEqual(entry, b[index]));
 }
 
 function describeEntry(entry) {
-  return entry === undefined ? '(missing)' : `${entry.title} (${entry.subtitle})`;
+  if (entry === undefined) return '(missing)';
+  const paramsSuffix = entry.params ? `, params ${entry.params}` : '';
+  return `${entry.title} (${entry.subtitle}${paramsSuffix})`;
 }
 
 function unionKeys(...inventories) {
@@ -136,10 +223,17 @@ function unionKeys(...inventories) {
 
 /**
  * Compares `after` to `baselineA` per test, after collapsing every test's
- * entries in all three inventories. A test where the two baselines already
- * disagree (real noise, not attributable to the change) is named in
- * `noisyTests` and excluded from `differences` — it must never suppress a
- * genuine difference found on any other test.
+ * entries in all three inventories and normalising volatile tokens
+ * (`Date.now()` stamps, UUIDs) out of `title`/`subtitle`/`params`.
+ *
+ * A test where the two baselines still disagree once normalised is named in
+ * `noisyTests` — real noise, not attributable to the change, but never
+ * silently dropped: `after` is still checked against both baselines, and a
+ * difference is reported only when it matches **neither**. When the two
+ * baselines are the same length, the positions where they disagree become
+ * wildcards (matched by anything in `after`) and every other position must
+ * still agree; when their lengths differ, `after` must match one baseline's
+ * full, exact shape.
  */
 export function diffInventories(baselineA, baselineB, after) {
   const collapsedA = collapseInventory(baselineA);
@@ -147,35 +241,75 @@ export function diffInventories(baselineA, baselineB, after) {
   const collapsedAfter = collapseInventory(after);
 
   const noisyTests = [];
-  const baselineKeys = unionKeys(baselineA, baselineB);
-  for (const key of baselineKeys) {
-    const a = collapsedA[key] ?? [];
-    const b = collapsedB[key] ?? [];
-    if (!entriesEqual(a, b)) {
-      noisyTests.push(key);
-    }
-  }
-  const noisySet = new Set(noisyTests);
-
   const differences = [];
-  for (const key of baselineKeys) {
-    if (noisySet.has(key)) continue;
+  const baselineKeys = unionKeys(baselineA, baselineB);
 
+  for (const key of baselineKeys) {
     const before = collapsedA[key] ?? [];
+    const b = collapsedB[key] ?? [];
+    const normBefore = before.map(normalizeEntry);
+    const normB = b.map(normalizeEntry);
+    const shapesAgree = entriesEqual(normBefore, normB);
+
+    if (!shapesAgree) noisyTests.push(key);
+
     if (!(key in collapsedAfter)) {
       differences.push(`${key}: test is missing from the after run`);
       continue;
     }
 
     const afterEntries = collapsedAfter[key];
-    if (entriesEqual(before, afterEntries)) continue;
+    const normAfter = afterEntries.map(normalizeEntry);
 
-    const length = Math.max(before.length, afterEntries.length);
-    for (let index = 0; index < length; index++) {
-      const beforeEntry = before[index];
-      const afterEntry = afterEntries[index];
-      if (beforeEntry?.title === afterEntry?.title && beforeEntry?.subtitle === afterEntry?.subtitle) continue;
-      differences.push(`${key} › index ${index}: ${describeEntry(beforeEntry)} → ${describeEntry(afterEntry)}`);
+    if (shapesAgree) {
+      // The baselines agree once volatile tokens are normalised — compare
+      // `after` the same way, but describe any mismatch with the RAW
+      // (un-normalised) entries so a reported difference still shows real
+      // values rather than `<n>`/`<uuid>` placeholders.
+      if (entriesEqual(normBefore, normAfter)) continue;
+
+      const length = Math.max(before.length, afterEntries.length);
+      for (let index = 0; index < length; index++) {
+        const beforeNorm = normBefore[index];
+        const afterNorm = normAfter[index];
+        if (beforeNorm !== undefined && afterNorm !== undefined && entryFieldsEqual(beforeNorm, afterNorm)) continue;
+        differences.push(
+          `${key} › index ${index}: ${describeEntry(before[index])} → ${describeEntry(afterEntries[index])}`,
+        );
+      }
+      continue;
+    }
+
+    // Still noisy once normalised: a genuinely different shape between the
+    // baselines (e.g. a cleanup teardown whose entry count varies), not just
+    // token noise. `after` is checked against both baselines and flagged
+    // only when it matches neither.
+    if (normBefore.length === normB.length) {
+      if (normAfter.length !== normBefore.length) {
+        differences.push(
+          `${key}: noisy test (baselines disagree even after normalising volatile tokens) — after has ` +
+            `${afterEntries.length} step(s), baselineA has ${before.length} and baselineB has ${b.length}, matching neither`,
+        );
+        continue;
+      }
+      for (let index = 0; index < normBefore.length; index++) {
+        const baselinesAgreeHere = entryFieldsEqual(normBefore[index], normB[index]);
+        if (!baselinesAgreeHere) continue; // wildcard position — matched by anything
+        if (entryFieldsEqual(normBefore[index], normAfter[index])) continue;
+        differences.push(
+          `${key} › index ${index}: noisy test, but baselineA and baselineB agree here — ` +
+            `${describeEntry(before[index])} → ${describeEntry(afterEntries[index])}`,
+        );
+      }
+    } else {
+      const matchesA = entriesEqual(normBefore, normAfter);
+      const matchesB = entriesEqual(normB, normAfter);
+      if (!matchesA && !matchesB) {
+        differences.push(
+          `${key}: noisy test (baselines disagree in shape, ${before.length} vs ${b.length} steps) — ` +
+            `after (${afterEntries.length} steps) matches neither baseline`,
+        );
+      }
     }
   }
 
@@ -206,7 +340,9 @@ function main() {
   const { differences, noisyTests } = diffInventories(baselineA, baselineB, after);
 
   if (noisyTests.length > 0) {
-    process.stdout.write('noisyTests (excluded from the comparison below — the baselines disagree on these):\n');
+    process.stdout.write(
+      'noisyTests (baselines disagree even after normalising volatile tokens — still checked against both, only an unmatched after run below is a difference):\n',
+    );
     for (const test of noisyTests) process.stdout.write(`  ${test}\n`);
   } else {
     process.stdout.write('noisyTests: none\n');
