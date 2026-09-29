@@ -12,7 +12,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain — **three remain by design** (Q1 pattern, Q2 scope/location, Q3 characterisation net); they are the reason this spec goes back to a human before Phase 2
+- [x] No [NEEDS CLARIFICATION] markers remain. Q1-Q3 were resolved at the Phase 1 gate on 2026-09-29 (C, (a), (b)+(c)) and recorded in ADR-0162.
 - [x] Requirements are testable and unambiguous (FR-001..FR-007)
 - [x] Success criteria are measurable (counts measured in §1, before/after)
 - [x] Acceptance scenarios defined per story (happy, conflict, bad request, auth)
@@ -23,7 +23,7 @@
 ## Feature Readiness
 
 - [x] User stories are independently shippable on disjoint file sets (ADR-0109)
-- [ ] Ready for `/speckit-plan` — **no**, blocked on Q1-Q3 and the ADR
+- [x] Ready for `/speckit-plan`. ADR-0162 is written; plan.md and tasks.md follow.
 
 ## Notes
 
