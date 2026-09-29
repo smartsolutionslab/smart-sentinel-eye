@@ -83,10 +83,12 @@ const MANAGEMENT_CLIENT_ID = 'management-web';
 
 /**
  * The master realm's bootstrap admin-cli account. Same default and same
- * override as `wall-withdrawal.spec.ts` — kept local rather than shared: it
- * has one caller in each of the two files that need it, so ADR-0162 §3's
- * extraction threshold (a second caller in a *different* file) does not
- * apply to it the way it does to the sign-in rig below.
+ * override as `wall-withdrawal.spec.ts` — kept local rather than shared.
+ * It *does* have a second caller in a different file, which is exactly what
+ * ADR-0162 §3's extraction threshold asks for; it stays local because it is
+ * out of US1's scope, not because the threshold isn't met — plan.md §5.1's
+ * `wall-session.ts` export table (sign-in, claims, stored-grant reading) has
+ * no entry for it.
  */
 const ADMIN_PASSWORD = process.env['SSE_KEYCLOAK_ADMIN_PASSWORD'] ?? 'dev-only-keycloak-admin';
 
