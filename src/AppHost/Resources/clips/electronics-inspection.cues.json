@@ -1,0 +1,14 @@
+{
+  "Clip": "electronics-inspection.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    {
+      "AtMs": 8000,
+      "Class": "defect",
+      "Confidence": 0.88,
+      "Zone": "reject-tray",
+      "Label": "MMI TEST FAIL",
+      "Box": { "X": 0.83, "Y": 0.73, "Width": 0.16, "Height": 0.12 }
+    }
+  ]
+}

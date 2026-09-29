@@ -119,7 +119,7 @@
             "Camera": { "Path": "electronics-inspection", "Clip": "electronics-inspection.mp4", "Loop": true },
             "Tile": { "Row": 1, "Col": 1 },
             "Overlay": {
-              "Label": "INSPECTION — REJECTS",
+              "Label": "INSPECTION: {{inspection_last_defect}}",
               "X": 0.1,
               "Y": 0.05,
               "Width": 0.8,
@@ -141,6 +141,20 @@
                 "Peak": 8,
                 "Mean": 2,
                 "Jitter": 1
+              }
+            ],
+            "Variables": [
+              { "Name": "inspection_last_defect", "Type": "String" }
+            ],
+            "Reactions": [
+              {
+                "Name": "defect-detected",
+                "When": {
+                  "Source": "inference",
+                  "Kind": "ObjectDetected",
+                  "Predicate": "$.payload.class == 'defect' && $.payload.confidence >= 0.8"
+                },
+                "Then": { "Type": "SetVariableValue", "Variable": "inspection_last_defect", "Value": "$.payload.label" }
               }
             ]
           }

@@ -25,6 +25,17 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests;
 /// mapping, never read back from the code under test (memory: <i>an assertion
 /// must not check its own input</i>). This class must still pass, unmodified,
 /// once PR-A's refactor lands (FR-009, SC-003).
+///
+/// <para>
+/// <b>Now pins 14, not 12.</b> PR-B and PR-C each added one declared
+/// <c>Reaction</c> to a shipped scenario file — <c>billet-on-conveyor</c>
+/// (rolling-mill, PR-B) and <c>defect-detected</c> (electronics, PR-C, a
+/// <c>SetVariableValue</c> rule) — so the single test below now asserts 14
+/// creates and 14 publishes: the 12 legacy <c>Highlight</c> rules this class
+/// is named for, plus these two non-legacy reaction rules that ride along on
+/// the same shipped scenarios and would otherwise silently change this
+/// count's meaning.
+/// </para>
 /// </summary>
 public sealed class LegacyHighlightRuleBodyTests
 {
@@ -36,8 +47,8 @@ public sealed class LegacyHighlightRuleBodyTests
 
         await SeedAsync(automation, overlay);
 
-        automation.Creates.Count.ShouldBe(13);
-        automation.Publishes.Count.ShouldBe(13);
+        automation.Creates.Count.ShouldBe(14);
+        automation.Publishes.Count.ShouldBe(14);
 
         AssertRule(automation, "rolling-mill-station-4-roughing-highlight", "plc", "Temperature",
             "$.device == 'station-4-roughing' && $.payload.value >= 1100", overlay, 4000);
@@ -67,6 +78,10 @@ public sealed class LegacyHighlightRuleBodyTests
             "$.device == 'electronics-conveyor' && $.payload.value >= 2", overlay, 5000);
         AssertRule(automation, "electronics-inspection-highlight", "plc", "RejectCount",
             "$.device == 'electronics-inspection' && $.payload.value >= 5", overlay, 4000);
+
+        AssertVariableRule(automation, "electronics-inspection-defect-detected", "inference", "ObjectDetected",
+            "$.device == 'electronics-inspection' && ($.payload.class == 'defect' && $.payload.confidence >= 0.8)",
+            "inspection_last_defect", "$.payload.label");
     }
 
     /// <summary>
@@ -229,13 +244,43 @@ public sealed class LegacyHighlightRuleBodyTests
     }
 
     /// <summary>
+    /// The <c>SetVariableValue</c> counterpart to <see cref="AssertRule"/>: no
+    /// overlay, no duration, a <c>VariableName</c> + <c>ValueExpression</c> pair
+    /// instead.
+    /// </summary>
+    private static void AssertVariableRule(
+        RecordingAutomationHandler automation,
+        string name,
+        string triggerSource,
+        string triggerKind,
+        string predicate,
+        string variableName,
+        string valueExpression)
+    {
+        CreateCall create = automation.Creates.Where(call => call.Body.Name == name).ShouldHaveSingleItem();
+
+        create.PathAndQuery.ShouldBe("/rules?fabId=munich");
+        create.Body.ShouldBe(new RuleBody(
+            name, triggerSource, triggerKind, predicate, "SetVariableValue", variableName, valueExpression, null, null));
+
+        PublishCall publish = automation.Publishes
+            .Where(call => call.PathAndQuery == $"/rules/{name}/publish?fabId=munich")
+            .ShouldHaveSingleItem();
+        publish.IfMatch.ShouldBe("\"0\"");
+    }
+
+    /// <summary>
     /// Drives the real, unmodified <c>ScenarioSeeder</c> across all three shipped
     /// scenario files, exactly as production wires it, so the pinned bodies come
     /// from the actual seeding path rather than a hand-simplified stand-in.
     /// Camera-catalog and layout-composition calls are made to fail: both
     /// failures are caught internally (the per-asset try/catch in
     /// <c>ScenarioSeeder.ExecuteAsync</c>, and <c>WallSeeder</c>'s own guard) and
-    /// never reach the rule-seeding path this test pins.
+    /// never reach the rule-seeding path this test pins. System-variables calls
+    /// must succeed, unlike those two: variables are seeded before the legacy
+    /// highlight rule (plan.md §5.4), so a failing one there would drop the
+    /// whole asset — including its pinned highlight — via that same per-asset
+    /// catch, not just the reaction that depends on it.
     /// </summary>
     private static Task SeedAsync(RecordingAutomationHandler automation, Guid overlay) =>
         RunSeederAsync(LoadShippedScenarios(), automation, overlay);
@@ -251,7 +296,7 @@ public sealed class LegacyHighlightRuleBodyTests
             new OverlayDesignerClient(SucceedingOverlayHandler(overlay), Tokens(), NullLogger<OverlayDesignerClient>.Instance),
             new AutomationRulesClient(new HttpClient(automation) { BaseAddress = new Uri("https://automation.test") },
                 Tokens(), NullLogger<AutomationRulesClient>.Instance),
-            new SystemVariablesClient(Failing(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
+            new SystemVariablesClient(SucceedingVariablesHandler(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
             correlation,
             wrapped,
             new WallSeeder(
@@ -334,6 +379,10 @@ public sealed class LegacyHighlightRuleBodyTests
     private static HttpClient SucceedingOverlayHandler(Guid overlay) =>
         new(new OverlayHandler(overlay)) { BaseAddress = new Uri("https://overlays.test") };
 
+    /// <summary>Always creates (201) — no test in this file needs "created" vs "reused" distinguished.</summary>
+    private static HttpClient SucceedingVariablesHandler() =>
+        new(new VariablesHandler()) { BaseAddress = new Uri("https://variables.test") };
+
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>Just the fields the seeder puts on the wire, deserialized independently of the private <c>CreateRuleBody</c> the client actually sends.</summary>
@@ -409,6 +458,13 @@ public sealed class LegacyHighlightRuleBodyTests
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
         }
+    }
+
+    private sealed class VariablesHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.Created));
     }
 
     private sealed class ThrowingHandler : HttpMessageHandler
