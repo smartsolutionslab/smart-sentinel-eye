@@ -37,10 +37,45 @@ public sealed class AutomationRulesClient(
 
         string token = await tokens.GetAccessTokenAsync(cancellationToken);
 
-        // fabId is explicit rather than inferred (ADR-0114): the rule has to
-        // land in the fab whose events it reacts to — MqttSampleMapper.FabId —
-        // which is not the same question as which fab the service account
-        // happens to be assigned to.
+        int? expectedVersion = await CreateOrResolveVersionAsync(name, body, token, cancellationToken);
+        if (expectedVersion is null)
+        {
+            return;
+        }
+
+        using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={FabId}");
+        publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        publish.Headers.TryAddWithoutValidation(
+            "If-Match", ConcurrencyHeaders.ETag(expectedVersion.Value));
+        using HttpResponseMessage published = await http.SendAsync(publish, cancellationToken);
+        published.EnsureSuccessStatusCode();
+
+        logger.RuleSeeded(name, highlight.Overlay);
+    }
+
+    /// <summary>
+    /// Creates the rule and returns the version to publish against — 0 for a
+    /// freshly created rule (the interceptor does not bump Added roots), or the
+    /// stored version when a 409 finds it already there. <c>null</c> means the
+    /// caller has nothing left to do: the existing rule is no longer a Draft, so
+    /// publishing it would be wrong.
+    /// <para>
+    /// fabId is explicit rather than inferred (ADR-0114): the rule has to land
+    /// in the fab whose events it reacts to — <c>MqttSampleMapper.FabId</c> —
+    /// which is not the same question as which fab the service account happens
+    /// to be assigned to.
+    /// </para>
+    /// <para>
+    /// On 409 the rule is already there but its state is unknown: every run
+    /// between spec 012 making If-Match mandatory and this client learning to
+    /// send it created the rule and then failed to publish it, so an existing
+    /// database can hold a Draft that will never fire. Ask what state it is in
+    /// rather than assuming it was seeded.
+    /// </para>
+    /// </summary>
+    private async Task<int?> CreateOrResolveVersionAsync(
+        string name, CreateRuleBody body, string token, CancellationToken cancellationToken)
+    {
         using HttpRequestMessage create = new(HttpMethod.Post, $"/rules?fabId={FabId}")
         {
             Content = JsonContent.Create(body),
@@ -48,38 +83,20 @@ public sealed class AutomationRulesClient(
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
 
-        // A freshly created rule is at version 0 — the interceptor does not
-        // bump Added roots. On 409 the rule is already there but its state is
-        // unknown: every run between spec 012 making If-Match mandatory and
-        // this client learning to send it created the rule and then failed to
-        // publish it, so an existing database can hold a Draft that will never
-        // fire. Ask what state it is in rather than assuming it was seeded.
-        int expectedVersion;
-        if (created.StatusCode == HttpStatusCode.Conflict)
-        {
-            Option<RuleSummary> existing = await ReadRuleAsync(name, token, cancellationToken);
-            if (!existing.HasValue || existing.Value.State != DraftState)
-            {
-                logger.RuleAlreadyExists(name);
-                return;
-            }
-
-            expectedVersion = existing.Value.Version;
-        }
-        else
+        if (created.StatusCode != HttpStatusCode.Conflict)
         {
             created.EnsureSuccessStatusCode();
-            expectedVersion = 0;
+            return 0;
         }
 
-        using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={FabId}");
-        publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        publish.Headers.TryAddWithoutValidation(
-            "If-Match", ConcurrencyHeaders.ETag(expectedVersion));
-        using HttpResponseMessage published = await http.SendAsync(publish, cancellationToken);
-        published.EnsureSuccessStatusCode();
+        Option<RuleSummary> existing = await ReadRuleAsync(name, token, cancellationToken);
+        if (!existing.HasValue || existing.Value.State != DraftState)
+        {
+            logger.RuleAlreadyExists(name);
+            return null;
+        }
 
-        logger.RuleSeeded(name, highlight.Overlay);
+        return existing.Value.Version;
     }
 
     /// <summary>
