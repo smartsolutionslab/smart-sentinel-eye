@@ -1,4 +1,5 @@
 import { test, expect, request as playwrightRequest, type Page } from '@playwright/test';
+import { claimsOf, issuerOf, signInAsWallDisplay } from './support/wall-session';
 
 /**
  * Spec 052 FR-011 — withdrawing one screen must not take down the wall.
@@ -42,17 +43,10 @@ import { test, expect, request as playwrightRequest, type Page } from '@playwrig
  */
 const ADMIN_PASSWORD = process.env['SSE_KEYCLOAK_ADMIN_PASSWORD'] ?? 'dev-only-keycloak-admin';
 
-const WALL_USER = 'wall-munich';
-const WALL_PASSWORD = 'Wall-munich-1234';
 const REALM = 'smart-sentinel-eye';
 
 async function signIn(page: Page): Promise<string> {
-  await page.goto('/');
-  await page.getByRole('button', { name: /sign in/i }).click();
-  await page.locator('#username').fill(WALL_USER);
-  await page.locator('#password').fill(WALL_PASSWORD);
-  await page.locator('#kc-login').click();
-  await expect(page.getByRole('heading', { name: 'Pick a layout' })).toBeVisible({ timeout: 60_000 });
+  await signInAsWallDisplay(page);
 
   const refresh = await page.evaluate(() => {
     const key = Object.keys(window.localStorage).find((candidate) => candidate.includes('oidc.user:'));
@@ -64,38 +58,9 @@ async function signIn(page: Page): Promise<string> {
   return refresh as string;
 }
 
-/** Claims of a grant, read without verifying — this is a test, not a validator. */
-function claimsOf(token: string): Record<string, string> {
-  const [, payload] = token.split('.');
-  if (payload === undefined) {
-    throw new Error('a grant should have a payload segment');
-  }
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, string>;
-}
-
-/**
- * Where the grant was issued, taken from the grant.
- *
- * <p>
- * <b>Not a constant.</b> The provider is reached through a proxied endpoint, so
- * a hardcoded host is a different issuer as far as the provider is concerned and
- * every exchange comes back `invalid_grant`. That failure reads exactly like a
- * withdrawn session, and it briefly had this test reporting that withdrawing one
- * screen took down its sibling — a control with nothing withdrawn is what caught
- * it.
- * </p>
- */
-function issuerOf(token: string): string {
-  const issuer = claimsOf(token)['iss'];
-  if (!issuer) {
-    throw new Error('a grant should name its issuer');
-  }
-  return issuer;
-}
-
 /** The session a grant belongs to, which is what withdrawal has to target. */
 function sessionOf(refreshToken: string): string {
-  return claimsOf(refreshToken)['sid'] ?? '';
+  return (claimsOf(refreshToken)['sid'] as string | undefined) ?? '';
 }
 
 test.describe('Withdrawing one screen (spec 050 US3)', () => {

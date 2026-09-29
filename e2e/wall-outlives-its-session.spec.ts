@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { claimsOf, signInAsWallDisplay } from './support/wall-session';
 
 /**
  * Spec 052 US2 — a wall stays up past the session ceiling that drops it roughly
@@ -11,27 +12,6 @@ import { test, expect, type Page } from '@playwright/test';
  * pass for the wrong reason.
  * </p>
  */
-
-const WALL_USER = 'wall-munich';
-const WALL_PASSWORD = 'Wall-munich-1234';
-
-async function signInAsWallDisplay(page: Page): Promise<void> {
-  await page.goto('/');
-  await page.getByRole('button', { name: /sign in/i }).click();
-  await page.locator('#username').fill(WALL_USER);
-  await page.locator('#password').fill(WALL_PASSWORD);
-  await page.locator('#kc-login').click();
-  await expect(page.getByRole('heading', { name: 'Pick a layout' })).toBeVisible({ timeout: 60_000 });
-}
-
-/** Claims of a grant, read without verifying — this is a test, not a validator. */
-function claimsOf(token: string): Record<string, unknown> {
-  const [, payload] = token.split('.');
-  if (payload === undefined) {
-    throw new Error('a grant should have a payload segment');
-  }
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
-}
 
 async function storedGrant(page: Page): Promise<{ refresh: string; access: string }> {
   const stored = await page.evaluate(() => {

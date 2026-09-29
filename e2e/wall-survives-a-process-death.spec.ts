@@ -1,7 +1,9 @@
-import { test, expect, chromium, type BrowserContext, type Page, type TestInfo } from '@playwright/test';
+import { test, expect, chromium, type BrowserContext, type TestInfo } from '@playwright/test';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { openFirstLayout } from './support/kiosk-session';
+import { claimsOf, expireStoredAccessToken, signInAsWallDisplay, storedAccessToken } from './support/wall-session';
 
 /**
  * Spec 107 — a wall display returns after its **browser process actually died**.
@@ -25,8 +27,6 @@ import { join } from 'node:path';
  */
 
 const WALL = 'http://localhost:5175/';
-const WALL_USER = 'wall-munich';
-const WALL_PASSWORD = 'Wall-munich-1234';
 
 /**
  * Where the boot-time grant is stashed, before any application code runs.
@@ -39,87 +39,6 @@ const WALL_PASSWORD = 'Wall-munich-1234';
  * </p>
  */
 type BootWindow = { __grantAtBoot?: string | null };
-
-/**
- * Copied from `wall-outlives-its-session.spec.ts:18-26` rather than extracted:
- * `e2e/support/*` is an ADR-0109 contention file and the extraction is a
- * separate refactor (ADR-0036). The URL is absolute — a manually launched
- * context inherits no `baseURL` from `playwright.config.ts:61`.
- */
-async function signInAsWallDisplay(page: Page): Promise<void> {
-  await page.goto(WALL);
-  await page.getByRole('button', { name: /sign in/i }).click();
-  await page.locator('#username').fill(WALL_USER);
-  await page.locator('#password').fill(WALL_PASSWORD);
-  await page.locator('#kc-login').click();
-  await expect(page.getByRole('heading', { name: 'Pick a layout' })).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByRole('listitem').first(), 'the seed project publishes a layout').toBeVisible({
-    timeout: 90_000,
-  });
-}
-
-/** A picker proves authentication; a `layout-grid` proves the wall. */
-async function openFirstLayout(page: Page): Promise<void> {
-  await page.getByRole('listitem').first().getByRole('button').click();
-  await expect(page.getByTestId('layout-grid')).toBeVisible({ timeout: 90_000 });
-}
-
-/** Claims of a grant, read without verifying — this is a test, not a validator. */
-function claimsOf(token: string): Record<string, unknown> {
-  const [, payload] = token.split('.');
-  if (payload === undefined) {
-    throw new Error('a grant should have a payload segment');
-  }
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
-}
-
-/** The `access_token` of the stored grant, read and never written. */
-async function storedAccessToken(page: Page): Promise<string> {
-  const access = await page.evaluate(() => {
-    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('oidc.user:'));
-    if (key === undefined) return null;
-    const user = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
-    return typeof user['access_token'] === 'string' ? user['access_token'] : null;
-  });
-
-  expect(access, 'the recovered wall display should be holding a grant').not.toBeNull();
-  return access as string;
-}
-
-/**
- * Spends the stored access token in place, then lets the close flush it, and
- * returns the token it spent.
- *
- * <p>
- * <b>The key is read, never constructed.</b> It embeds the identity provider's
- * authority, which the stack serves on a port chosen per run — a hardcoded
- * `localhost:8080` key once restored an entry the app never looks for and made a
- * working feature read as broken (`kiosk-comes-back.spec.ts:60-64`).
- * </p>
- *
- * <p>
- * <b>The returned token is the load-bearing half.</b> The realm's
- * `accessTokenLifespan` is an hour (`smart-sentinel-eye-realm.json:5`), so the
- * JWT this rewrite marks spent is in fact still valid: an app that stopped
- * consulting `expires_at` and sent it straight to the gateway would render
- * identically and never refresh. Comparing it against what process #2 ends up
- * holding is what makes the recovery a *renewal* rather than a re-use.
- * </p>
- */
-async function expireStoredAccessToken(page: Page): Promise<string> {
-  const spent = await page.evaluate(() => {
-    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('oidc.user:'));
-    if (key === undefined) return null;
-    const user = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
-    const access = user['access_token'];
-    user['expires_at'] = Math.floor(Date.now() / 1000) - 3_600;
-    window.localStorage.setItem(key, JSON.stringify(user));
-    return typeof access === 'string' ? access : null;
-  });
-
-  expect(spent, 'the first process should be holding a grant to expire').not.toBeNull();
-  return spent as string;
-}
 
 /**
  * Stops a hand-started trace, keeping it **only when something failed**.
@@ -183,9 +102,9 @@ test.describe('A wall survives a process death (spec 107 US1)', () => {
       let firstFailed = false;
       try {
         const page = first.pages()[0] ?? (await first.newPage());
-        await signInAsWallDisplay(page);
-        await openFirstLayout(page);
-        spentAccessToken = await expireStoredAccessToken(page);
+        await signInAsWallDisplay(page, { url: WALL, timeout: 90_000, expectPopulatedPicker: true });
+        await openFirstLayout(page, { timeout: 90_000 });
+        spentAccessToken = await expireStoredAccessToken(page, 'the first process should be holding a grant to expire');
       } catch (error) {
         firstFailed = true;
         throw error;
@@ -324,12 +243,12 @@ test.describe('A wall survives a process death (spec 107 US1)', () => {
           timeout: 90_000,
         });
 
-        await openFirstLayout(revived);
+        await openFirstLayout(revived, { timeout: 90_000 });
 
         // The recovery was a renewal, not a re-use. The spent JWT is still valid
         // for an hour by the realm's clock, so only a *different* access token
         // proves `expires_at` was consulted and the grant was exchanged.
-        const renewed = await storedAccessToken(revived);
+        const renewed = await storedAccessToken(revived, 'the recovered wall display should be holding a grant');
         expect(renewed, 'the wall must have exchanged its grant, not re-sent the token it marked spent').not.toBe(
           spentAccessToken,
         );
