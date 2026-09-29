@@ -235,10 +235,17 @@ public sealed class ClipCueHostedServiceTests
         await harness.Service.StartAsync(CancellationToken.None);
         (await WaitUntilAsync(() => client.IsConnected)).ShouldBeTrue();
 
+        // Two simultaneously-live per-path loops (the failing path's not-ready
+        // retry timer and the healthy path's schedule-wait timer). Wait for
+        // both to actually be pending before advancing — a fixed real-time
+        // sleep here is reliable only when the thread pool happens to already
+        // be warm (e.g. as part of a larger suite run) and flaky in isolation.
         for (int i = 0; i < 3; i++)
         {
+            (await clock.WaitForPendingTimersAsync(2, TimeSpan.FromSeconds(5))).ShouldBeTrue(
+                "both path loops never simultaneously reached a wait — one of them is stuck or crashed "
+                + "before registering its next timer");
             clock.Advance(TimeSpan.FromSeconds(1));
-            await Task.Delay(20);
         }
 
         (await WaitUntilAsync(() => client.Published.Any(
@@ -288,10 +295,15 @@ public sealed class ClipCueHostedServiceTests
         await harness.Service.StartAsync(CancellationToken.None);
         (await WaitUntilAsync(() => client.IsConnected)).ShouldBeTrue();
 
+        // Two simultaneously-live per-path loops (one per scenario). Wait for
+        // both to actually be pending before advancing — see the identical
+        // comment on A_camera_sim_failure_on_one_path_does_not_stop_cues_on_another.
         for (int i = 0; i < 3; i++)
         {
+            (await clock.WaitForPendingTimersAsync(2, TimeSpan.FromSeconds(5))).ShouldBeTrue(
+                "both path loops never simultaneously reached a wait — one of them is stuck or crashed "
+                + "before registering its next timer");
             clock.Advance(TimeSpan.FromSeconds(1));
-            await Task.Delay(20);
         }
 
         (await WaitUntilAsync(() => client.Published.Count >= 2)).ShouldBeTrue(
