@@ -201,6 +201,7 @@ public sealed class ScenarioSeederReactionTests
             new AutomationRulesClient(
                 new HttpClient(automation) { BaseAddress = new Uri("https://automation.test") },
                 Tokens(), NullLogger<AutomationRulesClient>.Instance),
+            new SystemVariablesClient(Failing(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
             correlation,
             wrapped,
             new WallSeeder(

@@ -28,6 +28,13 @@ public static class ScenarioSeedingExtensions
         builder.Services.AddHttpClient<LayoutCompositionClient>((sp, client) =>
                 client.BaseAddress = new Uri(Resolve(sp).LayoutCompositionUrl));
 
+        // No RetryEveryMethod (ADR-0143): its default already leaves POST
+        // unretried, and this client does not opt back in — a genuine 5xx
+        // propagates rather than being retried against a partially-applied
+        // create.
+        builder.Services.AddHttpClient<SystemVariablesClient>((sp, client) =>
+                client.BaseAddress = new Uri(Resolve(sp).SystemVariablesUrl));
+
         // Shared by the seeder (restart path) and the CameraRegisteredV1
         // handler (live path); the correlation table's one-shot claim keeps
         // the wall created exactly once regardless of which gets there first.

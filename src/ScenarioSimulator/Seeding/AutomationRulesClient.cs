@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ServiceDefaults;
@@ -21,26 +22,32 @@ public sealed class AutomationRulesClient(
     KeycloakTokenProvider tokens,
     ILogger<AutomationRulesClient> logger)
 {
-    internal async Task EnsureRuleAsync(RuleSeed seed, CancellationToken cancellationToken)
+    internal async Task<RuleSeedResult> EnsureRuleAsync(RuleSeed seed, CancellationToken cancellationToken)
     {
         Ensure.That(seed).IsNotNull();
 
         (string name, string triggerSource, string triggerKind, string predicate, RuleSeedAction action) = seed;
 
-        if (action is not RuleSeedAction.HighlightOverlay highlight)
+        CreateRuleBody body = action switch
         {
-            throw new NotSupportedException($"Unsupported rule seed action '{action.GetType().Name}'.");
-        }
-
-        CreateRuleBody body = new(
-            name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, highlight.Overlay, highlight.DurationMs);
+            RuleSeedAction.HighlightOverlay highlight => new CreateRuleBody(
+                name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, highlight.Overlay, highlight.DurationMs),
+            RuleSeedAction.SetVariableValue setVariable => new CreateRuleBody(
+                name, triggerSource, triggerKind, predicate, "SetVariableValue", setVariable.VariableName, setVariable.ValueExpression, null, null),
+            _ => throw new NotSupportedException($"Unsupported rule seed action '{action.GetType().Name}'."),
+        };
 
         string token = await tokens.GetAccessTokenAsync(cancellationToken);
 
-        int? expectedVersion = await CreateOrResolveVersionAsync(name, body, token, cancellationToken);
+        (int? expectedVersion, string? refusedReason) = await CreateOrResolveVersionAsync(name, body, token, cancellationToken);
+        if (refusedReason is not null)
+        {
+            return new RuleSeedResult.Refused(refusedReason);
+        }
+
         if (expectedVersion is null)
         {
-            return;
+            return new RuleSeedResult.Seeded();
         }
 
         using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={FabId}");
@@ -50,7 +57,17 @@ public sealed class AutomationRulesClient(
         using HttpResponseMessage published = await http.SendAsync(publish, cancellationToken);
         published.EnsureSuccessStatusCode();
 
-        logger.RuleSeeded(name, highlight.Overlay);
+        switch (action)
+        {
+            case RuleSeedAction.HighlightOverlay highlight:
+                logger.RuleSeeded(name, highlight.Overlay);
+                break;
+            case RuleSeedAction.SetVariableValue setVariable:
+                logger.RuleSeededVariable(name, setVariable.VariableName);
+                break;
+        }
+
+        return new RuleSeedResult.Seeded();
     }
 
     /// <summary>
@@ -72,8 +89,14 @@ public sealed class AutomationRulesClient(
     /// database can hold a Draft that will never fire. Ask what state it is in
     /// rather than assuming it was seeded.
     /// </para>
+    /// <para>
+    /// On 400 the rule spec itself is bad (e.g. a predicate that does not parse
+    /// as AEL) — the problem-detail body becomes the refusal reason, returned
+    /// rather than thrown, so the caller can refuse this one rule instead of
+    /// losing everything else on the asset (spec 289 US2, issue B1).
+    /// </para>
     /// </summary>
-    private async Task<int?> CreateOrResolveVersionAsync(
+    private async Task<(int? Version, string? RefusedReason)> CreateOrResolveVersionAsync(
         string name, CreateRuleBody body, string token, CancellationToken cancellationToken)
     {
         using HttpRequestMessage create = new(HttpMethod.Post, $"/rules?fabId={FabId}")
@@ -83,20 +106,45 @@ public sealed class AutomationRulesClient(
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
 
+        if (created.StatusCode == HttpStatusCode.BadRequest)
+        {
+            string reason = await ReadRefusalReasonAsync(created, cancellationToken);
+            logger.RuleRefused(name, reason);
+            return (null, reason);
+        }
+
         if (created.StatusCode != HttpStatusCode.Conflict)
         {
             created.EnsureSuccessStatusCode();
-            return 0;
+            return (0, null);
         }
 
         Option<RuleSummary> existing = await ReadRuleAsync(name, token, cancellationToken);
         if (!existing.HasValue || existing.Value.State != DraftState)
         {
             logger.RuleAlreadyExists(name);
-            return null;
+            return (null, null);
         }
 
-        return existing.Value.Version;
+        return (existing.Value.Version, null);
+    }
+
+    /// <summary>
+    /// The problem-detail's <c>detail</c>, or a generic reason when the 400
+    /// body is empty or not JSON — this client must never throw on a 400
+    /// (mirrors <see cref="SystemVariablesClient"/>'s same guarantee, S7).
+    /// </summary>
+    private static async Task<string> ReadRefusalReasonAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        try
+        {
+            ProblemDetailsBody? problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
+            return problem?.Detail ?? "the request was rejected (400) with no problem detail.";
+        }
+        catch (JsonException)
+        {
+            return "the request was rejected (400) with no problem detail.";
+        }
     }
 
     /// <summary>
@@ -149,4 +197,16 @@ public sealed class AutomationRulesClient(
         string ValueExpression,
         Guid? OverlayIdentifier,
         int? DurationMs);
+
+    /// <summary>Just the field this client acts on — <c>Title</c>/<c>Status</c> are unused.</summary>
+    private sealed record ProblemDetailsBody(string? Detail);
+}
+
+/// <summary>Whether a <see cref="RuleSeed"/> was seeded or refused.</summary>
+internal abstract record RuleSeedResult
+{
+    /// <summary>Created (201), reused (409 + Draft/Active/Archived), or published.</summary>
+    internal sealed record Seeded : RuleSeedResult;
+
+    internal sealed record Refused(string Reason) : RuleSeedResult;
 }

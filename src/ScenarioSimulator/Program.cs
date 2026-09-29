@@ -150,6 +150,11 @@ static void BindRuntime(IConfiguration config, SimulatorOptions options)
         ?? config["ScenarioSimulator:Runtime:LayoutCompositionUrl"]
         ?? throw new InvalidOperationException("layout-composition URL not configured (services:layout-composition:http:0).");
 
+    options.SystemVariablesUrl =
+        config["services:system-variables:http:0"]
+        ?? config["ScenarioSimulator:Runtime:SystemVariablesUrl"]
+        ?? throw new InvalidOperationException("system-variables URL not configured (services:system-variables:http:0).");
+
     options.MqttHost =
         config["services:mosquitto:mqtt:0"]
         ?? config["ScenarioSimulator:Runtime:MqttHost"]

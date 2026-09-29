@@ -84,8 +84,14 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded rule '{Name}' -> overlay {Overlay}.")]
     public static partial void RuleSeeded(this ILogger logger, string name, Guid overlay);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Seeded rule '{Name}' -> variable '{Variable}'.")]
+    public static partial void RuleSeededVariable(this ILogger logger, string name, string variable);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Rule '{Name}' already exists; skipping (idempotent).")]
     public static partial void RuleAlreadyExists(this ILogger logger, string name);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Rule '{Name}' was not seeded: {Reason}.")]
+    public static partial void RuleRefused(this ILogger logger, string name, string reason);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Seeded wall layout '{Name}' ({Rows}x{Cols}) -> {Layout}.")]
     public static partial void WallSeeded(this ILogger logger, string name, int rows, int cols, Guid layout);
@@ -176,10 +182,29 @@ internal static partial class Log
     public static partial void ReactionSkippedRefusedManifest(
         this ILogger logger, string asset, string reaction, string source, string kind);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Asset '{Asset}' highlight rule was not seeded: {Reason}.")]
+    public static partial void HighlightRuleRefused(this ILogger logger, string asset, string reason);
+
+    // --- Spec 289: system variables (Seeding/SystemVariablesClient) ---
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Seeded variable '{Name}'.")]
+    public static partial void VariableSeeded(this ILogger logger, string name);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Variable '{Name}' already exists with a matching type; reusing it (idempotent).")]
+    public static partial void VariableAlreadyExists(this ILogger logger, string name);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Variable '{Name}' was not seeded: {Reason}.")]
+    public static partial void VariableRefused(this ILogger logger, string name, string reason);
+
     [LoggerMessage(
         Level = LogLevel.Warning,
-        Message = "Asset '{Asset}' declares {ReactionCount} reaction(s) but has no seeded overlay; none of them were seeded.")]
-    public static partial void ReactionsSkippedNoOverlay(this ILogger logger, string asset, int reactionCount);
+        Message = "Asset '{Asset}' reaction '{Reaction}' was skipped: its variable '{Variable}' was not seeded.")]
+    public static partial void ReactionSkippedVariableRefused(this ILogger logger, string asset, string reaction, string variable);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Variable '{Name}' could not be seeded: {Error}. Its dependent reactions will be skipped; the rest of the asset still seeds.")]
+    public static partial void VariableSeedFailed(this ILogger logger, string name, string error);
 
     // --- Spec 289: clip cues (Cues/ClipCueHostedService) ---
 

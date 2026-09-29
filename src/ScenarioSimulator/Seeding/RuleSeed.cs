@@ -14,4 +14,7 @@ internal abstract record RuleSeedAction
 {
     /// <summary>Flashes <paramref name="Overlay"/> for <paramref name="DurationMs"/>.</summary>
     internal sealed record HighlightOverlay(Guid Overlay, int DurationMs) : RuleSeedAction;
+
+    /// <summary>Writes <paramref name="ValueExpression"/> into <paramref name="VariableName"/>.</summary>
+    internal sealed record SetVariableValue(string VariableName, string ValueExpression) : RuleSeedAction;
 }

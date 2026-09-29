@@ -11,11 +11,13 @@ namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 /// derived from a matching sensor.
 ///
 /// <para>
-/// <c>HighlightOverlay</c> is the only recognised action <c>Type</c> today;
-/// any other value — including one this simulator will eventually support —
-/// is refused the same way an unknown one always would be, so adding a new
-/// action kind here is additive rather than a behaviour change to the
-/// refusal path.
+/// <c>HighlightOverlay</c> and <c>SetVariableValue</c> are the recognised
+/// action <c>Type</c>s; any other value is refused the same way an unknown
+/// one always would be, so adding a new action kind here is additive rather
+/// than a behaviour change to the refusal path. A <c>SetVariableValue</c>
+/// reaction is valid only when <c>reaction.Then.Variable</c> names an entry
+/// in <c>asset.Variables</c> — declaration, not whether the seed itself
+/// succeeded; that split happens in <see cref="ScenarioSeeder"/>.
 /// </para>
 /// </summary>
 internal static class ReactionRuleSeed
@@ -60,12 +62,21 @@ internal static class ReactionRuleSeed
 
         string predicate = $"$.device == '{asset.Camera.Path}' && ({reaction.When.Predicate})";
 
-        if (reaction.Then.Type != "HighlightOverlay")
+        switch (reaction.Then.Type)
         {
-            return new ReactionSeedResult.Refused(
-                $"action type '{reaction.Then.Type}' is not supported yet.");
+            case "HighlightOverlay":
+                return FromHighlightOverlay(name, reaction, predicate, overlay);
+            case "SetVariableValue":
+                return FromSetVariableValue(name, asset, reaction, predicate);
+            default:
+                return new ReactionSeedResult.Refused(
+                    $"action type '{reaction.Then.Type}' is not supported yet.");
         }
+    }
 
+    private static ReactionSeedResult FromHighlightOverlay(
+        string name, ReactionDefinition reaction, string predicate, Guid? overlay)
+    {
         if (overlay is null)
         {
             return new ReactionSeedResult.Refused("HighlightOverlay reaction on an asset with no seeded overlay.");
@@ -79,6 +90,33 @@ internal static class ReactionRuleSeed
         RuleSeed seed = new(
             name, reaction.When.Source, reaction.When.Kind, predicate,
             new RuleSeedAction.HighlightOverlay(overlay.Value, reaction.Then.DurationMs.Value));
+        return new ReactionSeedResult.Valid(seed);
+    }
+
+    private static ReactionSeedResult FromSetVariableValue(
+        string name, AssetDefinition asset, ReactionDefinition reaction, string predicate)
+    {
+        if (string.IsNullOrWhiteSpace(reaction.Then.Variable))
+        {
+            return new ReactionSeedResult.Refused("SetVariableValue reaction has no Variable.");
+        }
+
+        if (string.IsNullOrWhiteSpace(reaction.Then.Value))
+        {
+            return new ReactionSeedResult.Refused("SetVariableValue reaction has no Value.");
+        }
+
+        bool declared = asset.Variables.Any(variable =>
+            string.Equals(variable.Name, reaction.Then.Variable, StringComparison.Ordinal));
+        if (!declared)
+        {
+            return new ReactionSeedResult.Refused(
+                $"SetVariableValue reaction names variable '{reaction.Then.Variable}', which this asset does not declare.");
+        }
+
+        RuleSeed seed = new(
+            name, reaction.When.Source, reaction.When.Kind, predicate,
+            new RuleSeedAction.SetVariableValue(reaction.Then.Variable, reaction.Then.Value));
         return new ReactionSeedResult.Valid(seed);
     }
 

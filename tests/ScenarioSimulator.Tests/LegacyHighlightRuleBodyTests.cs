@@ -251,6 +251,7 @@ public sealed class LegacyHighlightRuleBodyTests
             new OverlayDesignerClient(SucceedingOverlayHandler(overlay), Tokens(), NullLogger<OverlayDesignerClient>.Instance),
             new AutomationRulesClient(new HttpClient(automation) { BaseAddress = new Uri("https://automation.test") },
                 Tokens(), NullLogger<AutomationRulesClient>.Instance),
+            new SystemVariablesClient(Failing(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
             correlation,
             wrapped,
             new WallSeeder(
