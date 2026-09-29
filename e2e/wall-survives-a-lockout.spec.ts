@@ -1,7 +1,17 @@
-import { test, expect, chromium, request as playwrightRequest, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, chromium, request as playwrightRequest, type BrowserContext } from '@playwright/test';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { openFirstLayout } from './support/kiosk-session';
+import {
+  claimsOf,
+  expireStoredAccessToken,
+  issuerOf,
+  signInAsWallDisplay,
+  storedAccessToken,
+  WALL_PASSWORD,
+  WALL_USER,
+} from './support/wall-session';
 
 /**
  * Spec 214 (#2509) US2, SC-6 — a running wall display keeps its wall while its
@@ -26,12 +36,11 @@ import { join } from 'node:path';
  * </p>
  *
  * <p>
- * <b>The rig is copied from `wall-survives-a-process-death.spec.ts`</b>
- * (`signInAsWallDisplay`, `openFirstLayout`, `claimsOf`, `storedAccessToken`,
- * `expireStoredAccessToken`) rather than imported or extracted: that file
- * itself explains why — `e2e/support/*` is an ADR-0109 contention file and
- * extraction is a separate refactor (ADR-0036). That sibling file is not
- * edited by this one.
+ * <b>The rig is imported from `e2e/support/wall-session.ts`</b>
+ * (`signInAsWallDisplay`, `claimsOf`, `storedAccessToken`,
+ * `expireStoredAccessToken`, `issuerOf`) and `e2e/support/kiosk-session.ts`
+ * (`openFirstLayout`), extracted from the per-file copies this file and its
+ * siblings used to carry (spec 288 US1, ADR-0162).
  * </p>
  *
  * <p>
@@ -69,95 +78,17 @@ import { join } from 'node:path';
  */
 
 const WALL = 'http://localhost:5175/';
-const WALL_USER = 'wall-munich';
-const WALL_PASSWORD = 'Wall-munich-1234';
 const REALM = 'smart-sentinel-eye';
 const MANAGEMENT_CLIENT_ID = 'management-web';
 
 /**
  * The master realm's bootstrap admin-cli account. Same default and same
- * override as `wall-withdrawal.spec.ts` — copied, not imported, for the same
- * ADR-0109 contention reason as the rest of this file's helpers.
+ * override as `wall-withdrawal.spec.ts` — kept local rather than shared: it
+ * has one caller in each of the two files that need it, so ADR-0162 §3's
+ * extraction threshold (a second caller in a *different* file) does not
+ * apply to it the way it does to the sign-in rig below.
  */
 const ADMIN_PASSWORD = process.env['SSE_KEYCLOAK_ADMIN_PASSWORD'] ?? 'dev-only-keycloak-admin';
-
-/**
- * Copied from `wall-survives-a-process-death.spec.ts`: the URL is absolute —
- * a manually launched context inherits no `baseURL` from `playwright.config.ts`.
- */
-async function signInAsWallDisplay(page: Page): Promise<void> {
-  await page.goto(WALL);
-  await page.getByRole('button', { name: /sign in/i }).click();
-  await page.locator('#username').fill(WALL_USER);
-  await page.locator('#password').fill(WALL_PASSWORD);
-  await page.locator('#kc-login').click();
-  await expect(page.getByRole('heading', { name: 'Pick a layout' })).toBeVisible({ timeout: 90_000 });
-  await expect(page.getByRole('listitem').first(), 'the seed project publishes a layout').toBeVisible({
-    timeout: 90_000,
-  });
-}
-
-/** A picker proves authentication; a `layout-grid` proves the wall. */
-async function openFirstLayout(page: Page): Promise<void> {
-  await page.getByRole('listitem').first().getByRole('button').click();
-  await expect(page.getByTestId('layout-grid')).toBeVisible({ timeout: 90_000 });
-}
-
-/** Claims of a grant, read without verifying — this is a test, not a validator. */
-function claimsOf(token: string): Record<string, unknown> {
-  const [, payload] = token.split('.');
-  if (payload === undefined) {
-    throw new Error('a grant should have a payload segment');
-  }
-  return JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as Record<string, unknown>;
-}
-
-/** The `access_token` of the stored grant, read and never written. */
-async function storedAccessToken(page: Page): Promise<string> {
-  const access = await page.evaluate(() => {
-    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('oidc.user:'));
-    if (key === undefined) return null;
-    const user = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
-    return typeof user['access_token'] === 'string' ? user['access_token'] : null;
-  });
-
-  expect(access, 'the wall display should be holding a grant').not.toBeNull();
-  return access as string;
-}
-
-/**
- * Ages the stored access token in place, so the next silent-renewal check
- * finds it already expired. Returns the token it just marked spent, which is
- * what the later assertion compares the renewed token against.
- */
-async function expireStoredAccessToken(page: Page): Promise<string> {
-  const spent = await page.evaluate(() => {
-    const key = Object.keys(window.localStorage).find((candidate) => candidate.startsWith('oidc.user:'));
-    if (key === undefined) return null;
-    const user = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
-    const access = user['access_token'];
-    user['expires_at'] = Math.floor(Date.now() / 1000) - 3_600;
-    window.localStorage.setItem(key, JSON.stringify(user));
-    return typeof access === 'string' ? access : null;
-  });
-
-  expect(spent, 'the wall display should be holding a grant to expire').not.toBeNull();
-  return spent as string;
-}
-
-/**
- * The provider's own issuer, read off a live grant rather than hardcoded — the
- * host publishes Keycloak on a port it chooses, and a fixed one is a
- * different issuer as far as Keycloak is concerned (`wall-withdrawal.spec.ts`
- * already paid for this mistake once).
- */
-function issuerOf(token: string): string {
-  const issuer = claimsOf(token)['iss'];
-  if (typeof issuer !== 'string' || issuer === '') {
-    throw new Error('a grant should name its issuer');
-  }
-  return issuer;
-}
 
 test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
   // `{}` rather than a named parameter: Playwright requires the first
@@ -186,10 +117,10 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
 
     try {
       const page = context.pages()[0] ?? (await context.newPage());
-      await signInAsWallDisplay(page);
-      await openFirstLayout(page);
+      await signInAsWallDisplay(page, { url: WALL, timeout: 90_000, expectPopulatedPicker: true });
+      await openFirstLayout(page, { timeout: 90_000 });
 
-      const issuer = issuerOf(await storedAccessToken(page));
+      const issuer = issuerOf(await storedAccessToken(page, 'the wall display should be holding a grant'));
       provider = new URL(issuer).origin;
 
       // Master-realm admin token and wall-munich's id, minted and resolved
@@ -295,7 +226,10 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
           }
         });
 
-        const spentAccessToken = await expireStoredAccessToken(page);
+        const spentAccessToken = await expireStoredAccessToken(
+          page,
+          'the wall display should be holding a grant to expire',
+        );
 
         // A bare `localStorage` edit changes nothing until something re-reads
         // it: `automaticSilentRenew`'s timer is scheduled off the User object
@@ -341,7 +275,7 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
 
         // The renewal was real: a different token than the one just marked
         // spent, still on the narrowed wall client.
-        const renewedAccessToken = await storedAccessToken(page);
+        const renewedAccessToken = await storedAccessToken(page, 'the wall display should be holding a grant');
         expect(renewedAccessToken, 'the wall must have exchanged its grant, not kept the one it marked spent').not.toBe(
           spentAccessToken,
         );

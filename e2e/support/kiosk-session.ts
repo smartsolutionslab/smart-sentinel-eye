@@ -33,10 +33,16 @@ export async function signInToKiosk(page: Page): Promise<void> {
  * Any published layout proves the point, so the seed does not share its name —
  * layout names are unique per fab and a fixed one would collide on a second
  * local run against a surviving database.
+ *
+ * `options.timeout` is undefined by default, which `toBeVisible` treats
+ * identically to the option being omitted — so existing kiosk callers of
+ * `signInToKiosk`/`openFirstLayout` are byte-for-byte unchanged at runtime.
+ * Spec 288 US1's wall specs pass `{ timeout: 90_000 }` (plan §5.1) instead of
+ * carrying their own copy of this function.
  */
-export async function openFirstLayout(page: Page): Promise<void> {
+export async function openFirstLayout(page: Page, options?: { timeout?: number }): Promise<void> {
   await page.getByRole('listitem').first().getByRole('button').click();
-  await expect(page.getByTestId('layout-grid')).toBeVisible();
+  await expect(page.getByTestId('layout-grid')).toBeVisible({ timeout: options?.timeout });
 }
 
 /**

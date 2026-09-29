@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { claimsOf, signInAsWallDisplay } from './support/wall-session';
 
 /**
  * Spec 052 US3 — what a wall display may do, enumerated rather than assumed.
@@ -12,17 +13,10 @@ import { test, expect, type Page } from '@playwright/test';
  * </p>
  */
 
-const WALL_USER = 'wall-munich';
-const WALL_PASSWORD = 'Wall-munich-1234';
-
 /** Every scope the issued token actually carries. */
 function scopesOf(accessToken: string): string[] {
-  const [, payload] = accessToken.split('.');
-  if (payload === undefined) {
-    throw new Error('a wall access token should have a payload segment');
-  }
-  const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { scope?: string };
-  return (claims.scope ?? '').split(' ').filter(Boolean);
+  const scope = claimsOf(accessToken)['scope'];
+  return (typeof scope === 'string' ? scope : '').split(' ').filter(Boolean);
 }
 
 async function signInAndReadToken(page: Page): Promise<{ token: string; origin: string }> {
@@ -30,12 +24,7 @@ async function signInAndReadToken(page: Page): Promise<{ token: string; origin: 
     /\/(layout-composition|stream-distribution|camera-catalog)\//.test(request.url()),
   );
 
-  await page.goto('/');
-  await page.getByRole('button', { name: /sign in/i }).click();
-  await page.locator('#username').fill(WALL_USER);
-  await page.locator('#password').fill(WALL_PASSWORD);
-  await page.locator('#kc-login').click();
-  await expect(page.getByRole('heading', { name: 'Pick a layout' })).toBeVisible({ timeout: 60_000 });
+  await signInAsWallDisplay(page);
 
   const origin = new URL((await gatewayRequest).url()).origin;
   const token = await page.evaluate(() => {
