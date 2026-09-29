@@ -1,6 +1,7 @@
 # ADR-0111 — Scenario Simulator for realistic dev/demo scenarios
 
 **Status:** Accepted
+**Amended by:** ADR-0163 (proposed 2026-09-29): cues declared beside each clip run on the clip's clock (anchored to camera-sim's `readyTime`), and the scenario file declares reactions and variables that the simulator seeds. The M2 sensor timeline below is unchanged.
 
 **Relates to:** ADR-0011/0012 (WebRTC SFU), ADR-0095 (event ingestion / MQTT), ADR-0076 (realtime push → overlays), ADR-0024 (Aspire), constitution §IV (latency budget). **Supersedes** the static camera simulation in #1037.
 
