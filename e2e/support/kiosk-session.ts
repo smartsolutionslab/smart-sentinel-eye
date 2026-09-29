@@ -35,10 +35,8 @@ export async function signInToKiosk(page: Page): Promise<void> {
  * local run against a surviving database.
  *
  * `options.timeout` is undefined by default, which `toBeVisible` treats
- * identically to the option being omitted — so existing kiosk callers of
- * `signInToKiosk`/`openFirstLayout` are byte-for-byte unchanged at runtime.
- * Spec 288 US1's wall specs pass `{ timeout: 90_000 }` (plan §5.1) instead of
- * carrying their own copy of this function.
+ * identically to the option being omitted, so a caller that passes no
+ * options sees unchanged behaviour.
  */
 export async function openFirstLayout(page: Page, options?: { timeout?: number }): Promise<void> {
   await page.getByRole('listitem').first().getByRole('button').click();
