@@ -1,6 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
 import { clickSidebarLink, openSection } from './management-navigation';
+import { registerCameraViaList } from './management-cameras';
 import { newBoundOverlayWall, writeBoundOverlayWall } from './bound-overlay-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
@@ -67,11 +68,11 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
   // 3. A camera, because a tile requires one. The `E2E ` prefix is what the
   //    cleanup teardown matches on (issue 1895).
   await clickSidebarLink(page, 'Cameras');
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(wall.cameraName);
-  await page.locator('#register-camera-url').fill('rtsp://10.0.5.71/stream');
-  await page.getByRole('button', { name: /^register$/i }).click();
-  await expect(page.getByRole('cell', { name: wall.cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await registerCameraViaList(
+    page,
+    { name: wall.cameraName, url: 'rtsp://10.0.5.71/stream' },
+    { timeout: FIRST_WRITE_TIMEOUT_MS },
+  );
 
   // 4. The wall: one tile, that camera, that overlay.
   await openSection(page, 'Layouts');

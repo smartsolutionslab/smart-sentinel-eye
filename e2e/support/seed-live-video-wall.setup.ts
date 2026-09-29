@@ -1,6 +1,7 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
 import { clickSidebarLink, openSection } from './management-navigation';
+import { registerCameraViaList } from './management-cameras';
 import { newLiveVideoWall, writeLiveVideoWall } from './live-video-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
@@ -107,11 +108,9 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   //    "not for a repeat write of the same kind inside one test").
   await clickSidebarLink(page, 'Cameras');
   for (const [index, camera] of wall.cameras.entries()) {
-    await page.getByRole('button', { name: /register camera/i }).click();
-    await page.locator('#register-camera-name').fill(camera.name);
-    await page.locator('#register-camera-url').fill(camera.rtspUrl);
-    await page.getByRole('button', { name: /^register$/i }).click();
-    await expect(page.getByRole('cell', { name: camera.name })).toBeVisible(
+    await registerCameraViaList(
+      page,
+      { name: camera.name, url: camera.rtspUrl },
       index === 0 ? { timeout: FIRST_WRITE_TIMEOUT_MS } : undefined,
     );
   }

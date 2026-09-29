@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { registerCameraViaList } from './support/management-cameras';
 import { clickSidebarLink, openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
@@ -39,11 +40,11 @@ test('operator authors a 2×2 wall referencing a camera and overlay and it appea
 
   // (1) Register a camera so the layout dialog's camera picker is non-empty
   // (the submit button stays disabled while no camera exists).
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(cameraName);
-  await page.locator('#register-camera-url').fill('rtsp://10.0.5.50/stream');
-  await page.getByRole('button', { name: /^register$/i }).click();
-  await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  await registerCameraViaList(
+    page,
+    { name: cameraName, url: 'rtsp://10.0.5.50/stream' },
+    { timeout: FIRST_WRITE_TIMEOUT_MS },
+  );
 
   // (2) Create an overlay draft, then publish it: the layout dialog only lists
   // *published* overlays (useListOverlaysQuery('Published')).
@@ -106,11 +107,11 @@ test('a second operator publishing the same revision is refused, not silently ap
     await signInAsOperator(pageOne);
 
     // Seed a camera and a draft layout from the first context.
-    await pageOne.getByRole('button', { name: /register camera/i }).click();
-    await pageOne.locator('#register-camera-name').fill(cameraName);
-    await pageOne.locator('#register-camera-url').fill('rtsp://10.0.5.60/stream');
-    await pageOne.getByRole('button', { name: /^register$/i }).click();
-    await expect(pageOne.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+    await registerCameraViaList(
+      pageOne,
+      { name: cameraName, url: 'rtsp://10.0.5.60/stream' },
+      { timeout: FIRST_WRITE_TIMEOUT_MS },
+    );
 
     await clickSidebarLink(pageOne, 'Layouts');
     await pageOne.getByRole('button', { name: /new layout/i }).click();

@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { registerCamera } from './support/management-cameras';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 030 T033–T036 — opening one camera and correcting it, against the live
@@ -8,17 +9,9 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 // takes: OIDC -> token -> gateway -> camera-catalog -> DB, and back into a
 // rendered page.
 
-/** Registers a camera and returns its name, which is also the link to open it. */
-async function registerCamera(page: import('@playwright/test').Page): Promise<string> {
+async function registerDetailCamera(page: import('@playwright/test').Page): Promise<string> {
   const name = `E2E Detail ${Date.now()}`;
-
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(name);
-  await page.locator('#register-camera-url').fill('rtsp://10.0.5.98/stream');
-  await page.getByRole('button', { name: /^register$/i }).click();
-
-  await expect(page.getByRole('link', { name })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-
+  await registerCamera(page, { name, url: 'rtsp://10.0.5.98/stream' });
   return name;
 }
 
@@ -26,7 +19,7 @@ test('operator opens one camera from the list, and its location can be reloaded'
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const name = await registerCamera(page);
+  const name = await registerDetailCamera(page);
 
   await page.getByRole('link', { name }).click();
 
@@ -50,7 +43,7 @@ test('operator corrects a camera address and sees the stored value', async ({ pa
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const name = await registerCamera(page);
+  const name = await registerDetailCamera(page);
 
   await page.getByRole('link', { name }).click();
   await page.getByRole('button', { name: /correct the address/i }).click();
@@ -87,7 +80,7 @@ test('operator retires a camera, and it leaves the listing but keeps its record'
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const name = await registerCamera(page);
+  const name = await registerDetailCamera(page);
 
   await page.getByRole('link', { name }).click();
   const location = page.url();
@@ -153,7 +146,7 @@ test('operator renames a camera and the new name follows it into the listing', a
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const original = await registerCamera(page);
+  const original = await registerDetailCamera(page);
 
   await page.getByRole('link', { name: original }).click();
   await expect(page.getByRole('heading', { name: original })).toBeVisible();
@@ -210,7 +203,7 @@ test('a failed refresh after a rename keeps the camera on screen, and Retry reco
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const original = await registerCamera(page);
+  const original = await registerDetailCamera(page);
 
   let detailGets = 0;
   const detailGetPath = (url: URL): boolean => /\/camera-catalog\/cameras\/[0-9a-f-]{36}$/i.test(url.pathname);
@@ -296,7 +289,7 @@ test('an opened camera has a viewer, and a retired one explains why it does not'
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
   await signInAsOperator(page);
-  const name = await registerCamera(page);
+  const name = await registerDetailCamera(page);
 
   await page.getByRole('link', { name }).click();
   await expect(page.getByRole('heading', { name })).toBeVisible();

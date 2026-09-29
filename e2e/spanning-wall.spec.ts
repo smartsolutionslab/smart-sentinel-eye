@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { signInToKiosk } from './support/kiosk-session';
+import { registerCameraViaList } from './support/management-cameras';
 import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
@@ -71,11 +72,9 @@ test('a hero-and-thumbnails wall is authored, published and drawn at its real si
   // message kind; registrations 2-6 repeat it within the same test and pay
   // the ordinary warm cost instead (`cold-stack.ts`).
   for (const [index, name] of cameraNames.entries()) {
-    await page.getByRole('button', { name: /register camera/i }).click();
-    await page.locator('#register-camera-name').fill(name);
-    await page.locator('#register-camera-url').fill(`rtsp://10.0.5.${90 + index}/stream`);
-    await page.getByRole('button', { name: /^register$/i }).click();
-    await expect(page.getByRole('cell', { name })).toBeVisible(
+    await registerCameraViaList(
+      page,
+      { name, url: `rtsp://10.0.5.${90 + index}/stream` },
       index === 0 ? { timeout: FIRST_WRITE_TIMEOUT_MS } : undefined,
     );
   }
