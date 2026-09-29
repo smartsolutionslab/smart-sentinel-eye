@@ -36,7 +36,9 @@ setup('a published layout exists for the kiosk to open', async ({ page }) => {
   // catalogue is empty. It does NOT need an overlay — an unbound tile renders.
   //
   // No `openSection(page, 'Cameras')` here: sign-in already lands on Cameras
-  // (spec.md's own comment above), and `createPublishedLayout` deliberately
-  // does not navigate there itself (see that function's own doc comment).
+  // (see `sign-in.ts`), and `createPublishedLayout` deliberately does not
+  // navigate there itself (see that function's own doc comment).
+  //
+  // Published, not draft: the kiosk picker lists Published revisions only.
   await createPublishedLayout(page, layoutName, cameraName);
 });

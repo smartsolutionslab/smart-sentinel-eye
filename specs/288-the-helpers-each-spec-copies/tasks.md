@@ -138,38 +138,40 @@ Branch `refactor/2661-us1-wall-session-rig`, cut from `develop`.
 
 Branch `refactor/2661-us2-console-navigation`, cut from `develop` **after PR 1 merges** (needs the reporter).
 
-- [ ] **T201** [US2] Classify all 61 sidebar-nav sites (spec §1.2: 12 specs plus 3 seeds) into:
+- [x] **T201** [US2] Classify all 61 sidebar-nav sites (spec §1.2: 12 specs plus 3 seeds) into:
   - (i) click + section-heading pair: record the heading text, `exact` flag and page variable;
   - (ii) lone click, or click followed by something else.
 
   Write the table into the PR body draft, not the repository. It can start while PR 1 is in review, since it writes no files.
-- [ ] **T202** [US2] Baseline, before T203:
+- [x] **T202** [US2] Baseline, before T203:
   - `--list > us2-before.list`;
   - reporter runs **twice** for `chromium`, `seed`, `kiosk` and `wall` (the seeds are edited, and `kiosk`/`wall` depend on `seed`), into `us2-baseline-{a,b}.json`.
   - **Depends on:** PR 1 merged, T201.
-- [ ] **T203** [US2] `e2e/support/management-navigation.ts`: the `ConsoleSection` union, `clickSidebarLink`, and `openSection(page, section, { exact })` (plan §5.2), with the `exact` default set from T201's majority. In the same commit, migrate `overlays.spec.ts` (10 pairs + remaining lone clicks).
+- [x] **T203** [US2] `e2e/support/management-navigation.ts`: the `ConsoleSection` union, `clickSidebarLink`, and `openSection(page, section, { exact })` (plan §5.2), with the `exact` default set from T201's majority. In the same commit, migrate `overlays.spec.ts` (10 pairs + remaining lone clicks).
+  - **Built as:** `openSection(page, section)` with **no `{ exact }` parameter** — re-derivation found all 51 real call sites used `exact: true` with zero variance, so a parameter nobody would ever pass wasn't built (ADR-0036, confirmed by the orchestrator).
   - **Depends on:** T202.
-- [ ] **T204** [US2] Migrate `system-variables.spec.ts`, `layouts.spec.ts` and `audit.spec.ts`.
+- [x] **T204** [US2] Migrate `system-variables.spec.ts`, `layouts.spec.ts` and `audit.spec.ts`.
   - **Depends on:** T203.
-- [ ] **T205** [US2] Migrate `in-flight-focus.spec.ts` (16 pairs), `rules.spec.ts` (its local `openRules` keeps its alert assertion and calls `openSection`) and `command-palette.spec.ts`.
+- [x] **T205** [US2] Migrate `in-flight-focus.spec.ts` (16 pairs), `rules.spec.ts` (its local `openRules` keeps its alert assertion and calls `openSection`) and ~~`command-palette.spec.ts`~~.
+  - **Correction:** `command-palette.spec.ts` has nothing to migrate — its one `getByRole('link', …)` reference (line 28) is a focus assertion after keyboard-driven navigation, never a `.click()`. Confirmed independently twice (test-writer, then engineer). Left untouched.
   - **Depends on:** T203.
   - **[P] with T204.**
-- [ ] **T206** [US2] Migrate `interaction-states.spec.ts`, `kiosk-reconciliation.spec.ts`, `kiosk-shows-a-label-over-video.spec.ts` (nav site outside the measured window only), `spanning-wall.spec.ts` and `wall-changes-its-scene.spec.ts`.
+- [x] **T206** [US2] Migrate `interaction-states.spec.ts`, `kiosk-reconciliation.spec.ts`, `kiosk-shows-a-label-over-video.spec.ts` (nav site outside the measured window only), `spanning-wall.spec.ts` and `wall-changes-its-scene.spec.ts`.
   - **Depends on:** T203.
   - **[P] with T204, T205.**
-- [ ] **T207** [US2] Migrate the three seeds: `seed-bound-overlay-wall.setup.ts`, `seed-live-video-wall.setup.ts`, `seed-published-layout.setup.ts`.
+- [x] **T207** [US2] Migrate the three seeds: `seed-bound-overlay-wall.setup.ts`, `seed-live-video-wall.setup.ts`, `seed-published-layout.setup.ts`.
   - **Depends on:** T203.
   - **[P] with T204-T206.**
-- [ ] **T208** [US2] Verify SC-002: no file outside `management-navigation.ts` **clicks** a sidebar link via `getByRole('link', { name: /^(cameras|layouts|walls|overlays|system variables|rules|audit)$/i })` (Grep, quoted), except where the locator is the test's own subject per ADR-0162 §4 — `interaction-states.spec.ts:528`'s `rulesLink` (an `aria-current`/colour assertion) and `command-palette.spec.ts:28` (a post-keyboard-nav focus assertion), neither of which clicks it.
+- [x] **T208** [US2] Verify SC-002: no file outside `management-navigation.ts` **clicks** a sidebar link via `getByRole('link', { name: /^(cameras|layouts|walls|overlays|system variables|rules|audit)$/i })` (Grep, quoted), except where the locator is the test's own subject per ADR-0162 §4 — `interaction-states.spec.ts:528`'s `rulesLink` (an `aria-current`/colour assertion) and `command-palette.spec.ts:28` (a post-keyboard-nav focus assertion), neither of which clicks it.
   - **Depends on:** T204-T207.
-- [ ] **T209** [US2] Evidence:
+- [x] **T209** [US2] Evidence:
   - empty `--list` diff;
   - `after` inventory for `chromium`, `seed`, `kiosk` and `wall`, diff exit 0, noisy tests named;
   - deliberate break of `openSection`'s heading assertion, observed red in one `chromium` test and reverted.
   - **Depends on:** T208.
-- [ ] **T210** [US2] Local gates as T112.
+- [x] **T210** [US2] Local gates as T112.
   - **Depends on:** T209.
-- [ ] **T211** [US2] Phases 5-7 as T113-T115, with `Refs #2661`.
+- [x] **T211** [US2] Phases 5-7 as T113-T115, with `Refs #2661`. PR #2675, merged.
   - **Depends on:** T210.
 
 ---
@@ -178,24 +180,29 @@ Branch `refactor/2661-us2-console-navigation`, cut from `develop` **after PR 1 m
 
 Branch `refactor/2661-us3-console-flows`, cut from `develop` **after PR 2 merges** (shared spec files).
 
-- [ ] **T301** [US3] Classify all create-form sites (plan §5.3 step 1: `#register-camera-name`, `#overlay-name`, `#layout-name`, `#variable-name`, `#rule-*`) as **arrange** or **act**, then group arrange sites by identical steps and arrival assertion. Output: the list of flows with ≥ 2 callers in different files, each with its per-caller parameter values. **Only these flows are extracted.** Every act site and every singleton stays inline. The table goes in the PR body. Expected to include `registerCamera` (`camera-detail`, `interaction-states`) and `fillRuleForm` (`rules`, `in-flight-focus`). Create-draft flows depend on this classification.
-- [ ] **T302** [US3] Baseline as T202, for the projects whose files T301 selected (`seed`/`kiosk`/`wall` only if a seed is in the list).
+- [x] **T301** [US3] Classify all create-form sites (plan §5.3 step 1: `#register-camera-name`, `#overlay-name`, `#layout-name`, `#variable-name`, `#rule-*`) as **arrange** or **act**, then group arrange sites by identical steps and arrival assertion. Output: the list of flows with ≥ 2 callers in different files, each with its per-caller parameter values. **Only these flows are extracted.** Every act site and every singleton stays inline. The table goes in the PR body.
+  - **Outcome — larger than expected, re-derived independently twice (test-writer, then engineer):** in addition to the two flows anticipated below, classification found **three more genuine multi-file clusters** the original plan's scope missed: a cell-arrival camera registration shape (distinct from the link-arrival `registerCamera` — different arrival locator, kept as a separate function per plan's own "never unify different arrival locators" rule), a composite "register camera + author + publish a single-tile layout" flow, and a minimal overlay-draft creation flow. See T305a-d below for what was actually built.
+  - **Refinement to plan §5.3's blanket in-flight-focus note:** "in-flight-focus's register/define/create sites are act and stay inline" holds only where `holdWrites` targets the creation POST/PATCH itself (Register/Rename/Retire camera, New rule, New variable — these stay inline). It does **not** hold for a second class of sites in the same file where creation is pure arrange for a focus assertion on a *different, later* action (Layouts Publish/Revert, Walls Show/New wall, SystemVariables SetValue/Archive — `holdWrites` targets that later endpoint). Both classes exist in the file; per-site classification (not a file-level exemption) determined which sites migrated.
+- [x] **T302** [US3] Baseline as T202, for the projects whose files T301 selected (`seed`/`kiosk`/`wall` only if a seed is in the list).
   - **Depends on:** PR 2 merged, T301.
-- [ ] **T303** [US3] `e2e/support/management-cameras.ts:registerCamera(page, { name, url })` (arrival: the `link` visible within `FIRST_WRITE_TIMEOUT_MS`), with `camera-detail` and `interaction-states` migrated in the same commit. The name prefix and `Date.now()` stay at the call site.
+- [x] **T303** [US3] `e2e/support/management-cameras.ts:registerCamera(page, { name, url })` (arrival: the `link` visible within `FIRST_WRITE_TIMEOUT_MS`), with `camera-detail` and `interaction-states` migrated in the same commit. The name prefix and `Date.now()` stay at the call site.
   - **Depends on:** T302.
-- [ ] **T304** [US3] `e2e/support/management-rules.ts:fillRuleForm(page, name)`, with `rules` and `in-flight-focus` migrated.
+- [x] **T304** [US3] `e2e/support/management-rules.ts:fillRuleForm(page, name)`, with `rules` and `in-flight-focus` migrated.
   - **Depends on:** T302.
   - **[P] with T303.**
-- [ ] **T305** [US3] One task per further flow T301 selected (e.g. create-overlay-draft, create-layout-draft), each a new per-section module plus its callers in one commit. Tasks are added to this file by T301's outcome **before** implementation starts. Two flows that share a caller file are sequenced, not `[P]`.
-  - **Depends on:** T302.
-- [ ] **T306** [US3] Evidence:
+- [x] **T305a** [US3] `e2e/support/management-cameras.ts:registerCameraViaList(page, { name, url })` — **cell** arrival (kept separate from `registerCamera`'s **link** arrival, never unified). Callers: `layouts.spec.ts`, `wall-changes-its-scene.spec.ts`, `spanning-wall.spec.ts`, all 3 seed setups, `in-flight-focus.spec.ts` (4 sites, each confirmed arrange — `holdWrites` targets a later endpoint, not this registration).
+- [x] **T305b** [US3] `e2e/support/management-layouts.ts:createPublishedLayout(page, name, cameraName)`. Deliberately does not navigate to Cameras itself — traced each of the 3 original callers' code and found `wall-changes-its-scene`/`in-flight-focus` already navigated before calling it while `seed-published-layout.setup.ts` never did (already on Cameras from sign-in); baking navigation into the helper would have silently added a heading-assert step to the seed's inventory it never had.
+- [x] **T305c** [US3] `e2e/support/management-overlays.ts:createOverlayDraft(page, name)`. Callers: arrange sites in `overlays.spec.ts` (excluding its own "creates an overlay draft" act test, which proves the POST vertical slice and stays inline) and `in-flight-focus.spec.ts` (2 sites).
+- [x] **T305d** [US3] `e2e/support/management-variables.ts:defineVariable(page, name)`. Per-site classification of `system-variables.spec.ts` found only **one** genuine arrange site ("operator sets a variable value") — every other creation in that file stays inline for a structural reason (the act itself; a toggle-back/extra-field sequence incompatible with an atomic helper; a held/delayed POST that is itself the act; a fab-scoping assertion interposed between open and fill). Combined with `in-flight-focus.spec.ts` (2 sites: SetValue, Archive), 3 sites in 2 files.
+- [x] **T306** [US3] Evidence:
   - empty `--list` diff;
   - inventory diff exit 0, noisy tests named;
-  - deliberate break for every extracted flow that asserts arrival (`registerCamera`'s link, and each create-draft's row). `fillRuleForm` asserts nothing and needs none.
+  - deliberate break for every extracted flow that asserts arrival (`registerCamera`'s link, `registerCameraViaList`'s cell, `createPublishedLayout`'s draft heading, `createOverlayDraft`'s text). `fillRuleForm` and `defineVariable` assert nothing on creation and need none.
+  - **A real bug was found and fixed during this evidence-gathering, not by design**: `registerCameraViaList` originally always wrapped its arrival assertion as `.toBeVisible({ timeout: options?.timeout })`; passing an options object at all — even one whose only key is `undefined` — changes Playwright's recorded step `params` versus a bare call with no options, which the inventory diff caught as a real (non-noisy) difference at the two loop-pattern call sites. Fixed by branching on `options?.timeout === undefined`.
   - **Depends on:** T303-T305.
-- [ ] **T307** [US3] Local gates as T112.
+- [x] **T307** [US3] Local gates as T112.
   - **Depends on:** T306.
-- [ ] **T308** [US3] Phases 5-7 as T113-T115. The body says `Closes #2661`. Confirm the issue is closed after merge (memory: a PR mention rarely auto-closes it).
+- [x] **T308** [US3] Phases 5-7 as T113-T115. The body says `Closes #2661`. Confirm the issue is closed after merge (memory: a PR mention rarely auto-closes it).
   - **Depends on:** T307.
 
 ---
