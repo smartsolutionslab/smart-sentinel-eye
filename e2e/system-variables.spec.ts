@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { openSection } from './support/management-navigation';
+import { defineVariable } from './support/management-variables';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 066 / #2014 — how long the injected-delay test below holds the define
@@ -111,9 +112,7 @@ test('operator sets a variable value and the new value is reflected in the list'
   await openSection(page, 'System variables');
 
   const name = `E2E_Set_${Date.now()}`;
-  await page.getByRole('button', { name: /new variable/i }).click();
-  await page.locator('#variable-name').fill(name);
-  await page.getByRole('button', { name: /^define$/i }).click();
+  await defineVariable(page, name);
 
   // Scope to this variable's row: the list is shared and every row carries the
   // same "New value" / "Set value" controls.
