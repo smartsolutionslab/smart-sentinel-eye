@@ -315,7 +315,9 @@
         "sse.rules.read",
         "sse.layouts.write",
         "sse.layouts.read",
-        "sse.overlays.read"
+        "sse.overlays.read",
+        "sse.variables.write",
+        "sse.variables.read"
       ]
     },
     {

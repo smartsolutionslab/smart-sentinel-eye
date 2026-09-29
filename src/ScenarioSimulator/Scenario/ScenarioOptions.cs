@@ -125,6 +125,15 @@ public sealed class AssetDefinition
     /// <see cref="ScenarioOptions.Active"/>.
     /// </summary>
     public List<ReactionDefinition> Reactions { get; set; } = [];
+
+    /// <summary>
+    /// Spec 289 declared system variables (plan.md §3.3), seeded before this
+    /// asset's overlay and rules (plan.md §5.4) so a <c>SetVariableValue</c>
+    /// reaction always names something that exists. Empty by default and
+    /// replaced, never appended, by the binder — same reasoning as
+    /// <see cref="ScenarioOptions.Active"/>.
+    /// </summary>
+    public List<VariableDefinition> Variables { get; set; } = [];
 }
 
 /// <summary>Camera leg of an asset: the MediaMTX path and which loop clip.</summary>

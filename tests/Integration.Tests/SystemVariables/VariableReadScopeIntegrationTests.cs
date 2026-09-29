@@ -21,10 +21,20 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 /// <see cref="AspireFixture.CreateAdminClientAsync"/> therefore answers 200
 /// before this change and 200 after, which is precisely how the gap survived
 /// long enough to be found by a review of an unrelated PR. So this mints a
-/// <c>client_credentials</c> token for <c>scenario-simulator</c>: a real service
-/// account in <c>/fabs/munich</c> whose eleven default scopes cover cameras,
-/// overlays, rules and layouts and do <b>not</b> include
-/// <c>sse.variables.read</c>.
+/// <c>client_credentials</c> token for <c>stream-distribution-attribution</c>:
+/// a real service account in <c>/fabs/munich</c> and <c>/fabs/dresden</c>
+/// whose four default scopes (identity, audience, groups and
+/// <c>sse.cameras.read</c>) do <b>not</b> include <c>sse.variables.read</c>.
+/// </para>
+///
+/// <para>
+/// <b>Spec 289 / ADR-0163 (2026-09-29).</b> This test used
+/// <c>scenario-simulator</c> until the Scenario Simulator's service account was
+/// granted <c>sse.variables.write</c> and <c>sse.variables.read</c> (it seeds
+/// declared <c>Variables[]</c> through <c>SystemVariablesClient</c>), which
+/// would otherwise have turned this refusal into a false negative.
+/// <c>stream-distribution-attribution</c> (ADR-0116) is the principal that
+/// still lacks the scope — its own read-only account covers cameras only.
 /// </para>
 ///
 /// <para>
@@ -44,8 +54,8 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 [Collection(AspireCollection.Name)]
 public class VariableReadScopeIntegrationTests(AspireFixture aspire)
 {
-    private const string ServiceAccountClientId = "scenario-simulator";
-    private const string ServiceAccountSecret = "dev-only-scenario-simulator-secret";
+    private const string ServiceAccountClientId = "stream-distribution-attribution";
+    private const string ServiceAccountSecret = "dev-only-stream-distribution-secret";
     private const string Listing = "/system-variables";
 
     public static TheoryData<string> Reads() =>
@@ -84,10 +94,10 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
     /// <summary>
     /// Names the scopes the refused principal does hold, so a future failure
     /// reads as "the realm changed" rather than "the endpoint regressed". If
-    /// <c>scenario-simulator</c> is ever granted <c>sse.variables.read</c>, this
-    /// fails first and the theory above becomes meaningless — swap in
-    /// <c>stream-distribution-attribution</c>, likewise in Munich and likewise
-    /// without the scope.
+    /// <c>stream-distribution-attribution</c> is ever granted
+    /// <c>sse.variables.read</c>, this fails first and the theory above becomes
+    /// meaningless — swap in another principal that still lacks the scope,
+    /// likewise in Munich.
     /// </summary>
     [Fact]
     public async Task The_refused_service_account_holds_a_fab_but_not_the_read_scope()

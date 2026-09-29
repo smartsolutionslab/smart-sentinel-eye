@@ -24,6 +24,9 @@ public sealed class SimulatorOptions
     /// <summary>Base URL of the layout-composition REST API (POST /layouts).</summary>
     public string LayoutCompositionUrl { get; set; } = string.Empty;
 
+    /// <summary>Base URL of the SystemVariables REST API (POST /system-variables).</summary>
+    public string SystemVariablesUrl { get; set; } = string.Empty;
+
     /// <summary>
     /// Mosquitto MQTT broker <c>host:port</c> the billet timeline publishes to,
     /// e.g. <c>localhost:1883</c>. Resolved from the AppHost mosquitto endpoint.

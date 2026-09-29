@@ -22,8 +22,14 @@ namespace SmartSentinelEye.Integration.Tests.SystemVariables;
 [Collection(AspireCollection.Name)]
 public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
 {
-    private const string ServiceAccountClientId = "scenario-simulator";
-    private const string ServiceAccountSecret = "dev-only-scenario-simulator-secret";
+    // Spec 289 / ADR-0163 (2026-09-29): scenario-simulator gained
+    // sse.variables.read (it seeds declared Variables[] through
+    // SystemVariablesClient), so the unscoped-refusal facts below moved to
+    // stream-distribution-attribution (ADR-0116) — a service account in
+    // /fabs/munich and /fabs/dresden that still lacks the scope. Mirrors
+    // VariableReadScopeIntegrationTests's identical swap.
+    private const string ServiceAccountClientId = "stream-distribution-attribution";
+    private const string ServiceAccountSecret = "dev-only-stream-distribution-secret";
     private const string DresdenOperator = "op-dresden@dresden.test";
     private const string OperatorPassword = "Operator1234";
 

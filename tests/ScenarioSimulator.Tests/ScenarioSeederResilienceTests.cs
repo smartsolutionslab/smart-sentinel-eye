@@ -91,6 +91,7 @@ public sealed class ScenarioSeederResilienceTests
             new CameraCatalogClient(Failing(), Tokens(), Simulator(), NullLogger<CameraCatalogClient>.Instance),
             new OverlayDesignerClient(Failing(), Tokens(), NullLogger<OverlayDesignerClient>.Instance),
             new AutomationRulesClient(Failing(), Tokens(), NullLogger<AutomationRulesClient>.Instance),
+            new SystemVariablesClient(Failing(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
             correlation,
             wrapped,
             new WallSeeder(
