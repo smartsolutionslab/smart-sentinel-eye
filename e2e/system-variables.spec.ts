@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 066 / #2014 — how long the injected-delay test below holds the define
@@ -19,9 +20,7 @@ const SLOW_WRITE_DELAY_MS = 20_000;
 test('operator opens system variables and the list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
@@ -30,8 +29,7 @@ test('operator defines a system variable and it appears in the list', async ({ p
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
 
   // POST /system-variables/system-variables (Bearer; management-web's token
   // names sse.variables.write explicitly); the list invalidates and refetches.
@@ -56,8 +54,7 @@ test('operator defines a String variable after looking at Boolean and changing b
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
 
   await page.getByRole('button', { name: /new variable/i }).click();
 
@@ -83,8 +80,7 @@ test('operator defines a Boolean system variable and it appears in the list', as
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
 
   // Selecting Boolean reveals the conditional truthy/falsy label fields, which the
   // schema requires for the Boolean code path (else the Define POST never fires).
@@ -112,8 +108,7 @@ test('operator sets a variable value and the new value is reflected in the list'
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
 
   const name = `E2E_Set_${Date.now()}`;
   await page.getByRole('button', { name: /new variable/i }).click();
@@ -163,10 +158,9 @@ test('a define the service is slow to answer still appears in the list', async (
     },
   );
 
-  await page.getByRole('link', { name: /^system variables$/i }).click();
+  await openSection(page, 'System variables');
   // The read is NOT delayed: this heading follows the list `GET` through the
   // same route handler and still resolves at the default budget.
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: /new variable/i }).click();
   const name = `E2E_Slow_${Date.now()}`;
@@ -193,8 +187,7 @@ test.describe('system variables — fab scoping', () => {
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
     await signInAsOperator(page);
-    await page.getByRole('link', { name: /^system variables$/i }).click();
-    await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+    await openSection(page, 'System variables');
 
     await page.getByRole('button', { name: /new variable/i }).click();
 

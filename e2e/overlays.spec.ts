@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { clickSidebarLink, openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // #2365: OverlayGeometryFields always mounts one role="alert" per field now
@@ -20,9 +21,7 @@ const GEOMETRY_ERROR_TEST_IDS = [
 test('operator opens overlays and the list loads through the gateway', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
   await expect(page.getByRole('alert')).toHaveCount(0);
 });
 
@@ -31,8 +30,7 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   // POST /overlay-designer/overlays (Bearer; management-web's token names
   // sse.overlays.write explicitly); the label uses the editor's default.
@@ -63,8 +61,7 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
 test('operator sees the White field backdrop behind the label without a camera', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
 
@@ -93,8 +90,7 @@ test('operator types an exact geometry and the saved overlay carries it through 
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   const origin = new URL((await gatewayRequest).url()).origin;
   // management-web sets no `userStore` in apps/management-web/src/app/auth.ts
@@ -169,8 +165,7 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
   const name = `E2E Edit ${Date.now()}`;
@@ -220,8 +215,7 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
   const name = `E2E Undo ${Date.now()}`;
@@ -356,7 +350,7 @@ test('a stale-version conflict does not cost the keyboard operator their place a
   try {
     const pageOne = await first.newPage();
     await signInAsOperator(pageOne);
-    await pageOne.getByRole('link', { name: /^overlays$/i }).click();
+    await clickSidebarLink(pageOne, 'Overlays');
     await pageOne.getByRole('button', { name: /new overlay/i }).click();
     await pageOne.locator('#overlay-name').fill(name);
     await pageOne.getByRole('button', { name: /save as draft/i }).click();
@@ -368,7 +362,7 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     // the same ordering the layouts conflict test uses.
     const pageTwo = await second.newPage();
     await signInAsOperator(pageTwo);
-    await pageTwo.getByRole('link', { name: /^overlays$/i }).click();
+    await clickSidebarLink(pageTwo, 'Overlays');
     const rowTwo = pageTwo.getByRole('listitem').filter({ hasText: name });
     await expect(rowTwo.getByRole('button', { name: /^edit draft$/i })).toBeVisible({
       timeout: FIRST_WRITE_TIMEOUT_MS,
@@ -541,8 +535,7 @@ test('operator saves through a single click while Width holds a refused draft (s
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   const origin = new URL((await gatewayRequest).url()).origin;
   const token = await page.evaluate(() => {
@@ -594,8 +587,7 @@ test('operator saves a valid, off-edge commit through a single click (spec 256, 
 
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   const origin = new URL((await gatewayRequest).url()).origin;
   const token = await page.evaluate(() => {
@@ -644,8 +636,7 @@ test('operator saves a valid, off-edge commit through a single click (spec 256, 
 test('a refusal message appearing on blur does not move the Save button (spec 256, issue #2366)', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
 
@@ -679,8 +670,7 @@ test('a refusal message appearing on blur does not move the Save button (spec 25
 test('the advisory appearing and clearing does not move the Save button (spec 256, issue #2366)', async ({ page }) => {
   await signInAsOperator(page);
 
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
 

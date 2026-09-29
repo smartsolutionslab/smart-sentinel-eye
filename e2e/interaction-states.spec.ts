@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { clickSidebarLink, openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 268 (issue #2336), tasks.md T007 / plan.md §5.4 — the real interaction-
@@ -330,7 +331,7 @@ test.describe('Button interaction states (US1)', () => {
     });
 
     try {
-      await page.getByRole('link', { name: /^layouts$/i }).click();
+      await clickSidebarLink(page, 'Layouts');
       await page.getByRole('button', { name: /new layout/i }).click();
 
       const save = page.getByRole('button', { name: /save as draft/i });
@@ -401,7 +402,7 @@ test.describe('One focus indicator (US3)', () => {
     await expect(sortHeader).toHaveCSS('box-shadow', 'none');
 
     // A GridDesigner preset chip's wrapping <label> (has-[:focus-visible]).
-    await page.getByRole('link', { name: /^layouts$/i }).click();
+    await clickSidebarLink(page, 'Layouts');
     await page.getByRole('button', { name: /new layout/i }).click();
     // Same mouse-modality reset as above: the two clicks just used would
     // otherwise leave the radio's `.focus()` without `:focus-visible`.
@@ -522,7 +523,7 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
   test('the active nav link is drawn in the accent, not the triad', async ({ page }) => {
     await signInAsOperator(page);
 
-    await page.getByRole('link', { name: /^rules$/i }).click();
+    await clickSidebarLink(page, 'Rules');
 
     const rulesLink = page.getByRole('link', { name: /^rules$/i });
     await expect(rulesLink).toHaveAttribute('aria-current', 'page');
@@ -536,8 +537,7 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
 
   test('a selected filter chip is drawn in the accent, and an unselected one is not', async ({ page }) => {
     await signInAsOperator(page);
-    await page.getByRole('link', { name: /^layouts$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+    await openSection(page, 'Layouts');
     await expect(page.getByRole('alert')).toHaveCount(0);
 
     const archived = page.getByRole('button', { name: /^archived$/i });
@@ -554,8 +554,7 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
 
   test('the checked grid preset is drawn in the accent, not the triad', async ({ page }) => {
     await signInAsOperator(page);
-    await page.getByRole('link', { name: /^layouts$/i }).click();
-    await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+    await openSection(page, 'Layouts');
     await expect(page.getByRole('alert')).toHaveCount(0);
     await page.getByRole('button', { name: /new layout/i }).click();
 

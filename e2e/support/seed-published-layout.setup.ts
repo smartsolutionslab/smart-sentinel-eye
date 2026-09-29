@@ -1,5 +1,6 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
+import { openSection } from './management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
 /**
@@ -39,8 +40,7 @@ setup('a published layout exists for the kiosk to open', async ({ page }) => {
   await page.getByRole('button', { name: /^register$/i }).click();
   await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+  await openSection(page, 'Layouts');
 
   // The dialog opens on a 1×1 grid, which is all a kiosk needs to render a wall.
   await page.getByRole('button', { name: /new layout/i }).click();

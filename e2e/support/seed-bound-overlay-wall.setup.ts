@@ -1,5 +1,6 @@
 import { test as setup, expect } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
+import { clickSidebarLink, openSection } from './management-navigation';
 import { newBoundOverlayWall, writeBoundOverlayWall } from './bound-overlay-wall';
 import { FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
 
@@ -32,8 +33,7 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
   await signInAsOperator(page);
 
   // 1. The variable the overlay label will resolve from.
-  await page.getByRole('link', { name: /^system variables$/i }).click();
-  await expect(page.getByRole('heading', { name: 'System variables', exact: true })).toBeVisible();
+  await openSection(page, 'System variables');
 
   await page.getByRole('button', { name: /new variable/i }).click();
   await page.locator('#variable-name').fill(wall.variableName);
@@ -51,8 +51,7 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
 
   // 2. An overlay whose label is a token (spec 005) so the service holds a
   //    resolved snapshot for it — a static label has none.
-  await page.getByRole('link', { name: /^overlays$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Overlays', exact: true })).toBeVisible();
+  await openSection(page, 'Overlays');
 
   await page.getByRole('button', { name: /new overlay/i }).click();
   await page.locator('#overlay-name').fill(wall.overlayName);
@@ -67,7 +66,7 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
 
   // 3. A camera, because a tile requires one. The `E2E ` prefix is what the
   //    cleanup teardown matches on (issue 1895).
-  await page.getByRole('link', { name: /^cameras$/i }).click();
+  await clickSidebarLink(page, 'Cameras');
   await page.getByRole('button', { name: /register camera/i }).click();
   await page.locator('#register-camera-name').fill(wall.cameraName);
   await page.locator('#register-camera-url').fill('rtsp://10.0.5.71/stream');
@@ -75,8 +74,7 @@ setup('a published wall exists whose tile binds an overlay bound to a variable',
   await expect(page.getByRole('cell', { name: wall.cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 
   // 4. The wall: one tile, that camera, that overlay.
-  await page.getByRole('link', { name: /^layouts$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Layouts', exact: true })).toBeVisible();
+  await openSection(page, 'Layouts');
 
   await page.getByRole('button', { name: /new layout/i }).click();
   await page.locator('#layout-name').fill(wall.layoutName);

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInToKiosk } from './support/kiosk-session';
 import { signInAsOperator } from './support/sign-in';
+import { clickSidebarLink } from './support/management-navigation';
 import { isDecodeOngoing, readLiveVideoWall } from './support/live-video-wall';
 import { currentRunProvenance, isCompleteRenderLegMeasurement, writeRenderLegRecord } from './support/render-leg';
 
@@ -1362,7 +1363,7 @@ test('the span from a value being submitted to it being visible', async ({ page,
 
   try {
     await signInAsOperator(operatorPage);
-    await operatorPage.getByRole('link', { name: /^system variables$/i }).click();
+    await clickSidebarLink(operatorPage, 'System variables');
 
     // **Bounded before anything is subtracted.** t0 and t1 are stamped in two
     // Chromium renderer processes, so a constant offset between their clocks lands

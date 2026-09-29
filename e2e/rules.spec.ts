@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 013 T040 — Automation's e2e coverage for fab scoping.
@@ -63,8 +64,7 @@ test.describe('rules — fab scoping', () => {
 
 async function openRules(page: Page) {
   await signInAsOperator(page);
-  await page.getByRole('link', { name: /^rules$/i }).click();
-  await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeVisible();
+  await openSection(page, 'Rules');
   await expect(page.getByRole('alert')).toHaveCount(0);
 }
 
