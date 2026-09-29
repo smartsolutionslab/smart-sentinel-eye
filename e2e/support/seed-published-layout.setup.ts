@@ -1,7 +1,7 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup } from '@playwright/test';
 import { signInAsOperator } from './sign-in';
-import { openSection } from './management-navigation';
-import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './cold-stack';
+import { createPublishedLayout } from './management-layouts';
+import { FIRST_WRITE_TEST_TIMEOUT_MS } from './cold-stack';
 
 /**
  * Spec 041 — a published layout for the kiosk to open.
@@ -34,23 +34,9 @@ setup('a published layout exists for the kiosk to open', async ({ page }) => {
 
   // A layout tile needs a camera; the dialog's submit stays disabled while the
   // catalogue is empty. It does NOT need an overlay — an unbound tile renders.
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(cameraName);
-  await page.locator('#register-camera-url').fill('rtsp://10.0.5.70/stream');
-  await page.getByRole('button', { name: /^register$/i }).click();
-  await expect(page.getByRole('cell', { name: cameraName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-
-  await openSection(page, 'Layouts');
-
-  // The dialog opens on a 1×1 grid, which is all a kiosk needs to render a wall.
-  await page.getByRole('button', { name: /new layout/i }).click();
-  await page.locator('#layout-name').fill(layoutName);
-  await page.locator('#tile-0-camera').selectOption({ label: cameraName });
-  await page.getByRole('button', { name: /save as draft/i }).click();
-  await expect(page.getByRole('heading', { name: layoutName })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-
-  // Published, not draft: the kiosk picker lists Published revisions only.
-  const row = page.getByRole('listitem').filter({ hasText: layoutName });
-  await row.getByRole('button', { name: /^publish$/i }).click();
-  await expect(row.getByText(/Published/)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
+  //
+  // No `openSection(page, 'Cameras')` here: sign-in already lands on Cameras
+  // (spec.md's own comment above), and `createPublishedLayout` deliberately
+  // does not navigate there itself (see that function's own doc comment).
+  await createPublishedLayout(page, layoutName, cameraName);
 });
