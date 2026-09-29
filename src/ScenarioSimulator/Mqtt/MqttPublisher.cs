@@ -66,6 +66,8 @@ public sealed class MqttPublisher : IAsyncDisposable
     private readonly TokenHolder token = new();
     private readonly MqttBackoff backoff;
 
+    private readonly object startGate = new();
+
     private CancellationTokenSource? loopCancellation;
     private Task? loop;
 
@@ -117,32 +119,43 @@ public sealed class MqttPublisher : IAsyncDisposable
     /// </summary>
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        if (loop is not null)
+        // The check and the pairing of loopCancellation+loop must be one atomic
+        // step. Two unsynchronised fields, set in two separate statements, used
+        // to let a race start a second connect loop — and worse, let a RunAsync
+        // call end up running under a *different* CancellationTokenSource than
+        // the one the fields settled on, so DisposeAsync could cancel a source
+        // whose loop it never awaited and hang forever. A lock scoped to
+        // just this critical section makes the check-then-set and the pairing
+        // both atomic: only the first caller ever builds a loop, and every other
+        // concurrent caller observes it already started and returns.
+        lock (startGate)
         {
+            if (loop is not null)
+            {
+                return Task.CompletedTask;
+            }
+
+            // Pinned for the same reason MosquittoConnectionFactory pins it: MQTTnet 5
+            // defaults to MQTT 5.0 where MQTTnet 4 defaulted to 3.1.1, and both our
+            // clients are talking to a broker whose ACL and auth behaviour (ADR-0100)
+            // were proven on 3.1.1. Nothing here needs MQTT 5, and a silent
+            // protocol change is what cost the subscriber its persistent session.
+            MqttClientOptions clientOptions = new MqttClientOptionsBuilder()
+                .WithProtocolVersion(MqttProtocolVersion.V311)
+                .WithClientId(Username)
+                .WithTcpServer(host, port)
+                .WithCredentials(new TokenCredentials(token))
+                .WithCleanSession(true)
+                .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
+                .Build();
+
+            CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            Task runningLoop = RunAsync(clientOptions, cancellation.Token);
+
+            loopCancellation = cancellation;
+            loop = runningLoop;
             return Task.CompletedTask;
         }
-
-        // Pinned for the same reason MosquittoConnectionFactory pins it: MQTTnet 5
-        // defaults to MQTT 5.0 where MQTTnet 4 defaulted to 3.1.1, and both our
-        // clients are talking to a broker whose ACL and auth behaviour (ADR-0100)
-        // were proven on 3.1.1. Nothing here needs MQTT 5, and a silent
-        // protocol change is what cost the subscriber its persistent session.
-        MqttClientOptions clientOptions = new MqttClientOptionsBuilder()
-            .WithProtocolVersion(MqttProtocolVersion.V311)
-            .WithClientId(Username)
-            .WithTcpServer(host, port)
-            .WithCredentials(new TokenCredentials(token))
-            .WithCleanSession(true)
-            .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
-            .Build();
-
-        loopCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-
-        // Carried down the loop rather than parked in a field: the loop is the
-        // only reader, and a field would have to be dereferenced with a `!` on
-        // every attempt to satisfy NRT for something StartAsync has always set.
-        loop = RunAsync(clientOptions, loopCancellation.Token);
-        return Task.CompletedTask;
     }
 
     /// <summary>
