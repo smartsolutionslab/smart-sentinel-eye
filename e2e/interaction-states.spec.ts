@@ -1,5 +1,6 @@
 import { test, expect, type Page, type Locator } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
+import { registerCamera } from './support/management-cameras';
 import { clickSidebarLink, openSection } from './support/management-navigation';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
@@ -19,17 +20,10 @@ import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/c
 // and `expect.poll(...)` retry until the assertion holds or the suite's own
 // timeout elapses, never a fixed `page.waitForTimeout`.
 
-/** Registers a camera and returns its name, mirrored from camera-detail.spec.ts. */
-async function registerCamera(page: Page, label: string): Promise<string> {
+/** Registers a camera under a given label and returns its name. */
+async function registerLabelledCamera(page: Page, label: string): Promise<string> {
   const name = `${label} ${Date.now()}`;
-
-  await page.getByRole('button', { name: /register camera/i }).click();
-  await page.locator('#register-camera-name').fill(name);
-  await page.locator('#register-camera-url').fill('rtsp://10.0.5.99/stream');
-  await page.getByRole('button', { name: /^register$/i }).click();
-
-  await expect(page.getByRole('link', { name })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
-
+  await registerCamera(page, { name, url: 'rtsp://10.0.5.99/stream' });
   return name;
 }
 
@@ -172,7 +166,7 @@ test.describe('Button interaction states (US1)', () => {
   }) => {
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
-    const primaryCameraName = await registerCamera(page, 'E2E States Primary');
+    const primaryCameraName = await registerLabelledCamera(page, 'E2E States Primary');
 
     // primary: "Register camera" on the Cameras list.
     const primary = page.getByRole('button', { name: /register camera/i });
@@ -437,7 +431,7 @@ test.describe('Button busy state (US2)', () => {
   test('busy announces and keeps the rest fill while a rename is in flight', async ({ page }) => {
     test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
     await signInAsOperator(page);
-    const original = await registerCamera(page, 'E2E States Busy');
+    const original = await registerLabelledCamera(page, 'E2E States Busy');
 
     await page.getByRole('link', { name: original }).click();
     await expect(page.getByRole('heading', { name: original })).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
