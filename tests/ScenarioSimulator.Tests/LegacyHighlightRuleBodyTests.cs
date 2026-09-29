@@ -36,11 +36,13 @@ public sealed class LegacyHighlightRuleBodyTests
 
         await SeedAsync(automation, overlay);
 
-        automation.Creates.Count.ShouldBe(12);
-        automation.Publishes.Count.ShouldBe(12);
+        automation.Creates.Count.ShouldBe(13);
+        automation.Publishes.Count.ShouldBe(13);
 
         AssertRule(automation, "rolling-mill-station-4-roughing-highlight", "plc", "Temperature",
             "$.device == 'station-4-roughing' && $.payload.value >= 1100", overlay, 4000);
+        AssertRule(automation, "rolling-mill-station-4-roughing-billet-on-conveyor", "inference", "ObjectDetected",
+            "$.device == 'station-4-roughing' && ($.payload.class == 'billet' && $.payload.confidence >= 0.8)", overlay, 4000);
         AssertRule(automation, "rolling-mill-station-7-finishing-highlight", "plc", "StripSpeed",
             "$.device == 'station-7-finishing' && $.payload.value >= 8", overlay, 4000);
         AssertRule(automation, "rolling-mill-cooling-bed-highlight", "plc", "Temperature",
@@ -264,7 +266,8 @@ public sealed class LegacyHighlightRuleBodyTests
         // to have landed before asserting.
         await seeder.StartAsync(CancellationToken.None);
         await WaitForCreatesAsync(automation, options.Scenarios.Values.Sum(scenario =>
-            scenario.Assets.Count(asset => asset.Highlight is not null)));
+            scenario.Assets.Sum(asset =>
+                (asset.Highlight is not null ? 1 : 0) + asset.Reactions.Count)));
         await seeder.StopAsync(CancellationToken.None);
     }
 

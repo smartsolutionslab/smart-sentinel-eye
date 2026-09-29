@@ -51,6 +51,17 @@
                 "Mean": 1800,
                 "Jitter": 120
               }
+            ],
+            "Reactions": [
+              {
+                "Name": "billet-on-conveyor",
+                "When": {
+                  "Source": "inference",
+                  "Kind": "ObjectDetected",
+                  "Predicate": "$.payload.class == 'billet' && $.payload.confidence >= 0.8"
+                },
+                "Then": { "Type": "HighlightOverlay", "DurationMs": 4000 }
+              }
             ]
           },
           {
