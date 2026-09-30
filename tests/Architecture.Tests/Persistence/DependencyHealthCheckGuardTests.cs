@@ -5,34 +5,34 @@ using Microsoft.Extensions.Options;
 namespace SmartSentinelEye.Architecture.Tests.Persistence;
 
 /// <summary>
-/// Spec 282 (#1140), T012 / FR-010. ADR-0154 clause 2: no <c>/health</c> check
-/// may name or reach an external dependency. Scheduled <b>before</b> T030
-/// (plan §5.3, spec A-3) — it is FR-003's safety net, not new behaviour to
-/// drive red, because the behaviour it guards for <b>Postgres</b> (no
-/// dependency health check registered) is already true today. Its bite is
-/// proven separately, by counterfactual (SC-006): see this class's own XML
-/// doc below and the PR's quoted counterfactual output.
+/// ADR-0154 clause 2: no <c>/health</c> check may name or reach an external
+/// dependency. Scheduled <b>before</b> the Aspire.Npgsql wiring (plan §5.3,
+/// spec A-3) — it is FR-003's safety net, not new behaviour to drive red,
+/// because the behaviour it guards for <b>Postgres</b> (no dependency health
+/// check registered) is already true today. Its bite is proven separately,
+/// by counterfactual (SC-006): quoted in
+/// <c>specs/282-the-reference-nobody-calls/T031-counterfactual.md</c> —
+/// flipping <c>DisableHealthChecks</c> to <c>false</c> in
+/// <c>PostgresTelemetry</c> turns all nine cases of this guard red, firing
+/// both rule (a) and rule (b).
 ///
 /// <para>
 /// <b>A genuine, pre-existing violation found while writing this guard —
 /// unrelated to Postgres, and out of this spec's scope.</b>
-/// <c>audit-observability</c> is <b>not</b> green: <c>AddAzureBlobServiceClient("blobs")</c>
-/// (<c>AuditObservabilityInfrastructureModule.cs</c>) registers
+/// <c>audit-observability</c> was <b>not</b> green when this guard was first
+/// written: <c>AddAzureBlobServiceClient("blobs")</c>
+/// (<c>AuditObservabilityInfrastructureModule.cs</c>) registered
 /// <c>HealthChecks.Azure.Storage.Blobs.AzureBlobStorageHealthCheck</c>, named
 /// <c>"Azure_BlobServiceClient"</c>, and <c>Extensions.cs:171</c> maps
 /// <c>/health</c> with no predicate, so every registered check — this one
-/// included — is exposed there today. Both rules in this guard fire on it
-/// independently. This is exactly the gap ADR-0154's own Consequences section
-/// names — <i>"Nothing guards a future check that violates clause 2"</i> — and
-/// exactly what #2571 (spec A-4) is the open follow-up for; it predates spec
-/// 282 and this guard did not create it, only find it. <b>It is not fixed
-/// here</b>: spec 282 is scoped to Postgres/Npgsql (§0), and constitution
-/// §Testing is explicit that a characterisation test must not also encode a
-/// fix for the thing it characterises. The PR must therefore not claim T012
-/// is green on unmodified <c>develop</c> without this caveat, and must link a
-/// new issue for the Azure Blob check rather than narrow this guard's
-/// vocabulary or type rule to make it pass quietly — either of those would be
-/// weakening a gate to reach green (ADR-0144).
+/// included — was exposed there. Both rules in this guard fired on it
+/// independently. That was exactly the gap ADR-0154's own Consequences
+/// section names — <i>"Nothing guards a future check that violates clause
+/// 2"</i> — and exactly what issue #2571 was the open follow-up for; it
+/// predated spec 282 and this guard did not create it, only found it. It has
+/// since been fixed by #2680 (merged to <c>develop</c>, disabling the
+/// auto-registered Azure Blob health check), so this guard is now genuinely
+/// 9/9 green rather than 8/9 with a documented exception.
 /// </para>
 ///
 /// <para>
