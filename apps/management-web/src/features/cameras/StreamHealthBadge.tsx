@@ -1,20 +1,17 @@
-import clsx from 'clsx';
 import type { StreamHealth, StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
+import { Badge, type BadgeTone } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { Popover } from '@smart-sentinel-eye/shared/ui/primitives/Popover';
 
 export interface StreamHealthBadgeProps {
   stream: StreamHealth | undefined;
 }
 
-const TONES: Record<StreamState | 'unknown', string> = {
-  Healthy: 'bg-accent-active/20 text-accent-active border-accent-active/40',
-  Degraded: 'bg-accent-warning/20 text-accent-warning border-accent-warning/40',
-  Offline: 'bg-accent-fault/20 text-accent-fault border-accent-fault/40',
-  Provisioning: 'bg-fg-muted/20 text-fg-muted border-fg-muted/40',
-  unknown: 'bg-fg-muted/10 text-fg-muted border-fg-muted/30',
+const TONE: Record<StreamState, BadgeTone> = {
+  Healthy: 'active',
+  Degraded: 'warning',
+  Offline: 'fault',
+  Provisioning: 'neutral',
 };
-
-const PILL = 'inline-flex items-center rounded border px-2 py-0.5 text-xs';
 
 /**
  * Pill rendering the current StreamState for a single camera, with a Radix
@@ -27,25 +24,22 @@ const PILL = 'inline-flex items-center rounded border px-2 py-0.5 text-xs';
 export function StreamHealthBadge({ stream }: StreamHealthBadgeProps) {
   if (stream === undefined) {
     return (
-      <span className={clsx(PILL, TONES.unknown)} aria-label="Stream state unknown">
+      <Badge tone="neutral" aria-label="Stream state unknown">
         Unknown
-      </span>
+      </Badge>
     );
   }
 
   return (
     <Popover
       trigger={
-        <button
-          type="button"
-          className={clsx(
-            PILL,
-            TONES[stream.state] ?? TONES.unknown,
-            'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring',
-          )}
+        <Badge
+          tone={TONE[stream.state] ?? 'neutral'}
+          asChild
+          className="focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
         >
-          {stream.state}
-        </button>
+          <button type="button">{stream.state}</button>
+        </Badge>
       }
       label={`Stream ${stream.state}`}
     >
