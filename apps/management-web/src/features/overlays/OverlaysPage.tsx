@@ -15,6 +15,7 @@ import {
   isStaleConflict,
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
+import { revisionSummary } from '@smart-sentinel-eye/shared/format/revisionSummary';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
@@ -149,7 +150,7 @@ export function OverlaysPage() {
             <li key={chain.overlayIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">{chain.name}</h2>
-                <span className="text-xs text-fg-muted">{badge(live, draft, summarised)}</span>
+                <span className="text-xs text-fg-muted">{revisionSummary(live, draft, summarised)}</span>
               </header>
               <p className="mt-1 text-xs text-fg-muted font-mono">{chain.overlayIdentifier}</p>
               {summarised !== undefined && <p className="mt-1 text-sm text-fg-muted truncate">{summarised.text}</p>}
@@ -383,20 +384,4 @@ function containsRevisionIn(chain: Overlay, state: OverlayRevisionState): boolea
 function labelOf(revision: OverlayRevision): OverlayLabel {
   const { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx } = revision;
   return { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx };
-}
-
-// Spec 038 FR-009, the twin of LayoutsPage's. Names the LIVE revision, because
-// that is the one kiosks are showing, and says when a draft is open without
-// hiding either.
-function badge(
-  live: OverlayRevision | undefined,
-  draft: OverlayRevision | undefined,
-  summarised: OverlayRevision | undefined,
-): string {
-  if (live !== undefined) {
-    return draft === undefined
-      ? `v${live.revisionNumber} · Published`
-      : `v${live.revisionNumber} · Published · draft v${draft.revisionNumber}`;
-  }
-  return summarised === undefined ? '' : `v${summarised.revisionNumber} · ${summarised.state}`;
 }
