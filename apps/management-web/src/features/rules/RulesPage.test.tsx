@@ -96,6 +96,37 @@ describe('RulesPage', () => {
     expect(screen.getByText(/Set oeeLine1 =/)).toBeInTheDocument();
   });
 
+  /**
+   * Spec 297 (issue #2635) T004. Characterisation, observed green on the
+   * untouched tree (`ab030e5a`) before any source edit. Pins what the State
+   * cell's Badge conversion must keep: the text is exactly the rule's state
+   * name, for each state — not the tone, not the markup. Must pass unmodified
+   * after the conversion (ADR-0139/0144 §6).
+   */
+  it.each(['Draft', 'Active', 'Archived'] as const)('Shows the State cell text as exactly %s', (state) => {
+    listMock.mockReturnValue({ data: [rule({ state })], isLoading: false, isError: false, refetch: vi.fn() });
+    renderPage();
+    expect(within(screen.getByRole('table')).getByText(state)).toBeInTheDocument();
+  });
+
+  /**
+   * Spec 297 (issue #2635) T011, US3, FR-007. RED: today's `StateBadge`
+   * (`RulesPage.tsx:224-228`) is coloured text only (`text-xs font-medium
+   * ${tone}`, no fill, no padding) — not a pill. After the conversion it
+   * renders through the shared Badge, carrying the matching tone class.
+   */
+  it.each([
+    ['Active', 'bg-accent-active-subtle'],
+    ['Draft', 'bg-accent-warning-subtle'],
+    ['Archived', 'bg-bg-raised'],
+  ] as const)('Renders the %s State cell as a Badge with the %s tone', (state, toneClass) => {
+    listMock.mockReturnValue({ data: [rule({ state })], isLoading: false, isError: false, refetch: vi.fn() });
+    renderPage();
+
+    const cell = within(screen.getByRole('table')).getByText(state);
+    expect(cell.className).toContain(toneClass);
+  });
+
   it('Describes a HighlightOverlay action by its duration', () => {
     listMock.mockReturnValue({
       data: [

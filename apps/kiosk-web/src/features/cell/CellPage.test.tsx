@@ -532,6 +532,28 @@ describe('CellPage', () => {
       expect(screen.queryByTestId('live-updates-degraded')).not.toBeInTheDocument();
     });
 
+    /**
+     * Spec 297 (issue #2635) T009, US2, FR-005/FR-010. RED: today's
+     * `LiveUpdatesBadge.tsx:15` className is `border border-accent-warning/40
+     * bg-accent-warning/15` — a translucent, bordered call-site-alpha fill
+     * over live video (ADR-0146 violation, spec §1). After the conversion it
+     * must be the shared Badge's warning tone, with no alpha modifier and no
+     * border.
+     */
+    it('Shows the degraded badge with the Badge warning tone, no alpha modifier and no border', () => {
+      mockLayout(chain());
+      renderPage();
+
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+
+      const badge = screen.getByTestId('live-updates-degraded');
+      expect(badge.className).toContain('bg-accent-warning-subtle');
+      const offending = badge.className.split(/\s+/).filter((token) => /\/\d+$|^border/.test(token));
+      expect(offending).toEqual([]);
+    });
+
     it('Flags a tile bound to an overlay archived before the kiosk loaded (FR-009)', () => {
       mockLayout(publishedRevision(1, 1, [tile({ overlayIdentifier: 'ovl-gone', row: 0, col: 0 })]));
       // The fetched overlay exists but has no Published revision — archived
@@ -2286,6 +2308,31 @@ describe('CellPage', () => {
 
       expect(unavailableBadgeIn(tileA!), 'the tile bound to the archived overlay').toBeInTheDocument();
       expect(unavailableBadgeIn(tileB!), 'a tile bound to a different overlay').not.toBeInTheDocument();
+    });
+
+    /**
+     * Spec 297 (issue #2635) T009, US2, FR-005/FR-010. RED: today's
+     * *Overlay unavailable* chip (`LayoutGrid.tsx:443-450`) is
+     * `bg-accent-warning/30` — a translucent call-site alpha fill over live
+     * video (ADR-0146 violation, spec §1). After the conversion it must be
+     * the shared Badge's warning tone, with no alpha modifier.
+     */
+    it('Flags the archived-overlay tile with the Badge warning tone and no alpha modifier', () => {
+      aTwoTileWall();
+      const [tileA] = screen.getAllByTestId('layout-tile');
+
+      act(() => {
+        capturedCallbacks?.onOverlayArchived?.({
+          overlay: 'ov-1',
+          revisionNumber: 2,
+          archivedAt: '2026-09-23T10:00:00Z',
+        });
+      });
+
+      const badge = unavailableBadgeIn(tileA!)!;
+      expect(badge.className).toContain('bg-accent-warning-subtle');
+      const offending = badge.className.split(/\s+/).filter((token) => /\/\d+$/.test(token));
+      expect(offending).toEqual([]);
     });
 
     it('Clears a pushed-archive flag and invalidates the Overlay and OverlaySnapshot caches when OverlayRevisionPublished follows', () => {

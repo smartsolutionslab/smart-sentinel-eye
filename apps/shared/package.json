@@ -41,6 +41,7 @@
     "./ui/primitives/Popover": "./src/ui/primitives/Popover.tsx",
     "./ui/primitives/Tabs": "./src/ui/primitives/Tabs.tsx",
     "./ui/primitives/CommandPalette": "./src/ui/primitives/CommandPalette.tsx",
+    "./ui/composites/Badge": "./src/ui/composites/Badge.tsx",
     "./ui/composites/ChainRecoveryNotice": "./src/ui/composites/ChainRecoveryNotice.tsx",
     "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
     "./ui/composites/FormErrorSummary": "./src/ui/composites/FormErrorSummary.tsx",
