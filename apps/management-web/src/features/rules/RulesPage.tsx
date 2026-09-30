@@ -14,6 +14,7 @@ import {
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { Badge, type BadgeTone } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { RuleDialog } from './RuleDialog';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
@@ -221,8 +222,12 @@ function describeAction(rule: Rule): string {
     : `Highlight overlay for ${rule.action.durationMs} ms`;
 }
 
+const RULE_STATE_TONE: Record<RuleState, BadgeTone> = {
+  Active: 'active',
+  Draft: 'warning',
+  Archived: 'neutral',
+};
+
 function StateBadge({ state }: { state: RuleState }) {
-  const tone =
-    state === 'Active' ? 'text-accent-active' : state === 'Archived' ? 'text-fg-muted' : 'text-accent-warning';
-  return <span className={`text-xs font-medium ${tone}`}>{state}</span>;
+  return <Badge tone={RULE_STATE_TONE[state]}>{state}</Badge>;
 }
