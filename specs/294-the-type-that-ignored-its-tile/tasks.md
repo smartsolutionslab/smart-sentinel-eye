@@ -71,10 +71,10 @@ but all precede T008–T010. T008–T010 are `[P]` (disjoint files). T011–T015
 
 ## Phase 5: verify
 
-- [ ] **T012** [US1] Containment sanity (plan §5, R3): in a real browser read computed widths of
+- [x] **T012** [US1] Containment sanity (plan §5, R3): in a real browser read computed widths of
   `CameraViewer`'s root at both call sites (`LayoutGrid` tile, `CameraDetailPage`) and of the
   editor canvas; none collapsed, none changed from V1.
-- [ ] **T013** [US1] **V2** — repeat T001's procedure on the branch (plan §8). Expected: equal
+- [x] **T013** [US1] **V2** — repeat T001's procedure on the branch (plan §8). Expected: equal
   type ÷ box on all four surfaces (±1 %); 1×1 type within 1 % of T001's. Into `verification.md`.
 - [ ] **T014** [US1] **V3 — the composite + render leg** (plan §8, all five steps): scratch
   baseline from spec §7's runs (+ newer `develop` push runs), three complete PR-run records
