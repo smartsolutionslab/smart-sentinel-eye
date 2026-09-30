@@ -26,7 +26,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <c>bg-accent-warning/15</c>), <c>TileAlignmentBadge.tsx</c>
 /// (<c>bg-accent-warning/30</c>), <c>LayoutGrid.tsx</c>
 /// (<c>bg-accent-warning/30</c>, the *Overlay unavailable* chip —
-/// <c>LayoutGrid.tsx:210</c>'s <c>bg-accent-active/20</c> action button is
+/// <c>LayoutGrid.tsx:211</c>'s <c>bg-accent-active/20</c> action button is
 /// allowlisted separately and untouched by this spec).
 /// </para>
 /// </summary>
