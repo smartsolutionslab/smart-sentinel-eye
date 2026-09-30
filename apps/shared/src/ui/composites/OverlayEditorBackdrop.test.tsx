@@ -214,7 +214,11 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'White field' }));
 
     const canvas = screen.getByTestId('overlay-editor-canvas');
-    expect(canvas.style.backgroundColor).toBe('rgb(255, 255, 255)');
+    // Spec 293 §6: the White field now cites --color-bg-video-inverse, a
+    // content role pinned to var(--white) in every theme — the real-browser
+    // proof that it *resolves* to white in all three is
+    // e2e/overlays.spec.ts's existing, unmodified White-field test.
+    expect(canvas.style.backgroundColor).toBe('var(--color-bg-video-inverse)');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -225,7 +229,10 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Black field' }));
 
     const canvas = screen.getByTestId('overlay-editor-canvas');
-    expect(canvas.style.backgroundColor).toBe('rgb(0, 0, 0)');
+    // Spec 293 §6: --color-bg-video — the wall's own letterbox role
+    // (CameraViewer.tsx), pinned to var(--black) in every theme (unchanged
+    // by this spec; it was already the carve-out-free precedent).
+    expect(canvas.style.backgroundColor).toBe('var(--color-bg-video)');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -236,8 +243,11 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
     fireEvent.click(screen.getByRole('radio', { name: 'Checkerboard' }));
 
     const canvas = screen.getByTestId('overlay-editor-canvas');
+    // Spec 293 §6: same token references OverlayEditorCharacterisation.test.tsx's
+    // GRADIENT_RENDERED pins, not duplicated as an import — this test's own
+    // point is that switching away and back restores the exact string.
     expect(canvas.style.background).toBe(
-      'repeating-linear-gradient(45deg, rgb(31, 41, 55), rgb(31, 41, 55) 12px, rgb(17, 24, 39) 12px, rgb(17, 24, 39) 24px)',
+      'repeating-linear-gradient(45deg, var(--color-border-subtle), var(--color-border-subtle) 12px, var(--color-bg-elevated) 12px, var(--color-bg-elevated) 24px)',
     );
   });
 
@@ -270,6 +280,8 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
     expect(canvas.style.backgroundSize).toBe('contain');
     expect(canvas.style.backgroundPosition).toBe('center center');
     expect(canvas.style.backgroundRepeat).toBe('no-repeat');
-    expect(canvas.style.backgroundColor).toBe('rgb(0, 0, 0)');
+    // Spec 293 §6: the letterbox is --color-bg-video, same role as the
+    // Black field above.
+    expect(canvas.style.backgroundColor).toBe('var(--color-bg-video)');
   });
 });

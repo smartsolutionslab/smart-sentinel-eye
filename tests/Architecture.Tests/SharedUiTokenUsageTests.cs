@@ -18,12 +18,14 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// <b>The carve-out list is exactly four files</b>, all owned by #2342
-/// ("gated on #2332", spec §3): <c>OverlayEditor.tsx</c>,
-/// <c>BackdropControls.tsx</c>, <c>OverlayGeometryFields.tsx</c> and
-/// <c>overlayLabelStyle.ts</c>. <see cref="Each_carve_out_still_exists_and_still_violates"/>
-/// keeps the list honest — a file #2342 has already converted must leave it
-/// rather than sit there unused, so this is a shrink-only guard.
+/// <b>The carve-out list is shrink-only</b>, and spec 293 (issue #2342) emptied
+/// it: <c>OverlayEditor.tsx</c>, <c>BackdropControls.tsx</c>,
+/// <c>OverlayGeometryFields.tsx</c> and <c>overlayLabelStyle.ts</c> were its
+/// four entries ("gated on #2332", spec §3) and all four are converted now.
+/// <see cref="Each_carve_out_still_exists_and_still_violates"/> stays — a
+/// future carve-out is still allowed with a reasoned, issue-tagged entry —
+/// and with the list empty it currently has nothing to iterate, which is not
+/// a weakening: the guard re-activates the moment an entry is added.
 /// </para>
 ///
 /// <para>
@@ -46,25 +48,7 @@ public class SharedUiTokenUsageTests
     /// The shrink-only carve-out list. Each entry names the issue that owns
     /// converting it (#2342) and why.
     /// </summary>
-    private static readonly (string RelativePath, string Reason)[] CarveOuts =
-    [
-        (
-            "apps/shared/src/ui/composites/OverlayEditor.tsx",
-            "#2342: the overlay editor's canvas backdrop and drag-frame styling are inline "
-            + "CSSProperties, not Tailwind classes, and #2342 owns converting the whole file in one pass."),
-        (
-            "apps/shared/src/ui/composites/BackdropControls.tsx",
-            "#2342: its own header comment says a half-converted file is worse than none — the "
-            + "notice/alert inline colours wait for #2342's single pass."),
-        (
-            "apps/shared/src/ui/composites/OverlayGeometryFields.tsx",
-            "#2342: the field alert/status inline colours are part of the same overlay-editor "
-            + "inline-style surface #2342 owns."),
-        (
-            "apps/shared/src/ui/composites/overlayLabelStyle.ts",
-            "#2342: the label's rendered look over live video on both surfaces (spec 146) — on the "
-            + "render leg, deliberately not touched by spec 257 (spec §3, §5)."),
-    ];
+    private static readonly (string RelativePath, string Reason)[] CarveOuts = [];
 
     private static readonly Regex StockPaletteUtility = new(
         @"\b(?:bg|text|border|ring|fill|stroke|outline|divide)-(?:black|white|slate|gray|zinc|neutral|stone|red"
@@ -78,6 +62,9 @@ public class SharedUiTokenUsageTests
     private static readonly Regex ColourLiteral = new(
         @"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|oklch\(",
         RegexOptions.Compiled);
+
+    /// <summary>A carve-out's reason names *an* issue, not a fixed one (spec 293 §4.1).</summary>
+    private static readonly Regex IssueReference = new(@"#\d+", RegexOptions.Compiled);
 
     /// <summary>Red on develop: Dialog.tsx, ConfirmDialog.tsx and CameraViewer.tsx use <c>bg-black</c>.</summary>
     [Fact]
@@ -118,8 +105,11 @@ public class SharedUiTokenUsageTests
 
         foreach ((string relativePath, string reason) in CarveOuts)
         {
-            reason.Contains("#2342", StringComparison.Ordinal).ShouldBeTrue(
-                $"{relativePath}'s carve-out entry must name #2342, the issue that owns converting it.");
+            // #2342's own four entries have all been removed (spec 293) — this
+            // now checks the shape a future carve-out must follow, not a fixed
+            // issue number.
+            IssueReference.IsMatch(reason).ShouldBeTrue(
+                $"{relativePath}'s carve-out entry must name the issue that owns converting it (e.g. #1234).");
 
             string path = Path.Combine(root.FullName, relativePath);
             if (!File.Exists(path))
@@ -136,9 +126,9 @@ public class SharedUiTokenUsageTests
             if (!stillViolates)
             {
                 problems.Add(
-                    $"{relativePath} no longer violates any rule — #2342 must have converted it, so it has to "
-                    + "leave the carve-out list rather than sit there unused (a converted file must leave the "
-                    + "list).");
+                    $"{relativePath} no longer violates any rule — its owning issue must have converted it, so "
+                    + "it has to leave the carve-out list rather than sit there unused (a converted file must "
+                    + "leave the list).");
             }
         }
 
