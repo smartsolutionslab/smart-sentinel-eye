@@ -85,8 +85,9 @@ export interface RenderLegRecord {
 
 /**
  * True exactly when the wall's samples carry `expectedCameras` distinct
- * cameras and every one of them contributed at least `iterations` samples
- * (spec FR-016, plan §8.2).
+ * cameras, every one of them contributed at least `iterations` samples, and
+ * the span loop itself ran to completion (spec FR-016, tightened by FR-021;
+ * plan §8.2, §9.2).
  *
  * <p>
  * Restates, as one reusable boolean, the identical rule the span test already
@@ -96,12 +97,24 @@ export interface RenderLegRecord {
  * one) and "at least `iterations` samples per camera" (a tile that drew once
  * at mount and then froze must not read as complete).
  * </p>
+ *
+ * <p>
+ * <b>`loopCompleted` guards against a truncated-but-sufficient attempt</b>
+ * (FR-021, spec §10.4 F7): a span loop that refused mid-run and `break`s can
+ * still leave every per-camera count at or above `iterations`, if the
+ * refusal landed late enough. The per-camera check alone cannot see that
+ * break, so the caller passes whether its own loop actually ran to the end.
+ * </p>
  */
 export function isCompleteRenderLegMeasurement(
   samplesPerCamera: ReadonlyMap<string, number>,
   expectedCameras: number,
   iterations: number,
+  loopCompleted: boolean,
 ): boolean {
+  if (!loopCompleted) {
+    return false;
+  }
   if (samplesPerCamera.size !== expectedCameras) {
     return false;
   }

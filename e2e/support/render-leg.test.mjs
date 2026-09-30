@@ -4,20 +4,23 @@
 // `isCompleteRenderLegMeasurement` is the single predicate the span test's own
 // per-camera `expect`s (`kiosk-shows-a-label-over-video.spec.ts:1474-1485`)
 // and the checker (`render-leg-check.mjs`, T020) must share, so the gate and
-// the test cannot disagree about what "complete" means. It does not exist yet
-// — this file is red until T027 lands it in `e2e/support/render-leg.ts`
-// (plan.md §8.2's signature):
+// the test cannot disagree about what "complete" means. Landed by T027 in
+// `e2e/support/render-leg.ts`, then tightened by T029 (FR-021, plan.md
+// §9.2's signature):
 //
 //   isCompleteRenderLegMeasurement(
 //     samplesPerCamera: ReadonlyMap<string, number>,
 //     expectedCameras: number,
 //     iterations: number,
+//     loopCompleted: boolean,
 //   ): boolean
 //
-// True exactly when there are `expectedCameras` distinct cameras and every
-// one of them has at least `iterations` samples — the identical rule the span
+// True exactly when there are `expectedCameras` distinct cameras, every one
+// of them has at least `iterations` samples — the identical rule the span
 // test already applies as two separate `expect`s, restated here as one
-// reusable boolean.
+// reusable boolean — and the span loop itself ran to completion
+// (`loopCompleted`): a truncated attempt must not read as complete merely
+// because the counts it collected before breaking happen to be enough.
 
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -50,7 +53,7 @@ test('every tile at or above the iteration count, exactly the expected camera co
     ],
   });
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), true);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), true);
 });
 
 test('one tile fell short of the iteration count — incomplete', () => {
@@ -63,7 +66,7 @@ test('one tile fell short of the iteration count — incomplete', () => {
     ],
   });
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), false);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), false);
 });
 
 test('a tile never drew at all — fewer distinct cameras than expected — incomplete', () => {
@@ -76,7 +79,7 @@ test('a tile never drew at all — fewer distinct cameras than expected — inco
     ],
   });
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), false);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), false);
 });
 
 test('more distinct cameras than expected — incomplete ("exactly", not "at least")', () => {
@@ -90,7 +93,7 @@ test('more distinct cameras than expected — incomplete ("exactly", not "at lea
     ],
   });
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), false);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), false);
 });
 
 test('boundary — exactly ITERATIONS samples on every tile is enough ("at least")', () => {
@@ -103,7 +106,7 @@ test('boundary — exactly ITERATIONS samples on every tile is enough ("at least
     ],
   });
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), true);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), true);
 });
 
 test('boundary — one sample under ITERATIONS on one tile is not enough', () => {
@@ -116,13 +119,13 @@ test('boundary — one sample under ITERATIONS on one tile is not enough', () =>
     ],
   });
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), false);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), false);
 });
 
 test('no samples at all — incomplete, not a crash', () => {
   const samplesPerCamera = new Map();
 
-  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), false);
+  assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true), false);
 });
 
 // ---- FR-021 (T029): the loop must have finished, not just met the count ----
@@ -202,7 +205,7 @@ test('a record built from a run where every tile got all its samples has complet
       ['camera-4', 10],
     ],
   });
-  const complete = isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS);
+  const complete = isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true);
 
   writeRenderLegRecord({ ...baseRecordFields(), complete }, directory);
   const [attempt] = readRenderLegRecords(directory);
@@ -221,7 +224,7 @@ test('a record built from a run where a tile fell short has complete: false', ()
       ['camera-4', 10],
     ],
   });
-  const complete = isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS);
+  const complete = isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, true);
 
   writeRenderLegRecord({ ...baseRecordFields(), complete }, directory);
   const [attempt] = readRenderLegRecords(directory);
