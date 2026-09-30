@@ -93,7 +93,7 @@ export function Button({
   // and there is nothing left to race.
   const base =
     'inline-flex items-center justify-center rounded-md border px-4 py-2 ' +
-    'text-sm font-medium transition-colors ' +
+    'text-sm font-medium transition-colors duration-state ease-state ' +
     'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring ' +
     'disabled:pointer-events-none';
 

@@ -207,7 +207,7 @@
   --shadow-popover: 0 4px 12px 0 color-mix(in oklch, var(--black) 48%, transparent);
   --shadow-overlay: 0 16px 40px 0 color-mix(in oklch, var(--black) 64%, transparent);
 
-  /* Motion: the category only — the easing language is #2334. All three
+  /* Motion: the category and the roles (#2334, spec 292). All three
      durations sit inside ADR-0146's 120-200ms. */
   --duration-fast: 120ms;
   --duration-moderate: 160ms;
@@ -215,6 +215,16 @@
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Roles (#2334, spec 292). Call sites cite a role, never a scale step. */
+  --duration-state: var(--duration-fast);     /* 120ms — a control changes state in place */
+  --duration-enter: var(--duration-slow);     /* 200ms — a surface arrives; its origin is the information */
+  --duration-exit: var(--duration-moderate);  /* 160ms — a surface leaves; the operator already chose to dismiss it */
+  --duration-route: var(--duration-slow);     /* 200ms — one view replaces another */
+  --ease-state: var(--ease-out);
+  --ease-enter: var(--ease-out);              /* decelerate into place */
+  --ease-exit: var(--ease-in);                /* accelerate away */
+  --ease-route: var(--ease-in-out);           /* both views on screen at once */
 
   /* Z-layers (plan.md §2.8). Nothing in the tree sets a z-index today. */
   --z-sticky: 100;

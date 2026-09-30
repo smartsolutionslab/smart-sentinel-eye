@@ -111,11 +111,27 @@ export const tailwindTheme = {
     fast: 'var(--duration-fast)',
     moderate: 'var(--duration-moderate)',
     slow: 'var(--duration-slow)',
+    state: 'var(--duration-state)',
+    enter: 'var(--duration-enter)',
+    exit: 'var(--duration-exit)',
+    route: 'var(--duration-route)',
   },
   transitionTimingFunction: {
     out: 'var(--ease-out)',
     in: 'var(--ease-in)',
     'in-out': 'var(--ease-in-out)',
+    state: 'var(--ease-state)',
+    enter: 'var(--ease-enter)',
+    exit: 'var(--ease-exit)',
+    route: 'var(--ease-route)',
+  },
+  // Not under `extend`: REPLACES stock spin/ping/pulse/bounce (plan.md §3 finding F2) — an
+  // ambient loop is not something either surface should be able to reach for by name.
+  animation: {
+    'surface-enter': 'sse-surface-enter var(--duration-enter) var(--ease-enter) both',
+    'surface-exit': 'sse-surface-exit var(--duration-exit) var(--ease-exit) both',
+    'scrim-enter': 'sse-scrim-enter var(--duration-enter) var(--ease-enter) both',
+    'scrim-exit': 'sse-scrim-exit var(--duration-exit) var(--ease-exit) both',
   },
   zIndex: {
     sticky: 'var(--z-sticky)',
