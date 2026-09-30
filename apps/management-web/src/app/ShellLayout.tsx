@@ -168,6 +168,7 @@ function NavItem({ to, children, ref }: { to: string; children: ReactNode; ref?:
     <NavLink
       ref={ref}
       to={to}
+      viewTransition
       className={({ isActive }) =>
         isActive
           ? 'rounded-md bg-accent-subtle px-3 py-1 text-sm font-medium text-accent'
