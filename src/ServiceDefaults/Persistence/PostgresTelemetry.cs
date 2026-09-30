@@ -48,17 +48,25 @@ public static class PostgresTelemetry
     /// (ADR-0088, <c>UseEntityFrameworkCoreTransactions</c>) and changes the
     /// exception shape <c>OutboxBacklogHealthCheck</c> handles (ADR-0154
     /// §Context). This never changes either.</item>
-    /// <item><b>Tracing and metrics: disabled for US1, enabled for US2.</b>
-    /// US1 (this call, on its own) only turns the plumbing on with every
-    /// feature off, so the bump and the wiring change nothing observable
-    /// (spec 282 §3). A later change flips these two so that a database
-    /// command produces a span and Npgsql's pool metrics reach the
-    /// dashboard (FR-008, FR-009) — connection-string resolution is
-    /// untouched either way: <c>GetBoundedPostgresConnectionString</c>
-    /// remains the only source (ADR-0125), because <c>EnrichNpgsqlDbContext</c>
-    /// enriches an existing registration rather than reading
-    /// <c>ConnectionStrings:{name}</c> itself.</item>
+    /// <item><b>Tracing: enabled.</b> A database command now produces a span
+    /// under the request's trace instead of leaving a gap
+    /// (<c>PostgresTracingRegistrationTests</c>, T020; FR-008). Registering
+    /// the tracer provider does not register a health check or change the
+    /// execution strategy — those two switches above are independent and
+    /// stay disabled.</item>
+    /// <item><b>Metrics: enabled.</b> Npgsql's connection-pool metrics reach
+    /// the dashboard, which makes an ADR-0125 cap running at its ceiling
+    /// visible there instead of only as latency
+    /// (<c>PostgresMetricsRegistrationTests</c>, T021; FR-009).</item>
     /// </list>
+    ///
+    /// <para>
+    /// Connection-string resolution is untouched by either switch:
+    /// <c>GetBoundedPostgresConnectionString</c> remains the only source
+    /// (ADR-0125), because <c>EnrichNpgsqlDbContext</c> enriches the existing
+    /// registration rather than reading <c>ConnectionStrings:{name}</c>
+    /// itself.
+    /// </para>
     /// </summary>
     public static IHostApplicationBuilder EnrichPostgresDbContext<TDbContext>(this IHostApplicationBuilder builder)
         where TDbContext : DbContext
@@ -69,8 +77,8 @@ public static class PostgresTelemetry
         {
             settings.DisableHealthChecks = true;
             settings.DisableRetry = true;
-            settings.DisableTracing = true;
-            settings.DisableMetrics = true;
+            settings.DisableTracing = false;
+            settings.DisableMetrics = false;
         });
 
         return builder;
