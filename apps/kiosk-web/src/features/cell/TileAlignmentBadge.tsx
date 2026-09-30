@@ -1,3 +1,5 @@
+import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
+
 /**
  * Marks a tile the wall could not hold to its common instant (spec 045 US3,
  * FR-012).
@@ -13,13 +15,10 @@
  */
 export function TileAlignmentBadge({ camera }: { camera: string }) {
   return (
-    <div
-      role="status"
-      data-testid="tile-out-of-alignment"
-      data-camera={camera}
-      className="absolute bottom-2 left-1/2 z-10 -translate-x-1/2 rounded-md bg-accent-warning/30 px-3 py-1 text-xs text-accent-warning"
-    >
-      Not in sync with the wall
-    </div>
+    <Badge tone="warning" size="md" asChild className="absolute bottom-2 left-[50%] z-10 -translate-x-[50%]">
+      <div role="status" data-testid="tile-out-of-alignment" data-camera={camera}>
+        Not in sync with the wall
+      </div>
+    </Badge>
   );
 }
