@@ -196,10 +196,18 @@ one:
 **A reclaim is not a promise about the dead attempt's side effects**, and this
 is the honest limit of the story. A process that died mid-`work()` may have
 committed part of its work. Re-running is exactly what `ReleaseAsync` already
-causes on the exception path, and what protects the caller is the same thing
-that protects it there: the domain's own uniqueness rules, which answer `409`
-for a genuine duplicate. The key guarantees at most one *live* attempt; it has
-never guaranteed anything about a half-applied dead one.
+causes on the exception path, and what protects the caller for *some*
+endpoints is the domain's own uniqueness rules, which answer `409` for a
+genuine duplicate. **Not every keyed endpoint has such a rule to fall back
+on**: `POST /events` builds a fresh `EventIdentifier` per request, so a
+retry without a key "would file a second event under a second identifier —
+no conflict to notice, just a duplicate"
+(`src/EventIngestion/Api/EventsEndpoints.Writes.cs:94-97`). The key
+guarantees at most one *live* attempt; it has never guaranteed anything
+about a half-applied dead one, and for `POST /events` specifically, not a
+`409` either.
+
+*Corrected 2026-09-30 by spec 295 (#2491).*
 
 ### US2 (P2) — A failed release does not replace the failure that caused it
 
