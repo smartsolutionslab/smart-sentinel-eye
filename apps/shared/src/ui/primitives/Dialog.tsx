@@ -14,7 +14,12 @@ export function Dialog({ open, onOpenChange, title, description, children }: Dia
   return (
     <RadixDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-overlay bg-scrim backdrop-blur-sm" />
+        <RadixDialog.Overlay
+          className={clsx(
+            'fixed inset-0 z-overlay bg-scrim backdrop-blur-sm',
+            'data-[state=open]:animate-scrim-enter data-[state=closed]:animate-scrim-exit',
+          )}
+        />
         {/* z-popover, not z-overlay: tied with the Overlay above, Content's
             stacking order fell back to DOM position, which Chromium does not
             reliably honour once the Overlay's `backdrop-blur-sm` promotes it
@@ -29,7 +34,8 @@ export function Dialog({ open, onOpenChange, title, description, children }: Dia
               // Cap to the viewport and scroll: tall content (e.g. the overlay
               // editor canvas) must not push the action buttons off-screen.
               'max-h-[90vh] overflow-y-auto ' +
-              'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary',
+              'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary ' +
+              'data-[state=open]:animate-surface-enter data-[state=closed]:animate-surface-exit',
           )}
         >
           <RadixDialog.Title className="text-lg font-semibold">{title}</RadixDialog.Title>

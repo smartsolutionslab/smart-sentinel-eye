@@ -64,7 +64,12 @@ export function ConfirmDialog({
   return (
     <RadixAlertDialog.Root open={open} onOpenChange={onOpenChange}>
       <RadixAlertDialog.Portal>
-        <RadixAlertDialog.Overlay className="fixed inset-0 z-overlay bg-scrim backdrop-blur-sm" />
+        <RadixAlertDialog.Overlay
+          className={
+            'fixed inset-0 z-overlay bg-scrim backdrop-blur-sm ' +
+            'data-[state=open]:animate-scrim-enter data-[state=closed]:animate-scrim-exit'
+          }
+        />
         {/* z-popover, not z-overlay: see Dialog.tsx — the same tie let the
             Overlay's compositor layer win the hit-test for a click meant for
             Content (issue #2335, PR #2637). */}
@@ -72,7 +77,8 @@ export function ConfirmDialog({
           className={
             'fixed left-1/2 top-1/2 z-popover w-full max-w-md -translate-x-1/2 -translate-y-1/2 ' +
             'max-h-[90vh] overflow-y-auto ' +
-            'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary'
+            'rounded-lg bg-bg-raised p-6 shadow-overlay border border-border-subtle text-fg-primary ' +
+            'data-[state=open]:animate-surface-enter data-[state=closed]:animate-surface-exit'
           }
           onCloseAutoFocus={(event) => {
             event.preventDefault();

@@ -1,0 +1,56 @@
+/*
+ * Surface enter/exit keyframes and the route cross-fade timing (ADR-0146,
+ * ADR-0148 — spec 292, issue #2334). Unlayered, like tokens.css: imported
+ * after it and before `@import 'tailwindcss'` in the console's stylesheet,
+ * so it wins any name collision the same way tokens.css does.
+ *
+ * Cites role tokens only (tokens.css), never a scale step or a primitive.
+ *
+ * NOT imported by the kiosk (apps/kiosk-web/src/styles/index.css) —
+ * deliberately. The wall gets none of these animations, by absence rather
+ * than by review (ADR-0148; MotionLanguageTests fact 1).
+ */
+
+@keyframes sse-surface-enter {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2)) scale(0.98);
+  }
+}
+@keyframes sse-surface-exit {
+  to {
+    opacity: 0;
+    transform: translateY(var(--space-2)) scale(0.98);
+  }
+}
+@keyframes sse-scrim-enter {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sse-scrim-exit {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Reduced motion: the same relationship (arrives / leaves), told by opacity
+   alone, over the same duration and curve. Not `none`, not 0 ms. */
+@media (prefers-reduced-motion: reduce) {
+  @keyframes sse-surface-enter {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sse-surface-exit {
+    to {
+      opacity: 0;
+    }
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--duration-route);
+  animation-timing-function: var(--ease-route);
+}
