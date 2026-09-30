@@ -166,13 +166,58 @@ gives a direct, apples-to-apples before/after comparison on identical data.
 
 ## T014 — V3: the composite + render leg
 
-**Not run for real — the PR is not open yet, so no PR CI artifacts exist.**
-Per the brief, this section instead records the checker invocation confirmed
-working end to end, and a dry run against an already-existing `develop` CI
-run's artifacts (in place of #2684/#2687, which turned out to have no
-render-leg figures of their own beyond what every push run already carries).
+**Now run for real, against PR #2688's own CI.** The subsections below record,
+in order: the three real measurements that are this PR's V3 evidence, and
+the checker/dry-run proof kept from the earlier pass (still valid, unchanged,
+and superseded by the real measurement for the purposes of FR-006).
 
-### Checker confirmed, input format confirmed
+### Real measurement — PR #2688, CI run `36727200450`, SHA `77a5f9f4334854080478b2905c0bd743c53047f5`
+
+Baseline: the same scratch `baseline.json` as the dry run below, built from
+spec §7's nine `develop` push runs — `baselineP50Milliseconds` **57.6611 ms**,
+`toleranceMilliseconds` **21.9746 ms** (3σ), threshold **79.6357 ms**. Not
+committed (spec 225 T019's job).
+
+The PR's CI run (`36727200450`) was already green at commit `77a5f9f4` when
+this measurement started. Per plan.md §8's V3 procedure, its own run counts
+as the first of the three records; it was re-run twice more
+(`gh run rerun 36727200450`), downloading all four `playwright-report-*-of-4`
+shard artifacts and running the checker **before** triggering each subsequent
+re-run, so no record was lost to the "a re-run erases the prior attempt"
+gotcha. All three records carry the same run id and SHA (`gh run rerun`
+re-runs the existing workflow run in place; no new commit exists to attach a
+different SHA to) — this is the PR's own run, not `develop`'s, and is the
+correct target of the comparison (spec FR-006).
+
+| # | p50 | p95 | max | Frame interval (before → after) | Checker verdict | Margin |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 (original run) | 53.45 ms | 88.20 ms | 99.90 ms | 35.63 → 34.44 ms/frame | within tolerance | 26.19 ms |
+| 2 (re-run 1) | 50.00 ms | 66.70 ms | 69.40 ms | 31.77 → 32.29 ms/frame | within tolerance | 29.64 ms |
+| 3 (re-run 2) | 50.50 ms | 94.40 ms | 99.20 ms | 33.33 → 32.26 ms/frame | within tolerance | 29.14 ms |
+
+Mean p50 across the three: **51.32 ms** — a shift of **−6.34 ms** against the
+57.66 ms baseline mean (i.e. this PR's runs are, on average, *faster* than
+the `develop` comparison set, not slower). Every one of the three
+`node scripts/render-leg-check.mjs <run-N-shards> <scratch-baseline.json>`
+invocations printed `within tolerance` and exited 0. No frame-interval step
+appears between any of the three (all cluster around the same ~32–36 ms/frame
+cadence the baseline runs show) — nothing here even reaches the ADR-0123
+triage step, since no run regressed.
+
+**Outcome: PASS per plan.md §8.4's rule (all three `within tolerance`).**
+`container-type: inline-size` on the two `CameraViewer`/editor roots costs
+nothing measurable on this leg — the prediction in spec §7 ("neutral") holds.
+**V3 is closed. FR-006 is satisfied.**
+
+*Provenance, for a reader after CI artifacts expire (14 days):* run
+`36727200450` on PR #2688, `bug/2353-label-container-relative` @
+`77a5f9f4334854080478b2905c0bd743c53047f5`, measured 2026-09-30. Raw
+`render-leg-attempt-0.json` records for all three downloads and the scratch
+`baseline.json` used were kept in the verifier's scratchpad for this session;
+the figures above are transcribed directly from the checker's own stdout and
+the underlying JSON records, not recomputed.
+
+### Checker confirmed, input format confirmed (kept from the earlier pass)
 
 `scripts/render-leg-check.mjs <shards-directory> <baseline.json path>` —
 read in full. It:
@@ -226,36 +271,21 @@ function exactly as `plan.md` §8.3/§8.4 describe. This is **not** this PR's
 V3 figure — it is `develop`'s own tip, unrelated to this change — recorded
 only to prove the pipeline before real data exists.
 
-### What still needs to run, once the PR is open (exact commands)
+### What still needs to run, once the PR is open (exact commands) — DONE, see above
 
-1. Build the **real** scratch baseline from spec §7's nine runs plus any
-   newer `develop` push runs up to this branch's base. Two candidates beyond
-   spec §7's table were found and are not yet in it: run `36715830923`
-   (SHA `e56c2b8e`, this branch's base, p50 53.60 ms, `playwright-report-4-of-4`)
-   and CI run `36697596703` (style/292, SHA `34d46a23...`; overall CI
-   conclusion `failure` but carries a full `playwright-report-4-of-4` — check
-   whether its job-level e2e result was actually green before including it).
-2. Once the PR's CI run exists:
-   ```sh
-   gh api repos/smartsolutionslab/smart-sentinel-eye/actions/runs/<PR_RUN_ID>/artifacts -q '.artifacts[].name'
-   gh run download <PR_RUN_ID> -n playwright-report-1-of-4 -D <scratch>/shards/playwright-report-1-of-4
-   gh run download <PR_RUN_ID> -n playwright-report-2-of-4 -D <scratch>/shards/playwright-report-2-of-4
-   gh run download <PR_RUN_ID> -n playwright-report-3-of-4 -D <scratch>/shards/playwright-report-3-of-4
-   gh run download <PR_RUN_ID> -n playwright-report-4-of-4 -D <scratch>/shards/playwright-report-4-of-4
-   node scripts/render-leg-check.mjs <scratch>/shards <scratch>/baseline.json
-   ```
-   **Download before each re-run** — a re-run erases the prior attempt from
-   CI history (memory: *a re-run erases the failure from CI history*).
-   Repeat for **three complete PR-run records** (the PR's own run plus two
-   re-runs, downloading each first).
-3. Pass = all three `within tolerance`. Record every p50/p95/max/`T` and the
-   mean shift against 57.66 ms into this section, with run ids and full
-   SHAs.
-4. On `regressed`: ADR-0123 triage (compare `T` — a cadence step vs `develop`
-   runs of the same day blocks; no `T` move re-measures, two more runs, a
-   second `regressed` blocks). On `unmeasured`: re-run once after
-   downloading; a second `unmeasured` blocks.
+This checklist described the work now recorded in "Real measurement" above.
+The scratch baseline used was the unmodified spec §7 nine-run set (same
+figures as the dry run's baseline, not expanded with the two candidate runs
+this note had flagged) — the orchestrator's brief for this pass specified
+using that already-derived baseline directly rather than re-deriving it, and
+doing so kept the comparison set identical to the one spec §7 and the dry
+run both already cite. The commands actually run (`gh run rerun 36727200450`
+twice, `gh run download` of all four shards before each re-run, then
+`node scripts/render-leg-check.mjs`) matched this checklist's step 2 exactly;
+step 1's two candidate runs remain unincorporated, and step 4's regression
+path was not exercised (all three verdicts were `within tolerance`).
 
-**This section is deliberately incomplete** pending real PR CI data — not
-silently left blank. The commands above are what the orchestrator runs once
-the PR is open.
+This section previously read "deliberately incomplete pending real PR CI
+data — not silently left blank"; it is left here, updated rather than
+deleted, as the record of what was planned before the PR's CI existed. See
+"Real measurement" above for the figures this checklist produced.
