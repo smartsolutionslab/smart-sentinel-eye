@@ -69,7 +69,8 @@ export interface RenderLegRecord {
    * mid-test (plan.md §2.3). Never taken during the timed window (NFR-002). */
   frameIntervalAfterMilliseconds: number;
   /**
-   * Whether this attempt is usable as a figure at all (spec FR-016, plan §8.2).
+   * Whether this attempt is usable as a figure at all (spec FR-016, tightened
+   * by FR-021; plan §8.2, §9.2).
    *
    * <p>
    * Set from {@link isCompleteRenderLegMeasurement} against the same

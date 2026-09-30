@@ -134,8 +134,9 @@ test('no samples at all — incomplete, not a crash', () => {
 // 8: the value never painted") and broke out early, yet the per-camera counts
 // it collected before breaking still happen to satisfy `ITERATIONS` (runs
 // 35979443020, 35986570873: n = 40 across 4 cameras — 10 each — from a loop
-// that never reached iteration 10). Today's three-argument predicate cannot
-// see the break at all, so it reads this as complete.
+// that never reached iteration 10). The old three-argument predicate could
+// not see the break at all and read this as complete; the fourth argument
+// below (`loopCompleted`) is what catches it.
 
 test('every tile met its per-camera count, but the loop broke out early — incomplete (FR-021)', () => {
   const samplesPerCamera = fourTileWall({
