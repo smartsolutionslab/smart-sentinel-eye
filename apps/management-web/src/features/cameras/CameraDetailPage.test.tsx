@@ -178,6 +178,40 @@ describe('CameraDetailPage', () => {
   });
 
   /**
+   * Spec 297 (issue #2635) T004. Characterisation, observed green on the
+   * untouched tree (`ab030e5a`) before any source edit — no case named
+   * "Retired" existed before this one (spec §1). Pins that the "Retired"
+   * marker shows iff the camera is retired, independent of its markup. Must
+   * pass unmodified after the conversion to a Badge (ADR-0139/0144 §6).
+   */
+  it('Shows "Retired" beside the name iff the camera is retired', () => {
+    renderAt(camera.cameraIdentifier);
+    expect(screen.queryByText('Retired')).not.toBeInTheDocument();
+  });
+
+  it('Shows "Retired" beside the name for a retired camera', () => {
+    getCamera.mockReturnValue({ data: { ...camera, status: 'Decommissioned' }, isLoading: false, error: undefined });
+    renderAt(camera.cameraIdentifier);
+    expect(screen.getByText('Retired')).toBeInTheDocument();
+  });
+
+  /**
+   * Spec 297 (issue #2635) T011, US3, FR-007. RED: today's "Retired" marker
+   * (`CameraDetailPage.tsx:98`) is `bg-fg-muted/15 px-2 py-1` — a call-site
+   * alpha modifier, not the shared Badge's neutral tone. After the
+   * conversion it is a neutral Badge (`bg-bg-raised`, no alpha modifier).
+   */
+  it('Shows "Retired" as a neutral Badge, with no alpha modifier', () => {
+    getCamera.mockReturnValue({ data: { ...camera, status: 'Decommissioned' }, isLoading: false, error: undefined });
+    renderAt(camera.cameraIdentifier);
+
+    const retired = screen.getByText('Retired');
+    expect(retired.className).toContain('bg-bg-raised');
+    const offending = retired.className.split(/\s+/).filter((token) => /\/\d+$/.test(token));
+    expect(offending).toEqual([]);
+  });
+
+  /**
    * Spec 032 T013 / FR-004. The same shape as the assertion above, for the
    * same reason: a disabled control still tells the operator the action is
    * conceptually available, and for a terminal state that is untrue.
