@@ -59,22 +59,26 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
             ON CONFLICT (key, endpoint, caller) DO UPDATE
                SET reserved_at = NOW()
              WHERE idempotency_key.resource_identifier IS NULL
-               AND idempotency_key.reserved_at < NOW() - {3};
+               AND idempotency_key.reserved_at < NOW() - {3}
+            RETURNING reserved_at AS "Value";
             """;
 
-        int inserted = await dbContext.Database.ExecuteSqlRawAsync(
-            claim,
-            [scope.Key.Value, scope.Endpoint, scope.Caller, IdempotencyReclamation.StaleAfter],
-            cancellationToken);
+        // #2491. SqlQueryRaw, not ExecuteSqlRawAsync, because the INSERT ...
+        // RETURNING above is the fencing token itself — the value this claim
+        // wrote and the only value CompleteAsync/ReleaseAsync will later
+        // accept back. No LINQ operator follows: ToArrayAsync is the
+        // non-composing terminal EF already uses for the fall-through SELECT
+        // below, so there is nothing here for EF to wrap the RETURNING
+        // statement in.
+        DateTime[] claimed = await dbContext.Database
+            .SqlQueryRaw<DateTime>(
+                claim,
+                [scope.Key.Value, scope.Endpoint, scope.Caller, IdempotencyReclamation.StaleAfter])
+            .ToArrayAsync(cancellationToken);
 
-        if (inserted == 1)
+        if (claimed.Length == 1)
         {
-            // #2491. Placeholder token for the shape-only commit: the claim
-            // statement above still only returns a row count, not the
-            // reserved_at it wrote. T011 adds RETURNING and reads the real
-            // value back; until then nothing compares this token against a
-            // stored one, so a wrong value here changes nothing observable.
-            return IdempotencyReservation.ReservedAs(new IdempotencyClaim(scope, default));
+            return IdempotencyReservation.ReservedAs(new IdempotencyClaim(scope, claimed[0]));
         }
 
         // Someone else holds the key. Whether they finished is the whole
