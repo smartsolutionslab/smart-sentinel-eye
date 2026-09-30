@@ -1,6 +1,6 @@
 # Tasks: Spec 289, the story a scenario tells
 
-**Spec:** `spec.md` · **Plan:** `plan.md` · **ADR:** ADR-0163 (amends ADR-0111) · **Issue:** not yet created (see Board) · **Lane:** supervised
+**Spec:** `spec.md` · **Plan:** `plan.md` · **ADR:** ADR-0163 (amends ADR-0111) · **Issue:** [#2677](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2677) · **Lane:** supervised
 
 **Phase 4a colour, declared here (ADR-0144):**
 
@@ -143,19 +143,33 @@ Depends on PR-B being merged.
 
 ## PR-D: US3, a scenario that cannot tell its story says so (P3, red)
 
-Depends on PR-C being merged.
+Depends on PR-C being merged, **and now on #2698 merging first** (2026-10-01
+gate re-verification): #2698 and T-D03 both rewrite `HighlightRuleSeed.From`
+and its call site in `ScenarioSeeder.cs` — a direct conflict in a file whose
+characterisation pins (T-A01) must stay unmodified. Cut PR-D fresh from
+`develop` only after #2698 is merged, and re-read `HighlightRuleSeed.cs`
+first — its `From` return shape will have changed.
+
+**Decided 2026-10-01 (human, supervised gate):** a refused-manifest
+reaction logs **both** `ReactionSkippedRefusedManifest` (existing, from
+PR-B's pre-filter) and the new `ScenarioReactionUnreachable` — accepted as
+two warnings stating two different facts, not deduped. T-D02's "logged
+once" applies only to the plain-orphan case, not this one.
 
 - [ ] **T-D01** `tests/ScenarioSimulator.Tests/ScenarioStoryCheckTests.cs` (pure):
   - an orphan reaction yields exactly one finding naming the scenario, asset, reaction and trigger;
-  - a trigger satisfied by a sensor, or by a valid cue, yields none;
-  - a trigger satisfied only by a **refused** sidecar's cue yields a finding;
-  - the legacy `Highlight` is checked the same way;
-  - all three shipped scenarios yield **zero** findings.
+  - a trigger satisfied by a sensor, or by a valid cue, yields none — matched by **Kind** for the legacy `Highlight` (it has no declared Source), by `(Source, Kind)` for a `Reaction`;
+  - a trigger satisfied only by a **refused** sidecar's cue yields a finding (indistinguishable from "no sidecar" today, since `ClipManifestLoader.Load` returns `Manifest = None` on refusal — acceptable, per the gate);
+  - the legacy `Highlight` is checked the same way, by Kind;
+  - all three shipped scenarios yield **zero** findings — **load the real clips directory** (`ScenarioFileTests.ClipsDirectory()`) for this fact, not an empty one; with an empty directory the correct answer is 2 findings, not zero.
 - [ ] **T-D02** `tests/ScenarioSimulator.Tests/ScenarioSeederStoryCheckTests.cs`:
   - an orphan reaction is still seeded and the warning is logged once;
-  - a `Highlight` whose kind no sensor emits is seeded with source `plc` **and** reported (the `plc` fallback is no longer silent);
-  - T-A01's pins pass unmodified.
-- [ ] **T-D03** Implement `Scenario/ScenarioStoryCheck.cs`, call it from `ScenarioSeeder` once per scenario before seeding, add the `Log.cs` entry `ScenarioReactionUnreachable`, and replace the silent `?? "plc"` in `SeedOverlayAndRuleAsync` with the check's derivation (plan §5.5).
+  - a refused-manifest reaction logs **both** warnings (see decision above) — not "logged once";
+  - a `Highlight` whose kind no sensor **or valid cue** emits is seeded with source `plc` **and** reported (the `plc` fallback is no longer silent);
+  - **new fact**: a `Highlight` whose kind matches no sensor but matches a valid cue is seeded with **that cue's `Source`** (e.g. `inference`), not `plc` — plan §5.5's "sensors first, then cues" derivation is new wire behaviour and needs its own test;
+  - T-A01's pins pass unmodified (now 14 creates, per #2698's numbering, once that's merged);
+  - use `tests/ScenarioSimulator.Tests/Fakes/RecordingLogger.cs` so "logged once" (or twice) is actually checkable.
+- [ ] **T-D03** Implement `Scenario/ScenarioStoryCheck.cs`. Edit **`Seeding/HighlightRuleSeed.cs`** (not `SeedOverlayAndRuleAsync` — the silent `?? "plc"` fallback moved there in PR-A) to derive the trigger source from sensors first, then cues, via the check. Call the check from `ScenarioSeeder` once per scenario before seeding. Add the `Log.cs` entry `ScenarioReactionUnreachable` (`src/ScenarioSimulator/Log.cs`, not `Seeding/Log.cs`). Load each asset's manifest **once** and share it between the check and `SeedReactionsAsync`, rather than loading twice. Watch `ScenarioSeeder.cs`'s LOC against the 300-line advisory limit (ADR-0084) — it's at 287 today and a prior commit already split code specifically to stay under it.
 - [ ] **T-D04** Phase 5 V-6.
 
 ## Follow-ups (file as issues when PR-B merges; not part of this spec)
