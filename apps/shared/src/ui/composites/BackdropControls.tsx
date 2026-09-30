@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
-import type { CSSProperties } from 'react';
 import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { Button } from '../primitives/Button.js';
 import { FormField } from './FormField.js';
 import type { CaptureState } from './useFrameCapture.js';
 
@@ -26,16 +26,12 @@ const BACKDROP_OPTIONS: ReadonlyArray<{ value: Backdrop; label: string }> = [
   { value: 'captured', label: 'Captured frame' },
 ];
 
-// Inline styles, matching the rest of `OverlayEditor.tsx` — not Tailwind, not
-// tokens. #2342 converts this whole file to the token system in one pass; a
-// half-converted component would make it reconcile two idioms instead.
-const FIELDSET_STYLE: CSSProperties = { display: 'flex', gap: 16, border: 'none', padding: 0, margin: 0 };
-const LEGEND_STYLE: CSSProperties = { fontSize: 14, padding: 0, marginBottom: 4 };
-const RADIO_LABEL_STYLE: CSSProperties = { display: 'flex', alignItems: 'center', gap: 4, fontSize: 14 };
-const SELECT_STYLE: CSSProperties = { padding: 8, fontSize: 14 };
-const BUTTON_STYLE: CSSProperties = { padding: '8px 12px', fontSize: 14 };
-const NOTICE_STYLE: CSSProperties = { fontSize: 12, color: '#6b7280', margin: 0 };
-const ALERT_STYLE: CSSProperties = { fontSize: 13, color: '#b91c1c', margin: 0 };
+// Spec 293 (issue #2342): Tailwind classes citing the semantic token layer,
+// not inline styles — see plan.md §3.2 for the mapping this replaced.
+const SELECT_CLASSNAME =
+  'block w-full rounded-md border border-fg-muted bg-bg-elevated px-3 py-2 text-sm text-fg-primary ' +
+  'placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 ' +
+  'focus-visible:outline-focus-ring disabled:border-border-subtle disabled:text-fg-disabled';
 
 /**
  * The backdrop selector plus the camera picker and capture control (spec
@@ -66,11 +62,11 @@ export function BackdropControls({
   const backdropGroupName = useId();
 
   return (
-    <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-      <fieldset style={FIELDSET_STYLE}>
-        <legend style={LEGEND_STYLE}>Backdrop</legend>
+    <div className="mt-3 grid gap-3">
+      <fieldset className="m-0 flex gap-4 border-0 p-0">
+        <legend className="mb-1 p-0 text-sm font-medium text-fg-primary">Backdrop</legend>
         {BACKDROP_OPTIONS.map((option) => (
-          <label key={option.value} style={RADIO_LABEL_STYLE}>
+          <label key={option.value} className="flex items-center gap-1 text-sm text-fg-primary">
             <input
               type="radio"
               name={backdropGroupName}
@@ -78,6 +74,7 @@ export function BackdropControls({
               checked={backdrop === option.value}
               disabled={option.value === 'captured' && !hasCapturedFrame}
               onChange={() => onBackdropChange(option.value)}
+              className="accent-accent"
             />
             {option.label}
           </label>
@@ -151,11 +148,11 @@ function CameraCaptureSection({
   }, [captureState]);
 
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
+    <div className="grid gap-2">
       <FormField label="Camera" htmlFor={cameraSelectId}>
         <select
           id={cameraSelectId}
-          style={SELECT_STYLE}
+          className={SELECT_CLASSNAME}
           value={selectedCamera}
           onChange={(e) => onCameraChange(e.target.value)}
         >
@@ -170,38 +167,39 @@ function CameraCaptureSection({
       {/* Spec 048's truncation notice, mirrored from LayoutEditorDialog — how
           many of how many, and stops there. */}
       {camerasTruncated && cameras !== undefined && (
-        <p style={NOTICE_STYLE}>
+        <p className="m-0 text-xs text-fg-muted">
           Showing {cameraItems.length} of {cameras.count} cameras.
         </p>
       )}
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
+      <div className="flex gap-2">
+        {/* Spec 293 §4.4: keeps native `disabled` — whether this should move
+            to `unavailable` (ADR-0151) is spec 234's own mechanism, not
+            reopened here. */}
+        <Button
           ref={captureButtonRef}
-          type="button"
+          variant="secondary"
           onClick={onCapture}
           disabled={selectedCamera === '' || captureState === 'capturing'}
-          style={BUTTON_STYLE}
         >
           Capture frame
-        </button>
+        </Button>
         {captureState === 'capturing' && (
-          <button
-            type="button"
+          <Button
+            variant="secondary"
             onClick={onCancelCapture}
             onFocus={() => {
               cancelWasFocusedRef.current = true;
             }}
-            style={BUTTON_STYLE}
           >
             Cancel capture
-          </button>
+          </Button>
         )}
       </div>
       {/* Spec 234 (issue #2356) FR-005: always mounted, so a region inserted
           together with its content is not reliably announced — the same
           reason `ChainRecoveryNotice.tsx` keeps its own region present
           up front. Visible text, not `sr-only` (spec A3). */}
-      <p aria-live="polite" data-testid="frame-capture-live-region" style={NOTICE_STYLE}>
+      <p aria-live="polite" data-testid="frame-capture-live-region" className="m-0 text-xs text-fg-muted">
         {captureState === 'capturing' ? `Capturing a frame from ${cameraName}…` : ''}
       </p>
       {captureState === 'failed' && (
@@ -209,7 +207,7 @@ function CameraCaptureSection({
         // a plain data-testid so a test can address this alert without an
         // unscoped role query, now that OverlayGeometryFields always mounts
         // four of its own in the same tree.
-        <p role="alert" data-testid="frame-capture-alert" style={ALERT_STYLE}>
+        <p role="alert" data-testid="frame-capture-alert" className="m-0 text-sm text-accent-fault">
           The frame could not be captured. The backdrop is unchanged — try again, or pick a different camera.
         </p>
       )}

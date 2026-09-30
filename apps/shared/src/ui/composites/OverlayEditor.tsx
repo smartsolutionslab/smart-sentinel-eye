@@ -4,6 +4,8 @@ import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
+import { Button } from '../primitives/Button.js';
+import { Input } from '../primitives/Input.js';
 import { BackdropControls } from './BackdropControls.js';
 import type { Backdrop } from './BackdropControls.js';
 import { FrameGrabber } from './FrameGrabber.js';
@@ -199,14 +201,20 @@ function arrowRunKey(resizing: boolean, axis: AnnounceAxis): RunKey {
 // edge of the canvas, exactly where an outward ring would be clipped by the
 // overflow it is meant to be visible against.
 const FOCUS_RING_STYLE: CSSProperties = {
-  outline: '2px solid #ffffff',
+  outline: '2px solid var(--color-bg-video-inverse)',
   outlineOffset: -2,
-  boxShadow: 'inset 0 0 0 4px #000000',
+  boxShadow: 'inset 0 0 0 4px var(--color-bg-video)',
 };
 
-// FR-002, byte-for-byte. Pinned by `OverlayEditorCharacterisation.test.tsx`
-// (T001) — a mangled rebase against #2354 fails that test loudly.
-const CHECKERBOARD_BACKGROUND = 'repeating-linear-gradient(45deg, #1f2937, #1f2937 12px, #111827 12px, #111827 24px)';
+// FR-002. Pinned by `OverlayEditorCharacterisation.test.tsx` (T001) — a
+// mangled rebase against #2354 fails that test loudly. Spec 293 §6: the two
+// colours now cite the semantic token layer (`--color-border-subtle` /
+// `--color-bg-elevated`), so the checkerboard themes with `data-theme`; the
+// angle and stop geometry stay inline (spec 293 §3 — pattern geometry, not a
+// design value).
+const CHECKERBOARD_BACKGROUND =
+  'repeating-linear-gradient(45deg, var(--color-border-subtle), var(--color-border-subtle) 12px, ' +
+  'var(--color-bg-elevated) 12px, var(--color-bg-elevated) 24px)';
 
 /**
  * The canvas backdrop as a function of the operator's choice (spec 147
@@ -215,8 +223,8 @@ const CHECKERBOARD_BACKGROUND = 'repeating-linear-gradient(45deg, #1f2937, #1f29
  * defensive default rather than a reachable path.
  */
 function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null): CSSProperties {
-  if (backdrop === 'white') return { backgroundColor: '#ffffff' };
-  if (backdrop === 'black') return { backgroundColor: '#000000' };
+  if (backdrop === 'white') return { backgroundColor: 'var(--color-bg-video-inverse)' };
+  if (backdrop === 'black') return { backgroundColor: 'var(--color-bg-video)' };
   if (backdrop === 'captured' && capturedFrame !== null) {
     // FR-019: the still is fitted *into* the fixed canvas, never the reverse —
     // `contain`/`center`/`no-repeat` over black is the same letterboxing
@@ -224,7 +232,7 @@ function canvasBackgroundStyle(backdrop: Backdrop, capturedFrame: string | null)
     // (`CameraViewer.tsx`), so the label's normalized coordinates address the
     // same box on both.
     return {
-      backgroundColor: '#000000',
+      backgroundColor: 'var(--color-bg-video)',
       backgroundImage: `url("${capturedFrame}")`,
       backgroundSize: 'contain',
       backgroundPosition: 'center center',
@@ -387,10 +395,10 @@ export function OverlayEditor({
     [commit, value],
   );
 
-  // FR-002/FR-003: driven by onFocus/onBlur, not `:focus-visible` — the file
-  // is inline-styled throughout and a pseudo-class cannot be expressed
-  // inline. A mouse click also raises the ring; that is deliberate (spec.md
-  // FR-003).
+  // FR-002/FR-003: driven by onFocus/onBlur, not `:focus-visible` — the ring
+  // sits on `Rnd`'s own inline `style` (state-driven, spec 293 §3) and a
+  // pseudo-class cannot be expressed inline. A mouse click also raises the
+  // ring; that is deliberate (spec.md FR-003).
   const [isLabelFocused, setIsLabelFocused] = useState(false);
 
   // FR-015/016/017: one debounced live-region message. The timer is reset on
@@ -601,12 +609,10 @@ export function OverlayEditor({
     <div className={className} onKeyDown={handleRootKeyDown}>
       <div
         data-testid="overlay-editor-canvas"
+        className="relative overflow-hidden rounded-lg"
         style={{
-          position: 'relative',
           width: canvasWidthPx,
           height: canvasHeightPx,
-          overflow: 'hidden',
-          borderRadius: 8,
           ...canvasBackgroundStyle(backdrop, capturedFrame),
         }}
       >
@@ -677,25 +683,25 @@ export function OverlayEditor({
           normal, focusable, clickable element; `handleUndoClick`/
           `handleRedoClick` are what refuse to act, via `undo()`/`redo()`
           already returning `false` with nothing to do. */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-        <button
-          type="button"
+      <div className="mt-3 flex gap-2">
+        <Button
+          variant="secondary"
           data-testid="overlay-editor-undo"
           aria-keyshortcuts="Control+Z"
-          aria-disabled={!canUndo}
+          unavailable={!canUndo}
           onClick={handleUndoClick}
         >
           Undo
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
           data-testid="overlay-editor-redo"
           aria-keyshortcuts="Control+Shift+Z"
-          aria-disabled={!canRedo}
+          unavailable={!canRedo}
           onClick={handleRedoClick}
         >
           Redo
-        </button>
+        </Button>
       </div>
       {/* US2 — its own live region, own `data-testid`, so it never collides
           with the geometry announcer above. A discrete act, not a burst; the
@@ -704,22 +710,21 @@ export function OverlayEditor({
       <div aria-live="polite" data-testid="overlay-editor-undo-live-region" className="sr-only">
         <span key={undoAnnouncement.token}>{undoAnnouncement.text}</span>
       </div>
-      <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span>Label text</span>
-          <input
+      <div className="mt-3 grid gap-3">
+        <label className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-fg-primary">Label text</span>
+          <Input
             data-testid="overlay-editor-text"
             type="text"
             value={value.text}
             onChange={(e) => commit({ ...value, text: e.target.value }, { run: 'text' })}
             onBlur={() => endRun('text')}
             maxLength={256}
-            style={{ padding: 8, fontSize: 14 }}
             aria-describedby={PLACEHOLDER_PREVIEW_STATUS_ID}
           />
         </label>
-        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span>Font size: {value.fontSizePx}px</span>
+        <label className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-fg-primary">Font size: {value.fontSizePx}px</span>
           <input
             data-testid="overlay-editor-font-size"
             type="range"
@@ -729,6 +734,7 @@ export function OverlayEditor({
             onChange={(e) => commit({ ...value, fontSizePx: Number(e.target.value) }, { run: 'fontSize' })}
             onBlur={() => endRun('fontSize')}
             onPointerUp={() => endRun('fontSize')}
+            className="w-full accent-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
           />
         </label>
       </div>
