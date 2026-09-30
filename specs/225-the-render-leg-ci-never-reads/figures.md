@@ -191,27 +191,36 @@ This routes to plan §9.4's report-only branch, not its threshold branch.
 
 ## Preliminary rows, pre-T026 (four-tile fixture; outside the FR-022 window)
 
-Transcribed from spec §9.2 F3, recorded before the harness-stability
-discussion (§10.2) and before the fixture moved from four tiles to nine
-(§10.3, ADR-0156). **Not part of the FR-022 window and not used in the
-Verdict above** — different fixture size, taken on a harness later found
-unstable at the time. Kept here only as historical context per plan §9.3.
-Raw samples were not re-fetched for this file (out of scope; these runs
-predate the eligibility window and are cited, not re-measured):
+Spec §9.2 F3's five rows, re-downloaded and re-read for this file (the
+artifacts were still within the 14-day retention window at collection time,
+so this is first-hand data, not a transcription — `p50`/`sha`/`n` match
+spec §9.2 F3 exactly, confirming that citation). Recorded before the
+harness-stability discussion (§10.2) and before the fixture moved from four
+tiles to nine (§10.3, ADR-0156). **Not part of the FR-022 window and not
+used in the Verdict above** — different fixture size, taken on a harness
+later found unstable at the time. Kept here only as historical context per
+plan §9.3. Each row is the **first complete attempt** for its run (attempt
+column), matching spec §9.2 F3's own selection — note three of the five
+needed a retry to reach one, which is exactly the harness instability T026
+(later discharged by evidence, §10.2) was about:
 
-| Run | SHA | Attempt | n | p50 | mean T |
-|---|---|---|---|---|---|
-| [35892337959](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35892337959) | `94efb23101ede2bde313d6c49c67de7da7411cae` | 0 | 48 | 50.80 ms | 32.03 ms |
-| [35894668870](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35894668870) | `b8c14eb9a6f781f787fcf4a0f236d524cb43f951` | 2 | 48 | 50.15 ms | 32.26 ms |
-| [35907278215](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35907278215) | `ec9b4c633811b07ff821232a98729be5086e74c0` | 2 | 48 | 56.45 ms | 32.27 ms |
-| [35918329596](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35918329596) | `4599d26c0e271389cece8eb05acc4c147b2a359a` | 1 | 48 | 43.50 ms | 29.87 ms |
-| [35918472066](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35918472066) | `3d93a58e5c84e64fb837e3ad9381b4244149b9ee` | 0 | 48 | 54.25 ms | 32.03 ms |
+| Run id | SHA | Attempt | Samples | p50 | p95 | max | Observed T (before → after) | Raw |
+|---|---|---|---|---|---|---|---|---|
+| [35892337959](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35892337959) | `94efb23101ede2bde313d6c49c67de7da7411cae` | 0 | 48 | 50.79 ms | 64.60 ms | 66.70 ms | 31.76 → 32.28 ms/frame | [29.10, 29.70, 29.60, 29.79, 25.79, 24.50, 24.70, 24.90, 49.20, 50.70, 50.89, 51.19, 62.29, 63.00, 62.10, 61.80, 63.50, 64.60, 65.70, 66.70, 55.10, 57.70, 58.20, 58.40, 42.60, 43.40, 43.80, 43.90, 49.50, 50.70, 51.79, 53.00, 60.29, 60.89, 61.19, 61.39, 25.79, 26.39, 30.79, 31.09, 53.60, 54.20, 58.79, 59.20, 42.00, 42.50, 42.70, 42.90] |
+| [35894668870](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35894668870) | `b8c14eb9a6f781f787fcf4a0f236d524cb43f951` | 2 | 48 | 50.15 ms | 77.90 ms | 81.40 ms | 32.25 → 32.25 ms/frame | [29.40, 31.30, 32.20, 32.69, 21.69, 22.59, 24.50, 24.90, 67.30, 67.89, 68.39, 68.69, 77.30, 77.90, 81.00, 81.40, 26.80, 27.50, 27.90, 28.29, 26.19, 27.59, 28.00, 28.50, 57.19, 57.70, 58.20, 59.30, 54.29, 54.90, 55.90, 56.59, 49.30, 49.80, 50.50, 50.90, 36.19, 32.40, 58.89, 57.00, 61.59, 56.40, 55.50, 54.90, 49.79, 38.20, 34.50, 37.20] |
+| [35907278215](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35907278215) | `ec9b4c633811b07ff821232a98729be5086e74c0` | 2 | 48 | 56.45 ms | 76.50 ms | 79.50 ms | 32.25 → 32.29 ms/frame | [30.50, 31.09, 31.29, 31.30, 32.50, 30.70, 31.00, 31.50, 72.00, 75.50, 76.09, 76.40, 60.50, 62.19, 62.69, 63.09, 36.20, 37.70, 38.10, 38.80, 53.09, 53.29, 57.09, 57.69, 42.19, 42.80, 42.20, 42.50, 56.59, 57.39, 58.29, 58.69, 59.90, 61.40, 61.69, 62.09, 75.79, 76.50, 77.00, 79.50, 54.50, 51.59, 46.50, 43.70, 43.50, 76.20, 60.10, 56.30] |
+| [35918329596](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35918329596) | `4599d26c0e271389cece8eb05acc4c147b2a359a` | 1 | 48 | 43.50 ms | 153.40 ms | 181.30 ms | 32.25 → 27.47 ms/frame | [42.09, 43.59, 40.70, 35.90, 21.70, 22.09, 22.50, 22.79, 63.00, 53.19, 48.79, 43.40, 72.70, 55.39, 40.80, 38.69, 181.30, 153.40, 157.40, 147.50, 40.69, 32.59, 32.90, 31.09, 57.39, 53.40, 84.00, 78.69, 47.00, 39.59, 33.40, 103.09, 53.59, 63.50, 59.90, 58.89, 41.89, 35.50, 31.19, 30.50, 34.80, 78.00, 78.00, 80.10, 47.69, 33.19, 28.89, 22.30] |
+| [35918472066](https://github.com/smartsolutionslab/smart-sentinel-eye/actions/runs/35918472066) | `3d93a58e5c84e64fb837e3ad9381b4244149b9ee` | 0 | 48 | 54.25 ms | 106.00 ms | 113.60 ms | 31.76 → 32.29 ms/frame | [64.20, 57.29, 50.29, 44.29, 31.89, 32.59, 32.79, 33.19, 34.59, 35.29, 35.79, 37.90, 53.90, 54.59, 56.79, 57.20, 96.80, 97.70, 105.80, 106.00, 72.70, 69.60, 65.20, 65.59, 51.39, 88.10, 78.10, 78.39, 44.89, 46.20, 113.00, 113.60, 45.29, 42.50, 42.79, 29.20, 85.59, 73.39, 64.19, 64.50, 70.50, 72.00, 51.40, 40.69, 51.79, 46.50, 40.90, 37.50] |
 
-Mean p50 51.03 ms, sample σ 4.93 ms (spec §9.2 F3). This set's own 3σ
-(≈ 14.8 ms) is spec §9.4's superseded prediction — the real 21-run figure
-above (25.65 ms) is materially larger, because five points understate a
-variance whose true spread only becomes visible with more runs, exactly as
-FR-018's "why five, not three" reasoning warned.
+Mean p50 51.03 ms, sample σ 4.93 ms (matches spec §9.2 F3). This set's own
+3σ (≈ 14.8 ms) is spec §9.4's superseded prediction — the real 21-run
+figure above (25.65 ms) is materially larger, because five points
+understate a variance whose true spread only becomes visible with more
+runs, exactly as FR-018's "why five, not three" reasoning warned. Note the
+p95/max spread within a couple of these attempts (e.g. 35918329596:
+p50 43.50 ms but max 181.30 ms) — a single stalled iteration inflates the
+tail far more than the median, consistent with the harness instability
+§10.2 records for this window.
 
 ---
 
