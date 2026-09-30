@@ -3,8 +3,10 @@
 **Spec:** `specs/225-the-render-leg-ci-never-reads/spec.md`
 **Issue:** [#2337](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2337)
 **Branch:** `2337-render-leg-ci-never-reads`
-**Status:** US1/US2 merged (#2549, #2550). **§8 is the Phase 2 addendum for the
-US3 + US4 resumption (2026-09-23)**; it refines §§2.4, 3 and 5 where they differ.
+**Status:** US1/US2 merged (#2549, #2550); T027/T019b/T020 merged (#2555). **§8
+is the Phase 2 addendum for the US3 + US4 resumption (2026-09-23)**; it refines
+§§2.4, 3 and 5 where they differ. **§9 is the 2026-09-30 re-verification
+addendum (spec §10)**; it refines §8 where they differ.
 
 ---
 
@@ -475,3 +477,141 @@ item starts red. There is no characterisation path.
   tighten the rule to "attempt 0 or unmeasured" once the record shows that
   attempt 0 is reliably complete. That is not done now, because it would
   redden `develop` on a known harness fault.
+
+---
+
+## 9. Addendum, 2026-09-30: plan for the remainder after re-verification (spec §10)
+
+This keeps §8 except where it names a part and changes it.
+
+### 9.1 What is left, and the order
+
+| Task | Owns | Blocked by |
+|---|---|---|
+| T029: `complete` requires the loop to have finished (FR-021) | `e2e/support/render-leg.ts` (+ `.test.mjs`), `e2e/kiosk-shows-a-label-over-video.spec.ts` | nothing |
+| T015–T017: collect, write `figures.md`, compute the verdict (FR-022 window) | `specs/225-*/figures.md` | nothing (the window is already populated: 20 runs) |
+| T018 ⟨GATE⟩: FR-019 against T017's number | — | T017 |
+| T019: `baseline.json` | `specs/225-*/baseline.json` | T018 (threshold branch only) |
+| T019c: the real pair is checked on every PR | `scripts/render-leg-baseline-agreement.test.mjs` | T016, T019 |
+| T021: `render-leg-gate` job | `.github/workflows/ci.yml` | T019 (or T018's report-only branch), T029 |
+| T028: summary wording + `incomplete` rendering | `scripts/render-leg-summary.mjs` (+ `.test.mjs`) | T019 (reads it) |
+| T022 ⟨GATE⟩: blur counterfactual | throwaway PR only | T021, T028 |
+| T023–T025: wrap-up | — | all |
+
+**T026 is not in the table.** Spec §10.2 discharges it by evidence: 27
+consecutive first-attempt passes since `05061543`. No code is written for it.
+The #2554 harness change stays unapplied (§10.2 says why).
+
+**One PR, not two.** §8's "PR A / PR B" split existed because `develop` was
+red. It is no longer red, so everything left fits in one PR, `ci/2337-render-leg-gate-completion`.
+It is still several commits, and each one must build on its own (ADR-0087):
+
+1. T029 (harness + predicate)
+2. T016/T017 (`figures.md`)
+3. T019 + T019c (`baseline.json`, agreement over the real pair). This commit is
+   skipped on the report-only branch, see §9.4.
+4. T028 (summary)
+5. T021 (the job, last, so it never names a file an earlier commit lacks)
+
+### 9.2 T029: the predicate gains the loop's completion
+
+`isCompleteRenderLegMeasurement(samplesPerCamera, expectedCameras, iterations, loopCompleted)`.
+The fourth argument is `measurements` holding exactly `ITERATIONS` samples and
+no refusal. The spec file already has both facts (`:1380-1456`). The call site at
+`:1499` passes it. The per-camera `expect`s at `:1545-1556` stay as they are.
+Rejected alternative: a second field such as `loopCompleted` on the record,
+with the checker ANDing the two. That would create two definitions of
+"complete" (FR-016 forbids it), and the checker would need a schema change for
+a fact the test already knows.
+
+### 9.3 T015–T017: collection, with the window fixed in advance (FR-022)
+
+- **Eligible:** every `develop` **push** run of `ci.yml` from run 36351086768
+  (the first nine-tile run) to the collection date, in which the span test ran.
+  Runs where `e2e-shards` was skipped or cancelled are listed with that reason.
+  They are not refusals, because no measurement was attempted.
+- **Figure per run:** the first complete attempt's record, from
+  `playwright-report-*-of-4` (search all four shards, not only 4-of-4. The
+  shard is Playwright's choice). Record the attempt number. If a run's first
+  complete attempt is not attempt 0, flag it. More than one such run in the
+  window is §8.5's stop.
+- **Tooling:** reuse, do not rebuild. The download command is
+  `gh run download <id> -p 'playwright-report-*' -D <dir>/<id>`. Read the
+  records with `readRenderLegRecords` from `e2e/support/render-leg.ts` under
+  plain `node`, the way `render-leg-check.mjs` does. Spec 294's
+  `verification.md` T014 used exactly this path. Any scratch script stays out
+  of the tree. What the tree carries is the figures and the rule that selected
+  them.
+- **`figures.md` format constraint from T019b's parser:** the baseline table
+  must sit under a heading starting ``## `develop` baseline``, and its first
+  four columns must be `| [<runId>](…) | `<40-hex sha>` | <n> | <p50> ms |`.
+  `render-leg-baseline-agreement.mjs:34` (`TABLE_ROW_PATTERN`) parses exactly this, and a reordered
+  column is read as a missing row.
+- **Also in `figures.md`:** the preliminary four-tile rows (spec §9.2 F3,
+  labelled *preliminary, pre-T026*), the three one-tile rows (*one-tile,
+  pre-US2*), the 16-run flaky window from spec §10.2 as a stability record, and
+  the F7 truncated-attempt rows. None of these sit under the baseline heading.
+- **Artifact expiry:** the oldest eligible run (36351086768, 2026-09-27) expires
+  on about 2026-10-11. T015 must download before then, or that row loses its
+  raw samples. Spec §10.5's p50s are already in the tree, but the raw samples
+  are not.
+
+### 9.4 T018: two branches, both planned
+
+- **3σ < 25 ms → gate.** T019 writes `baseline.json` (`fixture.tiles: 9`),
+  T021 wires the job, and T028 prints the threshold.
+- **3σ ≥ 25 ms → report-only (spec §10.5 predicts this).**
+  - No `baseline.json` is committed, because a baseline that exists is a
+    threshold that exists.
+  - T021 still adds the `render-leg-gate` job, but it must **not** run the
+    checker against a derived, uncommitted baseline. That would be a threshold
+    by the back door.
+  - The report-only job instead runs `render-leg-summary.mjs`-style reporting
+    across the shard union and **exits 0**. It prints "report-only: FR-019 not
+    met (3σ = X ms ≥ 25 ms); ADR required" and links `figures.md`.
+  - T028's wording says the same.
+  - The issue is handed back with `agent:blocked` and a comment naming the ADR
+    question (spec §10.5's three options). **#2337 stays open.**
+  - T022's counterfactual still runs. On this branch the observation is "the
+    blurred run's p50 is X, against the window's mean Y", quoted.
+
+  If this branch is taken, the rest of T021's gate wiring (the non-zero exits)
+  is the ADR's to authorise, not this PR's.
+
+### 9.5 T021: the job, concretely
+
+Plan §8.1's YAML stands, with three additions:
+
+- **FR-023's first step:** it reads `needs.e2e-shards.result`. On `skipped` or
+  `cancelled` it prints `unmeasured: e2e-shards <result>, no figure was taken`
+  and exits 1, before any download.
+- **`actions/download-artifact`** is pinned by full commit SHA with a `# v4.x.y`
+  comment, resolved from the tag at implementation time. It uses
+  `pattern: playwright-report-*-of-4` and `path: shards`, with **no**
+  `merge-multiple`, so the layout is `shards/playwright-report-<n>-of-4/`, which
+  `render-leg-check.mjs:125-144` (`discoverShards`) expects. Verify, don't assume, what v4 does
+  when the pattern matches nothing. If the step itself errors, the job is still
+  red, but the message must be the checker's `unmeasured`, so that case needs
+  `continue-on-error` on the download step only, followed by the checker.
+- **Node:** `actions/setup-node` at the repo's existing pin and `node-version: '22'`,
+  with no `pnpm install`. The checker imports `e2e/support/render-leg.ts` under
+  plain `node`, as the US1 summary step already does in `e2e-shards`. Node 22's
+  type stripping is what makes that work, so keep the version in step with
+  `e2e-shards`.
+
+The job is not added to `e2e`'s `needs` (§8.1 stands). The `e2e-shards` matrix
+and its `pnpm test:e2e --shard=` line are untouched, because
+`e2e-shard-coverage` text-parses both.
+
+### 9.6 T019c: the real pair, checked where CI already runs guards
+
+`pnpm test` → `test:guards` → `node --test "scripts/**/*.test.mjs"` runs in the
+`frontend` job on every PR. T019c adds **one** case to
+`render-leg-baseline-agreement.test.mjs`. It runs the script against
+`specs/225-the-render-leg-ci-never-reads/figures.md` and `baseline.json` as
+committed, and requires exit 0. RED: it fails while the files are absent.
+Without it, T019b's agreement logic is proven only on synthetic pairs, and the
+real pair can drift unchecked (spec §10.1).
+
+On the report-only branch there is no `baseline.json`, so T019c is deferred
+along with T019. Say so in the PR.
