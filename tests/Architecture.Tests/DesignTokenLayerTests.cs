@@ -76,6 +76,19 @@ public class DesignTokenLayerTests
     private const string DarkGroundBase = "#0b0d10"; // ADR-0146: --color-bg-base kept
     private const string DarkGroundElevated = "#14171c"; // ADR-0146: --color-bg-elevated kept
 
+    // The content roles' rendered values (spec 293 §6, phase-6 review S1's wider
+    // gap pin). Same reasoning as the triad/dark-ground constants above: fixed
+    // here, not read back from the file, so the subject can change without the
+    // assertion changing.
+    private const string VideoLetterbox = "#000000"; // --color-bg-video: var(--black)
+    private const string VideoInverse = "#ffffff"; // --color-bg-video-inverse: var(--white)
+    private const string LabelInk = "#14171c"; // --color-fg-on-label: var(--gray-900) — same stop as --color-bg-elevated (fact 8)
+    // --color-bg-label is the one content role this can't pin as sRGB: its value
+    // is `color-mix(in oklch, ..., transparent)`, translucent by design (spec
+    // §5) — there is no single rendered colour without a backdrop to composite
+    // against. Its declared expression is pinned verbatim instead.
+    private const string LabelSurface = "color-mix(in oklch, var(--white) 85%, transparent)";
+
     /// <summary>Fact 1 (green pin). Both apps' first <c>@import</c> names one file.</summary>
     [Fact]
     public void Both_surfaces_import_the_same_token_file_first()
@@ -247,8 +260,14 @@ public class DesignTokenLayerTests
     // Content roles pinned across themes (spec 293 §5, issue #2342). Each
     // name here describes what the wall paints or what a test field is, not
     // console chrome, so no theme block may ever redeclare it — the same
-    // rule --color-bg-video and --color-fg-on-fault already follow, without a
-    // guard, before this fact existed.
+    // rule --color-bg-video already follows, without a guard, before this
+    // fact existed. --color-fg-on-fault is deliberately NOT in this list:
+    // unlike these four, it IS allowed to differ per theme (spec 268's own
+    // guard, `InteractionStateTests.Fault_label_and_disabled_label_
+    // contrast_hold`, resolves it separately per theme and asserts a WCAG
+    // contrast ratio, not that the value stays fixed). That is a different
+    // mechanism from "pinned, never redeclared" — the exclusion here is
+    // correct, not an oversight.
     private static readonly string[] PinnedContentRoles =
     [
         "--color-bg-video",
@@ -298,6 +317,40 @@ public class DesignTokenLayerTests
         }
 
         problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>
+    /// Fact 14 (spec 293 §6, phase-6 review S1's wider gap). Fact 13
+    /// (<see cref="Content_roles_are_pinned_across_themes"/>) only checks *where*
+    /// the four content roles are declared, never *what* they resolve to — a
+    /// mistaken reassignment (e.g. <c>--color-bg-video-inverse: var(--gray-500)</c>)
+    /// would pass fact 13 unchanged, because :root-only is still true. Mirrors
+    /// fact 7/8's shape: three of the four roles resolve through a plain
+    /// <c>var()</c> chain to an opaque primitive, so they are pinned to their
+    /// rendered sRGB the same way <see cref="AssertResolvesTo"/> already does.
+    /// <c>--color-bg-label</c> cannot be resolved that way — its value is
+    /// <c>color-mix(in oklch, ..., transparent)</c>, translucent by design, with
+    /// no single rendered colour absent a backdrop to composite against — so its
+    /// declared expression is pinned verbatim instead. Green on the current
+    /// tree: all four values as declared today.
+    /// </summary>
+    [Fact]
+    public void Content_roles_keep_their_rendered_values()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        Dictionary<string, string> map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
+
+        AssertResolvesTo(map, "--color-bg-video", VideoLetterbox, tokenFile);
+        AssertResolvesTo(map, "--color-bg-video-inverse", VideoInverse, tokenFile);
+        AssertResolvesTo(map, "--color-fg-on-label", LabelInk, tokenFile);
+
+        map.ContainsKey("--color-bg-label").ShouldBeTrue(
+            $"--color-bg-label is not declared in {tokenFile.Name}'s :root.");
+        map["--color-bg-label"].ShouldBe(
+            LabelSurface,
+            $"--color-bg-label resolves to '{map["--color-bg-label"]}', expected '{LabelSurface}' "
+            + "(spec 293 §6: this value does not move).");
     }
 
     /// <summary>Fact 7 (green pin). The triad's rendered sRGB does not move.</summary>
