@@ -98,7 +98,7 @@ public static class IdempotentRequest
                 statusCode: StatusCodes.Status409Conflict);
         }
 
-        return await RunAndRecordAsync(execution, scope, work, cancellationToken);
+        return await RunAndRecordAsync(execution, reservation.Claim.Value, work, cancellationToken);
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public static class IdempotentRequest
     /// </summary>
     private static async Task<IResult> RunAndRecordAsync(
         IdempotentExecution execution,
-        IdempotencyScope scope,
+        IdempotencyClaim claim,
         Func<CancellationToken, Task<IdempotentOutcome>> work,
         CancellationToken cancellationToken)
     {
@@ -186,7 +186,7 @@ public static class IdempotentRequest
             // The row it could not delete is no longer permanent either:
             // BeginAsync reclaims a reservation older than
             // IdempotencyReclamation.StaleAfter.
-            await ReleaseQuietlyAsync(execution.Store, scope);
+            await ReleaseQuietlyAsync(execution.Store, claim);
 
             throw;
         }
@@ -194,7 +194,7 @@ public static class IdempotentRequest
         if (outcome.ResourceIdentifier.HasValue)
         {
             await RecordQuietlyAsync(
-                () => execution.Store.CompleteAsync(scope, outcome.ResourceIdentifier.Value, CancellationToken.None));
+                () => execution.Store.CompleteAsync(claim, outcome.ResourceIdentifier.Value, CancellationToken.None));
         }
         else
         {
@@ -205,7 +205,7 @@ public static class IdempotentRequest
             // IdempotencyReclamation.StaleAfter. Not a regression — that is the
             // same wait a genuine duplicate has always earned, just now without a
             // spurious 500 first.
-            await RecordQuietlyAsync(() => execution.Store.ReleaseAsync(scope, CancellationToken.None));
+            await RecordQuietlyAsync(() => execution.Store.ReleaseAsync(claim, CancellationToken.None));
         }
 
         return outcome.Response;
@@ -247,6 +247,6 @@ public static class IdempotentRequest
     /// #2290 US2. Releases the reservation without letting a failure here
     /// replace the exception that put us on this path.
     /// </summary>
-    private static Task ReleaseQuietlyAsync(IIdempotencyStore store, IdempotencyScope scope) =>
-        RecordQuietlyAsync(() => store.ReleaseAsync(scope, CancellationToken.None));
+    private static Task ReleaseQuietlyAsync(IIdempotencyStore store, IdempotencyClaim claim) =>
+        RecordQuietlyAsync(() => store.ReleaseAsync(claim, CancellationToken.None));
 }

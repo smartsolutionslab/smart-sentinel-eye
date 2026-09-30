@@ -16,19 +16,40 @@ public enum IdempotencyOutcome
 }
 
 /// <summary>
-/// The result of claiming a key. <see cref="ResourceIdentifier"/> is populated
-/// only for <see cref="IdempotencyOutcome.Completed"/>.
+/// The reservation a <see cref="IIdempotencyStore.BeginAsync"/> claim won —
+/// the only thing entitled to complete or release it (#2491).
+///
+/// <para>
+/// <b>Uniqueness rests on two facts elsewhere, not on anything this type
+/// enforces itself.</b> Every successful claim writes <c>reserved_at =
+/// NOW()</c> — the first insert and a reclaiming conflict action alike — so
+/// <see cref="ReservedAt"/> changes on every takeover and cannot collide with
+/// the value the previous holder saw. If either stops being true —
+/// <c>reserved_at</c> stops being stamped by every claim, or
+/// <see cref="IdempotencyReclamation.StaleAfter"/> shrinks below the
+/// resolution a reclaim and its predecessor's read can land in — the fence
+/// this record carries is unsound and this comment is the place that would
+/// need correcting.
+/// </para>
 /// </summary>
-public sealed record IdempotencyReservation(IdempotencyOutcome Outcome, Option<Guid> ResourceIdentifier)
+public sealed record IdempotencyClaim(IdempotencyScope Scope, DateTime ReservedAt);
+
+/// <summary>
+/// The result of claiming a key. <see cref="ResourceIdentifier"/> is populated
+/// only for <see cref="IdempotencyOutcome.Completed"/>; <see cref="Claim"/>
+/// only for <see cref="IdempotencyOutcome.Reserved"/>.
+/// </summary>
+public sealed record IdempotencyReservation(
+    IdempotencyOutcome Outcome, Option<Guid> ResourceIdentifier, Option<IdempotencyClaim> Claim)
 {
-    public static IdempotencyReservation Reserved { get; } =
-        new(IdempotencyOutcome.Reserved, Option<Guid>.None);
+    public static IdempotencyReservation ReservedAs(IdempotencyClaim claim) =>
+        new(IdempotencyOutcome.Reserved, Option<Guid>.None, Option<IdempotencyClaim>.Some(claim));
 
     public static IdempotencyReservation InProgress { get; } =
-        new(IdempotencyOutcome.InProgress, Option<Guid>.None);
+        new(IdempotencyOutcome.InProgress, Option<Guid>.None, Option<IdempotencyClaim>.None);
 
     public static IdempotencyReservation CompletedWith(Guid resourceIdentifier) =>
-        new(IdempotencyOutcome.Completed, Option<Guid>.Some(resourceIdentifier));
+        new(IdempotencyOutcome.Completed, Option<Guid>.Some(resourceIdentifier), Option<IdempotencyClaim>.None);
 }
 
 /// <summary>
@@ -63,9 +84,12 @@ public interface IIdempotencyStore
 
     /// <summary>
     /// Records the identifier the work produced, turning a reservation into a
-    /// replayable answer.
+    /// replayable answer. A no-op if <paramref name="claim"/> is no longer the
+    /// row's current holder — reclaimed by another caller, or swept — so a late
+    /// call from an overtaken attempt cannot overwrite the new holder's answer
+    /// (#2491).
     /// </summary>
-    Task CompleteAsync(IdempotencyScope scope, Guid resourceIdentifier, CancellationToken cancellationToken);
+    Task CompleteAsync(IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken);
 
     /// <summary>
     /// Drops an unfinished reservation so a later attempt can retry.
@@ -75,6 +99,13 @@ public interface IIdempotencyStore
     /// as permanently in-progress, and every retry — the thing the mechanism
     /// exists to serve — would be refused for as long as the row survived.
     /// </para>
+    ///
+    /// <para>
+    /// A no-op if <paramref name="claim"/> is no longer the row's current
+    /// holder, for the same reason as <see cref="CompleteAsync"/>: a late
+    /// release from an overtaken attempt must not delete the new holder's live
+    /// reservation (#2491).
+    /// </para>
     /// </summary>
-    Task ReleaseAsync(IdempotencyScope scope, CancellationToken cancellationToken);
+    Task ReleaseAsync(IdempotencyClaim claim, CancellationToken cancellationToken);
 }

@@ -337,7 +337,8 @@ public class IdempotentRequestTests
 
         public Guid? Completed { get; private set; }
 
-        public IdempotencyReservation Next { get; set; } = IdempotencyReservation.Reserved;
+        public IdempotencyReservation Next { get; set; } =
+            IdempotencyReservation.ReservedAs(new IdempotencyClaim(Scope, default));
 
         public Exception? Throws { get; set; }
 
@@ -379,7 +380,7 @@ public class IdempotentRequestTests
                     : Next);
         }
 
-        public Task CompleteAsync(IdempotencyScope scope, Guid resourceIdentifier, CancellationToken cancellationToken)
+        public Task CompleteAsync(IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken)
         {
             if (CompleteThrows is not null)
             {
@@ -391,7 +392,7 @@ public class IdempotentRequestTests
             return Task.CompletedTask;
         }
 
-        public Task ReleaseAsync(IdempotencyScope scope, CancellationToken cancellationToken)
+        public Task ReleaseAsync(IdempotencyClaim claim, CancellationToken cancellationToken)
         {
             Released++;
 
