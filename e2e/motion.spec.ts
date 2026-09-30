@@ -58,17 +58,25 @@ async function installMotionRecorder(page: Page): Promise<void> {
         }
 
         const pseudoElement = animationEvent.pseudoElement;
-        const animations = (element as unknown as ElementWithPseudoElementAnimations).getAnimations(
-          pseudoElement === undefined ? undefined : { pseudoElement },
-        ) as CSSAnimation[];
+        // `subtree: true` is required, not merely harmless: without it,
+        // `getAnimations({ pseudoElement })` returns nothing for
+        // `::view-transition-old/new(root)` — confirmed empirically against a
+        // live stack (frontend-engineer, spec 292 T016). The view-transition
+        // pseudo-element tree is not a direct child of `documentElement` the
+        // way `pseudoElement` alone assumes.
+        const animations = (element as unknown as ElementWithPseudoElementAnimations).getAnimations({
+          subtree: true,
+          pseudoElement,
+        }) as CSSAnimation[];
         const match = animations.find((animation) => animation.animationName === animationEvent.animationName);
         if (match === undefined || !(match.effect instanceof KeyframeEffect)) {
           return;
         }
 
         const timing = match.effect.getComputedTiming();
+        const keyframes = match.effect.getKeyframes();
         const keyframeProperties = new Set<string>();
-        for (const frame of match.effect.getKeyframes()) {
+        for (const frame of keyframes) {
           for (const key of Object.keys(frame)) {
             if (key !== 'offset' && key !== 'easing' && key !== 'composite' && key !== 'computedOffset') {
               keyframeProperties.add(key);
@@ -76,11 +84,22 @@ async function installMotionRecorder(page: Page): Promise<void> {
           }
         }
 
+        // `effect.getComputedTiming().easing` is the EFFECT's own timing
+        // dictionary, which the Web Animations spec sets to `"linear"` for any
+        // CSS `animation` (the real per-segment curve lives on each keyframe,
+        // not on the effect) — confirmed empirically against a live stack
+        // (frontend-engineer, spec 292 T016). With exactly two effective
+        // keyframes (one declared, one implicit at the other end — every
+        // `sse-*` keyframe here declares only `from` or only `to`), the first
+        // keyframe's `easing` is the curve for the single 0→1 segment; the
+        // last keyframe's `easing` is unused by the spec and not read here.
+        const segmentEasing = keyframes[0]?.easing;
+
         events.push({
           animationName: animationEvent.animationName,
           pseudoElement: match.effect.pseudoElement ?? null,
           durationMs: typeof timing.duration === 'number' ? timing.duration : null,
-          easing: timing.easing ?? null,
+          easing: typeof segmentEasing === 'string' ? segmentEasing : null,
           properties: [...keyframeProperties].sort(),
         });
       },
