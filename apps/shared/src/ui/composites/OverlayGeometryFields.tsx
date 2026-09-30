@@ -1,6 +1,8 @@
 import { useId, useState } from 'react';
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import clsx from 'clsx';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { Input } from '../primitives/Input.js';
 import { parsePercent, toPercentText } from './normalizedPercent.js';
 
 /**
@@ -77,13 +79,14 @@ function validate(spec: FieldSpec, normalized: number): string | null {
   return null;
 }
 
-const FIELD_INPUT_STYLE = { padding: 8, fontSize: 14, width: '100%', boxSizing: 'border-box' as const };
-const FIELD_ALERT_STYLE = { color: '#dc2626', fontSize: 12 };
-const FIELD_STATUS_STYLE = { color: '#b45309', fontSize: 12 };
+// Spec 293 (issue #2342): Tailwind classes citing the semantic token layer,
+// not inline styles — see plan.md §3.3 for the mapping this replaced.
+const FIELD_ALERT_CLASSNAME = 'text-xs text-accent-fault';
+const FIELD_STATUS_CLASSNAME = 'text-xs text-accent-warning';
 // Nit 9 (phase 6): matches `BackdropControls.tsx`'s own `<fieldset><legend>`
 // pattern — the four fields otherwise have no accessible group name.
-const FIELDSET_STYLE = { border: 'none', padding: 0, margin: 0 };
-const LEGEND_STYLE = { fontSize: 14, padding: 0, marginBottom: 4 };
+const FIELDSET_CLASSNAME = 'm-0 border-0 p-0';
+const LEGEND_CLASSNAME = 'mb-1 p-0 text-sm font-medium text-fg-primary';
 
 /**
  * Reserves the vertical space of the tallest message `candidates` can ever
@@ -105,23 +108,23 @@ const LEGEND_STYLE = { fontSize: 14, padding: 0, marginBottom: 4 };
  */
 function ReservedMessageSlot({
   candidates,
-  textStyle,
+  textClassName,
   testId,
   children,
 }: {
   candidates: string[];
-  textStyle: CSSProperties;
+  textClassName: string;
   testId: string;
   children: ReactNode;
 }) {
   return (
-    <div data-testid={testId} style={{ display: 'grid' }}>
+    <div data-testid={testId} className="grid">
       {candidates.map((text) => (
-        <span key={text} aria-hidden="true" style={{ ...textStyle, gridArea: '1 / 1', visibility: 'hidden' }}>
+        <span key={text} aria-hidden="true" className={clsx(textClassName, 'col-start-1 row-start-1 invisible')}>
           {text}
         </span>
       ))}
-      <div style={{ ...textStyle, gridArea: '1 / 1' }}>{children}</div>
+      <div className={clsx(textClassName, 'col-start-1 row-start-1')}>{children}</div>
     </div>
   );
 }
@@ -238,10 +241,10 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
   const advisory = buildAdvisory(clipsRight, clipsBottom);
 
   return (
-    <div style={{ display: 'grid', gap: 12, marginTop: 12 }}>
-      <fieldset style={FIELDSET_STYLE}>
-        <legend style={LEGEND_STYLE}>Position and size</legend>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+    <div className="mt-3 grid gap-3">
+      <fieldset className={FIELDSET_CLASSNAME}>
+        <legend className={LEGEND_CLASSNAME}>Position and size</legend>
+        <div className="grid grid-cols-4 gap-3">
           {FIELD_SPECS.map((spec) => {
             const inputId = `${instanceId}-${spec.field}`;
             const errorId = `${instanceId}-${spec.field}-error`;
@@ -254,10 +257,10 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
               // would fold "Enter a number." into the label RTL's
               // `getByLabelText('Width')` (and a screen reader's field name)
               // looks up.
-              <div key={spec.field} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <label htmlFor={inputId} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  <span>{spec.label}</span>
-                  <input
+              <div key={spec.field} className="flex flex-col gap-1">
+                <label htmlFor={inputId} className="flex flex-col gap-1">
+                  <span className="text-sm font-medium text-fg-primary">{spec.label}</span>
+                  <Input
                     id={inputId}
                     type="text"
                     inputMode="decimal"
@@ -277,12 +280,11 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
                     onBlur={() => commit(spec)}
                     onKeyDown={(event) => handleKeyDown(spec, event)}
                     aria-describedby={error !== undefined ? errorId : undefined}
-                    style={FIELD_INPUT_STYLE}
                   />
                 </label>
                 <ReservedMessageSlot
                   candidates={messagesFor(spec)}
-                  textStyle={FIELD_ALERT_STYLE}
+                  textClassName={FIELD_ALERT_CLASSNAME}
                   testId={`overlay-geometry-message-slot-${spec.field}`}
                 >
                   {/* Always rendered, not mounted only while `error` is set — a live
@@ -293,7 +295,7 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
                     id={errorId}
                     role="alert"
                     data-testid={`overlay-geometry-error-${spec.field}`}
-                    style={FIELD_ALERT_STYLE}
+                    className={FIELD_ALERT_CLASSNAME}
                   >
                     {error ?? ''}
                   </span>
@@ -310,10 +312,10 @@ export function OverlayGeometryFields({ value, preview, onCommit }: OverlayGeome
           always rendered, content changes. */}
       <ReservedMessageSlot
         candidates={ADVISORY_WORDINGS}
-        textStyle={FIELD_STATUS_STYLE}
+        textClassName={FIELD_STATUS_CLASSNAME}
         testId="overlay-geometry-advisory-slot"
       >
-        <span role="status" data-testid="overlay-geometry-advisory" style={FIELD_STATUS_STYLE}>
+        <span role="status" data-testid="overlay-geometry-advisory" className={FIELD_STATUS_CLASSNAME}>
           {advisory ?? ''}
         </span>
       </ReservedMessageSlot>

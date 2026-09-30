@@ -81,6 +81,10 @@
   --color-bg-elevated: var(--gray-900);
   --color-bg-raised: var(--gray-850);
   --color-bg-video: var(--black);
+  /* Content roles — pinned: no theme block may redeclare these (spec 293 §5,
+     DesignTokenLayerTests.Content_roles_are_pinned_across_themes). They name
+     what the wall paints or what a test field is, not console chrome. */
+  --color-bg-video-inverse: var(--white);
   --color-scrim: color-mix(in oklch, var(--black) 60%, transparent);
   --color-fg-primary: var(--gray-50);
   --color-fg-muted: var(--gray-500);
