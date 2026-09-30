@@ -205,7 +205,11 @@ no conflict to notice, just a duplicate"
 (`src/EventIngestion/Api/EventsEndpoints.Writes.cs:94-97`). The key
 guarantees at most one *live* attempt; it has never guaranteed anything
 about a half-applied dead one, and for `POST /events` specifically, not a
-`409` either.
+`409` either. (Not every other keyed endpoint necessarily falls back to a
+`409` in the same way, either — webhook rotation, for one, has no
+uniqueness rule and is instead caught by `If-Match` returning `412`, not
+`409`. This paragraph checks only `POST /events`; it does not claim every
+other endpoint answers `409`.)
 
 *Corrected 2026-09-30 by spec 295 (#2491).*
 
