@@ -98,7 +98,7 @@ function PickerBody({ isLoading, hasError, published, walls, onRetry, onOpen, on
             <button
               type="button"
               onClick={() => onOpen(layout.layoutIdentifier)}
-              className="w-full rounded-lg border border-fg-muted/30 bg-bg-elevated p-6 text-left transition hover:border-accent-active"
+              className="w-full rounded-lg border border-fg-muted/30 bg-bg-elevated p-6 text-left hover:border-accent-active"
             >
               <h2 className="text-xl font-medium">{layout.name}</h2>
               <p className="mt-1 text-xs text-fg-muted">v{layout.revisionNumber}</p>
@@ -116,7 +116,7 @@ function PickerBody({ isLoading, hasError, published, walls, onRetry, onOpen, on
                 <button
                   type="button"
                   onClick={() => onOpenWall(wall.wallIdentifier)}
-                  className="w-full rounded-lg border border-fg-muted/30 bg-bg-elevated p-6 text-left transition hover:border-accent-active"
+                  className="w-full rounded-lg border border-fg-muted/30 bg-bg-elevated p-6 text-left hover:border-accent-active"
                 >
                   <h2 className="text-xl font-medium">{wall.name}</h2>
                 </button>
