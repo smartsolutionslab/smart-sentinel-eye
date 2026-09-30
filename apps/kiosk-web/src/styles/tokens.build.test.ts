@@ -267,4 +267,77 @@ describe('kiosk-web tokens compile through Tailwind (spec 257 US2)', () => {
     expect(rawOutput).toContain('--default-transition-duration: var(--duration-fast)');
     expect(rawOutput).toContain('--default-transition-timing-function: var(--ease-out)');
   });
+
+  // Spec 292 (issue #2334) T001 — CHARACTERISATION (ADR-0139/ADR-0144). Pins the
+  // wall's highlight-pulse exactly as it compiles on develop, before spec 292
+  // touches anything. Spec 292 §1, §4 leave the pulse byte-identical — these
+  // three assertions must still pass, unmodified, after tokens.css gains the
+  // eight motion-role tokens and Button/PickerPage change.
+  describe('the wall highlight pulse (spec 292 characterisation, kept byte-identical)', () => {
+    it('compiles its outline, box-shadow and the animation naming its keyframe', () => {
+      expect(ruleExists('ssE-overlay-highlight'), '.ssE-overlay-highlight does not compile at all').toBe(true);
+
+      // Not `ruleDeclarations`: it walks every rule matching the selector,
+      // including the one inside the reduced-motion @media block below, and
+      // the later match would overwrite these with `animation: none`. Both
+      // rules sit inside `@layer components`, so the base rule is the one
+      // whose direct parent is not specifically an `@media` at-rule.
+      let declarations: Record<string, string> | undefined;
+      root.walkRules((rule) => {
+        if (rule.selector.replace(/\\([^\\])/g, '$1') !== '.ssE-overlay-highlight') return;
+        if (rule.parent?.type === 'atrule' && (rule.parent as postcss.AtRule).name === 'media') return;
+        declarations = {};
+        rule.walkDecls((decl) => {
+          declarations![decl.prop] = decl.value;
+        });
+      });
+
+      expect(declarations, 'the base .ssE-overlay-highlight rule (outside any @media) was not found').toBeDefined();
+      expect(declarations!.outline).toBe('3px solid var(--color-accent-active)');
+      expect(declarations!['outline-offset']).toBe('-3px');
+      expect(declarations!['box-shadow']).toBe('0 0 0 3px var(--color-accent-active)');
+      expect(declarations!.animation).toBe('ssE-overlay-highlight-pulse 1s ease-in-out infinite');
+    });
+
+    it('its keyframe has exactly two frames, both box-shadow only', () => {
+      const frames: Record<string, Record<string, string>> = {};
+      root.walkAtRules('keyframes', (atRule) => {
+        if (atRule.params !== 'ssE-overlay-highlight-pulse') return;
+        atRule.walkRules((rule) => {
+          const decls: Record<string, string> = {};
+          rule.walkDecls((decl) => {
+            decls[decl.prop] = decl.value;
+          });
+          frames[rule.selector] = decls;
+        });
+      });
+
+      expect(
+        Object.keys(frames).length,
+        '@keyframes ssE-overlay-highlight-pulse not found in the compiled output',
+      ).toBe(2);
+      expect(frames['0%, 100%']).toEqual({ 'box-shadow': '0 0 12px 2px var(--color-accent-active)' });
+      expect(frames['50%']).toEqual({ 'box-shadow': '0 0 28px 8px var(--color-accent-active)' });
+    });
+
+    it('is turned off under reduced motion, and nothing else in the rule changes', () => {
+      let reduceDeclarations: Record<string, string> | undefined;
+      root.walkAtRules('media', (atRule) => {
+        if (atRule.params !== '(prefers-reduced-motion: reduce)') return;
+        atRule.walkRules((rule) => {
+          if (rule.selector !== '.ssE-overlay-highlight') return;
+          reduceDeclarations = {};
+          rule.walkDecls((decl) => {
+            reduceDeclarations![decl.prop] = decl.value;
+          });
+        });
+      });
+
+      expect(
+        reduceDeclarations,
+        '@media (prefers-reduced-motion: reduce) .ssE-overlay-highlight not found',
+      ).toBeDefined();
+      expect(reduceDeclarations).toEqual({ animation: 'none' });
+    });
+  });
 });
