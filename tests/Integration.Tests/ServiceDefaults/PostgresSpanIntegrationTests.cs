@@ -79,6 +79,17 @@ public class PostgresSpanIntegrationTests(AspireFixture aspire)
         await using ServiceProvider provider = builder.Services
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
+        // TracerProvider is a lazily-constructed singleton: resolving it is
+        // what actually subscribes an ActivityListener to Npgsql's
+        // ActivitySource (EnrichNpgsqlDbContext's AddNpgsql() hook only queues
+        // that subscription; it does not happen until the provider is built).
+        // A normally-hosted app forces this eagerly via OpenTelemetry's own
+        // hosted service; nothing starts a host here, so it must be resolved
+        // — before the query runs, not after — or Npgsql's own
+        // ActivitySource.HasListeners() check at command time sees no
+        // listener and samples nothing, no matter how the exporter is wired.
+        TracerProvider tracerProvider = provider.GetRequiredService<TracerProvider>();
+
         using (IServiceScope scope = provider.CreateScope())
         {
             IDbContextFactory<CameraCatalogDbContext> factory =
@@ -88,7 +99,7 @@ public class PostgresSpanIntegrationTests(AspireFixture aspire)
             await dbContext.Database.ExecuteSqlRawAsync("SELECT 1", cancellationToken);
         }
 
-        provider.GetRequiredService<TracerProvider>().ForceFlush();
+        tracerProvider.ForceFlush();
 
         exporter.Captured.ShouldContain(
             activity => "postgresql".Equals(activity.GetTagItem("db.system") as string, StringComparison.Ordinal)
