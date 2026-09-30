@@ -81,7 +81,10 @@ public static class AuditObservabilityInfrastructureModule
         builder.Services.AddScoped<GetAuditEventQueryHandler>();
 
         // Retention: TimescaleDB inventory + Azure Blob archiver + hosted worker.
-        builder.AddAzureBlobServiceClient("blobs");
+        // DisableHealthChecks=true: the auto-registered AzureBlobStorageHealthCheck would
+        // otherwise be exposed on /health (Extensions.cs maps it with no predicate), naming
+        // an external dependency there in violation of ADR-0154 clause 2 (issue #2680).
+        builder.AddAzureBlobServiceClient("blobs", static settings => settings.DisableHealthChecks = true);
         builder.Services.AddOptions<AuditArchiveOptions>()
             .Bind(builder.Configuration.GetSection(AuditArchiveOptions.SectionName));
         builder.Services.AddScoped<IAuditChunkInventory, TimescaleAuditChunkInventory>();
