@@ -19,6 +19,7 @@ using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -40,6 +41,7 @@ public static class EventIngestionInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddEventIngestionPersistence();
+        builder.EnrichPostgresDbContext<EventIngestionDbContext>();
 
         builder.Services.AddScoped<IEventRepository, EventRepository>();
         builder.Services.AddScoped<IWebhookIntegrationRepository, WebhookIntegrationRepository>();

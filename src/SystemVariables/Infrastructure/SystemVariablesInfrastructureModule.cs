@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -43,6 +44,7 @@ public static class SystemVariablesInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddSystemVariablesPersistence();
+        builder.EnrichPostgresDbContext<SystemVariablesDbContext>();
 
         builder.Services.AddScoped<IVariableRepository, VariableRepository>();
         builder.Services.AddScoped<IVariableQuerySource, VariableQuerySource>();

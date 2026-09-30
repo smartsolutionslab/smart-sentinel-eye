@@ -8,6 +8,7 @@ using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.AuditObservability.Infrastructure;
@@ -61,6 +62,7 @@ public static class AuditObservabilityInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddAuditObservabilityPersistence();
+        builder.EnrichPostgresDbContext<AuditObservabilityDbContext>();
 
         builder.Services.AddScoped<IAuditEventRepository, AuditEventRepository>();
         builder.Services.AddScoped<IAuditEventQuerySource, AuditEventQuerySource>();

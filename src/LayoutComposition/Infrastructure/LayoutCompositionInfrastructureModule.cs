@@ -15,6 +15,7 @@ using SmartSentinelEye.LayoutComposition.Infrastructure.Cameras;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -36,6 +37,7 @@ public static class LayoutCompositionInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddLayoutCompositionPersistence();
+        builder.EnrichPostgresDbContext<LayoutCompositionDbContext>();
 
         builder.Services.AddScoped<ILayoutRepository, LayoutRepository>();
         builder.Services.AddScoped<ILayoutQuerySource, LayoutQuerySource>();

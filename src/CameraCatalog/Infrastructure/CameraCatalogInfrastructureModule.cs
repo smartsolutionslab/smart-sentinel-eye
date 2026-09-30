@@ -51,6 +51,7 @@ public static class CameraCatalogInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddCameraCatalogPersistence();
+        builder.EnrichPostgresDbContext<CameraCatalogDbContext>();
 
         builder.Services.AddScoped<ICameraRepository, CameraRepository>();
         builder.Services.AddScoped<ICameraQuerySource, CameraQuerySource>();

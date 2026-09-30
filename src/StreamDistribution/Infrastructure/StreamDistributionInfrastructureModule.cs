@@ -2,6 +2,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -37,6 +38,7 @@ public static class StreamDistributionInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddStreamDistributionPersistence();
+        builder.EnrichPostgresDbContext<StreamDistributionDbContext>();
 
         BindMediaMtxOptions(builder);
         BindWhepAuthOptions(builder);
