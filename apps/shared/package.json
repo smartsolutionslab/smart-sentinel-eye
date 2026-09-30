@@ -50,6 +50,7 @@
     "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
     "./ui/composites/RetryBanner": "./src/ui/composites/RetryBanner.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",
+    "./ui/motion/*": "./src/ui/motion/*",
     "./ui/fonts/*": "./src/ui/fonts/*",
     "./test/radixJsdom": "./src/test/radixJsdom.ts",
     "./hooks": "./src/hooks/index.ts",
