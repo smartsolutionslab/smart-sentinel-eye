@@ -125,6 +125,32 @@ test('no samples at all — incomplete, not a crash', () => {
   assert.equal(isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS), false);
 });
 
+// ---- FR-021 (T029): the loop must have finished, not just met the count ----
+//
+// Spec §10.4 F7's exact shape: the span loop refused mid-run (e.g. "iteration
+// 8: the value never painted") and broke out early, yet the per-camera counts
+// it collected before breaking still happen to satisfy `ITERATIONS` (runs
+// 35979443020, 35986570873: n = 40 across 4 cameras — 10 each — from a loop
+// that never reached iteration 10). Today's three-argument predicate cannot
+// see the break at all, so it reads this as complete.
+
+test('every tile met its per-camera count, but the loop broke out early — incomplete (FR-021)', () => {
+  const samplesPerCamera = fourTileWall({
+    perCamera: [
+      ['camera-1', 10],
+      ['camera-2', 10],
+      ['camera-3', 10],
+      ['camera-4', 10],
+    ],
+  });
+  const loopCompleted = false; // the loop refused at iteration 8 and broke
+
+  assert.equal(
+    isCompleteRenderLegMeasurement(samplesPerCamera, EXPECTED_CAMERAS, ITERATIONS, loopCompleted),
+    false,
+  );
+});
+
 // ---- the written record carries the field ------------------------------
 //
 // The record's shape is a plain object written with `JSON.stringify`
