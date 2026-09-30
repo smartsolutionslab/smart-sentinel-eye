@@ -80,7 +80,7 @@ function validate(spec: FieldSpec, normalized: number): string | null {
 }
 
 // Spec 293 (issue #2342): Tailwind classes citing the semantic token layer,
-// not inline styles — see plan.md §3.3 for the mapping this replaced.
+// not inline styles.
 const FIELD_ALERT_CLASSNAME = 'text-xs text-accent-fault';
 const FIELD_STATUS_CLASSNAME = 'text-xs text-accent-warning';
 // Nit 9 (phase 6): matches `BackdropControls.tsx`'s own `<fieldset><legend>`

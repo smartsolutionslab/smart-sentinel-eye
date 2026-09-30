@@ -27,7 +27,7 @@ const BACKDROP_OPTIONS: ReadonlyArray<{ value: Backdrop; label: string }> = [
 ];
 
 // Spec 293 (issue #2342): Tailwind classes citing the semantic token layer,
-// not inline styles — see plan.md §3.2 for the mapping this replaced.
+// not inline styles.
 const SELECT_CLASSNAME =
   'block w-full rounded-md border border-fg-muted bg-bg-elevated px-3 py-2 text-sm text-fg-primary ' +
   'placeholder:text-fg-muted focus-visible:outline-2 focus-visible:outline-offset-2 ' +

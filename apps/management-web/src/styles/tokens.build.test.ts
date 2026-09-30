@@ -48,7 +48,7 @@ const CANDIDATES = [
   'border-border-subtle',
   'text-fg-on-accent',
   'ring-focus-ring',
-  // Spec 293 (issue #2342) plan.md §5.1 T006 — the font-size slider's
+  // Spec 293 (issue #2342) tasks.md T006 — the font-size slider's
   // `accent-accent` (OverlayEditor.tsx), styling the native
   // <input type="range"> instead of a Slider primitive (spec §4.1).
   'accent-accent',
@@ -195,7 +195,7 @@ describe('management-web tokens compile through Tailwind (spec 257 US2)', () => 
     ['bg-accent-fault-hover', 'background-color', '--color-accent-fault-hover'],
     ['bg-accent-fault-pressed', 'background-color', '--color-accent-fault-pressed'],
     ['text-fg-on-fault', 'color', '--color-fg-on-fault'],
-    // Spec 293 (issue #2342) plan.md §5.1 T006.
+    // Spec 293 (issue #2342) tasks.md T006.
     ['accent-accent', 'accent-color', '--color-accent'],
   ])('role-named utility %s cites its matching token', (className, property, expectedToken) => {
     expect(ruleExists(className), `.${className} does not compile at all yet`).toBe(true);
