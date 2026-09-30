@@ -67,10 +67,21 @@
   --cyan-900: oklch(32% 0.053 210);
   --cyan-950: oklch(24% 0.04 210);
 
-  /* Triad stops, one each, no ramp. */
+  /* Triad stops: the signal (500) and a tint pair (900 dark, 50 light) for
+     status chips (spec 297). A status chip's fill is a tint AT THE TRIAD'S
+     HUE. Not a color-mix: color-mix(in oklch, …) interpolates hue by
+     percentage, so a 10 % mix into a ground with a real hue renders the
+     ground's hue (fault -> rgb(20,24,37), slate), observed in Chromium
+     2026-09-30. */
   --green-500: oklch(72.656% 0.20847 148.34);
   --red-500: oklch(67.864% 0.20948 24.66);
   --amber-500: oklch(80.584% 0.15273 68.43);
+  --green-900: oklch(25% 0.04 148.34);
+  --red-900: oklch(25% 0.04 24.66);
+  --amber-900: oklch(25% 0.04 68.43);
+  --green-50: oklch(95% 0.03 148.34);
+  --red-50: oklch(95% 0.03 24.66);
+  --amber-50: oklch(95% 0.03 68.43);
   --black: oklch(0% 0 0);
   --white: oklch(100% 0 0);
 }
@@ -128,13 +139,20 @@
   /* RetryBanner's box (issue #2523): SharedUiTokenUsageTests forbids a
      call-site alpha modifier on a semantic colour (spec 257 US3), so the
      tint and border live here instead of as border-accent-fault/40 and
-     bg-accent-fault/10 at the call site. Same one-theme rationale as
-     -hover/-pressed above: the border mixes toward transparent (theme-
-     invariant, like mixing toward white/black); the tint mixes toward
-     --color-bg-base so it still reads against whichever surface is active,
-     without needing a per-theme redeclaration. */
-  --color-accent-fault-subtle: color-mix(in oklch, var(--color-accent-fault) 10%, var(--color-bg-base));
+     bg-accent-fault/10 at the call site. The border still mixes toward
+     transparent (theme-invariant, like mixing toward white/black, so one
+     declaration serves every theme). The tint does NOT: color-mix(in oklch,
+     …) interpolates hue by percentage, and every ground in this scale
+     carries a real hue, so a 10% mix rendered the ground's hue (slate, not
+     red) in Chromium (spec 297 §1). The tint is now a primitive stop at the
+     fault hue instead (Badge's -subtle roles, spec 297 §2.2). */
+  --color-accent-fault-subtle: var(--red-900);
   --color-accent-fault-border: color-mix(in oklch, var(--color-accent-fault) 40%, transparent);
+  /* Status-chip tints (spec 297, issue #2635): a primitive stop at each
+     triad's own hue, not a color-mix derivation — see the fault-subtle
+     comment above for why. Cited by Badge.tsx's tone classes. */
+  --color-accent-active-subtle: var(--green-900);
+  --color-accent-warning-subtle: var(--amber-900);
   /* Dark in every theme, because the fault red itself is pinned across themes
      (ADR-0148) and white on it is only 3.19:1. Replaces text-bg-base, danger's
      old label class (Button.tsx); --color-fg-on-accent is untouched and still
@@ -269,6 +287,13 @@
   --color-accent-pressed: color-mix(in oklch, var(--color-accent) 76%, var(--black));
   --color-accent-subtle: color-mix(in oklch, var(--color-accent) 12%, var(--color-bg-base));
   --color-focus-ring: var(--cyan-700);
+
+  /* Light stops of the same hue (spec 297 §2.2). The FR-008 contrast fact
+     excludes this theme for the triad half (#2695: a triad hue as text on a
+     near-white tint is below 4.5:1) — the tint itself is still correct. */
+  --color-accent-active-subtle: var(--green-50);
+  --color-accent-warning-subtle: var(--amber-50);
+  --color-accent-fault-subtle: var(--red-50);
 
   --shadow-popover: 0 4px 12px 0 color-mix(in oklch, var(--gray-950) 12%, transparent);
   --shadow-overlay: 0 16px 40px 0 color-mix(in oklch, var(--gray-950) 20%, transparent);
