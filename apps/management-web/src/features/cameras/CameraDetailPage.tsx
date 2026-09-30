@@ -1,4 +1,5 @@
 import { useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
@@ -94,9 +95,7 @@ export function CameraDetailPage() {
       <header className="mb-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold">{record.name}</h1>
-          {retired ? (
-            <span className="rounded-md bg-fg-muted/15 px-2 py-1 text-xs font-medium text-fg-muted">Retired</span>
-          ) : null}
+          {retired ? <Badge tone="neutral">Retired</Badge> : null}
         </div>
         <div className="flex items-center gap-4">
           {/* Spec 035 FR-009, gated like the two beside it. Ordered first
