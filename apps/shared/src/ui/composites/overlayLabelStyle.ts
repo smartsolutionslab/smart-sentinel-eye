@@ -35,10 +35,10 @@ export function overlayLabelSurfaceStyle(label: OverlayLabelAppearance): CSSProp
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    background: 'rgba(255, 255, 255, 0.85)',
-    color: '#111827',
+    background: 'var(--color-bg-label)',
+    color: 'var(--color-fg-on-label)',
     fontSize: `clamp(${Math.min(12, fontSizePx / 4)}px, ${fontSizePx / 16}vw, ${fontSizePx}px)`,
-    fontWeight: 600,
-    padding: '0 4px',
+    fontWeight: 'var(--font-weight-semibold)',
+    padding: '0 var(--space-1)',
   };
 }
