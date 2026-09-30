@@ -215,9 +215,13 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
 
     const canvas = screen.getByTestId('overlay-editor-canvas');
     // Spec 293 §6: the White field now cites --color-bg-video-inverse, a
-    // content role pinned to var(--white) in every theme — the real-browser
-    // proof that it *resolves* to white in all three is
-    // e2e/overlays.spec.ts's existing, unmodified White-field test.
+    // content role pinned to var(--white) in every theme. jsdom cannot run
+    // the cascade, so the closest this test gets is the citation, not the
+    // resolved colour; e2e/overlays.spec.ts's White-field test (revised in
+    // this issue's phase-6 round, S1) is the real-browser proof that it
+    // *resolves* to white — but only in the default theme, since nothing
+    // there switches `data-theme`. No test proves the light or
+    // high-contrast theme resolves it to white too.
     expect(canvas.style.backgroundColor).toBe('var(--color-bg-video-inverse)');
     expect(onChange).not.toHaveBeenCalled();
   });

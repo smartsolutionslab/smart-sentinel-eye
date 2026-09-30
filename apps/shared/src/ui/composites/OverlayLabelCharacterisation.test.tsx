@@ -81,7 +81,8 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
     const label = renderLabel();
 
     // Spec 293 §6 (US2): color is now var(--color-fg-on-label) —
-    // var(--gray-900), the same resolved ink (#14171c-pinned) as before.
+    // var(--gray-900). A declared change, not "the same as before": the ink
+    // moves from the old literal `#111827` to `--gray-900` (`#14171c`).
     expect(label.style.color).toBe('var(--color-fg-on-label)');
     expect(label.style.fontWeight).toBe('var(--font-weight-semibold)');
   });
@@ -97,10 +98,11 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
     const label = renderLabel();
 
     // Spec 293 §6 (US2): padding is now '0 var(--space-1)' — the same 4px
-    // (--space-1 = 0.25rem), pinned in :root only (spec §5). jsdom cannot
-    // parse the var() inside the shorthand, so it preserves the authored
-    // string verbatim rather than normalising it to '0px ...' the way it
-    // does a fully literal value.
+    // (--space-1 = 0.25rem). Not one of spec §5's pinned content roles —
+    // that section covers colour roles only — just an ordinary :root token.
+    // jsdom cannot parse the var() inside the shorthand, so it preserves the
+    // authored string verbatim rather than normalising it to '0px ...' the
+    // way it does a fully literal value.
     expect(label.style.padding).toBe('0 var(--space-1)');
     expect(label.style.pointerEvents).toBe('none');
   });
