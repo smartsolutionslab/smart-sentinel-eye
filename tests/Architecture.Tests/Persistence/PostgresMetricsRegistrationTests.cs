@@ -7,24 +7,24 @@ using OpenTelemetry.Metrics;
 namespace SmartSentinelEye.Architecture.Tests.Persistence;
 
 /// <summary>
-/// Spec 282 (#1140), T021 / FR-009. US2, red: observed failing before T040,
-/// green once T040 flips <c>DisableMetrics</c> to <c>false</c> in
-/// <c>PostgresTelemetry</c>. Same shape as
+/// US2. Observed failing before the Aspire.Npgsql wiring's metrics switch
+/// was flipped on, green once <c>DisableMetrics</c> was set to <c>false</c>
+/// in <c>PostgresTelemetry</c>. Same shape as
 /// <c>IngestVolumeRegistrationTests</c>: a capturing
 /// <see cref="BaseExporter{T}"/> attached to a real <see cref="MeterProvider"/>,
 /// and a probe instrument recorded through a <see cref="Meter"/> sharing
 /// Npgsql's meter name.
 ///
 /// <para>
-/// <b>Why this is red today, and for the right reason.</b> No context calls
+/// <b>Why this was red, and for the right reason.</b> No context called
 /// <c>AddOpenTelemetry().WithMetrics(...).AddMeter("Npgsql")</c> anywhere.
 /// This test supplies the reader itself (via
 /// <see cref="PostgresComposition.Compose(string, Action{IHostApplicationBuilder}?)"/>'s
 /// <c>configureMore</c> hook) so <c>MeterProvider</c> resolves either way; what
 /// it cannot supply is the <c>AddMeter("Npgsql")</c> call that makes the
-/// provider actually collect from that meter. Before T040 the probe
-/// instrument is recorded into a <see cref="MeterProvider"/> that is not
-/// listening for it, so the exporter sees nothing — a missing registration,
+/// provider actually collect from that meter. Before that switch, the probe
+/// instrument was recorded into a <see cref="MeterProvider"/> that was not
+/// listening for it, so the exporter saw nothing — a missing registration,
 /// not a connectivity failure or a compile error.
 /// </para>
 ///
