@@ -28,8 +28,11 @@ so no row here lost its raw samples to expiry. The three earlier one-tile runs
 ## `develop` baseline (nine-tile fixture, CI)
 
 All 21 runs below are `complete: true`, attempt 0 (no retries fired), with
-`count: 108` (9 tiles × 12 draws — the `ITERATIONS = 10` loop plus the
-existing 2-draws-of-slack the wall's own per-camera assertion tolerates).
+`count: 108` (9 tiles × 12 draws). The per-camera assertion
+(`kiosk-shows-a-label-over-video.spec.ts:1567`) is `toBeGreaterThanOrEqual(ITERATIONS)`
+— an open lower bound, not a tolerance band — so 12 is simply how many
+draws each tile produced in these runs, not a designed allowance of 2
+over the `ITERATIONS = 10` floor.
 `p95` is computed at n = 108, which supports one (`kiosk-shows-a-label-over-video.spec.ts:756-766`'s
 own index rule). Figures are **truncated** to 0.01 ms, never rounded up (plan
 §5), including the raw samples.
@@ -96,10 +99,13 @@ between truncation and `toFixed`). The 21st is:
 The workflow run's overall conclusion is also `cancelled` (a later push likely
 cancelled it via the repo's concurrency group after shard 4 had already
 finished its work, written its record and uploaded its artifact — the
-artifact and the record are there, fully formed, not a partial write). This
-is genuinely ambiguous: the job-status API says the shard was cancelled, but
-a complete, self-consistent measurement exists for it, indistinguishable in
-shape from every uncontested row.
+artifact and the record are there, fully formed, not a partial write). The
+shard 4/4 job log settles this rather than leaving it ambiguous: it shows
+`31 passed (4.9m)` with zero failures and zero unexpected results, followed
+by the render-leg artifact being written and scrubbed — the ordinary
+end-of-run sequence, not a truncated one. The `cancelled` label is a
+status the concurrency group applied to a job that had already finished;
+it is not evidence the measurement itself is suspect.
 
 **Per FR-022 — "every run in which the span test ran … nothing inside the
 window is dropped … not truncated to exclude an outlier" — the literal rule
@@ -130,8 +136,9 @@ picked either way and no reason not to say so plainly. Both the 20-run and
 
 - n = 20
 - mean p50 = **56.86 ms** (truncated; spec §10.5's own text states this as
-  "56.87 ms", rounded rather than truncated — same underlying value,
-  56.8675 ms)
+  "56.87 ms" — that figure is a rounding slip, not a different underlying
+  value: recomputing from spec §10.5's own listed 20 p50s gives 56.8635 ms,
+  which truncates to 56.86, not 56.87)
 - sample standard deviation (n−1) σ = **8.70 ms**
 - 3σ tolerance (FR-018) = **26.11 ms**
 - Would-be threshold (mean + 3σ) = **82.97 ms** (truncated, not rounded up)
@@ -146,16 +153,24 @@ Both are re-derivable from the raw samples printed above (`Σ(p50)/n`, then
 | 21-run (this file's primary, FR-022-complete) | 25.65 ms | **FAILS** |
 | 20-run (spec §10.5's set) | 26.11 ms | **FAILS** |
 
-**Both fail.** The ambiguity over 36456616486 does not change the outcome —
-3σ is above the 25 ms limit either way, by roughly one to 1.1 ms. This is
-not a close call decided by a judgment call about one row; it fails with
-room to spare on the stricter (smaller-σ) set too.
+**Both fail, by a margin smaller than the estimate's own sampling error.**
+The 21-run set exceeds the limit by 0.65 ms (25.65 vs 25 ms); the 20-run
+set by 1.11 ms (26.11 vs 25 ms) — the 21-run set has both the smaller σ
+and the thinner margin, not the wider one. Neither margin is decisive on
+its own: with n=21, the standard error of the sample σ estimate is
+roughly `σ/√(2(n−1)) ≈ 1.35 ms`, which propagates to roughly `±4 ms` on
+the 3σ figure — several times the 0.65–1.11 ms the measured value sits
+above 25 ms. So this is not a clean, wide-margin fail; it is a fail whose
+exact size would plausibly move above or below the line on a different
+sample of the same population. The ambiguity over 36456616486 does not
+change *that* conclusion, because both datasets land in the same
+within-noise-of-the-limit band regardless of which one is used.
 
 **What this can and cannot detect, stated per NFR-004/§9.4's own convention.**
 At 3σ = 25.65 ms (21-run set), a shift of about `3σ + 1.65σ = 4.65σ ≈ 39.8 ms`
 in p50 would be caught about 95% of the time — noticeably more than one
 17–19 ms vsync quantum at this window's observed cadence (`T` clusters at
-~29.0–32.3 ms across every row above; the wider spread than a clean 60→30 Hz
+~26.7–32.3 ms across every row above; the wider spread than a clean 60→30 Hz
 step reflects the runner losing and regaining partial cadence, not a clean
 frame-count ladder). A tolerance this wide is not "no signal" — F2 (spec §9.2)
 established that render cost on this runner shows up as a cadence *step*, and

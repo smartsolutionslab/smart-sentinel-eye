@@ -16,16 +16,20 @@ rather than issue state. Spec §10 and plan §9 hold the evidence.**
 | T026 (span-test instability, #2554) | **discharged by evidence, no code.** #2554's proposed harness fix was **never applied**, and #2554 was closed by a docs-only commit (`d49ff1c7`). The instability was ended by `05061543` (spec 232, gateway rate budget): 16 runs before it had 10 retried or red, and 27 runs after it had 27 first-attempt passes | spec §10.2 |
 | T027 (`complete` field) | **done**, PR #2555, **but too loose**: `complete: true` was written for 5 attempts that failed mid-loop. Tightened by **T029** | spec §10.4 |
 | T020 (checker), T019b (agreement logic) | **done**, PR #2555. T019b is proven on synthetic pairs only, and **T019c** wires the real pair | spec §10.1 |
-| T015–T019, T021, T022, T028 | **not started**: no `figures.md`, no `baseline.json`, no `render-leg-gate` job, and the summary still says "No threshold is asserted" | spec §10.1 |
+| T029 (`loopCompleted` predicate) | **done**, this branch. Red committed `2e950e2e`, fix `7808b145`. 10/10 tests pass | `e2e/support/render-leg.test.mjs` |
+| T015–T017 (`figures.md`) | **done**, this branch, commit `068ef445`. 21 real `develop` push-CI runs in the FR-022 window (20 under spec §10.5's own prior count), both datasets computed from the runs' own artifacts | `figures.md` |
+| T018 (FR-014 decision gate) | **done — report-only branch taken.** FR-019 fails on both datasets (3σ = 25.65 ms / 26.11 ms against the 25 ms limit — by 0.65 ms / 1.11 ms, smaller than the estimate's own ~4 ms sampling error on 3σ) | `figures.md` §Decision |
+| T019, T019c (`baseline.json` + the real-pair check) | **deferred by T018's decision, per plan §9.4.** Genuinely ADR-blocked: both need a committed threshold number, and deciding what that number should be is the ADR the lane may not write | `figures.md` §Decision |
+| T028, T021, T022 | **not built this branch.** Their *threshold* forms need the same ADR as T019. Their *report-only* forms (T028's report-only summary wording; T021 as a job that always exits 0) are **not themselves ADR-blocked** — building a report that asserts nothing requires no threshold decision — but were not attempted in this PR, which scoped to T029 plus the evidence in `figures.md`. Left as follow-up, either alongside the ADR or before it | tasks.md (this note) |
 | T023–T025 | not started | — |
 
-**Open, in order: T029 → T015 → T016 → T017 → T018 ⟨GATE⟩ → (T019 → T019c) → T028 → T021 → T022 ⟨GATE⟩ → T023–T025.**
+**Open, in order: T029 → T015 → T016 → T017 → T018 ⟨GATE⟩, done this branch. Still open: (T019 → T019c) → T028 → T021 → T022 ⟨GATE⟩ → T023–T025**, all of it downstream of the ADR #2337 is blocked on.
 They go in one PR on `ci/2337-render-leg-gate-completion` (plan §9.1).
 
-**Read this before T018:** on the 20 nine-tile runs already on record,
-FR-019 **fails** (3σ = 26.11 ms against a 25 ms limit; spec §10.5). The
-likeliest outcome is the report-only branch (plan §9.4). That branch hands
-#2337 back for an ADR the lane may not write, and #2337 stays open.
+**T018's outcome:** on the real FR-022 window, FR-019 **fails** on both the
+21-run and 20-run datasets (spec §10.5; `figures.md`). The report-only branch
+(plan §9.4) is taken. That branch hands #2337 back for an ADR the lane may
+not write, and #2337 stays open.
 
 The engineer is **infra-engineer**: the work is CI workflow, measurement harness
 and evidence files, with nothing under `src/` or `apps/`. No new ADR is needed
