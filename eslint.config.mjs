@@ -34,6 +34,7 @@ export default [
         globalThis: 'readonly',
         window: 'readonly',
         document: 'readonly',
+        Document: 'readonly',
         Element: 'readonly',
         HTMLLinkElement: 'readonly',
         MutationObserver: 'readonly',
@@ -41,6 +42,12 @@ export default [
         performance: 'readonly',
         getComputedStyle: 'readonly',
         atob: 'readonly',
+        // Spec 292 (issue #2334) — motion.spec.ts's `animationstart` recorder
+        // (plan.md §7), run inside `page.addInitScript`'s browser context.
+        Animation: 'readonly',
+        AnimationEvent: 'readonly',
+        CSSAnimation: 'readonly',
+        KeyframeEffect: 'readonly',
       },
     },
     plugins: { '@typescript-eslint': tseslint },

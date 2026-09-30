@@ -64,6 +64,26 @@ const CANDIDATES = [
   'active:bg-accent-pressed',
   'disabled:bg-transparent',
   'aria-disabled:bg-transparent',
+  // Spec 292 (issue #2334) T004, plan.md §6 — the motion roles and the four
+  // surface/scrim animations. RED on develop: none of these exist yet.
+  'duration-state',
+  'duration-enter',
+  'duration-exit',
+  'duration-route',
+  'ease-state',
+  'ease-enter',
+  'ease-exit',
+  'ease-route',
+  'animate-surface-enter',
+  'animate-surface-exit',
+  'animate-scrim-enter',
+  'animate-scrim-exit',
+  // Spec 292, plan.md §6 — must stop compiling once the `animation` namespace
+  // replaces Tailwind's stock one (plan.md §3, "not under extend").
+  'animate-spin',
+  'animate-ping',
+  'animate-pulse',
+  'animate-bounce',
 ];
 
 let root: postcss.Root;
@@ -338,6 +358,60 @@ describe('kiosk-web tokens compile through Tailwind (spec 257 US2)', () => {
         '@media (prefers-reduced-motion: reduce) .ssE-overlay-highlight not found',
       ).toBeDefined();
       expect(reduceDeclarations).toEqual({ animation: 'none' });
+    });
+  });
+
+  // Spec 292 (issue #2334) T004, plan.md §6 — RED on develop: none of the
+  // eight role tokens exist yet, so neither the role utilities nor the
+  // animate-* utilities that cite them compile, and the stock animate-*
+  // namespace has not yet been replaced.
+  describe('motion roles and surface/scrim animations (spec 292)', () => {
+    it.each([
+      ['duration-state', 'transition-duration', '--duration-state'],
+      ['duration-enter', 'transition-duration', '--duration-enter'],
+      ['duration-exit', 'transition-duration', '--duration-exit'],
+      ['duration-route', 'transition-duration', '--duration-route'],
+      ['ease-state', 'transition-timing-function', '--ease-state'],
+      ['ease-enter', 'transition-timing-function', '--ease-enter'],
+      ['ease-exit', 'transition-timing-function', '--ease-exit'],
+      ['ease-route', 'transition-timing-function', '--ease-route'],
+    ])('role-named utility %s cites its matching token', (className, property, expectedToken) => {
+      expect(ruleExists(className), `.${className} does not compile at all yet`).toBe(true);
+      const declarations = ruleDeclarations(className);
+      expect(declarations[property] ?? '(not declared)').toContain(expectedToken);
+    });
+
+    it.each([
+      ['animate-surface-enter', 'sse-surface-enter', '--duration-enter', '--ease-enter'],
+      ['animate-surface-exit', 'sse-surface-exit', '--duration-exit', '--ease-exit'],
+      ['animate-scrim-enter', 'sse-scrim-enter', '--duration-enter', '--ease-enter'],
+      ['animate-scrim-exit', 'sse-scrim-exit', '--duration-exit', '--ease-exit'],
+    ])(
+      'animation utility %s cites its keyframe name and role tokens',
+      (className, keyframeName, durationToken, easeToken) => {
+        expect(ruleExists(className), `.${className} does not compile at all yet`).toBe(true);
+        const animationValue = ruleDeclarations(className).animation ?? '(not declared)';
+        expect(animationValue).toContain(keyframeName);
+        expect(animationValue).toContain(durationToken);
+        expect(animationValue).toContain(easeToken);
+      },
+    );
+
+    it.each(['animate-spin', 'animate-ping', 'animate-pulse', 'animate-bounce'])(
+      "the stock animation utility %s no longer compiles — the shared theme's `animation` namespace replaces it, not `extend`s it",
+      (className) => {
+        expect(ruleExists(className)).toBe(false);
+      },
+    );
+
+    it('compiles no sse-surface-*/sse-scrim-* keyframe: the kiosk never imports motion.css (fact 1 forbids it anyway)', () => {
+      let found = false;
+      root.walkAtRules('keyframes', (atRule) => {
+        if (atRule.params.startsWith('sse-surface-') || atRule.params.startsWith('sse-scrim-')) {
+          found = true;
+        }
+      });
+      expect(found, 'a sse-surface-*/sse-scrim-* keyframe compiled into the kiosk bundle').toBe(false);
     });
   });
 });
