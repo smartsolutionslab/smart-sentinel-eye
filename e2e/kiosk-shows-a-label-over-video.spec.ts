@@ -1496,7 +1496,19 @@ test('the span from a value being submitted to it being visible', async ({ page,
     if (line.measurement !== 'overlay_draw') continue;
     overlayDrawSamplesPerCamera.set(line.camera, (overlayDrawSamplesPerCamera.get(line.camera) ?? 0) + 1);
   }
-  const complete = isCompleteRenderLegMeasurement(overlayDrawSamplesPerCamera, wall.cameras.length, ITERATIONS);
+  // FR-021 (spec §10.4 F7): the per-camera counts alone can be satisfied by an
+  // attempt whose span loop refused and broke out early — the counts above
+  // were already collected by the time it broke. `loopCompleted` is true only
+  // when the loop pushed exactly `ITERATIONS` entries and none of them is a
+  // refusal, i.e. it ran to the end without breaking.
+  const loopCompleted =
+    measurements.length === ITERATIONS && measurements.every((measurement) => measurement.refusal === undefined);
+  const complete = isCompleteRenderLegMeasurement(
+    overlayDrawSamplesPerCamera,
+    wall.cameras.length,
+    ITERATIONS,
+    loopCompleted,
+  );
 
   writeRenderLegRecord({
     measurement: 'overlay_draw',
