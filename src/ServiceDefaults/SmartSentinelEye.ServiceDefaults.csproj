@@ -52,7 +52,7 @@
          change away from disappearing. -->
     <PackageReference Include="Npgsql" />
 
-    <!-- Spec 282 (#1140). EnrichNpgsqlDbContext, called once per context from
+    <!-- EnrichNpgsqlDbContext, called once per context from
          PostgresTelemetry; see that file for why health checks and retry
          stay disabled. -->
     <PackageReference Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" />
