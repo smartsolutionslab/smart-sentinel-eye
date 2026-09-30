@@ -61,11 +61,11 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// Seven contexts, not all nine that register an <c>IIdempotencyStore</c>-
-/// adjacent persistence stack: <c>audit-observability</c> and
-/// <c>stream-distribution</c> have no idempotent write path at all and
-/// never call <c>AddIdempotencyReservationSweep</c> — confirmed absent by
-/// inspection, not merely omitted from this list by oversight.
+/// Seven contexts, not all nine that exist in this solution:
+/// <c>audit-observability</c> and <c>stream-distribution</c> have no
+/// idempotent write path at all and never call
+/// <c>AddIdempotencyReservationSweep</c> — confirmed absent by inspection,
+/// not merely omitted from this list by oversight.
 /// </para>
 /// </summary>
 public class IdempotencyReservationSweepRegistrationTests
