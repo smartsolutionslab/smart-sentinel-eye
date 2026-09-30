@@ -12,6 +12,7 @@ using SmartSentinelEye.Automation.Infrastructure.Cache;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -34,6 +35,7 @@ public static class AutomationInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddAutomationPersistence();
+        builder.EnrichPostgresDbContext<AutomationDbContext>();
 
         builder.Services.AddScoped<IRuleRepository, RuleRepository>();
         builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();

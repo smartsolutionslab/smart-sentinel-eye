@@ -16,6 +16,7 @@ using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using SmartSentinelEye.Identity.Infrastructure.Revocation;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Contracts.Identity;
@@ -40,6 +41,7 @@ public static class IdentityInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddIdentityPersistence();
+        builder.EnrichPostgresDbContext<IdentityDbContext>();
 
         builder.Services.AddScoped<IRegisteredClientRepository, RegisteredClientRepository>();
         builder.Services.AddScoped<IRegisteredClientQuerySource, RegisteredClientQuerySource>();

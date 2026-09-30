@@ -9,6 +9,7 @@ using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
+using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -37,6 +38,7 @@ public static class OverlayDesignerInfrastructureModule
         Ensure.That(builder).IsNotNull();
 
         builder.AddOverlayDesignerPersistence();
+        builder.EnrichPostgresDbContext<OverlayDesignerDbContext>();
 
         builder.Services.AddScoped<IOverlayRepository, OverlayRepository>();
         builder.Services.AddScoped<IOverlayQuerySource, OverlayQuerySource>();
