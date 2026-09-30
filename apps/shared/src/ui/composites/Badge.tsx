@@ -26,14 +26,14 @@ const TONE: Record<BadgeTone, string> = {
 };
 
 /**
- * The shared status-pill primitive (spec 297, issue #2635, plan.md §3). A
- * status chip, not an affordance — lives in `composites/`, beside
- * `RetryBanner`, the other status surface on a triad tint (spec §4.3).
+ * The shared status-pill primitive. A status chip, not an affordance —
+ * lives in `composites/`, beside `RetryBanner`, the other status surface
+ * on a triad tint.
  *
- * Every class here is deliberately opaque and flat (FR-004): no call-site
- * alpha modifier, border, shadow, blur, transition, animation, opacity or
- * ring — ADR-0146 disqualifies translucency over live video, and a status
- * chip is not an interactive control.
+ * Every class here is deliberately opaque and flat: no call-site alpha
+ * modifier, border, shadow, blur, transition, animation, opacity or ring —
+ * ADR-0146 disqualifies translucency over live video, and a status chip is
+ * not an interactive control.
  */
 export function Badge({ tone, size = 'sm', asChild, className, ...rest }: BadgeProps) {
   const Component = asChild ? Slot : 'span';

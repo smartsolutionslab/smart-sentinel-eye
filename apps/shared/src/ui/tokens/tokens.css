@@ -68,11 +68,10 @@
   --cyan-950: oklch(24% 0.04 210);
 
   /* Triad stops: the signal (500) and a tint pair (900 dark, 50 light) for
-     status chips (spec 297). A status chip's fill is a tint AT THE TRIAD'S
-     HUE. Not a color-mix: color-mix(in oklch, …) interpolates hue by
-     percentage, so a 10 % mix into a ground with a real hue renders the
-     ground's hue (fault -> rgb(20,24,37), slate), observed in Chromium
-     2026-09-30. */
+     status chips. A status chip's fill is a tint AT THE TRIAD'S HUE. Not a
+     color-mix: color-mix(in oklch, …) interpolates hue by percentage, so a
+     10 % mix into a ground with a real hue renders the ground's hue
+     (fault -> rgb(20,24,37), slate), observed in Chromium. */
   --green-500: oklch(72.656% 0.20847 148.34);
   --red-500: oklch(67.864% 0.20948 24.66);
   --amber-500: oklch(80.584% 0.15273 68.43);
@@ -144,13 +143,13 @@
      declaration serves every theme). The tint does NOT: color-mix(in oklch,
      …) interpolates hue by percentage, and every ground in this scale
      carries a real hue, so a 10% mix rendered the ground's hue (slate, not
-     red) in Chromium (spec 297 §1). The tint is now a primitive stop at the
-     fault hue instead (Badge's -subtle roles, spec 297 §2.2). */
+     red) in Chromium. The tint is now a primitive stop at the fault hue
+     instead (Badge's -subtle roles). */
   --color-accent-fault-subtle: var(--red-900);
   --color-accent-fault-border: color-mix(in oklch, var(--color-accent-fault) 40%, transparent);
-  /* Status-chip tints (spec 297, issue #2635): a primitive stop at each
-     triad's own hue, not a color-mix derivation — see the fault-subtle
-     comment above for why. Cited by Badge.tsx's tone classes. */
+  /* Status-chip tints: a primitive stop at each triad's own hue, not a
+     color-mix derivation — see the fault-subtle comment above for why.
+     Cited by Badge.tsx's tone classes. */
   --color-accent-active-subtle: var(--green-900);
   --color-accent-warning-subtle: var(--amber-900);
   /* Dark in every theme, because the fault red itself is pinned across themes
@@ -288,9 +287,9 @@
   --color-accent-subtle: color-mix(in oklch, var(--color-accent) 12%, var(--color-bg-base));
   --color-focus-ring: var(--cyan-700);
 
-  /* Light stops of the same hue (spec 297 §2.2). The FR-008 contrast fact
-     excludes this theme for the triad half (#2695: a triad hue as text on a
-     near-white tint is below 4.5:1) — the tint itself is still correct. */
+  /* Light stops of the same hue. The contrast fact excludes this theme for
+     the triad half (#2695: a triad hue as text on a near-white tint is
+     below 4.5:1) — the tint itself is still correct. */
   --color-accent-active-subtle: var(--green-50);
   --color-accent-warning-subtle: var(--amber-50);
   --color-accent-fault-subtle: var(--red-50);
