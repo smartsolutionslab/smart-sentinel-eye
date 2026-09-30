@@ -71,12 +71,20 @@ async function installMotionRecorder(page: Page): Promise<void> {
         // `animationName` alone risks picking up an unrelated element's same-named animation
         // elsewhere under `element`. Requiring the effect's own `target` and `pseudoElement` to
         // match what this event actually fired for pins the match to the right element.
+        //
+        // `AnimationEvent.pseudoElement` is the empty string `''` for a plain (non-pseudo)
+        // animation, per spec — never `undefined`/`null` — while `KeyframeEffect.pseudoElement`
+        // is `null` in that same case. `??` only substitutes `null`/`undefined`, so comparing
+        // `(effect.pseudoElement ?? null) === (pseudoElement ?? null)` left `''` on one side and
+        // `null` on the other and never matched, breaking every plain-element case (confirmed
+        // live: broke all 3 US2 dialog tests, not the pseudo-element US3 route case, where both
+        // sides are the same non-empty string). `||` normalises `''` to `null` on both sides.
         const match = animations.find((animation) => {
           if (animation.animationName !== animationEvent.animationName || !(animation.effect instanceof KeyframeEffect)) {
             return false;
           }
           return (
-            animation.effect.target === element && (animation.effect.pseudoElement ?? null) === (pseudoElement ?? null)
+            animation.effect.target === element && (animation.effect.pseudoElement || null) === (pseudoElement || null)
           );
         });
         if (match === undefined || !(match.effect instanceof KeyframeEffect)) {
