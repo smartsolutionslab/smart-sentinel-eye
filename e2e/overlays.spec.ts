@@ -1,4 +1,4 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { signInAsOperator } from './support/sign-in';
 import { clickSidebarLink, openSection } from './support/management-navigation';
 import { createOverlayDraft } from './support/management-overlays';
@@ -43,29 +43,23 @@ test('operator creates an overlay draft and it appears in the list', async ({ pa
   await expect(page.getByText(name)).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
 });
 
-/**
- * Spec 293 (issue #2342) fix — the White field now resolves through
- * `--color-bg-video-inverse: var(--white)` -> `--white: oklch(100% 0 0)`, so
- * Chromium's `getComputedStyle` serialises it as `oklch(1 0 0)`, not
- * `rgb(255, 255, 255)`: a literal hex/rgb value normalises to `rgb(...)`,
- * but a value resolving through `oklch()` keeps that notation (verified
- * live) — the rendered pixel is unchanged, only the CSSOM string differs.
- * Reads the token's own live computed value instead of hardcoding a
- * representation, mirroring `interaction-states.spec.ts`'s `probeToken`
- * (not reused directly — it is module-private there).
- */
-async function probeBackgroundColorToken(page: Page, cssVariableName: string): Promise<string> {
-  return page.evaluate((variableName) => {
-    const probe = document.createElement('div');
-    probe.style.position = 'fixed';
-    probe.style.top = '-9999px';
-    probe.style.background = `var(${variableName})`;
-    document.body.appendChild(probe);
-    const resolved = getComputedStyle(probe).backgroundColor;
-    probe.remove();
-    return resolved;
-  }, cssVariableName);
-}
+// Spec 293 (issue #2342), phase-6 fix (S1) — the White field now resolves
+// through `--color-bg-video-inverse: var(--white)` -> `--white: oklch(100%
+// 0 0)`, so Chromium's `getComputedStyle` serialises it as `oklch(1 0 0)`,
+// not `rgb(255, 255, 255)`: a literal hex/rgb value normalises to
+// `rgb(...)`, but a value resolving through `oklch()` keeps that notation
+// (verified live) — the rendered pixel is unchanged, only the CSSOM string
+// differs.
+//
+// The literal below is asserted directly, not read back from the token
+// (an earlier version of this test probed `--color-bg-video-inverse`'s own
+// live value and compared the canvas against *that*). That version could
+// not fail if the token's value drifted — the probe and the canvas cite the
+// same variable, so they always move together, even if `--color-
+// bg-video-inverse` were reassigned to, say, `var(--gray-500)` by mistake.
+// A hardcoded expectation is exactly what proves White actually paints
+// white, independent of whatever the token currently says.
+const WHITE_FIELD_BACKGROUND_COLOR = 'oklch(1 0 0)';
 
 // Spec 234 (issue #2356) US3/FR-008/T002/T005 — the camera-less half of spec
 // 147's backdrop selector (`BackdropControls.tsx`), pinned through the real
@@ -91,15 +85,12 @@ test('operator sees the White field backdrop behind the label without a camera',
   await page.getByRole('button', { name: /new overlay/i }).click();
 
   const canvas = page.getByTestId('overlay-editor-canvas');
-  // Spec 293: White now cites --color-bg-video-inverse, so the reference
-  // value is the token's own live computed colour, not a hardcoded string —
-  // this still fails if White ever painted the wrong colour, because the
-  // probe and the canvas would then resolve to different values.
-  const whiteFieldColor = await probeBackgroundColorToken(page, '--color-bg-video-inverse');
-  await expect(canvas).not.toHaveCSS('background-color', whiteFieldColor);
+  // The counterfactual: the baseline backdrop is the checkerboard, not
+  // white, so this passes only because nothing has painted White yet.
+  await expect(canvas).not.toHaveCSS('background-color', WHITE_FIELD_BACKGROUND_COLOR);
 
   await page.getByRole('radio', { name: 'White field' }).check();
-  await expect(canvas).toHaveCSS('background-color', whiteFieldColor);
+  await expect(canvas).toHaveCSS('background-color', WHITE_FIELD_BACKGROUND_COLOR);
 });
 
 // Spec 293 (issue #2342) T005/T009 — the one thing jsdom cannot prove either
@@ -732,6 +723,17 @@ test('a refusal message appearing on blur does not move the Save button (spec 25
   await page.getByRole('button', { name: /new overlay/i }).click();
 
   const widthField = page.getByLabel('Width', { exact: true });
+  // Settle the scroll before the `before` snapshot, exactly as the sibling
+  // "the advisory appearing and clearing..." test does for Left (comment
+  // there): the dialog already overflows `max-h-[90vh]` at this viewport, so
+  // `fill()`'s actionability check would otherwise scroll Width into view on
+  // the *next* line, moving every element's absolute position by the scroll
+  // delta between this snapshot and the next. That was the real cause of the
+  // sub-pixel `before`/`after` mismatch this test used to tolerate — not
+  // Tailwind's rem-based layout — confirmed live: adding this call makes the
+  // delta exactly 0 across six repeated runs (previously 0-0.84px, no fixed
+  // value). Root cause fixed; equality restored.
+  await widthField.scrollIntoViewIfNeeded();
   await widthField.fill('0');
 
   const saveButton = page.getByRole('button', { name: /save as draft/i });
@@ -753,12 +755,7 @@ test('a refusal message appearing on blur does not move the Save button (spec 25
   if (after === null) {
     throw new Error('the Save button should still have a bounding box after the refusal renders');
   }
-  // Spec 293: converting OverlayGeometryFields.tsx from raw-px inline styles
-  // to rem-based Tailwind utilities introduces a genuine, reproducible
-  // sub-pixel (<1px) Chromium LayoutNG rounding difference here — not the
-  // multi-pixel jump #2366 was written to catch. A 1px tolerance absorbs
-  // exactly that measured effect without loosening the guard further.
-  expect(Math.abs(after.y - before.y)).toBeLessThan(1);
+  expect(after.y).toBe(before.y);
 
   await page.getByRole('button', { name: /^cancel$/i }).click();
 });
