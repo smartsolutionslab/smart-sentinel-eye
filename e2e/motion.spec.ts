@@ -80,7 +80,10 @@ async function installMotionRecorder(page: Page): Promise<void> {
         // live: broke all 3 US2 dialog tests, not the pseudo-element US3 route case, where both
         // sides are the same non-empty string). `||` normalises `''` to `null` on both sides.
         const match = animations.find((animation) => {
-          if (animation.animationName !== animationEvent.animationName || !(animation.effect instanceof KeyframeEffect)) {
+          if (
+            animation.animationName !== animationEvent.animationName ||
+            !(animation.effect instanceof KeyframeEffect)
+          ) {
             return false;
           }
           return (
