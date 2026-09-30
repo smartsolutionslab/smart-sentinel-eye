@@ -28,10 +28,11 @@ interface RecordedAnimation {
 }
 
 /**
- * `lib.dom.d.ts`'s `GetAnimationsOptions` has no `pseudoElement` field, even
- * though every evergreen browser's `Element.getAnimations()` accepts one (the
- * only way to read back a pseudo-element's own animations, which the route
- * cross-fade case needs for `::view-transition-old/new(root)`).
+ * `lib.dom.d.ts`'s `GetAnimationsOptions` has no `pseudoElement` field, though
+ * Chromium's `Element.getAnimations()` accepted one when tested against a live
+ * stack (frontend-engineer, spec 292 T016) — the only way observed to read back
+ * a pseudo-element's own animations, which the route cross-fade case needs for
+ * `::view-transition-old/new(root)`.
  */
 interface ElementWithPseudoElementAnimations {
   getAnimations(options?: { subtree?: boolean; pseudoElement?: string }): Animation[];
@@ -58,17 +59,26 @@ async function installMotionRecorder(page: Page): Promise<void> {
         }
 
         const pseudoElement = animationEvent.pseudoElement;
-        // `subtree: true` is required, not merely harmless: without it,
-        // `getAnimations({ pseudoElement })` returns nothing for
-        // `::view-transition-old/new(root)` — confirmed empirically against a
-        // live stack (frontend-engineer, spec 292 T016). The view-transition
-        // pseudo-element tree is not a direct child of `documentElement` the
-        // way `pseudoElement` alone assumes.
+        // `subtree: true` is required, not merely harmless: tested against a live stack
+        // (frontend-engineer, spec 292 T016), `getAnimations({ pseudoElement })` without it
+        // returned nothing for `::view-transition-old/new(root)`; with it, the animation was
+        // found. No further claim about why is made here.
         const animations = (element as unknown as ElementWithPseudoElementAnimations).getAnimations({
           subtree: true,
           pseudoElement,
         }) as CSSAnimation[];
-        const match = animations.find((animation) => animation.animationName === animationEvent.animationName);
+        // `subtree: true` widens the search to the whole subtree, so matching by
+        // `animationName` alone risks picking up an unrelated element's same-named animation
+        // elsewhere under `element`. Requiring the effect's own `target` and `pseudoElement` to
+        // match what this event actually fired for pins the match to the right element.
+        const match = animations.find((animation) => {
+          if (animation.animationName !== animationEvent.animationName || !(animation.effect instanceof KeyframeEffect)) {
+            return false;
+          }
+          return (
+            animation.effect.target === element && (animation.effect.pseudoElement ?? null) === (pseudoElement ?? null)
+          );
+        });
         if (match === undefined || !(match.effect instanceof KeyframeEffect)) {
           return;
         }
