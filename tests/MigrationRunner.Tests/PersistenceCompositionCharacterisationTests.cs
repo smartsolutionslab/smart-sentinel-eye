@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -6,14 +7,23 @@ using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using SmartSentinelEye.AuditObservability.Infrastructure;
+using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Automation.Infrastructure;
+using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.CameraCatalog.Infrastructure;
+using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.EventIngestion.Infrastructure;
+using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Identity.Infrastructure;
+using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using SmartSentinelEye.LayoutComposition.Infrastructure;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.OverlayDesigner.Infrastructure;
+using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.StreamDistribution.Infrastructure;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 using SmartSentinelEye.SystemVariables.Infrastructure;
+using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.MigrationRunner.Tests;
 
@@ -95,5 +105,43 @@ public class PersistenceCompositionCharacterisationTests
             "MigrationRunner's persistence composition must register no MeterProvider; Npgsql "
             + "metrics are wired only from AddXInfrastructure (plan §4), which MigrationRunner "
             + "never calls.");
+
+        using IServiceScope scope = provider.CreateScope();
+
+        AssertNonRetryingExecutionStrategy<CameraCatalogDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<StreamDistributionDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<LayoutCompositionDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<OverlayDesignerDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<SystemVariablesDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<EventIngestionDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<AutomationDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<IdentityDbContext>(scope.ServiceProvider);
+        AssertNonRetryingExecutionStrategy<AuditObservabilityDbContext>(scope.ServiceProvider);
+    }
+
+    /// <summary>
+    /// The exact runtime type is asserted by its published full name rather
+    /// than by a compile-time reference to <c>Npgsql.EntityFrameworkCore
+    /// .PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy</c>: that type
+    /// lives in Npgsql's own <c>Internal</c> namespace, and referencing it
+    /// directly would either need <c>#pragma warning disable EF1001</c> or
+    /// fail the Release build (ADR-0034 treats warnings as errors). Mirrors
+    /// <c>ExecutionStrategyCharacterisationTests</c>.
+    /// </summary>
+    private static void AssertNonRetryingExecutionStrategy<TContext>(IServiceProvider serviceProvider)
+        where TContext : DbContext
+    {
+        const string NonRetryingStrategyTypeName =
+            "Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy";
+
+        using TContext dbContext = serviceProvider.GetRequiredService<IDbContextFactory<TContext>>().CreateDbContext();
+
+        dbContext.Database.CreateExecutionStrategy().GetType().FullName.ShouldBe(
+            NonRetryingStrategyTypeName,
+            $"{typeof(TContext).Name} must resolve the non-retrying NpgsqlExecutionStrategy from "
+            + "MigrationRunner's persistence-only composition. A retrying strategy is added only "
+            + "by EnrichNpgsqlDbContext (AddXInfrastructure), which MigrationRunner never calls; "
+            + "this test would only go red if something reached that enrichment from the "
+            + "persistence path.");
     }
 }
