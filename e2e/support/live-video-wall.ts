@@ -27,6 +27,24 @@ export interface LiveVideoWallCamera {
  */
 export const LIVE_VIDEO_WALL_TILE_COUNT = 9;
 
+/**
+ * Spec 294 (issue #2353), plan.md §6 (3) — the fixture's overlay is created
+ * without touching the font-size slider (`seed-live-video-wall.setup.ts`
+ * step 2), so it carries `OverlayEditorDialog.tsx`'s own default
+ * (`DEFAULT_INPUT.label.fontSizePx: 32`).
+ *
+ * Named here, once, rather than restated as a literal next to a
+ * computed-style assertion (memory: an assertion must not check its own
+ * input) — `e2e/kiosk-label-scales-with-its-tile.spec.ts` imports this
+ * rather than writing `32` beside its expectation. At ~635 px tiles on the
+ * nine-tile wall this value's floor (`min(12, f/4)` = 8 px) does not bind
+ * (spec 294 plan.md §6 (3)). If `OverlayEditorDialog.tsx`'s default ever
+ * changes, this is the one place to update — the spec that reads it then
+ * fails loudly (a ratio mismatch) instead of silently asserting the wrong
+ * one.
+ */
+export const LIVE_VIDEO_WALL_OVERLAY_FONT_SIZE_PX = 32;
+
 export interface LiveVideoWall {
   variableName: string;
   variableInitialValue: string;

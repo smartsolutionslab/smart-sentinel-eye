@@ -609,7 +609,7 @@ export function OverlayEditor({
     <div className={className} onKeyDown={handleRootKeyDown}>
       <div
         data-testid="overlay-editor-canvas"
-        className="relative overflow-hidden rounded-lg"
+        className="relative overflow-hidden rounded-lg @container"
         style={{
           width: canvasWidthPx,
           height: canvasHeightPx,
