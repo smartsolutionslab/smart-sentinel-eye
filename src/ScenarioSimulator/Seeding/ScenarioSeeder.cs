@@ -160,10 +160,19 @@ public sealed class ScenarioSeeder(
         }
         else
         {
-            RuleSeedResult highlightResult = await rules.EnsureRuleAsync(HighlightRuleSeed.From(scenario, asset, overlay), cancellationToken);
-            if (highlightResult is RuleSeedResult.Refused highlightRefused)
+            switch (HighlightRuleSeed.From(scenario, asset, overlay))
             {
-                logger.HighlightRuleRefused(asset.Key, highlightRefused.Reason);
+                case HighlightSeedResult.Refused refused:
+                    logger.HighlightRuleRefused(asset.Key, refused.Reason);
+                    break;
+                case HighlightSeedResult.Valid valid:
+                    RuleSeedResult highlightResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
+                    if (highlightResult is RuleSeedResult.Refused highlightRefused)
+                    {
+                        logger.HighlightRuleRefused(asset.Key, highlightRefused.Reason);
+                    }
+
+                    break;
             }
         }
 
