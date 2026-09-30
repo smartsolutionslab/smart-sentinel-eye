@@ -244,6 +244,62 @@ public class DesignTokenLayerTests
         }
     }
 
+    // Content roles pinned across themes (spec 293 §5, issue #2342). Each
+    // name here describes what the wall paints or what a test field is, not
+    // console chrome, so no theme block may ever redeclare it — the same
+    // rule --color-bg-video and --color-fg-on-fault already follow, without a
+    // guard, before this fact existed.
+    private static readonly string[] PinnedContentRoles =
+    [
+        "--color-bg-video",
+        "--color-bg-video-inverse",
+        // US2 (spec 293 §5) — the overlay label's surface and ink, shared by
+        // the wall and the editor (overlayLabelStyle.ts).
+        "--color-bg-label",
+        "--color-fg-on-label",
+    ];
+
+    /// <summary>
+    /// Fact 13 (spec 293 §5, new). Every name in <see cref="PinnedContentRoles"/>
+    /// is declared in :root and absent from every [data-theme=...] block — a
+    /// theme may never redeclare a content role. Reuses the same declaration
+    /// parser as fact 6; no new parser. Red on develop:
+    /// --color-bg-video-inverse is not declared anywhere yet.
+    /// </summary>
+    [Fact]
+    public void Content_roles_are_pinned_across_themes()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+
+        HashSet<string> rootNames = [.. RootMap(declarations).Keys];
+        List<string> problems = [];
+
+        foreach (string name in PinnedContentRoles)
+        {
+            if (!rootNames.Contains(name))
+            {
+                problems.Add($"{name} is not declared in {tokenFile.Name}'s :root.");
+                continue;
+            }
+
+            Declaration[] themeRedeclarations =
+                [.. declarations.Where(declaration => declaration.Name == name && !IsRootSelector(declaration.Selector))];
+
+            if (themeRedeclarations.Length > 0)
+            {
+                problems.Add(
+                    $"{name} is redeclared in "
+                    + string.Join(", ", themeRedeclarations.Select(declaration => declaration.Selector))
+                    + " — a content role names what the wall paints or what a test field is, and must stay "
+                    + "pinned across every theme (spec 293 §5).");
+            }
+        }
+
+        problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
+    }
+
     /// <summary>Fact 7 (green pin). The triad's rendered sRGB does not move.</summary>
     [Fact]
     public void The_triad_keeps_its_rendered_values()

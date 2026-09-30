@@ -60,15 +60,18 @@ vi.mock('react-rnd', () => ({
 
 const { OverlayEditor } = await import('./OverlayEditor.js');
 
-// The source literal is `repeating-linear-gradient(45deg, #1f2937, #1f2937
-// 12px, #111827 12px, #111827 24px)` (`OverlayEditor.tsx:69`). This is that
-// same string as a browser — and jsdom's `cssstyle` — normalizes it once it
-// has gone through `element.style`: colours become `rgb(...)`. This is what
-// `overlay-editor-canvas`'s `style.background` actually reads back as, and the
-// exact-match `toBe` below is what pins it — not softened to a substring, so
-// any change to the gradient (a colour, the angle, a stop) fails this.
+// Spec 293 §6: the checkerboard's colours now come from the token layer
+// (--color-border-subtle / --color-bg-elevated), so it themes with
+// data-theme instead of being fixed. jsdom's `cssstyle` preserves a bare
+// `var(--x)` reference verbatim inside a `repeating-linear-gradient(...)`
+// colour stop — verified empirically against this exact property grouping
+// (only `background` set on the canvas div, never combined with
+// `backgroundColor` on the same element) — so `style.background` reads back
+// the token references unresolved, not an `rgb(...)` value. The exact-match
+// `toBe` below is what pins it — not softened to a substring, so any change
+// to the gradient (a token, the angle, a stop) fails this.
 const GRADIENT_RENDERED =
-  'repeating-linear-gradient(45deg, rgb(31, 41, 55), rgb(31, 41, 55) 12px, rgb(17, 24, 39) 12px, rgb(17, 24, 39) 24px)';
+  'repeating-linear-gradient(45deg, var(--color-border-subtle), var(--color-border-subtle) 12px, var(--color-bg-elevated) 12px, var(--color-bg-elevated) 24px)';
 
 const BASE_LABEL: OverlayLabel = {
   text: 'Line-1 Inlet',

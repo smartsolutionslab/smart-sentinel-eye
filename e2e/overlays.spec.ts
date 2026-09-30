@@ -73,6 +73,76 @@ test('operator sees the White field backdrop behind the label without a camera',
   await expect(canvas).toHaveCSS('background-color', 'rgb(255, 255, 255)');
 });
 
+// Spec 293 (issue #2342) T005/T009 — the one thing jsdom cannot prove either
+// half of: a real browser's computed style, which resolves var(...) against
+// the cascade jsdom never runs. New behaviour, RED (ADR-0139/ADR-0144)
+// against unmodified develop: the checkerboard is a fixed literal today, so
+// its computed background-image is identical under "dark" and "light" —
+// the first assertion below is expected to fail on exactly that. The label
+// half (US2, spec §5) is characterisation, not red: overlayLabelStyle.ts's
+// literals already produce the same computed value regardless of
+// data-theme, because nothing in the DOM reads data-theme for it today —
+// this half is expected to pass already and must keep passing afterward,
+// unmodified (plan.md §5).
+//
+// `data-theme` is set directly on `document.documentElement` (plan.md §5's
+// "THE <html> CAVEAT" — both apps already put it there in index.html), not
+// through any UI control — spec 293 does not add a theme switcher; this is
+// the mechanism a future one would drive.
+test('the checkerboard follows the theme; the label does not (spec 293)', async ({ page }) => {
+  await signInAsOperator(page);
+
+  await openSection(page, 'Overlays');
+
+  await page.getByRole('button', { name: /new overlay/i }).click();
+
+  const canvas = page.getByTestId('overlay-editor-canvas');
+  // The label surface is `overlay-editor-preview`'s parent, the same
+  // traversal OverlayLabelParity.test.tsx uses (spec 146) — the `<span>`
+  // itself carries no background/colour of its own.
+  const label = page.getByTestId('overlay-editor-preview');
+
+  async function setTheme(theme: string) {
+    await page.evaluate((value) => {
+      document.documentElement.dataset.theme = value;
+    }, theme);
+  }
+
+  async function readCanvasGradient(): Promise<string> {
+    return canvas.evaluate((element) => getComputedStyle(element).backgroundImage);
+  }
+
+  async function readLabelSurface(): Promise<{ background: string; color: string }> {
+    return label.evaluate((element) => {
+      const surface = element.parentElement!;
+      const computed = getComputedStyle(surface);
+      return { background: computed.backgroundColor, color: computed.color };
+    });
+  }
+
+  await setTheme('dark');
+  const darkGradient = await readCanvasGradient();
+  const darkLabel = await readLabelSurface();
+
+  await setTheme('light');
+  const lightGradient = await readCanvasGradient();
+  const lightLabel = await readLabelSurface();
+
+  await setTheme('high-contrast');
+  const highContrastLabel = await readLabelSurface();
+
+  // US1 — the checkerboard's colours are --color-border-subtle/
+  // --color-bg-elevated, which the light theme redeclares (tokens.css), so
+  // the rendered gradient differs between the two themes.
+  expect(lightGradient).not.toBe(darkGradient);
+
+  // US2 — --color-bg-label/--color-fg-on-label are content roles, pinned in
+  // :root only (spec §5); no theme block may redeclare them, so the label's
+  // computed surface is byte-identical across all three.
+  expect(lightLabel).toEqual(darkLabel);
+  expect(highContrastLabel).toEqual(darkLabel);
+});
+
 // Spec 151 (issue #2346) T002 — the one thing jsdom cannot prove
 // (spec.md §Precision, §Independent end-to-end test procedure step 11): a
 // typed percentage survives real form submission and the double -> decimal

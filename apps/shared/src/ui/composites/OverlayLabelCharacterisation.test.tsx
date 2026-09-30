@@ -70,16 +70,20 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
   it('Paints the wall background at 0.85 alpha with no border', () => {
     const label = renderLabel();
 
-    expect(label.style.background).toBe('rgba(255, 255, 255, 0.85)');
+    // Spec 293 §6 (US2): background is now var(--color-bg-label) —
+    // color-mix(in oklch, var(--white) 85%, transparent), the same 0.85
+    // alpha, pinned in :root only (spec §5) — not a raw rgba() literal.
+    expect(label.style.background).toBe('var(--color-bg-label)');
     expect(label.style.border).toBe('');
   });
 
   it('Sets the ink colour and weight', () => {
     const label = renderLabel();
 
-    // jsdom normalises the authored hex literal to its rgb() equivalent.
-    expect(label.style.color).toBe('rgb(17, 24, 39)');
-    expect(label.style.fontWeight).toBe('600');
+    // Spec 293 §6 (US2): color is now var(--color-fg-on-label) —
+    // var(--gray-900), the same resolved ink (#14171c-pinned) as before.
+    expect(label.style.color).toBe('var(--color-fg-on-label)');
+    expect(label.style.fontWeight).toBe('var(--font-weight-semibold)');
   });
 
   it('Sizes the type with the vw-derived clamp formula', () => {
@@ -92,8 +96,12 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
   it('Pads the label at 4px and ignores pointer events', () => {
     const label = renderLabel();
 
-    // jsdom normalises the authored '0 4px' shorthand to '0px 4px'.
-    expect(label.style.padding).toBe('0px 4px');
+    // Spec 293 §6 (US2): padding is now '0 var(--space-1)' — the same 4px
+    // (--space-1 = 0.25rem), pinned in :root only (spec §5). jsdom cannot
+    // parse the var() inside the shorthand, so it preserves the authored
+    // string verbatim rather than normalising it to '0px ...' the way it
+    // does a fully literal value.
+    expect(label.style.padding).toBe('0 var(--space-1)');
     expect(label.style.pointerEvents).toBe('none');
   });
 });
