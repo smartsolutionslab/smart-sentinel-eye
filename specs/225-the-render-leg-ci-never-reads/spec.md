@@ -5,9 +5,10 @@
 Labelled `agent:ready`, Project #13, status Todo.
 **Branch:** `2337-render-leg-ci-never-reads`
 **Created:** 2026-09-23
-**Status:** US1 merged (PR #2549), US2 merged (PR #2550). **Resumed 2026-09-23 for
-US3 + US4 on branch `ci/2337-composite-render-regression-gate`** — see §9, which
-supersedes anything above it where the two disagree.
+**Status:** US1 merged (PR #2549), US2 merged (PR #2550), T027/T019b/T020 merged
+(PR #2555). **Resumed 2026-09-23 for US3 + US4** — see §9. **Re-verified and
+resumed again 2026-09-30 on branch `ci/2337-render-leg-gate-completion`** — see
+§10, which supersedes §9 and everything above it where they disagree.
 **Lane:** autonomous (ADR-0144)
 
 **ADRs this spec is bound by:**
@@ -724,3 +725,195 @@ Unchanged from §5. **Leg: composite + render (≤ 50 ms).** The gate adds no wo
 to the leg and changes no product code. T026 changes only the test harness. If
 T026 finds a product defect, that is a STOP and becomes a separate issue. No
 leg in §IV changes state.
+
+---
+
+## 10. Re-verification, 2026-09-30: what the tree and the CI record actually say
+
+#2337 was closed COMPLETED on 2026-09-23 although its closing PR (#2555) said it
+stayed open, and was reopened on 2026-09-30. #2554 (T026) was closed COMPLETED
+the same night with no comment; its timeline shows the close came from commit
+`d49ff1c7`, a docs-only edit to this spec's `tasks.md`/`plan.md` that mentions
+#2554 but changes no code. Neither closure is evidence. This section records what
+was read instead. The `render-leg-attempt-*.json` records and the
+`e2e-report.json` files cited below were downloaded from the
+`playwright-report-*-of-4` artifacts of every `develop` push run of `ci.yml`
+from 2026-09-23 21:52Z to 2026-09-30 15:35Z, on 2026-09-30. Those artifacts
+expire 14 days after each run.
+
+### 10.1 What is on `develop` (`419f4f20`) and what is not
+
+| Item | State | Evidence |
+|---|---|---|
+| `isCompleteRenderLegMeasurement`, `RenderLegRecord.complete` (T027) | **on develop** | `e2e/support/render-leg.ts`; `kiosk-shows-a-label-over-video.spec.ts:1494-1513` |
+| `scripts/render-leg-check.mjs` + test (T020) | **on develop** | Exercised for real by spec 294's Phase 5 (`specs/294-*/verification.md` T014) |
+| `scripts/render-leg-baseline-agreement.mjs` + test (T019b) | **on develop, synthetic inputs only** | The test's own header (`:10-14`) says it does not read the real files. Nothing checks the real pair yet |
+| `render-leg-gate` job in `ci.yml` (T021) | **absent** | `grep render-leg .github/workflows/ci.yml` finds only the US1 summary step (`:713-715`). No `download-artifact` is used anywhere |
+| `specs/225-*/figures.md`, `baseline.json` (T016, T019) | **absent** | The directory holds `spec.md`, `plan.md`, `tasks.md` only |
+| Summary wording (T028) | **unchanged** | `render-leg-summary.mjs:67` still prints "No threshold is asserted here". The test pins it at `render-leg-summary.test.mjs:134` |
+| #2554's proposed harness fix (T026) | **never applied** | `armOverlayPaint` (`kiosk-shows-a-label-over-video.spec.ts:619-653`) still observes `document.querySelector`'s first label only |
+
+### 10.2 F5: T026's instability is gone, fixed by a different change than the one T026 proposed
+
+The span test's outcome in every `develop` push run where the e2e shards ran:
+
+| Window | Fixture | Runs | Attempt 0 passed | Retried or red |
+|---|---|---|---|---|
+| 2026-09-23 21:52Z to 2026-09-26 12:38Z (`6d9b0041` … `e918d457`) | 4 tiles | 16 | 6 | **10**: 8 flaky (passed only on attempt 2), 2 red on all three attempts (35981316098, 35986570873) |
+| 2026-09-26 14:18Z to 2026-09-30 15:35Z (`c276d717` … `419f4f20`) | 4 tiles, then 9 from `44651124` | **27** | **27** | **0** |
+
+The failures in the first window were the two F1 described: "tile … contributed
+only N overlay_draw sample(s)" and "the value never painted … (0 label
+mutation(s) were seen)". The boundary between the windows is exactly commit
+`05061543` (spec 232, #2221, "widen the dev/e2e gateway rate budget for the
+wall's own telemetry"). `e918d457`, the last flaky run, does not contain it.
+`c276d717`, the first clean one, does. Spec 232 diagnosed the "0 label
+mutations" mode as the operator's submit being answered 429 from a gateway
+bucket the wall's own telemetry had emptied.
+
+What this establishes, and what it does not:
+
+- **Established:** 27 consecutive first-attempt passes, 20 of them on the
+  nine-tile wall. T026's own exit bar was 3 consecutive local passes. The
+  harness is not re-rolling itself, and §8.5's stop condition ("more than one
+  of the five needed a retry") is nowhere near.
+- **Established:** the leading hypothesis T026 was written around (the
+  first-label wait) was not the cause. It is still in the code, unchanged, and
+  the failures stopped anyway.
+- **Inferred, not proven:** that the "only N samples" mode had the same cause as
+  the "0 mutations" mode. Both stopped at the same commit. Spec 232 explains only
+  the second. A frozen tile is consistent with its kiosk's own requests being
+  refused 429 from the same bucket, but no run observed that directly.
+
+**Decision: T026 is discharged by evidence and is not redone.** Re-applying
+#2554's harness change now would be a speculative fix for a failure nobody can
+currently reproduce. The first-label wait stays a known weakness of the harness.
+If the span test reddens again, §10.4's tighter `complete` rule keeps a
+truncated attempt from reaching the gate.
+
+### 10.3 F6: the fixture is now nine tiles, not four
+
+ADR-0156 raised the wall cap from 4 to 9 (`GridDimensions.MaxTiles`, 3×3).
+Commit `54b47034` (spec 258/262 T041) moved this spec's fixture to match. It
+seeds a 3×3 wall and asserts nine distinct cameras. Records since run
+36351086768 carry `count: 108`, which is 9 tiles × 12 draws.
+
+This amends §§3–9 wherever they say "four tiles" or "the domain ceiling is
+four":
+
+- FR-008 and SC-002 now read "a 3×3 grid of nine tiles, the ADR-0156 ceiling".
+  US2's value is unchanged: the measurement runs at the domain's real ceiling.
+- FR-018's baseline is taken on the **nine-tile** fixture. No four-tile run is
+  eligible.
+- `baseline.json`'s `fixture` is `{ "tiles": 9, "iterations": 10 }`.
+- FR-015 is unaffected. Nine is still a per-wall ceiling, and no artefact may
+  reason from 250 tiles.
+
+The nine-tile figure measures CI's software rasteriser. It is not the
+real-kiosk-hardware measurement that ADR-0156 requires before `MaxTiles = 9`
+ships to production. That measurement is #2614, and this spec does not
+discharge it.
+
+### 10.4 F7: `complete: true` can describe an attempt that failed
+
+`isCompleteRenderLegMeasurement` tests only that there are `expectedCameras`
+distinct cameras, each with at least `ITERATIONS` samples. A full run produces
+**12** draws per camera for 10 iterations. When the span loop refuses at
+iteration 8 or later and `break`s (`:1395-1446`), the record is still written,
+and it can still pass the predicate. That happened in the CI record:
+
+| Run | Attempt 0 failed with | Record |
+|---|---|---|
+| 35979443020 | "iteration 8: the value never painted" | `complete: true`, n = 40 |
+| 35986570873 | "iteration 8: the value never painted" | `complete: true`, n = 40 |
+| 35988620124 | "iteration 9: the value never painted" | `complete: true`, n = 44 |
+| 35936415099 | "iteration 9: the value never painted" | `complete: true`, n = 44 |
+| 36242562581 | "iteration 9: the value never painted" | `complete: true`, n = 44 |
+
+The checker takes the *first complete attempt*. Under the current predicate, on
+any of these runs it would have evaluated a truncated, failed attempt 0 rather
+than skipping it. That contradicts US4 scenario 3 and FR-011, which say the
+first attempt that produced a *complete* measurement is evaluated.
+
+- **FR-021 (tightens FR-016).** An attempt is complete only if **the span loop
+  ran all `ITERATIONS` without a refusal** *and* the per-camera count holds. The
+  predicate stays one exported function in `e2e/support/render-leg.ts`, called
+  by both the test and the record writer. It gains the loop's completion as an
+  input. The test's existing per-camera `expect`s are untouched.
+
+This does not affect any baseline candidate. Every run in §10.5 passed attempt 0,
+so its loop ran to the end. The tightening matters only for the gate's verdict
+on a future failing run.
+
+### 10.5 F8: the variance on nine tiles, and why FR-019 is now on a knife-edge
+
+All 20 nine-tile `develop` push runs so far (36351086768 … 36737867431)
+completed on attempt 0. Their p50s, truncated to 0.01 ms:
+
+54.75, 82.34, 49.49, 56.39, 57.25, 46.84, 50.00, 70.90, 49.80, 50.60, 65.35,
+57.75, 55.79, 50.54, 57.14, 66.85, 59.55, 51.90, 53.59, 50.45
+
+- **All 20:** mean 56.87 ms, sample σ 8.70 ms, **3σ = 26.11 ms**. That is above
+  FR-019's 25 ms limit.
+- **Spec 294's nine** (its §7: the nine most recent runs whose *workflow* was
+  green, which drops four runs in the window whose span test passed but whose
+  workflow failed for other reasons):
+  mean 57.66 ms, σ 7.32 ms, 3σ = 21.97 ms. That is under the limit.
+- **Run 36405585641 (`3b046175`), p50 82.34 ms**, with normal cadence
+  (T = 32.28/29.89 ms), lies above spec 294's threshold of 79.64 ms. A gate
+  built from those nine runs would have gone falsely red on `develop` within the
+  same week's record. That is 1 run in 20, where a one-sided 3σ under
+  normality promises about 1 in 740. The distribution has a heavy upper tail.
+
+**Consequence for T015–T018.** FR-018's "at least five" leaves the choice of
+runs open. On this data, which five (or nine) runs are chosen decides FR-019's
+verdict. That choice cannot be allowed to be made after looking at the data. So
+this section fixes the window rule **before** T015 runs:
+
+- **FR-022 (the eligibility window, fixed in advance).** The baseline is
+  **every** `develop` push run of `ci.yml` in which the span test ran on the
+  nine-tile fixture with `05061543` in its history, from run 36351086768 up to
+  the collection date. Nothing inside the window is dropped. A run with no
+  complete attempt is recorded as a refusal (US3 scenario 5) and also counts
+  against stability. The window is not truncated to "the most recent N" and is
+  not started later to exclude an outlier. It closes at T015's collection
+  date, which `figures.md` states.
+- The render path changed inside the window (`b635a48a` label-surface tokens,
+  `9163bf00` tile-relative type). `figures.md` marks those rows but does not
+  exclude them. Spec 294 measured `9163bf00` within tolerance. If a render
+  change should ever start a new window, that is a re-baseline, with its own
+  visible diff to `baseline.json`.
+
+**Prediction, not a decision (this replaces §9.4).** On the 20 runs above,
+FR-019 **fails**: 3σ = 26.11 ms against a 25 ms limit. If T017's committed
+figures still fail it, T018 routes to FR-014. The lane then ships `render-leg-check`
+report-only, records the finding, and **hands back for an ADR on what CI may
+enforce on this leg**. The lane may not write that ADR (ADR-0144). There are
+three plausible options for that ADR, and none of them is this spec's to take:
+
+1. Accept report-only.
+2. Restate FR-019's yardstick against the runner's *observed* cadence, since T
+   has been about 32 ms on every nine-tile run, not 16.67 ms. That would raise
+   the limit to about 48 ms.
+3. Raise `ITERATIONS` to narrow σ (F4's lever), which costs shard time
+   (NFR-003, #2376).
+
+Option 2 changes a decision rule after its data was seen. That is exactly why it
+needs an ADR and not an edit here.
+
+### 10.6 The gate job when the shards never ran
+
+In 4 of the `develop` runs read above (36246570937, 36285820840, 36339555959,
+36345694357), `e2e-shards` was **skipped** because an upstream job failed. A
+`render-leg-gate` with `if: always()` will run there and find no records.
+
+- **FR-023.** When `needs.e2e-shards.result` is not `success` or `failure`
+  (i.e. `skipped` or `cancelled`), the job fails with
+  `unmeasured: e2e-shards <result>, no figure was taken`. This names the cause.
+  It never passes, and it never reads as `regressed`. When the shards did run
+  (success or failure), the checker's own decision table governs.
+
+### 10.7 Latency-budget impact
+
+Unchanged from §5 and §9.6. **Leg: composite + render (≤ 50 ms).** No product
+code changes. The FR-021 tightening is harness-only. No leg in §IV changes state.

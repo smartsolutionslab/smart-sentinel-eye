@@ -6,21 +6,35 @@
 (on Project #13, status Todo — the phase-3 gate is already satisfied)
 **Lane:** autonomous (ADR-0144)
 
-**Progress (2026-09-23):** T001–T009 **done** (US1, PR #2549). T010–T014 **done**
-(US2, PR #2550). **Open: T026 → T027 → T015–T022 → T028 → T023–T025**, on
-branch `ci/2337-composite-render-regression-gate`. Spec §9 and plan §8 govern
-them. The engineer is **infra-engineer**: the work is CI workflow and
-measurement harness, with nothing under `src/` or `apps/`.
+**Progress (2026-09-30), verified against `develop@419f4f20` and the CI record
+rather than issue state. Spec §10 and plan §9 hold the evidence.**
 
-**Deviation from the graph below (phase-6 finding, this PR):** T027's
-`complete`-field work is delivered **ahead of T026** rather than after it —
-T026 (the span-test flakiness fix) is tracked separately as
-[#2554](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2554)
-and is not part of this PR's scope. T027's own sub-item updating
-`render-leg-summary.mjs` to render incomplete attempts moved to **T028** (see
-T027 and T028 below) — this PR does not touch that rendering, since nothing
-wires the gate into CI yet and the summary still honestly says "no threshold
-is asserted" until T028 lands.
+| Task | State | How verified |
+|---|---|---|
+| T001–T009 (US1) | **done**, PR #2549 | summary step in `ci.yml:713-715`, records on every run |
+| T010–T014 (US2) | **done**, PR #2550. The fixture has since moved to **nine tiles** (`54b47034`, ADR-0156) | records carry `count: 108` since run 36351086768 |
+| T026 (span-test instability, #2554) | **discharged by evidence, no code.** #2554's proposed harness fix was **never applied**, and #2554 was closed by a docs-only commit (`d49ff1c7`). The instability was ended by `05061543` (spec 232, gateway rate budget): 16 runs before it had 10 retried or red, and 27 runs after it had 27 first-attempt passes | spec §10.2 |
+| T027 (`complete` field) | **done**, PR #2555, **but too loose**: `complete: true` was written for 5 attempts that failed mid-loop. Tightened by **T029** | spec §10.4 |
+| T020 (checker), T019b (agreement logic) | **done**, PR #2555. T019b is proven on synthetic pairs only, and **T019c** wires the real pair | spec §10.1 |
+| T015–T019, T021, T022, T028 | **not started**: no `figures.md`, no `baseline.json`, no `render-leg-gate` job, and the summary still says "No threshold is asserted" | spec §10.1 |
+| T023–T025 | not started | — |
+
+**Open, in order: T029 → T015 → T016 → T017 → T018 ⟨GATE⟩ → (T019 → T019c) → T028 → T021 → T022 ⟨GATE⟩ → T023–T025.**
+They go in one PR on `ci/2337-render-leg-gate-completion` (plan §9.1).
+
+**Read this before T018:** on the 20 nine-tile runs already on record,
+FR-019 **fails** (3σ = 26.11 ms against a 25 ms limit; spec §10.5). The
+likeliest outcome is the report-only branch (plan §9.4). That branch hands
+#2337 back for an ADR the lane may not write, and #2337 stays open.
+
+The engineer is **infra-engineer**: the work is CI workflow, measurement harness
+and evidence files, with nothing under `src/` or `apps/`. No new ADR is needed
+for the gate branch. The report-only branch *ends* in an ADR request.
+
+*Superseded note (2026-09-23), kept for the record:* PR #2555 delivered T027
+ahead of T026 and deferred T026 to #2554. That deferral was never picked up.
+#2554 was closed without a fix, and the instability went away for a different
+reason (above).
 
 Format: `[TNNN] [P?] [Story] description`. `[P]` marks tasks owning disjoint
 files that may run concurrently (ADR-0109).
@@ -36,6 +50,19 @@ files that may run concurrently (ADR-0109).
 | US2's `:148` tile-count edit | **neither** | An expected value changes because the fixture changed. The decode assertions around it must pass **unmodified**; if one has to be edited, that is a finding and a STOP (spec US2 scenario 4), not an adjustment. |
 
 | T026 (harness fix), T027, T019b, T020, T021, T028 | **RED** | Resumption tasks. Plan §8.6 says what each red looks like. T026's red is already on record in four CI runs, and is reproduced locally once more. |
+
+**Re-declared 2026-09-30 for what remains (this table governs phase 4a):**
+
+| Task | Colour | The red, concretely |
+|---|---|---|
+| T026 | **none: not a phase-4 task** | Discharged by evidence (spec §10.2). No code, so there is no test to colour. |
+| T029 | **RED** | A predicate unit test in `e2e/support/render-leg.test.mjs`: per-camera counts satisfied but the loop not completed, expecting `false`. It fails against today's three-argument predicate. Quote it. |
+| T015–T017 | **none: evidence tasks** | No code. Their correctness is enforced downstream by T019's self-verifying `baseline.json` and by T019c. |
+| T018 | **none: a decision gate** | — |
+| T019 + T019c | **RED** | T019c's real-pair case fails while `figures.md`/`baseline.json` are absent. Quote it, then it passes once both are committed. |
+| T028 | **RED** | As plan §8.6. The `:134` assertion is *replaced* because the required wording changed on purpose (FR-020). It is not weakened. |
+| T021 | **RED** | T022's observed `regressed` is the job's red. FR-023's skipped-shards branch is shell logic. Run that step's script locally with the result set to `skipped` and to `cancelled`, and quote both non-zero outputs. |
+| T022 | **RED** | As plan §8.6. On the report-only branch, it is the blurred figure against the window mean instead. |
 
 Ambiguity resolves to red. Nothing here is behaviour-preserving, so no task in
 this spec takes the characterisation path.
@@ -142,7 +169,8 @@ baseline is taken against a fixture that then changes.*
 this test now. It has to be stable before any figure is taken.*
 
 - **[T026] [US2] ⟨GATE⟩ Diagnose, then fix, the four-tile span-test
-  instability.** **RED is already on record:** CI runs 35894668870,
+  instability.** **2026-09-30: discharged by evidence, not by this fix. See
+  spec §10.2. Do not implement the steps below.** **RED is already on record:** CI runs 35894668870,
   35907278215, 35918329596 and 35920524319, with their messages in spec §9.2
   F1. Reproduce the failure once locally, on unchanged code, and quote it.
   Then establish the cause **with evidence**. The leading hypothesis is that
@@ -179,6 +207,10 @@ this test now. It has to be stable before any figure is taken.*
 *Depends on US1 (the figure must be machine-readable), on US2 (the fixture must
 be final), and on **T026 + T027** (the harness must be stable, and records must
 carry `complete`).*
+
+*2026-09-30: T015–T018 are governed by spec §10.5 (FR-022's fixed window, nine
+tiles) and plan §§9.3–9.4 wherever the text below says "five", "four-tile" or
+"post-T027".*
 
 - **[T015] [US3] Collect at least five post-T027 `develop` push runs**
   (spec FR-018, plan §8.5). Three is not enough: a σ from three points is too
@@ -261,6 +293,29 @@ carry `complete`).*
 
 ---
 
+## Added at the 2026-09-30 resumption
+
+- **[T029] [US4] `complete` requires the span loop to have finished (spec
+  FR-021, plan §9.2).** Give `isCompleteRenderLegMeasurement` a fourth input:
+  the loop ran all `ITERATIONS` with no refusal. Pass it from
+  `kiosk-shows-a-label-over-video.spec.ts:1499`. Leave the per-camera `expect`s
+  untouched. **RED first** in `e2e/support/render-leg.test.mjs`: per-camera
+  counts met but the loop not completed must give `false`. Update the
+  predicate's existing tests' call shape; their expected values do not change.
+  Owns `e2e/support/render-leg.ts`, `render-leg.test.mjs`, and the spec file.
+  It is independent of T015–T017, which read runs that all passed.
+- **[T019c] [US4] The real pair is checked on every PR (plan §9.6).** Add one
+  case to `scripts/render-leg-baseline-agreement.test.mjs` that runs the script
+  against the committed `figures.md` and `baseline.json` and requires exit 0.
+  **RED** while the files are absent. Lands in the same commit as T019. It is
+  deferred with T019 on T018's report-only branch.
+
+**T021 additions (plan §9.5):** FR-023's skipped/cancelled-shards step, a
+download step pinned to a full SHA with no `merge-multiple`, verified behaviour
+on a pattern that matches nothing, and `setup-node` 22 without `pnpm install`.
+
+---
+
 ## Wrap-up
 
 - **[T023] Self-review against the FR/NFR table.** Every FR-001…FR-015 and
@@ -332,6 +387,23 @@ T026 ⟨GATE: harness vs product; product → STOP, separate issue⟩     e2e/ki
                            └─ T022 ⟨GATE: blur counterfactual observed red⟩
                                 └─ T023 ─ T024 ─ T025   ══ PR B, closes #2337 ══>
 ```
+
+### Graph for the 2026-09-30 resumption, which supersedes both graphs above
+
+```
+T029 (predicate)                        e2e/support/render-leg*.{ts,test.mjs}, spec file
+T015 ─ T016 ─ T017                      specs/225-*/figures.md   (independent of T029: disjoint files)
+  └─ T018 ⟨GATE: 3σ < 25 ms?⟩
+       ├─ yes → T019 + T019c ─ T028 ─ T021 ─ T022 ⟨GATE⟩ ─ T023–T025   closes #2337
+       └─ no  → T028 (report-only wording) ─ T021 (report-only job, exit 0) ─ T022 (figure only)
+                ─ T023–T025 ─ hand back: agent:blocked + ADR question; #2337 stays open
+```
+
+`[P]`: T029 and T015–T017 own disjoint files and may run concurrently. Neither
+waits on the other, and T021 needs both. Everything after T018 is sequential.
+
+**The 2026-09-23 note below is superseded:** there is one PR now, not two
+(plan §9.1).
 
 **This PR's actual scope diverges from the graph above**, per the Progress
 note: it delivers T027's `complete`-field work without waiting on T026 (T026
