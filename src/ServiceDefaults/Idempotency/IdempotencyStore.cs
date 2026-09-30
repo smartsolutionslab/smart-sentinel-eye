@@ -69,7 +69,12 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
 
         if (inserted == 1)
         {
-            return IdempotencyReservation.Reserved;
+            // #2491. Placeholder token for the shape-only commit: the claim
+            // statement above still only returns a row count, not the
+            // reserved_at it wrote. T011 adds RETURNING and reads the real
+            // value back; until then nothing compares this token against a
+            // stored one, so a wrong value here changes nothing observable.
+            return IdempotencyReservation.ReservedAs(new IdempotencyClaim(scope, default));
         }
 
         // Someone else holds the key. Whether they finished is the whole
@@ -97,9 +102,11 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
     }
 
     public async Task CompleteAsync(
-        IdempotencyScope scope, Guid resourceIdentifier, CancellationToken cancellationToken)
+        IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken)
     {
-        Ensure.That(scope).IsNotNull();
+        Ensure.That(claim).IsNotNull();
+
+        IdempotencyScope scope = claim.Scope;
 
         // Guarded on resource_identifier IS NULL (#2290 phase-6 review), the
         // same guard ReleaseAsync already carries below. Without it, a
@@ -111,6 +118,14 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // wrong resource. With the guard, whichever of the two commits first
         // wins permanently; the loser's write becomes a no-op instead of a
         // silent clobber.
+        //
+        // #2491. The guard above only catches the ordering where the new
+        // holder has already completed. It does nothing when the new holder
+        // has merely reserved and not yet finished — this statement still
+        // matches that row today and overwrites it with the zombie's
+        // identifier. T012 adds AND reserved_at = {4} from claim.ReservedAt to
+        // close that: a late call from an overtaken attempt then matches no
+        // row at all, because a takeover always changes reserved_at.
         const string sql =
             """
             UPDATE idempotency_key
@@ -122,13 +137,20 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
             sql, [scope.Key.Value, scope.Endpoint, scope.Caller, resourceIdentifier], cancellationToken);
     }
 
-    public async Task ReleaseAsync(IdempotencyScope scope, CancellationToken cancellationToken)
+    public async Task ReleaseAsync(IdempotencyClaim claim, CancellationToken cancellationToken)
     {
-        Ensure.That(scope).IsNotNull();
+        Ensure.That(claim).IsNotNull();
+
+        IdempotencyScope scope = claim.Scope;
 
         // Guarded on resource_identifier IS NULL so a release arriving late
         // cannot delete a reservation that has since completed — which would
         // turn a replayable answer back into a fresh registration.
+        //
+        // #2491. That guard does not cover a new holder who has reserved but
+        // not yet completed: this statement still matches and deletes the new
+        // holder's live row today. T012 adds AND reserved_at = {3} from
+        // claim.ReservedAt, the same fence as CompleteAsync above.
         const string sql =
             """
             DELETE FROM idempotency_key
