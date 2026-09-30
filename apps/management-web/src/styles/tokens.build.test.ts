@@ -60,6 +60,26 @@ const CANDIDATES = [
   'active:bg-accent-pressed',
   'disabled:bg-transparent',
   'aria-disabled:bg-transparent',
+  // Spec 292 (issue #2334) T004, plan.md §6 — the motion roles and the four
+  // surface/scrim animations. RED on develop: none of these exist yet.
+  'duration-state',
+  'duration-enter',
+  'duration-exit',
+  'duration-route',
+  'ease-state',
+  'ease-enter',
+  'ease-exit',
+  'ease-route',
+  'animate-surface-enter',
+  'animate-surface-exit',
+  'animate-scrim-enter',
+  'animate-scrim-exit',
+  // Spec 292, plan.md §6 — must stop compiling once the `animation` namespace
+  // replaces Tailwind's stock one (plan.md §3, "not under extend").
+  'animate-spin',
+  'animate-ping',
+  'animate-pulse',
+  'animate-bounce',
 ];
 
 let root: postcss.Root;
@@ -262,5 +282,91 @@ describe('management-web tokens compile through Tailwind (spec 257 US2)', () => 
   it("Tailwind's transition defaults are bound to the motion tokens", () => {
     expect(rawOutput).toContain('--default-transition-duration: var(--duration-fast)');
     expect(rawOutput).toContain('--default-transition-timing-function: var(--ease-out)');
+  });
+
+  // Spec 292 (issue #2334) T004, plan.md §6 — RED on develop: none of the
+  // eight role tokens exist yet, so neither the role utilities nor the
+  // animate-* utilities that cite them compile, and the stock animate-*
+  // namespace has not yet been replaced. management-web is also where the
+  // reduced-motion redefinition and the route cross-fade timing are proved —
+  // it is the only app that imports motion.css (spec 292 §3, plan.md §1).
+  describe('motion roles and surface/scrim animations (spec 292)', () => {
+    it.each([
+      ['duration-state', 'transition-duration', '--duration-state'],
+      ['duration-enter', 'transition-duration', '--duration-enter'],
+      ['duration-exit', 'transition-duration', '--duration-exit'],
+      ['duration-route', 'transition-duration', '--duration-route'],
+      ['ease-state', 'transition-timing-function', '--ease-state'],
+      ['ease-enter', 'transition-timing-function', '--ease-enter'],
+      ['ease-exit', 'transition-timing-function', '--ease-exit'],
+      ['ease-route', 'transition-timing-function', '--ease-route'],
+    ])('role-named utility %s cites its matching token', (className, property, expectedToken) => {
+      expect(ruleExists(className), `.${className} does not compile at all yet`).toBe(true);
+      const declarations = ruleDeclarations(className);
+      expect(declarations[property] ?? '(not declared)').toContain(expectedToken);
+    });
+
+    it.each([
+      ['animate-surface-enter', 'sse-surface-enter', '--duration-enter', '--ease-enter'],
+      ['animate-surface-exit', 'sse-surface-exit', '--duration-exit', '--ease-exit'],
+      ['animate-scrim-enter', 'sse-scrim-enter', '--duration-enter', '--ease-enter'],
+      ['animate-scrim-exit', 'sse-scrim-exit', '--duration-exit', '--ease-exit'],
+    ])(
+      'animation utility %s cites its keyframe name and role tokens',
+      (className, keyframeName, durationToken, easeToken) => {
+        expect(ruleExists(className), `.${className} does not compile at all yet`).toBe(true);
+        const animationValue = ruleDeclarations(className).animation ?? '(not declared)';
+        expect(animationValue).toContain(keyframeName);
+        expect(animationValue).toContain(durationToken);
+        expect(animationValue).toContain(easeToken);
+      },
+    );
+
+    it.each(['animate-spin', 'animate-ping', 'animate-pulse', 'animate-bounce'])(
+      "the stock animation utility %s no longer compiles — the shared theme's `animation` namespace replaces it, not `extend`s it",
+      (className) => {
+        expect(ruleExists(className)).toBe(false);
+      },
+    );
+
+    it('the surface-enter keyframe compiles both outside and inside prefers-reduced-motion, the inner one opacity-only', () => {
+      let outsideFound = false;
+      let insideReduceOpacityOnly = false;
+
+      root.walkAtRules('keyframes', (atRule) => {
+        if (atRule.params !== 'sse-surface-enter') return;
+
+        const insideReduceMedia =
+          atRule.parent?.type === 'atrule' &&
+          (atRule.parent as postcss.AtRule).name === 'media' &&
+          (atRule.parent as postcss.AtRule).params === '(prefers-reduced-motion: reduce)';
+
+        if (!insideReduceMedia) {
+          outsideFound = true;
+          return;
+        }
+
+        let onlyOpacity = true;
+        atRule.walkDecls((decl) => {
+          if (decl.prop !== 'opacity') {
+            onlyOpacity = false;
+          }
+        });
+        insideReduceOpacityOnly = onlyOpacity;
+      });
+
+      expect(outsideFound, '@keyframes sse-surface-enter not found outside any @media').toBe(true);
+      expect(
+        insideReduceOpacityOnly,
+        '@keyframes sse-surface-enter not found (opacity-only) inside prefers-reduced-motion',
+      ).toBe(true);
+    });
+
+    it('the route cross-fade cites --duration-route and --ease-route on the view-transition pseudo-elements', () => {
+      expect(rawOutput).toContain('::view-transition-old(root)');
+      expect(rawOutput).toContain('::view-transition-new(root)');
+      expect(rawOutput).toContain('animation-duration: var(--duration-route)');
+      expect(rawOutput).toContain('animation-timing-function: var(--ease-route)');
+    });
   });
 });
