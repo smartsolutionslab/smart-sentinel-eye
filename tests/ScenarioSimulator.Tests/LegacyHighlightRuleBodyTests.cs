@@ -117,7 +117,7 @@ public sealed class LegacyHighlightRuleBodyTests
                         {
                             Key = "odd-station",
                             Name = "Odd Station",
-                            Camera = new CameraDefinition { Path = "odd-station", Clip = "odd.mp4" },
+                            Camera = new CameraDefinition { Path = "odd-cam", Clip = "odd.mp4" },
                             Overlay = new OverlayDefinition
                             {
                                 Label = "ODD", X = 0.1, Y = 0.1, Width = 0.5, Height = 0.2, FontSize = 24,
