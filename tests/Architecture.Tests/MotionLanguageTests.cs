@@ -46,12 +46,28 @@ public class MotionLanguageTests
 {
     private const string KioskSrc = "apps/kiosk-web/src";
     private const string ManagementSrc = "apps/management-web/src";
-    private const string SharedSrc = "apps/shared/src";
+
+    // Scoped to apps/shared/src/ui (not the whole apps/shared/src tree), mirroring
+    // SharedUiTokenUsageTests' own convention: facts 2/3/5(b) scan for Tailwind-utility-
+    // shaped string-literal content, and apps/shared/src/api|realtime|observability|
+    // streaming carry no JSX/className — including them only risks a false positive on
+    // prose (e.g. a `transition: 'session-release-failed'` log field) for no coverage gain.
+    private const string SharedUiSrc = "apps/shared/src/ui";
+
     private const string TokensCssPath = "apps/shared/src/ui/tokens/tokens.css";
     private const string KioskIndexCssPath = "apps/kiosk-web/src/styles/index.css";
     private const string SharedPackageJsonPath = "apps/shared/package.json";
 
+    /// <summary>Fact 6's honesty check: does the allowlisted file still say why (substring, comment-stripped).</summary>
     private const string PulseChainMarker = "ssE-overlay-highlight";
+
+    /// <summary>Facts 1/4/5's exemption test: the pulse's own rule, matched exactly — never a substring
+    /// (a <c>.ssE-overlay-highlight-banner</c> selector or a differently-suffixed keyframe must not ride
+    /// along).</summary>
+    private const string PulseSelector = ".ssE-overlay-highlight";
+
+    /// <summary>Facts 1/4/5's exemption test for the keyframe itself, matched exactly.</summary>
+    private const string PulseKeyframeName = "ssE-overlay-highlight-pulse";
 
     // =====================================================================
     // Shrink-only allowlists (fact 6 keeps them honest).
@@ -94,8 +110,19 @@ public class MotionLanguageTests
     // Regexes.
     // =====================================================================
 
+    /// <summary>
+    /// Lookaround-bounded, not <c>\b</c>-bounded: a token ending in <c>]</c> or <c>)</c> (the
+    /// bracket/paren arbitrary-value forms) is followed by a quote in real source, and <c>\b</c>
+    /// does not fire between two non-word characters — a <c>\b</c>-anchored version of this regex
+    /// silently truncates <c>transition-(--my-props)</c> down to bare <c>transition</c> (still a
+    /// match, by accident of the optional group, but not a reliable one for every alternative).
+    /// Tailwind v4's parenthesised arbitrary-value form (<c>duration-(--duration-fast)</c>) sits
+    /// alongside the bracket form throughout.
+    /// </summary>
     private static readonly Regex MotionUtilityToken = new(
-        @"\b(?:transition(?:-[a-z]+|-\[[^\]]*\])?|animate-[\w-]+|duration-[\w\[\]-]+|ease-[\w\[\]-]+|delay-[\w\[\]-]+)\b",
+        @"(?<![\w-])(?:transition(?:-[a-z]+|-\[[^\]]*\]|-\([^)]*\))?|animate-[\w-]+"
+        + @"|duration-(?:[\w-]+|\[[^\]]*\]|\([^)]*\))|ease-(?:[\w-]+|\[[^\]]*\]|\([^)]*\))"
+        + @"|delay-(?:[\w-]+|\[[^\]]*\]|\([^)]*\)))(?![\w-])",
         RegexOptions.Compiled);
 
     private static readonly Regex MotionVariant = new(@"motion-(?:safe|reduce):", RegexOptions.Compiled);
@@ -133,7 +160,7 @@ public class MotionLanguageTests
     private static readonly Regex CssCustomDurationRedeclare = new(@"^--duration-", RegexOptions.Compiled);
 
     private static readonly Regex BannedTransitionUtility = new(
-        @"(?<![\w-])transition(?:-all|-shadow|-\[[^\]]*\])?(?![\w-])", RegexOptions.Compiled);
+        @"(?<![\w-])transition(?:-all|-shadow|-\[[^\]]*\]|-\([^)]*\))?(?![\w-])", RegexOptions.Compiled);
 
     private static readonly Regex TransitionColorsUtility = new(
         @"(?<![\w-])transition-colors(?![\w-])", RegexOptions.Compiled);
@@ -142,29 +169,48 @@ public class MotionLanguageTests
     /// Fact 3's "given a transition-* utility" — deliberately excludes the BARE
     /// <c>transition</c> shorthand. A bare <c>transition</c> resolves through
     /// Tailwind's default-transition bridge, not an explicit duration citation, and
-    /// facts 1/2 already ban it outright regardless of any role. Including it here
-    /// too is the matcher defect this repo's own convention calls out (memory: "the
-    /// develop violator list must be exactly ... Button.tsx (fact 3)") — measured:
-    /// an unscoped match also caught PickerPage.tsx's bare `transition`, which facts
-    /// 1/2 already cover, so this one is scoped to the suffixed forms only.
+    /// facts 1/2 already ban it outright regardless of any role. Measured: an
+    /// unscoped match also caught PickerPage.tsx's bare <c>transition</c>, which
+    /// facts 1/2 already cover, so this one is scoped to the suffixed forms only.
     /// </summary>
     private static readonly Regex SuffixedTransitionUtility = new(
-        @"(?<![\w-])transition-(?:[a-z]+|\[[^\]]*\])(?![\w-])", RegexOptions.Compiled);
+        @"(?<![\w-])transition-(?:[a-z]+|\[[^\]]*\]|\([^)]*\))(?![\w-])", RegexOptions.Compiled);
 
     private static readonly Regex RoleDurationToken = new(
         @"(?<![\w-])duration-(?:state|enter|exit|route)(?![\w-])", RegexOptions.Compiled);
 
+    /// <summary>Fact 3's other half of "names its role": the matching <c>ease-&lt;role&gt;</c>, so
+    /// a transition that names a duration role but leaves easing to the browser default still
+    /// fails — the duration role alone was silently sufficient before this addition.</summary>
+    private static readonly Regex RoleEaseToken = new(
+        @"(?<![\w-])ease-(?:state|enter|exit|route)(?![\w-])", RegexOptions.Compiled);
+
     private static readonly Regex ScaleDurationOrEase = new(
-        @"(?<![\w-])(?:duration-(?:fast|moderate|slow|\d+|\[[^\]]*\])|ease-(?:out|in|in-out|linear|\[[^\]]*\]))(?![\w-])",
+        @"(?<![\w-])(?:duration-(?:fast|moderate|slow|\d+|\[[^\]]*\]|\([^)]*\))"
+        + @"|ease-(?:out|in|in-out|linear|\[[^\]]*\]|\([^)]*\)))(?![\w-])",
         RegexOptions.Compiled);
 
+    /// <summary>
+    /// Static <c>import ... from '...'</c> / bare <c>import '...'</c> forms, plus dynamic
+    /// <c>import('...')</c> calls — the second alternative, since the first requires whitespace
+    /// immediately before the quote and a dynamic call has <c>(</c> there instead.
+    /// </summary>
     private static readonly Regex JsImportSpecifier = new(
-        @"(?:from|import)\s+['""](?<spec>[^'""]+)['""]", RegexOptions.Compiled);
+        @"(?:from|import)\s+['""](?<spec>[^'""]+)['""]|import\s*\(\s*['""](?<spec>[^'""]+)['""]",
+        RegexOptions.Compiled);
 
     private static readonly Regex CssImportSpecifier = new(
         @"@import\s+['""](?<spec>[^'""]+)['""]", RegexOptions.Compiled);
 
+    private static readonly Regex MotionReduceNoneUtility = new(
+        @"motion-reduce:(?:animate|transition)-none", RegexOptions.Compiled);
+
     private static readonly string[] CompositorProperties = ["opacity", "transform", "translate", "scale", "rotate"];
+
+    /// <summary>Fact 5(a)'s "needs an opacity-only reduce redefinition" trigger — every property
+    /// fact 4 permits as a compositor property except <c>opacity</c> itself moves the element, so
+    /// all four (not <c>transform</c> alone) require the redesign.</summary>
+    private static readonly string[] TravelProperties = ["transform", "translate", "scale", "rotate"];
 
     // =====================================================================
     // Fact 1 — the wall has no motion but its signal.
@@ -261,10 +307,7 @@ public class MotionLanguageTests
 
         foreach (CssRule rule in ParseCssRules(css))
         {
-            bool isAllowlisted = relativePath == WallMotionAllowlist[0].RelativePath
-                && ChainAndSelectorContain(rule, PulseChainMarker);
-
-            if (isAllowlisted)
+            if (IsAllowlistedPulseRule(WallMotionAllowlist, relativePath, rule))
             {
                 continue;
             }
@@ -348,9 +391,12 @@ public class MotionLanguageTests
 
             foreach (string literal in literalContent.Split('\n'))
             {
-                if (SuffixedTransitionUtility.IsMatch(literal) && !RoleDurationToken.IsMatch(literal))
+                if (SuffixedTransitionUtility.IsMatch(literal)
+                    && (!RoleDurationToken.IsMatch(literal) || !RoleEaseToken.IsMatch(literal)))
                 {
-                    violations.Add($"{relativePath}: '{literal.Trim()}' has a transition utility but no role");
+                    violations.Add(
+                        $"{relativePath}: '{literal.Trim()}' has a transition utility but names no "
+                        + "duration role, no ease role, or neither");
                 }
 
                 foreach (Match match in ScaleDurationOrEase.Matches(literal))
@@ -392,10 +438,7 @@ public class MotionLanguageTests
                     continue;
                 }
 
-                bool isAllowlistedPulse = relativePath == WallMotionAllowlist[0].RelativePath
-                    && ChainAndSelectorContain(rule, PulseChainMarker);
-
-                if (isAllowlistedPulse)
+                if (IsAllowlistedPulseRule(WallMotionAllowlist, relativePath, rule))
                 {
                     continue;
                 }
@@ -431,10 +474,16 @@ public class MotionLanguageTests
         DirectoryInfo root = RepositorySource.Root();
         List<string> violations = [];
 
-        // (a) + (c): CSS reduce-media deletions, and transform keyframes missing an
+        // (a) + (c): CSS reduce-media deletions, and travel-property keyframes missing an
         // opacity-only reduce redefinition.
-        var transformKeyframes = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
-        var reduceOpacityOnlyKeyframes = new HashSet<string>(StringComparer.Ordinal);
+        var travelKeyframes = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+        // Per (relativePath, keyframeName): true only while every reduce-block frame seen so far
+        // for that keyframe is opacity-only. A partial redefinition (one opacity-only frame, one
+        // that still travels) must read as NOT redesigned, so this ANDs across frames rather than
+        // ORing — the previous HashSet-of-"any opacity-only frame seen" let one honest frame
+        // launder a dishonest sibling.
+        var reduceKeyframeAllFramesOpacityOnly = new Dictionary<string, bool>(StringComparer.Ordinal);
 
         foreach (string relativePath in ScannedCssFiles(root))
         {
@@ -448,20 +497,22 @@ public class MotionLanguageTests
 
                 if (keyframeName is not null)
                 {
+                    string key = $"{relativePath}::{keyframeName}";
+
                     if (insideReduceMedia)
                     {
-                        bool opacityOnly = rule.Declarations.All(d => d.Prop == "opacity");
-                        if (opacityOnly)
-                        {
-                            reduceOpacityOnlyKeyframes.Add($"{relativePath}::{keyframeName}");
-                        }
+                        bool frameOpacityOnly = rule.Declarations.All(d => d.Prop == "opacity");
+                        reduceKeyframeAllFramesOpacityOnly[key] = reduceKeyframeAllFramesOpacityOnly.TryGetValue(
+                            key, out bool allSoFar)
+                            ? allSoFar && frameOpacityOnly
+                            : frameOpacityOnly;
                     }
-                    else if (rule.Declarations.Any(d => d.Prop == "transform"))
+                    else if (rule.Declarations.Any(d => TravelProperties.Contains(d.Prop, StringComparer.Ordinal)))
                     {
-                        if (!transformKeyframes.TryGetValue(relativePath, out HashSet<string>? names))
+                        if (!travelKeyframes.TryGetValue(relativePath, out HashSet<string>? names))
                         {
                             names = [];
-                            transformKeyframes[relativePath] = names;
+                            travelKeyframes[relativePath] = names;
                         }
 
                         names.Add(keyframeName);
@@ -473,19 +524,24 @@ public class MotionLanguageTests
                     continue;
                 }
 
-                bool isAllowlisted = relativePath == ReducedMotionDeletionAllowlist[0].RelativePath
-                    && ChainAndSelectorContain(rule, PulseChainMarker);
+                bool ruleIsAllowlistedPulse = IsAllowlistedPulseRule(ReducedMotionDeletionAllowlist, relativePath, rule);
 
                 foreach ((string prop, string value) in rule.Declarations)
                 {
                     string declarationText = $"{prop}: {value};";
 
-                    if (CssNoneValue.IsMatch(declarationText) && !isAllowlisted)
+                    // Scoped to the exact allowlisted declaration, not the whole rule: a
+                    // zero-duration or a second `animation: none` sharing the pulse's rule must
+                    // still be caught, and only "animation: none;" itself is the documented
+                    // exception (ADR-0146: the looping signal, static ring left in place).
+                    bool isExemptDeclaration = ruleIsAllowlistedPulse && declarationText == "animation: none;";
+
+                    if (CssNoneValue.IsMatch(declarationText) && !isExemptDeclaration)
                     {
                         violations.Add($"{relativePath}: '{declarationText}' inside a reduced-motion block deletes motion");
                     }
 
-                    if (CssZeroDuration.IsMatch(declarationText) && !isAllowlisted)
+                    if (CssZeroDuration.IsMatch(declarationText) && !isExemptDeclaration)
                     {
                         violations.Add($"{relativePath}: '{declarationText}' zeroes a duration inside a reduced-motion block");
                     }
@@ -498,27 +554,31 @@ public class MotionLanguageTests
             }
         }
 
-        foreach ((string relativePath, HashSet<string> names) in transformKeyframes)
+        foreach ((string relativePath, HashSet<string> names) in travelKeyframes)
         {
             foreach (string name in names)
             {
-                if (!reduceOpacityOnlyKeyframes.Contains($"{relativePath}::{name}"))
+                string key = $"{relativePath}::{name}";
+                bool redesigned = reduceKeyframeAllFramesOpacityOnly.TryGetValue(key, out bool allFramesOpacityOnly)
+                    && allFramesOpacityOnly;
+
+                if (!redesigned)
                 {
                     violations.Add(
-                        $"{relativePath}: @keyframes {name} declares transform but has no opacity-only "
-                        + "redefinition inside a prefers-reduced-motion: reduce block");
+                        $"{relativePath}: @keyframes {name} declares a travel property (transform/translate/"
+                        + "scale/rotate) but has no opacity-only redefinition — every frame, not just one — "
+                        + "inside a prefers-reduced-motion: reduce block");
                 }
             }
         }
 
         // (b): no motion-reduce:(animate|transition)-none utility anywhere.
-        var motionReduceNone = new Regex(@"motion-reduce:(?:animate|transition)-none", RegexOptions.Compiled);
         foreach (string relativePath in ScannedTsFiles(root))
         {
             string literalContent = TypeScriptSource.StringLiteralContent(
                 File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
-            foreach (Match match in motionReduceNone.Matches(literalContent))
+            foreach (Match match in MotionReduceNoneUtility.Matches(literalContent))
             {
                 violations.Add($"{relativePath}: '{match.Value}' deletes motion under reduced motion");
             }
@@ -562,7 +622,15 @@ public class MotionLanguageTests
                 continue;
             }
 
-            if (!File.ReadAllText(path).Contains(match, StringComparison.Ordinal))
+            // Comment-stripped: a comment mentioning the marker (e.g. left behind after the real
+            // rule it described was deleted) must not launder this check — the marker has to be
+            // live code, not prose.
+            CommentStyle style = relativePath.EndsWith(".css", StringComparison.Ordinal)
+                ? CommentStyle.CssOnly
+                : CommentStyle.TsAndBlock;
+            string liveText = StripComments(File.ReadAllText(path), style);
+
+            if (!liveText.Contains(match, StringComparison.Ordinal))
             {
                 problems.Add(
                     $"{relativePath} no longer contains '{match}' — its allowlist entry no longer applies and "
@@ -609,26 +677,19 @@ public class MotionLanguageTests
             "--default-transition-timing-function and --ease-state must cite the same var(--ease-…).");
 
         List<string> outOfRange = [];
-        foreach (string role in new[] { "state", "enter", "exit", "route" })
+        string[] roles = ["state", "enter", "exit", "route"];
+        foreach (string role in roles)
         {
-            foreach (string category in new[] { "duration", "ease" })
+            string name = $"--duration-{role}";
+            if (!rootMap.ContainsKey(name))
             {
-                string name = $"--{category}-{role}";
-                if (!rootMap.ContainsKey(name))
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                if (category != "duration")
-                {
-                    continue;
-                }
-
-                int milliseconds = ResolveDurationMs(name, rootMap, []);
-                if (milliseconds < 120 || milliseconds > 200)
-                {
-                    outOfRange.Add($"{name} resolves to {milliseconds}ms, outside ADR-0146's 120-200ms");
-                }
+            int milliseconds = ResolveDurationMs(name, rootMap, []);
+            if (milliseconds < 120 || milliseconds > 200)
+            {
+                outOfRange.Add($"{name} resolves to {milliseconds}ms, outside ADR-0146's 120-200ms");
             }
         }
 
@@ -709,7 +770,16 @@ public class MotionLanguageTests
 
     private static string? ResolveImport(DirectoryInfo root, string importerRelativePath, string specifier)
     {
-        const string SharedPrefix = "@smart-sentinel-eye/shared/";
+        const string SharedPackage = "@smart-sentinel-eye/shared";
+        const string SharedPrefix = SharedPackage + "/";
+
+        // The bare package specifier (no trailing `/...`) resolves through package.json's `"."`
+        // root export, not a `"./<subpath>"` key — matching on the trailing-slash prefix alone
+        // silently skipped it.
+        if (specifier == SharedPackage)
+        {
+            return ResolveSharedExport(root, string.Empty);
+        }
 
         if (specifier.StartsWith(SharedPrefix, StringComparison.Ordinal))
         {
@@ -738,7 +808,8 @@ public class MotionLanguageTests
         if (combinedPath.EndsWith(".js", StringComparison.Ordinal))
         {
             string withoutJs = combinedPath[..^3];
-            foreach (string extension in new[] { ".ts", ".tsx" })
+            string[] extensions = [".ts", ".tsx"];
+            foreach (string extension in extensions)
             {
                 if (File.Exists(withoutJs + extension))
                 {
@@ -749,11 +820,12 @@ public class MotionLanguageTests
             return null;
         }
 
-        foreach (string candidate in new[]
-                 {
-                     combinedPath + ".ts", combinedPath + ".tsx",
-                     Path.Combine(combinedPath, "index.ts"), Path.Combine(combinedPath, "index.tsx"),
-                 })
+        string[] candidates =
+        [
+            combinedPath + ".ts", combinedPath + ".tsx",
+            Path.Combine(combinedPath, "index.ts"), Path.Combine(combinedPath, "index.tsx"),
+        ];
+        foreach (string candidate in candidates)
         {
             if (File.Exists(candidate))
             {
@@ -772,7 +844,7 @@ public class MotionLanguageTests
         JsonObject exports = package["exports"]?.AsObject()
             ?? throw new InvalidOperationException($"{SharedPackageJsonPath} has no \"exports\" map.");
 
-        string exactKey = "./" + subpath;
+        string exactKey = subpath.Length == 0 ? "." : "./" + subpath;
         if (exports.TryGetPropertyValue(exactKey, out JsonNode? exactValue) && exactValue is not null)
         {
             return NormalizeSharedTarget(exactValue.GetValue<string>());
@@ -813,14 +885,23 @@ public class MotionLanguageTests
     private static IEnumerable<string> ScannedTsFiles(DirectoryInfo root) =>
         ScannedFiles(root, ManagementSrc, [".ts", ".tsx"])
             .Concat(ScannedFiles(root, KioskSrc, [".ts", ".tsx"]))
-            .Concat(ScannedFiles(root, SharedSrc, [".ts", ".tsx"]))
+            .Concat(ScannedFiles(root, SharedUiSrc, [".ts", ".tsx"]))
+            // tailwindTheme.ts (ui/tokens/) DEFINES the role utilities — it is not a call site —
+            // so it stays excluded here, unlike the CSS scan below.
             .Where(relative => !relative.Contains("/tokens/", StringComparison.Ordinal));
 
+    /// <summary>
+    /// Unlike <see cref="SharedUiTokenUsageTests"/>'s own CSS scan, <c>/tokens/</c> is NOT
+    /// excluded here: <c>tokens.css</c> is exactly where <c>--duration-*</c> is declared, so it
+    /// is the one file fact 5's custom-property-redeclaration check must see. Excluding it (as
+    /// copied from the colour-primitive guard, where the exclusion is correct) let
+    /// <c>@media (prefers-reduced-motion: reduce) { :root { --duration-enter: 0ms } }</c> added
+    /// to <c>tokens.css</c> pass every fact silently — proven by counterfactual, see the PR body.
+    /// </summary>
     private static IEnumerable<string> ScannedCssFiles(DirectoryInfo root) =>
         ScannedFiles(root, ManagementSrc, [".css"])
             .Concat(ScannedFiles(root, KioskSrc, [".css"]))
-            .Concat(ScannedFiles(root, SharedSrc, [".css"]))
-            .Where(relative => !relative.Contains("/tokens/", StringComparison.Ordinal));
+            .Concat(ScannedFiles(root, SharedUiSrc, [".css"]));
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root, string treeRelative, string[] extensions)
     {
@@ -871,40 +952,65 @@ public class MotionLanguageTests
                 break;
             }
 
-            string prelude = css[i..braceIndex].Trim();
+            // The text between `i` and `braceIndex` can hold more than the prelude: any
+            // `;`-terminated statement written before the first rule at this position (a leading
+            // `@import '...'; @import 'tailwindcss';` — both real index.css files start this way)
+            // sits there too. Only the text AFTER the last top-level `;` is the prelude; everything
+            // before it is a sibling statement with no brace body, and is discarded here rather
+            // than concatenated onto the prelude (which broke `StartsWith("@keyframes", ...)` for
+            // exactly the block most likely to follow an `@import` chain).
+            string preludeSpan = css[i..braceIndex];
+            int lastTopLevelSemicolon = preludeSpan.LastIndexOf(';');
+            string prelude = (lastTopLevelSemicolon >= 0 ? preludeSpan[(lastTopLevelSemicolon + 1)..] : preludeSpan)
+                .Trim();
+
             int closeIndex = FindMatchingBrace(css, braceIndex);
             string body = css[(braceIndex + 1)..closeIndex];
 
             if (prelude.Length > 0)
             {
-                bool nestedBlock = body.Contains('{');
+                int nestedBraceIndex = body.IndexOf('{');
 
-                if (nestedBlock)
+                if (nestedBraceIndex == -1)
                 {
-                    List<string> newChain = [.. chain, prelude];
-                    ParseCssBlock(css, braceIndex + 1, closeIndex, newChain, rules);
+                    rules.Add(new CssRule([.. chain], prelude, [.. ParseDeclarations(body)]));
                 }
                 else
                 {
-                    (string Prop, string Value)[] declarations =
-                    [
-                        .. body.Split(';')
-                            .Select(declaration => declaration.Trim())
-                            .Where(declaration => declaration.Length > 0 && declaration.Contains(':'))
-                            .Select(declaration =>
-                            {
-                                int colon = declaration.IndexOf(':');
-                                return (declaration[..colon].Trim(), declaration[(colon + 1)..].Trim());
-                            }),
-                    ];
+                    // A rule can carry both its own declarations AND a nested rule — native CSS
+                    // nesting, valid in Tailwind v4, e.g. an ampersand-selector pseudo-class rule
+                    // nested inside a component class that also sets its own transition. The
+                    // text before the first nested brace is this rule's own body; recursing alone
+                    // would swallow it into the nested rule's prelude (silently dropped there by
+                    // the trim above, since it ends in a semicolon) and this rule would report no
+                    // declarations at all.
+                    string ownDeclarationsText = body[..nestedBraceIndex];
+                    (string Prop, string Value)[] ownDeclarations = ParseDeclarations(ownDeclarationsText);
+                    if (ownDeclarations.Length > 0)
+                    {
+                        rules.Add(new CssRule([.. chain], prelude, [.. ownDeclarations]));
+                    }
 
-                    rules.Add(new CssRule([.. chain], prelude, [.. declarations]));
+                    List<string> newChain = [.. chain, prelude];
+                    ParseCssBlock(css, braceIndex + 1, closeIndex, newChain, rules);
                 }
             }
 
             i = closeIndex + 1;
         }
     }
+
+    private static (string Prop, string Value)[] ParseDeclarations(string body) =>
+        [
+            .. body.Split(';')
+                .Select(declaration => declaration.Trim())
+                .Where(declaration => declaration.Length > 0 && declaration.Contains(':'))
+                .Select(declaration =>
+                {
+                    int colon = declaration.IndexOf(':');
+                    return (declaration[..colon].Trim(), declaration[(colon + 1)..].Trim());
+                }),
+        ];
 
     private static int FindMatchingBrace(string css, int openIndex)
     {
@@ -928,9 +1034,18 @@ public class MotionLanguageTests
         throw new InvalidOperationException("unbalanced braces in CSS.");
     }
 
-    private static bool ChainAndSelectorContain(CssRule rule, string marker) =>
-        rule.AtRuleChain.Any(part => part.Contains(marker, StringComparison.Ordinal))
-        || rule.Selector.Contains(marker, StringComparison.Ordinal);
+    /// <summary>
+    /// Exact match only — never a substring. The pulse's rule is either its base selector
+    /// (<c>.ssE-overlay-highlight</c>, exactly, covering both the plain rule and its
+    /// reduced-motion redefinition, which share the same selector) or its own
+    /// <c>@keyframes</c> name (<c>ssE-overlay-highlight-pulse</c>, exactly). A substring match
+    /// would also exempt <c>.ssE-overlay-highlight-banner</c> or a differently-suffixed
+    /// <c>@keyframes ssE-overlay-highlight-flash</c> — neither is the allowlisted rule.
+    /// </summary>
+    private static bool IsAllowlistedPulseRule(
+        (string RelativePath, string Match, string Reason)[] allowlist, string relativePath, CssRule rule) =>
+        allowlist.Any(entry => entry.RelativePath == relativePath)
+        && (rule.Selector.Trim() == PulseSelector || KeyframeNameFromChain(rule.AtRuleChain) == PulseKeyframeName);
 
     private static bool IsReducedMotionMediaPrelude(string prelude) =>
         prelude.TrimStart().StartsWith("@media", StringComparison.Ordinal)
