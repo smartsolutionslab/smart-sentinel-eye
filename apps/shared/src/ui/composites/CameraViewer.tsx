@@ -390,7 +390,7 @@ export function CameraViewer({
   const { failedRead, label } = statusInfoFor(status, stream, queryError);
 
   return (
-    <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-bg-video', className)}>
+    <div className={clsx('relative aspect-video w-full overflow-hidden rounded-md bg-bg-video @container', className)}>
       <video
         ref={videoRef}
         autoPlay

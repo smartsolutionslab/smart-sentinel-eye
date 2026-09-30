@@ -87,11 +87,23 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
     expect(label.style.fontWeight).toBe('var(--font-weight-semibold)');
   });
 
-  it('Sizes the type with the vw-derived clamp formula', () => {
+  it('Sizes the type proportionally to its container (cqw), not the vw-derived clamp formula (spec 294)', () => {
     const label = renderLabel();
 
-    // jsdom preserves clamp() verbatim (jsdom 30.0.1, verified on this tree).
-    expect(label.style.fontSize).toBe('clamp(12px, 3vw, 48px)');
+    // Supersedes "Sizes the type with the vw-derived clamp formula" (spec
+    // 294, issue #2353, plan.md §6 (2), risk R2). jsdom 30.1.1's cssstyle
+    // does NOT preserve `calc(48cqw / 19.2)` verbatim the way it preserves
+    // `clamp(...)` — it arithmetically simplifies the division at parse
+    // time (confirmed with a throwaway jsdom probe against this exact
+    // string: `max(12px, calc(48cqw / 19.2))` -> `max(12px, 2.5cqw)`).
+    // That is a *different* failure mode than the one R2 anticipated (an
+    // empty string), so this case is adjusted to jsdom's own deterministic
+    // normalization rather than deleted — an exact match, not a substring
+    // or `toBeTruthy` weakening. `overlayLabelStyle.test.ts` pins the
+    // authored `calc(${f}cqw / 19.2)` string unsimplified (no DOM
+    // involved there); `e2e/kiosk-label-scales-with-its-tile.spec.ts` pins
+    // the wall's real, browser-computed pixel value.
+    expect(label.style.fontSize).toBe('max(12px, 2.5cqw)');
   });
 
   it('Pads the label at 4px and ignores pointer events', () => {

@@ -15,18 +15,22 @@ export interface OverlayLabelAppearance {
  * properties `CameraViewer.OverlayLabel` and `OverlayEditor` used to
  * hand-write separately and disagreed on four of (spec 146, issue #2339).
  *
- * The wall's values win here unchanged, including the `vw`-derived clamp:
- * it answers the wrong question (viewport width, not tile width — see
- * `specs/146-one-label-renderer/spec.md`), but changing it is a behaviour
- * change over published overlay revisions and is filed separately.
+ * `fontSizePx` is the author-time reference size at a 1080p (1920-wide)
+ * frame (spec 004). The type is sized proportionally to the label's own
+ * container — `container-type: inline-size` established on `CameraViewer`'s
+ * root and on the editor canvas — via `cqw`, not to the viewport: a label's
+ * box is already sized relative to that same container
+ * (`normalizedWidth × containerWidth`), so type and box now scale together
+ * at every grid density (spec 294, issue #2353).
  *
  * Placement (`position`/`left`/`top`/`width`/`height`) and each surface's
  * own affordance (`pointerEvents` on the wall; `cursor`/`userSelect` on the
  * editor) are not part of this function — they have not diverged and each
  * has exactly one caller.
  *
- * Pure, allocation-only and DOM-free: called up to 250 times per wall
- * render on the composite + render leg (constitution §IV, ≤ 50 ms).
+ * Pure, allocation-only and DOM-free: called once per tile per wall render,
+ * up to nine times on the 3×3 ceiling (ADR-0156), on the composite + render
+ * leg (constitution §IV, ≤ 50 ms).
  */
 export function overlayLabelSurfaceStyle(label: OverlayLabelAppearance): CSSProperties {
   const { fontSizePx } = label;
@@ -37,7 +41,7 @@ export function overlayLabelSurfaceStyle(label: OverlayLabelAppearance): CSSProp
     justifyContent: 'center',
     background: 'var(--color-bg-label)',
     color: 'var(--color-fg-on-label)',
-    fontSize: `clamp(${Math.min(12, fontSizePx / 4)}px, ${fontSizePx / 16}vw, ${fontSizePx}px)`,
+    fontSize: `max(${Math.min(12, fontSizePx / 4)}px, calc(${fontSizePx}cqw / 19.2))`,
     fontWeight: 'var(--font-weight-semibold)',
     padding: '0 var(--space-1)',
   };
