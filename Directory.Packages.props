@@ -33,10 +33,10 @@
     <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.5.4" />
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.5.4-preview.1.26464.4" />
 
-    <!-- Aspire client integration for ASP.NET Core services that consume Postgres
-         (spec 282, #1140). On the same 13.x line as the rest of the Aspire
-         family below. Referenced only by ServiceDefaults; every context calls
-         it through PostgresTelemetry.EnrichPostgresDbContext, never directly. -->
+    <!-- Aspire client integration for ASP.NET Core services that consume Postgres.
+         On the same 13.x line as the rest of the Aspire family above.
+         Referenced only by ServiceDefaults; every context calls it through
+         PostgresTelemetry.EnrichPostgresDbContext, never directly. -->
     <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.5.4" />
 
     <!-- ASP.NET Core auth (ADR-0007 + ADR-0008 + ADR-0023). Plain JwtBearer; no Aspire
