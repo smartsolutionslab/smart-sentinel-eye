@@ -14,6 +14,7 @@ import {
   isStaleConflict,
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
+import { revisionSummary } from '@smart-sentinel-eye/shared/format/revisionSummary';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
@@ -206,7 +207,7 @@ export function LayoutsPage() {
             <li key={chain.layoutIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
               <header className="flex items-center justify-between">
                 <h2 className="text-lg font-medium">{chain.name}</h2>
-                <span className="text-xs text-fg-muted">{badge(live, draft, summarised)}</span>
+                <span className="text-xs text-fg-muted">{revisionSummary(live, draft, summarised)}</span>
               </header>
               <p className="mt-1 text-xs text-fg-muted font-mono">{chain.layoutIdentifier}</p>
               {summarised !== undefined && <p className="mt-1 text-xs text-fg-muted">{tileSummary(summarised)}</p>}
@@ -354,26 +355,6 @@ export function LayoutsPage() {
 
 function containsRevisionIn(chain: Layout, state: LayoutRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
-}
-
-// Spec 038 FR-009. Names the LIVE revision, because that is the one on kiosks,
-// and says when a draft is open without hiding either. The row used to report
-// its newest revision, so a live wall under a discarded draft read as "Archived"
-// while it was playing on the floor.
-//
-// `Published` appears exactly when a live revision exists, which is what keeps
-// the two e2e assertions that read this text matching.
-function badge(
-  live: LayoutRevision | undefined,
-  draft: LayoutRevision | undefined,
-  summarised: LayoutRevision | undefined,
-): string {
-  if (live !== undefined) {
-    return draft === undefined
-      ? `v${live.revisionNumber} · Published`
-      : `v${live.revisionNumber} · Published · draft v${draft.revisionNumber}`;
-  }
-  return summarised === undefined ? '' : `v${summarised.revisionNumber} · ${summarised.state}`;
 }
 
 // Row summary (T023): the tile count + grid shape replaces the old single
