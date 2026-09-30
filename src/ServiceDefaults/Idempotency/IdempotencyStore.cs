@@ -123,22 +123,24 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // wins permanently; the loser's write becomes a no-op instead of a
         // silent clobber.
         //
-        // #2491. The guard above only catches the ordering where the new
-        // holder has already completed. It does nothing when the new holder
-        // has merely reserved and not yet finished — this statement still
-        // matches that row today and overwrites it with the zombie's
-        // identifier. T012 adds AND reserved_at = {4} from claim.ReservedAt to
-        // close that: a late call from an overtaken attempt then matches no
-        // row at all, because a takeover always changes reserved_at.
+        // #2491. AND reserved_at = {4} is the fence: a takeover (reclaim or
+        // sweep-then-reinsert) always changes reserved_at, so a late call from
+        // an attempt that has since been overtaken matches no row at all,
+        // whether the new holder has merely reserved or already completed.
+        // The resource_identifier IS NULL guard above stays — it is now
+        // largely redundant, but removing it is a separate refactor.
         const string sql =
             """
             UPDATE idempotency_key
             SET resource_identifier = {3}, completed_at = NOW()
-            WHERE key = {0} AND endpoint = {1} AND caller = {2} AND resource_identifier IS NULL;
+            WHERE key = {0} AND endpoint = {1} AND caller = {2}
+              AND resource_identifier IS NULL AND reserved_at = {4};
             """;
 
         await dbContext.Database.ExecuteSqlRawAsync(
-            sql, [scope.Key.Value, scope.Endpoint, scope.Caller, resourceIdentifier], cancellationToken);
+            sql,
+            [scope.Key.Value, scope.Endpoint, scope.Caller, resourceIdentifier, claim.ReservedAt],
+            cancellationToken);
     }
 
     public async Task ReleaseAsync(IdempotencyClaim claim, CancellationToken cancellationToken)
@@ -151,17 +153,18 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // cannot delete a reservation that has since completed — which would
         // turn a replayable answer back into a fresh registration.
         //
-        // #2491. That guard does not cover a new holder who has reserved but
-        // not yet completed: this statement still matches and deletes the new
-        // holder's live row today. T012 adds AND reserved_at = {3} from
-        // claim.ReservedAt, the same fence as CompleteAsync above.
+        // #2491. AND reserved_at = {3} is the same fence as CompleteAsync
+        // above: a takeover always changes reserved_at, so a late release
+        // from an overtaken attempt matches no row and cannot delete the new
+        // holder's live reservation.
         const string sql =
             """
             DELETE FROM idempotency_key
-            WHERE key = {0} AND endpoint = {1} AND caller = {2} AND resource_identifier IS NULL;
+            WHERE key = {0} AND endpoint = {1} AND caller = {2}
+              AND resource_identifier IS NULL AND reserved_at = {3};
             """;
 
         await dbContext.Database.ExecuteSqlRawAsync(
-            sql, [scope.Key.Value, scope.Endpoint, scope.Caller], cancellationToken);
+            sql, [scope.Key.Value, scope.Endpoint, scope.Caller, claim.ReservedAt], cancellationToken);
     }
 }
