@@ -12,11 +12,11 @@ using SmartSentinelEye.Integration.Tests.Fixtures;
 namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
 
 /// <summary>
-/// Spec 282 (#1140), T022 / FR-008. US2, red: observed failing before T040,
-/// green once T040 enables tracing in <c>PostgresTelemetry</c>. The one test
-/// in this spec's coverage that runs a real query against a real Postgres
-/// (ADR-0103 — the Aspire fixture, no Testcontainers), so it is the only one
-/// that can show an actual span rather than a registration.
+/// US2. Observed failing before tracing was enabled, green once tracing was
+/// turned on in <c>PostgresTelemetry</c>. The one test in this spec's
+/// coverage that runs a real query against a real Postgres (ADR-0103 — the
+/// Aspire fixture, no Testcontainers), so it is the only one that can show
+/// an actual span rather than a registration.
 ///
 /// <para>
 /// <b>Why this composes <c>AddCameraCatalogInfrastructure</c> in-process
@@ -31,20 +31,20 @@ namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
 /// </para>
 ///
 /// <para>
-/// <b>Why this is red today, and for the right reason.</b> Npgsql's own
+/// <b>Why this was red, and for the right reason.</b> Npgsql's own
 /// instrumentation always calls <c>NpgsqlActivitySource.Source.StartActivity</c>
 /// for every command, but that call returns a *sampled* activity only when
-/// something has subscribed a listener to a source named <c>"Npgsql"</c>. No
-/// context registers a <c>TracerProvider</c> today (see
-/// <c>PostgresTracingRegistrationTests</c>), so this test supplies its own
-/// <c>WithTracing(...)</c> call purely to make the (currently source-less)
+/// something has subscribed a listener to a source named <c>"Npgsql"</c>.
+/// Before tracing was wired in, no context registered a <c>TracerProvider</c>
+/// (see <c>PostgresTracingRegistrationTests</c>), so this test supplies its
+/// own <c>WithTracing(...)</c> call purely to make the (then source-less)
 /// <c>TracerProvider</c> resolvable and to attach the capturing exporter —
 /// deliberately <b>not</b> an <c>AddSource("Npgsql")</c> call, which would
 /// make this test pass regardless of whether the production wiring works.
-/// Before T040, nothing has told that provider to listen to <c>"Npgsql"</c>,
-/// so the query's activity is never sampled and the exporter captures
-/// nothing: a missing registration, not a connectivity failure — the query
-/// itself succeeds either way.
+/// Before that switch, nothing had told that provider to listen to
+/// <c>"Npgsql"</c>, so the query's activity was never sampled and the
+/// exporter captured nothing: a missing registration, not a connectivity
+/// failure — the query itself succeeded either way.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
