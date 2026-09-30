@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Shouldly;
@@ -85,15 +86,21 @@ public sealed class LegacyHighlightRuleBodyTests
     }
 
     /// <summary>
-    /// F-2 (plan.md §9): an unmapped comparison silently falls back to <c>&gt;=</c>.
-    /// This is a known defect, characterised deliberately so a later behaviour
-    /// fix (out of PR-A's scope) changes this fact on purpose rather than by
-    /// accident.
+    /// Issue #2698, follow-up to spec 289's PR-A. <b>Was</b> T-A02: an unmapped
+    /// comparison silently fell back to <c>&gt;=</c>, pinned deliberately (plan.md
+    /// §9 F-2) so this exact assertion would have to change, visibly, the day the
+    /// defect was fixed — not drift unnoticed. It is refused instead: the bad
+    /// comparison never reaches the wire as a wrong operator, and no rule is
+    /// created for it. Nothing else on the asset is affected — this scenario has
+    /// only the one asset, so there is nothing else to check here, but
+    /// <c>ScenarioSeeder</c>'s per-asset try/catch and the other legacy-highlight
+    /// assertions above establish that a refusal costs only its own rule.
     /// </summary>
     [Fact]
-    public async Task An_unknown_comparison_operator_silently_defaults_to_greater_than_or_equal()
+    public async Task An_unknown_comparison_operator_is_refused_instead_of_defaulting_to_greater_than_or_equal()
     {
         RecordingAutomationHandler automation = new();
+        CapturingLogger<ScenarioSeeder> log = new();
         Guid overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
 
         ScenarioOptions options = new()
@@ -133,11 +140,13 @@ public sealed class LegacyHighlightRuleBodyTests
             },
         };
 
-        await RunSeederAsync(options, automation, overlay);
+        await RunSeederExpectingRefusalAsync(options, automation, overlay, log);
 
-        automation.Creates.Count.ShouldBe(1);
-        automation.Creates[0].Body.Predicate.ShouldBe(
-            "$.device == 'odd-station' && $.payload.value >= 5");
+        automation.Creates.ShouldBeEmpty();
+        log.Warnings.ShouldContain(entry =>
+            entry.Contains("odd-station", StringComparison.Ordinal)
+            && entry.Contains("highlight rule was not seeded", StringComparison.Ordinal)
+            && entry.Contains("between", StringComparison.Ordinal));
     }
 
     /// <summary>
@@ -287,24 +296,7 @@ public sealed class LegacyHighlightRuleBodyTests
 
     private static async Task RunSeederAsync(ScenarioOptions options, RecordingAutomationHandler automation, Guid overlay)
     {
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
-        IOptions<SimulatorOptions> simulator = Simulator();
-        AssetCorrelationTable correlation = new();
-
-        ScenarioSeeder seeder = new(
-            new CameraCatalogClient(Failing(), Tokens(), simulator, NullLogger<CameraCatalogClient>.Instance),
-            new OverlayDesignerClient(SucceedingOverlayHandler(overlay), Tokens(), NullLogger<OverlayDesignerClient>.Instance),
-            new AutomationRulesClient(new HttpClient(automation) { BaseAddress = new Uri("https://automation.test") },
-                Tokens(), NullLogger<AutomationRulesClient>.Instance),
-            new SystemVariablesClient(SucceedingVariablesHandler(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
-            correlation,
-            wrapped,
-            new WallSeeder(
-                new LayoutCompositionClient(Failing(), Tokens(), NullLogger<LayoutCompositionClient>.Instance),
-                correlation,
-                wrapped,
-                NullLogger<WallSeeder>.Instance),
-            NullLogger<ScenarioSeeder>.Instance);
+        ScenarioSeeder seeder = CreateSeeder(options, automation, overlay, NullLogger<ScenarioSeeder>.Instance);
 
         // StartAsync returns at the first await inside ExecuteAsync and the run
         // continues on a background task (the same pattern
@@ -317,11 +309,67 @@ public sealed class LegacyHighlightRuleBodyTests
         await seeder.StopAsync(CancellationToken.None);
     }
 
+    /// <summary>
+    /// Like <see cref="RunSeederAsync"/>, but for a highlight expected to be
+    /// refused rather than seeded: there is no create/publish pair to wait on,
+    /// so this waits on <paramref name="log"/> instead, for the refusal message
+    /// every <c>*Refused</c> log entry in <c>Log.cs</c> shares ("was not
+    /// seeded"). Bounded the same way the create-count wait is: unfixed code
+    /// that seeds the rule anyway rather than refusing it will simply run out
+    /// the clock and leave <paramref name="log"/> empty, which the caller's own
+    /// assertions then catch.
+    /// </summary>
+    private static async Task RunSeederExpectingRefusalAsync(
+        ScenarioOptions options, RecordingAutomationHandler automation, Guid overlay, CapturingLogger<ScenarioSeeder> log)
+    {
+        ScenarioSeeder seeder = CreateSeeder(options, automation, overlay, log);
+
+        await seeder.StartAsync(CancellationToken.None);
+        await WaitForWarningAsync(log, entry => entry.Contains("was not seeded", StringComparison.Ordinal));
+        await seeder.StopAsync(CancellationToken.None);
+    }
+
+    private static ScenarioSeeder CreateSeeder(
+        ScenarioOptions options, RecordingAutomationHandler automation, Guid overlay, ILogger<ScenarioSeeder> logger)
+    {
+        IOptions<ScenarioOptions> wrapped = Options.Create(options);
+        IOptions<SimulatorOptions> simulator = Simulator();
+        AssetCorrelationTable correlation = new();
+
+        return new ScenarioSeeder(
+            new CameraCatalogClient(Failing(), Tokens(), simulator, NullLogger<CameraCatalogClient>.Instance),
+            new OverlayDesignerClient(SucceedingOverlayHandler(overlay), Tokens(), NullLogger<OverlayDesignerClient>.Instance),
+            new AutomationRulesClient(new HttpClient(automation) { BaseAddress = new Uri("https://automation.test") },
+                Tokens(), NullLogger<AutomationRulesClient>.Instance),
+            new SystemVariablesClient(SucceedingVariablesHandler(), Tokens(), NullLogger<SystemVariablesClient>.Instance),
+            correlation,
+            wrapped,
+            new WallSeeder(
+                new LayoutCompositionClient(Failing(), Tokens(), NullLogger<LayoutCompositionClient>.Instance),
+                correlation,
+                wrapped,
+                NullLogger<WallSeeder>.Instance),
+            logger);
+    }
+
     private static async Task WaitForCreatesAsync(RecordingAutomationHandler automation, int expected)
     {
         for (int attempt = 0; attempt < 100; attempt++)
         {
             if (automation.Publishes.Count >= expected)
+            {
+                return;
+            }
+
+            await Task.Delay(50);
+        }
+    }
+
+    private static async Task WaitForWarningAsync(CapturingLogger<ScenarioSeeder> log, Func<string, bool> predicate)
+    {
+        for (int attempt = 0; attempt < 100; attempt++)
+        {
+            if (log.Warnings.Any(predicate))
             {
                 return;
             }
@@ -485,5 +533,49 @@ public sealed class LegacyHighlightRuleBodyTests
                     Encoding.UTF8,
                     "application/json"),
             });
+    }
+
+    /// <summary>
+    /// Captures every Warning-and-above log entry, the same shape
+    /// <c>ScenarioSeederResilienceTests</c> uses, so this file can assert on a
+    /// refusal being logged instead of only on HTTP calls. <see cref="Scope"/>
+    /// is that file's shared no-op scope, not duplicated here.
+    /// </summary>
+    private sealed class CapturingLogger<T> : ILogger<T>
+    {
+        private readonly List<string> warnings = [];
+
+        public IReadOnlyList<string> Warnings
+        {
+            get
+            {
+                lock (warnings)
+                {
+                    return warnings.ToArray();
+                }
+            }
+        }
+
+        public IDisposable BeginScope<TState>(TState state) where TState : notnull => Scope.Instance;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel,
+            EventId eventId,
+            TState state,
+            Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel < LogLevel.Warning)
+            {
+                return;
+            }
+
+            lock (warnings)
+            {
+                warnings.Add(formatter(state, exception));
+            }
+        }
     }
 }
