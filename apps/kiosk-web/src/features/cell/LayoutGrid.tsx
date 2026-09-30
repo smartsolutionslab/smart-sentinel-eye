@@ -2,6 +2,7 @@ import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
@@ -441,12 +442,9 @@ function Tile({
       style={style}
     >
       {overlayUnavailable && (
-        <div
-          role="status"
-          className="absolute left-1/2 top-2 z-10 -translate-x-1/2 rounded-md bg-accent-warning/30 px-4 py-1 text-sm text-accent-warning"
-        >
-          Overlay unavailable
-        </div>
+        <Badge tone="warning" size="md" asChild className="absolute left-[50%] top-2 z-10 -translate-x-[50%]">
+          <div role="status">Overlay unavailable</div>
+        </Badge>
       )}
       {outOfAlignment && <TileAlignmentBadge camera={tile.cameraIdentifier} />}
       <CameraViewer
