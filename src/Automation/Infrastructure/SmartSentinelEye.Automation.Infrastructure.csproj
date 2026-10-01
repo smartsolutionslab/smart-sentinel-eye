@@ -28,4 +28,17 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- Spec 296 T112: RuleActionColumnConverter is internal (no production
+       caller needs it public), and its malformed-packed-string parsing can
+       only be driven by calling FromColumn directly with crafted strings —
+       the public API never produces one. Mirrors the same pattern already
+       used to unit-test an internal converter/sweep in
+       AuditObservability.Application.csproj and
+       StreamDistribution.Infrastructure.csproj. -->
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>SmartSentinelEye.Automation.Infrastructure.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
 </Project>

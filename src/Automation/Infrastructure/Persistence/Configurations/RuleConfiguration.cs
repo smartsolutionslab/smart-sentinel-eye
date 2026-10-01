@@ -133,12 +133,15 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
 /// single column. Format:
 ///   <c>SetVariableValue|&lt;variableName&gt;|&lt;valueExpression&gt;</c>
 ///   <c>HighlightOverlay|&lt;guid&gt;|&lt;durationMs&gt;</c>
+///   <c>SwitchWallScene|&lt;wall:D&gt;|Next</c>
+///   <c>SwitchWallScene|&lt;wall:D&gt;|Layout|&lt;layout:D&gt;</c>
 /// The leading discriminator avoids cross-shape ambiguity.
 /// </summary>
 internal static class RuleActionColumnConverter
 {
     private const string SetVariableValueTag = "SetVariableValue";
     private const string HighlightOverlayTag = "HighlightOverlay";
+    private const string SwitchWallSceneTag = "SwitchWallScene";
 
     public static string ToColumn(RuleAction action) =>
         action switch
@@ -147,7 +150,18 @@ internal static class RuleActionColumnConverter
                 $"{SetVariableValueTag}|{setVariableValue.VariableName}|{setVariableValue.ValueExpression}",
             RuleAction.HighlightOverlay highlightOverlay =>
                 $"{HighlightOverlayTag}|{highlightOverlay.Overlay.Value:D}|{highlightOverlay.Duration.Value.ToString(CultureInfo.InvariantCulture)}",
+            RuleAction.SwitchWallScene switchWallScene => ToColumn(switchWallScene),
             _ => throw new InvalidOperationException($"Unhandled RuleAction case: {action.GetType().Name}"),
+        };
+
+    private static string ToColumn(RuleAction.SwitchWallScene action) =>
+        action.Target switch
+        {
+            SceneTarget.Next =>
+                $"{SwitchWallSceneTag}|{action.Wall.Value:D}|{SceneTarget.NextLiteral}",
+            SceneTarget.Layout layout =>
+                $"{SwitchWallSceneTag}|{action.Wall.Value:D}|{SceneTarget.LayoutLiteral}|{layout.Value.Value:D}",
+            _ => throw new InvalidOperationException($"Unhandled SceneTarget case: {action.Target.GetType().Name}"),
         };
 
     public static RuleAction FromColumn(string packed)
@@ -165,6 +179,7 @@ internal static class RuleActionColumnConverter
         {
             SetVariableValueTag => ParseSetVariableValue(remainder),
             HighlightOverlayTag => ParseHighlightOverlay(remainder),
+            SwitchWallSceneTag => ParseSwitchWallScene(remainder),
             _ => throw new ArgumentException($"Unknown RuleAction tag '{tag}'.", nameof(packed)),
         };
     }
@@ -196,5 +211,37 @@ internal static class RuleActionColumnConverter
             throw new ArgumentException($"Malformed durationMs '{remainder[(sep + 1)..]}'.", nameof(remainder));
         }
         return RuleAction.HighlightOverlay.From(overlay, duration);
+    }
+
+    private static RuleAction.SwitchWallScene ParseSwitchWallScene(string remainder)
+    {
+        int sep = remainder.IndexOf('|', StringComparison.Ordinal);
+        if (sep < 0)
+        {
+            throw new ArgumentException("SwitchWallScene requires `<wall>|<target>[|<layout>]`.", nameof(remainder));
+        }
+        if (!Guid.TryParseExact(remainder[..sep], "D", out Guid wall))
+        {
+            throw new ArgumentException($"Malformed wall guid '{remainder[..sep]}'.", nameof(remainder));
+        }
+
+        string rest = remainder[(sep + 1)..];
+        if (rest == SceneTarget.NextLiteral)
+        {
+            return RuleAction.SwitchWallScene.From(wall, SceneTarget.NextLiteral, null);
+        }
+
+        string layoutPrefix = $"{SceneTarget.LayoutLiteral}|";
+        if (rest.StartsWith(layoutPrefix, StringComparison.Ordinal))
+        {
+            string layoutSegment = rest[layoutPrefix.Length..];
+            if (!Guid.TryParseExact(layoutSegment, "D", out Guid layout))
+            {
+                throw new ArgumentException($"Malformed layout guid '{layoutSegment}'.", nameof(remainder));
+            }
+            return RuleAction.SwitchWallScene.From(wall, SceneTarget.LayoutLiteral, layout);
+        }
+
+        throw new ArgumentException($"Unknown SwitchWallScene target '{rest}'.", nameof(remainder));
     }
 }
