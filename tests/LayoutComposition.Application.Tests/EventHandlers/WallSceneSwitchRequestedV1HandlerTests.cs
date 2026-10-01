@@ -176,6 +176,46 @@ public class WallSceneSwitchRequestedV1HandlerTests
         entry.Message.ShouldContain(causingEvent.ToString());
     }
 
+    /// <summary>
+    /// An unusable (non-empty, unparseable) fab must log the fab-specific
+    /// warning, not the absent-fab one — the two carry different operator
+    /// guidance (a typo in the event source vs. nothing sent at all) and
+    /// only the unusable case carries the parse exception.
+    /// </summary>
+    [Fact]
+    public async Task FR010a_An_unusable_fab_logs_a_message_distinct_from_an_absent_fab_and_carries_the_exception()
+    {
+        LayoutIdentifier a = NewScene();
+        LayoutIdentifier b = NewScene();
+
+        Wall unusableFabWall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        unusableFabWall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
+        InMemoryWallRepository unusableFabWalls = new();
+        unusableFabWalls.Add(unusableFabWall);
+        CapturingLogger<WallSceneSwitchRequestedV1Handler> unusableFabLogger = new();
+        await Handler(unusableFabWalls, AllPublishedIn(Munich, a, b), new FakeDedupStore(), unusableFabLogger).Handle(
+            Request(unusableFabWall, "Layout", b, Guid.CreateVersion7(), Guid.CreateVersion7(), fab: "NotAFab"),
+            CancellationToken.None);
+
+        (LogLevel Level, string Message, Exception? Exception) unusableEntry =
+            unusableFabLogger.Entries.ShouldHaveSingleItem();
+        unusableEntry.Level.ShouldBe(LogLevel.Warning);
+        unusableEntry.Exception.ShouldNotBeNull();
+        unusableEntry.Message.ShouldContain("NotAFab");
+
+        Wall absentFabWall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        absentFabWall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
+        InMemoryWallRepository absentFabWalls = new();
+        absentFabWalls.Add(absentFabWall);
+        CapturingLogger<WallSceneSwitchRequestedV1Handler> absentFabLogger = new();
+        await Handler(absentFabWalls, AllPublishedIn(Munich, a, b), new FakeDedupStore(), absentFabLogger).Handle(
+            Request(absentFabWall, "Layout", b, Guid.CreateVersion7(), Guid.CreateVersion7(), fab: null),
+            CancellationToken.None);
+
+        string absentFabMessage = absentFabLogger.Entries.ShouldHaveSingleItem().Message;
+        unusableEntry.Message.ShouldNotBe(absentFabMessage);
+    }
+
     [Fact]
     public async Task FR010b_A_wall_existing_in_another_fab_is_dropped_and_both_fabs_are_named()
     {
@@ -255,6 +295,61 @@ public class WallSceneSwitchRequestedV1HandlerTests
 
         crossFabLogger.Entries.ShouldHaveSingleItem().Message
             .ShouldNotBe(unknownWallLogger.Entries.ShouldHaveSingleItem().Message);
+    }
+
+    /// <summary>
+    /// An empty wall identifier used to escape <c>WallIdentifier.From</c> as
+    /// an uncaught <c>ArgumentException</c>; it now matches no wall and logs
+    /// the same unknown-wall warning as any other wall nothing recognises,
+    /// without reserving a dedup key.
+    /// </summary>
+    [Fact]
+    public async Task An_empty_wall_identifier_is_dropped_as_unknown_and_reserves_no_dedup_key()
+    {
+        InMemoryWallRepository walls = new(); // empty — Guid.Empty matches no wall regardless
+        FakeDedupStore dedup = new();
+        CapturingLogger<WallSceneSwitchRequestedV1Handler> logger = new();
+        WallSceneSwitchRequestedV1Handler handler = Handler(walls, new FakeLayoutPublicationLookup(), dedup, logger);
+
+        WallSceneSwitchRequestedV1 message = new(
+            Guid.Empty, "Next", null, Guid.CreateVersion7(), Moment, Guid.CreateVersion7(),
+            Metadata: new EventMetadata(Guid.CreateVersion7(), Moment, Munich.Value, null, Moment));
+
+        await handler.Handle(message, CancellationToken.None);
+
+        dedup.Calls.ShouldBeEmpty();
+        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Message.ShouldContain(Guid.Empty.ToString());
+    }
+
+    /// <summary>
+    /// An empty rule identifier used to escape <c>RuleIdentifier.From</c> as
+    /// an uncaught <c>ArgumentException</c> once the wall itself was found;
+    /// it now logs the named invalid-identifiers warning and reserves no
+    /// dedup key.
+    /// </summary>
+    [Fact]
+    public async Task An_empty_rule_identifier_logs_WallSwitchRequestWithInvalidIdentifiers_and_reserves_no_dedup_key()
+    {
+        LayoutIdentifier a = NewScene();
+        LayoutIdentifier b = NewScene();
+        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
+        InMemoryWallRepository walls = new();
+        walls.Add(wall);
+        FakeDedupStore dedup = new();
+        CapturingLogger<WallSceneSwitchRequestedV1Handler> logger = new();
+        WallSceneSwitchRequestedV1Handler handler = Handler(walls, AllPublishedIn(Munich, a, b), dedup, logger);
+
+        await handler.Handle(
+            Request(wall, "Layout", b, Guid.Empty, Guid.CreateVersion7()), CancellationToken.None);
+
+        wall.Showing.ShouldBe(a);
+        dedup.Calls.ShouldBeEmpty();
+        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Warning);
+        entry.Message.ShouldContain("invalid rule or causing-event identifier");
     }
 
     [Fact]
