@@ -16,6 +16,8 @@ import {
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Badge, type BadgeTone } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
+import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
+import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { RuleDialog } from './RuleDialog';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { DryRunPanel } from './DryRunPanel';
@@ -148,10 +150,7 @@ export function RulesPage() {
       </div>
 
       {mutationError !== undefined && (
-        <div
-          role="alert"
-          className="rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
+        <FaultNotice>
           {problemDetail(
             mutationError,
             isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
@@ -163,16 +162,11 @@ export function RulesPage() {
               Reload
             </button>
           )}
-        </div>
+        </FaultNotice>
       )}
 
       {isError ? (
-        <div role="alert" className="space-y-2 rounded-md border border-accent-fault/40 p-3 text-sm">
-          <p>Could not load rules.</p>
-          <Button type="button" variant="secondary" onClick={() => void refetch()}>
-            Retry
-          </Button>
-        </div>
+        <RetryBanner message="Could not load rules." onRetry={() => void refetch()} />
       ) : (
         <DataTable
           columns={columns}
