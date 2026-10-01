@@ -2,6 +2,7 @@ import { useGetWallQuery, useSwitchWallSceneMutation, wallsApi } from '@smart-se
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { CONFLICT_FALLBACK, isStaleConflict, problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { createLayoutHubClient } from '@smart-sentinel-eye/shared/realtime/layoutHub';
+import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useEffect, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
@@ -137,14 +138,7 @@ export function WallDetailPage() {
         Showing: {nameFor(wall.showing)}
       </p>
 
-      {backendError !== null && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
-          {backendError}
-        </div>
-      )}
+      {backendError !== null && <FaultNotice>{backendError}</FaultNotice>}
 
       <ul className="flex flex-col gap-2">
         {wall.scenes.map((scene) => {
