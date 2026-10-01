@@ -113,8 +113,8 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
                         new DryRunResultDto(Matched: false, EvaluatedValue: null));
                 }
 
-                // Only SetVariableValue produces a value; HighlightOverlay
-                // matches but has nothing to evaluate.
+                // Only SetVariableValue produces a value; HighlightOverlay and
+                // SwitchWallScene match but have nothing to evaluate.
                 string? evaluated = compiled.CompiledValueExpression is null
                     ? null
                     : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();

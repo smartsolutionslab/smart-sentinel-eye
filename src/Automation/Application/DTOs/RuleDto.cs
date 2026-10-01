@@ -52,16 +52,23 @@ public sealed record RuleActionDto(
     string? VariableName,
     string? ValueExpression,
     Guid? Overlay,
-    int? DurationMs)
+    int? DurationMs,
+    Guid? Wall,
+    string? SceneTarget,
+    Guid? TargetLayout)
 {
     public const string SetVariableValueKind = "SetVariableValue";
     public const string HighlightOverlayKind = "HighlightOverlay";
+    public const string SwitchWallSceneKind = "SwitchWallScene";
 
     public static RuleActionDto ForSetVariableValue(string variableName, string valueExpression) =>
-        new(SetVariableValueKind, variableName, valueExpression, null, null);
+        new(SetVariableValueKind, variableName, valueExpression, null, null, null, null, null);
 
     public static RuleActionDto ForHighlightOverlay(Guid overlay, int durationMs) =>
-        new(HighlightOverlayKind, null, null, overlay, durationMs);
+        new(HighlightOverlayKind, null, null, overlay, durationMs, null, null, null);
+
+    public static RuleActionDto ForSwitchWallScene(Guid wall, string sceneTarget, Guid? targetLayout) =>
+        new(SwitchWallSceneKind, null, null, null, null, wall, sceneTarget, targetLayout);
 }
 
 /// <summary>

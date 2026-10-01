@@ -112,6 +112,83 @@ public class RuleEvaluatorTests
         effect.DurationMs.ShouldBe(5_000);
     }
 
+    // ---- spec 296 FR-001/FR-004: SwitchWallScene ----
+
+    [Fact]
+    public void SwitchWallScene_action_with_Next_target_yields_an_effect_carrying_the_rule_identifier()
+    {
+        Guid wall = Guid.CreateVersion7();
+        InMemoryRuleCache cache = new();
+        RuleAggregate rule = ActiveRule(
+            "rule-a",
+            RuleAction.SwitchWallScene.From(wall, "Next", null),
+            BaseMoment);
+        cache.Upsert(rule);
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(PlcCycleStartContext));
+
+        RuleActionEffect.SwitchWallScene effect =
+            effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SwitchWallScene>();
+        effect.Wall.ShouldBe(wall);
+        effect.Target.ShouldBe("Next");
+        effect.Layout.ShouldBeNull();
+        effect.Rule.ShouldBe(rule.Id.Value);
+    }
+
+    [Fact]
+    public void SwitchWallScene_action_with_Layout_target_yields_the_target_layout_in_the_effect()
+    {
+        Guid wall = Guid.CreateVersion7();
+        Guid layout = Guid.CreateVersion7();
+        InMemoryRuleCache cache = new();
+        RuleAggregate rule = ActiveRule(
+            "rule-a",
+            RuleAction.SwitchWallScene.From(wall, "Layout", layout),
+            BaseMoment);
+        cache.Upsert(rule);
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(PlcCycleStartContext));
+
+        RuleActionEffect.SwitchWallScene effect =
+            effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SwitchWallScene>();
+        effect.Wall.ShouldBe(wall);
+        effect.Target.ShouldBe("Layout");
+        effect.Layout.ShouldBe(layout);
+        effect.Rule.ShouldBe(rule.Id.Value);
+    }
+
+    [Fact]
+    public void Two_switch_wall_scene_rules_on_the_same_event_each_carry_their_own_rule_identifier()
+    {
+        InMemoryRuleCache cache = new();
+        RuleAggregate ruleA = ActiveRule(
+            "rule-a",
+            RuleAction.SwitchWallScene.From(Guid.CreateVersion7(), "Next", null),
+            BaseMoment);
+        RuleAggregate ruleB = ActiveRule(
+            "rule-b",
+            RuleAction.SwitchWallScene.From(Guid.CreateVersion7(), "Next", null),
+            BaseMoment.AddMinutes(5));
+        cache.Upsert(ruleA);
+        cache.Upsert(ruleB);
+
+        RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
+        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+            FabIdentifier.From("munich"),
+            "plc", "PlcCycleStart", Context(PlcCycleStartContext));
+
+        effects.Count.ShouldBe(2);
+        effects.OfType<RuleActionEffect.SwitchWallScene>()
+            .Select(effect => effect.Rule)
+            .ShouldBe([ruleA.Id.Value, ruleB.Id.Value]);
+    }
+
     [Fact]
     public void Conflict_two_rules_writing_the_same_variable_emit_both_in_createdAt_order()
     {

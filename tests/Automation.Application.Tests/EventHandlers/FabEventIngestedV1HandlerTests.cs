@@ -68,6 +68,18 @@ public class FabEventIngestedV1HandlerTests
         return rule;
     }
 
+    private static RuleAggregate ActiveSwitchWallSceneRule(
+        string name, Guid wall, string target, Guid? layout, DateTimeOffset createdAt)
+    {
+        RuleAggregate rule = new RuleBuilder()
+            .WithName(name)
+            .WithAction(RuleAction.SwitchWallScene.From(wall, target, layout))
+            .WithClock(createdAt)
+            .Build();
+        rule.Publish(new FakeClock(createdAt.AddMinutes(1)));
+        return rule;
+    }
+
     [Fact]
     public async Task Matching_event_publishes_SystemVariableValueRequestedV1_with_the_causing_event_id()
     {
@@ -184,6 +196,105 @@ public class FabEventIngestedV1HandlerTests
         published.Length.ShouldBe(2);
         published.Select(p => p.OverlayIdentifier).ShouldBe([overlay, overlay]);
         published.Select(p => p.DurationMs).ShouldBe([5_000, 12_000]);
+        published.Select(p => p.CausingEventIdentifier)
+            .ShouldBe([ingested.EventIdentifier, ingested.EventIdentifier]);
+    }
+
+    // ---- spec 296 FR-004: SwitchWallScene ----
+
+    [Fact]
+    public async Task SwitchWallScene_action_with_Next_target_publishes_WallSceneSwitchRequestedV1()
+    {
+        Guid wall = Guid.CreateVersion7();
+        InMemoryRuleCache cache = new();
+        RuleAggregate rule = ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment);
+        cache.Upsert(rule);
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        FabEventIngestedV1 ingested = PlcCycleStart();
+        await handler.Handle(ingested, CancellationToken.None);
+
+        WallSceneSwitchRequestedV1 published = bus.Published
+            .OfType<WallSceneSwitchRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Wall.ShouldBe(wall);
+        published.Target.ShouldBe("Next");
+        published.TargetLayout.ShouldBeNull();
+        published.Rule.ShouldBe(rule.Id.Value);
+        published.CausingEventIdentifier.ShouldBe(ingested.EventIdentifier);
+    }
+
+    [Fact]
+    public async Task SwitchWallScene_action_with_Layout_target_publishes_the_target_layout()
+    {
+        Guid wall = Guid.CreateVersion7();
+        Guid layout = Guid.CreateVersion7();
+        InMemoryRuleCache cache = new();
+        RuleAggregate rule = ActiveSwitchWallSceneRule("switch-rule", wall, "Layout", layout, BaseMoment);
+        cache.Upsert(rule);
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        await handler.Handle(PlcCycleStart(), CancellationToken.None);
+
+        WallSceneSwitchRequestedV1 published = bus.Published
+            .OfType<WallSceneSwitchRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Target.ShouldBe("Layout");
+        published.TargetLayout.ShouldBe(layout);
+    }
+
+    /// <summary>
+    /// FR-004: metadata built byte-for-byte as the highlight branch builds
+    /// its own — <c>Fab</c> from the event, <c>Actor</c> null (a rule, not
+    /// an operator, requested this), <c>RootIngestedAt</c> forwarded from
+    /// the triggering event's acceptance moment (spec 025 leg measurement).
+    /// </summary>
+    [Fact]
+    public async Task SwitchWallScene_metadata_matches_the_highlight_branchs_own()
+    {
+        Guid wall = Guid.CreateVersion7();
+        InMemoryRuleCache cache = new();
+        cache.Upsert(ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment));
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        FabEventIngestedV1 ingested = PlcCycleStart(fab: "dresden");
+        await handler.Handle(ingested, CancellationToken.None);
+
+        WallSceneSwitchRequestedV1 published = bus.Published
+            .OfType<WallSceneSwitchRequestedV1>()
+            .ShouldHaveSingleItem();
+        published.Metadata.Fab.ShouldBe("dresden");
+        published.Metadata.Actor.ShouldBeNull();
+        published.Metadata.RootIngestedAt.ShouldBe(ingested.IngestedAt);
+    }
+
+    [Fact]
+    public async Task Two_switch_wall_scene_rules_on_the_same_event_publish_two_requests_with_distinct_Rule()
+    {
+        InMemoryRuleCache cache = new();
+        RuleAggregate ruleA = ActiveSwitchWallSceneRule(
+            "switch-rule-a", Guid.CreateVersion7(), "Next", null, BaseMoment);
+        RuleAggregate ruleB = ActiveSwitchWallSceneRule(
+            "switch-rule-b", Guid.CreateVersion7(), "Next", null, BaseMoment.AddMinutes(5));
+        cache.Upsert(ruleA);
+        cache.Upsert(ruleB);
+
+        FakeEventBus bus = new();
+        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+
+        FabEventIngestedV1 ingested = PlcCycleStart();
+        await handler.Handle(ingested, CancellationToken.None);
+
+        WallSceneSwitchRequestedV1[] published = bus.Published
+            .OfType<WallSceneSwitchRequestedV1>().ToArray();
+        published.Length.ShouldBe(2);
+        published.Select(p => p.Rule).ShouldBe([ruleA.Id.Value, ruleB.Id.Value]);
         published.Select(p => p.CausingEventIdentifier)
             .ShouldBe([ingested.EventIdentifier, ingested.EventIdentifier]);
     }

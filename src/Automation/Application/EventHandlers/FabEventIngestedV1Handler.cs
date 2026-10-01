@@ -20,9 +20,9 @@ namespace SmartSentinelEye.Automation.Application.EventHandlers;
 /// event per resulting action effect.
 ///
 /// <para>
-/// The two downstream V1 contracts (<see cref="SystemVariableValueRequestedV1"/>
-/// and <see cref="OverlayHighlightRequestedV1"/>) both carry the
-/// <c>CausingEventIdentifier</c> so consumers can dedup against
+/// The three downstream V1 contracts (<see cref="SystemVariableValueRequestedV1"/>,
+/// <see cref="OverlayHighlightRequestedV1"/> and <see cref="WallSceneSwitchRequestedV1"/>)
+/// all carry the <c>CausingEventIdentifier</c> so consumers can dedup against
 /// Wolverine outbox redelivery.
 /// </para>
 ///
@@ -124,6 +124,17 @@ public sealed class FabEventIngestedV1Handler(
                     await events.PublishAsync(
                         new OverlayHighlightRequestedV1(
                             highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, eventIdentifier,
+                            // Same reasoning as the variable effect above.
+                            Metadata: new EventMetadata(
+                                Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
+                        cancellationToken);
+                    break;
+
+                case RuleActionEffect.SwitchWallScene switchWallScene:
+                    await events.PublishAsync(
+                        new WallSceneSwitchRequestedV1(
+                            switchWallScene.Wall, switchWallScene.Target, switchWallScene.Layout,
+                            switchWallScene.Rule, requestedAt, eventIdentifier,
                             // Same reasoning as the variable effect above.
                             Metadata: new EventMetadata(
                                 Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
