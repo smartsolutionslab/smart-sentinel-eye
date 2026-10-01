@@ -168,8 +168,11 @@ public sealed class ScenarioFileTests
     /// <summary>
     /// Walks up to the repository root: the clips live with the AppHost, not with
     /// the test binary, and the test asserts about the real ones on purpose.
+    /// Internal (not private), spec 289 T-D01: <c>ScenarioStoryCheckTests</c>
+    /// reuses it so its "all three shipped scenarios" fact runs against the
+    /// real clips directory rather than an empty one.
     /// </summary>
-    private static string ClipsDirectory()
+    internal static string ClipsDirectory()
     {
         DirectoryInfo? directory = new(AppContext.BaseDirectory);
 
