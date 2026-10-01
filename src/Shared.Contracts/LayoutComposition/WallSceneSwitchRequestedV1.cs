@@ -26,4 +26,11 @@ public sealed record WallSceneSwitchRequestedV1(
     Guid Rule,
     DateTimeOffset RequestedAt,
     Guid CausingEventIdentifier,
-    EventMetadata Metadata) : IIntegrationEvent;
+    EventMetadata Metadata) : IIntegrationEvent
+{
+    /// <summary>Wire literal for <see cref="Target"/> meaning "the next scene in the wall's ordered set".</summary>
+    public const string NextTarget = "Next";
+
+    /// <summary>Wire literal for <see cref="Target"/> meaning "the layout named by <see cref="TargetLayout"/>".</summary>
+    public const string LayoutTarget = "Layout";
+}

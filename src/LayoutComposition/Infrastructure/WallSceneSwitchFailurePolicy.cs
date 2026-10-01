@@ -16,7 +16,7 @@ namespace SmartSentinelEye.LayoutComposition.Infrastructure;
 /// exactly the defect that correction names. The handler lets
 /// <see cref="DbUpdateConcurrencyException"/> escape uncaught (see its own
 /// doc); this policy is what turns that escape into a dead letter instead
-/// of Wolverine's default retry-with-backoff.
+/// of inheriting Wolverine's unpinned default.
 ///
 /// <para>
 /// The first Wolverine failure rule in this repository (no

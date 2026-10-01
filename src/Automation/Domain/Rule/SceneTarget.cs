@@ -1,3 +1,5 @@
+using SmartSentinelEye.Shared.Contracts.LayoutComposition;
+
 namespace SmartSentinelEye.Automation.Domain.Rule;
 
 /// <summary>
@@ -13,13 +15,14 @@ namespace SmartSentinelEye.Automation.Domain.Rule;
 public abstract record SceneTarget
 {
     /// <summary>
-    /// Wire literal for <see cref="Next"/> — reused by the converter, the
-    /// DTO and the fan-out so there is exactly one spelling.
+    /// Wire literal for <see cref="Next"/> — <see cref="WallSceneSwitchRequestedV1.NextTarget"/>
+    /// is the one place both contexts may define this spelling (<c>Shared.Contracts</c>'
+    /// role); reused by the converter, the DTO and the fan-out so there is exactly one.
     /// </summary>
-    public const string NextLiteral = "Next";
+    public const string NextLiteral = WallSceneSwitchRequestedV1.NextTarget;
 
     /// <summary>Wire literal for <see cref="Layout"/>, same reasoning as <see cref="NextLiteral"/>.</summary>
-    public const string LayoutLiteral = "Layout";
+    public const string LayoutLiteral = WallSceneSwitchRequestedV1.LayoutTarget;
 
     private SceneTarget() { }
 
