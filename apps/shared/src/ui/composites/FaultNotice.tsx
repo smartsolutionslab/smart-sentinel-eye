@@ -4,9 +4,13 @@ export interface FaultNoticeProps {
   children: ReactNode;
 }
 
-// Signature-only stub (spec 298 / tasks.md T005): the phase-4b engineer fills
-// this in to render the fault box (plan.md §2). Present only so FaultNotice's
-// red test fails on missing behaviour, not on a missing module.
-export function FaultNotice(_props: FaultNoticeProps) {
-  return null;
+export function FaultNotice({ children }: FaultNoticeProps) {
+  return (
+    <div
+      role="alert"
+      className="mb-4 rounded-md border border-accent-fault-border bg-accent-fault-subtle px-3 py-2 text-sm text-accent-fault"
+    >
+      {children}
+    </div>
+  );
 }
