@@ -137,6 +137,69 @@ public class RuleQueryHandlerTests
         action.ValueExpression.ShouldBeNull();
     }
 
+    [Fact]
+    public async Task Get_projects_a_SwitchWallScene_action_with_Next_target_as_its_tagged_wire_shape()
+    {
+        Guid wall = Guid.CreateVersion7();
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("switch-next")
+            .WithAction(RuleAction.SwitchWallScene.From(wall, "Next", null))
+            .Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        RuleActionDto action =
+            (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "switch-next"), CancellationToken.None))
+            .Value.Action;
+
+        action.Kind.ShouldBe(RuleActionDto.SwitchWallSceneKind);
+        action.Wall.ShouldBe(wall);
+        action.SceneTarget.ShouldBe("Next");
+        action.TargetLayout.ShouldBeNull();
+        action.VariableName.ShouldBeNull();
+        action.ValueExpression.ShouldBeNull();
+        action.Overlay.ShouldBeNull();
+        action.DurationMs.ShouldBeNull();
+    }
+
+    [Fact]
+    public async Task Get_projects_a_SwitchWallScene_action_with_Layout_target_as_its_tagged_wire_shape()
+    {
+        Guid wall = Guid.CreateVersion7();
+        Guid layout = Guid.CreateVersion7();
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("switch-layout")
+            .WithAction(RuleAction.SwitchWallScene.From(wall, "Layout", layout))
+            .Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        RuleActionDto action =
+            (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "switch-layout"), CancellationToken.None))
+            .Value.Action;
+
+        action.Kind.ShouldBe(RuleActionDto.SwitchWallSceneKind);
+        action.Wall.ShouldBe(wall);
+        action.SceneTarget.ShouldBe("Layout");
+        action.TargetLayout.ShouldBe(layout);
+    }
+
+    [Fact]
+    public async Task DryRun_matches_a_SwitchWallScene_rule_with_no_value_to_evaluate()
+    {
+        RuleAggregate rule = new RuleBuilder()
+            .WithName("switch")
+            .WithPredicate("$.payload.cycleTime <= 30")
+            .WithAction(RuleAction.SwitchWallScene.From(Guid.CreateVersion7(), "Next", null))
+            .Build();
+        (_, IRuleQuerySource source) = Seed(rule);
+
+        Result<DryRunResultDto, DryRunRuleError> result =
+            await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
+                new DryRunRuleQuery(Munich, "switch", Sample), CancellationToken.None);
+
+        result.Value.Matched.ShouldBeTrue();
+        result.Value.EvaluatedValue.ShouldBeNull();
+    }
+
     // ---- FR-002: an archived name is released for re-use (#2216) ----
     //
     // RuleRepository.GetByNameAsync already excludes Archived rows; these pin

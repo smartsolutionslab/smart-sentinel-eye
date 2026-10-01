@@ -32,9 +32,23 @@ internal static class RuleMapper
                 RuleActionDto.ForSetVariableValue(setValue.VariableName, setValue.ValueExpression),
             RuleAction.HighlightOverlay highlight =>
                 RuleActionDto.ForHighlightOverlay(highlight.Overlay.Value, highlight.Duration.Value),
+            RuleAction.SwitchWallScene switchWallScene =>
+                RuleActionDto.ForSwitchWallScene(
+                    switchWallScene.Wall.Value, SceneTargetLiteral(switchWallScene.Target), TargetLayout(switchWallScene.Target)),
             // A new variant must be given a wire shape deliberately rather than
             // silently serialising as an empty object.
             _ => throw new NotSupportedException(
                 $"No wire shape defined for rule action '{action.GetType().Name}'."),
         };
+
+    private static string SceneTargetLiteral(SceneTarget target) =>
+        target switch
+        {
+            SceneTarget.Next => SceneTarget.NextLiteral,
+            SceneTarget.Layout => SceneTarget.LayoutLiteral,
+            _ => throw new NotSupportedException($"No wire literal defined for SceneTarget '{target.GetType().Name}'."),
+        };
+
+    private static Guid? TargetLayout(SceneTarget target) =>
+        target is SceneTarget.Layout layout ? layout.Value.Value : null;
 }

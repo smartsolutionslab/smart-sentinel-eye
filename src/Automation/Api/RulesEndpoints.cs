@@ -30,6 +30,7 @@ public static class RulesEndpoints
 
     private const string SetVariableValue = "SetVariableValue";
     private const string HighlightOverlay = "HighlightOverlay";
+    private const string SwitchWallScene = "SwitchWallScene";
 
     public static IEndpointRouteBuilder MapRulesEndpoints(this IEndpointRouteBuilder app)
     {
@@ -439,7 +440,13 @@ public static class RulesEndpoints
                     body.OverlayIdentifier ?? throw new ArgumentException("OverlayIdentifier is required for HighlightOverlay actions."),
                     body.DurationMs ?? throw new ArgumentException("DurationMs is required for HighlightOverlay actions.")),
 
-            _ => throw new ArgumentException($"Unknown ActionType '{body.ActionType}'. Expected: SetVariableValue | HighlightOverlay."),
+            SwitchWallScene =>
+                RuleAction.SwitchWallScene.From(
+                    body.WallIdentifier ?? throw new ArgumentException("WallIdentifier is required for SwitchWallScene actions."),
+                    body.SceneTarget ?? throw new ArgumentException("SceneTarget is required for SwitchWallScene actions."),
+                    body.TargetLayoutIdentifier),
+
+            _ => throw new ArgumentException($"Unknown ActionType '{body.ActionType}'. Expected: SetVariableValue | HighlightOverlay | SwitchWallScene."),
         };
     }
 }

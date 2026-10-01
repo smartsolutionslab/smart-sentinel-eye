@@ -6,7 +6,11 @@ namespace SmartSentinelEye.Automation.Api.Requests;
 /// are required: <c>SetVariableValue</c> needs
 /// <see cref="VariableName"/> + <see cref="ValueExpression"/>;
 /// <c>HighlightOverlay</c> needs <see cref="OverlayIdentifier"/>
-/// + <see cref="DurationMs"/>.
+/// + <see cref="DurationMs"/>; <c>SwitchWallScene</c> (spec 296) needs
+/// <see cref="WallIdentifier"/> + <see cref="SceneTarget"/>
+/// (<c>"Next"</c> | <c>"Layout"</c>), plus
+/// <see cref="TargetLayoutIdentifier"/> exactly when
+/// <see cref="SceneTarget"/> is <c>"Layout"</c>.
 /// </summary>
 public sealed record CreateRuleRequest(
     string Name,
@@ -17,4 +21,7 @@ public sealed record CreateRuleRequest(
     string? VariableName,
     string? ValueExpression,
     Guid? OverlayIdentifier,
-    int? DurationMs);
+    int? DurationMs,
+    Guid? WallIdentifier,
+    string? SceneTarget,
+    Guid? TargetLayoutIdentifier);
