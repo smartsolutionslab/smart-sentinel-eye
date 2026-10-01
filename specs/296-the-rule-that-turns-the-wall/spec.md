@@ -4,8 +4,13 @@
 — "An Automation rule switches a wall (US2, follow-up to #2608)".
 **Branch:** `feat/2618-automation-switches-a-wall` (cut from `origin/develop` @ `6f0f0f12`)
 **Created:** 2026-09-30
-**Lane:** autonomous (ADR-0144). See §8 R-lane for the one tension this raises with
-ADR-0157's implementation notes.
+**Lane:** **supervised** (corrected 2026-10-01). Drafted as autonomous; the user has since
+confirmed ADR-0157's exclusion applies and #2618 carries `agent:blocked`, not
+`agent:ready`. All seven ADR-0037 gates apply. See §8 R-lane.
+**Re-verified:** 2026-10-01 against `develop@a7b48a96` — no commit touched `src/Automation`,
+`src/LayoutComposition`, `src/Shared.Contracts`, `src/AuditObservability` or the WolverineFx
+pin (6.40.0) since `6f0f0f12`; §1's ground truth holds. Frontend drift is recorded in
+plan §4.2.
 
 **Parent:** spec 263 (`specs/263-a-wall-that-changes-its-scene/`), whose §4 "User Story 2"
 is this spec's starting point. That section was written *before* US1 existed. This spec
@@ -426,12 +431,12 @@ Scenario: US2-16 (PR-B) The rule editor authors the action
 - **R-ttl** The dedup table grows by one row per rule firing that targets a wall. The
   SystemVariables table has the same property and its "7-day TTL cleanup worker" was never
   built. Not built here either (§IX); a follow-up issue if the table ever matters.
-- **R-lane** ADR-0157's implementation notes say its delivery is excluded from the
-  autonomous lane "because it carries open design questions". Those questions were PD-1..6,
-  all confirmed by the product owner on 2026-09-26, and US1 shipped supervised. The human
-  applied `agent:ready` to #2618 after that. This spec therefore proceeds in the lane, and
-  the only design point it had to settle (§1.10) it settles *inside* ADR-0113 rather than
-  against it.
+- **R-lane (resolved: supervised)** ADR-0157's implementation notes exclude its delivery
+  from the autonomous lane "because it carries open design questions". This spec first
+  argued PD-1..6's confirmation lifted that; the user confirmed on 2026-10-01 that the
+  exclusion stands, so #2618 runs supervised with every gate. The only design point this
+  spec settles (§1.10) it still settles *inside* ADR-0113 rather than against it; under
+  the supervised lane a human may instead choose the ADR-0113 amendment (R-retry).
 - **R5 (inherited, narrowed)** LayoutComposition must keep the durable inbox (no native
   acks). FR-012 no longer depends on it for `Next`'s safety, but the inbox still stops a
   redelivered envelope before the handler runs.

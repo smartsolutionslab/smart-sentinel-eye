@@ -3,7 +3,10 @@
 Spec: [`spec.md`](./spec.md) · Plan: [`plan.md`](./plan.md) · Issue #2618 · Parent: spec 263
 (its US2 task IDs T101–T130 are reused where the task survives, so the lineage is readable)
 
-## Phase-3 declarations (for `/next-issue`)
+## Phase-3 declarations
+
+Supervised lane (spec header): every phase gate stops for the user; nothing here is
+dispatched by `/next-issue`.
 
 | Declaration | Value |
 |---|---|
@@ -153,8 +156,11 @@ Depends: T118 → (T120 → T121) ∥ T122 → T123 → T125.
   - `apps/management-web/src/features/rules/RuleDialog.test.tsx`: the third option renders a
     wall select and a target select populated from the chosen wall's scenes by layout name;
     submit sends the FR-003 body; switching action type away and back submits no stale
-    fields (US2-16).
-  - `RulesPage.test.tsx`: `describeAction` for both targets.
+    fields (US2-16); only walls in the rule's fab are offered (plan §4.2 A4); changing the
+    wall clears the target.
+  - `RulesPage.test.tsx`: the action column for both targets, by wall and layout **name**,
+    with walls/layouts lists mocked; the identifier fallback when the lookup lacks the
+    wall; the existing `Set …` / `Highlight overlay for …` assertions unmodified.
 - [ ] **T117 [P] [US2]** `e2e/rule-switches-a-wall.spec.ts` (name must not start `wall-`,
   plan §4.3): two Published layouts, a wall, a kiosk on it; author the rule **through the
   dialog**; publish; `POST /event-ingestion/events/manual` a matching event; the kiosk renders
@@ -165,10 +171,14 @@ Depends: T118 → (T120 → T121) ∥ T122 → T123 → T125.
 ### Phase 4b: implement (frontend-engineer; may not edit T116–T117)
 
 - [ ] **T124 [US2]** `apps/shared/src/api/rules.api.ts` + `rules.schema.ts` (plan §4.1);
-  `RuleDialog.tsx` three-way action mapping with wall/target selects via the existing
-  `walls.api` and layouts data; `RulesPage.tsx` `describeAction`. Radix + RHF + Zod only.
+  `RuleDialog.tsx` one `actionType`-keyed field mapping replacing the `setsVariable`
+  boolean's three branches, with wall/target selects via `useListWallsQuery` +
+  `useListLayoutsQuery`; `RulesPage.tsx` exhaustive `describeAction` with name lookups
+  (plan §4.2). Leave `StateBadge`/`RULE_STATE_TONE`/`FaultNotice`/`RetryBanner` as they are.
+  Radix + RHF + Zod only.
 - [ ] **T126 [US2]** Vitest green for `apps/shared` and `apps/management-web`; lint,
-  typecheck, prettier clean; e2e green in CI.
+  typecheck, prettier clean; `Architecture.Tests` green (`ConsoleTriadAlphaTests` scans all of
+  `apps/management-web/src` for alpha-modified triad classes); e2e green in CI.
 
 Depends: PR-A merged → T116..T117 → T119 → T124 → T126.
 
