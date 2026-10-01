@@ -4,16 +4,16 @@
  * to report its newest revision, so a live wall under a discarded draft read
  * as "Archived" while it was playing on the floor.
  *
- * Plain text, not a status pill (issue #2692, ADR-0146 item 4) — colouring
- * "Published" would make it status vocabulary it isn't; the semantic triad
- * is reserved for the operator-facing go/fault/caution colours.
+ * Plain text, not a status pill (ADR-0146 item 4) — colouring "Published"
+ * would make it status vocabulary it isn't; the semantic triad is reserved
+ * for the operator-facing go/fault/caution colours.
  *
  * Shared between `LayoutsPage` and `OverlaysPage`, whose revisions differ
  * only in which other fields ride along; `RevisionSummary` is the
  * structural shape both already satisfy.
  *
  * `Published` appears exactly when a live revision exists, which is what
- * keeps the two tests that read this text matching.
+ * the e2e specs and the page tests that read this text rely on.
  */
 export interface RevisionSummary {
   readonly revisionNumber: number;
