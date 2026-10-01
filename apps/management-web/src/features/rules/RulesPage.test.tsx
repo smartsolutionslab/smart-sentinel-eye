@@ -368,4 +368,45 @@ describe('RulesPage — a refused mutation is surfaced', () => {
     renderPage();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
+
+  /**
+   * Spec 298 (issue #2693) US1 — new behaviour, RED (ADR-0139/0144). The
+   * refusal box still paints the call-site alpha blend
+   * (`bg-accent-fault/10`), not the opaque `FaultNotice` tint.
+   */
+  it('Shows a refused change on the shared fault notice, not call-site alpha', () => {
+    publishState = { isLoading: false, error: refusal(409, 'RULE_NAME_TAKEN') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveClass('bg-accent-fault-subtle', 'border-accent-fault-border', 'text-accent-fault');
+    expect([...alert.classList].some((c) => /\/\d+$/.test(c))).toBe(false);
+  });
+});
+
+/**
+ * Spec 298 (issue #2693) US2 — new behaviour, RED (ADR-0139/0144). The load
+ * failure here (`RulesPage.tsx:170`) is the one genuine retry among the six
+ * sites this spec touches, and the only one painting a *different* box
+ * today — border only, no fill, default text colour, a `secondary` Button
+ * instead of a link-style Retry. It becomes `RetryBanner`.
+ */
+describe('RulesPage — a failed load is the shared RetryBanner (spec 298 US2)', () => {
+  beforeEach(() => {
+    listMock.mockReset();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+  });
+
+  it('Shows the failed load on the fault notice tokens, with a link-style Retry', () => {
+    const refetch = vi.fn();
+    listMock.mockReturnValue({ data: undefined, isLoading: false, isError: true, refetch });
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveTextContent('Could not load rules.');
+    expect(alert).toHaveClass('bg-accent-fault-subtle', 'border-accent-fault-border', 'text-accent-fault');
+    expect([...alert.classList].some((c) => /\/\d+$/.test(c))).toBe(false);
+    expect(within(alert).getByRole('button', { name: 'Retry' })).toHaveClass('underline');
+  });
 });

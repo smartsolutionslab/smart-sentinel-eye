@@ -44,6 +44,7 @@
     "./ui/primitives/CommandPalette": "./src/ui/primitives/CommandPalette.tsx",
     "./ui/composites/Badge": "./src/ui/composites/Badge.tsx",
     "./ui/composites/ChainRecoveryNotice": "./src/ui/composites/ChainRecoveryNotice.tsx",
+    "./ui/composites/FaultNotice": "./src/ui/composites/FaultNotice.tsx",
     "./ui/composites/FormField": "./src/ui/composites/FormField.tsx",
     "./ui/composites/FormErrorSummary": "./src/ui/composites/FormErrorSummary.tsx",
     "./ui/composites/DataTable": "./src/ui/composites/DataTable.tsx",
