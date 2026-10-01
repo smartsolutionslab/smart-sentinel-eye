@@ -27,6 +27,11 @@ internal static partial class Log
 
     [LoggerMessage(
         Level = LogLevel.Warning,
+        Message = "Scenario '{Scenario}' manifest loading failed: {Error}. Its assets will be missing; the rest of the run continues.")]
+    public static partial void ScenarioManifestLoadFailed(this ILogger logger, string scenario, string error);
+
+    [LoggerMessage(
+        Level = LogLevel.Warning,
         Message = "Seeding finished INCOMPLETE: {FailedCount} step(s) failed. The stack is running but the simulated plants are only partly set up.")]
     public static partial void SeedingIncomplete(this ILogger logger, int failedCount);
 
@@ -248,4 +253,20 @@ internal static partial class Log
         Level = LogLevel.Warning,
         Message = "Clip cue loop for '{Path}' failed: {Error}. Waiting before the next attempt.")]
     public static partial void ClipCueLoopFailed(this ILogger logger, string path, string error);
+
+    // --- Scenario/ScenarioStoryCheck ---
+
+    // Names a reaction or highlight trigger that nothing on its asset will
+    // ever satisfy, so the gap is visible instead of a tile that silently
+    // never lights up. An orphan highlight is still seeded regardless (with
+    // its plc fallback); an orphan reaction whose manifest was refused is
+    // not seeded at all — the pre-filter already skipped it — so this fires
+    // alongside ReactionSkippedRefusedManifest, not instead of it: the two
+    // name different facts about the same asset.
+    [LoggerMessage(
+        Level = LogLevel.Warning,
+        Message = "Scenario '{Scenario}' asset '{Asset}' reaction '{Reaction}' can never fire: "
+            + "nothing on this asset emits trigger '{Trigger}'.")]
+    public static partial void ScenarioReactionUnreachable(
+        this ILogger logger, string scenario, string asset, string reaction, string trigger);
 }

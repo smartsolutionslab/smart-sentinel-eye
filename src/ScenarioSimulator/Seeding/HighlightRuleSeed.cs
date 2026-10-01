@@ -1,4 +1,5 @@
 using System.Globalization;
+using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -13,16 +14,18 @@ namespace SmartSentinelEye.ScenarioSimulator.Seeding;
 /// </summary>
 internal static class HighlightRuleSeed
 {
-    public static HighlightSeedResult From(string scenario, AssetDefinition asset, Guid overlay)
+    public static HighlightSeedResult From(string scenario, AssetDefinition asset, Guid overlay, IReadOnlyList<CueDefinition> cues)
     {
         HighlightDefinition highlight = asset.Highlight!;
         Ensure.That(highlight).IsNotNull();
 
         string assetKey = asset.Camera.Path;
 
-        string triggerSource = asset.Sensors
-                .FirstOrDefault(sensor => string.Equals(sensor.Kind, highlight.TriggerKind, StringComparison.Ordinal))?.Source
-            ?? "plc";
+        // Sensors first, then cues (plan.md §5.5), via the same derivation
+        // ScenarioStoryCheck uses to decide whether this highlight is
+        // reachable at all — "plc" is the value the silent fallback used to
+        // produce; it is unchanged, only no longer silent (FR-013).
+        string triggerSource = ScenarioStoryCheck.DeriveHighlightTriggerSource(asset, highlight.TriggerKind, cues);
 
         string? comparisonOperator = Operator(highlight.Comparison);
         if (comparisonOperator is null)

@@ -65,4 +65,13 @@ public static class ClipManifestLoader
             ? new ClipManifestLoadResult(Option<ClipManifest>.None, violations)
             : new ClipManifestLoadResult(Option<ClipManifest>.Some(manifest), []);
     }
+
+    /// <summary>Every distinct clip's manifest, loaded once and keyed by clip file name.</summary>
+    public static Dictionary<string, ClipManifestLoadResult> LoadManifestsByClip(IEnumerable<string> clips, string clipsDirectory)
+    {
+        Ensure.That(clips).IsNotNull();
+        Ensure.That(clipsDirectory).IsNotNull();
+
+        return clips.Distinct(StringComparer.Ordinal).ToDictionary(clip => clip, clip => Load(clipsDirectory, clip), StringComparer.Ordinal);
+    }
 }

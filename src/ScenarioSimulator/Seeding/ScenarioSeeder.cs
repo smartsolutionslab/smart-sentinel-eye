@@ -46,6 +46,26 @@ public sealed class ScenarioSeeder(
 
             logger.SeedingScenario(scenario.Name, scenario.Assets.Count);
 
+            // Loaded once per scenario and shared with every asset below:
+            // the highlight's triggerSource derivation and the reaction
+            // manifest pre-filter would otherwise each read the same
+            // sidecar again. Scoped like the per-asset loop below, for the
+            // same reason (StopHost) — an I/O or JSON fault here must cost
+            // this scenario, not the whole simulator.
+            Dictionary<string, ClipManifestLoadResult> manifestsByClip;
+            try
+            {
+                manifestsByClip = ClipManifestLoader.LoadManifestsByClip(
+                    scenario.Assets.Select(asset => asset.Camera.Clip), scenarios.ClipsDirectory);
+                ReportUnreachableTriggers(key, scenario.Assets, manifestsByClip);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failed++;
+                logger.ScenarioManifestLoadFailed(key, ex.Message);
+                continue;
+            }
+
             foreach (AssetDefinition asset in scenario.Assets)
             {
                 // Scoped, not swallowed. This is a `BackgroundService`, so an
@@ -67,7 +87,7 @@ public sealed class ScenarioSeeder(
                 // at a time; this is the same protection at the loop.
                 try
                 {
-                    await SeedOverlayAndRuleAsync(key, asset, stoppingToken);
+                    await SeedOverlayAndRuleAsync(key, asset, manifestsByClip, stoppingToken);
 
                     // Record the id whether the camera was created or already
                     // existed: it is what correlates the camera to its wall tile,
@@ -125,6 +145,7 @@ public sealed class ScenarioSeeder(
     private async Task SeedOverlayAndRuleAsync(
         string scenario,
         AssetDefinition asset,
+        IReadOnlyDictionary<string, ClipManifestLoadResult> manifestsByClip,
         CancellationToken cancellationToken)
     {
         // Variables first (plan.md §5.4): a SetVariableValue reaction needs
@@ -138,7 +159,7 @@ public sealed class ScenarioSeeder(
             // SetVariableValue reaction needs none — ReactionRuleSeed.From
             // already refuses HighlightOverlay on a null overlay and nothing
             // else, so only that subset is lost here (S2).
-            await SeedReactionsAsync(scenario, asset, overlay: null, seededVariables, cancellationToken);
+            await SeedReactionsAsync(scenario, asset, overlay: null, seededVariables, manifestsByClip, cancellationToken);
             return;
         }
 
@@ -160,7 +181,8 @@ public sealed class ScenarioSeeder(
         }
         else
         {
-            switch (HighlightRuleSeed.From(scenario, asset, overlay))
+            IReadOnlyList<CueDefinition> cues = ScenarioStoryCheck.ValidCuesFor(asset, manifestsByClip);
+            switch (HighlightRuleSeed.From(scenario, asset, overlay, cues))
             {
                 case HighlightSeedResult.Refused refused:
                     logger.HighlightRuleRefused(asset.Key, refused.Reason);
@@ -176,7 +198,7 @@ public sealed class ScenarioSeeder(
             }
         }
 
-        await SeedReactionsAsync(scenario, asset, overlay, seededVariables, cancellationToken);
+        await SeedReactionsAsync(scenario, asset, overlay, seededVariables, manifestsByClip, cancellationToken);
     }
 
     /// <summary>
@@ -245,14 +267,20 @@ public sealed class ScenarioSeeder(
     /// </para>
     /// </summary>
     private async Task SeedReactionsAsync(
-        string scenario, AssetDefinition asset, Guid? overlay, HashSet<string> seededVariables, CancellationToken cancellationToken)
+        string scenario,
+        AssetDefinition asset,
+        Guid? overlay,
+        HashSet<string> seededVariables,
+        IReadOnlyDictionary<string, ClipManifestLoadResult> manifestsByClip,
+        CancellationToken cancellationToken)
     {
         if (asset.Reactions.Count == 0)
         {
             return;
         }
 
-        ClipManifestLoadResult clip = ClipManifestLoader.Load(scenarioOptions.Value.ClipsDirectory, asset.Camera.Clip);
+        // Loaded once per scenario by the caller, not reloaded here.
+        ClipManifestLoadResult clip = manifestsByClip[asset.Camera.Clip];
         bool clipRefused = clip.Violations.Count > 0;
 
         foreach (ReactionDefinition reaction in asset.Reactions)
@@ -291,6 +319,16 @@ public sealed class ScenarioSeeder(
                     logger.ReactionRefused(asset.Key, reaction.Name, refused.Reason);
                     break;
             }
+        }
+    }
+
+    /// <summary>Logs one <see cref="Log.ScenarioReactionUnreachable"/> warning per finding. Still seeds.</summary>
+    private void ReportUnreachableTriggers(
+        string scenario, List<AssetDefinition> assets, IReadOnlyDictionary<string, ClipManifestLoadResult> manifestsByClip)
+    {
+        foreach (StoryFinding finding in ScenarioStoryCheck.Find(scenario, assets, manifestsByClip))
+        {
+            logger.ScenarioReactionUnreachable(finding.Scenario, finding.Asset, finding.Reaction, finding.Trigger);
         }
     }
 }
