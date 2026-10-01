@@ -321,6 +321,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Message.ShouldContain(Guid.Empty.ToString());
+        entry.Message.ShouldContain("exists in no fab"); // WallSwitchRequestForUnknownWall specifically — every warning here names {Wall}.
     }
 
     /// <summary>

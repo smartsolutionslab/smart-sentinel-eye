@@ -14,10 +14,11 @@ public abstract record SceneTarget
 {
     /// <summary>
     /// Wire literal for <see cref="Next"/> — Domain's own spelling, owned
-    /// independently of any integration event (ADR-0040). It happens to
-    /// line up with <c>WallSceneSwitchRequestedV1.NextTarget</c>; that
-    /// translation lives in Application's <c>SceneTargetWireMapping</c>,
-    /// not here.
+    /// independently of any integration event (ADR-0040). It matches
+    /// <c>WallSceneSwitchRequestedV1.NextTarget</c> by agreement, not by
+    /// any runtime mapping; <c>FabEventIngestedV1HandlerTests</c> and
+    /// <c>RuleEvaluatorTests</c> pin the producer side against that literal,
+    /// so a rename here surfaces as a test failure rather than silent drift.
     /// </summary>
     public const string NextLiteral = "Next";
 
