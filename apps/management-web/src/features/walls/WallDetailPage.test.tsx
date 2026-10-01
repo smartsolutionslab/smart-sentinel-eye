@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, within } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { store } from '../../app/store.js';
@@ -103,6 +103,23 @@ describe('WallDetailPage — the stale-conflict toast (spec 258 US1, WALL_STALE)
 
     const alert = screen.getByRole('alert');
     expect(alert).not.toHaveTextContent(CONFLICT_FALLBACK);
+  });
+
+  /**
+   * Spec 298 (issue #2693) US1 — new behaviour, RED (ADR-0139/0144). The
+   * refusal box still paints the call-site alpha blend
+   * (`bg-accent-fault/10`), not the opaque `FaultNotice` tint. The "no
+   * button" half is a characterisation pin — the wall's refusal has never
+   * offered a control, since it refetches on its own.
+   */
+  it('Shows the refused scene switch on the shared fault notice, not call-site alpha, with no control', () => {
+    switchState = { isLoading: false, error: refusal(409, 'WALL_STALE') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveClass('bg-accent-fault-subtle', 'border-accent-fault-border', 'text-accent-fault');
+    expect([...alert.classList].some((c) => /\/\d+$/.test(c))).toBe(false);
+    expect(within(alert).queryByRole('button')).not.toBeInTheDocument();
   });
 });
 

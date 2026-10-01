@@ -322,6 +322,20 @@ describe('LayoutsPage — the stale-conflict fallback (spec 231 US1)', () => {
 
     expect(screen.getByRole('alert')).toHaveTextContent('Layout has changed since version 0 (now 1).');
   });
+
+  /**
+   * Spec 298 (issue #2693) US1 — new behaviour, RED (ADR-0139/0144). The
+   * refusal box still paints the call-site alpha blend
+   * (`bg-accent-fault/10`), not the opaque `FaultNotice` tint.
+   */
+  it('Shows a refused change on the shared fault notice, not call-site alpha', () => {
+    publishState = { isLoading: false, error: refusal(409, 'LAYOUT_NAME_TAKEN') };
+    renderPage();
+
+    const alert = screen.getByRole('alert');
+    expect(alert).toHaveClass('bg-accent-fault-subtle', 'border-accent-fault-border', 'text-accent-fault');
+    expect([...alert.classList].some((c) => /\/\d+$/.test(c))).toBe(false);
+  });
 });
 
 /**
