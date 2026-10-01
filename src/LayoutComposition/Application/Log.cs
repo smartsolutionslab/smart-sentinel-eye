@@ -67,4 +67,35 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneChanged for wall {Wall} v{SceneVersion} carries no fab; not broadcast.")]
     public static partial void WallSceneChangedWithoutFab(this ILogger logger, Guid wall, long sceneVersion);
+
+    // ---- Spec 296 FR-010/FR-012: WallSceneSwitchRequestedV1Handler. Each
+    // carries wall, rule and causing event, since the log is the only
+    // observable trace of a drop on this path (no caller to answer). ----
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) carries no usable fab; dropping.")]
+    public static partial void WallSwitchRequestWithoutFab(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) names fab '{RequestFab}', but the wall belongs to fab '{ActualFab}'; dropping.")]
+    public static partial void WallSwitchRequestForWallInAnotherFab(this ILogger logger, Guid wall, Guid rule, Guid causingEvent, FabIdentifier requestFab, FabIdentifier actualFab);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested names wall {Wall} (rule {Rule}, event {CausingEvent}), which exists in no fab; dropping.")]
+    public static partial void WallSwitchRequestForUnknownWall(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) carries a malformed target '{Target}'; dropping.")]
+    public static partial void WallSwitchRequestMalformedTarget(this ILogger logger, Guid wall, Guid rule, Guid causingEvent, string target);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) names layout {Layout}, which is not one of the wall's scenes; dropping.")]
+    public static partial void WallSwitchRequestSceneNotInSet(this ILogger logger, Guid wall, Guid rule, Guid causingEvent, LayoutIdentifier layout);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) names layout {Layout}, which is not Published; dropping.")]
+    public static partial void WallSwitchRequestSceneNotPublished(this ILogger logger, Guid wall, Guid rule, Guid causingEvent, LayoutIdentifier layout);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) is a dedup hit; no-op.")]
+    public static partial void WallSwitchRequestDuplicate(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Switched wall {Wall} scene by rule {Rule} (event {CausingEvent}).")]
+    public static partial void RuleSwitchedWallScene(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Switch request for wall {Wall} by rule {Rule} (event {CausingEvent}) was a no-op; scene unchanged.")]
+    public static partial void RuleWallSceneSwitchWasNoOp(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
 }

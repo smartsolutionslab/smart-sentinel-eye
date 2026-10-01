@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Shouldly" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+    <Using Include="Shouldly" />
+  </ItemGroup>
+
+  <!-- Spec 296 T114: proves the Wolverine failure rule for
+       WallSceneSwitchRequestedV1 by booting a real (but broker/DB-free)
+       Wolverine handler-discovery pipeline against the real
+       LayoutComposition.Application assembly — WolverineFx.RuntimeCompilation
+       flows in transitively via the Infrastructure -> ServiceDefaults
+       reference, and StubAllExternalTransports() + no
+       PersistMessagesWithPostgresql call means no live Postgres/RabbitMQ is
+       needed (ADR-0103 still holds: no Testcontainers, and this isn't one). -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LayoutComposition\Infrastructure\SmartSentinelEye.LayoutComposition.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
+  </ItemGroup>
+
+</Project>

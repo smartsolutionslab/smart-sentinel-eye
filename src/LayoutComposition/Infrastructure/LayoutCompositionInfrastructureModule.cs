@@ -43,6 +43,7 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<ILayoutQuerySource, LayoutQuerySource>();
         builder.Services.AddScoped<IWallRepository, WallRepository>();
         builder.Services.AddScoped<ILayoutPublicationLookup, LayoutPublicationLookup>();
+        builder.Services.AddScoped<IWallSwitchRequestDedupStore, WallSwitchRequestDedupStore>();
         builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionPublishedDomainEvent>, LayoutRevisionPublishedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionArchivedDomainEvent>, LayoutRevisionArchivedDomainEventHandler>();
         builder.Services.AddScoped<IDomainEventHandler<WallConfiguredDomainEvent>, WallConfiguredDomainEventHandler>();
@@ -118,6 +119,8 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<OverlayRevisionPublishedV1Handler>();
         builder.Services.AddScoped<OverlayRevisionArchivedV1Handler>();
         builder.Services.AddScoped<ResolvedOverlayTextChangedV1Handler>();
+        //   - Spec 296: Automation's rule-driven wall-switch request.
+        builder.Services.AddScoped<WallSceneSwitchRequestedV1Handler>();
 
         // Same-context relay (spec 258 US1, phase-6 remediation): this
         // context both publishes WallSceneChangedV1 and subscribes to it, so
@@ -129,7 +132,12 @@ public static class LayoutCompositionInfrastructureModule
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: LayoutCompositionPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: LayoutCompositionPersistenceModule.DatabaseConnectionName,
+            // FR-011: a lost optimistic-concurrency race on
+            // WallSceneSwitchRequestedV1 must not be retried (ADR-0113). No
+            // other handler's chain is touched (WallSceneSwitchFailurePolicy
+            // scopes itself to that one message type).
+            configureMore: opts => opts.Policies.Add<WallSceneSwitchFailurePolicy>());
 
         return builder;
     }
