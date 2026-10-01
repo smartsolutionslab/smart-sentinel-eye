@@ -15,22 +15,19 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// cases are green on arrival.
 ///
 /// <para>
-/// <b>Reserved pairs.</b> <c>Source</c> is a closed four-value VO with no
-/// delete endpoint (<see cref="EventSourceModeApi"/>'s remarks), so two
-/// scenarios need a pair that has <i>never</i> been declared and never will
-/// be by any other test in this file:
-/// <c>munich</c> + <c>webhook</c> (<see cref="Changing_an_undeclared_pair_is_404"/>)
-/// and <c>dresden</c> + <c>webhook</c>
-/// (<see cref="A_repeated_declare_with_the_same_idempotency_key_replays_the_same_201"/>).
-/// Every other test either restores no state (it never reaches a successful
-/// write) or uses <see cref="EventSourceModeApi.SetAsync"/>, which is
-/// idempotent and safe to call from any run in any order. <b>The two
-/// reserved-pair tests are the one place that idempotency does not reach</b>:
-/// they can only pass against a database where that exact pair has never
-/// been declared, which — because the dev database is shared across runs
-/// (spec 143's own convention) — makes them effectively single-use unless a
-/// human resets those two rows. Flagged for phase 5/6 rather than solved
-/// here; there is no fifth source to fall back to.
+/// <b>Reserved pair.</b> <c>Source</c> is a closed four-value VO with no
+/// delete endpoint (<see cref="EventSourceModeApi"/>'s remarks), so
+/// <see cref="Changing_an_undeclared_pair_is_404"/> needs a pair that has
+/// <i>never</i> been declared: <c>munich</c> + <c>webhook</c>. That test
+/// never successfully declares it (it asserts 404 on a change attempt), so
+/// the pair stays undeclared afterward. Every other test either restores no
+/// state (it never reaches a successful write), uses
+/// <see cref="EventSourceModeApi.SetAsync"/> (idempotent, safe from any run
+/// in any order), or declares and then restores to discovery in a
+/// <c>finally</c> (<see cref="A_repeated_declare_with_the_same_idempotency_key_replays_the_same_201"/>,
+/// phase 5/6 fix: the pair it originally reserved, <c>dresden</c> +
+/// <c>webhook</c>, was later claimed by an unrelated spec for a real
+/// delivery, so "never declared elsewhere" stopped holding).
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -171,23 +168,37 @@ public class EventSourceModeIntegrationTests(AspireFixture aspire)
             .ShouldAllBe(fab => fab == "hamburg", customMessage: "every row a single-fab operator sees belongs to that fab");
     }
 
-    /// <summary>Reserved pair — see this class's remarks. Never declared elsewhere.</summary>
+    /// <summary>
+    /// Restores dresden/webhook to discovery in a <c>finally</c> (this
+    /// class's remarks), not a reserved pair: <c>CrossFabWebhookRotationEffectIntegrationTests</c>
+    /// (spec 182, added after this test was written) delivers a real
+    /// webhook to dresden under the assumption it is in discovery — a
+    /// permanent strict declaration here would refuse that delivery for
+    /// every test after this one in the same run.
+    /// </summary>
     [Fact]
     public async Task A_repeated_declare_with_the_same_idempotency_key_replays_the_same_201()
     {
         string key = $"key-{Guid.CreateVersion7():N}";
         using HttpClient dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage first = await DeclareWithKeyAsync(dresden, "webhook", "strict", key);
-        first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
-        Guid firstIdentifier = (await first.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+        try
+        {
+            HttpResponseMessage first = await DeclareWithKeyAsync(dresden, "webhook", "strict", key);
+            first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
+            Guid firstIdentifier = (await first.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
 
-        HttpResponseMessage second = await DeclareWithKeyAsync(dresden, "webhook", "strict", key);
-        second.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(second));
-        Guid secondIdentifier = (await second.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+            HttpResponseMessage second = await DeclareWithKeyAsync(dresden, "webhook", "strict", key);
+            second.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(second));
+            Guid secondIdentifier = (await second.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
 
-        secondIdentifier.ShouldBe(
-            firstIdentifier, "a replay must return the identifier the first attempt created, not a second one");
+            secondIdentifier.ShouldBe(
+                firstIdentifier, "a replay must return the identifier the first attempt created, not a second one");
+        }
+        finally
+        {
+            await RestoreDiscoveryAsync(dresden, "webhook");
+        }
     }
 
     private Task<HttpClient> ClientFor(string username) =>
