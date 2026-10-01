@@ -4,9 +4,9 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.Automation.Domain.Rule;
 
 /// <summary>
-/// Discriminated VO of action shapes (spec 007 FR-009). Two
-/// variants in v1: <see cref="SetVariableValue"/> and
-/// <see cref="HighlightOverlay"/>.
+/// Discriminated VO of action shapes (spec 007 FR-009). Three
+/// variants: <see cref="SetVariableValue"/>, <see cref="HighlightOverlay"/>
+/// and <see cref="SwitchWallScene"/> (spec 296, ADR-0157 §2).
 ///
 /// <para>
 /// Automation never references SystemVariables.Domain or
@@ -56,5 +56,45 @@ public abstract record RuleAction : IValueObject
     {
         public static HighlightOverlay From(Guid overlay, int durationMs) =>
             new(OverlayIdentifier.From(overlay), HighlightDuration.From(durationMs));
+    }
+
+    /// <summary>
+    /// Asks LayoutComposition to switch <see cref="Wall"/> to
+    /// <see cref="Target"/> when the rule fires (spec 296 US1, ADR-0157 §2).
+    /// </summary>
+    public sealed record SwitchWallScene(WallIdentifier Wall, SceneTarget Target) : RuleAction
+    {
+        /// <summary>
+        /// Parses the API edge's raw <c>wallIdentifier</c> /
+        /// <c>sceneTarget</c> / <c>targetLayoutIdentifier</c> triple
+        /// (US2-7). Throws <see cref="ArgumentException"/> for every bad
+        /// shape — a missing wall, a target other than exactly
+        /// <see cref="SceneTarget.NextLiteral"/> or
+        /// <see cref="SceneTarget.LayoutLiteral"/>, a <c>Layout</c> target
+        /// with no layout, a <c>Next</c> target carrying one, or an empty
+        /// layout guid — which <c>RulesEndpoints</c> already maps to
+        /// <c>400 RULE_INVALID_INPUT</c>.
+        /// </summary>
+        public static SwitchWallScene From(Guid wall, string target, Guid? layout)
+        {
+            WallIdentifier wallIdentifier = WallIdentifier.From(wall);
+
+            return target switch
+            {
+                SceneTarget.NextLiteral when layout is not null =>
+                    throw new ArgumentException(
+                        "A Next target must not carry a targetLayoutIdentifier.", nameof(layout)),
+                SceneTarget.NextLiteral =>
+                    new SwitchWallScene(wallIdentifier, new SceneTarget.Next()),
+                SceneTarget.LayoutLiteral when layout is null =>
+                    throw new ArgumentException(
+                        "A Layout target requires a targetLayoutIdentifier.", nameof(layout)),
+                SceneTarget.LayoutLiteral =>
+                    new SwitchWallScene(wallIdentifier, new SceneTarget.Layout(LayoutIdentifier.From(layout.Value))),
+                _ => throw new ArgumentException(
+                    $"Unknown sceneTarget '{target}'. Expected: {SceneTarget.NextLiteral} | {SceneTarget.LayoutLiteral}.",
+                    nameof(target)),
+            };
+        }
     }
 }
