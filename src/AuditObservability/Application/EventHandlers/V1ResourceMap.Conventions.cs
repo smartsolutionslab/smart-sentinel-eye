@@ -93,6 +93,14 @@ public sealed partial class V1ResourceMap
             Add<WallConfiguredV1>(map, DomainResourceKind.Wall, configured => configured.Wall);
             Add<WallSceneChangedV1>(map, DomainResourceKind.Wall, changed => changed.Wall);
 
+            // Spec 296 T001: published from Automation into LayoutComposition's
+            // namespace (as OverlayHighlightRequestedV1 is), but the subject is
+            // the wall being switched, not the layout the namespace convention
+            // would pick. The convention picker's first Guid property already
+            // happens to be Wall, so without this hand-tweak the identifier
+            // would be right but the resource kind wrong.
+            Add<WallSceneSwitchRequestedV1>(map, DomainResourceKind.Wall, requested => requested.Wall);
+
             return map;
         }
 

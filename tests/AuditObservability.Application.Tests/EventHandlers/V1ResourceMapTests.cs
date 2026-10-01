@@ -149,6 +149,7 @@ public class V1ResourceMapTests
         SystemVariableValueRequestedCase(),
         WallConfiguredCase(),
         WallSceneChangedCase(),
+        WallSceneSwitchRequestedCase(),
     ];
 
     // 1. AuditObservability.AuditChunkArchivedV1 -> event / ChunkIdentifier (hand-tweak; blessed)
@@ -559,6 +560,26 @@ public class V1ResourceMapTests
                 null,
                 null,
                 DateTimeOffset.UtcNow.AddSeconds(1),
+                TestMetadata),
+            wall.ToString());
+    }
+
+    // 23. LayoutComposition.WallSceneSwitchRequestedV1 -> wall / Wall (spec 296 T001). Without a
+    //     hand-tweak this would wrongly pivot on kind `layout` (the namespace convention), since
+    //     the picker's first Guid property (`Wall`) already happens to be the right identifier.
+    private static MappingCase WallSceneSwitchRequestedCase()
+    {
+        Guid wall = Guid.CreateVersion7();
+        return new MappingCase(
+            typeof(WallSceneSwitchRequestedV1),
+            ResourceKind.Wall,
+            () => new WallSceneSwitchRequestedV1(
+                wall,
+                "Layout",
+                Guid.CreateVersion7(),
+                Guid.CreateVersion7(),
+                DateTimeOffset.UtcNow.AddSeconds(1),
+                Guid.CreateVersion7(),
                 TestMetadata),
             wall.ToString());
     }
