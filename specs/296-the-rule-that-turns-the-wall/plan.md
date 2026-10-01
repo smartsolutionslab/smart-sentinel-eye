@@ -197,8 +197,10 @@ shipped in US1.
 
 ### 4.1 `apps/shared`
 
-- `api/rules.api.ts`: `RULE_ACTION_SWITCH_WALL_SCENE`; `RuleActionDto.kind` union gains it;
-  `wall`, `sceneTarget`, `targetLayout` fields.
+- `api/rules.api.ts`: `RULE_ACTION_SWITCH_WALL_SCENE`; the `RuleAction` interface's `kind`
+  union gains it (the TS type is named `RuleAction`, mirroring the server's
+  `RuleActionDto`); `wall`, `sceneTarget`, `targetLayout` fields, `string | null` like the
+  existing variant fields.
 - `api/rules.schema.ts`: `actionType` enum gains `'SwitchWallScene'`; `wallIdentifier`,
   `sceneTarget` (`'Next' | 'Layout'`), `targetLayoutIdentifier` optional fields;
   `superRefine` becomes a three-way switch (today it is `if SetVariableValue … else`, which
@@ -206,13 +208,48 @@ shipped in US1.
 
 ### 4.2 management-web
 
-- `features/rules/RuleDialog.tsx`: third option "Switch a wall's scene". Its fields: a wall
-  `Select` fed by `useListWallsQuery`, and a target `Select` of "Next scene" + the chosen
-  wall's scenes labelled by layout name (from the layouts list the app already loads). The
-  dialog's two binary branches (`setsVariable ? … : …`, the `unregister` list, the
-  `renderedFields` list) become a three-way mapping; switching type unregisters the other
-  types' fields (US2-16's "no stale fields").
-- `features/rules/RulesPage.tsx`: `describeAction` becomes a three-way switch.
+*Re-verified 2026-10-01 against `develop@a7b48a96`.* Since this plan was first written,
+`RulesPage.tsx` was changed twice — #2635 (`StateBadge` now renders `<Badge>` through an
+exhaustive `RULE_STATE_TONE: Record<RuleState, BadgeTone>`) and #2693 (mutation refusals on
+`<FaultNotice>`, a failed list load on `<RetryBanner>`). Neither touched `describeAction`
+or `RuleDialog.tsx`, so the work below is unchanged in kind. **PR-B does not touch
+`StateBadge`, `RULE_STATE_TONE`, `FaultNotice` or `RetryBanner`**: they are already in
+their consolidated shape. One architecture guard added since binds the new code:
+`ConsoleTriadAlphaTests` (spec 298, ADR-0148) scans **all of `apps/management-web/src`**,
+with no allowlist, for a triad colour carrying a call-site alpha modifier
+(`bg-accent-fault/10`, `border-accent-fault/40`, …). Any status styling the new dialog or
+action-column code needs goes through `Badge`/`FaultNotice`/`RetryBanner`, never a
+hand-tinted class. T126 runs `Architecture.Tests` for this reason.
+
+- `features/rules/RuleDialog.tsx`: `ACTION_OPTIONS` gains "Switch a wall's scene". Its
+  fields: a wall `Select` fed by `useListWallsQuery`, and a target `Select` of "Next scene"
+  + the chosen wall's `scenes` (layout identifiers) labelled by layout `name` from
+  `useListLayoutsQuery`. Today one boolean, `setsVariable`, drives three binary branches:
+  the `unregister` effect, the `renderedFields` list, and the keyed JSX ternary
+  (`key="set-variable"` / `key="highlight-overlay"`). All three become one mapping keyed
+  by `actionType` — e.g. a `Record<ActionType, readonly (keyof CreateRuleInput)[]>` of
+  variant fields that both `unregister` (every *other* type's fields) and `renderedFields`
+  read, so the "one source, no drift" property the existing comment defends survives the
+  third case — plus a third keyed fragment (`key="switch-wall-scene"`). Switching type
+  unregisters the other types' fields (US2-16's "no stale fields"). Changing the wall
+  clears the chosen target.
+  - **Which walls (assumption A4, flagged for the gate).** `Wall` carries `fab`. The
+    select lists only walls whose `fab` equals the rule's fab — the chosen `fabId` when
+    `mustChooseFab`, otherwise the operator's single fab — and is empty until a fab is
+    chosen. A wall from another fab would author a rule that FR-010 (b) always drops.
+    Spec FR-013 says only "the caller's walls"; this narrows it. Confirm at the gate.
+  - The dialog's backend-error `<p role="alert">` stays as it is: converting it to
+    `FaultNotice` is #2693's kind of consolidation, not this feature.
+- `features/rules/RulesPage.tsx`: `describeAction` is today a binary ternary on
+  `kind === SetVariableValue` whose else-branch renders *every other kind* as a highlight
+  — the same silent fall-through as the schema's `superRefine`. It becomes an exhaustive
+  `switch` on `kind` (a `never` default, in the spirit of `RULE_STATE_TONE`'s exhaustive
+  record). **The wording US2 names ("Switch *Line 3 rotation* to *Line 3 fault view*")
+  needs names the DTO does not carry**, so `RulesPage` also calls `useListWallsQuery` and
+  `useListLayoutsQuery` and passes lookups into `describeAction`; while loading, or for a
+  wall/layout the lookup lacks (a stale rule, R3), it falls
+  back to the identifier rather than hiding the action. "Next" renders "… to its next
+  scene". `RulesPage.test.tsx` mocks both lists accordingly.
 - Radix `Select` + RHF + Zod — existing primitives only.
 
 ### 4.3 e2e
