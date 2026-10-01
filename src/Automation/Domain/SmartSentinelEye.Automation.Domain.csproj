@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Shared.Kernel\SmartSentinelEye.Shared.Kernel.csproj" />
+    <ProjectReference Include="..\..\Shared.Contracts\SmartSentinelEye.Shared.Contracts.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

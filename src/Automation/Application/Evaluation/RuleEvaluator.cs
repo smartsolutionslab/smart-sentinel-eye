@@ -63,8 +63,8 @@ public sealed class RuleEvaluator(
                 case RuleAction.SwitchWallScene switchWallScene:
                     effects.Add(new RuleActionEffect.SwitchWallScene(
                         switchWallScene.Wall.Value,
-                        TargetLiteral(switchWallScene.Target),
-                        TargetLayout(switchWallScene.Target),
+                        SceneTargetWireMapping.Literal(switchWallScene.Target),
+                        SceneTargetWireMapping.TargetLayout(switchWallScene.Target),
                         rule.Identifier.Value));
                     break;
 
@@ -75,17 +75,6 @@ public sealed class RuleEvaluator(
         }
         return effects;
     }
-
-    private static string TargetLiteral(SceneTarget target) =>
-        target switch
-        {
-            SceneTarget.Next => SceneTarget.NextLiteral,
-            SceneTarget.Layout => SceneTarget.LayoutLiteral,
-            _ => throw new InvalidOperationException($"Unhandled SceneTarget case: {target.GetType().Name}"),
-        };
-
-    private static Guid? TargetLayout(SceneTarget target) =>
-        target is SceneTarget.Layout layout ? layout.Value.Value : null;
 
     private bool TryEvaluatePredicate(CompiledRule rule, EvaluationContext context)
     {

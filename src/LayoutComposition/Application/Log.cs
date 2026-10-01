@@ -75,6 +75,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) carries no usable fab; dropping.")]
     public static partial void WallSwitchRequestWithoutFab(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
 
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) names an unusable fab '{Fab}'; dropping.")]
+    public static partial void WallSwitchRequestWithUnusableFab(this ILogger logger, Exception exception, string fab, Guid wall, Guid rule, Guid causingEvent);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) carries an invalid rule or causing-event identifier; dropping.")]
+    public static partial void WallSwitchRequestWithInvalidIdentifiers(this ILogger logger, Guid wall, Guid rule, Guid causingEvent);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "WallSceneSwitchRequested for wall {Wall} (rule {Rule}, event {CausingEvent}) names fab '{RequestFab}', but the wall belongs to fab '{ActualFab}'; dropping.")]
     public static partial void WallSwitchRequestForWallInAnotherFab(this ILogger logger, Guid wall, Guid rule, Guid causingEvent, FabIdentifier requestFab, FabIdentifier actualFab);
 

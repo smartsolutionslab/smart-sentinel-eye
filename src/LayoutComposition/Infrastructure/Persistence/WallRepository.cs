@@ -63,10 +63,15 @@ public sealed class WallRepository(
     {
         // Deliberately unscoped (IWallRepository.FindFabAsync's own doc):
         // this exists only to name a wall's real fab in a server log line,
-        // never to decide anything a caller sees.
-        Wall? found = await dbContext.Walls.FirstOrDefaultAsync(
-            candidate => candidate.Id == wall, cancellationToken);
-        return found is null ? Option<FabIdentifier>.None : Option<FabIdentifier>.Some(found.Fab);
+        // never to decide anything a caller sees. AsNoTracking + Select: no
+        // full Wall is loaded (let alone tracked) just to read one column
+        // on a context whose transaction may later save.
+        FabIdentifier? fab = await dbContext.Walls
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == wall)
+            .Select(candidate => (FabIdentifier?)candidate.Fab)
+            .FirstOrDefaultAsync(cancellationToken);
+        return fab is null ? Option<FabIdentifier>.None : Option<FabIdentifier>.Some(fab);
     }
 
     public void Add(Wall wall)

@@ -2,6 +2,7 @@ using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -40,40 +41,19 @@ public sealed class WallSceneSwitchRequestedV1Handler(
 
         var (wall, target, targetLayout, rule, _, causingEventIdentifier, metadata) = message;
 
-        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        Option<FabIdentifier> fab = TryResolveFab(metadata, wall, rule, causingEventIdentifier);
+        if (!fab.HasValue)
         {
-            logger.WallSwitchRequestWithoutFab(wall, rule, causingEventIdentifier);
             return;
         }
 
-        FabIdentifier requestFab;
-        try
+        Option<(WallIdentifier Identifier, Wall Wall)> loaded =
+            await TryLoadWall(wall, fab.Value, rule, causingEventIdentifier, cancellationToken);
+        if (!loaded.HasValue)
         {
-            requestFab = FabIdentifier.From(metadata.Fab);
-        }
-        catch (ArgumentException)
-        {
-            logger.WallSwitchRequestWithoutFab(wall, rule, causingEventIdentifier);
             return;
         }
-
-        WallIdentifier wallIdentifier = WallIdentifier.From(wall);
-        Option<Wall> found = await walls.FindAsync(wallIdentifier, [requestFab], cancellationToken);
-        if (!found.HasValue)
-        {
-            Option<FabIdentifier> actualFab = await walls.FindFabAsync(wallIdentifier, cancellationToken);
-            if (actualFab.HasValue)
-            {
-                logger.WallSwitchRequestForWallInAnotherFab(wall, rule, causingEventIdentifier, requestFab, actualFab.Value);
-            }
-            else
-            {
-                logger.WallSwitchRequestForUnknownWall(wall, rule, causingEventIdentifier);
-            }
-            return;
-        }
-
-        Wall targetWall = found.Value;
+        (WallIdentifier wallIdentifier, Wall targetWall) = loaded.Value;
 
         SceneTarget parsedTarget;
         try
@@ -86,8 +66,13 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return;
         }
 
-        RuleIdentifier ruleIdentifier = RuleIdentifier.From(rule);
-        CausingEventIdentifier causingEvent = CausingEventIdentifier.From(causingEventIdentifier);
+        Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)> identifiers =
+            TryResolveRuleAndEvent(wall, rule, causingEventIdentifier);
+        if (!identifiers.HasValue)
+        {
+            return;
+        }
+        (RuleIdentifier ruleIdentifier, CausingEventIdentifier causingEvent) = identifiers.Value;
 
         bool reserved = await dedup.TryReserveAsync(ruleIdentifier, causingEvent, wallIdentifier, cancellationToken);
         if (!reserved)
@@ -112,6 +97,92 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return;
         }
 
+        await ApplySwitchAsync(
+            targetWall, parsedTarget, ruleIdentifier, causingEvent, wall, rule, causingEventIdentifier, cancellationToken);
+    }
+
+    private Option<FabIdentifier> TryResolveFab(EventMetadata? metadata, Guid wall, Guid rule, Guid causingEventIdentifier)
+    {
+        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        {
+            logger.WallSwitchRequestWithoutFab(wall, rule, causingEventIdentifier);
+            return Option<FabIdentifier>.None;
+        }
+
+        try
+        {
+            return Option<FabIdentifier>.Some(FabIdentifier.From(metadata.Fab));
+        }
+        catch (ArgumentException ex)
+        {
+            logger.WallSwitchRequestWithUnusableFab(ex, metadata.Fab, wall, rule, causingEventIdentifier);
+            return Option<FabIdentifier>.None;
+        }
+    }
+
+    private async Task<Option<(WallIdentifier Identifier, Wall Wall)>> TryLoadWall(
+        Guid wall, FabIdentifier fab, Guid rule, Guid causingEventIdentifier, CancellationToken cancellationToken)
+    {
+        WallIdentifier wallIdentifier;
+        try
+        {
+            wallIdentifier = WallIdentifier.From(wall);
+        }
+        catch (ArgumentException)
+        {
+            // An empty wall identifier matches no wall, so this is the same
+            // named drop as any other unknown wall (Automation never sends
+            // one in practice; this is the defensive case).
+            logger.WallSwitchRequestForUnknownWall(wall, rule, causingEventIdentifier);
+            return Option<(WallIdentifier Identifier, Wall Wall)>.None;
+        }
+
+        Option<Wall> found = await walls.FindAsync(wallIdentifier, [fab], cancellationToken);
+        if (found.HasValue)
+        {
+            return Option<(WallIdentifier Identifier, Wall Wall)>.Some((wallIdentifier, found.Value));
+        }
+
+        await LogMissingWall(wallIdentifier, fab, wall, rule, causingEventIdentifier, cancellationToken);
+        return Option<(WallIdentifier Identifier, Wall Wall)>.None;
+    }
+
+    private async Task LogMissingWall(
+        WallIdentifier wallIdentifier, FabIdentifier requestFab, Guid wall, Guid rule, Guid causingEventIdentifier,
+        CancellationToken cancellationToken)
+    {
+        Option<FabIdentifier> actualFab = await walls.FindFabAsync(wallIdentifier, cancellationToken);
+        if (actualFab.HasValue)
+        {
+            logger.WallSwitchRequestForWallInAnotherFab(wall, rule, causingEventIdentifier, requestFab, actualFab.Value);
+        }
+        else
+        {
+            logger.WallSwitchRequestForUnknownWall(wall, rule, causingEventIdentifier);
+        }
+    }
+
+    private Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)> TryResolveRuleAndEvent(
+        Guid wall, Guid rule, Guid causingEventIdentifier)
+    {
+        try
+        {
+            return Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)>.Some(
+                (RuleIdentifier.From(rule), CausingEventIdentifier.From(causingEventIdentifier)));
+        }
+        catch (ArgumentException)
+        {
+            // Defensive, like the empty-wall case above: Automation never
+            // sends an empty rule or causing-event identifier in practice.
+            logger.WallSwitchRequestWithInvalidIdentifiers(wall, rule, causingEventIdentifier);
+            return Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)>.None;
+        }
+    }
+
+    private async Task ApplySwitchAsync(
+        Wall targetWall, SceneTarget parsedTarget, RuleIdentifier ruleIdentifier, CausingEventIdentifier causingEvent,
+        Guid wall, Guid rule, Guid causingEventIdentifier, CancellationToken cancellationToken)
+    {
         IReadOnlySet<LayoutIdentifier> publishable =
             await lookup.PublishedAmong(targetWall.Scenes, targetWall.Fab, cancellationToken);
 
@@ -136,18 +207,15 @@ public sealed class WallSceneSwitchRequestedV1Handler(
     }
 
     // "Next" / "Layout" (PascalCase) — WallSceneSwitchRequestedV1's own wire
-    // literals (its XML doc), distinct from the manual switch request body's
-    // lowercase "next" / "layout" (WallEndpoints.Commands): two different
-    // wire shapes that happen to share a word.
-    private const string NextTargetLiteral = "Next";
-    private const string LayoutTargetLiteral = "Layout";
-
+    // literals, distinct from the manual switch request body's lowercase
+    // "next" / "layout" (WallEndpoints.Commands): two different wire shapes
+    // that happen to share a word.
     private static SceneTarget ParseTarget(string target, Guid? targetLayout) =>
         target switch
         {
-            NextTargetLiteral when targetLayout is null =>
+            WallSceneSwitchRequestedV1.NextTarget when targetLayout is null =>
                 new SceneTarget.Next(),
-            LayoutTargetLiteral when targetLayout is { } layout =>
+            WallSceneSwitchRequestedV1.LayoutTarget when targetLayout is { } layout =>
                 new SceneTarget.Layout(LayoutIdentifier.From(layout)),
             _ => throw new ArgumentException($"Malformed SwitchWallScene target '{target}'.", nameof(target)),
         };
