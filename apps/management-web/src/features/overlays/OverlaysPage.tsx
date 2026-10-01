@@ -16,6 +16,7 @@ import {
   problemDetail,
 } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { revisionSummary } from '@smart-sentinel-eye/shared/format/revisionSummary';
+import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
@@ -112,10 +113,7 @@ export function OverlaysPage() {
       {error !== undefined && <RetryBanner message="Could not load overlays." onRetry={() => void refetch()} />}
 
       {mutationError !== undefined && (
-        <div
-          role="alert"
-          className="mb-4 rounded-md border border-accent-fault/40 bg-accent-fault/10 px-3 py-2 text-sm text-accent-fault"
-        >
+        <FaultNotice>
           {problemDetail(
             mutationError,
             isStaleConflict(mutationError) ? CONFLICT_FALLBACK : 'Could not apply that change.',
@@ -127,7 +125,7 @@ export function OverlaysPage() {
               Reload
             </button>
           )}
-        </div>
+        </FaultNotice>
       )}
 
       {(isLoading || isFetching) && <p className="text-sm text-fg-muted">Loading…</p>}
