@@ -77,6 +77,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         WallSceneSwitchRequestedV1Handler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeDedupStore());
@@ -95,6 +96,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         WallSceneSwitchRequestedV1Handler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeDedupStore());
@@ -119,21 +121,26 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier b = NewScene();
         LayoutIdentifier c = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeLayoutPublicationLookup lookup = AllPublishedIn(Munich, a, b, c);
         WallSceneSwitchRequestedV1Handler handler = Handler(walls, lookup, new FakeDedupStore());
 
-        // Moves the version on, as an intervening manual switch would.
+        // Moves the scene version on, as an intervening manual switch would.
+        // (Wall.Version, the EF concurrency token the doc comment above refers
+        // to, only moves on a real SaveChangesAsync, which this fake-backed
+        // handler never drives — SceneVersion is the domain-visible counter
+        // that actually advances per applied switch and stands in for it here.)
         await handler.Handle(
             Request(wall, "Layout", b, Guid.CreateVersion7(), Guid.CreateVersion7()), CancellationToken.None);
-        int versionAfterFirstSwitch = wall.Version;
+        long sceneVersionAfterFirstSwitch = wall.SceneVersion.Value;
 
         await handler.Handle(
             Request(wall, "Layout", c, Guid.CreateVersion7(), Guid.CreateVersion7()), CancellationToken.None);
 
         wall.Showing.ShouldBe(c);
-        ((int)wall.Version).ShouldBeGreaterThan(versionAfterFirstSwitch);
+        wall.SceneVersion.Value.ShouldBeGreaterThan(sceneVersionAfterFirstSwitch);
     }
 
     // ---- FR-010: six named drops, nothing published, nothing consumed from the dedup key (a)-(c)/(f) ----
@@ -147,6 +154,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -174,6 +182,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -226,6 +235,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
 
         InMemoryWallRepository crossFabWalls = new();
         crossFabWalls.Add(wall);
@@ -254,6 +264,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier b = NewScene();
         LayoutIdentifier outside = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -277,6 +288,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeLayoutPublicationLookup lookup = new FakeLayoutPublicationLookup()
@@ -302,6 +314,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -325,6 +338,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -350,6 +364,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -372,6 +387,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         // Only `a` (Showing) is Published; Next has nowhere else to go (PD-6).
@@ -399,6 +415,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier b = NewScene();
         LayoutIdentifier c = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeLayoutPublicationLookup lookup = AllPublishedIn(Munich, a, b, c);
@@ -429,6 +446,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier b = NewScene();
         LayoutIdentifier c = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeLayoutPublicationLookup lookup = AllPublishedIn(Munich, a, b, c);
@@ -453,6 +471,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         FakeDedupStore dedup = new();
@@ -484,6 +503,7 @@ public class WallSceneSwitchRequestedV1HandlerTests
         LayoutIdentifier a = NewScene();
         LayoutIdentifier b = NewScene();
         Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         walls.FailNextSaveWith(new DbUpdateConcurrencyException());

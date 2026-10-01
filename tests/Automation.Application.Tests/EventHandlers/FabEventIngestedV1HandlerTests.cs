@@ -69,10 +69,11 @@ public class FabEventIngestedV1HandlerTests
     }
 
     private static RuleAggregate ActiveSwitchWallSceneRule(
-        string name, Guid wall, string target, Guid? layout, DateTimeOffset createdAt)
+        string name, Guid wall, string target, Guid? layout, DateTimeOffset createdAt, string fab = "munich")
     {
         RuleAggregate rule = new RuleBuilder()
             .WithName(name)
+            .WithFab(fab)
             .WithAction(RuleAction.SwitchWallScene.From(wall, target, layout))
             .WithClock(createdAt)
             .Build();
@@ -258,7 +259,7 @@ public class FabEventIngestedV1HandlerTests
     {
         Guid wall = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
-        cache.Upsert(ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment));
+        cache.Upsert(ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment, fab: "dresden"));
 
         FakeEventBus bus = new();
         FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
