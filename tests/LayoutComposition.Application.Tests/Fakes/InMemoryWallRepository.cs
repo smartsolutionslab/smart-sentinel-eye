@@ -13,8 +13,27 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 public sealed class InMemoryWallRepository : IWallRepository
 {
     private readonly List<Wall> walls = [];
+    private Exception? saveException;
 
     public IReadOnlyList<Wall> Walls => walls;
+
+    /// <summary>
+    /// Spec 296 plan.md §3.2: the unscoped existence probe FR-010 (b)/(c)
+    /// needs for the log line — not scoped to a caller's fabs, because
+    /// nothing here crosses an HTTP boundary.
+    /// </summary>
+    public Task<Option<FabIdentifier>> FindFabAsync(WallIdentifier wall, CancellationToken cancellationToken)
+    {
+        Wall? found = walls.SingleOrDefault(candidate => candidate.Id == wall);
+        return Task.FromResult(found is null ? Option<FabIdentifier>.None : Option<FabIdentifier>.Some(found.Fab));
+    }
+
+    /// <summary>
+    /// Spec 296 FR-011: makes the next <see cref="SaveAsync"/> throw instead
+    /// of committing, so a handler test can assert the exception escapes
+    /// rather than being caught and swallowed.
+    /// </summary>
+    public void FailNextSaveWith(Exception exception) => saveException = exception;
 
     public Task<Option<Wall>> FindAsync(
         WallIdentifier wall, IReadOnlyList<FabIdentifier> fabs, CancellationToken cancellationToken)
@@ -48,6 +67,12 @@ public sealed class InMemoryWallRepository : IWallRepository
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
+        if (saveException is { } exception)
+        {
+            saveException = null;
+            throw exception;
+        }
+
         foreach (Wall wall in walls)
         {
             wall.ClearPendingEvents();

@@ -59,6 +59,16 @@ public sealed class WallRepository(
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<Option<FabIdentifier>> FindFabAsync(WallIdentifier wall, CancellationToken cancellationToken)
+    {
+        // Deliberately unscoped (IWallRepository.FindFabAsync's own doc):
+        // this exists only to name a wall's real fab in a server log line,
+        // never to decide anything a caller sees.
+        Wall? found = await dbContext.Walls.FirstOrDefaultAsync(
+            candidate => candidate.Id == wall, cancellationToken);
+        return found is null ? Option<FabIdentifier>.None : Option<FabIdentifier>.Some(found.Fab);
+    }
+
     public void Add(Wall wall)
     {
         Ensure.That(wall).IsNotNull();

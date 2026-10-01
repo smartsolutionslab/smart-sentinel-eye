@@ -30,6 +30,16 @@ public interface IWallRepository
     /// <summary>Every wall in the given fabs (FR-005's read-side pattern, reused for walls).</summary>
     Task<IReadOnlyList<Wall>> ListAsync(IReadOnlyList<FabIdentifier> fabs, CancellationToken cancellationToken);
 
+    /// <summary>
+    /// The fab a wall actually belongs to, with no fab scoping on the lookup
+    /// (spec 296 plan.md §3.2). Exists only so FR-010 (b)/(c) can tell a
+    /// cross-fab rule target from one naming no wall at all in the log —
+    /// <b>never for a decision</b>, and never reachable from a request path:
+    /// everything that crosses an HTTP boundary calls <see cref="FindAsync"/>,
+    /// which keeps the fab filter in the lookup itself.
+    /// </summary>
+    Task<Option<FabIdentifier>> FindFabAsync(WallIdentifier wall, CancellationToken cancellationToken);
+
     void Add(Wall wall);
 
     Task SaveAsync(CancellationToken cancellationToken);
