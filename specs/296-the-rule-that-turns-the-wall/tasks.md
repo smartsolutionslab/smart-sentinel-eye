@@ -13,7 +13,7 @@ dispatched by `/next-issue`.
 | Engineers | **Two phase-4 rounds.** **PR-A:** `test-writer` → `backend-engineer` (Automation + LayoutComposition + contract/audit). **PR-B:** `test-writer` → `frontend-engineer` (apps/shared + management-web rule editor + e2e). **No `infra-engineer`**: no gateway route, AppHost resource, Keycloak or CI change (spec §1.4). The one migration is ordinary LayoutComposition EF work. |
 | Reviewers (phase 6) | PR-A: `backend-reviewer` + `security-reviewer` (a message-borne request moving state in a fab; FR-010's cross-fab drop; the unscoped `FindFabAsync` must stay off request paths). PR-B: `frontend-reviewer`. |
 | New ADR? | **No** — conditional on FR-011 as written. Retrying a rule switch after a concurrency conflict (spec 263 plan §3's sketch) contradicts ADR-0113's "automatic retry is forbidden in both the backend and the SPAs" and **would need an ADR-0113 amendment; if any phase concludes the retry is required, block the issue with that reason rather than build it** (ADR-0144). AEL predicates (ADR-0099), the new `RuleAction` variant (ADR-0157 §2), the dedup store (spec 007 FR-018 precedent) and the handler (the `SystemVariableValueRequestedV1Handler` precedent) are all applications of existing decisions. |
-| Phase 4a colour | **Behaviour-changing → RED for every task.** No refactor, no characterisation. Pre-existing tests that must pass **unmodified**: `EventReachesItsEffectsTests`, `AcceptToDecideLatencyTests`, `WallEndpointsTests`, `SwitchWallSceneCommandHandler` tests, `CellPage`/`WallPage` tests. Editing any of them to pass is a block, not an adjustment. |
+| Phase 4a colour | **Behaviour-changing → RED for every task.** No refactor task. One scoped exception, PR-B only (added at the 2026-10-02 re-verification): `createRuleSchema` has no tests, and T124 rewrites its `superRefine` from two-way to three-way, so T116 adds green characterisation cases for the two existing action types alongside its red ones (T119 says which is which). Pre-existing tests that must pass **unmodified**: `EventReachesItsEffectsTests`, `AcceptToDecideLatencyTests`, `WallEndpointsTests`, `SwitchWallSceneCommandHandler` tests, `CellPage`/`WallPage` tests. Editing any of them to pass is a block, not an adjustment. |
 | Board | Feature-level issue #2618 is on Project #13 (status In Progress). No per-task issues (CLAUDE.md Phase-3 row). Follow-ups to file at the gate if the human wants them tracked: R-retry (ADR-0113 amendment question), R-ttl (dedup-table sweeper, shared with SystemVariables). |
 
 Format: `[ID] [P?] [Story] description`. `[P]` = disjoint files (ADR-0109).
@@ -150,23 +150,39 @@ Depends: T118 → (T120 → T121) ∥ T122 → T123 → T125.
 ### Phase 4a: red (test-writer)
 
 - [ ] **T116 [P] [US2]** Frontend unit tests:
-  - `apps/shared` rules schema tests: `SwitchWallScene` requires a wall; `Layout` requires a
-    target layout; `Next` forbids one; the other two action types still validate exactly as
-    before (existing tests unmodified).
+  - **New file** `apps/shared/src/api/rules.schema.test.ts` — `createRuleSchema` has no
+    tests today (checked on `develop@27e68e11`), so there is nothing "existing" to keep
+    unmodified here: `SwitchWallScene` requires `wallIdentifier` and `sceneTarget`;
+    `sceneTarget` accepts only `'Next'`/`'Layout'`; `Layout` requires
+    `targetLayoutIdentifier`; `Next` forbids one (the server 400s it); **plus** cases
+    pinning that `SetVariableValue` and `HighlightOverlay` still require exactly their own
+    fields — written red-irrelevant (they pass today), so they characterise the
+    `superRefine` rewrite rather than test new behaviour; say so in the 4a report.
   - `apps/management-web/src/features/rules/RuleDialog.test.tsx`: the third option renders a
     wall select and a target select populated from the chosen wall's scenes by layout name;
-    submit sends the FR-003 body; switching action type away and back submits no stale
-    fields (US2-16); only walls in the rule's fab are offered (plan §4.2 A4); changing the
-    wall clears the target.
+    submit sends the FR-003 body (`wallIdentifier`, `sceneTarget`, and
+    `targetLayoutIdentifier` only for `Layout`); switching action type away and back submits
+    no stale fields (US2-16); only walls in the rule's fab are offered (plan §4.2 A4 — single
+    fab inferred, and multi-fab empty until a fab is chosen); changing the wall clears the
+    target. Harness: add module-level `vi.mock`s for `walls.api` (`useListWallsQuery`) and
+    `layouts.api` (`useListLayoutsQuery`, shape `{ chains, published }`) and extend the
+    `ACTION_LABELS`/`chooseAction` helper's union with `SwitchWallScene`; every existing
+    assertion stays byte-identical (plan §4.2).
   - `RulesPage.test.tsx`: the action column for both targets, by wall and layout **name**,
-    with walls/layouts lists mocked; the identifier fallback when the lookup lacks the
-    wall; the existing `Set …` / `Highlight overlay for …` assertions unmodified.
-- [ ] **T117 [P] [US2]** `e2e/rule-switches-a-wall.spec.ts` (name must not start `wall-`,
-  plan §4.3): two Published layouts, a wall, a kiosk on it; author the rule **through the
+    with walls/layouts lists mocked (module-level, as above); the identifier fallback when
+    the lookup lacks the wall; the existing `Set …` / `Highlight overlay for …` assertions
+    unmodified. The `rule()` fixture is untyped, so the three new `RuleAction` fields do not
+    force a fixture edit; new `SwitchWallScene` fixtures carry all eight action keys, nulls
+    included, as the server sends them.
+- [ ] **T117 [P] [US2]** `e2e/rule-switches-a-wall.spec.ts` (name must not contain `wall-` or
+  `kiosk-` anywhere — the `chromium` project's `testIgnore` is unanchored, plan §4.3): two Published layouts, a wall, a kiosk on it; author the rule **through the
   dialog**; publish; `POST /event-ingestion/events/manual` a matching event; the kiosk renders
   the target grid. Helper `createSwitchWallRule` in `e2e/support/management-rules.ts`
   (ADR-0162).
-- [ ] **T119 [US2]** Run T116–T117 and capture verbatim; all new tests red on behaviour.
+- [ ] **T119 [US2]** Run T116–T117 and capture verbatim; all new tests red on behaviour,
+  **except** T116's existing-action-type schema cases, which are characterisation and must
+  be observed **green** now and stay unmodified through T124 (they guard the two-way →
+  three-way `superRefine` rewrite). Any *other* test arriving green: stop and report.
 
 ### Phase 4b: implement (frontend-engineer; may not edit T116–T117)
 
@@ -185,4 +201,7 @@ Depends: PR-A merged → T116..T117 → T119 → T124 → T126.
 ### Phase 5: verify (PR-B)
 
 - [ ] **T131 [US2]** Walk spec US2's independent test through the UI; append to
-  `verification.md`.
+  `verification.md`. **Includes observing the kiosk follow the switch** — the gap PR-A's
+  `verification.md` §7 recorded. That needs no kiosk-web code (plan §4.2: the kiosk has
+  followed `WallSceneChanged` since spec 258); §7's "PR-B carries the kiosk wall-display
+  work" is mistaken, and this walk is what closes it.
