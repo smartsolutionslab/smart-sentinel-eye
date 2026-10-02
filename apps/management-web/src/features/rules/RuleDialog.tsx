@@ -137,10 +137,32 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     ...ACTION_FIELDS[actionType],
   ];
 
-  const { data: wallsData } = useListWallsQuery();
+  const { data: wallsData, isLoading: wallsLoading, isError: wallsError } = useListWallsQuery();
   const walls = (wallsData ?? []).filter((wall) => wall.fab === currentFab);
   const wallOptions: readonly SelectOption[] = walls.map((wall) => ({ value: wall.wallIdentifier, label: wall.name }));
   const selectedWall = walls.find((wall) => wall.wallIdentifier === wallIdentifier);
+
+  // A multi-fab operator who hasn't chosen a fab yet always sees an empty
+  // `walls` (currentFab is '' until they pick), which otherwise reads
+  // identically to "loading", "fetch failed" and "this fab genuinely has
+  // none" — four states that need four different placeholders.
+  //
+  // Only `wallsLoading` disables the trigger. A protected test (`'Offers no
+  // walls to a multi-fab operator until a fab is chosen'`) opens the wall
+  // listbox before any fab is picked and asserts it is empty — Radix's
+  // `disabled` suppresses the open itself (no native click, no listbox at
+  // all), which would make that assertion unreachable rather than true. The
+  // placeholder still tells the operator why the list is empty; it is just
+  // not paired with `disabled` for this one state.
+  const noFabChosenYet = mustChooseFab && fabId === '';
+  const wallSelectDisabled = wallsLoading;
+  const wallPlaceholder = noFabChosenYet
+    ? 'Choose a fab first…'
+    : wallsLoading
+      ? 'Loading walls…'
+      : walls.length === 0
+        ? 'No walls in this fab'
+        : 'Choose a wall…';
 
   const { data: layoutsData } = useListLayoutsQuery('Published');
   const layoutName = (layoutIdentifier: string): string =>
@@ -203,6 +225,14 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
               onChange={(event) => {
                 setFabId(event.target.value);
                 setFabError(null);
+                // The wall list is narrowed to the chosen fab (A4): a wall
+                // (and the target it named) picked under the previous fab is
+                // not necessarily in the new one's list, and submitting it
+                // unseen is exactly the FR-010(b) silent-drop this guards
+                // against — mirrors the wall-change handler below.
+                setValue('wallIdentifier', undefined);
+                setValue('sceneTarget', undefined);
+                setValue('targetLayoutIdentifier', undefined);
               }}
             >
               <option value="">Choose a fab…</option>
@@ -314,11 +344,18 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
                     onBlur={field.onBlur}
                     ref={field.ref}
                     options={wallOptions}
-                    placeholder="Choose a wall…"
+                    placeholder={wallPlaceholder}
+                    disabled={wallSelectDisabled}
                     aria-invalid={errors.wallIdentifier !== undefined}
                   />
                 )}
               />
+              {wallsError && (
+                // Not role="alert" (e2e's management-rules.ts relies on no
+                // alert surfacing from a read failure on this page) — a
+                // quiet inline hint, not a banner.
+                <p className="text-xs text-fg-muted">Could not load walls. Try again shortly.</p>
+              )}
             </FormField>
             <FormField
               label="Target"

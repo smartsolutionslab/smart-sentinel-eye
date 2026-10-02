@@ -833,6 +833,59 @@ describe('RuleDialog — SwitchWallScene (spec 296 US2, new behaviour, RED)', ()
     expect(within(listbox).queryByRole('option', { name: 'Line 3 Wall' })).not.toBeInTheDocument();
   });
 
+  // ---- Phase-6 should-fix: changing the fab after picking a wall must not
+  // leave a stale wall/target silently submitted (FR-010(b) drops it at
+  // runtime with no feedback to the operator) ----
+
+  it('Drops the previously chosen wall and target when the fab changes afterwards', async () => {
+    assignedGroups.current = ['/fabs/munich', '/fabs/dresden'];
+    wallsQueryState.current = {
+      data: [
+        ...DEFAULT_WALLS,
+        {
+          wallIdentifier: 'wall-2',
+          version: 0,
+          fab: 'dresden',
+          name: 'Dresden Wall',
+          scenes: ['layout-a'],
+          showing: 'layout-a',
+          sceneVersion: 0,
+          showingSince: '2026-01-01T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+    };
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'switch-after-fab-change');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'LineStop');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.line == 3');
+    await chooseAction(user, 'SwitchWallScene');
+    await user.selectOptions(screen.getByLabelText(/^fab$/i), 'munich');
+    await chooseWall(user, 'Line 3 Wall');
+    await chooseTarget(user, 'Next scene');
+
+    await user.selectOptions(screen.getByLabelText(/^fab$/i), 'dresden');
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(await screen.findByText(/wall is required/i)).toBeInTheDocument();
+    expect(createMock).not.toHaveBeenCalled();
+  });
+
+  // ---- Phase-6 should-fix: the wall select needs a placeholder, not a
+  // silent empty listbox, while a multi-fab operator has not yet chosen ----
+
+  it('Placeholders the wall select until a multi-fab operator chooses a fab', async () => {
+    assignedGroups.current = ['/fabs/munich', '/fabs/dresden'];
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseAction(user, 'SwitchWallScene');
+
+    expect(screen.getByText(/choose a fab first/i)).toBeInTheDocument();
+  });
+
   // ---- Changing the wall must not leave a target from a wall it no longer names ----
 
   it('Clears the selected target when the wall changes', async () => {
