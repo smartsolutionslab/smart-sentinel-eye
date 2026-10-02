@@ -2,6 +2,8 @@ import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
+import { useListWallsQuery } from '@smart-sentinel-eye/shared/api/walls.api';
+import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useAssignedFabs } from '../../app/useAssignedFabs';
 import { createRuleSchema, type CreateRuleInput } from '@smart-sentinel-eye/shared/api/rules.schema';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
@@ -18,6 +20,8 @@ export interface RuleDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type ActionType = CreateRuleInput['actionType'];
+
 const DEFAULT_INPUT: CreateRuleInput = {
   name: '',
   triggerSource: 'plc',
@@ -29,7 +33,21 @@ const DEFAULT_INPUT: CreateRuleInput = {
 const ACTION_OPTIONS: readonly SelectOption[] = [
   { value: 'SetVariableValue', label: 'Set a system variable' },
   { value: 'HighlightOverlay', label: 'Highlight an overlay' },
+  { value: 'SwitchWallScene', label: "Switch a wall's scene" },
 ];
+
+// One source for which fields belong to which action — read by the
+// unregister effect and by renderedFields, so the two cannot drift apart
+// (the same property the two-way `setsVariable` boolean used to guarantee).
+const ACTION_FIELDS: Record<ActionType, readonly (keyof CreateRuleInput)[]> = {
+  SetVariableValue: ['variableName', 'valueExpression'],
+  HighlightOverlay: ['overlayIdentifier', 'durationMs'],
+  SwitchWallScene: ['wallIdentifier', 'sceneTarget', 'targetLayoutIdentifier'],
+};
+
+const TARGET_NEXT = 'next';
+
+const NEXT_TARGET_OPTION: SelectOption = { value: TARGET_NEXT, label: 'Next scene' };
 
 export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   const [createRule, { isLoading, error, reset: resetMutationState }] = useCreateRuleMutation();
@@ -42,12 +60,18 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
   const mustChooseFab = fabs.length > 1;
   const [fabId, setFabId] = useState('');
   const [fabError, setFabError] = useState<string | null>(null);
+  // The fab a SwitchWallScene rule's wall choices are narrowed to (A4): the
+  // chosen fab for a multi-fab operator, or the single fab that is inferred
+  // for everyone else. Empty until a multi-fab operator picks one, which is
+  // exactly when the wall select should offer nothing yet.
+  const currentFab = mustChooseFab ? fabId : (fabs[0] ?? '');
 
   const {
     register,
     handleSubmit,
     watch,
     unregister,
+    setValue,
     control,
     formState: { errors },
     reset,
@@ -75,33 +99,59 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     if (!open) clearOnClose();
   }, [open]);
 
-  // The action tag decides which half of the form is live — the same
-  // discriminant the wire shape and the domain use.
+  // The action tag decides which part of the form is live — the same
+  // discriminant the wire shape and the domain use. wallIdentifier and
+  // sceneTarget/targetLayoutIdentifier are watched alongside it so the wall
+  // and target selects can read the live selection back (react-hook-form
+  // Controller only hands a field its own value, not a sibling's).
   // react-hook-form's watch() is opaque to React Compiler, so it reports
   // "Compilation Skipped" rather than a defect. Nothing is incorrect at
   // runtime; the component forgoes an optimisation from a compiler this repo
   // does not enable. Working around it would mean working around ADR-0079.
   // eslint-disable-next-line react-hooks/incompatible-library -- see above
-  const actionType = watch('actionType');
-
-  const setsVariable = actionType === 'SetVariableValue';
+  const [actionType, wallIdentifier, sceneTarget, targetLayoutIdentifier] = watch([
+    'actionType',
+    'wallIdentifier',
+    'sceneTarget',
+    'targetLayoutIdentifier',
+  ]);
 
   useEffect(() => {
-    if (setsVariable) {
-      unregister(['overlayIdentifier', 'durationMs']);
-    } else {
-      unregister(['variableName', 'valueExpression']);
-    }
-  }, [setsVariable, unregister]);
+    const otherActionFields = (Object.keys(ACTION_FIELDS) as ActionType[])
+      .filter((type) => type !== actionType)
+      .flatMap((type) => ACTION_FIELDS[type]);
+    unregister(otherActionFields);
+  }, [actionType, unregister]);
 
-  // One boolean, read by both the visibility ternary below and
-  // renderedFields — a second textual copy of `actionType ===
-  // 'SetVariableValue'` could drift out of step with the branch it's meant
-  // to describe, and FormErrorSummary would then filter out exactly the
-  // error it exists to catch, silently.
-  const renderedFields: readonly (keyof CreateRuleInput)[] = setsVariable
-    ? ['name', 'triggerSource', 'triggerKind', 'predicate', 'actionType', 'variableName', 'valueExpression']
-    : ['name', 'triggerSource', 'triggerKind', 'predicate', 'actionType', 'overlayIdentifier', 'durationMs'];
+  // One mapping, read by both the visibility conditionals below and
+  // renderedFields — a second, separately-maintained field list per branch
+  // could drift out of step with what is actually rendered, and
+  // FormErrorSummary would then filter out exactly the error it exists to
+  // catch, silently.
+  const renderedFields: readonly (keyof CreateRuleInput)[] = [
+    'name',
+    'triggerSource',
+    'triggerKind',
+    'predicate',
+    'actionType',
+    ...ACTION_FIELDS[actionType],
+  ];
+
+  const { data: wallsData } = useListWallsQuery();
+  const walls = (wallsData ?? []).filter((wall) => wall.fab === currentFab);
+  const wallOptions: readonly SelectOption[] = walls.map((wall) => ({ value: wall.wallIdentifier, label: wall.name }));
+  const selectedWall = walls.find((wall) => wall.wallIdentifier === wallIdentifier);
+
+  const { data: layoutsData } = useListLayoutsQuery('Published');
+  const layoutName = (layoutIdentifier: string): string =>
+    layoutsData?.published.find((layout) => layout.layoutIdentifier === layoutIdentifier)?.name ?? layoutIdentifier;
+
+  const targetOptions: readonly SelectOption[] = [
+    NEXT_TARGET_OPTION,
+    ...(selectedWall?.scenes.map((sceneId) => ({ value: sceneId, label: layoutName(sceneId) })) ?? []),
+  ];
+  const targetValue =
+    sceneTarget === 'Next' ? TARGET_NEXT : sceneTarget === 'Layout' ? targetLayoutIdentifier : undefined;
 
   const onSubmit = handleSubmit(async (values) => {
     if (mustChooseFab && fabId === '') {
@@ -203,9 +253,12 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
           />
         </FormField>
 
-        {setsVariable ? (
-          // key forces a remount on toggle so a typed value can't carry into the other branch's field (pairs with unregister() above),
-          // so a round trip returns empty fields.
+        {/* Each branch below keeps its own key so a toggle remounts fresh,
+            empty inputs rather than React reusing the DOM node across
+            branches (pairs with the unregister() effect above) — a typed
+            value from one branch must never ride along into another's
+            differently-named field. */}
+        {actionType === 'SetVariableValue' && (
           <div key="set-variable" className="grid grid-cols-2 gap-3">
             <FormField label="Variable name" htmlFor="rule-variable" error={errors.variableName?.message}>
               <Input id="rule-variable" placeholder="oeeLine1" {...register('variableName')} />
@@ -222,7 +275,8 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
               />
             </FormField>
           </div>
-        ) : (
+        )}
+        {actionType === 'HighlightOverlay' && (
           <div key="highlight-overlay" className="grid grid-cols-2 gap-3">
             <FormField label="Overlay" htmlFor="rule-overlay" error={errors.overlayIdentifier?.message}>
               <Input id="rule-overlay" placeholder="overlay identifier" {...register('overlayIdentifier')} />
@@ -235,6 +289,65 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
                 {...register('durationMs', {
                   setValueAs: (value: string) => (value === '' ? undefined : Number(value)),
                 })}
+              />
+            </FormField>
+          </div>
+        )}
+        {actionType === 'SwitchWallScene' && (
+          <div key="switch-wall-scene" className="grid grid-cols-2 gap-3">
+            <FormField label="Wall" htmlFor="rule-wall" error={errors.wallIdentifier?.message}>
+              <Controller
+                name="wallIdentifier"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    id="rule-wall"
+                    value={field.value}
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      // A target chosen for the previous wall names a scene
+                      // (or "Next") that may not exist on the new one — drop
+                      // it rather than carry a stale selection forward.
+                      setValue('sceneTarget', undefined);
+                      setValue('targetLayoutIdentifier', undefined);
+                    }}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    options={wallOptions}
+                    placeholder="Choose a wall…"
+                    aria-invalid={errors.wallIdentifier !== undefined}
+                  />
+                )}
+              />
+            </FormField>
+            <FormField
+              label="Target"
+              htmlFor="rule-target"
+              error={errors.sceneTarget?.message ?? errors.targetLayoutIdentifier?.message}
+            >
+              <Controller
+                name="sceneTarget"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    id="rule-target"
+                    value={targetValue}
+                    onValueChange={(value) => {
+                      if (value === TARGET_NEXT) {
+                        field.onChange('Next');
+                        setValue('targetLayoutIdentifier', undefined);
+                      } else {
+                        field.onChange('Layout');
+                        setValue('targetLayoutIdentifier', value);
+                      }
+                    }}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                    options={targetOptions}
+                    placeholder="Choose a target…"
+                    aria-invalid={errors.sceneTarget !== undefined || errors.targetLayoutIdentifier !== undefined}
+                  />
+                )}
               />
             </FormField>
           </div>

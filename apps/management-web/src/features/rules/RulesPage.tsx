@@ -4,9 +4,13 @@ import {
   useListRulesQuery,
   usePublishRuleMutation,
   RULE_ACTION_SET_VARIABLE_VALUE,
+  RULE_ACTION_HIGHLIGHT_OVERLAY,
+  RULE_ACTION_SWITCH_WALL_SCENE,
   type Rule,
   type RuleState,
 } from '@smart-sentinel-eye/shared/api/rules.api';
+import { useListWallsQuery } from '@smart-sentinel-eye/shared/api/walls.api';
+import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import {
   CONFLICT_FALLBACK,
   isConflict,
@@ -51,6 +55,19 @@ export function RulesPage() {
 
   const { isLoading: archiving } = archiveState;
 
+  // SwitchWallScene's wording ("Switch Line 3 rotation to Line 3 fault
+  // view") names a wall and a layout the DTO carries only as identifiers —
+  // resolved here, the same two lookups RuleDialog and WallsPage already
+  // use, and falling back to the raw identifier for a stale rule whose wall
+  // or layout no longer resolves (R3) rather than hiding the action.
+  const { data: wallsData } = useListWallsQuery();
+  const wallName = (wallIdentifier: string): string =>
+    wallsData?.find((wall) => wall.wallIdentifier === wallIdentifier)?.name ?? wallIdentifier;
+
+  const { data: layoutsData } = useListLayoutsQuery('Published');
+  const layoutName = (layoutIdentifier: string): string =>
+    layoutsData?.published.find((layout) => layout.layoutIdentifier === layoutIdentifier)?.name ?? layoutIdentifier;
+
   // Both of these used to discard their failure. With optimistic concurrency
   // live (ADR-0113) a refusal is routine, and a discarded one is worse than
   // silence on publish: the list still refetches, the row flips to Published —
@@ -85,7 +102,11 @@ export function RulesPage() {
       header: 'Predicate',
       cell: (rule) => <span className="font-mono text-xs">{rule.predicate}</span>,
     },
-    { id: 'action', header: 'Action', cell: (rule) => <span className="text-xs">{describeAction(rule)}</span> },
+    {
+      id: 'action',
+      header: 'Action',
+      cell: (rule) => <span className="text-xs">{describeAction(rule, wallName, layoutName)}</span>,
+    },
     { id: 'state', header: 'State', cell: (rule) => <StateBadge state={rule.state} /> },
     {
       id: 'actions',
@@ -210,10 +231,27 @@ export function RulesPage() {
   );
 }
 
-function describeAction(rule: Rule): string {
-  return rule.action.kind === RULE_ACTION_SET_VARIABLE_VALUE
-    ? `Set ${rule.action.variableName} = ${rule.action.valueExpression}`
-    : `Highlight overlay for ${rule.action.durationMs} ms`;
+function describeAction(
+  rule: Rule,
+  wallName: (wallIdentifier: string) => string,
+  layoutName: (layoutIdentifier: string) => string,
+): string {
+  switch (rule.action.kind) {
+    case RULE_ACTION_SET_VARIABLE_VALUE:
+      return `Set ${rule.action.variableName} = ${rule.action.valueExpression}`;
+    case RULE_ACTION_HIGHLIGHT_OVERLAY:
+      return `Highlight overlay for ${rule.action.durationMs} ms`;
+    case RULE_ACTION_SWITCH_WALL_SCENE: {
+      const wall = wallName(rule.action.wall ?? '');
+      return rule.action.sceneTarget === 'Next'
+        ? `Switch ${wall} to its next scene`
+        : `Switch ${wall} to ${layoutName(rule.action.targetLayout ?? '')}`;
+    }
+    default: {
+      const exhaustive: never = rule.action.kind;
+      return exhaustive;
+    }
+  }
 }
 
 const RULE_STATE_TONE: Record<RuleState, BadgeTone> = {
