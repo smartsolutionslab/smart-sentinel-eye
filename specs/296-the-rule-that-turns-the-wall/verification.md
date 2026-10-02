@@ -307,7 +307,107 @@ inferred from reading the code or from a prior test run.
 scene switch is not on the event-to-overlay path (no overlay state, no
 plant-floor label). No leg in the §IV table is spent by this change.
 
-## Stack teardown
+## Stack teardown (PR-A)
 
 AppHost process stopped; `docker ps` confirmed empty afterward (no containers
 left running).
+
+---
+
+# Phase 5 verification — T131, PR-B (US2, management-web rule editor)
+
+Date: 2026-10-02. Branch `feat/2618-rule-editor-us2`, worktree
+`D:\Github\sse-2618-b`, commit `230f5be4` (T124 implementation) +
+`5bedd7e9` (T116/T117 tests, including the `beforeEach` fix).
+
+## What was run
+
+Booted a fresh Aspire stack the same way as PR-A's T130
+(`ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS=true dotnet run --project
+src/AppHost --launch-profile https`, confirmed `docker ps` empty first).
+Ran the actual T117 e2e spec live against it — this **is** the independent
+test walked through the real UI, not a separate manual click-path:
+
+```
+pnpm exec playwright test rule-switches-a-wall.spec.ts --reporter=list
+```
+
+```
+Running 4 tests using 3 workers
+
+  ok 1 [chromium] › e2e\rule-switches-a-wall.spec.ts:53:5 › authoring a
+       SwitchWallScene rule through the dialog switches the wall, and the
+       kiosk follows (US2-2) (34.7s)
+  ok 4 [cleanup] › archive-e2e-overlays.teardown.ts (10.7s)
+  ok 3 [cleanup] › retire-e2e-cameras.teardown.ts (15.6s)
+  x  2 [cleanup] › archive-e2e-layouts.teardown.ts (22.0s)
+
+  1 failed, 3 passed (1.1m)
+```
+
+**The target test passed.** The one failure — a pre-existing cleanup/
+teardown spec shared by every e2e test in this suite, timing out on sign-in
+— is unrelated to this feature: re-run alone, immediately, it passed
+(`1 passed (6.6s)`), confirming worker contention under the 3-concurrent-
+worker run rather than a regression this branch introduced. Not re-run a
+third time; the isolated pass is the relevant evidence.
+
+## What the passing test actually exercised (US2's independent test, live)
+
+Step by step, first-hand, through the real management-web UI and the real
+kiosk:
+
+1. Signed in as an operator; created two Published layouts (each with its
+   own camera) and a wall with both as its scene set.
+2. Opened a kiosk session (`:5174`), selected the new wall. **The kiosk
+   rendered the wall's starting scene** — `layout-grid` visible, the single
+   tile's `data-camera-identifier` matching the first layout's camera. This
+   is the half of US1 step 3 that PR-A's own `verification.md` §7 recorded
+   as not-yet-observable (no kiosk client existed in that session); it is
+   observed here, through the real kiosk, with no kiosk-web code change.
+3. **Authored the `SwitchWallScene` rule through the dialog** (not the API
+   directly) — `createSwitchWallRule` drove the real `RuleDialog.tsx`:
+   opened the action-type listbox, picked "Switch a wall's scene", picked
+   the wall, picked the target layout by name. Clicked "Create draft". The
+   new row appeared in the Rules table.
+4. **Published it** — confirmed the row's state flipped to "Active" (a
+   Draft rule never evaluates, per spec.md US2).
+5. Ingested a matching event directly against EventIngestion's manual
+   endpoint (`POST /event-ingestion/events/manual`, `kind: "LineStop"`,
+   `payload: { line: 3 }` — the bearer token read out of the management
+   session's own `sessionStorage`, the gateway origin captured from an
+   observed `/automation/` request). **Response: `201`.**
+6. **The kiosk's tile flipped to the target layout's camera** —
+   `layout-tile`'s `data-camera-identifier` now matches the second
+   layout's camera, asserted inside `FIRST_WRITE_TIMEOUT_MS`. This is the
+   actual close of PR-A's §7 gap: the switch this session authored through
+   the dialog reached the kiosk with zero kiosk-web code involved, exactly
+   as `WallSceneChangedV1Handler`'s hub relay (confirmed by trace in PR-A's
+   T130) was always going to drive it.
+
+## What was NOT separately observed here
+
+- **The audit pair and PD-1** (T130 steps 3-4) were already observed
+  first-hand in PR-A's own walk, against the identical backend code (PR-B
+  changes no backend behaviour) — not re-observed here, since nothing
+  about the dialog-authored path changes which backend code runs once the
+  rule is created. The one thing PR-B adds to that picture is this file's
+  §"what the passing test actually exercised" step 2 and step 6: the kiosk
+  side PR-A could not open.
+- **The non-matching-payload drop** (T130 step 5) likewise unchanged by
+  PR-B and not re-walked.
+- No separate manual click-path beyond what the e2e spec itself drives —
+  the spec **is** the independent test, run live rather than read.
+
+## Latency budget (constitution §IV)
+
+**N/A** — same reasoning as PR-A's own entry above; PR-B adds no new
+backend code and no new leg.
+
+## Stack teardown (PR-B)
+
+AppHost process stopped (`Stop-Process` on the `dotnet` processes);
+remaining containers (`mosquitto`, `mediamtx`, `keycloak`, the Aspire
+tunnel proxy, `fixture-video`, `camera-sim`, `postgres`, `rabbitmq`,
+`pgadmin`, `storage`) stopped explicitly afterward — `docker ps` confirmed
+empty.
