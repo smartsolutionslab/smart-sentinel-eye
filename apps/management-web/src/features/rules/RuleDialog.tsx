@@ -160,9 +160,11 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
     ? 'Choose a fab first…'
     : wallsLoading
       ? 'Loading walls…'
-      : walls.length === 0
-        ? 'No walls in this fab'
-        : 'Choose a wall…';
+      : wallsError
+        ? 'Walls unavailable'
+        : walls.length === 0
+          ? 'No walls in this fab'
+          : 'Choose a wall…';
 
   const { data: layoutsData } = useListLayoutsQuery('Published');
   const layoutName = (layoutIdentifier: string): string =>
@@ -347,14 +349,18 @@ export function RuleDialog({ open, onOpenChange }: RuleDialogProps) {
                     placeholder={wallPlaceholder}
                     disabled={wallSelectDisabled}
                     aria-invalid={errors.wallIdentifier !== undefined}
+                    aria-describedby={wallsError ? 'rule-wall-load-error' : undefined}
                   />
                 )}
               />
               {wallsError && (
                 // Not role="alert" (e2e's management-rules.ts relies on no
                 // alert surfacing from a read failure on this page) — a
-                // quiet inline hint, not a banner.
-                <p className="text-xs text-fg-muted">Could not load walls. Try again shortly.</p>
+                // quiet inline hint, not a banner. aria-describedby above
+                // wires it to the select for screen readers (ADR-0077).
+                <p id="rule-wall-load-error" className="text-xs text-fg-muted">
+                  Could not load walls. Try again shortly.
+                </p>
               )}
             </FormField>
             <FormField
