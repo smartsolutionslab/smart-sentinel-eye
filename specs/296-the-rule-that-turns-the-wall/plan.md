@@ -197,6 +197,18 @@ shipped in US1.
 
 ### 4.1 `apps/shared`
 
+*Re-verified 2026-10-02 against `develop@27e68e11` (PR-A merged), reading the shipped code,
+not §2's description of it.* `RuleActionDto` is `(Kind, VariableName, ValueExpression,
+Overlay, DurationMs, Wall, SceneTarget, TargetLayout)` and serialises camelCase with every
+key present (nulls included) — exactly `verification.md` §2's live body. `sceneTarget` is
+only ever `"Next"` or `"Layout"` (`SceneTargetWireMapping.Literal`); `targetLayout` is
+non-null iff `sceneTarget === "Layout"`. `CreateRuleRequest` appended `wallIdentifier`,
+`sceneTarget`, `targetLayoutIdentifier`; `SwitchWallScene.From` returns 400
+`RULE_INVALID_INPUT` for a missing wall/target, a target other than those two literals
+(case-sensitive), `Layout` without a layout, and `Next` *with* one — so the Zod rules below
+mirror the server one-for-one. The rule API is **create-only** (no update route), so there
+is no edit form to extend. Nothing PR-A shipped needs a client type beyond the bullets below.
+
 - `api/rules.api.ts`: `RULE_ACTION_SWITCH_WALL_SCENE`; the `RuleAction` interface's `kind`
   union gains it (the TS type is named `RuleAction`, mirroring the server's
   `RuleActionDto`); `wall`, `sceneTarget`, `targetLayout` fields, `string | null` like the
@@ -224,7 +236,10 @@ hand-tinted class. T126 runs `Architecture.Tests` for this reason.
 - `features/rules/RuleDialog.tsx`: `ACTION_OPTIONS` gains "Switch a wall's scene". Its
   fields: a wall `Select` fed by `useListWallsQuery`, and a target `Select` of "Next scene"
   + the chosen wall's `scenes` (layout identifiers) labelled by layout `name` from
-  `useListLayoutsQuery`. Today one boolean, `setsVariable`, drives three binary branches:
+  `useListLayoutsQuery('Published')`. That hook answers `{ chains, published }`, not an
+  array: resolve a name as `WallsPage.tsx:21-24` already does —
+  `published.find(l => l.layoutIdentifier === id)?.name ?? id` — rather than inventing a
+  second lookup. Today one boolean, `setsVariable`, drives three binary branches:
   the `unregister` effect, the `renderedFields` list, and the keyed JSX ternary
   (`key="set-variable"` / `key="highlight-overlay"`). All three become one mapping keyed
   by `actionType` — e.g. a `Record<ActionType, readonly (keyof CreateRuleInput)[]>` of
@@ -233,11 +248,16 @@ hand-tinted class. T126 runs `Architecture.Tests` for this reason.
   third case — plus a third keyed fragment (`key="switch-wall-scene"`). Switching type
   unregisters the other types' fields (US2-16's "no stale fields"). Changing the wall
   clears the chosen target.
-  - **Which walls (assumption A4, flagged for the gate).** `Wall` carries `fab`. The
+  - **Which walls (A4 — confirmed by the user: the rule's own fab).** `Wall` carries `fab`. The
     select lists only walls whose `fab` equals the rule's fab — the chosen `fabId` when
-    `mustChooseFab`, otherwise the operator's single fab — and is empty until a fab is
+    `mustChooseFab`, otherwise `useAssignedFabs()[0]` — and is empty until a fab is
     chosen. A wall from another fab would author a rule that FR-010 (b) always drops.
-    Spec FR-013 says only "the caller's walls"; this narrows it. Confirm at the gate.
+    Spec FR-013 says only "the caller's walls"; this narrows it. **Filter client-side on
+    `wall.fab`:** `GET /layout-composition/walls` with no `fabId` returns every fab the
+    caller holds (`ResolveReadFabsAsync`), and `wall.fab` is the same fab-name string
+    `useAssignedFabs` and `RuleDto.fab` use. The server also accepts `?fabId=`, but
+    `listWalls` is declared `build.query<Wall[], void>` and `WallsPage` calls it bare;
+    widening its signature buys nothing the filter does not, so it stays as it is.
   - The dialog's backend-error `<p role="alert">` stays as it is: converting it to
     `FaultNotice` is #2693's kind of consolidation, not this feature.
 - `features/rules/RulesPage.tsx`: `describeAction` is today a binary ternary on
@@ -249,13 +269,27 @@ hand-tinted class. T126 runs `Architecture.Tests` for this reason.
   `useListLayoutsQuery` and passes lookups into `describeAction`; while loading, or for a
   wall/layout the lookup lacks (a stale rule, R3), it falls
   back to the identifier rather than hiding the action. "Next" renders "… to its next
-  scene". `RulesPage.test.tsx` mocks both lists accordingly.
+  scene". `RulesPage.test.tsx` mocks both lists accordingly — and so must
+  `RuleDialog.test.tsx`: both render inside the real `app/store`, which mounts
+  `wallsApi`/`layoutsApi`, so an unmocked hook issues a real fetch from jsdom. The mocks
+  are module-level `vi.mock` additions beside the existing `rules.api` one; no existing
+  assertion changes.
+- **kiosk-web: no change.** The kiosk already follows `WallSceneChanged` (spec 258,
+  `apps/kiosk-web/src/features/wall/WallPage.tsx` via `layoutHub.ts`); PR-A's rule path
+  emits the same `WallSceneChangedV1`. `verification.md` §7's phrase that PR-B "carries
+  this spec's kiosk wall-display work" is mistaken — PR-B's walk and e2e *observe* the
+  kiosk following, which closes that section's gap; they build nothing in kiosk-web.
 - Radix `Select` + RHF + Zod — existing primitives only.
 
 ### 4.3 e2e
 
 `e2e/rule-switches-a-wall.spec.ts` (**not** `wall-*.spec.ts`: that prefix is swept into the
-kiosk wall-display project, the trap `wall-changes-its-scene.spec.ts` documents). Reuses
+kiosk wall-display project, the trap `wall-changes-its-scene.spec.ts` documents). The
+`chromium` project's `testIgnore: /(kiosk|wall)-.*\.spec\.ts/` is **unanchored**, so the rule
+is "no `wall-` or `kiosk-` anywhere in the file name", not just at the start — the chosen name
+is safe because `wall` is its last word; `rule-switches-wall-scene.spec.ts` would not be. The
+kiosk side opens its own `browser.newContext()` on :5174, as `wall-changes-its-scene.spec.ts`
+does. Reuses
 `createPublishedLayout`, the wall creation steps and kiosk session helpers; adds a
 `createSwitchWallRule` helper to `support/management-rules.ts` (ADR-0162). Ingests via
 `POST /event-ingestion/events/manual`.
