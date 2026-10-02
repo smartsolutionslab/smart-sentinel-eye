@@ -16,15 +16,103 @@ import type { CreateRuleArgs } from '@smart-sentinel-eye/shared/api/rules.api';
  * moved characterisation." Every assertion downstream of this helper is
  * byte-identical to what it was before.
  */
-const ACTION_LABELS: Record<'SetVariableValue' | 'HighlightOverlay', string> = {
+const ACTION_LABELS: Record<'SetVariableValue' | 'HighlightOverlay' | 'SwitchWallScene', string> = {
   SetVariableValue: 'Set a system variable',
   HighlightOverlay: 'Highlight an overlay',
+  SwitchWallScene: "Switch a wall's scene",
 };
 
-async function chooseAction(user: ReturnType<typeof userEvent.setup>, value: 'SetVariableValue' | 'HighlightOverlay') {
+async function chooseAction(
+  user: ReturnType<typeof userEvent.setup>,
+  value: 'SetVariableValue' | 'HighlightOverlay' | 'SwitchWallScene',
+) {
   await user.click(screen.getByRole('combobox', { name: /action/i }));
   await user.click(await screen.findByRole('option', { name: ACTION_LABELS[value] }));
 }
+
+/**
+ * Spec 296 (#2618) US2 — the third action's own target. The wall select and
+ * the target select are driven the same way `chooseAction` drives the Action
+ * field: open the Radix listbox, click the option by its accessible name.
+ */
+async function chooseWall(user: ReturnType<typeof userEvent.setup>, wallName: string) {
+  await user.click(screen.getByRole('combobox', { name: /^wall$/i }));
+  await user.click(await screen.findByRole('option', { name: wallName }));
+}
+
+async function chooseTarget(user: ReturnType<typeof userEvent.setup>, targetLabel: string) {
+  await user.click(screen.getByRole('combobox', { name: /target/i }));
+  await user.click(await screen.findByRole('option', { name: targetLabel }));
+}
+
+/**
+ * Spec 296 (#2618) US2 — module-level mocks for `walls.api`/`layouts.api`,
+ * added beside the existing `rules.api` one. Both `RuleDialog` and
+ * `RulesPage` render inside the real `app/store`, which mounts `wallsApi`/
+ * `layoutsApi`: once the dialog's third action type reads
+ * `useListWallsQuery`/`useListLayoutsQuery`, an unmocked hook issues a real
+ * fetch from jsdom. Mutable so a test can vary the wall/layout lists; reset
+ * to these defaults in `beforeEach` below.
+ */
+const DEFAULT_WALLS = [
+  {
+    wallIdentifier: 'wall-1',
+    version: 0,
+    fab: 'munich',
+    name: 'Line 3 Wall',
+    scenes: ['layout-a', 'layout-b'],
+    showing: 'layout-a',
+    sceneVersion: 0,
+    showingSince: '2026-01-01T00:00:00Z',
+  },
+];
+
+const DEFAULT_PUBLISHED_LAYOUTS = [
+  {
+    layoutIdentifier: 'layout-a',
+    name: 'Line 3 rotation',
+    revisionNumber: 1,
+    gridRows: 1,
+    gridCols: 1,
+    tiles: [],
+    publishedAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    layoutIdentifier: 'layout-b',
+    name: 'Line 3 fault view',
+    revisionNumber: 1,
+    gridRows: 1,
+    gridCols: 1,
+    tiles: [],
+    publishedAt: '2026-01-01T00:00:00Z',
+  },
+];
+
+const wallsQueryState = { current: { data: DEFAULT_WALLS as unknown[], isLoading: false } };
+
+// importOriginal, not a wholesale replacement (mirrors the rules.api mock
+// above): `app/store.ts` wires every api slice's `reducerPath`/`reducer`
+// unconditionally, so a mock that only supplied the hook would break the
+// store itself, not just this dialog's data.
+vi.mock('@smart-sentinel-eye/shared/api/walls.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/walls.api')>();
+  return {
+    ...actual,
+    useListWallsQuery: () => wallsQueryState.current,
+  };
+});
+
+const layoutsQueryState = {
+  current: { data: { chains: [] as unknown[], published: DEFAULT_PUBLISHED_LAYOUTS as unknown[] }, isLoading: false },
+};
+
+vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
+  return {
+    ...actual,
+    useListLayoutsQuery: () => layoutsQueryState.current,
+  };
+});
 
 // Typed so `createMock.mock.calls[0][0]` narrows to the payload shape instead
 // of an empty tuple — a bare `vi.fn(async () => …)` infers a zero-arg
@@ -101,6 +189,8 @@ describe('RuleDialog', () => {
     createMock.mockClear();
     assignedGroups.current = ['/fabs/munich'];
     mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
+    wallsQueryState.current = { data: DEFAULT_WALLS, isLoading: false };
+    layoutsQueryState.current = { data: { chains: [], published: DEFAULT_PUBLISHED_LAYOUTS }, isLoading: false };
   });
 
   /**
@@ -540,6 +630,238 @@ describe('RuleDialog', () => {
     });
 
     expect(createMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Spec 296 (#2618) US2 — new behaviour, RED. `RuleDialog.tsx` offers only
+ * `SetVariableValue`/`HighlightOverlay` today; none of these cases can pass
+ * until `ACTION_OPTIONS` gains "Switch a wall's scene" and the dialog grows
+ * the wall/target selects (T124). `chooseAction(user, 'SwitchWallScene')`
+ * itself is the first thing to fail — there is no such option yet — so every
+ * test below fails for that reason until the option exists, which is the
+ * correct, uninteresting failure for a feature that has not been built.
+ */
+describe('RuleDialog — SwitchWallScene (spec 296 US2, new behaviour, RED)', () => {
+  beforeEach(() => {
+    createMock.mockClear();
+    assignedGroups.current = ['/fabs/munich'];
+    mutationState.current = { isLoading: false, error: undefined, reset: vi.fn() };
+    wallsQueryState.current = { data: DEFAULT_WALLS, isLoading: false };
+    layoutsQueryState.current = { data: { chains: [], published: DEFAULT_PUBLISHED_LAYOUTS }, isLoading: false };
+  });
+
+  it('Renders a wall select and a target select populated with the chosen wall’s scenes by layout name', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseAction(user, 'SwitchWallScene');
+
+    expect(screen.getByRole('combobox', { name: /^wall$/i })).toBeInTheDocument();
+    await chooseWall(user, 'Line 3 Wall');
+
+    await user.click(screen.getByRole('combobox', { name: /target/i }));
+    const listbox = await screen.findByRole('listbox');
+    expect(within(listbox).getByRole('option', { name: 'Next scene' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: 'Line 3 rotation' })).toBeInTheDocument();
+    expect(within(listbox).getByRole('option', { name: 'Line 3 fault view' })).toBeInTheDocument();
+  });
+
+  it('Submits a SwitchWallScene rule targeting a specific layout', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'switch-line-3');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'LineStop');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.line == 3');
+    await chooseAction(user, 'SwitchWallScene');
+    await chooseWall(user, 'Line 3 Wall');
+    await chooseTarget(user, 'Line 3 fault view');
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const payload = createMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toEqual(
+      expect.objectContaining({
+        actionType: 'SwitchWallScene',
+        wallIdentifier: 'wall-1',
+        sceneTarget: 'Layout',
+        targetLayoutIdentifier: 'layout-b',
+      }),
+    );
+    expect(payload).not.toHaveProperty('variableName');
+    expect(payload).not.toHaveProperty('overlayIdentifier');
+  });
+
+  it('Submits a SwitchWallScene rule targeting Next with no targetLayoutIdentifier (FR-003)', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'switch-line-3-next');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'LineStop');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.line == 3');
+    await chooseAction(user, 'SwitchWallScene');
+    await chooseWall(user, 'Line 3 Wall');
+    await chooseTarget(user, 'Next scene');
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const payload = createMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).toEqual(expect.objectContaining({ wallIdentifier: 'wall-1', sceneTarget: 'Next' }));
+    // Omitted or null — never the stale/previous layout identifier.
+    expect(payload?.['targetLayoutIdentifier'] ?? null).toBeNull();
+  });
+
+  // ---- US2-16: a toggle away from SwitchWallScene must not leak its fields ----
+
+  it('Submits no wall/target fields once the action type is switched away from SwitchWallScene', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'high-oee');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'PlcCycleStart');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.cycleTime <= 30');
+
+    await chooseAction(user, 'SwitchWallScene');
+    await chooseWall(user, 'Line 3 Wall');
+    await chooseTarget(user, 'Line 3 fault view');
+
+    await chooseAction(user, 'SetVariableValue');
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const payload = createMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).not.toHaveProperty('wallIdentifier');
+    expect(payload).not.toHaveProperty('sceneTarget');
+    expect(payload).not.toHaveProperty('targetLayoutIdentifier');
+    expect(payload).toEqual(expect.objectContaining({ actionType: 'SetVariableValue' }));
+  });
+
+  it('Submits no stale SetVariableValue fields once switched to SwitchWallScene and back', async () => {
+    const user = userEvent.setup();
+    renderDialog();
+
+    await fill(user, screen.getByLabelText(/^name$/i), 'switch-line-3-back');
+    await fill(user, screen.getByLabelText(/trigger kind/i), 'LineStop');
+    await fill(user, screen.getByLabelText(/predicate/i), '$.payload.line == 3');
+    await fill(user, screen.getByLabelText(/variable name/i), 'oeeLine1');
+    await fill(user, screen.getByLabelText(/value expression/i), '42');
+
+    await chooseAction(user, 'SwitchWallScene');
+    await chooseWall(user, 'Line 3 Wall');
+    await chooseTarget(user, 'Next scene');
+    await user.click(screen.getByRole('button', { name: /create draft/i }));
+
+    expect(createMock).toHaveBeenCalledTimes(1);
+    const payload = createMock.mock.calls[0]?.[0] as Record<string, unknown> | undefined;
+    expect(payload).not.toHaveProperty('variableName');
+    expect(payload).not.toHaveProperty('valueExpression');
+    expect(payload).toEqual(expect.objectContaining({ actionType: 'SwitchWallScene', wallIdentifier: 'wall-1' }));
+  });
+
+  // ---- A4: only walls in the rule's own fab are offered ----
+
+  it('Offers only walls in the single-fab operator’s own fab', async () => {
+    wallsQueryState.current = {
+      data: [
+        ...DEFAULT_WALLS,
+        {
+          wallIdentifier: 'wall-2',
+          version: 0,
+          fab: 'dresden',
+          name: 'Dresden Wall',
+          scenes: ['layout-a'],
+          showing: 'layout-a',
+          sceneVersion: 0,
+          showingSince: '2026-01-01T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+    };
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseAction(user, 'SwitchWallScene');
+    await user.click(screen.getByRole('combobox', { name: /^wall$/i }));
+    const listbox = await screen.findByRole('listbox');
+
+    expect(within(listbox).getByRole('option', { name: 'Line 3 Wall' })).toBeInTheDocument();
+    expect(within(listbox).queryByRole('option', { name: 'Dresden Wall' })).not.toBeInTheDocument();
+  });
+
+  it('Offers no walls to a multi-fab operator until a fab is chosen', async () => {
+    assignedGroups.current = ['/fabs/munich', '/fabs/dresden'];
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseAction(user, 'SwitchWallScene');
+    await user.click(screen.getByRole('combobox', { name: /^wall$/i }));
+    const listbox = await screen.findByRole('listbox');
+
+    expect(within(listbox).queryByRole('option', { name: 'Line 3 Wall' })).not.toBeInTheDocument();
+  });
+
+  it('Offers the chosen fab’s walls to a multi-fab operator once a fab is chosen', async () => {
+    assignedGroups.current = ['/fabs/munich', '/fabs/dresden'];
+    wallsQueryState.current = {
+      data: [
+        ...DEFAULT_WALLS,
+        {
+          wallIdentifier: 'wall-2',
+          version: 0,
+          fab: 'dresden',
+          name: 'Dresden Wall',
+          scenes: ['layout-a'],
+          showing: 'layout-a',
+          sceneVersion: 0,
+          showingSince: '2026-01-01T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+    };
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseAction(user, 'SwitchWallScene');
+    await user.selectOptions(screen.getByLabelText(/^fab$/i), 'dresden');
+    await user.click(screen.getByRole('combobox', { name: /^wall$/i }));
+    const listbox = await screen.findByRole('listbox');
+
+    expect(within(listbox).getByRole('option', { name: 'Dresden Wall' })).toBeInTheDocument();
+    expect(within(listbox).queryByRole('option', { name: 'Line 3 Wall' })).not.toBeInTheDocument();
+  });
+
+  // ---- Changing the wall must not leave a target from a wall it no longer names ----
+
+  it('Clears the selected target when the wall changes', async () => {
+    wallsQueryState.current = {
+      data: [
+        ...DEFAULT_WALLS,
+        {
+          wallIdentifier: 'wall-2',
+          version: 0,
+          fab: 'munich',
+          name: 'Line 4 Wall',
+          scenes: ['layout-b'],
+          showing: 'layout-b',
+          sceneVersion: 0,
+          showingSince: '2026-01-01T00:00:00Z',
+        },
+      ],
+      isLoading: false,
+    };
+    const user = userEvent.setup();
+    renderDialog();
+
+    await chooseAction(user, 'SwitchWallScene');
+    await chooseWall(user, 'Line 3 Wall');
+    await chooseTarget(user, 'Line 3 rotation');
+
+    await chooseWall(user, 'Line 4 Wall');
+
+    expect(screen.getByRole('combobox', { name: /target/i })).not.toHaveTextContent('Line 3 rotation');
   });
 });
 

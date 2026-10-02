@@ -8,6 +8,29 @@ const publishMock = vi.fn(async () => ({ data: 'ok' }));
 const archiveMock = vi.fn(async () => ({ data: 'ok' }));
 const listMock = vi.fn();
 
+// Spec 296 (#2618) US2 — RulesPage's `describeAction` needs wall/layout
+// *names* for a SwitchWallScene row (plan.md §4.2), which the DTO does not
+// carry. Mutable so individual tests can vary the lists; module-level,
+// mirroring the `rules.api` mock below.
+const wallsListMock = vi.fn();
+const layoutsListMock = vi.fn();
+
+vi.mock('@smart-sentinel-eye/shared/api/walls.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/walls.api')>();
+  return {
+    ...actual,
+    useListWallsQuery: (...args: unknown[]) => wallsListMock(...args),
+  };
+});
+
+vi.mock('@smart-sentinel-eye/shared/api/layouts.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/layouts.api')>();
+  return {
+    ...actual,
+    useListLayoutsQuery: (...args: unknown[]) => layoutsListMock(...args),
+  };
+});
+
 // The mutation *state* the page reads back, not just the trigger. Held in
 // mutable module state because a vi.mock factory is hoisted above every test:
 // the tests that care set these in-place, and beforeEach clears them.
@@ -72,12 +95,60 @@ function renderPage() {
   );
 }
 
+/** Default wall/layout fixtures for the SwitchWallScene describe tests below. */
+const DEFAULT_WALLS = [
+  {
+    wallIdentifier: 'wall-1',
+    version: 0,
+    fab: 'munich',
+    name: 'Line 3 rotation',
+    scenes: ['layout-a', 'layout-b'],
+    showing: 'layout-a',
+    sceneVersion: 0,
+    showingSince: '2026-01-01T00:00:00Z',
+  },
+];
+
+const DEFAULT_PUBLISHED_LAYOUTS = [
+  {
+    layoutIdentifier: 'layout-a',
+    name: 'Scene A',
+    revisionNumber: 1,
+    gridRows: 1,
+    gridCols: 1,
+    tiles: [],
+    publishedAt: '2026-01-01T00:00:00Z',
+  },
+  {
+    layoutIdentifier: 'layout-b',
+    name: 'Line 3 fault view',
+    revisionNumber: 1,
+    gridRows: 1,
+    gridCols: 1,
+    tiles: [],
+    publishedAt: '2026-01-01T00:00:00Z',
+  },
+];
+
+function resetWallsAndLayoutsMocks() {
+  wallsListMock.mockReset();
+  wallsListMock.mockReturnValue({ data: DEFAULT_WALLS, isLoading: false, isError: false, refetch: vi.fn() });
+  layoutsListMock.mockReset();
+  layoutsListMock.mockReturnValue({
+    data: { chains: [], published: DEFAULT_PUBLISHED_LAYOUTS },
+    isLoading: false,
+    isError: false,
+    refetch: vi.fn(),
+  });
+}
+
 describe('RulesPage', () => {
   beforeEach(() => {
     publishMock.mockClear();
     archiveMock.mockClear();
     publishState = { isLoading: false };
     archiveState = { isLoading: false };
+    resetWallsAndLayoutsMocks();
     listMock.mockReset();
     listMock.mockReturnValue({ data: [rule()], isLoading: false, isError: false, refetch: vi.fn() });
   });
@@ -299,6 +370,7 @@ describe('RulesPage — a refused mutation is surfaced', () => {
     archiveMock.mockClear();
     publishState = { isLoading: false };
     archiveState = { isLoading: false };
+    resetWallsAndLayoutsMocks();
     listMock.mockReset();
     listMock.mockReturnValue({ data: [rule()], isLoading: false, isError: false, refetch: vi.fn() });
   });
@@ -396,6 +468,7 @@ describe('RulesPage — a failed load is the shared RetryBanner (spec 298 US2)',
     listMock.mockReset();
     publishState = { isLoading: false };
     archiveState = { isLoading: false };
+    resetWallsAndLayoutsMocks();
   });
 
   it('Shows the failed load on the fault notice tokens, with a link-style Retry', () => {
@@ -408,5 +481,73 @@ describe('RulesPage — a failed load is the shared RetryBanner (spec 298 US2)',
     expect(alert).toHaveClass('bg-accent-fault-subtle', 'border-accent-fault-border', 'text-accent-fault');
     expect([...alert.classList].some((c) => /\/\d+$/.test(c))).toBe(false);
     expect(within(alert).getByRole('button', { name: 'Retry' })).toHaveClass('underline');
+  });
+});
+
+/**
+ * Spec 296 (#2618) US2 — new behaviour, RED (ADR-0139/0144). `describeAction`
+ * (`RulesPage.tsx:213-217`) is a binary ternary today: anything that is not
+ * `SetVariableValue` renders as a `HighlightOverlay` description, so a
+ * `SwitchWallScene` row renders "Highlight overlay for null ms" until T124's
+ * exhaustive rewrite. The wording below ("Switch <wall> to <target>") is the
+ * contract this PR sets for that rewrite, following plan.md §4.2's own
+ * example wording.
+ */
+describe('RulesPage — SwitchWallScene action descriptions (spec 296 US2, new behaviour, RED)', () => {
+  beforeEach(() => {
+    publishMock.mockClear();
+    archiveMock.mockClear();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+    resetWallsAndLayoutsMocks();
+    listMock.mockReset();
+  });
+
+  function switchWallSceneRule(overrides: Record<string, unknown> = {}) {
+    return rule({
+      action: {
+        kind: 'SwitchWallScene',
+        variableName: null,
+        valueExpression: null,
+        overlay: null,
+        durationMs: null,
+        wall: 'wall-1',
+        sceneTarget: 'Layout',
+        targetLayout: 'layout-b',
+        ...overrides,
+      },
+    });
+  }
+
+  it('Describes a SwitchWallScene action targeting a specific layout, by wall and layout name', () => {
+    listMock.mockReturnValue({ data: [switchWallSceneRule()], isLoading: false, isError: false, refetch: vi.fn() });
+    renderPage();
+
+    expect(screen.getByText(/Switch Line 3 rotation to Line 3 fault view/i)).toBeInTheDocument();
+  });
+
+  it('Describes a SwitchWallScene action targeting Next, by wall name', () => {
+    listMock.mockReturnValue({
+      data: [switchWallSceneRule({ sceneTarget: 'Next', targetLayout: null })],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    expect(screen.getByText(/Switch Line 3 rotation to its next scene/i)).toBeInTheDocument();
+  });
+
+  it('Falls back to the raw wall identifier when the wall lookup does not have it', () => {
+    wallsListMock.mockReturnValue({ data: [], isLoading: false, isError: false, refetch: vi.fn() });
+    listMock.mockReturnValue({
+      data: [switchWallSceneRule({ wall: 'wall-missing' })],
+      isLoading: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    expect(screen.getByText(/wall-missing/)).toBeInTheDocument();
   });
 });
