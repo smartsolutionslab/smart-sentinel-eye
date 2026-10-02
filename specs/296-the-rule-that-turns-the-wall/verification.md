@@ -278,18 +278,23 @@ only job past the `Wall` write is that relay.
 ## 7. What was NOT observed — the honest gap
 
 **"The kiosk follows" (spec.md US1 step 3's other half) was not observed
-through the kiosk UI.** PR-B — the frontend rule editor, which also carries
-this spec's kiosk wall-display work — has not been built yet; this is PR-A,
-backend only (per tasks.md's phase split, PR-B starts only after PR-A merges).
-There is no kiosk client to open in this session. Substituted with the
-direct, first-hand `GET /layout-composition/walls/{W}` observations in steps
-2 and 4 above, which show the same state a kiosk's `WallSceneChanged` hub
-frame would drive it to render, plus the trace in step 6 reaching into
-`WallSceneChangedV1Handler`, which is the handler that performs the hub
-broadcast the (not-yet-built) kiosk page would subscribe to. This is a known,
-expected gap for this PR, not a failure — precedent: spec 263
-`verification.md` §"What was NOT observed" recorded the same kind of gap for
-its own live click-path walkthrough.
+through the kiosk UI, though no kiosk-web code needs to change for it.**
+`apps/kiosk-web/src/features/wall/WallPage.tsx` already subscribes to
+`WallSceneChanged` (since spec 258) and would render this switch with no
+change on its side — the earlier statement here that PR-B "carries this
+spec's kiosk wall-display work" was wrong, caught during PR-B's own
+phase-1-3 re-verification (plan.md/tasks.md, `docs(296): re-verify PR-B
+plan/tasks against shipped PR-A`). PR-B is the management-web rule editor;
+it *observes* the kiosk following the switch, it builds nothing in
+kiosk-web. There is simply no kiosk client open in this backend-only
+session to observe it through. Substituted with the direct, first-hand
+`GET /layout-composition/walls/{W}` observations in steps 2 and 4 above,
+which show the same state a kiosk's `WallSceneChanged` hub frame would
+drive it to render, plus the trace in step 6 reaching into
+`WallSceneChangedV1Handler`, the handler that performs that hub broadcast.
+This is a known, expected gap for this PR, not a failure — precedent: spec
+263 `verification.md` §"What was NOT observed" recorded the same kind of
+gap for its own live click-path walkthrough.
 
 No other gap. Every other part of T130 — the round-trip, the switch, the
 audit pair, PD-1, the non-matching drop, and the cross-service trace — was
