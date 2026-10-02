@@ -243,8 +243,7 @@ function describeAction(
       return `Highlight overlay for ${rule.action.durationMs} ms`;
     case RULE_ACTION_SWITCH_WALL_SCENE: {
       const wall = rule.action.wall === null ? '(unknown wall)' : wallName(rule.action.wall);
-      const target =
-        rule.action.targetLayout === null ? '(unknown layout)' : layoutName(rule.action.targetLayout);
+      const target = rule.action.targetLayout === null ? '(unknown layout)' : layoutName(rule.action.targetLayout);
       return rule.action.sceneTarget === 'Next' ? `Switch ${wall} to its next scene` : `Switch ${wall} to ${target}`;
     }
     default: {
