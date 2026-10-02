@@ -27,44 +27,89 @@ export const createRuleSchema = z
     triggerSource: z.string().trim().min(1, 'Trigger source is required'),
     triggerKind: z.string().trim().min(1, 'Trigger kind is required'),
     predicate: predicateSchema,
-    actionType: z.enum(['SetVariableValue', 'HighlightOverlay']),
+    actionType: z.enum(['SetVariableValue', 'HighlightOverlay', 'SwitchWallScene']),
     variableName: z.string().trim().max(64).optional(),
     valueExpression: z.string().trim().max(4096).optional(),
     overlayIdentifier: z.string().uuid('Choose an overlay').optional(),
     durationMs: z.number().int().min(500).max(60_000).optional(),
+    wallIdentifier: z.string().trim().min(1).optional(),
+    sceneTarget: z.enum(['Next', 'Layout']).optional(),
+    targetLayoutIdentifier: z.string().trim().min(1).optional(),
   })
   .superRefine((value, ctx) => {
     // The action tag decides which fields are required — the same rule the
-    // server enforces when it builds the RuleAction variant.
-    if (value.actionType === 'SetVariableValue') {
-      if (!value.variableName) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['variableName'],
-          message: 'Variable name is required for SetVariableValue',
-        });
+    // server enforces when it builds the RuleAction variant. Exhaustive
+    // switch so a fourth variant fails to compile rather than silently
+    // falling into the wrong branch (the bug this replaces).
+    switch (value.actionType) {
+      case 'SetVariableValue': {
+        if (!value.variableName) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['variableName'],
+            message: 'Variable name is required for SetVariableValue',
+          });
+        }
+        if (!value.valueExpression) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['valueExpression'],
+            message: 'Value expression is required for SetVariableValue',
+          });
+        }
+        break;
       }
-      if (!value.valueExpression) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['valueExpression'],
-          message: 'Value expression is required for SetVariableValue',
-        });
+      case 'HighlightOverlay': {
+        if (!value.overlayIdentifier) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['overlayIdentifier'],
+            message: 'Overlay is required for HighlightOverlay',
+          });
+        }
+        if (value.durationMs === undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['durationMs'],
+            message: 'Duration is required for HighlightOverlay',
+          });
+        }
+        break;
       }
-    } else {
-      if (!value.overlayIdentifier) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['overlayIdentifier'],
-          message: 'Overlay is required for HighlightOverlay',
-        });
+      case 'SwitchWallScene': {
+        if (!value.wallIdentifier) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['wallIdentifier'],
+            message: 'Wall is required for SwitchWallScene',
+          });
+        }
+        if (!value.sceneTarget) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['sceneTarget'],
+            message: 'Target is required for SwitchWallScene',
+          });
+        }
+        if (value.sceneTarget === 'Layout' && !value.targetLayoutIdentifier) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['targetLayoutIdentifier'],
+            message: 'Choose a layout when the target is Layout',
+          });
+        }
+        if (value.sceneTarget === 'Next' && value.targetLayoutIdentifier !== undefined) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['targetLayoutIdentifier'],
+            message: 'A target layout cannot be set when the target is Next',
+          });
+        }
+        break;
       }
-      if (value.durationMs === undefined) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: ['durationMs'],
-          message: 'Duration is required for HighlightOverlay',
-        });
+      default: {
+        const exhaustive: never = value.actionType;
+        void exhaustive;
       }
     }
   });

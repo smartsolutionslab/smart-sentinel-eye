@@ -8,6 +8,7 @@ export type RuleState = 'Draft' | 'Active' | 'Archived';
 
 export const RULE_ACTION_SET_VARIABLE_VALUE = 'SetVariableValue';
 export const RULE_ACTION_HIGHLIGHT_OVERLAY = 'HighlightOverlay';
+export const RULE_ACTION_SWITCH_WALL_SCENE = 'SwitchWallScene';
 
 /**
  * Discriminated wire shape mirroring the server's `RuleActionDto`: `kind` is
@@ -15,11 +16,15 @@ export const RULE_ACTION_HIGHLIGHT_OVERLAY = 'HighlightOverlay';
  * express a combination that means nothing.
  */
 export interface RuleAction {
-  kind: typeof RULE_ACTION_SET_VARIABLE_VALUE | typeof RULE_ACTION_HIGHLIGHT_OVERLAY;
+  kind:
+    typeof RULE_ACTION_SET_VARIABLE_VALUE | typeof RULE_ACTION_HIGHLIGHT_OVERLAY | typeof RULE_ACTION_SWITCH_WALL_SCENE;
   variableName: string | null;
   valueExpression: string | null;
   overlay: string | null;
   durationMs: number | null;
+  wall: string | null;
+  sceneTarget: 'Next' | 'Layout' | null;
+  targetLayout: string | null;
 }
 
 export interface Rule {
