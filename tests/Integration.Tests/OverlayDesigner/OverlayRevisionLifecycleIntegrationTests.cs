@@ -1,5 +1,7 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
+using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 
@@ -235,8 +237,16 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         JsonElement labels = draft.GetProperty("labels");
         labels.GetArrayLength().ShouldBe(3);
         labels[0].GetProperty("text").GetString().ShouldBe("First");
+        labels[0].GetProperty("normalizedX").GetDecimal().ShouldBe(0.1m);
+        labels[0].GetProperty("normalizedY").GetDecimal().ShouldBe(0.1m);
+        labels[0].GetProperty("fontSizePx").GetInt32().ShouldBe(16);
         labels[1].GetProperty("text").GetString().ShouldBe("Second");
+        labels[1].GetProperty("normalizedX").GetDecimal().ShouldBe(0.2m);
+        labels[1].GetProperty("normalizedY").GetDecimal().ShouldBe(0.2m);
+        labels[1].GetProperty("fontSizePx").GetInt32().ShouldBe(20);
         labels[2].GetProperty("text").GetString().ShouldBe("Third");
+        labels[2].GetProperty("normalizedX").GetDecimal().ShouldBe(0.3m);
+        labels[2].GetProperty("normalizedY").GetDecimal().ShouldBe(0.3m);
         labels[2].GetProperty("fontSizePx").GetInt32().ShouldBe(24);
 
         // Publishing the branch is the second half of FR-007's proof: a
@@ -244,5 +254,200 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         // fail only on the next write.
         (await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{draftNumber}/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// Phase-6 blocker (spec 150, #2345) coverage for the public edit
+    /// behaviour: replacing one label while resubmitting the other two
+    /// unchanged must still come back in ordinal order.
+    ///
+    /// <para>
+    /// This does <b>not</b> reproduce the underlying EF/Postgres ordering
+    /// gotcha on its own — observed red-first, it stayed green with the
+    /// bugged <c>Labels</c> property too, because <c>ReplaceLabels</c>
+    /// clears and re-adds the whole set every edit, so EF deletes and
+    /// re-inserts all three rows in ordinal order on every write; a tiny
+    /// freshly-rewritten table's physical scan order happens to already
+    /// match ordinal order. <see cref="A_label_set_written_out_of_physical_order_still_reads_back_in_ordinal_order"/>
+    /// below is the actual counterfactual: it inserts rows directly via SQL
+    /// in a physical order that disagrees with their ordinal, bypassing
+    /// EF's rewrite-in-order behaviour entirely.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Replacing_one_label_returns_the_whole_set_in_ordinal_order()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Ord3-{Guid.NewGuid():N}".Substring(0, 16),
+                labels = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        // Only ordinal 0's row changes content; ordinal 1 and 2 are
+        // resubmitted unchanged. If the read path relied on physical row
+        // order instead of sorting by ordinal, this is exactly the shape
+        // that scrambles it.
+        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, "revisions/1",
+            new { labels = new[] { SampleLabelBody("X"), SampleLabelBody("B"), SampleLabelBody("C") } });
+        edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
+
+        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")[0]
+            .GetProperty("labels");
+
+        labels.GetArrayLength().ShouldBe(3);
+        labels[0].GetProperty("text").GetString().ShouldBe("X");
+        labels[1].GetProperty("text").GetString().ShouldBe("B");
+        labels[2].GetProperty("text").GetString().ShouldBe("C");
+    }
+
+    /// <summary>
+    /// Shrink case for the same blocker: 3 labels down to 1.
+    /// </summary>
+    [Fact]
+    public async Task Shrinking_the_label_set_returns_the_remaining_label_in_ordinal_order()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Ord1-{Guid.NewGuid():N}".Substring(0, 16),
+                labels = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, "revisions/1",
+            new { labels = new[] { SampleLabelBody("OnlyOne") } });
+        edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
+
+        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")[0]
+            .GetProperty("labels");
+
+        labels.GetArrayLength().ShouldBe(1);
+        labels[0].GetProperty("text").GetString().ShouldBe("OnlyOne");
+    }
+
+    /// <summary>
+    /// Grow case for the same blocker: 1 label up to 3.
+    /// </summary>
+    [Fact]
+    public async Task Growing_the_label_set_returns_every_label_in_ordinal_order()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"OrdG-{Guid.NewGuid():N}".Substring(0, 16),
+                labels = new[] { SampleLabelBody("Solo") },
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, "revisions/1",
+            new { labels = new[] { SampleLabelBody("One"), SampleLabelBody("Two"), SampleLabelBody("Three") } });
+        edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
+
+        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")[0]
+            .GetProperty("labels");
+
+        labels.GetArrayLength().ShouldBe(3);
+        labels[0].GetProperty("text").GetString().ShouldBe("One");
+        labels[1].GetProperty("text").GetString().ShouldBe("Two");
+        labels[2].GetProperty("text").GetString().ShouldBe("Three");
+    }
+
+    /// <summary>
+    /// Phase-6 blocker (spec 150, #2345) — the actual counterfactual for
+    /// "<c>Revision.Labels</c> had no ordering guarantee". The app-level edit
+    /// path (above) cannot manufacture the defect because <c>ReplaceLabels</c>
+    /// always deletes and re-inserts the whole set in ordinal order, so a
+    /// freshly-rewritten table's physical scan order already agrees with
+    /// ordinal order by construction. This test bypasses the app entirely for
+    /// ordinal 1 and 2: it inserts their rows directly via SQL in the
+    /// <b>reverse</b> of ordinal order (ordinal 2's row physically before
+    /// ordinal 1's), which is exactly what a Postgres heap looks like after
+    /// out-of-order writes the application never controls (HOT updates,
+    /// autovacuum, concurrent sessions). Without sorting by ordinal at the
+    /// read side, <c>GET /overlays/{id}</c> returns the physical order
+    /// [A, C, B]; with the fix, it returns ordinal order [A, B, C]
+    /// regardless.
+    ///
+    /// <para>
+    /// Observed red against the reverted fix (<c>Labels => labels;</c>, no
+    /// sort) before this change landed: the assertion on <c>labels[1]</c>
+    /// failed with actual <c>"C"</c>, expected <c>"B"</c> — see the PR body
+    /// for the transcript.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_label_set_written_out_of_physical_order_still_reads_back_in_ordinal_order()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"OrdRaw-{Guid.NewGuid():N}".Substring(0, 16),
+                labels = new[] { SampleLabelBody("A") },
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        // Physically out of ordinal order: ordinal 2's row lands in the heap
+        // before ordinal 1's.
+        await InsertRawLabelAsync(overlayIdentifier, ordinal: 2, text: "C");
+        await InsertRawLabelAsync(overlayIdentifier, ordinal: 1, text: "B");
+
+        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")[0]
+            .GetProperty("labels");
+
+        labels.GetArrayLength().ShouldBe(3);
+        labels[0].GetProperty("text").GetString().ShouldBe("A");
+        labels[1].GetProperty("text").GetString().ShouldBe("B");
+        labels[2].GetProperty("text").GetString().ShouldBe("C");
+    }
+
+    /// <summary>
+    /// Inserts one <c>overlay_revision_labels</c> row directly via SQL for
+    /// the overlay's revision 1, bypassing the domain and EF entirely —
+    /// mirrors <c>TileSpanIntegrationTests.InsertRawTileNamingNoSpanColumnAsync</c>.
+    /// Geometry is fixed; only the ordinal and text vary, which is all the
+    /// physical-order counterfactual needs.
+    /// </summary>
+    private async Task InsertRawLabelAsync(Guid overlayIdentifier, int ordinal, string text)
+    {
+        await using OverlayDesignerDbContext db = await aspire.CreateOverlayDesignerDbContextAsync();
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO overlay_revision_labels
+                (revision_id, ordinal, label_text, label_x, label_y, label_width, label_height, label_font_size_px)
+            SELECT revision_id, {1}, {2}, 0.1, 0.1, 0.2, 0.2, 16
+              FROM overlay_revisions
+             WHERE overlay_id = {0} AND revision_number = 1;
+            """,
+            overlayIdentifier, ordinal, text);
     }
 }
