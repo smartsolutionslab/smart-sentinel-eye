@@ -83,8 +83,8 @@ and `OverlayEditorDialog`, not only the dark-pinned wall.
 
 **Not fixed in this PR**: the correct fix needs a new design decision — an on-video text role that
 stays the signal colour in every theme, distinct from the on-surface `-text` role this spec adds.
-That is new scope beyond the two ADR amendments this PR implements. Recorded here and as a
-follow-up issue rather than expanding this PR's scope or leaving it undocumented.
+That is new scope beyond the two ADR amendments this PR implements. Recorded here and filed as
+#2709 rather than expanding this PR's scope or leaving it undocumented.
 
 ## 4. What was NOT covered
 
