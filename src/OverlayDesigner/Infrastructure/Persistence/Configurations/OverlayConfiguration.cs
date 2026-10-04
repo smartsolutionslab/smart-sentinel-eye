@@ -26,10 +26,11 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Configurat
 /// </para>
 ///
 /// <para>
-/// The <see cref="Label"/> value object is flattened across six columns
-/// rather than mapped as a separate owned entity — kiosks need to render
-/// every Published revision without joins, and Label has no identity of
-/// its own.
+/// Spec 150 (#2345): a revision now carries an ordered, non-empty set of
+/// 1..8 <see cref="Label"/>s instead of one. Labels are mapped as a nested
+/// owned collection on <c>overlay_revision_labels</c>, keyed
+/// <c>(revision_id, ordinal)</c> — the join LayoutComposition already pays
+/// for <c>layout_revision_tiles</c>.
 /// </para>
 /// </summary>
 public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
@@ -121,34 +122,53 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
                 .HasConversion(state => state.Value, value => OverlayRevisionState.From(value))
                 .IsRequired();
 
-            revisions.OwnsOne(revision => revision.Label, label =>
+            // Labels are a nested owned collection, one level deeper than
+            // anything else in this feature: a composite value object (Label)
+            // owning two more composite value objects (Position, Size),
+            // itself owned by the revisions collection. A label has no
+            // identity of its own, so the composite key is
+            // (revision_id, ordinal) — the label's LabelOrdinal, flattened
+            // into the scalar mapped below (spec 150 FR-005).
+            revisions.OwnsMany(revision => revision.Labels, labels =>
             {
-                label.Property(labelValue => labelValue.Text)
+                labels.ToTable("overlay_revision_labels");
+                labels.WithOwner().HasForeignKey("revision_id");
+
+                // Field-backed, not a CLR property: the label exposes only its
+                // LabelOrdinal value object, so the scalar the key needs is
+                // mapped onto its private field rather than published as an
+                // int on a domain type (constitution §II). The name must be
+                // the field name exactly — EF refuses a field-only property
+                // whose name differs (LayoutConfiguration's row/col comment
+                // records the same cost).
+                labels.Property<int>("ordinal").HasColumnName("ordinal").IsRequired().ValueGeneratedNever();
+                labels.HasKey("revision_id", "ordinal");
+                labels.Ignore(label => label.Ordinal);
+
+                labels.Property(labelValue => labelValue.Text)
                     .HasColumnName("label_text")
                     .HasMaxLength(Label.MaximumTextLength)
                     .IsRequired();
 
-                // One level deeper than anything else here: a composite value
-                // object owned by a composite value object owned by an owned
-                // collection. The four columns stay where they were — the
-                // owned-reference default would name them Position_X and make
-                // them nullable, which is #2022's shape, so both the column name
-                // and the Navigation(...).IsRequired() below are load-bearing.
-                label.OwnsOne(labelValue => labelValue.Position, position =>
+                // The four columns stay where they were — the owned-reference
+                // default would name them Position_X and make them nullable,
+                // which is #2022's shape, so both the column name and the
+                // Navigation(...).IsRequired() below are load-bearing.
+                labels.OwnsOne(labelValue => labelValue.Position, position =>
                 {
                     position.Property(value => value.X).HasColumnName("label_x").IsRequired();
                     position.Property(value => value.Y).HasColumnName("label_y").IsRequired();
                 });
-                label.Navigation(labelValue => labelValue.Position).IsRequired();
+                labels.Navigation(labelValue => labelValue.Position).IsRequired();
 
-                label.OwnsOne(labelValue => labelValue.Size, size =>
+                labels.OwnsOne(labelValue => labelValue.Size, size =>
                 {
                     size.Property(value => value.Width).HasColumnName("label_width").IsRequired();
                     size.Property(value => value.Height).HasColumnName("label_height").IsRequired();
                 });
-                label.Navigation(labelValue => labelValue.Size).IsRequired();
+                labels.Navigation(labelValue => labelValue.Size).IsRequired();
 
-                label.Property(labelValue => labelValue.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
+                labels.Property(labelValue => labelValue.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
             });
 
             // The nested case: a composite inside an owned collection, one

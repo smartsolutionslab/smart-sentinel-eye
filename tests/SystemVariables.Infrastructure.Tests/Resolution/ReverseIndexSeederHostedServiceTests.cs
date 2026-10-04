@@ -23,7 +23,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Tests.Resolution;
 /// <b>The discriminator is deliberate.</b> Raising every non-success status to
 /// <c>Error</c> would satisfy the two refusal facts below and be wrong:
 /// FR-005 keeps an overlay-designer outage at <c>Warning</c>, because that one
-/// genuinely does self-heal from <c>OverlayRevisionPublishedV1</c> events. The
+/// genuinely does self-heal from <c>OverlayRevisionPublishedV2</c> events. The
 /// 503 fact is green before this change and must stay green after it.
 /// </para>
 /// </summary>
@@ -31,9 +31,14 @@ public class ReverseIndexSeederHostedServiceTests
 {
     private const string OverlayDesignerClientName = "overlay-designer";
     private const string LabelText = "OEE {{oeeLine1}}";
+    private const string SecondLabelText = "Status: {{status}}";
 
     private static readonly Guid Overlay = Guid.CreateVersion7();
 
+    // Spec 150 (#2345): the scalar "text" property is gone — a revision now
+    // carries "labels", an array of objects each with its own "text". Two
+    // labels here so the fixture also proves the seeder reads every one of
+    // them, not just the first.
     private static readonly string PublishedListing = $$"""
         {
           "chains": [],
@@ -42,7 +47,10 @@ public class ReverseIndexSeederHostedServiceTests
               "overlayIdentifier": "{{Overlay}}",
               "name": "Line 1 OEE",
               "revisionNumber": 3,
-              "text": "{{LabelText}}",
+              "labels": [
+                { "text": "{{LabelText}}" },
+                { "text": "{{SecondLabelText}}" }
+              ],
               "publishedAt": "2026-09-10T08:00:00Z"
             }
           ]
@@ -90,7 +98,7 @@ public class ReverseIndexSeederHostedServiceTests
 
     /// <summary>
     /// The message that ships today ends "The index will populate as new
-    /// OverlayRevisionPublishedV1 events arrive." That sentence is true of an
+    /// OverlayRevisionPublishedV2 events arrive." That sentence is true of an
     /// overlay-designer outage and false of a rejected credential: no event
     /// republishes the overlays that were already published before the process
     /// started, so the index stays empty for the life of the host. A message
@@ -170,7 +178,32 @@ public class ReverseIndexSeederHostedServiceTests
         Seed seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
 
         seed.Index.LookupOverlays("oeeLine1").ShouldBe([Overlay]);
-        seed.Index.LookupLabelText(Overlay).ShouldBe(LabelText);
+        seed.Index.LookupOverlays("status").ShouldBe([Overlay]);
+        IReadOnlyList<string>? texts = seed.Index.LookupLabelTexts(Overlay);
+        texts!.Count.ShouldBe(2);
+        texts[0].ShouldBe(LabelText);
+        texts[1].ShouldBe(SecondLabelText);
+    }
+
+    /// <summary>
+    /// Spec 150 (#2345) T014 — the silent-break this re-verification guards.
+    /// A revision's GET payload dropped the scalar "text" property for
+    /// "labels" (an array). Reading the old property name compiles cleanly
+    /// and throws nothing; it just seeds zero overlays on every cold start,
+    /// so every placeholder on every wall silently stops resolving the next
+    /// time SystemVariables restarts. Proved by counterfactual: against the
+    /// pre-spec-150 parsing (read "text" off the overlay element directly),
+    /// this exact payload seeds zero — see the PR body for the transcript.
+    /// </summary>
+    [Fact]
+    public async Task A_published_listing_in_the_new_shape_seeds_every_label_of_every_overlay()
+    {
+        Seed seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
+
+        seed.Logger.Entries.ShouldContain(
+            entry => entry.Message.Contains("seeded with 1 published overlays", StringComparison.Ordinal),
+            Transcript(seed));
+        seed.Index.AllOverlays().ShouldBe([Overlay]);
     }
 
     // ---- the credential itself ----
@@ -271,7 +304,7 @@ public class ReverseIndexSeederHostedServiceTests
     /// status — overlay-designer unreachable, DNS not up yet, connection
     /// refused during a rolling start — is the outage case FR-005 keeps at
     /// <c>Warning</c>, and it genuinely does self-heal from
-    /// <c>OverlayRevisionPublishedV1</c> events.
+    /// <c>OverlayRevisionPublishedV2</c> events.
     ///
     /// <para>
     /// Green before this change and green after it. An implementation that

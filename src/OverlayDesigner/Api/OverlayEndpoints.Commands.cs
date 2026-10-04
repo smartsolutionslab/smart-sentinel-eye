@@ -14,6 +14,19 @@ namespace SmartSentinelEye.OverlayDesigner.Api;
 /// <summary>Command (write) handlers for <see cref="OverlayEndpoints"/>.</summary>
 public static partial class OverlayEndpoints
 {
+    /// <summary>
+    /// Parses one wire-shape label into the domain value object. Called in a
+    /// loop inside the caller's single <c>try</c> (spec 150), so the first
+    /// bad label in the set 400s the whole set naming its field — the
+    /// existing single-label behaviour, reproduced rather than re-plumbed.
+    /// </summary>
+    private static Label ParseLabel(LabelRequest request) =>
+        Label.From(
+            request.Text,
+            NormalizedPosition.From(request.NormalizedX, request.NormalizedY),
+            NormalizedSize.From(request.NormalizedWidth, request.NormalizedHeight),
+            request.FontSizePx);
+
     private static async Task<IResult> CreateDraft(
         [FromBody] CreateOverlayRequest body,
         [AsParameters] CreateOverlayServices services,
@@ -32,16 +45,12 @@ public static partial class OverlayEndpoints
         }
 
         OverlayName name;
-        Label label;
+        List<Label> labels;
         try
         {
-            Ensure.That(body.Label).IsNotNull();
+            Ensure.That(body.Labels).IsNotNull();
             name = OverlayName.From(body.Name);
-            label = Label.From(
-                body.Label.Text,
-                NormalizedPosition.From(body.Label.NormalizedX, body.Label.NormalizedY),
-                NormalizedSize.From(body.Label.NormalizedWidth, body.Label.NormalizedHeight),
-                body.Label.FontSizePx);
+            labels = [.. body.Labels.Select(ParseLabel)];
         }
         catch (ArgumentException ex)
         {
@@ -60,7 +69,7 @@ public static partial class OverlayEndpoints
                 services.Clock),
             identifier => $"/overlays/{identifier}",
             async token => (await handler.HandleAsync(
-                    new CreateOverlayDraftCommand(name, label, actingOperator), token)).Match(
+                    new CreateOverlayDraftCommand(name, labels, actingOperator), token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
@@ -204,16 +213,12 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
         OverlayRevisionNumber number;
-        Label label;
+        List<Label> labels;
         try
         {
-            Ensure.That(body.Label).IsNotNull();
+            Ensure.That(body.Labels).IsNotNull();
             number = OverlayRevisionNumber.From(revisionNumber);
-            label = Label.From(
-                body.Label.Text,
-                NormalizedPosition.From(body.Label.NormalizedX, body.Label.NormalizedY),
-                NormalizedSize.From(body.Label.NormalizedWidth, body.Label.NormalizedHeight),
-                body.Label.FontSizePx);
+            labels = [.. body.Labels.Select(ParseLabel)];
         }
         catch (ArgumentException ex)
         {
@@ -230,7 +235,7 @@ public static partial class OverlayEndpoints
 
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, label, expectedVersion),
+                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, labels, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(

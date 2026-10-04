@@ -68,9 +68,10 @@ public sealed partial class V1ResourceMap
             Add<WebhookIntegrationRotatedV1>(map, DomainResourceKind.WebhookIntegration, rotated => rotated.IntegrationName);
             Add<WebhookIntegrationRevokedV1>(map, DomainResourceKind.WebhookIntegration, revoked => revoked.IntegrationName);
 
-            // Spec 005: emitted from SystemVariables but pivots on the overlay
-            // whose resolved text changed, not on a variable.
-            Add<ResolvedOverlayTextChangedV1>(map, DomainResourceKind.Overlay, changed => changed.Overlay);
+            // Spec 005 (widened to a set by spec 150 / #2345): emitted from
+            // SystemVariables but pivots on the overlay whose resolved text
+            // changed, not on a variable.
+            Add<ResolvedOverlayTextChangedV2>(map, DomainResourceKind.Overlay, changed => changed.Overlay);
 
             // AuditChunkArchivedV1 (spec 009 itself) pivots on the chunk id.
             Add<AuditChunkArchivedV1>(map, DomainResourceKind.Event, archived => archived.ChunkIdentifier);

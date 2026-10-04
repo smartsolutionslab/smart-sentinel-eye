@@ -55,7 +55,7 @@ public class LifecycleNotificationTests
         OverlayLifecyclePublishedNotification notification = new(
             [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
             overlay, 1, "Line-1 Title",
-            "Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48,
+            [new OverlayLifecycleLabel("Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48)],
             FixedMoment);
 
         // Plural, unlike the layout frames above. An overlay has no fab of its
@@ -65,13 +65,57 @@ public class LifecycleNotificationTests
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(1);
         notification.Name.ShouldBe("Line-1 Title");
-        notification.Text.ShouldBe("Production Line 1");
-        notification.NormalizedX.ShouldBe(0.5m);
-        notification.NormalizedY.ShouldBe(0.05m);
-        notification.NormalizedWidth.ShouldBe(0.3m);
-        notification.NormalizedHeight.ShouldBe(0.08m);
-        notification.FontSizePx.ShouldBe(48);
+        OverlayLifecycleLabel label = notification.Labels.ShouldHaveSingleItem();
+        label.Text.ShouldBe("Production Line 1");
+        label.NormalizedX.ShouldBe(0.5m);
+        label.NormalizedY.ShouldBe(0.05m);
+        label.NormalizedWidth.ShouldBe(0.3m);
+        label.NormalizedHeight.ShouldBe(0.08m);
+        label.FontSizePx.ShouldBe(48);
         notification.PublishedAt.ShouldBe(FixedMoment);
+    }
+
+    /// <summary>
+    /// Spec 150 (#2345): a revision carries an ordered set of 1..8 labels,
+    /// not one flattened label.
+    /// </summary>
+    [Fact]
+    public void OverlayLifecyclePublishedNotification_carries_every_label_in_order()
+    {
+        Guid overlay = Guid.CreateVersion7();
+
+        OverlayLifecyclePublishedNotification notification = new(
+            [FabIdentifier.From("munich")],
+            overlay, 1, "Line-1 Title",
+            [
+                new OverlayLifecycleLabel("First", 0.1m, 0.1m, 0.2m, 0.2m, 16),
+                new OverlayLifecycleLabel("Second", 0.2m, 0.2m, 0.2m, 0.2m, 20),
+            ],
+            FixedMoment);
+
+        notification.Labels.Count.ShouldBe(2);
+        notification.Labels[0].Text.ShouldBe("First");
+        notification.Labels[1].Text.ShouldBe("Second");
+    }
+
+    /// <summary>
+    /// Spec 150 (#2345): the resolved-text push carries every label's
+    /// resolved text under one version bump, not a scalar.
+    /// </summary>
+    [Fact]
+    public void ResolvedOverlayTextChangedNotification_carries_every_resolved_text()
+    {
+        Guid overlay = Guid.CreateVersion7();
+
+        ResolvedOverlayTextChangedNotification notification = new(
+            overlay, ["First", "Second"], 7, "munich");
+
+        notification.Overlay.ShouldBe(overlay);
+        notification.ResolvedTexts.Count.ShouldBe(2);
+        notification.ResolvedTexts[0].ShouldBe("First");
+        notification.ResolvedTexts[1].ShouldBe("Second");
+        notification.Version.ShouldBe(7);
+        notification.Fab.ShouldBe("munich");
     }
 
     [Fact]

@@ -43,7 +43,7 @@ public class GetOverlaySnapshotQueryHandlerTests
             .WithInitialValue(new VariableValue.NumberValue(82.5)).Build());
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         // #2426 -- the version comes from the durable store, not the reverse
         // index. Seeded above the cutover floor, a value the retired
@@ -60,7 +60,7 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.OverlayIdentifier.ShouldBe(overlay);
-        result.Value.ResolvedText.ShouldBe("OEE: 82.5%");
+        result.Value.ResolvedTexts.Single().ShouldBe("OEE: 82.5%");
         result.Value.Version.ShouldBe(FakeOverlayTextVersions.Floor + 3);
     }
 
@@ -74,7 +74,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         repo.Add(new VariableBuilder().Named("shift").OfType(VariableType.String).Build());
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "{{shift}} - {{unknown}}");
+        index.UpsertOverlayReferences(overlay, ["{{shift}} - {{unknown}}"]);
 
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
@@ -82,7 +82,7 @@ public class GetOverlaySnapshotQueryHandlerTests
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ResolvedText.ShouldBe("{{shift}} - {{unknown}}");
+        result.Value.ResolvedTexts.Single().ShouldBe("{{shift}} - {{unknown}}");
     }
 
     // ---- spec 014 T037 (as amended by ADR-0115): the viewer's fab ----
@@ -100,7 +100,7 @@ public class GetOverlaySnapshotQueryHandlerTests
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(7)).Build());
 
         InMemoryReverseIndex index = new();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> munich = await handler.HandleAsync(
@@ -108,10 +108,10 @@ public class GetOverlaySnapshotQueryHandlerTests
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> dresden = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
-        munich.Value.ResolvedText.ShouldBe("OEE: 41%");
+        munich.Value.ResolvedTexts.Single().ShouldBe("OEE: 41%");
         // The assertion that matters: asserting munich alone would pass just as
         // well if resolution were still global.
-        dresden.Value.ResolvedText.ShouldBe("OEE: 7%");
+        dresden.Value.ResolvedTexts.Single().ShouldBe("OEE: 7%");
     }
 
     [Fact]
@@ -124,13 +124,13 @@ public class GetOverlaySnapshotQueryHandlerTests
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(41)).Build());
 
         InMemoryReverseIndex index = new();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
-        result.Value.ResolvedText.ShouldBe("OEE: {{oeeLine1}}%");
+        result.Value.ResolvedTexts.Single().ShouldBe("OEE: {{oeeLine1}}%");
     }
 
     // ---- #2426 (spec 202) Finding B / SC-7 -- version read before text resolved ----
@@ -146,7 +146,7 @@ public class GetOverlaySnapshotQueryHandlerTests
             .WithInitialValue(new VariableValue.NumberValue(82.5)).Build());
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         FakeOverlayTextVersions versions = new() { CallOrder = callOrder };
         versions.Seed(overlay, FakeOverlayTextVersions.Floor);

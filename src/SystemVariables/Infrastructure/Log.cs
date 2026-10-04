@@ -7,7 +7,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure;
 [ExcludeFromCodeCoverage]
 internal static partial class Log
 {
-    [LoggerMessage(Level = LogLevel.Warning, Message = "ReverseIndex seed: overlay-designer returned {Status}; starting with empty index. The index will populate as new OverlayRevisionPublishedV1 events arrive.")]
+    [LoggerMessage(Level = LogLevel.Warning, Message = "ReverseIndex seed: overlay-designer returned {Status}; starting with empty index. The index will populate as new OverlayRevisionPublishedV2 events arrive.")]
     public static partial void SeedNonSuccessStatus(this ILogger logger, HttpStatusCode status);
 
     /// <summary>

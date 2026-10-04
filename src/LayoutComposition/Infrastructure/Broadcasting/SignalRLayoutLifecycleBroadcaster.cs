@@ -63,12 +63,8 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             Overlay: notification.Overlay,
             RevisionNumber: notification.RevisionNumber,
             Name: notification.Name,
-            Text: notification.Text,
-            NormalizedX: notification.NormalizedX,
-            NormalizedY: notification.NormalizedY,
-            NormalizedWidth: notification.NormalizedWidth,
-            NormalizedHeight: notification.NormalizedHeight,
-            FontSizePx: notification.FontSizePx,
+            Labels: [.. notification.Labels.Select(label => new OverlayLabelHubEntry(
+                label.Text, label.NormalizedX, label.NormalizedY, label.NormalizedWidth, label.NormalizedHeight, label.FontSizePx))],
             PublishedAt: notification.PublishedAt);
 
         // One send per fab that references the overlay (FR-010), and none at
@@ -109,7 +105,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         ResolvedOverlayTextChangedHubMessage message = new(
             Overlay: notification.Overlay,
             Fab: notification.Fab,
-            ResolvedText: notification.ResolvedText,
+            ResolvedTexts: notification.ResolvedTexts,
             Version: notification.Version);
 
         // Group, not All: the resolved text belongs to one fab (FR-015).

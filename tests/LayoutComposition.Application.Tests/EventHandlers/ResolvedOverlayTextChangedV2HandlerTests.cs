@@ -8,7 +8,7 @@ using SmartSentinelEye.Shared.Contracts.SystemVariables;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
-public class ResolvedOverlayTextChangedV1HandlerTests
+public class ResolvedOverlayTextChangedV2HandlerTests
 {
     private static readonly EventMetadata TestMetadata = MetadataFor("munich");
 
@@ -45,13 +45,13 @@ public class ResolvedOverlayTextChangedV1HandlerTests
     public async Task Relays_the_resolved_overlay_text_onto_the_broadcaster()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
 
         Guid overlay = Guid.CreateVersion7();
-        ResolvedOverlayTextChangedV1 message = new(
+        ResolvedOverlayTextChangedV2 message = new(
             Overlay: overlay,
-            ResolvedText: "OEE: 82.5%",
+            ResolvedTexts: ["OEE: 82.5%"],
             Version: 7,
             Metadata: TestMetadata);
 
@@ -59,23 +59,47 @@ public class ResolvedOverlayTextChangedV1HandlerTests
 
         ResolvedOverlayTextChangedNotification notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
-        notification.ResolvedText.ShouldBe("OEE: 82.5%");
+        notification.ResolvedTexts.ShouldHaveSingleItem().ShouldBe("OEE: 82.5%");
         notification.Version.ShouldBe(7);
         // The fab travels with it, or the broadcaster has nothing to target.
         notification.Fab.ShouldBe("munich");
+    }
+
+    /// <summary>Spec 150 (#2345): every label's resolved text relays under one version.</summary>
+    [Fact]
+    public async Task Relays_every_resolved_text_of_the_set_under_one_version()
+    {
+        FakeLayoutLifecycleBroadcaster broadcaster = new();
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
+
+        Guid overlay = Guid.CreateVersion7();
+        ResolvedOverlayTextChangedV2 message = new(
+            Overlay: overlay,
+            ResolvedTexts: ["OEE: 82.5%", "Running"],
+            Version: 7,
+            Metadata: TestMetadata);
+
+        await handler.Handle(message, CancellationToken.None);
+
+        ResolvedOverlayTextChangedNotification notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        notification.ResolvedTexts.Count.ShouldBe(2);
+        notification.ResolvedTexts[0].ShouldBe("OEE: 82.5%");
+        notification.ResolvedTexts[1].ShouldBe("Running");
+        notification.Version.ShouldBe(7);
     }
 
     [Fact]
     public async Task Carries_the_fab_the_change_happened_in()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
 
         await handler.Handle(
-            new ResolvedOverlayTextChangedV1(
+            new ResolvedOverlayTextChangedV2(
                 Overlay: Guid.CreateVersion7(),
-                ResolvedText: "OEE: 7%",
+                ResolvedTexts: ["OEE: 7%"],
                 Version: 1,
                 Metadata: MetadataFor("dresden")),
             CancellationToken.None);
@@ -94,13 +118,13 @@ public class ResolvedOverlayTextChangedV1HandlerTests
         // spec 014 exists to remove rather than one to reintroduce at the
         // last hop.
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
 
         await handler.Handle(
-            new ResolvedOverlayTextChangedV1(
+            new ResolvedOverlayTextChangedV2(
                 Overlay: Guid.CreateVersion7(),
-                ResolvedText: "OEE: 82.5%",
+                ResolvedTexts: ["OEE: 82.5%"],
                 Version: 7,
                 Metadata: MetadataFor(null!)),
             CancellationToken.None);
@@ -134,13 +158,13 @@ public class ResolvedOverlayTextChangedV1HandlerTests
             DuringPush = () => clock.Advance(PushDuration),
         };
 
-        ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
 
         await handler.Handle(
-            new ResolvedOverlayTextChangedV1(
+            new ResolvedOverlayTextChangedV2(
                 Overlay: Guid.CreateVersion7(),
-                ResolvedText: "OEE: 82.5%",
+                ResolvedTexts: ["OEE: 82.5%"],
                 Version: 3,
                 Metadata: MetadataFor("munich", Accepted)),
             CancellationToken.None);
@@ -169,13 +193,13 @@ public class ResolvedOverlayTextChangedV1HandlerTests
     {
         RecordingLatencyBudget latency = new();
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
 
         await handler.Handle(
-            new ResolvedOverlayTextChangedV1(
+            new ResolvedOverlayTextChangedV2(
                 Overlay: Guid.CreateVersion7(),
-                ResolvedText: "OEE: 82.5%",
+                ResolvedTexts: ["OEE: 82.5%"],
                 Version: 1,
                 Metadata: MetadataFor("munich")),
             CancellationToken.None);
@@ -197,13 +221,13 @@ public class ResolvedOverlayTextChangedV1HandlerTests
     {
         RecordingLatencyBudget latency = new();
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        ResolvedOverlayTextChangedV1Handler handler = new(
-            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV1Handler>.Instance);
+        ResolvedOverlayTextChangedV2Handler handler = new(
+            broadcaster, latency, NullLogger<ResolvedOverlayTextChangedV2Handler>.Instance);
 
         await handler.Handle(
-            new ResolvedOverlayTextChangedV1(
+            new ResolvedOverlayTextChangedV2(
                 Overlay: Guid.CreateVersion7(),
-                ResolvedText: "OEE: 82.5%",
+                ResolvedTexts: ["OEE: 82.5%"],
                 Version: 1,
                 Metadata: MetadataFor(null!, Accepted)),
             CancellationToken.None);

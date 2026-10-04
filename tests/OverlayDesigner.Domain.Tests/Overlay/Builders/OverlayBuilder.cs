@@ -12,7 +12,7 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
 public sealed class OverlayBuilder
 {
     private OverlayName _name = OverlayName.From("Line-1 Title");
-    private Label _label = Label.From("Production Line 1", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
+    private IReadOnlyList<Label> _labels = [Label.From("Production Line 1", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48)];
     private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
     private IClock _clock = new TestClock(
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture));
@@ -25,7 +25,13 @@ public sealed class OverlayBuilder
 
     public OverlayBuilder WithLabel(Label label)
     {
-        _label = label;
+        _labels = [label];
+        return this;
+    }
+
+    public OverlayBuilder WithLabels(IReadOnlyList<Label> labels)
+    {
+        _labels = labels;
         return this;
     }
 
@@ -42,7 +48,7 @@ public sealed class OverlayBuilder
     }
 
     public Domain.Overlay.Overlay Build() =>
-        Domain.Overlay.Overlay.CreateDraft(_name, _label, _createdBy, _clock);
+        Domain.Overlay.Overlay.CreateDraft(_name, _labels, _createdBy, _clock);
 
     public IClock Clock => _clock;
 

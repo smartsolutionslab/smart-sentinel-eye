@@ -43,7 +43,7 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
             new
             {
                 name = $"Ovl-{Guid.NewGuid():N}".Substring(0, 16),
-                label = SampleLabelBody(),
+                labels = new[] { SampleLabelBody() },
             });
         overlayCreated.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await overlayCreated.Content.ReadFromJsonAsync<Guid>();
@@ -78,7 +78,7 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         JsonElement overlayPayload = await overlayFetched.Content.ReadFromJsonAsync<JsonElement>();
         JsonElement publishedOverlay = overlayPayload.GetProperty("revisions")[0];
         publishedOverlay.GetProperty("state").GetString().ShouldBe("Published");
-        publishedOverlay.GetProperty("text").GetString().ShouldBe("Production Line 1");
+        publishedOverlay.GetProperty("labels")[0].GetProperty("text").GetString().ShouldBe("Production Line 1");
     }
 
     [Fact]

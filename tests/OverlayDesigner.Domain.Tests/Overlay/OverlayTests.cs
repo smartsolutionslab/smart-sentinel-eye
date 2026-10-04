@@ -43,7 +43,7 @@ public class OverlayTests
         Revision only = overlay.Revisions[0];
         only.Number.ShouldBe(OverlayRevisionNumber.One);
         only.State.ShouldBe(OverlayRevisionState.Draft);
-        only.Label.ShouldBe(label);
+        only.Labels.Single().ShouldBe(label);
         only.PublishedAt.ShouldBeNull();
         only.ArchivedAt.ShouldBeNull();
         overlay.PendingEvents.ShouldBeEmpty();
@@ -66,7 +66,7 @@ public class OverlayTests
             overlay.PendingEvents.OfType<OverlayRevisionPublishedDomainEvent>().ShouldHaveSingleItem();
         evt.Overlay.ShouldBe(overlay.Id);
         evt.RevisionNumber.ShouldBe(OverlayRevisionNumber.One);
-        evt.Label.ShouldBe(label);
+        evt.Labels.Single().ShouldBe(label);
         evt.PublishedBy.ShouldBe(by);
     }
 
@@ -84,7 +84,7 @@ public class OverlayTests
 
         draft.Number.Value.ShouldBe(2);
         draft.State.ShouldBe(OverlayRevisionState.Draft);
-        draft.Label.ShouldBe(label);
+        draft.Labels.Single().ShouldBe(label);
         overlay.Revisions.Count.ShouldBe(2);
     }
 
@@ -104,8 +104,8 @@ public class OverlayTests
 
         Revision draft = overlay.BranchDraft(by, clock);
 
-        draft.Label.ShouldBe(published.Label);
-        ReferenceEquals(draft.Label, published.Label).ShouldBeFalse();
+        draft.Labels.Single().ShouldBe(published.Labels.Single());
+        ReferenceEquals(draft.Labels.Single(), published.Labels.Single()).ShouldBeFalse();
     }
 
     [Fact]
@@ -169,10 +169,10 @@ public class OverlayTests
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         Label newLabel = Label.From("Updated", NormalizedPosition.From(0.1m, 0.2m), NormalizedSize.From(0.3m, 0.4m), 20);
 
-        overlay.EditDraft(OverlayRevisionNumber.One, newLabel, clock);
+        overlay.EditDraft(OverlayRevisionNumber.One, [newLabel], clock);
 
         overlay.Revisions.Count.ShouldBe(1);
-        overlay.Revisions.Single().Label.ShouldBe(newLabel);
+        overlay.Revisions.Single().Labels.Single().ShouldBe(newLabel);
         overlay.Revisions.Single().State.ShouldBe(OverlayRevisionState.Draft);
     }
 
@@ -232,12 +232,13 @@ public class OverlayTests
 
         recovered.Number.Value.ShouldBe(2);
         recovered.State.ShouldBe(OverlayRevisionState.Draft);
-        recovered.Label.Text.ShouldBe("Rolling Mill A");
-        recovered.Label.Position.X.ShouldBe(0.25m);
-        recovered.Label.Position.Y.ShouldBe(0.8m);
-        recovered.Label.Size.Width.ShouldBe(0.4m);
-        recovered.Label.Size.Height.ShouldBe(0.1m);
-        recovered.Label.FontSizePx.ShouldBe(64);
+        Label recoveredLabel = recovered.Labels.Single();
+        recoveredLabel.Text.ShouldBe("Rolling Mill A");
+        recoveredLabel.Position.X.ShouldBe(0.25m);
+        recoveredLabel.Position.Y.ShouldBe(0.8m);
+        recoveredLabel.Size.Width.ShouldBe(0.4m);
+        recoveredLabel.Size.Height.ShouldBe(0.1m);
+        recoveredLabel.FontSizePx.ShouldBe(64);
     }
 
     /// <summary>
@@ -256,11 +257,11 @@ public class OverlayTests
         overlay.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
 
         Revision recovered = overlay.BranchDraft(by, clock);
-        overlay.EditDraft(recovered.Number, replacement, clock);
+        overlay.EditDraft(recovered.Number, [replacement], clock);
         overlay.Publish(recovered.Number, by, clock);
 
         recovered.State.ShouldBe(OverlayRevisionState.Published);
-        recovered.Label.Text.ShouldBe("Rolling Mill B");
+        recovered.Labels.Single().Text.ShouldBe("Rolling Mill B");
     }
 
     /// <summary>
@@ -281,12 +282,12 @@ public class OverlayTests
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
         Revision draftTwo = overlay.BranchDraft(by, clock);
-        overlay.EditDraft(draftTwo.Number, abandoned, clock);
+        overlay.EditDraft(draftTwo.Number, [abandoned], clock);
         overlay.ArchiveRevision(draftTwo.Number, by, clock);
 
         Revision draftThree = overlay.BranchDraft(by, clock);
 
         draftThree.Number.Value.ShouldBe(3);
-        draftThree.Label.Text.ShouldBe("Live");
+        draftThree.Labels.Single().Text.ShouldBe("Live");
     }
 }

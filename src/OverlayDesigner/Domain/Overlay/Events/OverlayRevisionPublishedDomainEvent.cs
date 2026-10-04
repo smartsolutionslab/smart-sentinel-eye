@@ -13,6 +13,6 @@ public sealed record OverlayRevisionPublishedDomainEvent(
     OverlayIdentifier Overlay,
     OverlayRevisionNumber RevisionNumber,
     OverlayName Name,
-    Label Label,
+    IReadOnlyList<Label> Labels,
     DateTimeOffset PublishedAt,
     OperatorIdentifier PublishedBy) : IDomainEvent;

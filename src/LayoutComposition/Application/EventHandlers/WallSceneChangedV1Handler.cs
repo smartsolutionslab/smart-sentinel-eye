@@ -10,7 +10,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// Wolverine subscriber on <see cref="WallSceneChangedV1"/> (spec 258 US1,
 /// phase-6 remediation on plan.md §4.3). Relays the change onto the
 /// <c>/hubs/layouts</c> SignalR hub via the broadcaster LayoutComposition
-/// owns — the same relay shape as <see cref="OverlayRevisionPublishedV1Handler"/>,
+/// owns — the same relay shape as <see cref="OverlayRevisionPublishedV2Handler"/>,
 /// even though both the publisher and this subscriber live in this one
 /// context: what matters is that Wolverine only invokes a subscriber once
 /// its message has actually left the Postgres outbox, which happens after —

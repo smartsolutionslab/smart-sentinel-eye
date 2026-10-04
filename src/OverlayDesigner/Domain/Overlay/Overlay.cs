@@ -33,19 +33,64 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     private Overlay() { }
 
     /// <summary>
+    /// Validates a candidate label set against the two spec-150 invariants
+    /// (ADR-0164), returning the first violation or <see cref="Option{T}.None"/>
+    /// when valid. The single source of truth shared by create + edit so
+    /// both paths reject identically — mirrors
+    /// <c>Layout.ValidateGrid</c>.
+    /// </summary>
+    public static Option<LabelSetViolation> ValidateLabels(IReadOnlyList<Label> labels)
+    {
+        Ensure.That(labels).IsNotNull();
+
+        if (labels.Count == 0)
+        {
+            return Option<LabelSetViolation>.Some(LabelSetViolation.Empty);
+        }
+        if (labels.Count > Label.MaxLabels)
+        {
+            return Option<LabelSetViolation>.Some(LabelSetViolation.TooMany);
+        }
+        return Option<LabelSetViolation>.None;
+    }
+
+    /// <summary>
+    /// The aggregate's own backstop for the two spec-150 label-set invariants
+    /// (ADR-0164). Reached only when a caller skipped
+    /// <see cref="ValidateLabels"/>: command handlers validate first and map
+    /// the violation to an <c>OVERLAY_LABELS_*</c> <c>400</c>, so an
+    /// operator's bad input is a <see cref="Shared.Kernel.Result{TValue,TError}"/>
+    /// failure and never this throw (ADR-0047). A violation arriving here is
+    /// programmer error, the same category as the illegal state transitions
+    /// elsewhere in this file.
+    /// </summary>
+    private static void RequireValidLabels(IReadOnlyList<Label> labels)
+    {
+        Option<LabelSetViolation> violation = ValidateLabels(labels);
+        if (violation.HasValue)
+        {
+            throw new InvalidOperationException(
+                $"{labels.Count} label(s) violates {violation.Value}.");
+        }
+    }
+
+    /// <summary>
     /// Mints a new logical Overlay chain with its first revision in
     /// <c>Draft</c>. No domain event is raised — drafts are not
-    /// observable to kiosks until Publish.
+    /// observable to kiosks until Publish. The label set is validated by the
+    /// command handler first (<see cref="ValidateLabels"/>), and enforced
+    /// again here as a backstop (<see cref="RequireValidLabels"/>).
     /// </summary>
     public static Overlay CreateDraft(
         OverlayName name,
-        Label label,
+        IReadOnlyList<Label> labels,
         OperatorIdentifier createdBy,
         IClock clock)
     {
         Ensure.That(name).IsNotNull();
-        Ensure.That(label).IsNotNull();
+        Ensure.That(labels).IsNotNull();
         Ensure.That(clock).IsNotNull();
+        RequireValidLabels(labels);
 
         DateTimeOffset now = clock.UtcNow;
         Overlay overlay = new()
@@ -55,7 +100,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
             Creation = Creation.From(CreatedAt.From(now), createdBy),
         };
         overlay.revisions.Add(
-            Revision.NewDraft(OverlayRevisionNumber.One, label, now, createdBy));
+            Revision.NewDraft(OverlayRevisionNumber.One, labels, now, createdBy));
         overlay.RecomputeArchival(now);
         return overlay;
     }
@@ -82,22 +127,28 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
 
         DateTimeOffset now = clock.UtcNow;
         OverlayRevisionNumber next = MaxRevisionNumber().Next();
-        Revision draft = Revision.Branch(next, baseRevision.Label, now, by);
+        Revision draft = Revision.Branch(next, baseRevision.Labels, now, by);
         revisions.Add(draft);
         RecomputeArchival(now);
         return draft;
     }
 
     /// <summary>
-    /// In-place Label edit on an existing Draft revision (spec 004 FR-005).
+    /// Wholesale replacement of an existing Draft revision's label set
+    /// (spec 150 FR-006). The label set is validated by the command handler
+    /// first (<see cref="ValidateLabels"/>), and enforced again here as a
+    /// backstop (<see cref="RequireValidLabels"/>) — before the revision
+    /// lookup, so a bad argument is refused regardless of which revision or
+    /// state it targets.
     /// </summary>
     public void EditDraft(
-        OverlayRevisionNumber number, Label label, IClock clock)
+        OverlayRevisionNumber number, IReadOnlyList<Label> labels, IClock clock)
     {
-        Ensure.That(label).IsNotNull();
+        Ensure.That(labels).IsNotNull();
         Ensure.That(clock).IsNotNull();
+        RequireValidLabels(labels);
         Revision target = RequireRevision(number);
-        target.EditLabel(label);
+        target.ReplaceLabels(labels);
         RecomputeArchival(clock.UtcNow);
     }
 
@@ -121,7 +172,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
             Raise(new OverlayRevisionArchivedDomainEvent(Id, prior.Number, now, by));
         }
         Raise(new OverlayRevisionPublishedDomainEvent(
-            Id, number, Name, target.Label, now, by));
+            Id, number, Name, target.Labels, now, by));
         RecomputeArchival(now);
     }
 

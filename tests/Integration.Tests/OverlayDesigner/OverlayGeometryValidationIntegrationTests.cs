@@ -69,7 +69,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                label = LabelBody(normalizedY: 2m),
+                labels = new[] { LabelBody(normalizedY: 2m) },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -89,7 +89,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                label = LabelBody(normalizedWidth: 0m),
+                labels = new[] { LabelBody(normalizedWidth: 0m) },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -107,7 +107,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
 
         HttpResponseMessage response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { label = LabelBody(normalizedX: -1m) });
+            new { labels = new[] { LabelBody(normalizedX: -1m) } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -124,7 +124,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
 
         HttpResponseMessage response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { label = LabelBody(normalizedHeight: 2m) });
+            new { labels = new[] { LabelBody(normalizedHeight: 2m) } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -147,7 +147,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                label = LabelBody(normalizedX: 0m, normalizedY: 1m, normalizedWidth: 1m, normalizedHeight: 1m),
+                labels = new[] { LabelBody(normalizedX: 0m, normalizedY: 1m, normalizedWidth: 1m, normalizedHeight: 1m) },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -173,13 +173,13 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        problem.GetProperty("detail").GetString()!.ShouldContain("body.Label");
+        problem.GetProperty("detail").GetString()!.ShouldContain("body.Labels");
     }
 
     /// <summary>
     /// Issue #2574, edit-endpoint counterpart of
     /// <see cref="Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT"/> — an
-    /// omitted <c>label</c> must reach the endpoint's <c>catch (ArgumentException)</c>
+    /// omitted <c>labels</c> array must reach the endpoint's <c>catch (ArgumentException)</c>
     /// and answer <c>400</c>, not escape as an unhandled
     /// <see cref="ArgumentNullException"/> (<c>500</c>).
     /// </summary>
@@ -195,7 +195,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        problem.GetProperty("detail").GetString()!.ShouldContain("body.Label");
+        problem.GetProperty("detail").GetString()!.ShouldContain("body.Labels");
     }
 
     private static async Task<Guid> CreateDraftAsync(HttpClient overlays)
@@ -205,7 +205,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                label = LabelBody(),
+                labels = new[] { LabelBody() },
             });
         created.EnsureSuccessStatusCode();
 

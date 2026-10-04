@@ -20,7 +20,7 @@ public class OverlayRevisionArchivedV1HandlerTests
     {
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oee}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oee}}%"]);
         index.LookupOverlays("oee").ShouldHaveSingleItem();
 
         OverlayRevisionArchivedV1Handler handler = new(
@@ -28,7 +28,7 @@ public class OverlayRevisionArchivedV1HandlerTests
         await handler.Handle(new OverlayRevisionArchivedV1(
             overlay, 1, DateTimeOffset.UtcNow, Guid.CreateVersion7(), Metadata: TestMetadata));
 
-        index.LookupLabelText(overlay).ShouldBeNull();
+        index.LookupLabelTexts(overlay).ShouldBeNull();
         index.LookupOverlays("oee").ShouldBeEmpty();
     }
 }

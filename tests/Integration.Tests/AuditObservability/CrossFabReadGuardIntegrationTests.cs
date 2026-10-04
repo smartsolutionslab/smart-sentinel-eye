@@ -438,7 +438,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     private static AuditEvent OverlayRow(Guid overlayIdentifier, string? fab) =>
         AuditEvent.From(
             new V1Envelope(
-                EventTypeName: "OverlayRevisionPublishedV1",
+                EventTypeName: "OverlayRevisionPublishedV2",
                 OccurredAt: DateTimeOffset.UtcNow,
                 Fab: fab is null
                     ? Option<FabIdentifier>.None

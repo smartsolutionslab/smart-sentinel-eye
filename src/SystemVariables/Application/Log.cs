@@ -29,8 +29,8 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Debug, Message = "Reverse-index dropped overlay {Overlay} after archive.")]
     public static partial void ReverseIndexDroppedOverlay(this ILogger logger, Guid overlay);
 
-    [LoggerMessage(Level = LogLevel.Debug, Message = "Reverse-index upserted for overlay {Overlay} v{Revision}; label='{Text}'.")]
-    public static partial void ReverseIndexUpserted(this ILogger logger, Guid overlay, int revision, string text);
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Reverse-index upserted for overlay {Overlay} v{Revision}; {LabelCount} label(s).")]
+    public static partial void ReverseIndexUpserted(this ILogger logger, Guid overlay, int revision, int labelCount);
 
     [LoggerMessage(Level = LogLevel.Debug, Message = "Dedup hit for variable '{Name}' in fab '{Fab}' caused by {CausingEvent}; no-op.")]
     public static partial void DedupHit(this ILogger logger, FabIdentifier fab, string name, Guid causingEvent);

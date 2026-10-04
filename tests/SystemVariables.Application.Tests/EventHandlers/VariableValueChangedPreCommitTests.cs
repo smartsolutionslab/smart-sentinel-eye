@@ -54,7 +54,7 @@ public class VariableValueChangedPreCommitTests
             clock));
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
             bus, index, new FakeOverlayTextVersions(), repository, new Resolver(),
@@ -73,10 +73,10 @@ public class VariableValueChangedPreCommitTests
                 RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV1 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV2 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
 
-        push.ResolvedText.ShouldBe(
+        push.ResolvedTexts.Single().ShouldBe(
             "OEE: 82.5%",
             "the handler resolved the changed variable from storage, so running it "
             + "before the commit renders the value the write is replacing");
@@ -105,7 +105,7 @@ public class VariableValueChangedPreCommitTests
             clock));
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "{{shift}} — OEE {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["{{shift}} — OEE {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
             bus, index, new FakeOverlayTextVersions(), repository, new Resolver(),
@@ -124,10 +124,10 @@ public class VariableValueChangedPreCommitTests
                 RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV1 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV2 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
 
-        push.ResolvedText.ShouldBe("Nights — OEE 82.5%");
+        push.ResolvedTexts.Single().ShouldBe("Nights — OEE 82.5%");
     }
 
     private sealed class FixedClock : IClock

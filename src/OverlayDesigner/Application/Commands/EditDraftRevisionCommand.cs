@@ -12,6 +12,6 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands;
 public sealed record EditDraftRevisionCommand(
     OverlayIdentifier Overlay,
     OverlayRevisionNumber RevisionNumber,
-    Label Label,
+    IReadOnlyList<Label> Labels,
     int ExpectedVersion)
     : ICommand<Result<OverlayRevisionNumber, EditDraftRevisionError>>;

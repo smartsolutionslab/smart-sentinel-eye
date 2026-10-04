@@ -34,7 +34,7 @@ public class GetOverlayQueryHandlerTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.OverlayIdentifier.ShouldBe(overlay.Id.Value);
         result.Value.Revisions.Single().State.ShouldBe("Draft");
-        result.Value.Revisions.Single().Text.ShouldBe("Hello");
+        result.Value.Revisions.Single().Labels.Single().Text.ShouldBe("Hello");
     }
 
     // Without the version on the read side a caller has nothing to put in
@@ -80,12 +80,37 @@ public class GetOverlayQueryHandlerTests
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        OverlayRevisionDto revision = result.Value.Revisions.Single();
-        revision.NormalizedX.ShouldBe(0.11m);
-        revision.NormalizedY.ShouldBe(0.22m);
-        revision.NormalizedWidth.ShouldBe(0.33m);
-        revision.NormalizedHeight.ShouldBe(0.44m);
-        revision.FontSizePx.ShouldBe(32);
+        OverlayLabelDto label = result.Value.Revisions.Single().Labels.Single();
+        label.NormalizedX.ShouldBe(0.11m);
+        label.NormalizedY.ShouldBe(0.22m);
+        label.NormalizedWidth.ShouldBe(0.33m);
+        label.NormalizedHeight.ShouldBe(0.44m);
+        label.FontSizePx.ShouldBe(32);
+    }
+
+    [Fact]
+    public async Task The_dto_carries_every_label_in_submission_order()
+    {
+        InMemoryOverlayRepository overlays = new();
+        FakeClock clock = new(FixedMoment);
+        Label first = Label.From("First", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), 16);
+        Label second = Label.From("Second", NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.2m, 0.2m), 20);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-4")
+            .WithLabels([first, second])
+            .Build();
+        overlays.Add(overlay);
+
+        GetOverlayQueryHandler handler = new(new InMemoryOverlayQuerySource(overlays));
+        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+            new GetOverlayQuery(overlay.Id), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        IReadOnlyList<OverlayLabelDto> labels = result.Value.Revisions.Single().Labels;
+        labels.Count.ShouldBe(2);
+        labels[0].Text.ShouldBe("First");
+        labels[1].Text.ShouldBe("Second");
     }
 
     [Fact]

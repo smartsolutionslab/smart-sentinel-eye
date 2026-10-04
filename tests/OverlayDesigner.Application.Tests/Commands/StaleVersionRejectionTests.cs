@@ -88,7 +88,7 @@ public class StaleVersionRejectionTests
     public async Task EditDraft_rejects_a_stale_version_and_leaves_the_label_untouched()
     {
         (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
-        string originalText = overlay.Revisions.Single().Label.Text;
+        string originalText = overlay.Revisions.Single().Labels.Single().Text;
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
@@ -96,12 +96,12 @@ public class StaleVersionRejectionTests
             new EditDraftRevisionCommand(
                 overlay.Id,
                 OverlayRevisionNumber.One,
-                Label.From("Replaced", NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.4m, 0.1m), 64),
+                [Label.From("Replaced", NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.4m, 0.1m), 64)],
                 Stale),
             CancellationToken.None);
 
         ShouldBeStale(result.IsFailure, result.Error);
-        overlay.Revisions.Single().Label.Text.ShouldBe(originalText);
+        overlay.Revisions.Single().Labels.Single().Text.ShouldBe(originalText);
     }
 
     [Fact]

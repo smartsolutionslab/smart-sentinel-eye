@@ -7,23 +7,24 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
 /// <summary>
-/// Wolverine subscriber on <see cref="ResolvedOverlayTextChangedV1"/> from
-/// SystemVariables. Relays the already-resolved overlay text onto the
+/// Wolverine subscriber on <see cref="ResolvedOverlayTextChangedV2"/> from
+/// SystemVariables. Relays the already-resolved overlay texts onto the
 /// <c>/hubs/layouts</c> SignalR hub via the broadcaster LayoutComposition
-/// owns (spec 005 FR-013). SystemVariables does the resolution; the
-/// broadcast lives here with the hub. See
-/// <see cref="OverlayRevisionPublishedV1Handler"/> for the rationale.
+/// owns (spec 005 FR-013, widened to a set by spec 150 / #2345).
+/// SystemVariables does the resolution; the broadcast lives here with the
+/// hub. See <see cref="OverlayRevisionPublishedV2Handler"/> for the
+/// rationale.
 /// </summary>
-public sealed class ResolvedOverlayTextChangedV1Handler(
+public sealed class ResolvedOverlayTextChangedV2Handler(
     ILayoutLifecycleBroadcaster broadcaster,
     ILatencyBudget latency,
-    ILogger<ResolvedOverlayTextChangedV1Handler> logger)
+    ILogger<ResolvedOverlayTextChangedV2Handler> logger)
 {
-    public async Task Handle(ResolvedOverlayTextChangedV1 message, CancellationToken cancellationToken)
+    public async Task Handle(ResolvedOverlayTextChangedV2 message, CancellationToken cancellationToken)
     {
         Ensure.That(message).IsNotNull();
 
-        var (overlay, resolvedText, version, metadata) = message;
+        var (overlay, resolvedTexts, version, metadata) = message;
 
         // FR-015: the push goes to the fab the change happened in, and nowhere
         // else. A frame with no fab is dropped rather than broadcast widely —
@@ -41,7 +42,7 @@ public sealed class ResolvedOverlayTextChangedV1Handler(
         await broadcaster.ResolvedOverlayTextChangedAsync(
             new ResolvedOverlayTextChangedNotification(
                 overlay,
-                resolvedText,
+                resolvedTexts,
                 version,
                 metadata.Fab),
             cancellationToken);

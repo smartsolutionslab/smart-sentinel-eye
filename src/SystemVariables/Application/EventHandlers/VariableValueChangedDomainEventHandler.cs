@@ -12,11 +12,13 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// <summary>
 /// Reacts to a variable-value change: publishes the V1 integration
 /// event (Wolverine outbox), then for every overlay referencing the
-/// variable, resolves the label text using the current variable
-/// snapshot and publishes a <see cref="ResolvedOverlayTextChangedV1"/>
-/// per overlay. LayoutComposition subscribes to that and pushes the
-/// SignalR frame on the hub it owns — the resolution stays here, the
-/// broadcast stays with the hub (no cross-context dependency).
+/// variable, resolves every label's text using one shared variable
+/// snapshot (spec 150, #2345 — a revision carries a set, not a scalar)
+/// and publishes a single <see cref="ResolvedOverlayTextChangedV2"/>
+/// per overlay carrying every resolved text under one version bump.
+/// LayoutComposition subscribes to that and pushes the SignalR frame on
+/// the hub it owns — the resolution stays here, the broadcast stays
+/// with the hub (no cross-context dependency).
 /// </summary>
 public sealed class VariableValueChangedDomainEventHandler(
     IEventBus events,
@@ -63,20 +65,26 @@ public sealed class VariableValueChangedDomainEventHandler(
 
         foreach (Guid overlayId in affectedOverlays)
         {
-            string? labelText = reverseIndex.LookupLabelText(overlayId);
-            if (labelText is null)
+            IReadOnlyList<string>? labelTexts = reverseIndex.LookupLabelTexts(overlayId);
+            if (labelTexts is null)
             {
                 continue;
             }
 
-            IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot = await BuildSnapshotAsync(labelText, domainEvent, cancellationToken);
+            // One snapshot over the union of every label's placeholders, not
+            // one per label (spec 150 plan.md "SystemVariables") — the added
+            // cost on the `event → overlay state` leg must stay constant in
+            // label-set width, the same constraint #2426 already applies to
+            // the version advance above.
+            IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot =
+                await BuildSnapshotAsync(labelTexts, domainEvent, cancellationToken);
 
-            string resolvedText = resolver.Resolve(labelText, snapshot);
+            IReadOnlyList<string> resolvedTexts = [.. labelTexts.Select(text => resolver.Resolve(text, snapshot))];
             long version = versionsByOverlay[overlayId];
 
-            ResolvedOverlayTextChangedV1 @event = new(
+            ResolvedOverlayTextChangedV2 @event = new(
                 Overlay: overlayId,
-                ResolvedText: resolvedText,
+                ResolvedTexts: resolvedTexts,
                 Version: version,
                 Metadata: new(
                     Guid.CreateVersion7(),
@@ -91,20 +99,21 @@ public sealed class VariableValueChangedDomainEventHandler(
     }
 
     /// <summary>
-    /// Builds a snapshot of every variable referenced by the label.
-    /// The just-changed variable is taken from the domain event;
-    /// every other referenced variable is fetched from the repository.
-    /// Unset / archived / missing variables are absent from the
-    /// snapshot — the resolver leaves their placeholders literal.
+    /// Builds a snapshot of every variable referenced by any label in the
+    /// set — the union of their placeholders (spec 150), not one snapshot
+    /// per label. The just-changed variable is taken from the domain
+    /// event; every other referenced variable is fetched from the
+    /// repository. Unset / archived / missing variables are absent from
+    /// the snapshot — the resolver leaves their placeholders literal.
     /// </summary>
     private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(
-        string labelText,
+        IReadOnlyList<string> labelTexts,
         VariableValueChangedDomainEvent changed,
         CancellationToken cancellationToken)
     {
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
 
-        foreach (string name in PlaceholderParser.ExtractNames(labelText))
+        foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
         {
             if (string.Equals(name, changed.Name.Value, StringComparison.Ordinal))
             {

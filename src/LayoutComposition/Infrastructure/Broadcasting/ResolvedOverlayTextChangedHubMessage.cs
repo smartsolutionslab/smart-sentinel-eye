@@ -13,4 +13,4 @@
 /// the fab on the frame is what lets that screen keep only its own wall's
 /// (ADR-0145).
 /// </para>
-public sealed record ResolvedOverlayTextChangedHubMessage(Guid Overlay, string Fab, string ResolvedText, long Version);
+public sealed record ResolvedOverlayTextChangedHubMessage(Guid Overlay, string Fab, IReadOnlyList<string> ResolvedTexts, long Version);

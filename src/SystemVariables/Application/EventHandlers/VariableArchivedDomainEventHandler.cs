@@ -11,9 +11,10 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 
 /// <summary>
 /// Reacts to a variable being archived: publishes the V1 event, then
-/// re-resolves every affected overlay (the archived variable's
-/// placeholder reverts to literal per FR-011) and publishes a
-/// <see cref="ResolvedOverlayTextChangedV1"/> per overlay for
+/// re-resolves every affected overlay's whole label set (spec 150,
+/// #2345 — the archived variable's placeholder reverts to literal in
+/// every label that carries it, per FR-011) and publishes a single
+/// <see cref="ResolvedOverlayTextChangedV2"/> per overlay for
 /// LayoutComposition to broadcast — same split as the value-changed
 /// handler.
 /// </summary>
@@ -55,17 +56,18 @@ public sealed class VariableArchivedDomainEventHandler(
 
         foreach (Guid overlayId in affectedOverlays)
         {
-            string? labelText = reverseIndex.LookupLabelText(overlayId);
-            if (labelText is null)
+            IReadOnlyList<string>? labelTexts = reverseIndex.LookupLabelTexts(overlayId);
+            if (labelTexts is null)
             {
                 continue;
             }
 
-            // Build a snapshot of every OTHER variable in the label
-            // (the archived one is intentionally absent so it
-            // resolves to its literal placeholder).
+            // Build a snapshot of every OTHER variable referenced by any
+            // label in the set (the archived one is intentionally absent
+            // so it resolves to its literal placeholder) — one snapshot
+            // over the union, not one per label (spec 150).
             Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
-            foreach (string name in PlaceholderParser.ExtractNames(labelText))
+            foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
             {
                 if (string.Equals(name, variableName.Value, StringComparison.Ordinal))
                 {
@@ -94,12 +96,12 @@ public sealed class VariableArchivedDomainEventHandler(
                 snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
             }
 
-            string resolvedText = resolver.Resolve(labelText, snapshot);
+            IReadOnlyList<string> resolvedTexts = [.. labelTexts.Select(text => resolver.Resolve(text, snapshot))];
             long version = versionsByOverlay[overlayId];
 
-            ResolvedOverlayTextChangedV1 resolvedOverlayTextChangedEvent = new(
+            ResolvedOverlayTextChangedV2 resolvedOverlayTextChangedEvent = new(
                 Overlay: overlayId,
-                ResolvedText: resolvedText,
+                ResolvedTexts: resolvedTexts,
                 Version: version,
                 Metadata: new(
                     Guid.CreateVersion7(),

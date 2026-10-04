@@ -172,7 +172,7 @@ public sealed class ScenarioSeeder(
             (decimal)asset.Overlay.Height,
             (int)asset.Overlay.FontSize);
 
-        Guid overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", label, cancellationToken);
+        Guid overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", [label], cancellationToken);
         correlation.RecordOverlay(scenario, assetKey, overlay, asset.Tile.Row, asset.Tile.Col);
 
         if (asset.Highlight is null)

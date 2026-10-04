@@ -14,7 +14,7 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
     [Fact]
-    public async Task Handler_publishes_the_V1_integration_event()
+    public async Task Handler_publishes_the_V2_integration_event()
     {
         FakeEventBus bus = new();
         OverlayRevisionPublishedDomainEventHandler handler = new(bus);
@@ -24,19 +24,45 @@ public class OverlayRevisionPublishedDomainEventHandlerTests
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         OverlayRevisionPublishedDomainEvent domainEvent = new(
             overlayId, OverlayRevisionNumber.One,
-            OverlayName.From("Line-1"), label, FixedMoment, by);
+            OverlayName.From("Line-1"), [label], FixedMoment, by);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        OverlayRevisionPublishedV1 v1 = bus.Published.OfType<OverlayRevisionPublishedV1>().ShouldHaveSingleItem();
-        v1.Overlay.ShouldBe(overlayId.Value);
-        v1.RevisionNumber.ShouldBe(1);
-        v1.Text.ShouldBe(label.Text);
-        v1.NormalizedX.ShouldBe(label.Position.X);
-        v1.NormalizedY.ShouldBe(label.Position.Y);
-        v1.NormalizedWidth.ShouldBe(label.Size.Width);
-        v1.NormalizedHeight.ShouldBe(label.Size.Height);
-        v1.FontSizePx.ShouldBe(label.FontSizePx);
-        v1.PublishedBy.ShouldBe(by.Value);
+        OverlayRevisionPublishedV2 v2 = bus.Published.OfType<OverlayRevisionPublishedV2>().ShouldHaveSingleItem();
+        v2.Overlay.ShouldBe(overlayId.Value);
+        v2.RevisionNumber.ShouldBe(1);
+        OverlayLabelV2 wire = v2.Labels.ShouldHaveSingleItem();
+        wire.Text.ShouldBe(label.Text);
+        wire.NormalizedX.ShouldBe(label.Position.X);
+        wire.NormalizedY.ShouldBe(label.Position.Y);
+        wire.NormalizedWidth.ShouldBe(label.Size.Width);
+        wire.NormalizedHeight.ShouldBe(label.Size.Height);
+        wire.FontSizePx.ShouldBe(label.FontSizePx);
+        v2.PublishedBy.ShouldBe(by.Value);
+    }
+
+    [Fact]
+    public async Task Three_labels_are_published_as_one_event_carrying_all_three_in_order()
+    {
+        FakeEventBus bus = new();
+        OverlayRevisionPublishedDomainEventHandler handler = new(bus);
+
+        Label first = Label.From("First", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), 16);
+        Label second = Label.From("Second", NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.2m, 0.2m), 20);
+        Label third = Label.From("Third", NormalizedPosition.From(0.3m, 0.3m), NormalizedSize.From(0.2m, 0.2m), 24);
+        OverlayIdentifier overlayId = OverlayIdentifier.From(Guid.CreateVersion7());
+        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        OverlayRevisionPublishedDomainEvent domainEvent = new(
+            overlayId, OverlayRevisionNumber.One,
+            OverlayName.From("Line-1"), [first, second, third], FixedMoment, by);
+
+        await handler.Handle(domainEvent, CancellationToken.None);
+
+        List<OverlayRevisionPublishedV2> published = [.. bus.Published.OfType<OverlayRevisionPublishedV2>()];
+        published.Count.ShouldBe(1);
+        published[0].Labels.Count.ShouldBe(3);
+        published[0].Labels[0].Text.ShouldBe("First");
+        published[0].Labels[1].Text.ShouldBe("Second");
+        published[0].Labels[2].Text.ShouldBe("Third");
     }
 }
