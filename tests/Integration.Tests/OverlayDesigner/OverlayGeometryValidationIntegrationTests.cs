@@ -198,6 +198,73 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         problem.GetProperty("detail").GetString()!.ShouldContain("body.Labels");
     }
 
+    /// <summary>
+    /// Phase-6 blocker (spec 150, #2345) — a <c>null</c> element inside an
+    /// otherwise well-formed <c>labels</c> array must reach the endpoint's
+    /// <c>catch (ArgumentException)</c> and answer <c>400</c>, the same as an
+    /// omitted array. Before the guard in <c>ParseLabel</c>, the null reached
+    /// <c>request.Text</c> and threw an uncaught <see cref="NullReferenceException"/>
+    /// (<c>500</c>).
+    /// </summary>
+    [Fact]
+    public async Task Create_with_a_null_label_element_returns_400_OVERLAY_INVALID_INPUT()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Geo-{Guid.NewGuid():N}"[..16],
+                labels = new object?[] { null },
+            });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
+    }
+
+    /// <summary>
+    /// Edit-endpoint counterpart of
+    /// <see cref="Create_with_a_null_label_element_returns_400_OVERLAY_INVALID_INPUT"/>.
+    /// </summary>
+    [Fact]
+    public async Task Edit_with_a_null_label_element_returns_400_OVERLAY_INVALID_INPUT()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+
+        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, "revisions/1",
+            new { labels = new object?[] { null } });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
+    }
+
+    /// <summary>
+    /// Phase-6 should-fix (spec 150, #2345) — the edit path's label-set-size
+    /// rejection had zero test coverage. Nine labels exceeds
+    /// <see cref="Label.MaxLabels"/> (8), so the edit must answer <c>400</c>
+    /// <c>OVERLAY_LABELS_TOO_MANY</c>, mirroring the create path's own backstop
+    /// (<c>Overlay.ValidateLabels</c>).
+    /// </summary>
+    [Fact]
+    public async Task Edit_with_nine_labels_returns_400_OVERLAY_LABELS_TOO_MANY()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+
+        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, "revisions/1",
+            new { labels = Enumerable.Range(0, 9).Select(_ => LabelBody()).ToArray() });
+
+        response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
+        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_LABELS_TOO_MANY");
+    }
+
     private static async Task<Guid> CreateDraftAsync(HttpClient overlays)
     {
         HttpResponseMessage created = await overlays.PostAsJsonAsync(

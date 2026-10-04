@@ -20,12 +20,15 @@ public static partial class OverlayEndpoints
     /// bad label in the set 400s the whole set naming its field — the
     /// existing single-label behaviour, reproduced rather than re-plumbed.
     /// </summary>
-    private static Label ParseLabel(LabelRequest request) =>
-        Label.From(
+    private static Label ParseLabel(LabelRequest request)
+    {
+        Ensure.That(request).IsNotNull();
+        return Label.From(
             request.Text,
             NormalizedPosition.From(request.NormalizedX, request.NormalizedY),
             NormalizedSize.From(request.NormalizedWidth, request.NormalizedHeight),
             request.FontSizePx);
+    }
 
     private static async Task<IResult> CreateDraft(
         [FromBody] CreateOverlayRequest body,
