@@ -27,8 +27,9 @@ import { isWorthDelaying, labelDelayFor } from '@smart-sentinel-eye/shared/obser
  * cannot be called in a loop. Every comparison below is by reference
  * (`!==`), exactly as it always was for a `string`; a caller passing a
  * non-primitive `T` (e.g. the resolved-text array) is responsible for giving
- * it a stable identity across renders that have not actually changed
- * (`useMemo` keyed on a derived scalar) — see `LayoutGrid.tsx`'s `Tile`.
+ * it a stable identity across renders that have not actually changed —
+ * `useStableByKey`, not `useMemo` (see that hook's own doc comment in
+ * `LayoutGrid.tsx` for why) — as `LayoutGrid.tsx`'s `Tile` does.
  * </p>
  *
  * @param value the label (or label set) to show, or undefined when the tile

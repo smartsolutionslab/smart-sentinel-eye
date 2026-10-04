@@ -2534,5 +2534,47 @@ describe('CellPage', () => {
         callsAfterMount + 1,
       );
     });
+
+    /**
+     * Phase-6 regression (#2345 v2 revision). The multi-label rewrite of
+     * `hasPlaceholder` dropped the `publishedOverlay?.text?.includes` guard's
+     * second `?.` — the one defending against spec 141 site 3's wire-drift
+     * case, where a label's `text` is absent or renamed. `label.text` is
+     * typed `string` in `OverlayLabel`, but that type is exactly what a
+     * wire-shape mismatch bypasses, so a non-string `text` on any label must
+     * not throw out of `render()` — it must leave this tile's placeholder
+     * verdict unknown, exactly as `labelTextKnown` (line 401) already claims
+     * to handle, and exactly like a not-yet-resolved overlay query (see
+     * "Reports the disagreement even when the push loses the version race"
+     * above): the push is answered, but no verdict is ever recorded to
+     * disagree with it.
+     */
+    it('Renders a label set with a non-string text without throwing, and records no verdict for it', async () => {
+      const info = spyOnConsoleInfo();
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-text-drift', row: 0, col: 0 }),
+        ]),
+      );
+      const overlay = publishedOverlayWithLabels(['Station A', 'Line 1']);
+      const labels = overlay.data.revisions[0]!.labels;
+      // Models the wire-drift case itself: the cast is the only way to
+      // construct the shape an absent/renamed `text` field would actually
+      // produce, exactly as the omitted-`overlayIdentifier` fixture does for
+      // site 1 (`CellPage.test.tsx:1667`).
+      labels[1] = { ...labels[1]!, text: undefined as unknown as string };
+      getOverlayMock.mockReturnValue(overlay);
+
+      renderPage();
+
+      await pushText({ overlay: 'ovl-text-drift', fab: 'munich', resolvedTexts: ['Station A', 'Line 1'], version: 2 });
+
+      expect(
+        resilienceLines(info.mock.calls, 'resolved-text-for-static-label'),
+        'labelTextKnown stayed false for the drifted label, so no verdict was ever recorded to disagree with the push',
+      ).toEqual([]);
+
+      info.mockRestore();
+    });
   });
 });
