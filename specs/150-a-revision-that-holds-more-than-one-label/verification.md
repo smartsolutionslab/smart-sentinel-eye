@@ -1,8 +1,65 @@
 # Phase 5 verification — spec 150 / issue #2345
 
 Date: 2026-10-04. Branch `feat/2345-a-revision-that-holds-more-than-one-label-v2`,
-worktree `D:\Github\sse-2345`, commits `11c9d9b7` (backend, T004-T016/T022),
-`b65d08ad` (frontend, T017-T021), `22f19df4` (e2e, T023/T026).
+worktree `D:\Github\sse-2345`, commits through `849110bc` (phase-6 fix round: two
+blockers and three should-fix findings, see "Phase 6" below for detail).
+
+## Phase 6 — review findings and their fixes, independently re-verified
+
+Phase-6 review (`backend-reviewer` + `frontend-reviewer`) found **two blockers, four
+should-fix items, and nine nits** across the backend and frontend chains. All blockers
+and should-fix items were fixed; the result was independently re-verified by the
+orchestrator, not merely relayed:
+
+- **Blocker (backend): no guaranteed label order after an EF reload.** Fixed by sorting
+  at the exposure point (`Revision.Labels`). The implementing engineer tried hard to
+  reproduce the scramble as a failing test — including a raw-SQL counterfactual that
+  bypassed the application layer entirely — and could not: this Postgres/EF combination's
+  actual query-generation already orders owned-collection rows correctly during
+  materialization. Reported honestly rather than claiming a false red; the fix was kept
+  anyway because it makes ordering an explicit contract on the type rather than an
+  implicit property of EF's current query shape, which is good practice independent of
+  whether today's shape happens to get it right.
+- **Blocker (backend): three untouched integration test helpers still read the deleted
+  `resolvedText` (singular) wire shape.** Fixed in all three; the orchestrator
+  independently ran the affected classes (`TwoPlaceholdersInOneLabelTests`,
+  `MovedSnapshotAndResolveRoutesIntegrationTests`, `ResolvedTextReachesItsFabTests`) live
+  against the real stack: 9/9 passed.
+- **Should-fix: a `null` label element 500'd instead of 400'ing.** Fixed; the orchestrator
+  independently ran the new HTTP tests (`OverlayGeometryValidationIntegrationTests`, now
+  10 tests, was 8) live: 10/10 passed.
+- **Should-fix: zero coverage on the edit path's label-set-size rejection.** Fixed; 48/48
+  `OverlayDesigner.Application.Tests` (was 46), independently re-run.
+- **Should-fix: the reverse-index seeder could misalign `ResolvedTexts` against labels
+  when skipping a malformed element.** Fixed, with a genuine red→green (quoted in the PR
+  body): 27/27 `SystemVariables.Infrastructure.Tests` (was 26), independently re-run.
+- **Should-fix (frontend): a dropped null-safety guard on label text would crash the
+  whole wall on render** (not a wire-shape defect — the multi-label rewrite lost an
+  existing `?.` that protected against the "absent/renamed text" case). Fixed; 249/249
+  `apps/kiosk-web` vitest (was 248), independently re-run.
+- Nine nits across both chains: stale `<see cref>`/prose referencing deleted V1 types,
+  an FR-007 test comment overclaiming its own assertions, a stale doc comment pointing
+  at the wrong stabilisation helper, and others — all either fixed or explicitly accepted
+  with a stated reason (none silently dropped).
+
+Full non-integration suite, re-run after all phase-6 fixes, independently, matching the
+implementing engineer's own report exactly:
+```
+OverlayDesigner.Domain.Tests:          100/100
+OverlayDesigner.Application.Tests:      48/48
+SystemVariables.Infrastructure.Tests:   27/27
+SystemVariables.Application.Tests:     104/104
+SystemVariables.Domain.Tests:          101/101
+Architecture.Tests:                    617/617
+LayoutComposition.Application.Tests:   149/149
+Shared.Contracts.Tests:                102/102
+AuditObservability.Application.Tests:   75/75
+ScenarioSimulator.Tests:               162/162
+```
+`dotnet build -c Release`: 0 errors, re-confirmed after the fix round.
+
+## Phase 5 — what was observed (pre-fix-round baseline, still accurate for everything
+not touched by phase 6)
 
 ## What was observed
 
