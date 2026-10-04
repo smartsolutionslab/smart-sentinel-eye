@@ -437,7 +437,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
                 ResolvedFrame frame = new(
                     payload.GetProperty("overlay").GetGuid(),
                     payload.TryGetProperty("fab", out JsonElement fab) ? fab.GetString() : null,
-                    payload.GetProperty("resolvedText").GetString() ?? string.Empty,
+                    payload.GetProperty("resolvedTexts").EnumerateArray().First().GetString() ?? string.Empty,
                     payload.GetProperty("version").GetInt64());
                 frames.GetOrAdd(frame.Overlay, _ => new()).TrySetResult(frame);
             });

@@ -79,10 +79,19 @@ internal static class OverlaySnapshotReadiness
             + "never reached that name.");
     }
 
+    /// <summary>
+    /// The first label's resolved text (spec 150, #2345: the wire shape carries
+    /// every label's text as <c>resolvedTexts</c>, plural). Every caller of this
+    /// helper exercises a single-label overlay, so the first element is the
+    /// whole answer they need.
+    /// </summary>
     internal static string ResolvedTextIn(string body)
     {
         using JsonDocument payload = JsonDocument.Parse(body);
 
-        return payload.RootElement.GetProperty("resolvedText").GetString() ?? string.Empty;
+        return payload.RootElement.GetProperty("resolvedTexts")
+            .EnumerateArray()
+            .First()
+            .GetString() ?? string.Empty;
     }
 }
