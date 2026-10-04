@@ -371,6 +371,146 @@ public class InteractionStateTests
     }
 
     // =====================================================================
+    // OklchColorResolver.Mix model facts (spec 299 plan.md §4.1, issue
+    // #2695). Pin the mix MODEL against three browser observations
+    // (Chromium 1243, spec 297 §1 and the issue): a red here means the model
+    // itself is wrong, not that any token has drifted — these are expected
+    // green on first run.
+    // =====================================================================
+
+    private static readonly (double Lightness, double Chroma, double Hue) RedFiveHundred = (67.864, 0.20948, 24.66);
+    private static readonly (double Lightness, double Chroma, double Hue) GreenFiveHundred = (72.656, 0.20847, 148.34);
+    private static readonly (double Lightness, double Chroma, double Hue) GrayNineFifty = (15.82, 0.0072, 258.4);
+    private static readonly (double Lightness, double Chroma, double Hue) Black = (0.0, 0.0, 0.0);
+
+    /// <summary>
+    /// <c>color-mix(in oklch, var(--red-500) 10%, var(--gray-950))</c>
+    /// rendered <c>rgb(20,24,37)</c> in Chromium 1243 (spec 297 §1).
+    /// </summary>
+    [Fact]
+    public void Mixing_red_into_gray_950_in_oklch_matches_the_browser()
+    {
+        (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+            OklchColorResolver.MixSpace.Oklch, RedFiveHundred, 0.10, GrayNineFifty);
+
+        OklchColorResolver.OklchToSrgb(lightness, chroma, hue).ShouldBe((20, 24, 37));
+    }
+
+    /// <summary>
+    /// <c>color-mix(in oklch, var(--green-500) 30%, var(--black))</c>
+    /// rendered <c>rgb(48,14,0)</c> in Chromium 1243 (ADR-0148's 2026-10-04
+    /// amendment).
+    /// </summary>
+    [Fact]
+    public void Mixing_green_into_black_in_oklch_matches_the_browser()
+    {
+        (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+            OklchColorResolver.MixSpace.Oklch, GreenFiveHundred, 0.30, Black);
+
+        OklchColorResolver.OklchToSrgb(lightness, chroma, hue).ShouldBe((48, 14, 0));
+    }
+
+    /// <summary>
+    /// <c>color-mix(in oklab, var(--red-500) 16%, var(--gray-950))</c> — the
+    /// fault-subtle percentage, not the issue's 10% — renders
+    /// <c>rgb(44,26,27)</c>; still reddish, but not at the triad's hue, which
+    /// is why spec 299 keeps the status tints as literal stops rather than
+    /// mixes even under OKLab (spec §1).
+    /// </summary>
+    [Fact]
+    public void Mixing_red_into_gray_950_in_oklab_matches_the_browser()
+    {
+        (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+            OklchColorResolver.MixSpace.Oklab, RedFiveHundred, 0.16, GrayNineFifty);
+
+        OklchColorResolver.OklchToSrgb(lightness, chroma, hue).ShouldBe((44, 26, 27));
+    }
+
+    /// <summary>
+    /// New fact (spec 299 plan.md §4.3, issue #2695). For every opaque
+    /// <c>--color-*</c> mix in every theme whose second operand resolves to
+    /// an achromatic literal (chroma ≈ 0 — <c>--black</c>/<c>--white</c>, or
+    /// <c>--color-bg-base</c> wherever a theme maps it to one of those),
+    /// the rendered hue must equal the first operand's hue within 0.5°
+    /// (spec FR-002). Declarations are enumerated from the file itself, not
+    /// a name list (memory: <i>the wrong red matches the filed number</i>).
+    ///
+    /// <para>
+    /// Red on develop: <c>tokens.css</c> still writes every one of these
+    /// mixes <c>in oklch</c>, and <see cref="ResolveOklch"/> now evaluates
+    /// that space exactly rather than approximating it — so the real OKLCH
+    /// hue drift (hover 18°, pressed 24–36°, high-contrast disabled 300°
+    /// absolute / subtle 336° absolute, fault hover/pressed a few degrees)
+    /// is visible instead of hidden.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void A_mix_toward_black_or_white_keeps_its_base_hue()
+    {
+        const double HueTolerance = 0.5;
+
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        string css = StripCssComments(File.ReadAllText(tokenFile.FullName));
+        List<Declaration> declarations = ParseDeclarations(css);
+
+        Dictionary<string, string> rootMap = declarations
+            .Where(declaration => declaration.Selector.Trim() == ":root")
+            .ToDictionary(declaration => declaration.Name, declaration => declaration.Value, StringComparer.Ordinal);
+
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+
+        List<string> problems = [];
+
+        foreach ((string themeName, Dictionary<string, string> map) in new[]
+                 {
+                     ("dark", rootMap),
+                     ("light", lightMap),
+                     ("high-contrast", highContrastMap),
+                 })
+        {
+            foreach ((string name, string value) in map)
+            {
+                if (!name.StartsWith("--color-", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                Match mix = OpaqueColorMixDeclaration.Match(value.Trim());
+                if (!mix.Success)
+                {
+                    continue;
+                }
+
+                OklchTriple first = ResolveOklch(mix.Groups["a"].Value, map, []);
+                OklchTriple second = ResolveOklch(mix.Groups["b"].Value, map, []);
+
+                if (second.Chroma >= 1e-6)
+                {
+                    continue;
+                }
+
+                OklchTriple mixed = ResolveOklch(name, map, []);
+                double diff = CircularHueDifference(mixed.Hue, first.Hue);
+
+                if (diff > HueTolerance)
+                {
+                    problems.Add(
+                        $"[{themeName}] {name} mixes toward an achromatic ground ({mix.Groups["b"].Value}) but "
+                        + $"renders at hue {mixed.Hue:F1}°, {diff:F1}° away from its base hue "
+                        + $"({mix.Groups["a"].Value} = {first.Hue:F1}°) — more than the {HueTolerance}° tolerance.");
+                }
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            "a mix toward black or white does not keep its base hue:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    // =====================================================================
     // File scanning (mirrors SharedUiTokenUsageTests / DesignTokenLayerTests'
     // shape, over apps/*/src rather than one subtree).
     // =====================================================================
@@ -475,6 +615,23 @@ public class InteractionStateTests
 
     private readonly record struct OklchTriple(double Lightness, double Chroma, double Hue);
 
+    /// <summary>
+    /// A single-level, opaque <c>color-mix(in oklab|oklch, var(--a) N%, var(--b))</c>
+    /// — both operands bare <c>var()</c>, never <c>transparent</c>, never
+    /// nested. Used only by <see cref="A_mix_toward_black_or_white_keeps_its_base_hue"/>
+    /// to enumerate declarations to check, not to resolve them.
+    /// </summary>
+    private static readonly Regex OpaqueColorMixDeclaration = new(
+        @"^color-mix\(in (?:oklab|oklch),\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+\d+(?:\.\d+)?%,\s*var\((?<b>--[A-Za-z0-9-]+)\)\)$",
+        RegexOptions.Compiled);
+
+    /// <summary>The smaller of the two arcs between two hue angles, in [0, 180].</summary>
+    private static double CircularHueDifference(double first, double second)
+    {
+        double diff = Math.Abs(first - second) % 360.0;
+        return diff > 180.0 ? 360.0 - diff : diff;
+    }
+
     private static OklchTriple ResolveOklch(string name, Dictionary<string, string> map, HashSet<string> seen)
     {
         map.TryGetValue(name, out string? value).ShouldBeTrue($"{name} has no declaration to resolve.");
@@ -490,7 +647,7 @@ public class InteractionStateTests
 
         Match mix = Regex.Match(
             trimmed,
-            @"^color-mix\(in oklch,\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+(?<pct>\d+(?:\.\d+)?)%,\s*"
+            @"^color-mix\(in (?<space>oklab|oklch),\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+(?<pct>\d+(?:\.\d+)?)%,\s*"
             + @"(?:var\((?<b>--[A-Za-z0-9-]+)\)|(?<transparent>transparent))\)$");
         if (mix.Success)
         {
@@ -504,15 +661,18 @@ public class InteractionStateTests
             OklchTriple a = ResolveOklch(mix.Groups["a"].Value, map, []);
             OklchTriple b = ResolveOklch(mix.Groups["b"].Value, map, []);
 
-            // color-mix(in oklch, ...) interpolates lightness and chroma
-            // linearly; hue is taken from whichever operand carries chroma —
-            // the other is typically black/white, whose hue is undefined
-            // (plan.md §5.1 fact 6).
-            double hue = a.Chroma >= b.Chroma ? a.Hue : b.Hue;
-            return new OklchTriple(
-                (fraction * a.Lightness) + ((1 - fraction) * b.Lightness),
-                (fraction * a.Chroma) + ((1 - fraction) * b.Chroma),
-                hue);
+            // Evaluates the declared space exactly (spec 299 FR-003, issue
+            // #2695) via OklchColorResolver.Mix — oklab componentwise, oklch
+            // shorter-arc hue — rather than approximating the mixed hue from
+            // whichever operand carries more chroma.
+            OklchColorResolver.MixSpace space = mix.Groups["space"].Value == "oklab"
+                ? OklchColorResolver.MixSpace.Oklab
+                : OklchColorResolver.MixSpace.Oklch;
+
+            (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+                space, (a.Lightness, a.Chroma, a.Hue), fraction, (b.Lightness, b.Chroma, b.Hue));
+
+            return new OklchTriple(lightness, chroma, hue);
         }
 
         Match literal = Regex.Match(trimmed, @"^oklch\(\s*(?<l>[\d.]+)%\s+(?<c>[\d.]+)\s+(?<h>[\d.]+)\s*\)$");
