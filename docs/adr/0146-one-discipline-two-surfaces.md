@@ -1,6 +1,7 @@
 # ADR-0146: One discipline, two surfaces
 
-**Status:** **Accepted**
+**Status:** **Accepted** (amended 2026-10-04 — item 4: the triad's *text* role may adapt
+per theme; see [the amendment](#amendment-2026-10-04-the-triads-text-role-adapts-per-theme))
 **Date:** 2026-09-13
 **Amends:** —
 
@@ -60,6 +61,13 @@ spacing doing the work that decoration usually does.**
    operator reads green, red and amber as go, fault and caution. They are **not**
    available as brand colour, and the accent introduced below is deliberately a
    hue none of them occupy, so an accent can never be misread as a status.
+
+   > **Amended 2026-10-04 (issue #2695, spec 299).** "Unchanged" is narrowed:
+   > the three roles, their names, their hues and the three signal values above
+   > survive in every theme, but the colour the triad uses **as text** may take
+   > a per-theme lightness and chroma at the same hue, so it stays legible on a
+   > light ground. See the amendment below. The original sentence is kept as
+   > written: what was decided is a different record from what it became.
 5. **Real interaction states.** Rest, hover, pressed, focus-visible, disabled and
    loading, designed per variant. A uniform opacity fade is not a state.
 6. **Restraint.** Border, fill, radius and shadow each assert "separate object".
@@ -137,3 +145,77 @@ the console section above — it simply is not the default.
 anywhere, closer to a cockpit than to software. It is the most defensible choice
 for a safety-adjacent product and the least responsive to what was actually
 asked for. The discipline section above takes what it is right about.
+
+## Amendment (2026-10-04): the triad's text role adapts per theme
+
+Issue #2695; implemented by spec 299.
+
+### Why item 4 could not stand as written
+
+Item 4 said the triad "survives unchanged" and named three values. Those values
+are signal colours tuned for a near-black ground, and in the dark theme they are
+legible as text everywhere this product sets them as text (WCAG 1.4.3 contrast,
+computed from `tokens.css` with the CSS Color 4 OKLab→sRGB matrices):
+
+| Theme | Triad as text on | active | warning | fault |
+|---|---|---|---|---|
+| dark | its tint / base / elevated / raised | 7.06 / 8.70 / 8.03 / 7.23 | 8.53 / 10.33 / 9.54 / 8.59 | 5.08 / 6.10 / 5.63 / 5.07 |
+| light | its tint / base / elevated / raised | **1.95 / 2.08 / 2.24 / 2.24** | **1.62 / 1.75 / 1.88 / 1.88** | **2.71 / 2.97 / 3.19 / 3.19** |
+
+The console section above requires "a light theme designed as a peer, not an
+inversion". With item 4 read literally, that peer cannot render a status label —
+"Offline", "Fault", a form's field error — at 4.5:1. The failure is latent only
+because both apps' `index.html` pin `data-theme="dark"`; it is real the moment
+anything sets `light`.
+
+The only fix is a per-theme colour for triad text, and "unchanged" forbade it.
+That made it a decision rather than a detail.
+
+### Decision
+
+**What survives unchanged, in every theme:**
+
+1. The three roles and their names (`--color-accent-active`, `-warning`,
+   `-fault`) — still domain vocabulary, still never brand colour, still a hue the
+   accent does not occupy.
+2. Their **hue identity**. Green means go, amber caution, red fault, in every
+   theme; no theme moves a triad colour to another hue.
+3. The **signal values themselves** — `#00c853`, `#ffab40`, `#ff5252` — declared
+   once, in `:root`, and never redeclared by a theme. Fills, borders, status dots
+   and the wall's highlight glow keep citing them.
+
+**What may now differ per theme:** one **text role** per triad hue,
+`--color-accent-<role>-text`, used wherever the triad colours text. Its hue is the
+triad's own hue (to the same precision the triad is declared); a theme may move
+only its **lightness and chroma**, and only as far as that theme's label-text
+contexts need to clear WCAG 1.4.3's 4.5:1 — the role's own tint
+(`--color-accent-<role>-subtle`) and the three grounds (`--color-bg-base`,
+`-elevated`, `-raised`). This is the same latitude every other semantic colour
+already has under ADR-0148 decision 1: a theme remaps a role; the primitive scale
+stays fixed.
+
+Where the signal already clears 4.5:1 — dark and high-contrast — the text role
+**is** the signal. Only a theme that needs it gets a different stop.
+
+**Still not permitted:** a text role at a different hue; a theme dropping or
+renaming a triad role; a triad colour (signal or text) used for affordance or
+brand. Every other sentence of item 4 stands.
+
+### Consequences
+
+- **Call sites do not change.** Tailwind's `text-*` utilities read the
+  `--text-color-*` theme namespace before `--color-*` (verified against the pinned
+  Tailwind 4.3.3, 2026-10-04), so the shared theme maps `text-accent-<role>` to
+  the text role while `bg-`/`border-accent-<role>` keep the signal. A text use of
+  the triad cannot pick the signal by accident, and a new one gets the legible
+  colour without anyone remembering to.
+- **Amber text in the light theme is dark ochre, not amber.** Any amber that
+  clears 4.5:1 on white is; that is the arithmetic of the hue, not a choice.
+  Hue identity is what an operator reads, and it is preserved.
+- **The guard is mechanical.** Spec 299's `StatusTintTests` assert, per theme,
+  that each text role's hue equals its triad's and that it clears 4.5:1 on its
+  tint and on every ground — light included. Spec 297's shrink-only light-theme
+  exclusion, which cited #2695, is removed with it.
+- **High-contrast and dark render exactly as before.** The text role resolves to
+  the same signal value there; the only rendered change is in `light`, which no
+  shipped page sets today.
