@@ -930,8 +930,11 @@ describe('CellPage', () => {
   describe('A pushed resolved text reaching the tile that binds the overlay (#2012)', () => {
     afterEach(() => {
       // `store` is the imported app singleton, so an upserted cache entry
-      // outlives this describe block. Harmless while this is the last one;
-      // a trap for whoever appends the next.
+      // outlives this describe block — several later blocks in this file
+      // (#2069, #2084, spec 141, spec 229) each repeat this same reset for
+      // exactly that reason. Not "harmless while this is the last one": it
+      // no longer is, and a describe block appended after this one without
+      // its own reset is the trap, not this one.
       store.dispatch(systemVariablesApi.util.resetApiState());
     });
 
@@ -977,6 +980,14 @@ describe('CellPage', () => {
           resolvedTexts: ['OEE 82.5'],
           version: 2,
         });
+        // `upsertQueryData` is a thunk the page dispatches without awaiting,
+        // and the re-render it causes is notified on a later task still — the
+        // same real wall-clock settle the #2069 block's own `push` helper
+        // documents and pays for below (`settleMilliseconds`). Without it this
+        // test raced its own assertion: it reads as isolated and green alone,
+        // where nothing else has spent any wall-clock time yet, and red under
+        // the full file, where it has. Found bisecting #2345's reported flake.
+        await new Promise((resolve) => setTimeout(resolve, 100));
       });
 
       expect(label(), 'the tile kept its old text after a higher-versioned push').toBe('OEE 82.5');
