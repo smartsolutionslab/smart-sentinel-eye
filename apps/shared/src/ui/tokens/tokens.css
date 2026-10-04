@@ -69,11 +69,12 @@
 
   /* Triad stops: the signal (500) and a tint pair (900 dark, 50 light) for
      status chips. A status chip's fill is a tint AT THE TRIAD'S HUE. Not a
-     color-mix: switching to `in oklab` does not fix this — OKLab still
-     pulls a mix toward a hued ground off the triad's hue (ADR-0148
-     amendment), it only stops being an oklch-only artifact. A 10 % mix of
-     fault into --gray-950 lands at hue 7.7°, 17° short of the triad, in
-     either space, observed in Chromium. */
+     color-mix: switching to `in oklab` does not fix this on its own — OKLab
+     still pulls a mix toward a hued ground off the triad's hue (ADR-0148
+     amendment). In OKLCH the same mix drags the hue all the way to the
+     ground's own (≈271°, slate, rgb(20,24,37) observed in Chromium); in
+     OKLab it lands closer but still off: a 10 % mix of fault into
+     --gray-950 computes to hue 7.7°, 17° short of the triad. */
   --green-500: oklch(72.656% 0.20847 148.34);
   --red-500: oklch(67.864% 0.20948 24.66);
   --amber-500: oklch(80.584% 0.15273 68.43);
@@ -159,8 +160,8 @@
      transparent (theme-invariant, like mixing toward white/black, so one
      declaration serves every theme). The tint does NOT: color-mix(in oklab,
      …) still pulls toward a hued ground's own hue, not just oklch's
-     percentage-weighted arc — a 10% mix of fault into --gray-950 lands at
-     hue 7.7°, 17° short of the triad (ADR-0148 amendment), in Chromium. The
+     percentage-weighted arc — a 10% mix of fault into --gray-950 computes to
+     hue 7.7°, 17° short of the triad (ADR-0148 amendment). The
      tint is now a primitive stop at the fault hue instead (Badge's -subtle
      roles). */
   --color-accent-fault-subtle: var(--red-900);

@@ -65,6 +65,27 @@ visibly different colours is not a plausible result, not because anything flagge
 automatically). Both fixed before trusting the final numbers above; the throwaway scripts were
 deleted afterward and are not part of this branch's diff.
 
+## 3a. A known limitation found at phase 6 — recorded, not fixed here
+
+`frontend-reviewer` found that the new light-theme `-text` stops make one call site **worse**:
+`apps/shared/src/ui/composites/CameraViewer.tsx`'s `ViewerOverlay` draws `text-accent-fault`/
+`text-accent-warning` over `bg-scrim` on top of `bg-bg-video`, and `--color-bg-video` is pinned to
+`--black` in every theme (never redeclared in `[data-theme='light']`). The new light stops
+(`--red-700`, `--amber-700`) were chosen for contrast against *light* grounds — against this
+video container's near-black background, contrast actually drops (fault 6.58:1 → 2.91:1, warning
+11.15:1 → 3.14:1), failing WCAG 1.4.3 in exactly the theme this spec exists to fix.
+
+**Latent only**: light theme cannot be reached at runtime today (spec §Non-goals; no theme
+switcher exists), so this is not observable in production, and the live Playwright check above
+only exercised Badge/FaultNotice — not `CameraViewer` — so it would not have caught this. It is a
+real defect the moment light theme becomes reachable, in a component used by `CameraDetailPage`
+and `OverlayEditorDialog`, not only the dark-pinned wall.
+
+**Not fixed in this PR**: the correct fix needs a new design decision — an on-video text role that
+stays the signal colour in every theme, distinct from the on-surface `-text` role this spec adds.
+That is new scope beyond the two ADR amendments this PR implements. Recorded here and as a
+follow-up issue rather than expanding this PR's scope or leaving it undocumented.
+
 ## 4. What was NOT covered
 
 - US1's hover/pressed/disabled/subtle hue-drift fix was verified by the Architecture.Tests facts
