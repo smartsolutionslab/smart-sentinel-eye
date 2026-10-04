@@ -25,7 +25,7 @@ public class VariableValueChangedDomainEventHandlerTests
         FakeOverlayTextVersions versions = new();
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
             bus, index, versions, repo, new Resolver(),
@@ -44,10 +44,10 @@ public class VariableValueChangedDomainEventHandlerTests
         v1.Name.ShouldBe("oeeLine1");
         v1.Value.ShouldBe("82.5");
 
-        ResolvedOverlayTextChangedV1 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV2 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
-        push.ResolvedText.ShouldBe("OEE: 82.5%");
+        push.ResolvedTexts.Single().ShouldBe("OEE: 82.5%");
         // #2426 -- the version comes from the durable store (a first-ever
         // advance returns the cutover floor, never 1), not from
         // IReverseIndex. A handler that still read the reverse index's
@@ -78,7 +78,7 @@ public class VariableValueChangedDomainEventHandlerTests
             CancellationToken.None);
 
         bus.Published.OfType<SystemVariableValueChangedV1>().ShouldHaveSingleItem();
-        bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldBeEmpty();
+        bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldBeEmpty();
 
         // No overlay references the variable, so there is nothing to advance.
         versions.AdvanceCalls.ShouldBeEmpty();
@@ -101,8 +101,8 @@ public class VariableValueChangedDomainEventHandlerTests
 
         Guid overlayA = Guid.CreateVersion7();
         Guid overlayB = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlayA, "A: {{oeeLine1}}%");
-        index.UpsertOverlayReferences(overlayB, "B: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlayA, ["A: {{oeeLine1}}%"]);
+        index.UpsertOverlayReferences(overlayB, ["B: {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
             bus, index, versions, repo, new Resolver(),
@@ -119,7 +119,7 @@ public class VariableValueChangedDomainEventHandlerTests
             1, "a fan-out over N affected overlays must advance the store once, not N times");
         versions.AdvanceCalls[0].ShouldBe([overlayA, overlayB], ignoreOrder: true);
 
-        ResolvedOverlayTextChangedV1[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV1>()];
+        ResolvedOverlayTextChangedV2[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV2>()];
         pushes.Length.ShouldBe(2);
         pushes.ShouldAllBe(push => push.Version == FakeOverlayTextVersions.Floor);
     }
@@ -150,7 +150,7 @@ public class VariableValueChangedDomainEventHandlerTests
         repo.Add(redefinedShift);
 
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, "{{shift}} / {{oee}}");
+        index.UpsertOverlayReferences(overlay, ["{{shift}} / {{oee}}"]);
 
         VariableValueChangedDomainEventHandler handler = new(
             bus, index, versions, repo, new Resolver(),
@@ -163,8 +163,8 @@ public class VariableValueChangedDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV1 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV1>().ShouldHaveSingleItem();
-        push.ResolvedText.ShouldBe("B / 82.5");
+        ResolvedOverlayTextChangedV2 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        push.ResolvedTexts.Single().ShouldBe("B / 82.5");
     }
 }

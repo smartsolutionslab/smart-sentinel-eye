@@ -25,7 +25,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
                         OverlayIdentifier: overlay.Id.Value,
                         Name: overlay.Name.Value,
                         RevisionNumber: pub.Number.Value,
-                        Text: pub.Label.Text,
+                        Labels: [.. pub.Labels.Select(GetOverlayQueryHandler.MapLabel)],
                         PublishedAt: pub.PublishedAt!.Value);
                 })
                 .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)

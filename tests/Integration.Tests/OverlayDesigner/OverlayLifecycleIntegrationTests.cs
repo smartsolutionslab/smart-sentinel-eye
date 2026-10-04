@@ -43,7 +43,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
             new
             {
                 name = $"Ovl-{Guid.NewGuid():N}".Substring(0, 16),
-                label = SampleLabelBody(),
+                labels = new[] { SampleLabelBody() },
             });
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -67,7 +67,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
         revisions.GetArrayLength().ShouldBe(1);
         revisions[0].GetProperty("state").GetString().ShouldBe("Published");
         revisions[0].GetProperty("revisionNumber").GetInt32().ShouldBe(1);
-        revisions[0].GetProperty("text").GetString().ShouldBe("Production Line 1");
+        revisions[0].GetProperty("labels")[0].GetProperty("text").GetString().ShouldBe("Production Line 1");
     }
 
     [Fact]
@@ -77,11 +77,11 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
         string sharedName = $"Ovl-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage first = await overlays.PostAsJsonAsync(
-            "/overlays", new { name = sharedName, label = SampleLabelBody() });
+            "/overlays", new { name = sharedName, labels = new[] { SampleLabelBody() } });
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
 
         HttpResponseMessage second = await overlays.PostAsJsonAsync(
-            "/overlays", new { name = sharedName, label = SampleLabelBody() });
+            "/overlays", new { name = sharedName, labels = new[] { SampleLabelBody() } });
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
         JsonElement problem = await second.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_NAME_TAKEN");
@@ -95,11 +95,11 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
         string pubName = $"Pub-{Guid.NewGuid():N}".Substring(0, 16);
 
         HttpResponseMessage draftRaw = await overlays.PostAsJsonAsync(
-            "/overlays", new { name = draftName, label = SampleLabelBody() });
+            "/overlays", new { name = draftName, labels = new[] { SampleLabelBody() } });
         draftRaw.EnsureSuccessStatusCode();
 
         HttpResponseMessage pubRaw = await overlays.PostAsJsonAsync(
-            "/overlays", new { name = pubName, label = SampleLabelBody() });
+            "/overlays", new { name = pubName, labels = new[] { SampleLabelBody() } });
         pubRaw.EnsureSuccessStatusCode();
         Guid pubIdentifier = await pubRaw.Content.ReadFromJsonAsync<Guid>();
         HttpResponseMessage publish = await OverlayRequests.PostAsync(overlays, pubIdentifier, $"revisions/1/publish");

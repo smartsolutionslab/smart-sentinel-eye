@@ -102,7 +102,7 @@ public class OverlayRevisionStateMachineTests
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
         Label newLabel = Label.From("Different", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), 20);
-        Action act = () => overlay.EditDraft(OverlayRevisionNumber.One, newLabel, clock);
+        Action act = () => overlay.EditDraft(OverlayRevisionNumber.One, [newLabel], clock);
         act.ShouldThrow<InvalidOperationException>();
     }
 }

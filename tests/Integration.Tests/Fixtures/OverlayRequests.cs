@@ -69,14 +69,17 @@ internal static class OverlayRequests
         HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"{namePrefix}-{Guid.NewGuid():N}"[..16],
-            label = new
+            labels = new[]
             {
-                text = labelText,
-                normalizedX = 0.5m,
-                normalizedY = 0.05m,
-                normalizedWidth = 0.3m,
-                normalizedHeight = 0.08m,
-                fontSizePx = 48,
+                new
+                {
+                    text = labelText,
+                    normalizedX = 0.5m,
+                    normalizedY = 0.05m,
+                    normalizedWidth = 0.3m,
+                    normalizedHeight = 0.08m,
+                    fontSizePx = 48,
+                },
             },
         });
         created.EnsureSuccessStatusCode();

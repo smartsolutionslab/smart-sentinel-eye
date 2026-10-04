@@ -40,14 +40,18 @@ public sealed class GetOverlayQueryHandler(IOverlayQuerySource overlays)
             RevisionIdentifier: revision.Id.Value,
             RevisionNumber: revision.Number.Value,
             State: revision.State.Value,
-            Text: revision.Label.Text,
-            NormalizedX: revision.Label.Position.X,
-            NormalizedY: revision.Label.Position.Y,
-            NormalizedWidth: revision.Label.Size.Width,
-            NormalizedHeight: revision.Label.Size.Height,
-            FontSizePx: revision.Label.FontSizePx,
+            Labels: [.. revision.Labels.Select(MapLabel)],
             CreatedAt: revision.Creation.At,
             CreatedBy: revision.Creation.By.Value,
             PublishedAt: revision.PublishedAt?.Value,
             ArchivedAt: revision.ArchivedAt?.Value);
+
+    internal static OverlayLabelDto MapLabel(Label label) =>
+        new(
+            Text: label.Text,
+            NormalizedX: label.Position.X,
+            NormalizedY: label.Position.Y,
+            NormalizedWidth: label.Size.Width,
+            NormalizedHeight: label.Size.Height,
+            FontSizePx: label.FontSizePx);
 }

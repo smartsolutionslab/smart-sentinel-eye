@@ -27,7 +27,7 @@ public class CreateOverlayDraftCommandHandlerTests
         Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
                 OverlayName.From("Line-1 Title"),
-                SampleLabel(),
+                [SampleLabel()],
                 OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -55,12 +55,51 @@ public class CreateOverlayDraftCommandHandlerTests
         Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
                 OverlayName.From("Line-1 Title"),
-                SampleLabel(),
+                [SampleLabel()],
                 OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<CreateOverlayDraftError.OverlayNameTaken>();
         overlays.Overlays.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task An_empty_label_set_returns_a_400_and_creates_nothing()
+    {
+        InMemoryOverlayRepository overlays = new();
+        CreateOverlayDraftCommandHandler handler = new(
+            overlays, new FakeClock(FixedMoment), NullLogger<CreateOverlayDraftCommandHandler>.Instance);
+
+        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
+            new CreateOverlayDraftCommand(
+                OverlayName.From("Line-1 Title"),
+                [],
+                OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<CreateOverlayDraftError.EmptyLabelSet>();
+        overlays.Overlays.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task More_labels_than_the_ceiling_returns_a_400_and_creates_nothing()
+    {
+        InMemoryOverlayRepository overlays = new();
+        CreateOverlayDraftCommandHandler handler = new(
+            overlays, new FakeClock(FixedMoment), NullLogger<CreateOverlayDraftCommandHandler>.Instance);
+        List<Label> tooMany = Enumerable.Range(0, Label.MaxLabels + 1).Select(_ => SampleLabel()).ToList();
+
+        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
+            new CreateOverlayDraftCommand(
+                OverlayName.From("Line-1 Title"),
+                tooMany,
+                OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<CreateOverlayDraftError.TooManyLabels>();
+        overlays.Overlays.ShouldBeEmpty();
     }
 }

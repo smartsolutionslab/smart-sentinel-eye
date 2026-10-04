@@ -10,6 +10,6 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Commands;
 /// </summary>
 public sealed record CreateOverlayDraftCommand(
     OverlayName Name,
-    Label Label,
+    IReadOnlyList<Label> Labels,
     OperatorIdentifier CreatedBy)
     : ICommand<Result<OverlayIdentifier, CreateOverlayDraftError>>;

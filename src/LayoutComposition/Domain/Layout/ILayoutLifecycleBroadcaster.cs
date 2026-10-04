@@ -62,20 +62,30 @@ public sealed record LayoutRevisionArchivedNotification(
 /// only so the broadcaster contract does not need to reference
 /// OverlayDesigner.Domain — including its NormalizedPosition and
 /// NormalizedSize, which group these same four coordinates and were declined
-/// here for exactly that reason.
+/// here for exactly that reason. Spec 150 (#2345): <c>Labels</c> carries the
+/// revision's ordered, non-empty set of 1..8 labels instead of one flattened
+/// label.
 /// </summary>
 public sealed record OverlayLifecyclePublishedNotification(
     IReadOnlyList<FabIdentifier> Fabs,
     Guid Overlay,
     int RevisionNumber,
     string Name,
+    IReadOnlyList<OverlayLifecycleLabel> Labels,
+    DateTimeOffset PublishedAt);
+
+/// <summary>
+/// A single label on the published revision, in ordinal (paint) order
+/// (spec 150 FR-005). Primitives only — see
+/// <see cref="OverlayLifecyclePublishedNotification"/>.
+/// </summary>
+public sealed record OverlayLifecycleLabel(
     string Text,
     decimal NormalizedX,
     decimal NormalizedY,
     decimal NormalizedWidth,
     decimal NormalizedHeight,
-    int FontSizePx,
-    DateTimeOffset PublishedAt);
+    int FontSizePx);
 
 /// <summary>
 /// Wire shape for "an overlay revision became Archived" pushes.
@@ -89,10 +99,12 @@ public sealed record OverlayLifecycleArchivedNotification(
 
 /// <summary>
 /// Wire shape for "an overlay's resolved text changed" pushes
-/// (spec 005 FR-013). Pushed when a system variable referenced by an
-/// overlay's label changes, gets archived, or the overlay itself is
-/// republished with new references. <c>Version</c> is a monotonic
-/// per-overlay counter so the kiosk can discard out-of-order frames.
+/// (spec 005 FR-013, widened to a set by spec 150 / #2345). Pushed when a
+/// system variable referenced by any label in an overlay's set changes,
+/// gets archived, or the overlay itself is republished with new
+/// references. <c>Version</c> is a monotonic per-overlay counter so the
+/// kiosk can discard out-of-order frames — it bumps once per change, not
+/// once per label.
 /// </summary>
 /// <para>
 /// <c>Fab</c> decides who receives it (spec 014 FR-015). A resolved text is
@@ -102,7 +114,7 @@ public sealed record OverlayLifecycleArchivedNotification(
 /// </para>
 public sealed record ResolvedOverlayTextChangedNotification(
     Guid Overlay,
-    string ResolvedText,
+    IReadOnlyList<string> ResolvedTexts,
     long Version,
     string Fab);
 

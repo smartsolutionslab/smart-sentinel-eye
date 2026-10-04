@@ -199,7 +199,7 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
             {
                 ResolvedFrame frame = new(
                     payload.GetProperty("overlay").GetGuid(),
-                    payload.GetProperty("resolvedText").GetString() ?? string.Empty,
+                    payload.GetProperty("resolvedTexts")[0].GetString() ?? string.Empty,
                     payload.GetProperty("version").GetInt64());
                 frames.GetOrAdd(frame.Overlay, _ => new()).TrySetResult(frame);
             });

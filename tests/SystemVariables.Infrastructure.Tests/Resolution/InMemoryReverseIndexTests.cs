@@ -32,7 +32,7 @@ public class InMemoryReverseIndexTests
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(overlay, Label("oeeLine1", "cycleTime"));
+        index.UpsertOverlayReferences(overlay, [Label("oeeLine1", "cycleTime")]);
 
         index.LookupOverlays("oeeLine1").ShouldBe([overlay]);
         index.LookupOverlays("cycleTime").ShouldBe([overlay]);
@@ -53,8 +53,8 @@ public class InMemoryReverseIndexTests
         Guid first = Guid.CreateVersion7();
         Guid second = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(first, Label("oeeLine1"));
-        index.UpsertOverlayReferences(second, Label("oeeLine1"));
+        index.UpsertOverlayReferences(first, [Label("oeeLine1")]);
+        index.UpsertOverlayReferences(second, [Label("oeeLine1")]);
 
         index.LookupOverlays("oeeLine1").ShouldBe([first, second], ignoreOrder: true);
     }
@@ -71,8 +71,8 @@ public class InMemoryReverseIndexTests
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(overlay, Label("oeeLine1"));
-        index.UpsertOverlayReferences(overlay, Label("cycleTime"));
+        index.UpsertOverlayReferences(overlay, [Label("oeeLine1")]);
+        index.UpsertOverlayReferences(overlay, [Label("cycleTime")]);
 
         index.LookupOverlays("oeeLine1").ShouldBeEmpty();
         index.LookupOverlays("cycleTime").ShouldBe([overlay]);
@@ -84,8 +84,8 @@ public class InMemoryReverseIndexTests
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(overlay, Label("oeeLine1"));
-        index.UpsertOverlayReferences(overlay, Label("oeeLine1"));
+        index.UpsertOverlayReferences(overlay, [Label("oeeLine1")]);
+        index.UpsertOverlayReferences(overlay, [Label("oeeLine1")]);
 
         index.LookupOverlays("oeeLine1").Count.ShouldBe(1);
     }
@@ -97,9 +97,9 @@ public class InMemoryReverseIndexTests
         Guid kept = Guid.CreateVersion7();
         Guid changed = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(kept, Label("oeeLine1"));
-        index.UpsertOverlayReferences(changed, Label("oeeLine1"));
-        index.UpsertOverlayReferences(changed, Label("cycleTime"));
+        index.UpsertOverlayReferences(kept, [Label("oeeLine1")]);
+        index.UpsertOverlayReferences(changed, [Label("oeeLine1")]);
+        index.UpsertOverlayReferences(changed, [Label("cycleTime")]);
 
         index.LookupOverlays("oeeLine1").ShouldBe([kept]);
     }
@@ -111,13 +111,13 @@ public class InMemoryReverseIndexTests
     {
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(overlay, Label("oeeLine1", "cycleTime"));
+        index.UpsertOverlayReferences(overlay, [Label("oeeLine1", "cycleTime")]);
 
         index.RemoveOverlay(overlay);
 
         index.LookupOverlays("oeeLine1").ShouldBeEmpty();
         index.LookupOverlays("cycleTime").ShouldBeEmpty();
-        index.LookupLabelText(overlay).ShouldBeNull();
+        index.LookupLabelTexts(overlay).ShouldBeNull();
         index.AllOverlays().ShouldNotContain(overlay);
     }
 
@@ -126,7 +126,7 @@ public class InMemoryReverseIndexTests
     {
         InMemoryReverseIndex index = new();
         Guid present = Guid.CreateVersion7();
-        index.UpsertOverlayReferences(present, Label("oeeLine1"));
+        index.UpsertOverlayReferences(present, [Label("oeeLine1")]);
 
         index.RemoveOverlay(Guid.CreateVersion7());
 
@@ -141,16 +141,39 @@ public class InMemoryReverseIndexTests
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(overlay, "first {{oeeLine1}}");
-        index.UpsertOverlayReferences(overlay, "second {{cycleTime}}");
+        index.UpsertOverlayReferences(overlay, ["first {{oeeLine1}}"]);
+        index.UpsertOverlayReferences(overlay, ["second {{cycleTime}}"]);
 
-        index.LookupLabelText(overlay).ShouldBe("second {{cycleTime}}");
+        index.LookupLabelTexts(overlay).ShouldHaveSingleItem().ShouldBe("second {{cycleTime}}");
     }
 
     [Fact]
     public void An_unknown_overlay_has_no_label_text()
     {
-        new InMemoryReverseIndex().LookupLabelText(Guid.CreateVersion7()).ShouldBeNull();
+        new InMemoryReverseIndex().LookupLabelTexts(Guid.CreateVersion7()).ShouldBeNull();
+    }
+
+    /// <summary>
+    /// Spec 150 (#2345): the key stays per-overlay; only the cached value
+    /// widens from one string to a list. Every label's text is cached, in
+    /// order, and a variable referenced by only the second label is still
+    /// found.
+    /// </summary>
+    [Fact]
+    public void Multiple_labels_are_cached_in_order_and_register_the_union_of_their_placeholders()
+    {
+        InMemoryReverseIndex index = new();
+        Guid overlay = Guid.CreateVersion7();
+
+        index.UpsertOverlayReferences(overlay, ["Line 1", "OEE: {{oeeLine1}}%", "{{cycleTime}}s"]);
+
+        IReadOnlyList<string>? texts = index.LookupLabelTexts(overlay);
+        texts!.Count.ShouldBe(3);
+        texts[0].ShouldBe("Line 1");
+        texts[1].ShouldBe("OEE: {{oeeLine1}}%");
+        texts[2].ShouldBe("{{cycleTime}}s");
+        index.LookupOverlays("oeeLine1").ShouldBe([overlay]);
+        index.LookupOverlays("cycleTime").ShouldBe([overlay]);
     }
 
     [Fact]
@@ -161,10 +184,10 @@ public class InMemoryReverseIndexTests
         InMemoryReverseIndex index = new();
         Guid overlay = Guid.CreateVersion7();
 
-        index.UpsertOverlayReferences(overlay, "no placeholders here");
+        index.UpsertOverlayReferences(overlay, ["no placeholders here"]);
 
         index.AllOverlays().ShouldBe([overlay]);
-        index.LookupLabelText(overlay).ShouldBe("no placeholders here");
+        index.LookupLabelTexts(overlay).ShouldHaveSingleItem().ShouldBe("no placeholders here");
     }
 
     // ---- concurrency ----
@@ -180,7 +203,7 @@ public class InMemoryReverseIndexTests
 
         await Task.WhenAll(overlays.Select(overlay => Task.Run(() =>
         {
-            index.UpsertOverlayReferences(overlay, Label("shared"));
+            index.UpsertOverlayReferences(overlay, [Label("shared")]);
             index.LookupOverlays("shared");
         })));
 
@@ -195,7 +218,7 @@ public class InMemoryReverseIndexTests
         Guid[] overlays = [.. Enumerable.Range(0, 40).Select(_ => Guid.CreateVersion7())];
         foreach (Guid overlay in overlays)
         {
-            index.UpsertOverlayReferences(overlay, Label("shared"));
+            index.UpsertOverlayReferences(overlay, [Label("shared")]);
         }
 
         await Task.WhenAll(overlays.Select(overlay => Task.Run(() =>

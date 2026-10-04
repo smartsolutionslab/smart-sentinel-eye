@@ -33,11 +33,11 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, replacement, 0),
+            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, [replacement], 0),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        overlay.Revisions.Single().Label.ShouldBe(replacement);
+        overlay.Revisions.Single().Labels.Single().ShouldBe(replacement);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                OverlayIdentifier.New(), OverlayRevisionNumber.One, OtherLabel(), 0),
+                OverlayIdentifier.New(), OverlayRevisionNumber.One, [OtherLabel()], 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -72,7 +72,7 @@ public class EditDraftRevisionCommandHandlerTests
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
-                overlay.Id, OverlayRevisionNumber.From(42), OtherLabel(), 0),
+                overlay.Id, OverlayRevisionNumber.From(42), [OtherLabel()], 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -95,7 +95,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, OtherLabel(), 0),
+            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, [OtherLabel()], 0),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

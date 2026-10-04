@@ -76,7 +76,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             new
             {
                 name = $"Psh-{Guid.NewGuid():N}".Substring(0, 16),
-                label = SampleLabelBody(),
+                labels = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -151,16 +151,17 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             $"publish→push took {sw.Elapsed.TotalMilliseconds:F0} ms");
 
         both[0].Overlay.ShouldBe(siblingIdentifier);
-        both[0].Text.ShouldBe("Production Line 1");
+        OverlayLabelHubEntry label = both[0].Labels.ShouldHaveSingleItem();
+        label.Text.ShouldBe("Production Line 1");
         // The frame is parsed off all four geometry fields above and, until
         // now, only Text and FontSizePx were read back. This is the only
         // end-to-end net over the EF column mapping, so a label_x/label_y
         // transposition in the persistence configuration lands here.
-        both[0].NormalizedX.ShouldBe(0.5m);
-        both[0].NormalizedY.ShouldBe(0.05m);
-        both[0].NormalizedWidth.ShouldBe(0.3m);
-        both[0].NormalizedHeight.ShouldBe(0.08m);
-        both[0].FontSizePx.ShouldBe(48);
+        label.NormalizedX.ShouldBe(0.5m);
+        label.NormalizedY.ShouldBe(0.05m);
+        label.NormalizedWidth.ShouldBe(0.3m);
+        label.NormalizedHeight.ShouldBe(0.08m);
+        label.FontSizePx.ShouldBe(48);
         both[1].Overlay.ShouldBe(siblingIdentifier);
     }
 
@@ -171,7 +172,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             new
             {
                 name = $"Psh-{Guid.NewGuid():N}".Substring(0, 16),
-                label = SampleLabelBody(),
+                labels = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
         return await created.Content.ReadFromJsonAsync<Guid>();
@@ -229,11 +230,15 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             Overlay: payload.GetProperty("overlay").GetGuid(),
             RevisionNumber: payload.GetProperty("revisionNumber").GetInt32(),
             Name: payload.GetProperty("name").GetString()!,
-            Text: payload.GetProperty("text").GetString()!,
-            NormalizedX: payload.GetProperty("normalizedX").GetDecimal(),
-            NormalizedY: payload.GetProperty("normalizedY").GetDecimal(),
-            NormalizedWidth: payload.GetProperty("normalizedWidth").GetDecimal(),
-            NormalizedHeight: payload.GetProperty("normalizedHeight").GetDecimal(),
-            FontSizePx: payload.GetProperty("fontSizePx").GetInt32(),
+            Labels: [.. payload.GetProperty("labels").EnumerateArray().Select(ParseLabel)],
             PublishedAt: payload.GetProperty("publishedAt").GetDateTimeOffset());
+
+    private static OverlayLabelHubEntry ParseLabel(JsonElement label) =>
+        new(
+            Text: label.GetProperty("text").GetString()!,
+            NormalizedX: label.GetProperty("normalizedX").GetDecimal(),
+            NormalizedY: label.GetProperty("normalizedY").GetDecimal(),
+            NormalizedWidth: label.GetProperty("normalizedWidth").GetDecimal(),
+            NormalizedHeight: label.GetProperty("normalizedHeight").GetDecimal(),
+            FontSizePx: label.GetProperty("fontSizePx").GetInt32());
 }

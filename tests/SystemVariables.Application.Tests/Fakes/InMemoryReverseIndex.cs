@@ -12,15 +12,15 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
 public sealed class InMemoryReverseIndex : IReverseIndex
 {
     private readonly ConcurrentDictionary<string, HashSet<Guid>> _byName = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<Guid, string> _labelByOverlay = new();
+    private readonly ConcurrentDictionary<Guid, IReadOnlyList<string>> _labelsByOverlay = new();
 
-    public void UpsertOverlayReferences(Guid overlayIdentifier, string labelText)
+    public void UpsertOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts)
     {
-        Ensure.That(labelText).IsNotNull();
-        // Drop the overlay's old entries, then re-insert from the new label.
+        Ensure.That(labelTexts).IsNotNull();
+        // Drop the overlay's old entries, then re-insert from the new labels.
         RemoveOverlayInternal(overlayIdentifier);
-        _labelByOverlay[overlayIdentifier] = labelText;
-        foreach (string name in PlaceholderParser.ExtractNames(labelText))
+        _labelsByOverlay[overlayIdentifier] = labelTexts;
+        foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
         {
             HashSet<Guid> set = _byName.GetOrAdd(name, _ => []);
             lock (set) { set.Add(overlayIdentifier); }
@@ -30,7 +30,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     public void RemoveOverlay(Guid overlayIdentifier)
     {
         RemoveOverlayInternal(overlayIdentifier);
-        _labelByOverlay.TryRemove(overlayIdentifier, out _);
+        _labelsByOverlay.TryRemove(overlayIdentifier, out _);
     }
 
     private void RemoveOverlayInternal(Guid overlayIdentifier)
@@ -51,8 +51,8 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         lock (set) { return set.ToArray(); }
     }
 
-    public string? LookupLabelText(Guid overlayIdentifier) =>
-        _labelByOverlay.TryGetValue(overlayIdentifier, out string? label) ? label : null;
+    public IReadOnlyList<string>? LookupLabelTexts(Guid overlayIdentifier) =>
+        _labelsByOverlay.TryGetValue(overlayIdentifier, out IReadOnlyList<string>? labels) ? labels : null;
 
-    public IReadOnlyCollection<Guid> AllOverlays() => _labelByOverlay.Keys.ToArray();
+    public IReadOnlyCollection<Guid> AllOverlays() => _labelsByOverlay.Keys.ToArray();
 }

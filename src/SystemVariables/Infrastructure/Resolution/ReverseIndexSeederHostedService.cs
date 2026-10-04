@@ -12,7 +12,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Resolution;
 /// calling <c>GET /overlays?state=Published</c> on the
 /// overlay-designer service (spec 005 plan.md). Best-effort — if
 /// overlay-designer is down the index starts empty and self-heals as
-/// new <c>OverlayRevisionPublishedV1</c> events arrive via Wolverine.
+/// new <c>OverlayRevisionPublishedV2</c> events arrive via Wolverine.
 ///
 /// <para>
 /// The HTTP call uses Aspire's <c>http://overlay-designer</c> service
@@ -85,14 +85,19 @@ public sealed class ReverseIndexSeederHostedService(
                     continue;
                 }
 
-                if (!overlay.TryGetProperty("text", out JsonElement textElement))
+                // Spec 150 (#2345): the scalar "text" property is gone — a
+                // revision now carries "labels", an array of objects each
+                // with its own "text". Reading the old property name would
+                // compile and throw nothing; it would just seed zero
+                // overlays on every cold start.
+                if (!overlay.TryGetProperty("labels", out JsonElement labelsElement)
+                    || labelsElement.ValueKind != JsonValueKind.Array)
                 {
                     continue;
                 }
 
                 Guid id = idElement.GetGuid();
-                string text = textElement.GetString() ?? string.Empty;
-                reverseIndex.UpsertOverlayReferences(id, text);
+                reverseIndex.UpsertOverlayReferences(id, ExtractLabelTexts(labelsElement));
                 seeded++;
             }
 
@@ -116,4 +121,22 @@ public sealed class ReverseIndexSeederHostedService(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    /// <summary>
+    /// Reads every element's <c>"text"</c> out of a revision's <c>"labels"</c>
+    /// array, in array order (spec 150's ordinal order). An element missing
+    /// <c>"text"</c> is skipped rather than failing the whole overlay.
+    /// </summary>
+    private static List<string> ExtractLabelTexts(JsonElement labelsElement)
+    {
+        List<string> labelTexts = [];
+        foreach (JsonElement label in labelsElement.EnumerateArray())
+        {
+            if (label.TryGetProperty("text", out JsonElement textElement))
+            {
+                labelTexts.Add(textElement.GetString() ?? string.Empty);
+            }
+        }
+        return labelTexts;
+    }
 }

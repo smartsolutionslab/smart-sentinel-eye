@@ -22,24 +22,31 @@ public sealed record OverlayDto(
     IReadOnlyList<OverlayRevisionDto> Revisions);
 
 /// <summary>
-/// Per-revision row inside <see cref="OverlayDto"/>. The label payload
-/// is flattened so kiosks rendering an overlay can pick up coordinates
-/// + font without a second request.
+/// Per-revision row inside <see cref="OverlayDto"/>. Spec 150 (#2345): the
+/// revision now carries an ordered, non-empty set of 1..8 labels instead of
+/// one flattened label, so kiosks rendering an overlay can pick up every
+/// label's coordinates + font without a second request.
 /// </summary>
 public sealed record OverlayRevisionDto(
     Guid RevisionIdentifier,
     int RevisionNumber,
     string State,
+    IReadOnlyList<OverlayLabelDto> Labels,
+    DateTimeOffset CreatedAt,
+    Guid CreatedBy,
+    DateTimeOffset? PublishedAt,
+    DateTimeOffset? ArchivedAt);
+
+/// <summary>
+/// A single label on a revision, in ordinal (paint) order (spec 150 FR-005).
+/// </summary>
+public sealed record OverlayLabelDto(
     string Text,
     decimal NormalizedX,
     decimal NormalizedY,
     decimal NormalizedWidth,
     decimal NormalizedHeight,
-    int FontSizePx,
-    DateTimeOffset CreatedAt,
-    Guid CreatedBy,
-    DateTimeOffset? PublishedAt,
-    DateTimeOffset? ArchivedAt);
+    int FontSizePx);
 
 /// <summary>
 /// Single-row projection for the management-web overlay picker on the
@@ -50,5 +57,5 @@ public sealed record PublishedOverlayDto(
     Guid OverlayIdentifier,
     string Name,
     int RevisionNumber,
-    string Text,
+    IReadOnlyList<OverlayLabelDto> Labels,
     DateTimeOffset PublishedAt);

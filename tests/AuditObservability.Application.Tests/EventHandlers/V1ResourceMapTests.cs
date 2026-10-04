@@ -398,23 +398,18 @@ public class V1ResourceMapTests
             overlay.ToString());
     }
 
-    // 14. OverlayDesigner.OverlayRevisionPublishedV1 -> overlay / Overlay
+    // 14. OverlayDesigner.OverlayRevisionPublishedV2 -> overlay / Overlay
     private static MappingCase OverlayRevisionPublishedCase()
     {
         Guid overlay = Guid.CreateVersion7();
         return new MappingCase(
-            typeof(OverlayRevisionPublishedV1),
+            typeof(OverlayRevisionPublishedV2),
             ResourceKind.Overlay,
-            () => new OverlayRevisionPublishedV1(
+            () => new OverlayRevisionPublishedV2(
                 overlay,
                 1,
                 "Name-sentinel",
-                "Text-sentinel",
-                1.1m,
-                2.2m,
-                3.3m,
-                4.4m,
-                16,
+                [new OverlayLabelV2("Text-sentinel", 1.1m, 2.2m, 3.3m, 4.4m, 16)],
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 Guid.CreateVersion7(),
                 TestMetadata),
@@ -439,16 +434,16 @@ public class V1ResourceMapTests
             camera.ToString());
     }
 
-    // 16. SystemVariables.ResolvedOverlayTextChangedV1 -> overlay / Overlay (hand-tweak)
+    // 16. SystemVariables.ResolvedOverlayTextChangedV2 -> overlay / Overlay (hand-tweak)
     private static MappingCase ResolvedOverlayTextChangedCase()
     {
         Guid overlay = Guid.CreateVersion7();
         return new MappingCase(
-            typeof(ResolvedOverlayTextChangedV1),
+            typeof(ResolvedOverlayTextChangedV2),
             ResourceKind.Overlay,
-            () => new ResolvedOverlayTextChangedV1(
+            () => new ResolvedOverlayTextChangedV2(
                 overlay,
-                "ResolvedText-sentinel",
+                ["ResolvedText-sentinel"],
                 7L,
                 TestMetadata),
             overlay.ToString());

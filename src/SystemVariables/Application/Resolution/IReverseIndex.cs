@@ -14,10 +14,13 @@ namespace SmartSentinelEye.SystemVariables.Application.Resolution;
 public interface IReverseIndex
 {
     /// <summary>
-    /// Re-parses the overlay's label, replaces any previous references
-    /// for that overlay, and caches the label text for resolution.
+    /// Re-parses every label in the overlay's set, replaces any previous
+    /// references for that overlay with the union of all labels'
+    /// placeholders, and caches the label texts for resolution (spec 150,
+    /// #2345). The key stays per-overlay — only the cached value widens
+    /// from one string to a list.
     /// </summary>
-    void UpsertOverlayReferences(Guid overlayIdentifier, string labelText);
+    void UpsertOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts);
 
     /// <summary>
     /// Removes every reference from the given overlay and drops its
@@ -32,11 +35,12 @@ public interface IReverseIndex
     IReadOnlyCollection<Guid> LookupOverlays(string variableName);
 
     /// <summary>
-    /// Returns the cached label text for an overlay, or <c>null</c> if
-    /// the overlay is unknown to the index (i.e., never published, or
-    /// archived). Used by the resolver to recompute resolved text.
+    /// Returns the cached label texts for an overlay, in ordinal order, or
+    /// <c>null</c> if the overlay is unknown to the index (i.e., never
+    /// published, or archived). Used by the resolver to recompute each
+    /// label's resolved text.
     /// </summary>
-    string? LookupLabelText(Guid overlayIdentifier);
+    IReadOnlyList<string>? LookupLabelTexts(Guid overlayIdentifier);
 
     /// <summary>
     /// Returns every overlay identifier currently held in the index.

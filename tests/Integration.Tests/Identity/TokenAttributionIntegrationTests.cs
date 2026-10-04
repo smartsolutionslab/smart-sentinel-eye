@@ -57,14 +57,17 @@ public class TokenAttributionIntegrationTests(AspireFixture aspire)
         HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"attribution-{Guid.NewGuid():N}"[..24],
-            label = new
+            labels = new[]
             {
-                text = "spec 042",
-                normalizedX = 0.1m,
-                normalizedY = 0.1m,
-                normalizedWidth = 0.2m,
-                normalizedHeight = 0.1m,
-                fontSizePx = 24,
+                new
+                {
+                    text = "spec 042",
+                    normalizedX = 0.1m,
+                    normalizedY = 0.1m,
+                    normalizedWidth = 0.2m,
+                    normalizedHeight = 0.1m,
+                    fontSizePx = 24,
+                },
             },
         });
 

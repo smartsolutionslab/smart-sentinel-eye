@@ -145,7 +145,7 @@ public class OverlayChainArchivalTests
             32);
 
         ShouldAgree(overlay);
-        overlay.EditDraft(OverlayRevisionNumber.One, edited, clock);
+        overlay.EditDraft(OverlayRevisionNumber.One, [edited], clock);
         ShouldAgree(overlay);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
         ShouldAgree(overlay);

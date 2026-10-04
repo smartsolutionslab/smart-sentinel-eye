@@ -328,7 +328,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
         Guid overlay = Guid.CreateVersion7();
         InMemoryReverseIndex index = new();
-        index.UpsertOverlayReferences(overlay, "OEE: {{oeeLine1}}%");
+        index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         FakeEventBus bus = new();
         VariableValueChangedDomainEventHandler resolution = new(
@@ -347,8 +347,8 @@ public class SystemVariableValueRequestedV1HandlerTests
                 "oeeLine1", "82.5", Moment, Guid.CreateVersion7(), MetadataFor("munich", Accepted)),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV1 push = bus.Published
-            .OfType<ResolvedOverlayTextChangedV1>()
+        ResolvedOverlayTextChangedV2 push = bus.Published
+            .OfType<ResolvedOverlayTextChangedV2>()
             .ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
         push.Metadata.RootIngestedAt.ShouldBe(

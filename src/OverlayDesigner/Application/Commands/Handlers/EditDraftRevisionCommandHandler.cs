@@ -15,7 +15,13 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, Label? label, int expectedVersion) = command;
+        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, IReadOnlyList<Label> labels, int expectedVersion) = command;
+
+        Option<LabelSetViolation> violation = Overlay.ValidateLabels(labels);
+        if (violation.HasValue)
+        {
+            return Failure(EditDraftRevisionFailures.FromViolation(violation.Value, labels.Count));
+        }
 
         Option<Overlay> found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
@@ -44,7 +50,7 @@ public sealed class EditDraftRevisionCommandHandler(
             return Failure(EditDraftRevisionFailures.NotADraft(revision.State.Value));
         }
 
-        overlay.EditDraft(revisionNumber, label, clock);
+        overlay.EditDraft(revisionNumber, labels, clock);
         await overlays.SaveAsync(cancellationToken);
 
         logger.EditedDraftRevision(revisionNumber, overlay.Id);

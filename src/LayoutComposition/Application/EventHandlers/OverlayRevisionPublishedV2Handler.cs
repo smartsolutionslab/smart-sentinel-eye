@@ -7,7 +7,7 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
 /// <summary>
-/// Wolverine subscriber on <see cref="OverlayRevisionPublishedV1"/> from
+/// Wolverine subscriber on <see cref="OverlayRevisionPublishedV2"/> from
 /// OverlayDesigner. Relays it onto the <c>/hubs/layouts</c> SignalR hub
 /// via the <see cref="ILayoutLifecycleBroadcaster"/> LayoutComposition
 /// owns, so an overlay publish reaches kiosks the same way every other
@@ -15,16 +15,16 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// event; the broadcast lives here with the hub, so there is no
 /// cross-context dependency (mirrors <see cref="OverlayHighlightRequestedV1Handler"/>).
 /// </summary>
-public sealed class OverlayRevisionPublishedV1Handler(
+public sealed class OverlayRevisionPublishedV2Handler(
     ILayoutLifecycleBroadcaster broadcaster,
     FabsReferencingOverlayQueryHandler referencingFabs,
-    ILogger<OverlayRevisionPublishedV1Handler> logger)
+    ILogger<OverlayRevisionPublishedV2Handler> logger)
 {
-    public async Task Handle(OverlayRevisionPublishedV1 message, CancellationToken cancellationToken)
+    public async Task Handle(OverlayRevisionPublishedV2 message, CancellationToken cancellationToken)
     {
         Ensure.That(message).IsNotNull();
 
-        var (overlay, revisionNumber, name, text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx, publishedAt, _, _) = message;
+        var (overlay, revisionNumber, name, labels, publishedAt, _, _) = message;
 
         // Resolved here rather than in the broadcaster: the broadcaster maps a
         // notification to a hub message and sends it, and a database query
@@ -39,12 +39,8 @@ public sealed class OverlayRevisionPublishedV1Handler(
                 Overlay: overlay,
                 RevisionNumber: revisionNumber,
                 Name: name,
-                Text: text,
-                NormalizedX: normalizedX,
-                NormalizedY: normalizedY,
-                NormalizedWidth: normalizedWidth,
-                NormalizedHeight: normalizedHeight,
-                FontSizePx: fontSizePx,
+                Labels: [.. labels.Select(label => new OverlayLifecycleLabel(
+                    label.Text, label.NormalizedX, label.NormalizedY, label.NormalizedWidth, label.NormalizedHeight, label.FontSizePx))],
                 PublishedAt: publishedAt),
             cancellationToken);
 

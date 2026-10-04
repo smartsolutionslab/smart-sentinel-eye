@@ -27,13 +27,13 @@ public sealed class OverlayDesignerClient(
     KeycloakTokenProvider tokens,
     ILogger<OverlayDesignerClient> logger)
 {
-    public async Task<Guid> EnsureOverlayAsync(string name, OverlayLabel label, CancellationToken cancellationToken)
+    public async Task<Guid> EnsureOverlayAsync(string name, IReadOnlyList<OverlayLabel> labels, CancellationToken cancellationToken)
     {
         string token = await tokens.GetAccessTokenAsync(cancellationToken);
 
         using HttpRequestMessage create = new(HttpMethod.Post, "/overlays")
         {
-            Content = JsonContent.Create(new CreateOverlayBody(name, label)),
+            Content = JsonContent.Create(new CreateOverlayBody(name, labels)),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
@@ -110,7 +110,7 @@ public sealed class OverlayDesignerClient(
 
     private const string DraftState = "Draft";
 
-    private sealed record CreateOverlayBody(string Name, OverlayLabel Label);
+    private sealed record CreateOverlayBody(string Name, IReadOnlyList<OverlayLabel> Labels);
 
     private sealed record OverlayListResponse(IReadOnlyList<OverlayListItem> Chains);
 
