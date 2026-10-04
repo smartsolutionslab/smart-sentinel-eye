@@ -390,7 +390,7 @@ function Tile({
   // would 404. Skip it for static sets (avoids the console noise + a
   // pointless round-trip); the resolved-text SignalR push still upserts the
   // cache for overlays that do use variables.
-  const hasPlaceholder = labels?.some((label) => label.text.includes('{{')) ?? false;
+  const hasPlaceholder = labels?.some((label) => label.text?.includes('{{')) ?? false;
   // Spec 141 site 3 (FR-005, plan R5) / spec 150: whether the tile actually
   // *knows* every label's text — while the overlay query is still loading, or
   // when a label's `text` is absent (the out-of-scope omitted/renamed case),
