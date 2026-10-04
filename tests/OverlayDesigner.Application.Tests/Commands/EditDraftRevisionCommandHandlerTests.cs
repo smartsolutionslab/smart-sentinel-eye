@@ -101,4 +101,53 @@ public class EditDraftRevisionCommandHandlerTests
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<EditDraftRevisionError.NotADraft>();
     }
+
+    [Fact]
+    public async Task An_empty_label_set_returns_a_400_and_leaves_the_revision_unchanged()
+    {
+        InMemoryOverlayRepository overlays = new();
+        FakeClock clock = new(FixedMoment);
+        Label initial = Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-1")
+            .WithLabel(initial)
+            .Build();
+        overlays.Add(overlay);
+
+        EditDraftRevisionCommandHandler handler = new(
+            overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, [], 0),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.EmptyLabelSet>();
+        overlay.Revisions.Single().Labels.Single().ShouldBe(initial);
+    }
+
+    [Fact]
+    public async Task More_labels_than_the_ceiling_returns_a_400_and_leaves_the_revision_unchanged()
+    {
+        InMemoryOverlayRepository overlays = new();
+        FakeClock clock = new(FixedMoment);
+        Label initial = Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32);
+        Overlay overlay = new OverlayBuilder()
+            .At(clock.UtcNow)
+            .Named("Line-1")
+            .WithLabel(initial)
+            .Build();
+        overlays.Add(overlay);
+        List<Label> tooMany = Enumerable.Range(0, Label.MaxLabels + 1).Select(_ => OtherLabel()).ToList();
+
+        EditDraftRevisionCommandHandler handler = new(
+            overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
+        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+            new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, tooMany, 0),
+            CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue();
+        result.Error.ShouldBeOfType<EditDraftRevisionError.TooManyLabels>();
+        overlay.Revisions.Single().Labels.Single().ShouldBe(initial);
+    }
 }
