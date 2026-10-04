@@ -21,9 +21,17 @@ public sealed class Revision
     /// <summary>
     /// The ordered, non-empty set of labels this revision carries (spec 150).
     /// Replaced atomically via <see cref="ReplaceLabels"/> — there is no
-    /// per-label mutator (FR-006).
+    /// per-label mutator (FR-006). Sorted by <see cref="Label.Ordinal"/> on
+    /// every access rather than trusted to arrive that way: EF's
+    /// owned-collection mapping for <c>overlay_revision_labels</c> has no
+    /// explicit <c>.OrderBy(...)</c> configured, so the ordering every
+    /// consumer needs — DTO mapping, <see cref="Overlay.Publish"/>'s event,
+    /// <see cref="Overlay.BranchDraft"/>'s ordinal reassignment — would
+    /// otherwise depend on EF's current single-query materialization
+    /// strategy implicitly ordering by key rather than on a contract this
+    /// type owns and enforces itself.
     /// </summary>
-    public IReadOnlyList<Label> Labels => labels;
+    public IReadOnlyList<Label> Labels => [.. labels.OrderBy(label => label.Ordinal.Value)];
 
     public Creation Creation { get; private set; } = null!;
 
