@@ -1,6 +1,8 @@
 # ADR-0148: Two-layer tokens in OKLCH
 
-**Status:** **Accepted**
+**Status:** **Accepted** (amended 2026-10-04 — decision 2: derived colours mix
+`in oklab`, not `in oklch`; its premise was wrong for this scale — see
+[the amendment](#amendment-2026-10-04-derived-colours-mix-in-oklab))
 **Date:** 2026-09-13
 **Amends:** ADR-0078's token mechanism — the file's structure and colour space
 
@@ -74,6 +76,11 @@ Three things follow from that shape, and they are the reasons for it:
    hover, pressed and disabled from the base role. OKLCH is perceptually uniform,
    so the same mix percentage produces the same perceived shift on any hue —
    which is exactly what makes deriving them legitimate rather than a shortcut.
+
+   > **Amended 2026-10-04 (issue #2695, spec 299).** The premise above holds
+   > only when the other operand has no hue, and no operand in this scale
+   > qualifies. Derived colours now mix `in oklab`; the example block above
+   > (`in oklch`) is superseded by it. The original text is kept as written.
 3. **Ramps are even by construction.** Stepping lightness in OKLCH steps it
    perceptually. The same stepping in hex or HSL does not, which is why
    hand-built ramps always need eyeballing.
@@ -109,6 +116,10 @@ remain, with their current values, as semantic-layer tokens. They are domain
 vocabulary (ADR-0146) and renaming them would churn every status surface in both
 apps for no gain.
 
+> **2026-10-04:** ADR-0146's amendment of the same date adds a per-theme text
+> role beside each (`--color-accent-<role>-text`); the three signal roles
+> themselves are unchanged and still pinned in `:root`.
+
 ## Consequences
 
 **ADR-0078's mechanism is unchanged.** Custom properties, consumed by
@@ -134,3 +145,89 @@ consumed from outside this repository.
 **A migration, not a rewrite.** The seven existing properties keep their names
 where they still make sense; the work is adding the ninety that were never there.
 Issue #2332 carries it.
+
+## Amendment (2026-10-04): derived colours mix in OKLab
+
+Issue #2695; implemented by spec 299. Decisions 1 and 3, the naming, the single
+file, the high-contrast theme and every rejection above stand. Primitives stay
+written as OKLCH literals — stepping lightness along a ramp (decision 3) is not
+mixing, and is unaffected.
+
+### What was wrong with decision 2
+
+"OKLCH is perceptually uniform, so the same mix percentage produces the same
+perceived shift on any hue" is true only when the other operand has **no hue**.
+`color-mix(in oklch, …)` interpolates the hue angle linearly by the mix
+percentage. CSS Color 4 treats a hue as missing — and so borrows the other
+operand's — only when it is powerless *after conversion*; an `oklch()` literal
+that writes a hue keeps it. In this scale nothing is hue-less:
+
+- every ground carries a real hue (`--gray-950` is `oklch(15.82% 0.0072 258.4)`);
+- `--black` and `--white` are `oklch(0% 0 0)` and `oklch(100% 0 0)`: hue `0`,
+  written, so not missing.
+
+So a mix toward white pulls cyan's 210° toward 360°, a mix toward black does the
+same, and a mix into a ground takes most of its hue from the ground whatever the
+ground's chroma. Observed in Chromium 1243 (2026-09-30): `color-mix(in oklch,
+var(--red-500) 10%, var(--gray-950))` renders `rgb(20,24,37)`, slate; the green
+equivalent toward `var(--black)` at 30% renders `rgb(48,14,0)`, brown-red. The
+tokens this decision derived drifted the same way (computed with the CSS Color 4
+interpolation rules from `tokens.css` as of `e892965b`):
+
+| Role | Theme | Base hue | Rendered hue, `in oklch` | Rendered hue, `in oklab` |
+|---|---|---|---|---|
+| `--color-accent-hover` | dark / light / high-contrast | 210° | 228° / 228° / 228° | 210° / 210° / 210° |
+| `--color-accent-pressed` | dark / light / high-contrast | 210° | 234° / 246° / 234° | 210° / 210° / 210° |
+| `--color-accent-disabled` | dark / light / high-contrast | 210° | 239° / 240° / **300°** | 214.8° / 213.7° / 210° |
+| `--color-accent-subtle` | dark / light / high-contrast | 210° | 250.7° / 254° / **336°** | 223.8° / 224.8° / 210° |
+| `--color-accent-fault-hover` / `-pressed` | all | 24.66° | 21.7° / 22.7° | 24.66° / 24.66° |
+
+High-contrast is the worst case and was not in the issue: its ground is
+`--black`, so its disabled and subtle accents rendered purple and magenta.
+
+The guards could not see any of this. `InteractionStateTests.ResolveOklch` and its
+copy in `StatusTintTests` took the mixed hue from the higher-chroma operand — the
+behaviour this decision *assumed* — so they computed the intended colour, not the
+rendered one.
+
+### Decision
+
+**Every `color-mix()` in the token file mixes `in oklab`.** Lightness interpolates
+exactly as it did; what changes is that hue and chroma interpolate on OKLab's
+Cartesian `a`/`b` plane rather than around the hue circle. The corrected premise:
+
+1. **A mix toward an achromatic operand preserves hue exactly.** `--black`,
+   `--white` and `transparent` sit at `a = b = 0` whatever hue they were written
+   with, so they shift lightness (or alpha) and nothing else. Hover, pressed and
+   every mix toward black or white keep their base role's hue — this is the
+   property decision 2 wanted, and OKLab is where it is actually true.
+2. **A mix into a hued ground moves the hue in proportion to the ground's real
+   chromatic contribution** — its chroma times its weight — not by the mix
+   percentage. For the near-neutral grounds of this scale (chroma ≤ 0.012) that is
+   the residual 4–15° in the table above, at chroma ≤ 0.04: ΔE_OK ≤ 0.005,
+   below a visible difference. It is not an artefact; it is what those two colours
+   mixed look like.
+3. **Where a role must hold a hue exactly against a hued ground, it is a primitive
+   stop, not a mix.** The status tints (`--color-accent-<role>-subtle`, spec 297)
+   are the existing case, and stay stops: an OKLab mix of the fault red into
+   `--gray-950` at 10% still lands at 7.7°, 17° short of the triad.
+
+**One space for every mix, including toward `transparent`.** A mix toward
+`transparent` renders identically in either space — the operand is premultiplied
+to nothing — so keeping `in oklch` there would buy nothing and cost a second rule
+the guards would have to know. `DesignTokenLayerTests` accepts `color-mix(in
+oklab, …)` only.
+
+### Consequences
+
+- **Rendered colours change, slightly and in one direction:** every derived accent
+  moves back to its own hue. Contrast is unaffected where it is guarded — the
+  existing guard model already equalled OKLab for mixes toward black and white, so
+  the fault-label ratios (6.10 / 7.04 / 4.93 : 1) are unchanged. The one thin
+  margin is light-theme `--color-accent` on `--color-accent-subtle`: 4.549:1 under
+  exact OKLab, against 4.565:1 under the old approximation.
+- **The guards evaluate what the browser renders.** Spec 299 replaces the
+  higher-chroma-hue approximation with exact OKLab interpolation, and adds a fact
+  that a mix toward an achromatic operand keeps its base hue.
+- **Tailwind already agrees.** Its own alpha modifiers (`text-x/50`) compile to
+  `color-mix(in oklab, …)`.
