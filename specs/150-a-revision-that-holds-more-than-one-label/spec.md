@@ -1,8 +1,16 @@
 # Spec 150 — A revision that holds more than one label
 
-**Issue:** #2345 · **Branch:** `feat/2345-a-revision-that-holds-more-than-one-label`
-**ADRs:** ADR-0112 (the governing precedent), ADR-0104, ADR-0073, ADR-0040,
-ADR-0123, ADR-0113, ADR-0067, ADR-0142, ADR-0129. Constitution §II, §III, §IV, §VII.
+**Issue:** #2345 · **Branch:** `feat/2345-a-revision-that-holds-more-than-one-label-v2`
+**ADRs:** **ADR-0164** (the ceiling — `MaxLabels = 8`), ADR-0112 (the governing
+precedent), ADR-0156 (the 9-tile wall cap the ceiling's arithmetic uses), ADR-0104,
+ADR-0073, ADR-0040, ADR-0123, ADR-0113, ADR-0067, ADR-0142, ADR-0129. Constitution §II,
+§III, §IV, §VII.
+
+**Re-verified 2026-10-04 against `develop` (`d84554c7`)**, 1096 commits after this spec
+was first written. What moved and what was corrected is recorded in `plan.md`
+§"Re-verification, 2026-10-04". The shape, the migration and the scope did not move.
+The wall cap (4 → 9), the files the wall's render lives in, two closed issues this spec
+discussed as open, and three consumers the original plan missed did move.
 
 **Phase 4a colour:** **two colours.** CHARACTERISATION (green, captured before any
 change) on the wall's single-label render and on the editor it must not touch; RED on
@@ -96,7 +104,14 @@ did.* The migration and the characterisation guards are this story's implementat
   correctly on the wall"* — it does not mention the editor, and #2343 is the tracker
   that holds editor work. `OverlayEditor.tsx` is **not touched by this spec**; the
   create dialog sends a one-element list. See §"Follow-on work".
-- **Z-order (#2348)** and **non-text primitives (#2349)** — filed separately.
+- **Z-order (#2348)** and **non-text primitives (#2349)** — filed separately. Since
+  2026-09-26, #2349's scope also includes a circle/ellipse primitive and an author-chosen
+  colour as a field on a shared primitive base. **This spec stays text-only and does not
+  pre-generalise for that** (constitution §IX, ADR-0036). Turning `Label` into a
+  discriminated primitive, and deciding whether non-text primitives count toward
+  ADR-0164's cap, belongs to #2349's spec and its own contract cut. Nothing here forecloses
+  it: the ordered, owned collection and the per-revision set invariants are the parts
+  #2349 would reuse.
 
 ---
 
@@ -142,6 +157,17 @@ Scenario: A single-label overlay published before this feature is unchanged
   When the kiosk renders its tile
   Then exactly one overlay-label node is painted
   And its computed style and geometry are identical to before the migration
+```
+
+```gherkin
+Scenario: Editing a three-label draft in the console keeps the labels it does not show
+  Given a draft revision carrying three labels, created through the API
+  When an operator opens it in the management console's overlay dialog
+  And changes the text of the label the dialog shows
+  And saves
+  Then the PATCH body carries three labels
+  And the first carries the new text
+  And the second and third are unchanged
 ```
 
 ### Conflict
@@ -219,7 +245,7 @@ Scenario: A retried create with the same key returns the first answer
 
 - **FR-001** A revision carries an ordered set of 1..`MaxLabels` labels. `MaxLabels`
   is a domain constant, not configuration.
-- **FR-002** `MaxLabels = 8`. Justified in §"The ceiling" below.
+- **FR-002** `MaxLabels = 8`, decided by ADR-0164. Arithmetic in §"The ceiling" below.
 - **FR-003** A revision with zero labels is refused, at the aggregate and at the
   command boundary — `Result<T, Error>` 400 for the operator, an
   `InvalidOperationException` backstop inside the aggregate. This is
@@ -262,19 +288,26 @@ Scenario: A retried create with the same key returns the first answer
 - **FR-015** The migration backfills each existing revision into exactly one label at
   `ordinal = 0` and drops the six `label_*` columns in the same migration.
 - **FR-016** `OverlayEditor.tsx` is not modified by this spec.
+- **FR-018** *(added 2026-10-04)* Editing a draft from the management console
+  **preserves every label it does not show.** The console's dialog edits one label (index 0),
+  but it holds and submits the **whole** label set. Since FR-006 makes an edit a
+  wholesale replacement, a dialog that submitted only `labels[0]` would delete labels
+  2..N from any multi-label overlay authored through the API. Guarded by a red test.
 - **FR-017** The PR quotes a measured `overlay_draw` figure taken at full cardinality.
   See §"Latency budget impact".
 
 ### The ceiling
 
-`MaxLabels = 8`, set the way ADR-0112 §4 set `MaxTiles = 4`: a domain invariant with a
-stated reason, not a config knob, and raised only by a future measured ADR.
+`MaxLabels = 8` is decided by **ADR-0164**, which sets it the way ADR-0112 §4 set
+`MaxTiles`: a domain invariant with a stated reason, not a config knob, and raised only
+by a future measured ADR. This section restates the arithmetic and does not compete with
+the ADR.
 
 An overlay annotates one camera cell with a handful of facts — a station name, a
-reading, a state. Eight is generous for that and still bounds the wall: a wall is
-capped at `MaxTiles = 4` (ADR-0112 §4, a domain invariant), so the absolute ceiling
-this feature puts on a wall is **4 × 8 = 32 label nodes**, against the 4 it can carry
-today. Nothing about the 250-camera fab target bears on this number, for the reason
+reading, a state. Eight is generous for that and still bounds the wall. A wall is
+capped at `MaxTiles = 9` (3×3; ADR-0156, which amended ADR-0112's 4), so the absolute
+ceiling this feature puts on a wall is **9 × 8 = 72 label nodes**, against the 9 it can
+carry today. Nothing about the 250-camera fab target bears on this number, for the reason
 ADR-0112 already gave: a wall is a handful of correlated cameras, not the fab.
 
 ---
@@ -317,7 +350,7 @@ Nothing new is chosen. Everything below is an existing decision this spec applie
 Today: **one** absolutely-positioned `<span>` per tile, styled by
 `overlayLabelSurfaceStyle`. After: **up to `MaxLabels` such spans**, from the same
 style function, with no new compositing layer, no filter, no animation and no change
-to the containing block (FR-012). The per-wall ceiling moves from 4 nodes to 32.
+to the containing block (FR-012). The per-wall ceiling moves from 9 nodes to 72.
 
 **This leg is the only one in §IV marked `Implemented: yes | Measured: yes`,** and the
 figure behind that `yes` is ADR-0123's real-wall reading: **p50 54.2 ms, p95 79.2 ms,
@@ -325,9 +358,17 @@ max 164.6 ms** (#1891). That p50 is already **above** the 50 ms budget, which is
 this spec does not get to call a small increment free. ADR-0123 also explains why the
 figure is what it is: the leg is defined as *the operator's wait, frame-wait included*,
 so it is dominated by frame cadence — ADR-0123 derives ≥30 Hz for the median to hold —
-rather than by node count. Twenty-eight additional small spans, sharing one style
-function and one containing block, are a style-recalc and paint cost of a different
-order from a 33 ms frame wait.
+rather than by node count. Sixty-three additional small spans, sharing one style
+function and one containing block per tile, are a style-recalc and paint cost of a
+different order from a 33 ms frame wait.
+
+**The newest figure agrees, and it is the right baseline for FR-017.** Spec 225
+(`specs/225-the-render-leg-ci-never-reads/figures.md`, 2026-09-30) read every `develop`
+CI run on the nine-tile fixture: **mean p50 56.63 ms, σ 8.55 ms, over 21 runs**. That is
+CI's software rasteriser, not kiosk hardware, and §IV's table did not move because of it.
+But it was measured on the same fixture, at the same tile count, by the same e2e that
+FR-017 uses, so it is the comparison basis. The 9-tile cap itself is still unverified on
+real kiosk hardware (#2614, ADR-0156 §1).
 
 That is the *expectation*. §IV requires a demonstration, so:
 
@@ -335,8 +376,10 @@ That is the *expectation*. §IV requires a demonstration, so:
 cardinality.** The instrument already exists — `reportKioskLatency('overlay_draw', …)`
 in `apps/shared/src/observability/kioskLatency.ts`, the same one that produced
 ADR-0123's numbers — and `kiosk-shows-a-label-over-video.spec.ts` already reads it
-against `budget 50 ms (section IV composite + render)`. Run it against a wall whose
-tiles carry `MaxLabels` labels, and quote the p50 and p95 beside ADR-0123's figures.
+against `budget 50 ms (section IV composite + render)`. Since spec 225 it also writes a
+render-leg record (`e2e/support/render-leg.ts`) that CI's summary step prints. Run it
+against a wall whose tiles carry `MaxLabels` labels, and quote the p50 and p95 beside
+spec 225's 21-run baseline and ADR-0123's figures.
 **Run it twice** and quote both: the first run after machine churn reads exactly like a
 regression (spec 148 set this precedent for its own NFR figure).
 
@@ -346,7 +389,10 @@ regression (spec 148 set this precedent for its own NFR figure).
 open question.**
 
 #2337 proposes a **CI regression gate**: a committed baseline with run-id and SHA that
-fails the build when a change spends the leg. It does not exist. But §IV's actual
+fails the build when a change spends the leg. As of 2026-10-04 it is **partly built and
+report-only**. CI prints the render-leg record, but spec 225's baseline failed its own
+noise test (3σ = 25.65 ms against a 25 ms limit), so no threshold was committed, and #2337
+stays open until an ADR says what CI may enforce. But §IV's actual
 obligation on a PR is not "a CI gate exists" — it is *"cite which leg it affects and
 demonstrate the budget still holds"*, a per-PR measurement. The instrument for that
 demonstration **does** exist and has been used before (ADR-0123). FR-017 discharges
@@ -375,22 +421,21 @@ required for the same loop.
 
 ## How #2353 and #2361 interact with this
 
-Both are open, both are made more visible by a collection, and neither is fixed here.
+**Both are closed since this spec was first written (re-verified 2026-10-04).** The
+original text described both as open hazards that a collection would make worse. What
+remains of each is below.
 
-**#2353 — box tile-relative, type viewport-relative.** A label's box is a percentage of
-its tile; its font size is `clamp(min(12, fontSizePx/4)px, (fontSizePx/16)vw,
-fontSizePx px)`, where `vw` is the **viewport**. With one label per tile the mismatch
-is cosmetic on dense grids: the box shrinks as the grid densifies while the type does
-not, so the text overflows its own box. **With N labels it stops being cosmetic**,
-because N boxes shrink together inside one tile while N pieces of fixed-size type do
-not — so the labels begin to overflow *into each other*, which a single label could
-never do. This spec does not change either relativity, and must not: #2353's fix
-(`cqw` + `container-type: inline-size`) repaints every published overlay and adds
-layout containment to the render leg, and #2353 is itself blocked on #2337.
+**#2353 — box tile-relative, type viewport-relative. Closed 2026-09-30 by spec 294**
+(`9163bf00`). `CameraViewer`'s aspect-ratio box now carries `@container`, and
+`overlayLabelSurfaceStyle` sizes type in `cqw` (`max(…px, calc(<fontSizePx>cqw / 19.2))`).
+So a label's type now scales with its tile, the same as its box. The original concern
+was that N labels would overflow *into each other* as the grid densified, because their
+boxes shrank and their type did not. That mechanism is gone. What remains is
+ordinary authoring: eight labels placed on top of each other still overlap, which is
+FR-004's and #2348's territory, not a sizing defect. This spec still must not touch
+`overlayLabelSurfaceStyle` (FR-012, `OverlayLabelParity`).
 
-The practical consequence is a note for the operator-facing follow-on, not a code
-change here: on a dense grid, eight labels in one tile will collide. Which leads
-directly to:
+Which leads directly to:
 
 **#2348 — z-order.** FR-005's ordinal partly defuses it. The issue's sharpest form is
 that overlapping labels "would fall to accidental DOM/serialization order"; with a
@@ -400,11 +445,11 @@ What #2348 still owns is the *operator control* — bring-forward/send-back — 
 question of whether overlap should be prevented at all. This spec deliberately answers
 the second half of that with FR-004: overlap is allowed.
 
-**#2361 — `clamp01` allows a zero-sized label the domain rejects.** Pre-existing, and
-this spec does not touch `clamp01` or `OverlayEditor.tsx` (FR-016), so it adds no new
-way to reach it. It does multiply the exposure once an operator can author N labels —
-N chances per session instead of one — so **#2361 should be fixed before the
-multi-label editor follow-on**, not before this spec.
+**#2361 — `clamp01` allows a zero-sized label the domain rejects. Closed 2026-09-24**
+(`0ca0e926`, the size floor split from the position clamp). The earlier precondition
+"fix #2361 before the multi-label editor follow-on" is therefore discharged. The lesson
+it taught still applies here: the Zod `.max(8)` and the domain's `MaxLabels` must be
+pinned equal by a test (T017), not hand-copied.
 
 ---
 
@@ -428,8 +473,9 @@ Runnable by a person against the run-mode Aspire stack, without reading any test
 6. Change that variable's value. **Expect the middle label to update** and the other two
    to stay put. Confirm in the Aspire dashboard that **one**
    `ResolvedOverlayTextChangedV2` was emitted for the overlay, not three.
-7. Read the run's `overlay_draw` p50 and p95 and record them beside ADR-0123's
-   54.2 / 79.2 ms. Repeat the whole run once and record both sets (FR-017).
+7. Read the run's `overlay_draw` p50 and p95 and record them beside spec 225's 21-run
+   nine-tile baseline (mean p50 56.63 ms) and ADR-0123's 54.2 / 79.2 ms. Repeat the whole
+   run once and record both sets (FR-017).
 8. **The regression check:** open a wall tile bound to an overlay published *before*
    this feature. Expect exactly one label, looking as it always did.
 9. **The empty check:** open a wall tile with no bound overlay. Expect **no** label node
@@ -443,9 +489,10 @@ Neither is in scope; both should be filed before this merges so the programme's
 dependency graph stays honest.
 
 1. **The overlay editor authors many labels.** `OverlayEditor.tsx` + the create dialog
-   gain add / remove / select-a-label. **Depends on PR #2362 merging** (it rewrites
-   `OverlayEditor.tsx`, +275/−9) and pairs naturally with #2348's z-order control and
-   #2361's `clamp01` fix. Until it lands, a multi-label overlay is authored through the
-   API — which is exactly the boundary the issue's own scope line draws.
-2. **Raise `MaxLabels`, or don't.** A future measured ADR, gated on #2337's gate
-   existing, in the shape ADR-0112 §4 used for `MaxTiles`.
+   gain add / remove / select-a-label. Its former precondition, PR #2362, merged
+   2026-09-14, and #2361 is closed. It pairs naturally with #2348's z-order control and
+   must surface ADR-0164's ninth-label refusal. Until it lands, a multi-label overlay is
+   authored through the API — which is exactly the boundary the issue's own scope line
+   draws. FR-018 keeps the console from damaging such an overlay in the meantime.
+2. **Raise `MaxLabels`, or don't.** A future measured ADR, gated on a measured
+   overlay-draw figure on real kiosk hardware (ADR-0164).

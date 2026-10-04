@@ -9,7 +9,18 @@ say so to the orchestrator rather than discovering it.
 output quoted in the PR. `—` = implementation, no colour of its own.
 
 **Engineers:** `backend-engineer` (T004–T016, T022), `frontend-engineer` (T001,
-T017–T021, T023). T002/T003/T024/T025 are measurement, run by whoever holds the stack.
+T017–T021, T023, T026). T002/T003/T024/T025 are measurement, run by whoever holds the stack.
+This is **not** a backend-only change. The wall's render and two console files are in
+scope (plan §"Re-verification", last paragraph).
+
+**Phase 4a colour: two colours, per artefact.** Characterisation (green before, unmodified
+after) on the wall's single-label render, the shared editor's guards and the existing
+e2e. **Red** on everything that carries a second label, including the two silent-break
+guards this re-verification added (T014's seeder test, T021's FR-018 test).
+
+**Re-verified 2026-10-04** against `develop` `d84554c7`. Tasks changed: T002, T003, T014,
+T016, T018, T020, T021, T023, T024. Task added: T026. The reasons are in plan.md
+§"Re-verification, 2026-10-04" (D1–D13), cited per task below.
 
 ---
 
@@ -18,8 +29,8 @@ T017–T021, T023). T002/T003/T024/T025 are measurement, run by whoever holds th
 | ID | P | Story | Colour | Task |
 |---|---|---|---|---|
 | **T001** | [P] | US3 | **C** | New `OverlayLabelNodeCountCharacterisation.test.tsx` in `apps/shared/src/ui/composites/`. Assert **exactly one** `camera-viewer-overlay-label` node for a tile with an overlay, **zero** for a tile without, and that the node is a **direct child** of the `relative aspect-video` container. Observe green. This is the gap the existing four guards leave (`plan.md` §Phase 4a) and it is FR-013's only guard. |
-| **T002** | [P] | US3 | **C** | Run and record green: `OverlayLabelCharacterisation`, `OverlayLabelParity`, `OverlayEditorCharacterisation`, `OverlayEditorBackdrop`, and the backend `OverlayRevisionStateMachineTests` / `OverlayChainArchivalTests` / `TimestampOrderingTests`. Quote the pass counts in the PR — this is the "before" half of the characterisation obligation. |
-| **T003** | [P] | US1 | — | Record the **pre-change** `overlay_draw` p50/p95 from `e2e/kiosk-shows-a-label-over-video.spec.ts` on a single-label wall. Run twice (memory: the first run after machine churn reads like a regression). This is the comparison basis for T024. |
+| **T002** | [P] | US3 | **C** | Run and record green: `OverlayLabelCharacterisation` (6), `OverlayLabelParity` (6), `OverlayEditorCharacterisation` (10), `OverlayEditorBackdrop` (6), `OverlayEditorKeyboard`, `OverlayEditorUndo`, and the backend `OverlayRevisionStateMachineTests` / `OverlayChainArchivalTests` / `TimestampOrderingTests`. Quote the pass counts in the PR — this is the "before" half of the characterisation obligation. *(D9: counts re-read; the two editor guards are new since the original plan.)* |
+| **T003** | [P] | US1 | — | Record the **pre-change** `overlay_draw` p50/p95 on the **nine-tile** single-label fixture of `e2e/kiosk-shows-a-label-over-video.spec.ts`. Primary basis: `specs/225-the-render-leg-ci-never-reads/figures.md`'s 21-run `develop` baseline (mean p50 56.63 ms, σ 8.55). Also record the render-leg record from this branch's own first CI run **before** any Phase 1 commit, if one exists. A local run, if taken, runs twice (the first run after machine churn reads like a regression). This is the comparison basis for T024. *(D10.)* |
 
 T001–T003 are disjoint and parallel. **All three block Phase 1.**
 
@@ -61,9 +72,9 @@ All three own disjoint files and run concurrently.
 
 | ID | P | Story | Colour | Task |
 |---|---|---|---|---|
-| **T014** | [P] | US2 | **R** | SystemVariables: `labelByOverlay` → `Dictionary<Guid, IReadOnlyList<string>>`; `UpsertOverlayReferences(Guid, IReadOnlyList<string>)`; `LookupLabelText` → `LookupLabelTexts`. **`byName`, `versionByOverlay`, `RemoveOverlay`, `LookupOverlays`, `NextVersionFor`, `CurrentVersionFor` are unchanged** — FR-011, and the reviewer should check a finer key did not creep in. `ResolvedOverlaySnapshotDto.ResolvedText` → `ResolvedTexts`; `GetOverlaySnapshotQueryHandler` resolves each and bumps the version **once**. `ResolveOverlayTextQueryHandler` untouched. |
-| **T015** | [P] | US2 | **R** | LayoutComposition: `OverlayRevisionPublishedHubMessage` and `ResolvedOverlayTextChangedHubMessage` carry the collections; handlers relay them. Per-fab fan-out loop unchanged. Watch the destructuring — `HandlerDeconstructionTests` fails the build on a local named after another field of the same record. |
-| **T016** | [P] | US1 | — | Update the remaining V1 consumers the clean cut leaves stranded: `IntegrationEventAuditHandler` (AuditObservability), `EventMetadataFabDeclarationTests`, `Shared.Contracts.Tests`' `OverlayRevisionPublishedV1Tests`. Compile-driven; finish before the frontend lands. |
+| **T014** | [P] | US2 | **R** | SystemVariables. `IReverseIndex`: `UpsertOverlayReferences(Guid, IReadOnlyList<string>)`, `LookupLabelText` → `LookupLabelTexts`; `InMemoryReverseIndex` follows. **`RemoveOverlay`, `LookupOverlays`, `AllOverlays` and the whole of `IOverlayTextVersions` are unchanged** — FR-011, and the reviewer should check a finer key did not creep in. *(D3: versions now live in `IOverlayTextVersions`.)* **The three publishers**: `VariableValueChangedDomainEventHandler` and `VariableArchivedDomainEventHandler` resolve every label of each affected overlay under the version `AdvanceAsync` already returned (still **one** `AdvanceAsync` per fan-out, **one** snapshot build per overlay over the union of placeholders, **one** V2 event per overlay); `GetOverlaySnapshotQueryHandler`: `ResolvedOverlaySnapshotDto.ResolvedText` → `ResolvedTexts`. *(D5.)* **`ReverseIndexSeederHostedService`**: read `"labels"` (array) → each element's `"text"` instead of `"text"`. Red test first in `ReverseIndexSeederHostedServiceTests`: a new-shape payload seeds the overlay with all of its texts. Prove the test by counterfactual: against the unchanged seeder it seeds **zero** — that is the silent cold-start failure this guards. *(D4.)* `ResolveOverlayTextQueryHandler` untouched. |
+| **T015** | [P] | US2 | **R** | LayoutComposition: `OverlayRevisionPublishedHubMessage` and `ResolvedOverlayTextChangedHubMessage` carry the collections; handlers relay them; re-register the renamed handlers in `LayoutCompositionInfrastructureModule` (`:119`, `:121`). Per-fab fan-out loop unchanged. Watch the destructuring — `HandlerDeconstructionTests` fails the build on a local named after another field of the same record. |
+| **T016** | [P] | US1 | — | Update the remaining V1 consumers the clean cut leaves stranded (re-enumerated 2026-10-04, plan §"Shared.Contracts"): `IntegrationEventAuditHandler`'s two overloads; **`V1ResourceMap.Conventions.BuildHandTweaks` — add `Add<ResolvedOverlayTextChangedV2>(…, changed => changed.Overlay)`, do not merely delete the V1 line** (D6), and `V1ResourceMapTests`; `EventMetadataFabDeclarationTests`; `Shared.Contracts.Tests`' two V1 test files; the handler tests; `OverlayLifecycleIntegrationTests`, `VersionSurvivesARestartTests`, `CrossFabReadGuardIntegrationTests`; request bodies via `tests/Integration.Tests/Fixtures/OverlayRequests.cs`; doc-comment `<see cref>`s. Compile-driven apart from the `V1ResourceMap` entry; finish before the frontend lands. |
 
 ---
 
@@ -72,11 +83,12 @@ All three own disjoint files and run concurrently.
 | ID | P | Story | Colour | Task |
 |---|---|---|---|---|
 | **T017** | [P] | US1 | **R** | `overlays.api.ts`: **drop `OverlayRevision extends OverlayLabel`** — the finding itself — for `labels: OverlayLabel[]`. `PublishedOverlay.text` → `labels`; `CreateOverlayDraftInput.label` → `labels`; edit body `{ label }` → `{ labels }`. `overlays.schema.ts`: `z.array(overlayLabelSchema).min(1).max(8)`. **Pin the 8 against the domain `const` with a test** — two hand-copied bounds is how #2361 happened. |
-| **T018** | [P] | US2 | **R** | `layoutHub.ts`: the two message types take collections; `upsertQueryData` writes the list. **`overlayTextVersionsRef` stays `Map<overlayIdentifier, number>`** (FR-011). |
+| **T018** | [P] | US2 | **R** | `apps/shared/src/realtime/layoutHub.ts`: the two message **types** take collections. `apps/shared/src/api/systemVariables.api.ts`: `ResolvedOverlaySnapshot.resolvedText` → `resolvedTexts` (the resolve-preview DTO stays per-string). `apps/kiosk-web/src/features/cell/useOverlayHubHandlers.ts`: the `upsertQueryData` writes `resolvedTexts`; **`overlayTextVersionsRef` stays `Map<string, number>` keyed by overlay** (FR-011). *(D7: handling moved out of `layoutHub.ts`/`CellPage` into this hook.)* |
 | **T019** | | US1 | **R** + **C** | `CameraViewer.tsx`: `overlay?` → `overlays?: readonly CameraViewerOverlay[]`, single render site → `.map()`. **No wrapper element** (a fragment is fine, a `<div>` is a defect); **zero nodes for an empty/absent list**; `key` is the **ordinal**, not the index and not the text (FR-004 permits duplicate text). `overlayLabelSurfaceStyle` unchanged and called once per label. **T001, `OverlayLabelCharacterisation` and `OverlayLabelParity` must pass with only their prop-construction lines edited — an edited assertion is a block.** Depends on T001, T017. |
-| **T020** | | US1/US2 | **R** | `CellPage.tsx`: build the render list by zipping the published revision's `labels` geometry with the resolved texts positionally. **One `useLabelDelay` per tile, taking and returning the set** (FR-014) — hooks cannot be called in a loop, and the set is versioned atomically so it shares an age. Depends on T017–T019. |
-| **T021** | [P] | US1 | — | `management-web`: `OverlayEditorDialog.tsx` only — `Controller name="label"` → `name="labels.0"`, `DEFAULT_INPUT` wraps in an array. `OverlaysPage.tsx` row summary reads `labels[0].text`. **`OverlayEditor.tsx` must not appear in the diff** (FR-016) — it is PR #2362's file, and `OverlayEditorCharacterisation`/`OverlayEditorBackdrop` staying byte-identical is the mechanical check. |
+| **T020** | | US1/US2 | **R** | **`apps/kiosk-web/src/features/cell/LayoutGrid.tsx`, the `Tile` component** (not `CellPage.tsx`, now a shell — D7). Build the render list by zipping the published revision's `labels` geometry with `snapshot?.resolvedTexts[i] ?? labels[i].text`, positionally. `hasPlaceholder` = **any** label contains `{{`; `labelTextKnown` = every label's `text` is a string; `onLabelVerdict` stays one verdict per overlay. **One `useLabelDelay` per tile, generalised to hold the set** (FR-014) — hooks cannot be called in a loop, and the set is versioned atomically so it shares an age. **`measureOverlayDraw`'s effect must be keyed on a stable scalar derived from the set, never on the array** — an array dependency re-fires every render and floods `overlay_draw` with no-op samples (#1888/#1889, ADR-0123). Red tests for: a placeholder in label 3 only still fetches the snapshot; the draw measurement fires once per real change, not per render. Depends on T017–T019. |
+| **T021** | [P] | US1 | **R** | `management-web`, **FR-018**. `OverlaysPage.tsx`: the edit target (`:85`, `:209`) carries `labels` (the whole array; `labelOf` at `:382` becomes a whole-set copy); row summary (`:154`) reads `summarised.labels[0].text`. `OverlayEditorDialog.tsx`: the form holds the **whole** `labels` array, `Controller` binds `labels.0`, `DEFAULT_INPUT` wraps in an array, `useWatch('label.text')` → `'labels.0.text'`, `errors.label?.text` → `errors.labels?.[0]?.text`, and the PATCH sends **`labels: input.labels`** (all N). **Red test first** in `OverlayEditorDialog.test.tsx`: an edit target with three labels, edit the visible text, save → the mutation receives three labels, index 0 changed, 1–2 byte-identical. *(D12: the original task's wording would have truncated every multi-label overlay to one on its first console edit.)* **`OverlayEditor.tsx` must not appear in the diff** (FR-016); its four guard files staying byte-identical is the mechanical check. |
 | **T022** | [P] | US1 | — | `ScenarioSimulator`: `OverlayDesignerClient.EnsureOverlayAsync` + `CreateOverlayBody` take a list; `ScenarioSeeder` passes one element. `Seeding/OverlayLabel.cs` unchanged. |
+| **T026** | [P] | US3 | **C** | `e2e/overlays.spec.ts`: three tests read `revisions[0].normalizedX` / `.normalizedWidth` from untyped GET JSON (`~:240`, `~:660`, `~:712`). Move the read path and its inline cast type to `revisions[0].labels[0].…`. **The expected values (`0.2487`, `0.5`, `0.9`) must not change** — an edited expected value is a block. Observe the three green on `develop` before the change. *(D11: missed by the original plan; it compiles, and fails only at e2e time with `undefined`.)* |
 
 ---
 
@@ -84,8 +96,8 @@ All three own disjoint files and run concurrently.
 
 | ID | P | Story | Colour | Task |
 |---|---|---|---|---|
-| **T023** | | US1 | **R** | New e2e: create a **two-label** overlay through the API, bind it to a tile, assert **two** `camera-viewer-overlay-label` nodes in ordinal order with the second's text resolved from a variable. **`kiosk-shows-a-label-over-video.spec.ts` must pass unmodified** — it asserts one tile and `.first()`, and is the end-to-end characterisation that the single-label wall did not move. |
-| **T024** | | US1 | — | **FR-017.** Re-read `overlay_draw` p50/p95 with tiles carrying `MaxLabels` labels. **Run twice**, quote both runs beside T003's baseline and ADR-0123's p50 54.2 / p95 79.2 ms. This is how §IV's "demonstrate the budget still holds" is discharged without #2337 existing. |
+| **T023** | | US1 | **R** | New e2e: create a **two-label** overlay through the API, bind it to a tile, assert **two** `camera-viewer-overlay-label` nodes in ordinal order with the second's text resolved from a variable. New test classes/specs need their shard-filter entry. **`kiosk-shows-a-label-over-video.spec.ts` must pass unmodified** — it now seeds a nine-tile single-label wall and reads `.first()`, and is the end-to-end characterisation that the single-label wall did not move. |
+| **T024** | | US1 | — | **FR-017.** Re-read `overlay_draw` p50/p95 on the nine-tile fixture with every tile carrying `MaxLabels` labels (9 × 8 = 72 nodes, ADR-0164's worst case). Do not edit the characterisation e2e to do it: use a local variant or a dedicated spec, and read it through `e2e/support/render-leg.ts`. **Run twice**, quote both beside T003's baseline (spec 225: mean p50 56.63 ms), ADR-0123's p50 54.2 / p95 79.2 ms, and this PR's own CI render-leg summary. This is how §IV's "demonstrate the budget still holds" is discharged while #2337's gate is report-only. *(D1, D10.)* |
 | **T025** | | US2 | — | Quote `NFR_VariableResolutionLatencyTests`' printed median, run twice, for the event → overlay state leg (spec 148's precedent for the same loop). |
 
 ---
@@ -101,7 +113,7 @@ T001 T002 T003            (parallel, all block Phase 1)
                   │
         ┌─────────┼─────────────────────────────┐
         │         │                             │
-  T009 → T010     ├─ T014 [P] T015 [P] T016 [P] │  T017 [P] T018 [P] T021 [P] T022 [P]
+  T009 → T010     ├─ T014 [P] T015 [P] T016 [P] │  T017 [P] T018 [P] T021 [P] T022 [P] T026 [P]
   T011 → T012     │                             │        │
        → T013     │                             │        └─ T019 → T020
                   │                             │
@@ -113,5 +125,10 @@ lanes — backend persistence/API, the two consuming contexts, and the frontend 
 only T023 rejoins them.
 
 **The two scope tripwires**, both checkable without reading code:
-`OverlayEditor.tsx` must not appear in the diff (FR-016, PR #2362's file), and the four
-existing guard files must show **no assertion changes**.
+`OverlayEditor.tsx` must not appear in the diff (FR-016), and the existing guard files
+(`OverlayLabelCharacterisation`, `OverlayLabelParity`, the four `OverlayEditor*` tests,
+and `e2e/overlays.spec.ts`'s expected values) must show **no assertion changes**.
+
+**The two silent-break tripwires** this re-verification added, both of which compile
+cleanly when wrong: `ReverseIndexSeederHostedService` reading `"labels"` (T014), and the
+console's edit PATCH carrying the whole set (T021).
