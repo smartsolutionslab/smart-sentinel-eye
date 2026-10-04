@@ -8,7 +8,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 const { systemVariablesApi } = await import('./systemVariables.api.js');
 
 function snapshotResponse(): Response {
-  return new Response(JSON.stringify({ overlayIdentifier: 'ovl-1', resolvedText: 'Line 1', version: 1 }), {
+  return new Response(JSON.stringify({ overlayIdentifier: 'ovl-1', resolvedTexts: ['Line 1'], version: 1 }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });

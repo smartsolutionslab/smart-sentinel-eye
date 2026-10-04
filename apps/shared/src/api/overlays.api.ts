@@ -15,10 +15,12 @@ export interface OverlayLabel {
   fontSizePx: number;
 }
 
-export interface OverlayRevision extends OverlayLabel {
+export interface OverlayRevision {
   revisionIdentifier: string;
   revisionNumber: number;
   state: OverlayRevisionState;
+  /** Ordered, non-empty set of 1..8 labels (spec 150, ADR-0164). Paint order is array order. */
+  labels: OverlayLabel[];
   createdAt: string;
   createdBy: string;
   publishedAt: string | null;
@@ -39,7 +41,8 @@ export interface PublishedOverlay {
   overlayIdentifier: string;
   name: string;
   revisionNumber: number;
-  text: string;
+  /** Ordered, non-empty set of 1..8 labels (spec 150, ADR-0164). Paint order is array order. */
+  labels: OverlayLabel[];
   publishedAt: string;
 }
 
@@ -114,12 +117,12 @@ export const overlaysApi = createApi({
         { type: 'OverlayList', id: 'ALL' },
       ],
     }),
-    editDraftOverlayRevision: build.mutation<number, OverlayRevisionRouteInput & { label: OverlayLabel }>({
-      query: ({ overlayIdentifier, revisionNumber, version, label }) => ({
+    editDraftOverlayRevision: build.mutation<number, OverlayRevisionRouteInput & { labels: OverlayLabel[] }>({
+      query: ({ overlayIdentifier, revisionNumber, version, labels }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',
         headers: ifMatch(version),
-        body: { label },
+        body: { labels },
       }),
       invalidatesTags: (_r, _e, { overlayIdentifier }) => [
         { type: 'Overlay', id: overlayIdentifier },

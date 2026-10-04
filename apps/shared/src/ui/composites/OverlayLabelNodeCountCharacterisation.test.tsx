@@ -34,7 +34,11 @@ describe('CameraViewer overlay label node count (characterisation — the gap th
     useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
 
     const { container } = render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlay={overlay} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={async () => null}
+        overlays={overlay === undefined ? undefined : [overlay]}
+      />,
     );
 
     return container;

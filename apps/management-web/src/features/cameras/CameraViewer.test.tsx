@@ -29,7 +29,11 @@ function renderViewer(overlay?: {
 }) {
   return render(
     <Provider store={store}>
-      <CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlay={overlay} />
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={async () => null}
+        overlays={overlay === undefined ? undefined : [overlay]}
+      />
     </Provider>,
   );
 }

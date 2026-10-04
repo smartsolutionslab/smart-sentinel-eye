@@ -52,8 +52,13 @@ export interface CameraViewerProps {
   cameraIdentifier: string;
   /** Resolves the bearer token for the current operator (Keycloak access token). */
   getToken: () => Promise<string | null>;
-  /** Optional overlay rendered on top of the live frame (spec 004 US2). */
-  overlay?: CameraViewerOverlay;
+  /**
+   * Labels rendered on top of the live frame (spec 004 US2; spec 150 widens
+   * this from one label to an ordered set, #2345). Absent or empty paints
+   * nothing (FR-013) — every label is painted in array order, each a direct
+   * child of this component's aspect-ratio box (FR-012).
+   */
+  overlays?: readonly CameraViewerOverlay[];
   /**
    * How far behind live this tile should hold frames, in milliseconds — the
    * wall's decision, applied here (spec 045, ADR-0128).
@@ -98,7 +103,7 @@ export interface CameraViewerProps {
 export function CameraViewer({
   cameraIdentifier,
   getToken,
-  overlay,
+  overlays,
   playoutTargetMilliseconds,
   onLagMeasured,
   className,
@@ -399,7 +404,11 @@ export function CameraViewer({
         className="h-full w-full object-contain"
         aria-label={!cameraName ? 'Live camera video' : `Live video: ${cameraName}`}
       />
-      {overlay !== undefined && <OverlayLabel overlay={overlay} />}
+      {overlays?.map((overlay, ordinal) => (
+        // `ordinal` — the label's position in the ordered set, not the text
+        // (FR-004 permits duplicate text across labels) — is the key.
+        <OverlayLabel key={ordinal} overlay={overlay} />
+      ))}
       {/* Always mounted, never inserted with its content (#2346): a live
           region a screen reader has not yet seen does not announce the text
           it is born holding, so this has to exist — empty — before the first

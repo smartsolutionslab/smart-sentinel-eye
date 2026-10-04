@@ -7,7 +7,7 @@ import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraVie
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import clsx from 'clsx';
-import { useCallback, useEffect, useRef, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
@@ -312,6 +312,32 @@ interface TileProps {
 }
 
 /**
+ * Keeps handing back the same `value` reference across renders whose `key` —
+ * a cheap scalar derived from it — is unchanged, even though `value` itself
+ * is a fresh object/array every render (spec 150, #2345). The opposite of
+ * `useMemo`'s dependency-list form, which would need `value` itself listed as
+ * a dependency and would therefore recompute on every reference change
+ * regardless of content — exactly the trap `measureOverlayDraw`'s own effect
+ * below avoids by keying on a derived scalar instead of the object
+ * (#1888/#1889, ADR-0123). `undefined` in, `undefined` out.
+ *
+ * <p>
+ * State, not a ref: `useLabelDelay.ts`'s own `adjustedFor` already uses this
+ * "adjust state during render" idiom (React's documented pattern), which a
+ * ref cannot — reading or writing `ref.current` during render is refused
+ * outright (`react-hooks/refs`).
+ * </p>
+ */
+function useStableByKey<T>(value: T, key: string | undefined): T {
+  const [held, setHeld] = useState<{ key: string | undefined; value: T }>({ key, value });
+  if (held.key !== key) {
+    setHeld({ key, value });
+    return value;
+  }
+  return held.value;
+}
+
+/**
  * One populated grid cell. Owns its overlay fetch + resolved-text snapshot
  * so each tile resolves its own label independently (per-tile binding,
  * FR-011). The bound overlay's geometry comes from OverlayDesigner; the live
@@ -354,18 +380,25 @@ function Tile({
   // OverlayArchived frame OR a fetched overlay with no Published revision
   // (archived before this kiosk ever loaded the layout).
   const overlayUnavailable = unavailable || (overlay !== undefined && publishedOverlay === undefined);
-  // The SystemVariables snapshot only matters for overlays whose label embeds
-  // `{{name}}` placeholders; a static label has none, so the service holds no
-  // resolved snapshot for it and the fetch would 404. Skip it for static labels
-  // (avoids the console noise + a pointless round-trip); the resolved-text
-  // SignalR push still upserts the cache for overlays that do use variables.
-  const hasPlaceholder = publishedOverlay?.text?.includes('{{') ?? false;
-  // Spec 141 site 3 (FR-005, plan R5): whether the tile actually *knows* the
-  // text — while the overlay query is still loading, or when `text` is
-  // absent (the out-of-scope omitted/renamed case), `hasPlaceholder` above is
-  // `false` for the same reason a genuinely static label is, and the two must
-  // not be conflated. A verdict is registered only when this is true.
-  const labelTextKnown = publishedOverlay !== undefined && typeof publishedOverlay.text === 'string';
+  // Spec 150 (#2345): the published revision's ordered, non-empty label set —
+  // undefined only while the overlay query has not yet resolved a Published
+  // revision.
+  const labels = publishedOverlay?.labels;
+  // The SystemVariables snapshot only matters for overlays whose label set
+  // embeds a `{{name}}` placeholder in ANY label — a wholly static set has
+  // none, so the service holds no resolved snapshot for it and the fetch
+  // would 404. Skip it for static sets (avoids the console noise + a
+  // pointless round-trip); the resolved-text SignalR push still upserts the
+  // cache for overlays that do use variables.
+  const hasPlaceholder = labels?.some((label) => label.text.includes('{{')) ?? false;
+  // Spec 141 site 3 (FR-005, plan R5) / spec 150: whether the tile actually
+  // *knows* every label's text — while the overlay query is still loading, or
+  // when a label's `text` is absent (the out-of-scope omitted/renamed case),
+  // `hasPlaceholder` above is `false` for the same reason a genuinely static
+  // set is, and the two must not be conflated. A verdict is registered only
+  // when this is true, and it stays one verdict per overlay (FR-011) — not
+  // per label.
+  const labelTextKnown = labels !== undefined && labels.every((label) => typeof label.text === 'string');
   useEffect(() => {
     if (overlayIdentifier === null || !labelTextKnown) return;
     onLabelVerdict(overlayIdentifier, hasPlaceholder);
@@ -384,15 +417,28 @@ function Tile({
     { skip: overlayIdentifier === null || !hasPlaceholder || namedFab(fab) === null },
   );
 
-  // Prefer the SystemVariables-resolved text over the raw label so any
-  // `{{name}}` placeholders show their live values; fall back to the raw
-  // label if SystemVariables is unreachable.
-  const liveText = snapshot?.resolvedText ?? publishedOverlay?.text;
+  // Prefer the SystemVariables-resolved text over the raw label, positionally
+  // — never a whole-list fallback, so a snapshot shorter than the set (a race
+  // across a republish) cannot drop labels (spec 150).
+  const liveTexts = labels?.map((label, index) => snapshot?.resolvedTexts[index] ?? label.text);
+  // A stable scalar derived from the resolved texts. `\u0000` cannot appear in
+  // an operator-authored label, so this is a lossless join for the purpose of
+  // detecting "did anything in the set actually change" — the same role
+  // `overlayText` played for one label.
+  const liveTextsKey = liveTexts?.join('\u0000');
+  // The set is resolved and versioned atomically (FR-011), so a shared
+  // reference — stable across renders that rebuild an equal array — is the
+  // consistent reading: `liveTexts` above is a fresh array every render
+  // (`labels.map(...)`), and handing that straight to `useLabelDelay` would
+  // make every render look like a change. `useStableByKey` is this file's
+  // version of the fix #1888/#1889 already made for `measureOverlayDraw`'s
+  // effect below, applied to a value instead of an effect dependency.
+  const stableLiveTexts = useStableByKey(liveTexts, liveTextsKey);
 
-  // Held back so the label describes the same moment as the picture beneath it
-  // (ADR-0129). **Not frame accuracy** — it makes the label as old as the
-  // picture and pairs nothing with a frame. A tile with no readable age, or one
-  // past the cap, gets its label immediately.
+  // Held back so the label set describes the same moment as the picture
+  // beneath it (ADR-0129). **Not frame accuracy** — it makes the set as old
+  // as the picture and pairs nothing with a frame. A tile with no readable
+  // age, or one past the cap, gets its labels immediately.
   // Reported per tile so one badly-buffered camera is visible, and reported
   // as what was achieved rather than what was asked for (FR-015).
   const reportHeld = useCallback(
@@ -401,34 +447,37 @@ function Tile({
     [tile.cameraIdentifier, getToken],
   );
 
-  const resolvedText = useLabelDelay(liveText, frameAgeMilliseconds, reportHeld);
+  // One `useLabelDelay` call per tile for the WHOLE set (FR-014) — hooks
+  // cannot be called in a loop, and the set shares one age.
+  const resolvedTexts = useLabelDelay(stableLiveTexts, frameAgeMilliseconds, reportHeld);
 
-  const renderOverlay =
-    !overlayUnavailable && publishedOverlay !== undefined && resolvedText !== undefined
-      ? {
-          text: resolvedText,
-          normalizedX: publishedOverlay.normalizedX,
-          normalizedY: publishedOverlay.normalizedY,
-          normalizedWidth: publishedOverlay.normalizedWidth,
-          normalizedHeight: publishedOverlay.normalizedHeight,
-          fontSizePx: publishedOverlay.fontSizePx,
-        }
+  const renderLabels =
+    !overlayUnavailable && labels !== undefined && resolvedTexts !== undefined
+      ? labels.map((label, index) => ({
+          text: resolvedTexts[index] ?? label.text,
+          normalizedX: label.normalizedX,
+          normalizedY: label.normalizedY,
+          normalizedWidth: label.normalizedWidth,
+          normalizedHeight: label.normalizedHeight,
+          fontSizePx: label.fontSizePx,
+        }))
       : undefined;
 
   // Spec 040: the overlay-draw leg (ADR-0015, ≤ 50 ms — a whole leg). Timed
   // from the overlay's rendered state changing to the browser having painted
   // it. Observation only: nothing here alters what is drawn or when.
   //
-  // Keyed on the text and the highlight because those are what change on a
-  // hub push; re-running on every render would time renders that changed
-  // nothing and flatten the distribution with zeros.
-  const overlayText = renderOverlay?.text;
+  // Keyed on a stable scalar derived from the label set and the highlight,
+  // never on the array itself (spec 150) — an array dependency is a new
+  // reference on every render and floods the instrument with no-op samples,
+  // the exact defect #1888/#1889 fixed and ADR-0123 forbids reintroducing.
+  const renderLabelsKey = renderLabels?.map((label) => label.text).join('\u0000');
   useEffect(() => {
-    if (overlayText === undefined) {
+    if (renderLabelsKey === undefined) {
       return;
     }
     measureOverlayDraw(tile.cameraIdentifier, getToken);
-  }, [overlayText, highlighted, tile.cameraIdentifier, getToken]);
+  }, [renderLabelsKey, highlighted, tile.cameraIdentifier, getToken]);
 
   return (
     <div
@@ -450,7 +499,7 @@ function Tile({
       <CameraViewer
         cameraIdentifier={tile.cameraIdentifier}
         getToken={getToken}
-        overlay={renderOverlay}
+        overlays={renderLabels}
         playoutTargetMilliseconds={playoutTargetMilliseconds}
         onLagMeasured={onLagMeasured}
       />

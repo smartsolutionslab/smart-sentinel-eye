@@ -35,14 +35,16 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
       <CameraViewer
         cameraIdentifier="cam-42"
         getToken={async () => null}
-        overlay={{
-          text: 'Production Line 1',
-          normalizedX: 0.25,
-          normalizedY: 0.05,
-          normalizedWidth: 0.5,
-          normalizedHeight: 0.1,
-          fontSizePx: 48,
-        }}
+        overlays={[
+          {
+            text: 'Production Line 1',
+            normalizedX: 0.25,
+            normalizedY: 0.05,
+            normalizedWidth: 0.5,
+            normalizedHeight: 0.1,
+            fontSizePx: 48,
+          },
+        ]}
       />,
     );
 

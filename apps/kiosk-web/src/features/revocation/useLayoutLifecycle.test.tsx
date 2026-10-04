@@ -60,7 +60,7 @@ describe('useLayoutLifecycle', () => {
     const message: ResolvedOverlayTextChangedMessage = {
       overlay: 'ovl-1',
       fab: 'munich',
-      resolvedText: 'Live value',
+      resolvedTexts: ['Live value'],
       version: 2,
     };
     capturedCallbacks?.onResolvedOverlayTextChanged?.(message);

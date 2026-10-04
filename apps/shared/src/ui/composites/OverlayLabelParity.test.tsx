@@ -45,7 +45,7 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
   function renderWallLabel() {
     useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
 
-    render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlay={label} />);
+    render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlays={[label]} />);
 
     return screen.getByTestId('camera-viewer-overlay-label');
   }

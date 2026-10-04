@@ -27,16 +27,24 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 
 /**
  * Spec 152. Carries what the page already knows about the draft being
- * edited, so the dialog needs no lookup to render its first frame — the six
- * `OverlayLabel` fields lifted off the target `OverlayRevision`, not the
- * whole revision (a spread would carry `state`/`createdAt`/etc. into the form
+ * edited, so the dialog needs no lookup to render its first frame — the
+ * `labels` array lifted off the target `OverlayRevision`, not the whole
+ * revision (a spread would carry `state`/`createdAt`/etc. into the form
  * value and then into the PATCH body).
+ *
+ * <p>
+ * Spec 150 (#2345) FR-018: `labels` is the WHOLE set, not just the one the
+ * dialog's form shows (index 0). The dialog edits index 0 only — the shared
+ * `OverlayEditor` still edits exactly one label (FR-016) — but must hold and
+ * submit every label the draft carries, or indices 1..N are silently deleted
+ * on the first console edit of any multi-label overlay.
+ * </p>
  */
 export interface OverlayEditTarget {
   overlayIdentifier: string;
   revisionNumber: number;
   name: string;
-  label: OverlayLabel;
+  labels: OverlayLabel[];
 }
 
 export interface OverlayEditorDialogProps {
@@ -48,14 +56,16 @@ export interface OverlayEditorDialogProps {
 
 const DEFAULT_INPUT: CreateOverlayDraftInput = {
   name: '',
-  label: {
-    text: 'Overlay text',
-    normalizedX: 0.1,
-    normalizedY: 0.1,
-    normalizedWidth: 0.3,
-    normalizedHeight: 0.08,
-    fontSizePx: 32,
-  },
+  labels: [
+    {
+      text: 'Overlay text',
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.08,
+      fontSizePx: 32,
+    },
+  ],
 };
 
 export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayEditorDialogProps) {
@@ -132,10 +142,11 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // computed from `editTarget`, exactly as `LayoutEditorDialog.tsx:155-162`
   // computes one beside `EMPTY_CREATE`. `name` is still seeded from the
   // chain's real name even though the field is hidden in edit mode, so
-  // `createOverlayDraftSchema` — unchanged — keeps validating it.
+  // `createOverlayDraftSchema` — unchanged — keeps validating it. The form
+  // holds the WHOLE `labels` array (FR-018), not just the one index 0 shows.
   const defaultValues = useMemo<CreateOverlayDraftInput>(() => {
     if (editTarget === undefined) return DEFAULT_INPUT;
-    return { name: editTarget.name, label: editTarget.label };
+    return { name: editTarget.name, labels: editTarget.labels };
   }, [editTarget]);
 
   const {
@@ -160,8 +171,9 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // react-redux context value" (plan.md "Frontend wiring"). The settled text
   // drives the query; `value.text` (via `Controller` below) keeps driving the
   // input, never the reverse — `useDebouncedValue`'s own doc comment says the
-  // field would drop characters otherwise.
-  const labelText = useWatch({ control, name: 'label.text' }) ?? defaultValues.label.text;
+  // field would drop characters otherwise. Index 0 only (spec 150) — the
+  // dialog edits exactly one label, FR-016's single-label editor seam.
+  const labelText = useWatch({ control, name: 'labels.0.text' }) ?? defaultValues.labels[0]!.text;
   const settledLabelText = useDebouncedValue(labelText);
   const shouldResolve = settledLabelText.includes('{{');
   const {
@@ -193,11 +205,15 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
       // uses, which this deliberately does not copy (that button gives no
       // explanation at all).
       if (currentChain === undefined) return;
+      // FR-018: the whole set, all N elements — not just the one the form
+      // shows. `ReplaceLabels`/FR-006 make an edit a wholesale replacement,
+      // so sending only `input.labels[0]` would silently delete every other
+      // label on the draft's first console edit.
       const result = await editDraftOverlayRevision({
         overlayIdentifier: editTarget.overlayIdentifier,
         revisionNumber: editTarget.revisionNumber,
         version: currentChain.version,
-        label: input.label,
+        labels: input.labels,
       });
       if (!('error' in result)) {
         reset(defaultValues);
@@ -308,7 +324,7 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
         )}
         <Controller
           control={control}
-          name="label"
+          name="labels.0"
           render={({ field }) => (
             <OverlayEditor
               value={field.value}
@@ -320,12 +336,12 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
             />
           )}
         />
-        {errors.label?.text?.message !== undefined && (
+        {errors.labels?.[0]?.text?.message !== undefined && (
           // #2365: a stable testid so a test can address this alert without an
           // unscoped role query, now that OverlayEditor's own OverlayGeometryFields
           // always mounts four `role="alert"` regions in the same tree.
           <p role="alert" data-testid="overlay-editor-dialog-label-error" className="text-sm text-accent-fault">
-            {errors.label.text.message}
+            {errors.labels[0].text.message}
           </p>
         )}
         {/*
