@@ -128,14 +128,16 @@ const EDIT_TARGET: OverlayEditTarget = {
   overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   revisionNumber: 1,
   name: 'Line-1 Title',
-  label: {
-    text: 'Line 1',
-    normalizedX: 0.1,
-    normalizedY: 0.1,
-    normalizedWidth: 0.3,
-    normalizedHeight: 0.08,
-    fontSizePx: 32,
-  },
+  labels: [
+    {
+      text: 'Line 1',
+      normalizedX: 0.1,
+      normalizedY: 0.1,
+      normalizedWidth: 0.3,
+      normalizedHeight: 0.08,
+      fontSizePx: 32,
+    },
+  ],
 };
 
 function renderDialog() {

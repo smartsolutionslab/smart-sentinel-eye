@@ -266,9 +266,9 @@ describe('OverlayEditorDialog resolve-preview wiring (spec 148 T014/T018)', () =
 
     expect(createDraftMock).toHaveBeenCalledTimes(1);
     const payload = (
-      createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{ name: string; label: { text: string } }>
+      createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{ name: string; labels: Array<{ text: string }> }>
     )[0]!;
-    expect(payload.label.text).toBe('{{bogus}}');
+    expect(payload.labels[0]!.text).toBe('{{bogus}}');
   });
 
   /**

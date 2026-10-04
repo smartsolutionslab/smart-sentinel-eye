@@ -22,20 +22,34 @@ export interface LayoutRevisionArchivedMessage {
 }
 
 /**
- * Wire shape for overlay-revision-published SignalR frames (spec 004
- * PR C broadcaster bridge). The backend reuses the LayoutLifecycle hub
- * so kiosks subscribe to overlay updates over the same connection.
+ * One label on a published overlay revision's SignalR frame, in paint order
+ * (spec 150 FR-005).
  */
-export interface OverlayRevisionPublishedMessage {
-  overlay: string;
-  revisionNumber: number;
-  name: string;
+export interface OverlayRevisionPublishedMessageLabel {
   text: string;
   normalizedX: number;
   normalizedY: number;
   normalizedWidth: number;
   normalizedHeight: number;
   fontSizePx: number;
+}
+
+/**
+ * Wire shape for overlay-revision-published SignalR frames (spec 004
+ * PR C broadcaster bridge). The backend reuses the LayoutLifecycle hub
+ * so kiosks subscribe to overlay updates over the same connection.
+ *
+ * <p>
+ * Spec 150 (#2345): the revision now carries an ordered, non-empty set of
+ * 1..8 labels instead of one flattened label — the collection mirrors
+ * `OverlayRevisionPublishedV2`/`OverlayLabelV2` (ADR-0164).
+ * </p>
+ */
+export interface OverlayRevisionPublishedMessage {
+  overlay: string;
+  revisionNumber: number;
+  name: string;
+  labels: OverlayRevisionPublishedMessageLabel[];
   publishedAt: string;
 }
 
@@ -56,11 +70,18 @@ export interface OverlayRevisionArchivedMessage {
  * two fabs joins both groups and correctly receives both plants' frames; only
  * the client knows which wall it is showing, so only the client can refuse
  * what is not its own (ADR-0145).
+ *
+ * <p>
+ * Spec 150 (#2345): `resolvedTexts` carries the resolved text of every label
+ * on the overlay, index-aligned with the published revision's `labels`
+ * (FR-011 — one version bump per overlay, not per label; mirrors
+ * `ResolvedOverlayTextChangedV2`).
+ * </p>
  */
 export interface ResolvedOverlayTextChangedMessage {
   overlay: string;
   fab: string;
-  resolvedText: string;
+  resolvedTexts: string[];
   version: number;
 }
 

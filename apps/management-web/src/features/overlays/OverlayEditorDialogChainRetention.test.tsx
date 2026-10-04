@@ -126,8 +126,8 @@ describe('OverlayEditorDialog — the chain is re-read per overlay, not carried 
     vi.stubGlobal('fetch', fetchMock);
 
     const store = createStore();
-    const targetA = { overlayIdentifier: OVERLAY_A, revisionNumber: 1, name: 'Overlay A', label: LABEL };
-    const targetB = { overlayIdentifier: OVERLAY_B, revisionNumber: 1, name: 'Overlay B', label: LABEL };
+    const targetA = { overlayIdentifier: OVERLAY_A, revisionNumber: 1, name: 'Overlay A', labels: [LABEL] };
+    const targetB = { overlayIdentifier: OVERLAY_B, revisionNumber: 1, name: 'Overlay B', labels: [LABEL] };
 
     const { rerender } = render(
       <Provider store={store}>

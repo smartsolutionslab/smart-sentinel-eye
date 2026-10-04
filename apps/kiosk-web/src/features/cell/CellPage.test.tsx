@@ -40,6 +40,22 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
 
 const getSnapshotMock = vi.fn();
 
+/**
+ * Spec 150 (#2345) T020. Spies on the real `measureOverlayDraw` — everything
+ * else in the module (`reportKioskLatency`, used by `useLabelDelay`'s own
+ * report callback) stays real — so a test can assert it fires once per real
+ * label-set change, not once per render (the #1888/#1889 defect class,
+ * ADR-0123).
+ */
+const measureOverlayDrawMock = vi.fn();
+vi.mock('@smart-sentinel-eye/shared/observability/kioskLatency', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/observability/kioskLatency')>();
+  return {
+    ...actual,
+    measureOverlayDraw: (...args: unknown[]) => measureOverlayDrawMock(...args),
+  };
+});
+
 vi.mock('@smart-sentinel-eye/shared/api/systemVariables.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/systemVariables.api')>();
   return {
@@ -105,11 +121,11 @@ const renderCountByCamera = new Map<string, number>();
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   CameraViewer: ({
     cameraIdentifier,
-    overlay,
+    overlays,
     onLagMeasured,
   }: {
     cameraIdentifier: string;
-    overlay?: { text: string };
+    overlays?: readonly { text: string }[];
     onLagMeasured?: (camera: string, lag: number, buffer: number) => void;
   }) => {
     if (onLagMeasured) {
@@ -117,8 +133,11 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
       reportLagByCamera.set(cameraIdentifier, onLagMeasured);
     }
     renderCountByCamera.set(cameraIdentifier, (renderCountByCamera.get(cameraIdentifier) ?? 0) + 1);
+    // This file's fixtures are all single-label (multi-label rendering is
+    // T019/T023's own coverage) — the first label's text stands in for the
+    // whole set, matching every existing assertion here unchanged.
     return (
-      <div data-testid="camera-viewer" data-overlay-text={overlay?.text ?? ''}>
+      <div data-testid="camera-viewer" data-overlay-text={overlays?.[0]?.text ?? ''}>
         {cameraIdentifier}
       </div>
     );
@@ -235,7 +254,7 @@ function renderPage() {
   );
 }
 
-/** An overlay whose published revision carries `text`. */
+/** An overlay whose published revision carries a single-element `labels` set (spec 150). */
 function publishedOverlay(text: string) {
   return {
     data: {
@@ -248,12 +267,51 @@ function publishedOverlay(text: string) {
           revisionIdentifier: 'or1',
           revisionNumber: 1,
           state: 'Published',
-          text,
-          normalizedX: 0.5,
-          normalizedY: 0.05,
-          normalizedWidth: 0.3,
-          normalizedHeight: 0.08,
-          fontSizePx: 48,
+          labels: [
+            {
+              text,
+              normalizedX: 0.5,
+              normalizedY: 0.05,
+              normalizedWidth: 0.3,
+              normalizedHeight: 0.08,
+              fontSizePx: 48,
+            },
+          ],
+          createdAt: '2026-05-27T10:00:00Z',
+          createdBy: '00000000-0000-0000-0000-000000000001',
+          publishedAt: '2026-05-27T10:00:00Z',
+          archivedAt: null,
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * An overlay whose published revision carries several labels, in order
+ * (spec 150, #2345) — each at its own position so the fixture does not rely
+ * on FR-004's "duplicate geometry is allowed" to stay readable.
+ */
+function publishedOverlayWithLabels(texts: readonly string[]) {
+  return {
+    data: {
+      overlayIdentifier: 'ovl-x',
+      name: 'Bound label',
+      createdAt: '2026-05-27T10:00:00Z',
+      createdBy: '00000000-0000-0000-0000-000000000001',
+      revisions: [
+        {
+          revisionIdentifier: 'or1',
+          revisionNumber: 1,
+          state: 'Published',
+          labels: texts.map((text, ordinal) => ({
+            text,
+            normalizedX: 0.1,
+            normalizedY: 0.05 + ordinal * 0.1,
+            normalizedWidth: 0.3,
+            normalizedHeight: 0.08,
+            fontSizePx: 48,
+          })),
           createdAt: '2026-05-27T10:00:00Z',
           createdBy: '00000000-0000-0000-0000-000000000001',
           publishedAt: '2026-05-27T10:00:00Z',
@@ -468,12 +526,16 @@ describe('CellPage', () => {
                   revisionIdentifier: 'or1',
                   revisionNumber: 1,
                   state: 'Published',
-                  text: 'Production Line 1',
-                  normalizedX: 0.5,
-                  normalizedY: 0.05,
-                  normalizedWidth: 0.3,
-                  normalizedHeight: 0.08,
-                  fontSizePx: 48,
+                  labels: [
+                    {
+                      text: 'Production Line 1',
+                      normalizedX: 0.5,
+                      normalizedY: 0.05,
+                      normalizedWidth: 0.3,
+                      normalizedHeight: 0.08,
+                      fontSizePx: 48,
+                    },
+                  ],
                   createdAt: '2026-05-27T10:00:00Z',
                   createdBy: '00000000-0000-0000-0000-000000000001',
                   publishedAt: '2026-05-27T10:00:00Z',
@@ -569,12 +631,16 @@ describe('CellPage', () => {
               revisionIdentifier: 'or1',
               revisionNumber: 1,
               state: 'Archived',
-              text: 'Old text',
-              normalizedX: 0.5,
-              normalizedY: 0.05,
-              normalizedWidth: 0.3,
-              normalizedHeight: 0.08,
-              fontSizePx: 48,
+              labels: [
+                {
+                  text: 'Old text',
+                  normalizedX: 0.5,
+                  normalizedY: 0.05,
+                  normalizedWidth: 0.3,
+                  normalizedHeight: 0.08,
+                  fontSizePx: 48,
+                },
+              ],
               createdAt: '2026-05-27T10:00:00Z',
               createdBy: '00000000-0000-0000-0000-000000000001',
               publishedAt: '2026-05-27T10:00:00Z',
@@ -889,7 +955,7 @@ describe('CellPage', () => {
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
             {
               overlayIdentifier: 'ovl-x',
-              resolvedText: 'OEE 41.0',
+              resolvedTexts: ['OEE 41.0'],
               version: 1,
             },
           ),
@@ -908,7 +974,7 @@ describe('CellPage', () => {
           // declared characterisation control and must not move (plan.md
           // declaration 3).
           fab: 'munich',
-          resolvedText: 'OEE 82.5',
+          resolvedTexts: ['OEE 82.5'],
           version: 2,
         });
       });
@@ -978,7 +1044,7 @@ describe('CellPage', () => {
             { overlayIdentifier: overlay, fabId: 'munich' },
             {
               overlayIdentifier: overlay,
-              resolvedText: text,
+              resolvedTexts: [text],
               version: 1,
             },
           ),
@@ -1010,7 +1076,7 @@ describe('CellPage', () => {
     const settleMilliseconds = 100;
 
     /** Fires one frame and lets the cache write and re-render it causes settle. */
-    async function push(message: { overlay: string; fab: string; resolvedText: string; version: number }) {
+    async function push(message: { overlay: string; fab: string; resolvedTexts: string[]; version: number }) {
       await act(async () => {
         capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
         await new Promise((resolve) => setTimeout(resolve, settleMilliseconds));
@@ -1022,7 +1088,7 @@ describe('CellPage', () => {
       const label = await aMunichWallShowing('ovl-foreign-text', 'OEE 41.0');
       expect(label()).toBe('OEE 41.0');
 
-      await push({ overlay: 'ovl-foreign-text', fab: 'dresden', resolvedText: 'OEE 99.9', version: 2 });
+      await push({ overlay: 'ovl-foreign-text', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 2 });
 
       expect(label(), "a munich wall showed dresden's production figure").toBe('OEE 41.0');
     });
@@ -1045,8 +1111,8 @@ describe('CellPage', () => {
       const label = await aMunichWallShowing('ovl-version-mark', 'OEE 41.0');
       expect(label()).toBe('OEE 41.0');
 
-      await push({ overlay: 'ovl-version-mark', fab: 'dresden', resolvedText: 'OEE 99.9', version: 5 });
-      await push({ overlay: 'ovl-version-mark', fab: 'munich', resolvedText: 'OEE 82.5', version: 2 });
+      await push({ overlay: 'ovl-version-mark', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 5 });
+      await push({ overlay: 'ovl-version-mark', fab: 'munich', resolvedTexts: ['OEE 82.5'], version: 2 });
 
       expect(label(), "a dresden frame moved munich's version mark, so munich's own update was dropped").toBe(
         'OEE 82.5',
@@ -1109,7 +1175,7 @@ describe('CellPage', () => {
       const label = await aMunichWallShowing('ovl-own-fab', 'OEE 41.0');
       expect(label()).toBe('OEE 41.0');
 
-      await push({ overlay: 'ovl-own-fab', fab: 'munich', resolvedText: 'OEE 82.5', version: 2 });
+      await push({ overlay: 'ovl-own-fab', fab: 'munich', resolvedTexts: ['OEE 82.5'], version: 2 });
 
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
     });
@@ -1206,7 +1272,7 @@ describe('CellPage', () => {
       resolvedText: string,
       version: number,
     ): ResolvedOverlayTextChangedMessage {
-      return { overlay, resolvedText, version } as unknown as ResolvedOverlayTextChangedMessage;
+      return { overlay, resolvedTexts: [resolvedText], version } as unknown as ResolvedOverlayTextChangedMessage;
     }
 
     /** The same omission on the highlight route, which travels its own path. */
@@ -1274,7 +1340,7 @@ describe('CellPage', () => {
       const info = spyOnConsoleInfo();
       const label = aMunichWall('ovl-foreign-not-skew');
 
-      await pushText({ overlay: 'ovl-foreign-not-skew', fab: 'dresden', resolvedText: 'OEE 99.9', version: 2 });
+      await pushText({ overlay: 'ovl-foreign-not-skew', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 2 });
 
       expect(label(), "a munich wall showed dresden's production figure").toBe('OEE {{oeeline1}}');
       expect(
@@ -1325,7 +1391,7 @@ describe('CellPage', () => {
       const info = spyOnConsoleInfo();
       const label = aMunichWall('ovl-own-not-skew');
 
-      await pushText({ overlay: 'ovl-own-not-skew', fab: 'munich', resolvedText: 'OEE 82.5', version: 2 });
+      await pushText({ overlay: 'ovl-own-not-skew', fab: 'munich', resolvedTexts: ['OEE 82.5'], version: 2 });
 
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
       expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([]);
@@ -1459,7 +1525,7 @@ describe('CellPage', () => {
         getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
         renderPage();
 
-        await pushText({ overlay: 'ovl-2320-empty-text', fab: '', resolvedText: 'OEE 99.9', version: 2 });
+        await pushText({ overlay: 'ovl-2320-empty-text', fab: '', resolvedTexts: ['OEE 99.9'], version: 2 });
 
         expect(
           systemVariablesApi.endpoints.getOverlaySnapshot.select({
@@ -1520,7 +1586,7 @@ describe('CellPage', () => {
         getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
         renderPage();
 
-        await pushText({ overlay: 'ovl-2320-ws-text', fab: ' ', resolvedText: 'OEE 99.9', version: 2 });
+        await pushText({ overlay: 'ovl-2320-ws-text', fab: ' ', resolvedTexts: ['OEE 99.9'], version: 2 });
 
         expect(
           systemVariablesApi.endpoints.getOverlaySnapshot.select({
@@ -1747,7 +1813,7 @@ describe('CellPage', () => {
 
       await pushText({
         overlay: 'ovl-blind',
-        resolvedText: 'OEE 99.9',
+        resolvedTexts: ['OEE 99.9'],
         version: 2,
       } as unknown as ResolvedOverlayTextChangedMessage);
 
@@ -1813,7 +1879,7 @@ describe('CellPage', () => {
         'the kiosk-side check found no {{, so the snapshot is skipped',
       ).toEqual({ skip: true });
 
-      await pushText({ overlay: 'ovl-drift', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+      await pushText({ overlay: 'ovl-drift', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
 
       expect(label(), 'the report does not resolve the disagreement (FR-006)').toBe('OEE [[oeeline1]]');
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
@@ -1832,8 +1898,8 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
-      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedText: 'OEE 100.0', version: 3 });
+      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedTexts: ['OEE 100.0'], version: 3 });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
         { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-drift-latch' },
@@ -1867,7 +1933,7 @@ describe('CellPage', () => {
 
       // Silent: no verdict exists yet, so nothing can disagree — but the
       // version mark still advances to 5.
-      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedText: 'OEE 5.0', version: 5 });
+      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedTexts: ['OEE 5.0'], version: 5 });
       expect(
         resilienceLines(info.mock.calls, 'resolved-text-for-static-label'),
         'no verdict exists yet, so a push cannot yet disagree with one',
@@ -1887,7 +1953,7 @@ describe('CellPage', () => {
       });
 
       // Loses the version race (3 <= 5) — must still be reported.
-      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedText: 'OEE 3.0', version: 3 });
+      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedTexts: ['OEE 3.0'], version: 3 });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
         { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-verdict-race' },
@@ -1907,7 +1973,7 @@ describe('CellPage', () => {
       renderPage();
       const label = () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
 
-      await pushText({ overlay: 'ovl-placeholder', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+      await pushText({ overlay: 'ovl-placeholder', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
 
       expect(label(), 'the push applied, so execution reached the new guard').toBe('OEE 99.9');
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
@@ -1924,7 +1990,7 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-loading', fab: 'munich', resolvedText: 'OEE 99.9', version: 2 });
+      await pushText({ overlay: 'ovl-loading', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
       expect(getOverlayMock, 'the tile rendered and the code ran').toHaveBeenCalledWith('ovl-loading', {
@@ -1943,7 +2009,7 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-foreign-static', fab: 'dresden', resolvedText: 'OEE 99.9', version: 2 });
+      await pushText({ overlay: 'ovl-foreign-static', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 2 });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
     });
@@ -2100,7 +2166,7 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedText: 'first', version: 1 },
+            { overlayIdentifier: 'ovl-x', resolvedTexts: ['first'], version: 1 },
           ),
         );
       });
@@ -2126,7 +2192,7 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedText: 'second', version: 2 },
+            { overlayIdentifier: 'ovl-x', resolvedTexts: ['second'], version: 2 },
           ),
         );
       });
@@ -2166,7 +2232,7 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedText: 'first', version: 1 },
+            { overlayIdentifier: 'ovl-x', resolvedTexts: ['first'], version: 1 },
           ),
         );
       });
@@ -2192,7 +2258,7 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedText: 'second', version: 2 },
+            { overlayIdentifier: 'ovl-x', resolvedTexts: ['second'], version: 2 },
           ),
         );
       });
@@ -2228,7 +2294,7 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedText: 'first', version: 1 },
+            { overlayIdentifier: 'ovl-x', resolvedTexts: ['first'], version: 1 },
           ),
         );
       });
@@ -2244,7 +2310,7 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedText: 'second', version: 2 },
+            { overlayIdentifier: 'ovl-x', resolvedTexts: ['second'], version: 2 },
           ),
         );
       });
@@ -2354,12 +2420,16 @@ describe('CellPage', () => {
           overlay: 'ov-1',
           revisionNumber: 3,
           name: 'Line label',
-          text: 'Line label',
-          normalizedX: 0.5,
-          normalizedY: 0.05,
-          normalizedWidth: 0.3,
-          normalizedHeight: 0.08,
-          fontSizePx: 48,
+          labels: [
+            {
+              text: 'Line label',
+              normalizedX: 0.5,
+              normalizedY: 0.05,
+              normalizedWidth: 0.3,
+              normalizedHeight: 0.08,
+              fontSizePx: 48,
+            },
+          ],
           publishedAt: '2026-09-23T10:05:00Z',
         });
       });
@@ -2380,6 +2450,89 @@ describe('CellPage', () => {
       ).toContainEqual([{ type: 'OverlaySnapshot', id: 'ov-1' }]);
 
       dispatchSpy.mockRestore();
+    });
+  });
+
+  /**
+   * Spec 150 (#2345) T020, RED. `Tile`'s `hasPlaceholder` and
+   * `measureOverlayDraw` keying both widen from one label to the whole set —
+   * get either wrong and it compiles and only misbehaves at runtime.
+   */
+  describe('The label set as a unit (spec 150)', () => {
+    beforeEach(() => {
+      measureOverlayDrawMock.mockClear();
+    });
+
+    /**
+     * A placeholder-gated snapshot fetch keyed on only the first label (the
+     * shape a `publishedOverlay?.text?.includes('{{')` carry-over would have)
+     * never fetches for an overlay whose placeholder sits in a later label.
+     */
+    it('Still asks for the opening snapshot when the placeholder is in the third label, not the first', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-third-placeholder', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlayWithLabels(['Station A', 'Line 1', 'OEE {{oeeline1}}']));
+
+      renderPage();
+
+      expect(getSnapshotMock).toHaveBeenCalledWith(
+        { overlayIdentifier: 'ovl-third-placeholder', fabId: 'munich' },
+        { skip: false },
+      );
+    });
+
+    /**
+     * `measureOverlayDraw` must fire once for a real change to the label set
+     * and must NOT fire again for a render that changed nothing about it — a
+     * render triggered by, say, the hub's own connection-state transition.
+     * Keying the effect on the label array itself (a fresh reference every
+     * render) would fire on every one of these for free, flooding the
+     * `overlay_draw` instrument with no-op samples (#1888/#1889, ADR-0123).
+     */
+    it('Fires the draw measurement once per real label-set change, not once per render', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-draw-key', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlayWithLabels(['Station A', 'Line 1']));
+
+      renderPage();
+      const callsAfterMount = measureOverlayDrawMock.mock.calls.length;
+      expect(callsAfterMount, 'at least the initial paint is measured').toBeGreaterThan(0);
+
+      // A render that touches nothing about this tile's label set: the hub's
+      // own connection-state transition re-renders the whole page.
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+
+      expect(
+        measureOverlayDrawMock.mock.calls.length,
+        'two state-change re-renders changed nothing about the label set',
+      ).toBe(callsAfterMount);
+
+      // A real change to the label set — the second label's text differs.
+      // Re-uses the same hub-driven re-render trigger as above (this file's
+      // `getOverlayMock` is a plain double with no Redux cache of its own, so
+      // changing its return value needs an actual re-render to be read).
+      getOverlayMock.mockReturnValue(publishedOverlayWithLabels(['Station A', 'Line 2']));
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+
+      expect(measureOverlayDrawMock.mock.calls.length, 'exactly one more measurement for the one real change').toBe(
+        callsAfterMount + 1,
+      );
     });
   });
 });

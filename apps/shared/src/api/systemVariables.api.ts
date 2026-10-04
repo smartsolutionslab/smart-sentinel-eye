@@ -73,9 +73,14 @@ export interface ListVariablesInput {
   fabId?: string;
 }
 
+/**
+ * Spec 150 (#2345): `resolvedTexts` carries the resolved text of every label
+ * on the overlay, index-aligned with the published revision's `labels`
+ * (FR-011 — the cache key stays per-overlay; only its cached value widens).
+ */
 export interface ResolvedOverlaySnapshot {
   overlayIdentifier: string;
-  resolvedText: string;
+  resolvedTexts: string[];
   version: number;
 }
 

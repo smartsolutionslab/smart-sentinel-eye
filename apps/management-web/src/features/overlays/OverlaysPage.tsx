@@ -82,7 +82,7 @@ export function OverlaysPage() {
       overlayIdentifier: chain.overlayIdentifier,
       revisionNumber: result.data,
       name: chain.name,
-      label: labelOf(baseline),
+      labels: labelsOf(baseline),
     });
   };
 
@@ -151,7 +151,9 @@ export function OverlaysPage() {
                 <span className="text-xs text-fg-muted">{revisionSummary(live, draft, summarised)}</span>
               </header>
               <p className="mt-1 text-xs text-fg-muted font-mono">{chain.overlayIdentifier}</p>
-              {summarised !== undefined && <p className="mt-1 text-sm text-fg-muted truncate">{summarised.text}</p>}
+              {summarised !== undefined && (
+                <p className="mt-1 text-sm text-fg-muted truncate">{summarised.labels[0]!.text}</p>
+              )}
               <div className="mt-3 flex gap-2">
                 {draft !== undefined && (
                   <Button
@@ -206,7 +208,7 @@ export function OverlaysPage() {
                         overlayIdentifier: chain.overlayIdentifier,
                         revisionNumber: draft.revisionNumber,
                         name: chain.name,
-                        label: labelOf(draft),
+                        labels: labelsOf(draft),
                       })
                     }
                   >
@@ -376,10 +378,10 @@ function containsRevisionIn(chain: Overlay, state: OverlayRevisionState): boolea
   return chain.revisions.some((r) => r.state === state);
 }
 
-// Spec 152. Lifts the six `OverlayLabel` fields off a revision rather than
-// spreading it — a spread would carry `state`/`createdAt`/`revisionIdentifier`
-// and the rest into the edit target and then into the PATCH body.
-function labelOf(revision: OverlayRevision): OverlayLabel {
-  const { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx } = revision;
-  return { text, normalizedX, normalizedY, normalizedWidth, normalizedHeight, fontSizePx };
+// Spec 152, widened by spec 150 FR-018. Copies the revision's WHOLE `labels`
+// array rather than lifting just the fields `OverlayEditor` shows (index 0) —
+// the dialog edits one label, but the edit target (and later the PATCH body)
+// must carry every label the draft has, or editing truncates the set to one.
+function labelsOf(revision: OverlayRevision): OverlayLabel[] {
+  return revision.labels.map((label) => ({ ...label }));
 }

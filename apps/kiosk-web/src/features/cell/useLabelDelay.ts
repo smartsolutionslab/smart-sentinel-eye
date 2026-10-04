@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { isWorthDelaying, labelDelayFor } from '@smart-sentinel-eye/shared/observability/labelDelay';
 
 /**
- * Holds an overlay label back so it describes the same moment as the picture
- * beneath it (spec 046 US2, ADR-0129).
+ * Holds an overlay label — or, since spec 150 (#2345), its whole label set —
+ * back so it describes the same moment as the picture beneath it (spec 046
+ * US2, ADR-0129).
  *
  * <p>
  * <b>Not frame accuracy.</b> It makes the label as old as the picture; it does
@@ -20,44 +21,55 @@ import { isWorthDelaying, labelDelayFor } from '@smart-sentinel-eye/shared/obser
  * hide an operator's value is worse than the mismatch it corrects.
  * </p>
  *
- * @param text the label to show, or undefined when the tile carries no overlay
+ * <p>
+ * <b>Generic over the held value</b> (spec 150 FR-014): a tile's whole label
+ * set ages as a unit — one call per tile, never one per label, because hooks
+ * cannot be called in a loop. Every comparison below is by reference
+ * (`!==`), exactly as it always was for a `string`; a caller passing a
+ * non-primitive `T` (e.g. the resolved-text array) is responsible for giving
+ * it a stable identity across renders that have not actually changed
+ * (`useMemo` keyed on a derived scalar) — see `LayoutGrid.tsx`'s `Tile`.
+ * </p>
+ *
+ * @param value the label (or label set) to show, or undefined when the tile
+ *   carries no overlay
  * @param frameAgeMilliseconds how old this tile's picture is, or null if unknown
  * @param onHeld called with the hold that was actually achieved, once per hold,
  *   whether it ran its course or was released early. Never called for a label
  *   that was not held.
  */
-export function useLabelDelay(
-  text: string | undefined,
+export function useLabelDelay<T>(
+  value: T | undefined,
   frameAgeMilliseconds: number | null,
   onHeld?: (achievedMilliseconds: number) => void,
-): string | undefined {
+): T | undefined {
   const delay = labelDelayFor(frameAgeMilliseconds);
 
   // A tile with no label is untouched (FR-013): nothing is held and no timer is
   // scheduled. Removal is not held either — a label outliving the overlay that
   // owns it is stale text an operator would read as live, which is worse than
   // one that vanishes a frame early.
-  const holding = text !== undefined && isWorthDelaying(delay);
+  const holding = value !== undefined && isWorthDelaying(delay);
 
-  const [shown, setShown] = useState<string | undefined>(text);
+  const [shown, setShown] = useState<T | undefined>(value);
 
-  // **Kept in step with `text` on every render that is not holding**, using
+  // **Kept in step with `value` on every render that is not holding**, using
   // React's documented pattern for adjusting state when a prop changes.
   //
   // Without this, `shown` was written only by the timer, so it still carried
   // whatever it was seeded with at mount whenever a hold *began* without an
-  // intervening text change. Two ways that happens, and the first is the normal
-  // path: a tile mounts before its overlay query resolves, the label arrives
-  // while no lag has been sampled yet, and the tile's first measurement a
-  // couple of seconds later starts a hold on the `undefined` from mount — the
-  // label vanishes and never returns. The second is a label that changed while
-  // the age was briefly unreadable, then reverted to its predecessor the moment
-  // the age came back. Found in review.
-  const [adjustedFor, setAdjustedFor] = useState<string | undefined>(text);
-  if (text !== adjustedFor) {
-    setAdjustedFor(text);
+  // intervening value change. Two ways that happens, and the first is the
+  // normal path: a tile mounts before its overlay query resolves, the label
+  // arrives while no lag has been sampled yet, and the tile's first
+  // measurement a couple of seconds later starts a hold on the `undefined`
+  // from mount — the label vanishes and never returns. The second is a label
+  // that changed while the age was briefly unreadable, then reverted to its
+  // predecessor the moment the age came back. Found in review.
+  const [adjustedFor, setAdjustedFor] = useState<T | undefined>(value);
+  if (value !== adjustedFor) {
+    setAdjustedFor(value);
     if (!holding) {
-      setShown(text);
+      setShown(value);
     }
   }
 
@@ -78,7 +90,7 @@ export function useLabelDelay(
 
   useEffect(() => {
     const scheduled = delayRef.current;
-    if (text === undefined || !isWorthDelaying(scheduled)) {
+    if (value === undefined || !isWorthDelaying(scheduled)) {
       return undefined;
     }
 
@@ -89,7 +101,7 @@ export function useLabelDelay(
 
     const timer = window.setTimeout(() => {
       pending.current = null;
-      setShown(text);
+      setShown(value);
       // **The achieved hold, not the one that was asked for** (FR-015). A timer
       // fires late under load, and reporting `scheduled` would make the metric
       // agree with itself no matter what the browser actually did — a dashboard
@@ -109,7 +121,7 @@ export function useLabelDelay(
         pending.current = null;
       }
     };
-  }, [text]);
+  }, [value]);
 
   // A hold released by the derivation above — the tile stopped reporting an age,
   // or its age jumped past the cap, both of which a live jittering measurement
@@ -128,5 +140,5 @@ export function useLabelDelay(
     reportRef.current?.(performance.now() - startedAt);
   }, [holding]);
 
-  return holding ? shown : text;
+  return holding ? shown : value;
 }
