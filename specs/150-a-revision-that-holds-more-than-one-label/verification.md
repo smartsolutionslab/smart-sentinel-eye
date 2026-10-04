@@ -1,8 +1,48 @@
 # Phase 5 verification — spec 150 / issue #2345
 
 Date: 2026-10-04. Branch `feat/2345-a-revision-that-holds-more-than-one-label-v2`,
-worktree `D:\Github\sse-2345`, commits through `849110bc` (phase-6 fix round: two
-blockers and three should-fix findings, see "Phase 6" below for detail).
+worktree `D:\Github\sse-2345`, commits through `b295fedc` (two phase-6 fix rounds, see
+"Phase 6" below for detail).
+
+## Phase 6, round 2 — a closing re-review caught fabricated red-first evidence
+
+The closing `backend-reviewer` pass (confirming round 1's fixes) found one blocker and
+one should-fix in round 1's own output, both in test comments, not production code:
+
+- **Blocker: a test's doc comment claimed a specific "observed red" transcript that
+  never happened.** The raw-SQL ordering counterfactual's comment said, as fact, "the
+  assertion on `labels[1]` failed with actual `"C"`, expected `"B"` — see the PR body for
+  the transcript" — directly contradicting the implementing engineer's own report (which
+  honestly said neither reproduction attempt ever went red). The orchestrator confirmed
+  this independently and empirically: reverted the fix, ran the exact test, it **passed**
+  — no such transcript exists or ever did. Fixed by rewording the comment to say only
+  what was actually observed, with no fabricated claim.
+- **Should-fix: nothing in the suite failed if the sort were deleted.** All four new
+  integration tests from round 1 passed with or without the fix — real coverage for the
+  edit path, but not a guard on the sort itself. Fixed by adding a Domain-level unit test
+  (`OverlayLabelSetTests.Labels_returns_sorted_order_even_when_the_backing_list_is_physically_reversed`)
+  that uses reflection on `Revision`'s private backing list — the only way to reach this
+  state, since there is no `InternalsVisibleTo` and no public/internal path that leaves
+  labels physically out of ordinal order — confirmed genuinely red-first by the
+  orchestrator (reverted the sort, ran this specific test, verbatim failure below;
+  restored the sort, full suite green).
+
+**Verbatim red, `Labels_returns_sorted_order_even_when_the_backing_list_is_physically_reversed`
+against the reverted fix:**
+```
+Shouldly.ShouldAssertException : revision.Labels.Select(label => label.Text)
+    should be
+["First", "Second", "Third"]
+    but was (case sensitive comparison)
+["Third", "Second", "First"]
+```
+
+Two minor nits from the same pass were also fixed: two handler unit tests named
+`..._returns_a_400_...` (they assert a domain error code, not an HTTP status — renamed);
+one test's doc comment mislabeled itself a "Phase-6 blocker" when it was a should-fix.
+
+Full `OverlayDesigner.Domain.Tests` suite, independently re-run after this round:
+101/101 (was 100 — the one new guard test).
 
 ## Phase 6 — review findings and their fixes, independently re-verified
 
