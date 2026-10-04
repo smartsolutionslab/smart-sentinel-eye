@@ -60,6 +60,17 @@ export const tailwindTheme = {
       },
       scrim: 'var(--color-scrim)',
     },
+    // Separate from `colors.accent` above (plan.md §3): Tailwind's `text-*`
+    // utility resolves `--text-color-*` before `--color-*`, so this is the
+    // only namespace a `text-accent-<role>` utility reads; `bg-`/`border-`
+    // keep resolving through `colors.accent` to the signal vars, unchanged.
+    textColor: {
+      accent: {
+        active: 'var(--color-accent-active-text)',
+        warning: 'var(--color-accent-warning-text)',
+        fault: 'var(--color-accent-fault-text)',
+      },
+    },
     spacing: {
       '0.5': 'var(--space-0-5)',
       '1': 'var(--space-1)',

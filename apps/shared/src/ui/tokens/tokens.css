@@ -83,6 +83,12 @@
   --green-50: oklch(95% 0.03 148.34);
   --red-50: oklch(95% 0.03 24.66);
   --amber-50: oklch(95% 0.03 68.43);
+  /* US2 (#2695) text-role stops: L 48%, chroma at 95% of the sRGB gamut
+     edge for each hue, hue held to the triad's declared precision (plan.md
+     §2.2) so a triad hue reads as label text at >= 4.5:1 in light. */
+  --green-700: oklch(48% 0.132 148.34);
+  --amber-700: oklch(48% 0.1 68.43);
+  --red-700: oklch(48% 0.185 24.66);
   --black: oklch(0% 0 0);
   --white: oklch(100% 0 0);
 }
@@ -117,6 +123,14 @@
   --color-accent-active: var(--green-500);
   --color-accent-fault: var(--red-500);
   --color-accent-warning: var(--amber-500);
+  /* Per-theme triad text roles (US2, #2695; ADR-0146 item 4 amendment): in
+     dark the role IS the signal; high-contrast inherits this block.
+     `light` redeclares these three at a darker stop of the same hue
+     (below) so a triad hue clears 4.5:1 as label text — the signal
+     colours themselves stay pinned (No_theme_redeclares_a_triad_role). */
+  --color-accent-active-text: var(--color-accent-active);
+  --color-accent-warning-text: var(--color-accent-warning);
+  --color-accent-fault-text: var(--color-accent-fault);
 
   /* Interaction-state roles (spec 268, issue #2336, ADR-0146 item 5; ADR-0148
      decision 2 — derived, not chosen; plan.md §2). */
@@ -291,12 +305,16 @@
   --color-accent-subtle: color-mix(in oklab, var(--color-accent) 12%, var(--color-bg-base));
   --color-focus-ring: var(--cyan-700);
 
-  /* Light stops of the same hue. The contrast fact excludes this theme for
-     the triad half (#2695: a triad hue as text on a near-white tint is
-     below 4.5:1) — the tint itself is still correct. */
+  /* Light stops of the same hue. US2 (#2695) added per-theme text roles
+     (--color-accent-<role>-text, below) so a triad hue reads at >= 4.5:1 as
+     label text here too; the tint itself was always correct — only using
+     the triad hue directly as text on it was not. */
   --color-accent-active-subtle: var(--green-50);
   --color-accent-warning-subtle: var(--amber-50);
   --color-accent-fault-subtle: var(--red-50);
+  --color-accent-active-text: var(--green-700);
+  --color-accent-warning-text: var(--amber-700);
+  --color-accent-fault-text: var(--red-700);
 
   --shadow-popover: 0 4px 12px 0 color-mix(in oklab, var(--gray-950) 12%, transparent);
   --shadow-overlay: 0 16px 40px 0 color-mix(in oklab, var(--gray-950) 20%, transparent);
