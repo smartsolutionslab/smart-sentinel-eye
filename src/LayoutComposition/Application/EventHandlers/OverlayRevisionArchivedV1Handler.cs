@@ -11,7 +11,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// OverlayDesigner. Relays it onto the <c>/hubs/layouts</c> SignalR hub
 /// via the broadcaster LayoutComposition owns (force-disconnect
 /// semantics for kiosks rendering the archived overlay). See
-/// <see cref="OverlayRevisionPublishedV1Handler"/> for the rationale.
+/// <see cref="OverlayRevisionPublishedV2Handler"/> for the rationale.
 /// </summary>
 public sealed class OverlayRevisionArchivedV1Handler(
     ILayoutLifecycleBroadcaster broadcaster,

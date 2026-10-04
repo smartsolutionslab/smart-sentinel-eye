@@ -6,7 +6,7 @@
 /// counter so kiosks discard out-of-order frames.
 /// </summary>
 /// <para>
-/// <c>Fab</c> names the plant whose values produced <c>ResolvedText</c>. It
+/// <c>Fab</c> names the plant whose values produced <c>ResolvedTexts</c>. It
 /// already picks the group the frame is sent to, but an overlay is a
 /// fab-neutral template (ADR-0115), so a screen whose token holds two fabs
 /// joins two groups and legitimately receives both plants' frames. Carrying

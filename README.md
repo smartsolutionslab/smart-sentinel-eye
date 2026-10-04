@@ -145,7 +145,7 @@ same SignalR hub.
    position on the preview canvas, and adjust the font-size slider.
    Click **Save as draft**, then **Publish** on the new row — the
    state flips to **Published** within ≤ 1 s and
-   ``OverlayRevisionPublishedV1`` lands on the integration bus.
+   ``OverlayRevisionPublishedV2`` lands on the integration bus.
 2. Open the **Layouts** page (or create a new layout). Pick the
    newly Published overlay from the **Overlay** dropdown in the
    **New layout** dialog and save. Publish the layout.

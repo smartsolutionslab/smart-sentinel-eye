@@ -14,7 +14,7 @@ namespace SmartSentinelEye.OverlayDesigner.Application.EventHandlers;
 /// <para>
 /// The SignalR push for this lifecycle frame is performed by
 /// LayoutComposition, which owns the <c>/hubs/layouts</c> hub and
-/// subscribes to <see cref="OverlayRevisionPublishedV1"/> — so the
+/// subscribes to <see cref="OverlayRevisionPublishedV2"/> — so the
 /// broadcast lives with the hub and this context keeps no dependency on
 /// LayoutComposition.
 /// </para>

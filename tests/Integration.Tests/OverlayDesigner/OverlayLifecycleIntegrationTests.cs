@@ -33,7 +33,7 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     };
 
     [Fact]
-    public async Task Create_and_publish_an_overlay_emits_OverlayRevisionPublishedV1_within_500_ms()
+    public async Task Create_and_publish_an_overlay_emits_OverlayRevisionPublishedV2_within_500_ms()
     {
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
