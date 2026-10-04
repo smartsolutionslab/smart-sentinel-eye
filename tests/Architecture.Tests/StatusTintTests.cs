@@ -13,8 +13,8 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// tree's own <c>--color-accent-fault-subtle</c> (spec §1, T001/V1: canvas
 /// read-back <c>rgb(20,24,37)</c>). <c>DesignTokenLayerTests</c> and
 /// <c>InteractionStateTests</c> guard the rest of the token file's shape and
-/// contrast; this class is scoped to the three <c>-subtle</c> tint roles
-/// only.
+/// contrast; this class is scoped to the three <c>-subtle</c> tint roles and,
+/// since spec 299, the three <c>-text</c> roles beside them.
 ///
 /// <para>
 /// Reuses <c>DesignTokenLayerTests</c>' declaration-parser shape and
@@ -28,18 +28,28 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// Phase-4a colour: red (spec §6). Red on develop:
-/// <see cref="Each_triad_tint_is_a_literal_at_its_triad_hue"/> (the active and
-/// warning roles are not declared at all; the fault role is a
-/// <c>color-mix</c>, not a literal) and
-/// <see cref="A_triad_label_is_legible_on_its_tint"/> (the active and warning
-/// roles cannot be resolved). <see cref="No_theme_redeclares_a_triad_role"/>
-/// and <see cref="The_neutral_label_is_legible_on_its_fill"/> are declared
-/// green pins (spec §6) — true today, independent of this spec's change.
-/// <see cref="Each_contrast_exclusion_still_fails"/> is also red on develop
-/// today: the light theme's excluded roles cannot yet be resolved either, so
-/// the exclusion cannot be proved still necessary — it turns green once F
-/// lands the roles (plan.md §5.1).
+/// <b>Spec 299 (issue #2695):</b> the triad as text on its tint and on the
+/// plain grounds is below 4.5:1 in the light theme — not excused by a
+/// shrink-only carve-out any more. Each triad hue now gets a per-theme
+/// <b>text</b> role, <c>--color-accent-&lt;role&gt;-text</c> (ADR-0146's
+/// 2026-10-04 amendment): the signal itself in dark/high-contrast, a darker
+/// stop at the same hue in light. The former carve-out —
+/// <c>ContrastExclusions</c>, <c>IssueReference</c> and the honesty fact
+/// <c>Each_contrast_exclusion_still_fails</c> that kept it from going
+/// stale — is deleted outright (FR-009), not weakened: the bug it excused is
+/// fixed, so there is nothing left to excuse.
+/// </para>
+///
+/// <para>
+/// Phase-4a colour: red (spec §6, this spec's own red facts layered on top
+/// of spec 297's). Red on develop: <see cref="Each_triad_text_role_keeps_its_triad_hue"/>
+/// and <see cref="A_triad_label_is_legible_on_every_ground"/> (the <c>-text</c>
+/// roles are not declared yet) and <see cref="A_triad_label_is_legible_on_its_tint"/>
+/// (now resolves the <c>-text</c> role and loops <c>light</c> too — both
+/// unresolved/below threshold today). <see cref="Each_triad_tint_is_a_literal_at_its_triad_hue"/>,
+/// <see cref="No_theme_redeclares_a_triad_role"/> and
+/// <see cref="The_neutral_label_is_legible_on_its_fill"/> are spec 297's own
+/// facts and must stay green, unmodified, throughout.
 /// </para>
 /// </summary>
 public class StatusTintTests
@@ -53,19 +63,6 @@ public class StatusTintTests
     private const double MinimumTextContrast = 4.5; // WCAG 1.4.3.
 
     private static readonly string[] TriadRoles = ["active", "warning", "fault"];
-
-    /// <summary>
-    /// FR-008's light-theme carve-out (spec §3.2, issue #2695) — shrink-only,
-    /// kept honest by <see cref="Each_contrast_exclusion_still_fails"/>.
-    /// </summary>
-    private static readonly (string Theme, string Reason)[] ContrastExclusions =
-    [
-        (
-            "light",
-            "#2695 — a triad hue as text on a near-white tint is below 4.5:1; needs per-theme triad text roles"),
-    ];
-
-    private static readonly Regex IssueReference = new(@"#\d+", RegexOptions.Compiled);
 
     private static readonly Regex SimpleVarValue = new(@"^var\(--[A-Za-z0-9-]+\)$", RegexOptions.Compiled);
 
@@ -134,6 +131,70 @@ public class StatusTintTests
     }
 
     /// <summary>
+    /// New fact (spec 299 plan.md §4.3, issue #2695). Fact 1's shape, applied
+    /// to the <c>-text</c> role instead of the <c>-subtle</c> tint, over all
+    /// three themes (dark, light, high-contrast — ADR-0146's 2026-10-04
+    /// amendment permits the text role, and only the text role, to differ
+    /// per theme). Red on develop: <c>--color-accent-&lt;role&gt;-text</c> is
+    /// not declared anywhere yet.
+    /// </summary>
+    [Fact]
+    public void Each_triad_text_role_keeps_its_triad_hue()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        Dictionary<string, string> rootMap = RootMap(declarations);
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+
+        List<string> problems = [];
+
+        foreach (string role in TriadRoles)
+        {
+            string triadName = $"--color-accent-{role}";
+            (bool triadOk, OklchTriple? triadValue, string? triadReason) = ResolveLiteralThroughVarOnly(triadName, rootMap);
+
+            if (!triadOk)
+            {
+                problems.Add($"{triadName}: {triadReason}");
+                continue;
+            }
+
+            foreach ((string themeName, Dictionary<string, string> map) in new[]
+                     {
+                         ("dark", rootMap),
+                         ("light", lightMap),
+                         ("high-contrast", highContrastMap),
+                     })
+            {
+                string textName = $"--color-accent-{role}-text";
+                (bool ok, OklchTriple? value, string? reason) = ResolveLiteralThroughVarOnly(textName, map);
+
+                if (!ok)
+                {
+                    problems.Add($"[{themeName}] {textName}: {reason}");
+                    continue;
+                }
+
+                double diff = Math.Abs(value!.Value.Hue - triadValue!.Value.Hue);
+                if (diff > HueTolerance)
+                {
+                    problems.Add(
+                        $"[{themeName}] {textName} resolves to hue {value.Value.Hue}, but {triadName} resolves "
+                        + $"to hue {triadValue.Value.Hue} — a text role must cite its own triad's hue exactly "
+                        + $"(diff {diff:F4} > {HueTolerance}).");
+                }
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            $"{tokenFile.Name}'s triad text roles are not at their triad's own hue:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    /// <summary>
     /// Fact 2 (green pin). <c>--color-accent-active</c>,
     /// <c>--color-accent-warning</c> and <c>--color-accent-fault</c> are
     /// declared only in <c>:root</c> — true today, unrelated to this spec's
@@ -158,11 +219,12 @@ public class StatusTintTests
     }
 
     /// <summary>
-    /// Fact 3 (plan.md §5.1). Red on develop (see class remarks): each
-    /// triad's own colour on its <c>-subtle</c> tint is &gt;= 4.5:1
-    /// (WCAG 1.4.3) in <c>dark</c> and <c>high-contrast</c>. <c>light</c> is
-    /// excluded by <see cref="ContrastExclusions"/> (FR-008, issue #2695),
-    /// kept honest by <see cref="Each_contrast_exclusion_still_fails"/>.
+    /// Fact 3 (plan.md §5.1/§4.3, amended by spec 299 issue #2695). Each
+    /// triad's <b>text role</b> — not the signal colour directly any more —
+    /// on its own <c>-subtle</c> tint is &gt;= 4.5:1 (WCAG 1.4.3) in
+    /// <b>every</b> theme, <c>light</c> included. There is no exclusion list
+    /// any more (FR-009): the text role is what fixes the light-theme
+    /// failure the old carve-out used to excuse.
     /// </summary>
     [Fact]
     public void A_triad_label_is_legible_on_its_tint()
@@ -171,25 +233,21 @@ public class StatusTintTests
         FileInfo tokenFile = TokenFile(root);
         List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
         Dictionary<string, string> rootMap = RootMap(declarations);
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
         Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
-        HashSet<string> excludedThemes = [.. ContrastExclusions.Select(e => e.Theme)];
         List<string> problems = [];
 
         foreach ((string themeName, Dictionary<string, string> map) in new[]
                  {
                      ("dark", rootMap),
+                     ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            if (excludedThemes.Contains(themeName))
-            {
-                continue;
-            }
-
             foreach (string role in TriadRoles)
             {
-                string textName = $"--color-accent-{role}";
+                string textName = $"--color-accent-{role}-text";
                 string fillName = $"--color-accent-{role}-subtle";
 
                 (double ratio, string? error) = TryContrastRatio(textName, fillName, map);
@@ -212,62 +270,51 @@ public class StatusTintTests
     }
 
     /// <summary>
-    /// Fact 4. Honesty for <see cref="ContrastExclusions"/>: each excluded
-    /// theme must still have at least one triad hue below 4.5:1 — otherwise
-    /// the exclusion is stale and must be removed (FR-008: "an honesty fact
-    /// that fails once light meets the threshold").
+    /// New fact (spec 299 plan.md §4.3, issue #2695). The issue named "any
+    /// light surface", not only the tint: each triad's text role must also
+    /// clear 4.5:1 on the three plain grounds (<c>--color-bg-base</c>,
+    /// <c>-elevated</c>, <c>-raised</c>) in every theme. Red on develop: the
+    /// text roles are not declared yet.
     /// </summary>
     [Fact]
-    public void Each_contrast_exclusion_still_fails()
+    public void A_triad_label_is_legible_on_every_ground()
     {
         DirectoryInfo root = RepositorySource.Root();
         FileInfo tokenFile = TokenFile(root);
         List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
         Dictionary<string, string> rootMap = RootMap(declarations);
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, string reason) in ContrastExclusions)
+        foreach ((string themeName, Dictionary<string, string> map) in new[]
+                 {
+                     ("dark", rootMap),
+                     ("light", lightMap),
+                     ("high-contrast", highContrastMap),
+                 })
         {
-            IssueReference.IsMatch(reason).ShouldBeTrue(
-                $"the '{themeName}' contrast exclusion must name the issue that owns fixing it (e.g. #1234).");
-
-            Dictionary<string, string> map = themeName switch
-            {
-                "light" => ThemeMap(declarations, rootMap, IsLightTheme),
-                "high-contrast" => ThemeMap(declarations, rootMap, IsHighContrastTheme),
-                "dark" => rootMap,
-                _ => throw new InvalidOperationException($"unknown theme '{themeName}' in the contrast exclusion list."),
-            };
-
-            List<double> ratios = [];
-            List<string> unresolved = [];
-
             foreach (string role in TriadRoles)
             {
-                (double ratio, string? error) = TryContrastRatio($"--color-accent-{role}", $"--color-accent-{role}-subtle", map);
-                if (error is not null)
+                string textName = $"--color-accent-{role}-text";
+
+                foreach (string ground in new[] { "--color-bg-base", "--color-bg-elevated", "--color-bg-raised" })
                 {
-                    unresolved.Add($"{role}: {error}");
-                    continue;
+                    (double ratio, string? error) = TryContrastRatio(textName, ground, map);
+                    if (error is not null)
+                    {
+                        problems.Add($"[{themeName}] {error}");
+                        continue;
+                    }
+
+                    if (ratio < MinimumTextContrast)
+                    {
+                        problems.Add(
+                            $"[{themeName}] {textName} on {ground} is {ratio:F2}:1, below the "
+                            + $"{MinimumTextContrast}:1 WCAG 1.4.3 threshold.");
+                    }
                 }
-
-                ratios.Add(ratio);
-            }
-
-            if (unresolved.Count > 0)
-            {
-                problems.Add(
-                    $"[{themeName}] cannot confirm the exclusion is still needed — not every triad hue resolves yet: "
-                    + string.Join("; ", unresolved));
-                continue;
-            }
-
-            if (ratios.All(ratio => ratio >= MinimumTextContrast))
-            {
-                problems.Add(
-                    $"[{themeName}] every triad hue on its tint now meets {MinimumTextContrast}:1 — remove this "
-                    + "exclusion from ContrastExclusions (FR-008's honesty requirement).");
             }
         }
 
@@ -422,7 +469,7 @@ public class StatusTintTests
 
         Match mix = Regex.Match(
             trimmed,
-            @"^color-mix\(in oklch,\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+(?<pct>\d+(?:\.\d+)?)%,\s*"
+            @"^color-mix\(in (?<space>oklab|oklch),\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+(?<pct>\d+(?:\.\d+)?)%,\s*"
             + @"(?:var\((?<b>--[A-Za-z0-9-]+)\)|(?<transparent>transparent))\)$");
         if (mix.Success)
         {
@@ -444,13 +491,24 @@ public class StatusTintTests
             }
 
             double fraction = double.Parse(mix.Groups["pct"].Value, CultureInfo.InvariantCulture) / 100.0;
-            double hue = a!.Value.Chroma >= b!.Value.Chroma ? a.Value.Hue : b.Value.Hue;
-            OklchTriple mixed = new(
-                (fraction * a.Value.Lightness) + ((1 - fraction) * b.Value.Lightness),
-                (fraction * a.Value.Chroma) + ((1 - fraction) * b.Value.Chroma),
-                hue);
 
-            return (true, OklchColorResolver.OklchToSrgb(mixed.Lightness, mixed.Chroma, mixed.Hue), null);
+            // Evaluates the declared space exactly (spec 299 FR-003, issue
+            // #2695) via OklchColorResolver.Mix, the same evaluator
+            // InteractionStateTests.ResolveOklch calls — rather than
+            // approximating the mixed hue from whichever operand carries
+            // more chroma.
+            OklchColorResolver.MixSpace space = mix.Groups["space"].Value == "oklab"
+                ? OklchColorResolver.MixSpace.Oklab
+                : OklchColorResolver.MixSpace.Oklch;
+
+            OklchTriple aValue = a!.Value;
+            OklchTriple bValue = b!.Value;
+
+            (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+                space, (aValue.Lightness, aValue.Chroma, aValue.Hue), fraction,
+                (bValue.Lightness, bValue.Chroma, bValue.Hue));
+
+            return (true, OklchColorResolver.OklchToSrgb(lightness, chroma, hue), null);
         }
 
         Match literal = OklchLiteral.Match(trimmed);
