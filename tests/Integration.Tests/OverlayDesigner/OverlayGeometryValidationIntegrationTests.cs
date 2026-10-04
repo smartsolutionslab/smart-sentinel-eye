@@ -199,7 +199,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     }
 
     /// <summary>
-    /// Phase-6 blocker (spec 150, #2345) — a <c>null</c> element inside an
+    /// Phase-6 should-fix (spec 150, #2345) — a <c>null</c> element inside an
     /// otherwise well-formed <c>labels</c> array must reach the endpoint's
     /// <c>catch (ArgumentException)</c> and answer <c>400</c>, the same as an
     /// omitted array. Before the guard in <c>ParseLabel</c>, the null reached

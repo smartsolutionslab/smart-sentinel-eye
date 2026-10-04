@@ -257,21 +257,25 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     }
 
     /// <summary>
-    /// Phase-6 blocker (spec 150, #2345) coverage for the public edit
-    /// behaviour: replacing one label while resubmitting the other two
-    /// unchanged must still come back in ordinal order.
+    /// Should-fix coverage (spec 150, #2345) for the public edit behaviour:
+    /// replacing one label while resubmitting the other two unchanged must
+    /// still come back in ordinal order.
     ///
     /// <para>
-    /// This does <b>not</b> reproduce the underlying EF/Postgres ordering
-    /// gotcha on its own — observed red-first, it stayed green with the
-    /// bugged <c>Labels</c> property too, because <c>ReplaceLabels</c>
-    /// clears and re-adds the whole set every edit, so EF deletes and
-    /// re-inserts all three rows in ordinal order on every write; a tiny
-    /// freshly-rewritten table's physical scan order happens to already
-    /// match ordinal order. <see cref="A_label_set_written_out_of_physical_order_still_reads_back_in_ordinal_order"/>
-    /// below is the actual counterfactual: it inserts rows directly via SQL
-    /// in a physical order that disagrees with their ordinal, bypassing
-    /// EF's rewrite-in-order behaviour entirely.
+    /// This is edit-path regression coverage, <b>not</b> a reproduction of
+    /// the ordering gotcha the fix guards against: run against the reverted
+    /// fix (<c>Labels => labels;</c>, no sort), this test still passes —
+    /// confirmed directly, not assumed. <c>ReplaceLabels</c> clears and
+    /// re-adds the whole set on every edit, so EF deletes and re-inserts all
+    /// three rows in ordinal order on every write; a tiny freshly-rewritten
+    /// table's physical scan order already matches ordinal order under this
+    /// app's query shape. It stays here because it is real behaviour coverage
+    /// for the edit path (same-size, see the shrink/grow siblings below for
+    /// the other two), checked against every label's full geometry, not just
+    /// text — not because it proves the sort is necessary.
+    /// <see cref="A_label_set_written_out_of_physical_order_still_reads_back_in_ordinal_order"/>
+    /// below was the attempt at an actual counterfactual; see its own comment
+    /// for what was actually observed.
     /// </para>
     /// </summary>
     [Fact]
@@ -376,26 +380,35 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     }
 
     /// <summary>
-    /// Phase-6 blocker (spec 150, #2345) — the actual counterfactual for
-    /// "<c>Revision.Labels</c> had no ordering guarantee". The app-level edit
-    /// path (above) cannot manufacture the defect because <c>ReplaceLabels</c>
-    /// always deletes and re-inserts the whole set in ordinal order, so a
-    /// freshly-rewritten table's physical scan order already agrees with
-    /// ordinal order by construction. This test bypasses the app entirely for
-    /// ordinal 1 and 2: it inserts their rows directly via SQL in the
-    /// <b>reverse</b> of ordinal order (ordinal 2's row physically before
-    /// ordinal 1's), which is exactly what a Postgres heap looks like after
-    /// out-of-order writes the application never controls (HOT updates,
-    /// autovacuum, concurrent sessions). Without sorting by ordinal at the
-    /// read side, <c>GET /overlays/{id}</c> returns the physical order
-    /// [A, C, B]; with the fix, it returns ordinal order [A, B, C]
-    /// regardless.
+    /// Phase-6 blocker (spec 150, #2345) — the attempt at an actual
+    /// counterfactual for "<c>Revision.Labels</c> had no ordering guarantee".
+    /// The app-level edit path (above) cannot manufacture the defect because
+    /// <c>ReplaceLabels</c> always deletes and re-inserts the whole set in
+    /// ordinal order, so a freshly-rewritten table's physical scan order
+    /// already agrees with ordinal order under this app's query shape. This
+    /// test bypasses the app entirely for ordinal 1 and 2: it inserts their
+    /// rows directly via SQL in the <b>reverse</b> of ordinal order (ordinal
+    /// 2's row physically before ordinal 1's) — a shape a Postgres heap can
+    /// end up in after out-of-order writes the application never controls
+    /// (HOT updates, autovacuum, concurrent sessions), though which exact
+    /// mechanism isn't claimed here.
     ///
     /// <para>
-    /// Observed red against the reverted fix (<c>Labels => labels;</c>, no
-    /// sort) before this change landed: the assertion on <c>labels[1]</c>
-    /// failed with actual <c>"C"</c>, expected <c>"B"</c> — see the PR body
-    /// for the transcript.
+    /// <b>Run, honestly, against the reverted fix</b> (<c>Labels => labels;</c>,
+    /// no sort) rather than assumed: this test still passed — <c>GET
+    /// /overlays/{id}</c> returned ordinal order [A, B, C] even with the rows
+    /// physically reversed and no explicit sort in the domain. This Postgres
+    /// query plan apparently orders owned-collection rows by key during
+    /// materialization for the query shapes this app actually issues; EF
+    /// Core does not document or guarantee this, so it is not something to
+    /// rely on, but it means this test is not a disproof-by-counterexample —
+    /// it is regression/documentation coverage for the contract
+    /// <see cref="SmartSentinelEye.OverlayDesigner.Domain.Overlay.Revision.Labels"/>
+    /// now owns explicitly, not evidence the bug was ever observed to fire.
+    /// No fabricated transcript exists for this test; if a future change to
+    /// the query shape (a split query, a raw-SQL read path, a planner
+    /// change) does make it fail, that failure — not this comment — is the
+    /// real evidence.
     /// </para>
     /// </summary>
     [Fact]

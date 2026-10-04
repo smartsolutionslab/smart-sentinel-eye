@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Reflection;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 using SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
@@ -184,5 +185,40 @@ public class OverlayLabelSetTests
             ReferenceEquals(draft.Labels[i].Position, published.Labels[i].Position).ShouldBeFalse();
             ReferenceEquals(draft.Labels[i].Size, published.Labels[i].Size).ShouldBeFalse();
         }
+    }
+
+    // --- Phase-6 should-fix: the sort itself is a guarded contract, not an
+    // unverified claim (spec 150, #2345). The integration-test counterfactual
+    // in OverlayRevisionLifecycleIntegrationTests could not reproduce a
+    // scramble through this app's own EF/Postgres query shape (reported
+    // honestly there, not assumed). This test guards the contract directly,
+    // with no EF or Postgres involved: it reaches past the public API via
+    // reflection on Revision's private backing list — the one way, short of
+    // adding InternalsVisibleTo, to get a revision's labels into a physical
+    // order that disagrees with their own ordinals — and checks that
+    // `Revision.Labels` still returns them sorted. Reflection is the test
+    // tool here specifically because production code has no way to create
+    // this state; that is the point.
+
+    [Fact]
+    public void Labels_returns_sorted_order_even_when_the_backing_list_is_physically_reversed()
+    {
+        Label first = MakeLabel("First", 0.1m);
+        Label second = MakeLabel("Second", 0.2m);
+        Label third = MakeLabel("Third", 0.3m);
+        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
+        Revision revision = overlay.Revisions.Single();
+        revision.Labels.Select(label => label.Text).ShouldBe(["First", "Second", "Third"]);
+
+        FieldInfo backingField = typeof(Revision).GetField("labels", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("Revision's private 'labels' field was not found — rename tracked here must be updated.");
+        List<Label> backingList = (List<Label>)backingField.GetValue(revision)!;
+        backingList.Reverse();
+
+        // The physical order is now reversed; each label's own Ordinal is untouched.
+        backingList.Select(label => label.Text).ShouldBe(["Third", "Second", "First"]);
+        backingList.Select(label => label.Ordinal.Value).ShouldBe([2, 1, 0]);
+
+        revision.Labels.Select(label => label.Text).ShouldBe(["First", "Second", "Third"]);
     }
 }
