@@ -124,18 +124,23 @@ public sealed class ReverseIndexSeederHostedService(
 
     /// <summary>
     /// Reads every element's <c>"text"</c> out of a revision's <c>"labels"</c>
-    /// array, in array order (spec 150's ordinal order). An element missing
-    /// <c>"text"</c> is skipped rather than failing the whole overlay.
+    /// array, in array order (spec 150's ordinal order). <c>ResolvedTexts</c> is
+    /// index-aligned with the label array by contract (<see
+    /// cref="SmartSentinelEye.SystemVariables.Application.DTOs.ResolvedOverlaySnapshotDto"/>),
+    /// so an element missing <c>"text"</c>
+    /// contributes <see cref="string.Empty"/> at its position rather than being
+    /// skipped — skipping would shift every later label onto the wrong index
+    /// instead of failing the one label that is actually malformed.
     /// </summary>
     private static List<string> ExtractLabelTexts(JsonElement labelsElement)
     {
         List<string> labelTexts = [];
         foreach (JsonElement label in labelsElement.EnumerateArray())
         {
-            if (label.TryGetProperty("text", out JsonElement textElement))
-            {
-                labelTexts.Add(textElement.GetString() ?? string.Empty);
-            }
+            labelTexts.Add(
+                label.TryGetProperty("text", out JsonElement textElement)
+                    ? textElement.GetString() ?? string.Empty
+                    : string.Empty);
         }
         return labelTexts;
     }

@@ -206,6 +206,48 @@ public class ReverseIndexSeederHostedServiceTests
         seed.Index.AllOverlays().ShouldBe([Overlay]);
     }
 
+    /// <summary>
+    /// Phase-6 should-fix (spec 150, #2345) — a label missing <c>"text"</c>
+    /// must not shift every later label onto the wrong index.
+    /// <c>ResolvedTexts</c> is index-aligned with the label array by contract,
+    /// so skipping the malformed element instead of filling it with
+    /// <see cref="string.Empty"/> silently corrupts every label after it.
+    /// Proved by counterfactual, mirroring
+    /// <see cref="A_published_listing_in_the_new_shape_seeds_every_label_of_every_overlay"/>:
+    /// against the skipping implementation this three-label listing seeds only
+    /// two texts, with the third label's text landing at index 1 instead of 2.
+    /// </summary>
+    [Fact]
+    public async Task A_label_missing_text_contributes_an_empty_string_at_its_own_index()
+    {
+        string listing = $$"""
+            {
+              "chains": [],
+              "published": [
+                {
+                  "overlayIdentifier": "{{Overlay}}",
+                  "name": "Line 1 OEE",
+                  "revisionNumber": 1,
+                  "labels": [
+                    { "text": "{{LabelText}}" },
+                    { },
+                    { "text": "{{SecondLabelText}}" }
+                  ],
+                  "publishedAt": "2026-09-10T08:00:00Z"
+                }
+              ]
+            }
+            """;
+
+        Seed seed = await RunAsync(HttpStatusCode.OK, listing);
+
+        IReadOnlyList<string>? texts = seed.Index.LookupLabelTexts(Overlay);
+        texts!.Count.ShouldBe(3, "the missing-text label must still occupy its own slot.");
+        texts[0].ShouldBe(LabelText);
+        texts[1].ShouldBe(string.Empty, "a label with no \"text\" contributes an empty string, not a shift.");
+        texts[2].ShouldBe(SecondLabelText, "the third label must stay at index 2, not slide to index 1.");
+    }
+
     // ---- the credential itself ----
 
     /// <summary>
