@@ -103,7 +103,7 @@ public class EditDraftRevisionCommandHandlerTests
     }
 
     [Fact]
-    public async Task An_empty_label_set_returns_a_400_and_leaves_the_revision_unchanged()
+    public async Task An_empty_label_set_returns_EmptyLabelSet_and_leaves_the_revision_unchanged()
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
@@ -127,7 +127,7 @@ public class EditDraftRevisionCommandHandlerTests
     }
 
     [Fact]
-    public async Task More_labels_than_the_ceiling_returns_a_400_and_leaves_the_revision_unchanged()
+    public async Task More_labels_than_the_ceiling_returns_TooManyLabels_and_leaves_the_revision_unchanged()
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
