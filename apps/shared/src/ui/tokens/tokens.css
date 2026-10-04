@@ -10,7 +10,7 @@
  * A theme block remaps semantic roles, never primitives.
  *
  * DERIVED COLOURS CITE THE ROLE, NOT THE PRIMITIVE
- * (`color-mix(in oklch, var(--color-accent) 88%, var(--white))`), so a theme
+ * (`color-mix(in oklab, var(--color-accent) 88%, var(--white))`), so a theme
  * that remaps `--color-accent` gets its hover/pressed/disabled/subtle
  * variants for free through the cascade, without redeclaring them. This is
  * why most derived roles below are absent from the `light` and
@@ -69,9 +69,11 @@
 
   /* Triad stops: the signal (500) and a tint pair (900 dark, 50 light) for
      status chips. A status chip's fill is a tint AT THE TRIAD'S HUE. Not a
-     color-mix: color-mix(in oklch, …) interpolates hue by percentage, so a
-     10 % mix into a ground with a real hue renders the ground's hue
-     (fault -> rgb(20,24,37), slate), observed in Chromium. */
+     color-mix: switching to `in oklab` does not fix this — OKLab still
+     pulls a mix toward a hued ground off the triad's hue (ADR-0148
+     amendment), it only stops being an oklch-only artifact. A 10 % mix of
+     fault into --gray-950 lands at hue 7.7°, 17° short of the triad, in
+     either space, observed in Chromium. */
   --green-500: oklch(72.656% 0.20847 148.34);
   --red-500: oklch(67.864% 0.20948 24.66);
   --amber-500: oklch(80.584% 0.15273 68.43);
@@ -97,9 +99,9 @@
   --color-bg-video-inverse: var(--white);
   /* US2 (spec 293 §5) — the overlay label's surface and ink, shared by the
      wall and the editor (overlayLabelStyle.ts). */
-  --color-bg-label: color-mix(in oklch, var(--white) 85%, transparent);
+  --color-bg-label: color-mix(in oklab, var(--white) 85%, transparent);
   --color-fg-on-label: var(--gray-900);
-  --color-scrim: color-mix(in oklch, var(--black) 60%, transparent);
+  --color-scrim: color-mix(in oklab, var(--black) 60%, transparent);
   --color-fg-primary: var(--gray-50);
   --color-fg-muted: var(--gray-500);
   --color-fg-disabled: var(--gray-600);
@@ -107,10 +109,10 @@
   --color-border-subtle: var(--gray-800);
   --color-border-strong: var(--gray-600);
   --color-accent: var(--cyan-500);
-  --color-accent-hover: color-mix(in oklch, var(--color-accent) 88%, var(--white));
-  --color-accent-pressed: color-mix(in oklch, var(--color-accent) 84%, var(--black));
-  --color-accent-disabled: color-mix(in oklch, var(--color-accent) 40%, var(--color-bg-base));
-  --color-accent-subtle: color-mix(in oklch, var(--color-accent) 16%, var(--color-bg-base));
+  --color-accent-hover: color-mix(in oklab, var(--color-accent) 88%, var(--white));
+  --color-accent-pressed: color-mix(in oklab, var(--color-accent) 84%, var(--black));
+  --color-accent-disabled: color-mix(in oklab, var(--color-accent) 40%, var(--color-bg-base));
+  --color-accent-subtle: color-mix(in oklab, var(--color-accent) 16%, var(--color-bg-base));
   --color-focus-ring: var(--cyan-400);
   --color-accent-active: var(--green-500);
   --color-accent-fault: var(--red-500);
@@ -125,29 +127,30 @@
      bg-elevated, so an opaque "elevated" hover would go darker inside it). A
      tint of --color-fg-primary lightens every dark ground and darkens every
      light one, and follows data-theme with no redeclaration (plan.md §2.2). */
-  --color-bg-hover: color-mix(in oklch, var(--color-fg-primary) 8%, transparent);
-  --color-bg-pressed: color-mix(in oklch, var(--color-fg-primary) 14%, transparent);
+  --color-bg-hover: color-mix(in oklab, var(--color-fg-primary) 8%, transparent);
+  --color-bg-pressed: color-mix(in oklab, var(--color-fg-primary) 14%, transparent);
 
   /* danger's own derivation, not a mirror of --color-accent-hover/-pressed's
      88%/84% split (plan.md §2.1): at the accent's 84% the dark label on the
      fault-pressed fill is 3.99:1, below the 4.5:1 text threshold; 92% gives
      4.95:1 while keeping the pressed fill 1.42:1 from hover — still visibly
      distinct. Hover lighter, pressed darker, same directions as the accent. */
-  --color-accent-fault-hover: color-mix(in oklch, var(--color-accent-fault) 88%, var(--white));
-  --color-accent-fault-pressed: color-mix(in oklch, var(--color-accent-fault) 92%, var(--black));
+  --color-accent-fault-hover: color-mix(in oklab, var(--color-accent-fault) 88%, var(--white));
+  --color-accent-fault-pressed: color-mix(in oklab, var(--color-accent-fault) 92%, var(--black));
   /* FaultNotice's box (issue #2523), drawn for RetryBanner and the
      console's refusal notices: SharedUiTokenUsageTests forbids a
      call-site alpha modifier on a semantic colour (spec 257 US3), so the
      tint and border live here instead of as border-accent-fault/40 and
      bg-accent-fault/10 at the call site. The border still mixes toward
      transparent (theme-invariant, like mixing toward white/black, so one
-     declaration serves every theme). The tint does NOT: color-mix(in oklch,
-     …) interpolates hue by percentage, and every ground in this scale
-     carries a real hue, so a 10% mix rendered the ground's hue (slate, not
-     red) in Chromium. The tint is now a primitive stop at the fault hue
-     instead (Badge's -subtle roles). */
+     declaration serves every theme). The tint does NOT: color-mix(in oklab,
+     …) still pulls toward a hued ground's own hue, not just oklch's
+     percentage-weighted arc — a 10% mix of fault into --gray-950 lands at
+     hue 7.7°, 17° short of the triad (ADR-0148 amendment), in Chromium. The
+     tint is now a primitive stop at the fault hue instead (Badge's -subtle
+     roles). */
   --color-accent-fault-subtle: var(--red-900);
-  --color-accent-fault-border: color-mix(in oklch, var(--color-accent-fault) 40%, transparent);
+  --color-accent-fault-border: color-mix(in oklab, var(--color-accent-fault) 40%, transparent);
   /* Status-chip tints: a primitive stop at each triad's own hue, not a
      color-mix derivation — see the fault-subtle comment above for why.
      Cited by Badge.tsx's tone classes. */
@@ -230,8 +233,8 @@
   /* Elevation: shadows exist only for floating surfaces (plan.md §2.6). The
      tonal ground steps (bg-base/bg-elevated/bg-raised above) carry ordinary
      panels; these two are for Dialog/ConfirmDialog/Tooltip only. */
-  --shadow-popover: 0 4px 12px 0 color-mix(in oklch, var(--black) 48%, transparent);
-  --shadow-overlay: 0 16px 40px 0 color-mix(in oklch, var(--black) 64%, transparent);
+  --shadow-popover: 0 4px 12px 0 color-mix(in oklab, var(--black) 48%, transparent);
+  --shadow-overlay: 0 16px 40px 0 color-mix(in oklab, var(--black) 64%, transparent);
 
   /* Motion: the category and the roles (#2334, spec 292). All three
      durations sit inside ADR-0146's 120-200ms. */
@@ -275,7 +278,7 @@
   --color-bg-base: var(--gray-50);
   --color-bg-elevated: var(--white);
   --color-bg-raised: var(--white);
-  --color-scrim: color-mix(in oklch, var(--gray-950) 40%, transparent);
+  --color-scrim: color-mix(in oklab, var(--gray-950) 40%, transparent);
   --color-fg-primary: var(--gray-900);
   --color-fg-muted: var(--gray-600);
   --color-fg-disabled: var(--gray-500);
@@ -283,9 +286,9 @@
   --color-border-subtle: var(--gray-200);
   --color-border-strong: var(--gray-500);
   --color-accent: var(--cyan-700);
-  --color-accent-hover: color-mix(in oklch, var(--color-accent) 88%, var(--black));
-  --color-accent-pressed: color-mix(in oklch, var(--color-accent) 76%, var(--black));
-  --color-accent-subtle: color-mix(in oklch, var(--color-accent) 12%, var(--color-bg-base));
+  --color-accent-hover: color-mix(in oklab, var(--color-accent) 88%, var(--black));
+  --color-accent-pressed: color-mix(in oklab, var(--color-accent) 76%, var(--black));
+  --color-accent-subtle: color-mix(in oklab, var(--color-accent) 12%, var(--color-bg-base));
   --color-focus-ring: var(--cyan-700);
 
   /* Light stops of the same hue. The contrast fact excludes this theme for
@@ -295,8 +298,8 @@
   --color-accent-warning-subtle: var(--amber-50);
   --color-accent-fault-subtle: var(--red-50);
 
-  --shadow-popover: 0 4px 12px 0 color-mix(in oklch, var(--gray-950) 12%, transparent);
-  --shadow-overlay: 0 16px 40px 0 color-mix(in oklch, var(--gray-950) 20%, transparent);
+  --shadow-popover: 0 4px 12px 0 color-mix(in oklab, var(--gray-950) 12%, transparent);
+  --shadow-overlay: 0 16px 40px 0 color-mix(in oklab, var(--gray-950) 20%, transparent);
 }
 
 /* High-contrast theme (plan.md §2.2, §2.6). Shadows are removed — borders
@@ -305,7 +308,7 @@
   --color-bg-base: var(--black);
   --color-bg-elevated: var(--black);
   --color-bg-raised: var(--gray-950);
-  --color-scrim: color-mix(in oklch, var(--black) 80%, transparent);
+  --color-scrim: color-mix(in oklab, var(--black) 80%, transparent);
   --color-fg-primary: var(--white);
   --color-fg-muted: var(--gray-200);
   --color-fg-disabled: var(--gray-400);

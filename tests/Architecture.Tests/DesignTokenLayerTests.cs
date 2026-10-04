@@ -57,8 +57,18 @@ public class DesignTokenLayerTests
     private static readonly Regex SimpleVarValue = new(@"^var\(--[A-Za-z0-9-]+\)$", RegexOptions.Compiled);
 
     private static readonly Regex ColorMixValue = new(
-        @"^color-mix\(in oklch,\s*var\(--[A-Za-z0-9-]+\)\s+\d+%,\s*(?:var\(--[A-Za-z0-9-]+\)|transparent)\)$",
+        @"^color-mix\(in oklab,\s*var\(--[A-Za-z0-9-]+\)\s+\d+%,\s*(?:var\(--[A-Za-z0-9-]+\)|transparent)\)$",
         RegexOptions.Compiled);
+
+    /// <summary>
+    /// Every <c>color-mix(in &lt;space&gt;, ...)</c> occurrence anywhere in a
+    /// declaration's value — not only whole-value matches like
+    /// <see cref="ColorMixValue"/> — so a mix embedded inside a
+    /// <c>--shadow-*</c> value (<c>0 4px 12px 0 color-mix(...)</c>) is seen
+    /// too (spec 299 plan.md §4.3, issue #2695).
+    /// </summary>
+    private static readonly Regex AnyColorMixOccurrence = new(
+        @"color-mix\(in (?<space>[A-Za-z]+),", RegexOptions.Compiled);
 
     private static readonly Regex ColorLiteral = new(
         @"#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\(|oklch\(",
@@ -87,7 +97,7 @@ public class DesignTokenLayerTests
     // is `color-mix(in oklch, ..., transparent)`, translucent by design (spec
     // §5) — there is no single rendered colour without a backdrop to composite
     // against. Its declared expression is pinned verbatim instead.
-    private const string LabelSurface = "color-mix(in oklch, var(--white) 85%, transparent)";
+    private const string LabelSurface = "color-mix(in oklab, var(--white) 85%, transparent)";
 
     /// <summary>Fact 1 (green pin). Both apps' first <c>@import</c> names one file.</summary>
     [Fact]
@@ -205,10 +215,50 @@ public class DesignTokenLayerTests
 
         invalid.ShouldBeEmpty(
             "these --color-* tokens are not `var(<primitive|semantic>)` or "
-            + "`color-mix(in oklch, <those> N%, <those|transparent>)`: "
+            + "`color-mix(in oklab, <those> N%, <those|transparent>)` (ADR-0148's 2026-10-04 amendment, "
+            + "issue #2695 — derived colours mix in oklab, never oklch): "
             + string.Join(
                 Environment.NewLine,
                 invalid.Select(declaration => $"  {declaration.Selector} {declaration.Name}: {declaration.Value}")));
+    }
+
+    /// <summary>
+    /// New fact (spec 299 plan.md §4.3, issue #2695). Every <c>color-mix(</c>
+    /// occurrence in the whole file — in a <c>--color-*</c> role or embedded
+    /// inside a <c>--shadow-*</c> value — mixes <c>in oklab</c>. Wider than
+    /// fact 5 above, which only inspects a <c>--color-*</c> declaration's
+    /// value as a whole and so never looks inside a <c>--shadow-*</c> value
+    /// (ADR-0148's 2026-10-04 amendment, FR-001). Red on develop: 20
+    /// declarations mix <c>in oklch</c>; 4 of them are <c>--shadow-*</c>
+    /// values fact 5 never scans at all.
+    /// </summary>
+    [Fact]
+    public void Every_colour_mix_in_the_token_file_mixes_in_oklab()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+
+        List<string> problems = [];
+
+        foreach (Declaration declaration in declarations)
+        {
+            foreach (Match occurrence in AnyColorMixOccurrence.Matches(declaration.Value))
+            {
+                string space = occurrence.Groups["space"].Value;
+                if (space != "oklab")
+                {
+                    problems.Add(
+                        $"{declaration.Selector} {declaration.Name}: color-mix(in {space}, ...) — every "
+                        + "color-mix() in this file mixes in oklab (ADR-0148's 2026-10-04 amendment, issue #2695).");
+                }
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            $"{tokenFile.Name} contains a color-mix() that is not `in oklab`:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
     }
 
     /// <summary>

@@ -87,4 +87,98 @@ internal static class OklchColorResolver
 
         return (int)Math.Round(Math.Clamp(encoded, 0.0, 1.0) * 255.0, MidpointRounding.AwayFromZero);
     }
+
+    /// <summary>
+    /// The two colour spaces a <c>color-mix()</c> declaration in this scale can
+    /// name (spec 299 plan.md §4.1, issue #2695). Anything else is unsupported —
+    /// <c>ResolveOklch</c>/<c>TryResolveSrgb</c> report it rather than guess.
+    /// </summary>
+    internal enum MixSpace
+    {
+        Oklab,
+        Oklch,
+    }
+
+    /// <summary>
+    /// Mixes two OKLCH triples per CSS Color 4 and returns the result as OKLCH
+    /// coordinates (<paramref name="first"/>'s <c>Lightness</c> in percent, as
+    /// every <see cref="OklchTriple"/>-shaped caller carries it).
+    ///
+    /// <para>
+    /// <see cref="MixSpace.Oklab"/>: each operand is converted to
+    /// <c>(L, C·cos h, C·sin h)</c> — Oklab's own <c>a</c>/<c>b</c> — interpolated
+    /// componentwise, then converted back with <c>atan2</c>. An achromatic
+    /// operand (<c>C = 0</c>) contributes <c>a = b = 0</c> regardless of its
+    /// written hue, so mixing toward <c>--black</c>/<c>--white</c> keeps the
+    /// other operand's hue exactly — the property spec 299 FR-002 asserts.
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="MixSpace.Oklch"/>: <c>L</c> and <c>C</c> interpolate linearly;
+    /// hue interpolates linearly along the <b>shorter arc</b> and is never
+    /// borrowed from the other operand — CSS Color 4 treats a hue as missing
+    /// only when it is powerless <i>after conversion</i>, and every
+    /// <c>oklch()</c> literal in this file writes one, including
+    /// <c>--black</c>/<c>--white</c> (hue <c>0</c>, written). This is the space
+    /// the old guards wrongly approximated by taking the higher-chroma
+    /// operand's hue; this branch exists so that wrong behaviour can still be
+    /// modelled and reported in rendered degrees, not merely refused.
+    /// </para>
+    /// </summary>
+    internal static (double Lightness, double Chroma, double Hue) Mix(
+        MixSpace space,
+        (double Lightness, double Chroma, double Hue) first,
+        double firstFraction,
+        (double Lightness, double Chroma, double Hue) second)
+    {
+        double secondFraction = 1.0 - firstFraction;
+
+        if (space == MixSpace.Oklch)
+        {
+            double lightness = (firstFraction * first.Lightness) + (secondFraction * second.Lightness);
+            double chroma = (firstFraction * first.Chroma) + (secondFraction * second.Chroma);
+            double hue = InterpolateHueAlongShorterArc(first.Hue, second.Hue, secondFraction);
+
+            return (lightness, chroma, hue);
+        }
+
+        (double firstL, double firstA, double firstB) = ToOklab(first);
+        (double secondL, double secondA, double secondB) = ToOklab(second);
+
+        double mixedL = (firstFraction * firstL) + (secondFraction * secondL);
+        double mixedA = (firstFraction * firstA) + (secondFraction * secondA);
+        double mixedB = (firstFraction * firstB) + (secondFraction * secondB);
+
+        double mixedChroma = Math.Sqrt((mixedA * mixedA) + (mixedB * mixedB));
+        double mixedHue = mixedChroma < 1e-9
+            ? 0.0
+            : NormalizeDegrees(Math.Atan2(mixedB, mixedA) * 180.0 / Math.PI);
+
+        return (mixedL * 100.0, mixedChroma, mixedHue);
+    }
+
+    private static (double L, double A, double B) ToOklab((double Lightness, double Chroma, double Hue) triple)
+    {
+        double l = triple.Lightness / 100.0;
+        double hueRadians = triple.Hue * Math.PI / 180.0;
+
+        return (l, triple.Chroma * Math.Cos(hueRadians), triple.Chroma * Math.Sin(hueRadians));
+    }
+
+    private static double InterpolateHueAlongShorterArc(double startHue, double endHue, double fractionTowardEnd)
+    {
+        double delta = NormalizeDegrees(endHue - startHue);
+        if (delta > 180.0)
+        {
+            delta -= 360.0;
+        }
+
+        return NormalizeDegrees(startHue + (delta * fractionTowardEnd));
+    }
+
+    private static double NormalizeDegrees(double degrees)
+    {
+        double normalized = degrees % 360.0;
+        return normalized < 0.0 ? normalized + 360.0 : normalized;
+    }
 }
