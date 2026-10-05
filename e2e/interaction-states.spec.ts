@@ -127,16 +127,25 @@ async function backgroundColorOf(locator: Locator): Promise<string> {
 }
 
 /**
- * `background-color` is `transition-colors` (Button.tsx), so the fill that
- * lands under `:active` arrives a frame or two after `mousedown`, not in the
- * same tick — a bare read right after `mouse.down()` can still catch the
- * *hover* fill (or, for the translucent secondary/ghost tokens, an
- * in-flight oklab/oklch interpolation that merely differs in wire format
- * from `beforeColor` without having moved toward the pressed target at all).
- * Poll until the read genuinely leaves `beforeColor` behind, the same way
- * the hover read above waits out the rest→hover transition, rather than
- * trusting a single post-mousedown sample.
+ * Waits for the fill to settle on a new value, then returns it. Button.tsx's
+ * fills are `transition-colors` (120 ms), and "differs from the previous read"
+ * is true on the first in-flight frame — a read taken then sits anywhere
+ * between the old and new fill. `getAnimations()` flushes pending style, so
+ * an empty list means no transition is running or about to start.
  */
+async function settledBackgroundColorOtherThan(locator: Locator, previousColor: string): Promise<string> {
+  await expect
+    .poll(() =>
+      locator.evaluate(
+        (el, previous) => el.getAnimations().length === 0 && getComputedStyle(el).backgroundColor !== previous,
+        previousColor,
+      ),
+    )
+    .toBe(true);
+  return backgroundColorOf(locator);
+}
+
+/** Presses without releasing on the target, and reads the settled `:active` fill. */
 async function pressAndReadBackgroundColor(page: Page, locator: Locator, beforeColor: string): Promise<string> {
   const box = await locator.boundingBox();
   if (box === null) {
@@ -147,8 +156,7 @@ async function pressAndReadBackgroundColor(page: Page, locator: Locator, beforeC
   await page.mouse.move(centerX, centerY);
   await page.mouse.down();
   try {
-    await expect.poll(() => backgroundColorOf(locator)).not.toBe(beforeColor);
-    return await backgroundColorOf(locator);
+    return await settledBackgroundColorOtherThan(locator, beforeColor);
   } finally {
     // Release off the target, not on it: a mousedown/mouseup pair on the SAME
     // element fires a real `click`, which would activate the control (open or
@@ -172,8 +180,7 @@ test.describe('Button interaction states (US1)', () => {
     const primary = page.getByRole('button', { name: /register camera/i });
     const primaryRest = await backgroundColorOf(primary);
     await primary.hover();
-    await expect.poll(() => backgroundColorOf(primary)).not.toBe(primaryRest);
-    const primaryHover = await backgroundColorOf(primary);
+    const primaryHover = await settledBackgroundColorOtherThan(primary, primaryRest);
     const primaryPressed = await pressAndReadBackgroundColor(page, primary, primaryHover);
     expect(new Set([primaryRest, primaryHover, primaryPressed]).size).toBe(3);
     await expect(primary).toHaveCSS('opacity', '1');
@@ -189,8 +196,7 @@ test.describe('Button interaction states (US1)', () => {
     const secondary = page.getByRole('dialog').getByRole('button', { name: /cancel/i });
     const secondaryRest = await backgroundColorOf(secondary);
     await secondary.hover();
-    await expect.poll(() => backgroundColorOf(secondary)).not.toBe(secondaryRest);
-    const secondaryHover = await backgroundColorOf(secondary);
+    const secondaryHover = await settledBackgroundColorOtherThan(secondary, secondaryRest);
     const secondaryPressed = await pressAndReadBackgroundColor(page, secondary, secondaryHover);
     expect(new Set([secondaryRest, secondaryHover, secondaryPressed]).size).toBe(3);
     await secondary.click();
@@ -202,8 +208,7 @@ test.describe('Button interaction states (US1)', () => {
     const ghost = page.getByRole('dialog').getByRole('button', { name: /cancel/i });
     const ghostRest = await backgroundColorOf(ghost);
     await ghost.hover();
-    await expect.poll(() => backgroundColorOf(ghost)).not.toBe(ghostRest);
-    const ghostHover = await backgroundColorOf(ghost);
+    const ghostHover = await settledBackgroundColorOtherThan(ghost, ghostRest);
     const ghostPressed = await pressAndReadBackgroundColor(page, ghost, ghostHover);
     expect(new Set([ghostRest, ghostHover, ghostPressed]).size).toBe(3);
     await ghost.click();
@@ -215,8 +220,7 @@ test.describe('Button interaction states (US1)', () => {
     const danger = page.getByRole('alertdialog').getByRole('button', { name: /retire camera/i });
     const dangerRest = await backgroundColorOf(danger);
     await danger.hover();
-    await expect.poll(() => backgroundColorOf(danger)).not.toBe(dangerRest);
-    const dangerHover = await backgroundColorOf(danger);
+    const dangerHover = await settledBackgroundColorOtherThan(danger, dangerRest);
     const dangerPressed = await pressAndReadBackgroundColor(page, danger, dangerHover);
     expect(new Set([dangerRest, dangerHover, dangerPressed]).size).toBe(3);
 
