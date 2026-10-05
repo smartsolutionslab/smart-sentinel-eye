@@ -386,14 +386,14 @@ foreach chunk in show_chunks(audit_events, older_than => '90 days'):
     objectKey = format(fab_id, occurred_at_month)
     if MinIO has objectKey with matching ETag:
         // already archived; just drop
-        drop_chunks(older_than => chunk.end)
+        drop_chunks(older_than => chunk.end, newer_than => chunk.start)
         continue
 
     md5  = computeMd5(rows)
     upload(objectKey, gzippedNdjsonStream, contentMd5 = md5)
     verifyETag(uploaded.ETag == md5)
     publishV1(AuditChunkArchivedV1(...))
-    drop_chunks(older_than => chunk.end)
+    drop_chunks(older_than => chunk.end, newer_than => chunk.start)
 ```
 
 The S3 `Content-MD5` header is the integrity contract; ETag

@@ -157,7 +157,17 @@ the marginal query-perf gain.
   2. Upload to MinIO with `Content-MD5` checksum.
   3. Verify ETag round-trip.
   4. `SELECT drop_chunks('audit_events', older_than =>
-     <chunkBoundary>);`
+     <chunk.OccurredUntil>, newer_than => <chunk.OccurredFrom>);`
+
+  **Correction (issue #2484, 2026-10-05):** step 4 originally gave only
+  the `older_than` bound. `drop_chunks` with a single bound drops every
+  chunk whose `range_end <= older_than`, not just the one chunk just
+  archived — silently destroying an earlier, never-archived chunk
+  whenever a later chunk is dropped. That is the exact defect fixed by
+  #2425 (spec 199); this step is amended to the two-bound form the
+  retention worker (`TimescaleAuditChunkInventory.DropChunkAsync`) and
+  the runbook (`docs/runbooks/audit-observability.md`) both already use,
+  so this design document stops teaching the broken version.
 - Compression: `add_compression_policy('audit_events', INTERVAL
   '30 days')` runs in the background via Timescale's own job
   scheduler. We do not call it from application code.
