@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react';
 import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { ambiguousNamesOf, cameraLabel } from '../../format/cameraLabel.js';
 import { Button } from '../primitives/Button.js';
 import { FormField } from './FormField.js';
 import type { CaptureState } from './useFrameCapture.js';
@@ -123,7 +124,12 @@ function CameraCaptureSection({
 
   const cameraItems = cameras?.items ?? [];
   const camerasTruncated = cameras !== undefined && !cameras.complete;
-  const cameraName = cameraItems.find((camera) => camera.cameraIdentifier === selectedCamera)?.name ?? selectedCamera;
+  // Fab-qualified when two fabs the operator holds share a name (issue
+  // #2686) — the same rule `GridDesigner.tsx` applies to its tile picker.
+  const ambiguousCameraNames = ambiguousNamesOf(cameraItems);
+  const selectedCameraSummary = cameraItems.find((camera) => camera.cameraIdentifier === selectedCamera);
+  const cameraName =
+    selectedCameraSummary === undefined ? selectedCamera : cameraLabel(selectedCameraSummary, ambiguousCameraNames);
 
   // Spec 234 (issue #2356) FR-006/FR-007: focus must return to "Capture
   // frame" when a capture in flight ends (cancel, success, failure, or the
@@ -159,7 +165,7 @@ function CameraCaptureSection({
           <option value="">{emptyCameraLabel(camerasLoading, camerasFailed, cameraItems.length === 0)}</option>
           {cameraItems.map((camera) => (
             <option key={camera.cameraIdentifier} value={camera.cameraIdentifier}>
-              {camera.name}
+              {cameraLabel(camera, ambiguousCameraNames)}
             </option>
           ))}
         </select>

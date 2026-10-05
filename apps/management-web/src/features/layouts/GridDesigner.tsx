@@ -1,5 +1,6 @@
 import type { CameraSummary } from '@smart-sentinel-eye/shared/api/cameras.api';
 import type { PublishedOverlay } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { ambiguousNamesOf, cameraLabel } from '@smart-sentinel-eye/shared/format/cameraLabel';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { useId } from 'react';
 import { useFieldArray, type UseFormReturn } from 'react-hook-form';
@@ -74,37 +75,6 @@ function emptyCameraLabel(loading: boolean, failed: boolean, isEmpty: boolean, f
   if (isEmpty && filtering) return 'No camera matches your search';
   if (isEmpty) return 'No cameras in this fab';
   return '(empty cell)';
-}
-
-/**
- * How a camera is labelled in the picker.
- *
- * <p>
- * Names are unique only <b>within</b> a fab, and this picker spans every fab the
- * operator holds. Sorting by name puts any two that collide side by side, so an
- * operator with two fabs each holding a <c>Line-1-Entrance</c> saw two identical
- * adjacent options and no way to tell which wall they were building. The fab is
- * on the wire for exactly this.
- * </p>
- *
- * <p>
- * Qualified only when it has to be. Most operators hold one fab, and appending
- * it to all 250 options would be noise in the common case to serve the rare one.
- * </p>
- */
-function cameraLabel(camera: CameraSummary, ambiguousNames: ReadonlySet<string>): string {
-  return ambiguousNames.has(camera.name) ? `${camera.name} (${camera.fab})` : camera.name;
-}
-
-/** Names held by more than one camera, which is possible across fabs. */
-function ambiguousNamesOf(cameras: ReadonlyArray<CameraSummary>): ReadonlySet<string> {
-  const seen = new Set<string>();
-  const twice = new Set<string>();
-  for (const camera of cameras) {
-    if (seen.has(camera.name)) twice.add(camera.name);
-    seen.add(camera.name);
-  }
-  return twice;
 }
 
 export function GridDesigner({
