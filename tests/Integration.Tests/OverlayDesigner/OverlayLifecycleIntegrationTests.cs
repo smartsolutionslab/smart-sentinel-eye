@@ -39,6 +39,29 @@ public class OverlayLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLife
     {
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
+        // Unmeasured warm-up, discarded once it succeeds. xUnit 2.9.3 orders a
+        // class's tests by a hash of the method name rather than declaration
+        // order, so whether this test runs first in its shard — and therefore
+        // pays the overlay-designer service's one-time cold-start cost (first
+        // EF model build, first DB connection, first outbox use) — is an
+        // accident of this method's name, not something the test controls. CI
+        // shard 4 runs it first, with nothing ahead of it to pay that cost, so
+        // without this warm-up the stopwatch below measures cold start instead
+        // of the steady-state synchronous command path the assertion is
+        // actually about.
+        HttpResponseMessage warmupCreated = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Ovl-{Guid.NewGuid():N}".Substring(0, 16),
+                elements = new[] { SampleLabelBody() },
+            });
+        warmupCreated.StatusCode.ShouldBe(HttpStatusCode.Created);
+        Guid warmupOverlayIdentifier = await warmupCreated.Content.ReadFromJsonAsync<Guid>();
+        (await overlays.SendAsync(
+            OverlayRequests.Conditional(HttpMethod.Post, warmupOverlayIdentifier, "revisions/1/publish", version: 0)))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
         Stopwatch sw = Stopwatch.StartNew();
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
             "/overlays",
