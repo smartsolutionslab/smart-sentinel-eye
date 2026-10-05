@@ -429,28 +429,62 @@ function Tile({
     { skip: overlayIdentifier === null || !hasPlaceholder || namedFab(fab) === null },
   );
 
-  // Prefer the SystemVariables-resolved text over the raw label, positionally
-  // — never a whole-list fallback, so a snapshot shorter than the set (a race
-  // across a republish) cannot drop labels (spec 150). Spec 300 (#2349,
-  // ADR-0165): index-aligned with the FULL element set, not just the Text
-  // ones — a Box/Ellipse contributes `""` at its index (FR-009), the same
-  // slot the backend's reverse index and resolved-text handlers hold for it.
-  const liveTexts = elements?.map(
-    (element, index) => snapshot?.resolvedTexts[index] ?? (element.kind === 'Text' ? element.text : ''),
-  );
-  // A stable scalar derived from the resolved texts. `\u0000` cannot appear in
-  // an operator-authored label, so this is a lossless join for the purpose of
-  // detecting "did anything in the set actually change" — the same role
-  // `overlayText` played for one label.
-  const liveTextsKey = liveTexts?.join('\u0000');
+  // Spec 301 (#2348, US1): geometry and text are paired into ONE unit before
+  // the hold, rather than held separately (text only) and re-joined with
+  // CURRENT geometry by array index afterwards — a reorder, or a Box/Text
+  // swap, during the hold previously re-joined a held text with a DIFFERENT
+  // element's current geometry (or painted "" for a Text element that used
+  // to be a Box), because `elements` was read fresh every render while the
+  // held text array stayed behind. Pairing happens here, before either half
+  // ever reaches `useLabelDelay`.
+  //
+  // `liveTextFor` stays positional in US1 (`snapshot?.resolvedTexts[index]`)
+  // — US2 replaces this with a template-keyed lookup; keeping it positional
+  // here is what lets US1 ship alone (plan "US1: the hold carries the paired
+  // set").
+  const liveElements: CameraViewerOverlay[] | undefined = elements?.map((element, index) => {
+    const liveText = snapshot?.resolvedTexts[index] ?? (element.kind === 'Text' ? element.text : '');
+    return element.kind === 'Text'
+      ? {
+          kind: 'Text',
+          color: element.color ?? DEFAULT_OVERLAY_COLOR,
+          text: liveText,
+          normalizedX: element.normalizedX,
+          normalizedY: element.normalizedY,
+          normalizedWidth: element.normalizedWidth,
+          normalizedHeight: element.normalizedHeight,
+          fontSizePx: element.fontSizePx,
+        }
+      : {
+          kind: element.kind,
+          color: element.color,
+          normalizedX: element.normalizedX,
+          normalizedY: element.normalizedY,
+          normalizedWidth: element.normalizedWidth,
+          normalizedHeight: element.normalizedHeight,
+        };
+  });
+  // A stable scalar over every PAINTED field of every element — kind,
+  // colour, all four geometry fields, and (Text only) fontSizePx and text.
+  // A field missing here makes a change to that field paint unheld, which
+  // reintroduces the mis-join for exactly that field (plan "The key covers
+  // every painted field"). `\u0000` cannot appear in an operator-authored
+  // label or a hex colour, so this stays a lossless join for the purpose of
+  // detecting "did anything in the set actually change".
+  const liveElementsKey = liveElements
+    ?.map(
+      (element) =>
+        `${element.kind}|${element.color}|${element.normalizedX}|${element.normalizedY}|${element.normalizedWidth}|${element.normalizedHeight}|${element.kind === 'Text' ? element.fontSizePx : ''}|${element.kind === 'Text' ? element.text : ''}`,
+    )
+    .join('\u0000');
   // The set is resolved and versioned atomically (FR-011), so a shared
   // reference — stable across renders that rebuild an equal array — is the
-  // consistent reading: `liveTexts` above is a fresh array every render
-  // (`labels.map(...)`), and handing that straight to `useLabelDelay` would
-  // make every render look like a change. `useStableByKey` is this file's
-  // version of the fix #1888/#1889 already made for `measureOverlayDraw`'s
-  // effect below, applied to a value instead of an effect dependency.
-  const stableLiveTexts = useStableByKey(liveTexts, liveTextsKey);
+  // consistent reading: `liveElements` above is a fresh array every render,
+  // and handing that straight to `useLabelDelay` would make every render
+  // look like a change. `useStableByKey` is this file's version of the fix
+  // #1888/#1889 already made for `measureOverlayDraw`'s effect below,
+  // applied to the paired set instead of a text-only list.
+  const stableLiveElements = useStableByKey(liveElements, liveElementsKey);
 
   // Held back so the label set describes the same moment as the picture
   // beneath it (ADR-0129). **Not frame accuracy** — it makes the set as old
@@ -464,34 +498,17 @@ function Tile({
     [tile.cameraIdentifier, getToken],
   );
 
-  // One `useLabelDelay` call per tile for the WHOLE set (FR-014) — hooks
-  // cannot be called in a loop, and the set shares one age.
-  const resolvedTexts = useLabelDelay(stableLiveTexts, frameAgeMilliseconds, reportHeld);
+  // One `useLabelDelay` call per tile for the WHOLE PAIRED set (FR-014,
+  // spec 301 US1) — hooks cannot be called in a loop, and the set shares one
+  // age. Geometry now travels with its text, so a reorder or a Box/Text swap
+  // during the hold cannot re-join a held text with a different element's
+  // current geometry.
+  const heldElements = useLabelDelay(stableLiveElements, frameAgeMilliseconds, reportHeld);
 
-  const renderElements: CameraViewerOverlay[] | undefined =
-    !overlayUnavailable && elements !== undefined && resolvedTexts !== undefined
-      ? elements.map((element, index) =>
-          element.kind === 'Text'
-            ? {
-                kind: 'Text',
-                color: element.color ?? DEFAULT_OVERLAY_COLOR,
-                text: resolvedTexts[index] ?? element.text,
-                normalizedX: element.normalizedX,
-                normalizedY: element.normalizedY,
-                normalizedWidth: element.normalizedWidth,
-                normalizedHeight: element.normalizedHeight,
-                fontSizePx: element.fontSizePx,
-              }
-            : {
-                kind: element.kind,
-                color: element.color,
-                normalizedX: element.normalizedX,
-                normalizedY: element.normalizedY,
-                normalizedWidth: element.normalizedWidth,
-                normalizedHeight: element.normalizedHeight,
-              },
-        )
-      : undefined;
+  // `overlayUnavailable` bypasses the hold, as it did before (ADR-0129,
+  // "Removal is not held either") — it is a final selection, not a change to
+  // what `useLabelDelay` itself holds.
+  const renderElements: CameraViewerOverlay[] | undefined = overlayUnavailable ? undefined : heldElements;
 
   // Spec 040: the overlay-draw leg (ADR-0015, ≤ 50 ms — a whole leg). Timed
   // from the overlay's rendered state changing to the browser having painted
