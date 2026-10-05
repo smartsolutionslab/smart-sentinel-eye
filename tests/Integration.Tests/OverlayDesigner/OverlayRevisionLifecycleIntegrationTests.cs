@@ -467,6 +467,171 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     }
 
     /// <summary>
+    /// Spec 301 (#2348) US3, T003 — the ordering premise this spec's whole
+    /// PR-A rests on: a wholesale <c>PATCH</c> that only permutes an existing
+    /// element set (spec 150 FR-006) is published and read back in the
+    /// permuted order, end to end through the real API and the real
+    /// published event. Spec 150/300 already made the ordinal both the
+    /// stored key and the paint order, so this is <b>expected to pass on
+    /// today's unmodified code</b> — if it does not, US1/US3's premise that
+    /// the backend already orders reorders correctly is false, and that is
+    /// a finding to report, not something to fix here (US3 touches no
+    /// production code).
+    /// </summary>
+    [Fact]
+    public async Task Reordering_through_a_branch_PATCH_republishes_elements_in_the_new_order()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Reord-{Guid.NewGuid():N}".Substring(0, 16),
+                elements = new object[]
+                {
+                    new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
+                    new { kind = "Text", color = "#FFFFFFD9", text = "Zone A", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
+                    new { kind = "Ellipse", color = "#2E7D32FF", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
+                },
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        (await OverlayRequests.PostAsync(overlays, overlayIdentifier, "revisions/1/publish"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
+        branched.StatusCode.ShouldBe(HttpStatusCode.Created, await branched.Content.ReadAsStringAsync());
+        int draftNumber = await branched.Content.ReadFromJsonAsync<int>();
+
+        // The SAME three elements as revision 1, reordered: [Ellipse, Text, Box].
+        object[] reordered =
+        [
+            new { kind = "Ellipse", color = "#2E7D32FF", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
+            new { kind = "Text", color = "#FFFFFFD9", text = "Zone A", normalizedX = 0.5m, normalizedY = 0.05m, normalizedWidth = 0.3m, normalizedHeight = 0.08m, fontSizePx = 48 },
+            new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
+        ];
+
+        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+            overlays, overlayIdentifier, $"revisions/{draftNumber}", new { elements = reordered });
+        edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
+
+        HttpResponseMessage fetchedDraft = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement draftElements = (await fetchedDraft.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")
+            .EnumerateArray()
+            .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == draftNumber)
+            .GetProperty("elements");
+        draftElements.GetArrayLength().ShouldBe(3);
+        draftElements[0].GetProperty("kind").GetString().ShouldBe("Ellipse");
+        draftElements[1].GetProperty("kind").GetString().ShouldBe("Text");
+        draftElements[2].GetProperty("kind").GetString().ShouldBe("Box");
+
+        (await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{draftNumber}/publish"))
+            .StatusCode.ShouldBe(HttpStatusCode.OK);
+
+        using HttpClient auditReader = await aspire.CreateAdminClientAsync("audit-observability");
+        JsonElement payload = await PollForPublishedElementsStartingWithAsync(auditReader, overlayIdentifier, firstElementKind: "Ellipse");
+
+        JsonElement publishedElements = payload.GetProperty("Elements");
+        publishedElements.GetArrayLength().ShouldBe(3);
+        publishedElements[0].GetProperty("Kind").GetString().ShouldBe("Ellipse");
+        publishedElements[1].GetProperty("Kind").GetString().ShouldBe("Text");
+        publishedElements[2].GetProperty("Kind").GetString().ShouldBe("Box");
+    }
+
+    /// <summary>
+    /// Spec 301 (#2348) US3, T003 — the concurrency half. A reorder is a
+    /// wholesale <c>PATCH</c> replace (spec 150 FR-006), and
+    /// <see cref="SmartSentinelEye.Integration.Tests.OverlayDesigner.OverlayETagIntegrationTests.A_mutation_carrying_a_superseded_version_is_refused_with_409"/>
+    /// already proves a stale <c>If-Match</c> is refused with 409 for a
+    /// lifecycle transition (publish/archive) — not for a <c>PATCH</c> that
+    /// replaces the element set, and not for a reorder specifically. No
+    /// existing test covers that exact shape (checked via
+    /// <c>grep -rn "If-Match\|StaleVersion\|409" tests/Integration.Tests/OverlayDesigner/</c>),
+    /// so this adds it rather than duplicating.
+    /// </summary>
+    [Fact]
+    public async Task Two_reorders_under_the_same_stale_If_Match_the_second_is_refused_with_409_and_the_first_stands()
+    {
+        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+
+        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+            "/overlays",
+            new
+            {
+                name = $"Stale-{Guid.NewGuid():N}".Substring(0, 16),
+                elements = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
+            });
+        created.EnsureSuccessStatusCode();
+        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+
+        int readAt = await OverlayRequests.VersionAsync(overlays, overlayIdentifier);
+
+        HttpRequestMessage firstReorderRequest = OverlayRequests.Conditional(HttpMethod.Patch, overlayIdentifier, "revisions/1", readAt);
+        firstReorderRequest.Content = JsonContent.Create(new { elements = new[] { SampleLabelBody("C"), SampleLabelBody("B"), SampleLabelBody("A") } });
+        HttpResponseMessage firstReorder = await overlays.SendAsync(firstReorderRequest);
+        firstReorder.StatusCode.ShouldBe(HttpStatusCode.OK, await firstReorder.Content.ReadAsStringAsync());
+
+        // Same (now superseded) version as the first reorder.
+        HttpRequestMessage secondReorderRequest = OverlayRequests.Conditional(HttpMethod.Patch, overlayIdentifier, "revisions/1", readAt);
+        secondReorderRequest.Content = JsonContent.Create(new { elements = new[] { SampleLabelBody("B"), SampleLabelBody("A"), SampleLabelBody("C") } });
+        HttpResponseMessage secondReorder = await overlays.SendAsync(secondReorderRequest);
+
+        secondReorder.StatusCode.ShouldBe(HttpStatusCode.Conflict);
+        JsonElement problem = await secondReorder.Content.ReadFromJsonAsync<JsonElement>();
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_REVISION_STALE");
+
+        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+            .GetProperty("revisions")[0]
+            .GetProperty("elements");
+        elements.GetArrayLength().ShouldBe(3);
+        elements[0].GetProperty("text").GetString().ShouldBe("C");
+        elements[1].GetProperty("text").GetString().ShouldBe("B");
+        elements[2].GetProperty("text").GetString().ShouldBe("A");
+    }
+
+    /// <summary>
+    /// Mirrors <c>OverlayLifecycleIntegrationTests.PollForOverlayPublishedPayloadAsync</c>
+    /// (spec 300 T013), widened to pick out one specific published event by
+    /// its first element's kind rather than assuming exactly one row exists —
+    /// this test's overlay publishes twice (revision 1, then the reordered
+    /// branch), so the "exactly one row" shape that helper's own comment
+    /// relies on does not hold here and is not what this test is about.
+    /// </summary>
+    private static async Task<JsonElement> PollForPublishedElementsStartingWithAsync(
+        HttpClient auditReader, Guid overlayIdentifier, string firstElementKind)
+    {
+        string query = $"/audit?eventKind=OverlayRevisionPublishedV3&resourceIdentifier={overlayIdentifier}&pageSize=10";
+
+        for (int attempt = 0; attempt < 40; attempt++)
+        {
+            HttpResponseMessage response = await auditReader.GetAsync(query);
+            response.StatusCode.ShouldBe(HttpStatusCode.OK);
+
+            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            JsonElement rows = page.GetProperty("rows");
+            foreach (JsonElement row in rows.EnumerateArray())
+            {
+                JsonElement candidate = JsonDocument.Parse(row.GetProperty("payload").GetString()!).RootElement;
+                JsonElement candidateElements = candidate.GetProperty("Elements");
+                if (candidateElements.GetArrayLength() > 0
+                    && candidateElements[0].GetProperty("Kind").GetString() == firstElementKind)
+                {
+                    return candidate;
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+
+        throw new Xunit.Sdk.XunitException(
+            $"No OverlayRevisionPublishedV3 row for {overlayIdentifier} whose first element is {firstElementKind} appeared within 20s.");
+    }
+
+    /// <summary>
     /// Inserts one <c>overlay_revision_elements</c> row directly via SQL
     /// (spec 300, #2349, ADR-0165 — renamed from
     /// <c>overlay_revision_labels</c>) for the overlay's revision 1,
