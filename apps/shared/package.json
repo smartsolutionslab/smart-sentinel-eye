@@ -23,6 +23,7 @@
     "./api/walls.schema": "./src/api/walls.schema.ts",
     "./api/problemDetail": "./src/api/problemDetail.ts",
     "./format/revisionSummary": "./src/format/revisionSummary.ts",
+    "./format/cameraLabel": "./src/format/cameraLabel.ts",
     "./realtime/layoutHub": "./src/realtime/layoutHub.ts",
     "./realtime/hubUrl": "./src/realtime/hubUrl.ts",
     "./observability/resilienceLog": "./src/observability/resilienceLog.ts",
