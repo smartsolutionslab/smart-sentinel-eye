@@ -229,7 +229,7 @@ test('operator types an exact geometry and the saved overlay carries it through 
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       return (await response.json()) as {
-        chains: { name: string; revisions: { labels: { normalizedX: number; normalizedWidth: number }[] }[] }[];
+        chains: { name: string; revisions: { elements: { normalizedX: number; normalizedWidth: number }[] }[] }[];
       };
     },
     [origin, token] as const,
@@ -237,7 +237,7 @@ test('operator types an exact geometry and the saved overlay carries it through 
 
   const saved = overlays.chains.find((chain) => chain.name === name);
   expect(saved, `the saved overlay "${name}" should be readable back through the gateway`).toBeTruthy();
-  const label = saved!.revisions[0]!.labels[0]!;
+  const label = saved!.revisions[0]!.elements[0]!;
   // Exactly 0.2487 through the double -> decimal boundary, not merely close.
   expect(label.normalizedX).toBe(0.2487);
   expect(label.normalizedWidth).toBe(0.5);
@@ -648,7 +648,7 @@ test('operator saves through a single click while Width holds a refused draft (s
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       return (await response.json()) as {
-        chains: { name: string; revisions: { labels: { normalizedWidth: number }[] }[] }[];
+        chains: { name: string; revisions: { elements: { normalizedWidth: number }[] }[] }[];
       };
     },
     [origin, token] as const,
@@ -659,7 +659,7 @@ test('operator saves through a single click while Width holds a refused draft (s
   // Spec 151 FR-010 — a refused draft is not emitted; the last committed
   // value (DEFAULT_INPUT's 0.3) is the truth, exactly as today's *second*
   // click already saves. This spec makes click one behave like click two.
-  expect(saved!.revisions[0]!.labels[0]!.normalizedWidth).toBe(0.3);
+  expect(saved!.revisions[0]!.elements[0]!.normalizedWidth).toBe(0.3);
 });
 
 test('operator saves a valid, off-edge commit through a single click (spec 256, issue #2366)', async ({ page }) => {
@@ -700,7 +700,7 @@ test('operator saves a valid, off-edge commit through a single click (spec 256, 
         headers: { Authorization: `Bearer ${accessToken}` },
       });
       return (await response.json()) as {
-        chains: { name: string; revisions: { labels: { normalizedX: number }[] }[] }[];
+        chains: { name: string; revisions: { elements: { normalizedX: number }[] }[] }[];
       };
     },
     [origin, token] as const,
@@ -708,7 +708,7 @@ test('operator saves a valid, off-edge commit through a single click (spec 256, 
 
   const saved = overlays.chains.find((chain) => chain.name === name);
   expect(saved, `the saved overlay "${name}" should be readable back through the gateway`).toBeTruthy();
-  expect(saved!.revisions[0]!.labels[0]!.normalizedX).toBe(0.9);
+  expect(saved!.revisions[0]!.elements[0]!.normalizedX).toBe(0.9);
 });
 
 // The mechanism, observed directly (spec.md §5 scenario 3): no save

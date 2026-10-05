@@ -70,6 +70,8 @@ const OVERLAY_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 const OVERLAY_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
 const LABEL = {
+  kind: 'Text' as const,
+  color: '#FFFFFFD9',
   text: 'Overlay text',
   normalizedX: 0.1,
   normalizedY: 0.1,
@@ -126,8 +128,8 @@ describe('OverlayEditorDialog — the chain is re-read per overlay, not carried 
     vi.stubGlobal('fetch', fetchMock);
 
     const store = createStore();
-    const targetA = { overlayIdentifier: OVERLAY_A, revisionNumber: 1, name: 'Overlay A', labels: [LABEL] };
-    const targetB = { overlayIdentifier: OVERLAY_B, revisionNumber: 1, name: 'Overlay B', labels: [LABEL] };
+    const targetA = { overlayIdentifier: OVERLAY_A, revisionNumber: 1, name: 'Overlay A', elements: [LABEL] };
+    const targetB = { overlayIdentifier: OVERLAY_B, revisionNumber: 1, name: 'Overlay B', elements: [LABEL] };
 
     const { rerender } = render(
       <Provider store={store}>

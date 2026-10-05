@@ -4,6 +4,7 @@ import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { store } from '../../app/store.js';
+import type { OverlayTextElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { OverlayEditTarget } from './OverlayEditorDialog.js';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
@@ -137,12 +138,12 @@ describe('OverlayEditorDialog', () => {
     const payload = (
       createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
         name: string;
-        labels: Array<{ text: string; fontSizePx: number }>;
+        elements: Array<{ text: string; fontSizePx: number }>;
       }>
     )[0]!;
     expect(payload.name).toBe('Line-1 Title');
-    expect(payload.labels[0]!.text).toBe('Overlay text');
-    expect(payload.labels[0]!.fontSizePx).toBe(32);
+    expect(payload.elements[0]!.text).toBe('Overlay text');
+    expect(payload.elements[0]!.fontSizePx).toBe(32);
   });
 
   it('Surfaces a validation error when the name is blank', async () => {
@@ -207,8 +208,10 @@ describe('OverlayEditorDialog — edit', () => {
     overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     revisionNumber: 1,
     name: 'Line-1 Title',
-    labels: [
+    elements: [
       {
+        kind: 'Text',
+        color: '#FFFFFFD9',
         text: 'Line 1',
         normalizedX: 0.1,
         normalizedY: 0.1,
@@ -250,7 +253,7 @@ describe('OverlayEditorDialog — edit', () => {
 
   it(
     'Calls editDraftOverlayRevision exactly once with the queried chain version — never ' +
-      'the revision number or revision number + 1 — and a labels-only body',
+      'the revision number or revision number + 1 — and an elements-only body',
     async () => {
       const user = userEvent.setup();
       renderDialog(EDIT_TARGET);
@@ -268,7 +271,7 @@ describe('OverlayEditorDialog — edit', () => {
           overlayIdentifier: string;
           revisionNumber: number;
           version: number;
-          labels: Array<Record<string, unknown>>;
+          elements: Array<Record<string, unknown>>;
         }>
       )[0]!;
       expect(body.overlayIdentifier).toBe(EDIT_TARGET.overlayIdentifier);
@@ -276,8 +279,8 @@ describe('OverlayEditorDialog — edit', () => {
       // The point of the test (FR-012): 7 is the queried version. 1 would mean
       // the client reused the revision number; 2 would mean it computed +1.
       expect(body.version).toBe(7);
-      expect(Object.keys(body).sort()).toEqual(['labels', 'overlayIdentifier', 'revisionNumber', 'version']);
-      expect(body.labels[0]!['text']).toBe('Line 2');
+      expect(Object.keys(body).sort()).toEqual(['elements', 'overlayIdentifier', 'revisionNumber', 'version']);
+      expect(body.elements[0]!['text']).toBe('Line 2');
     },
   );
 
@@ -306,8 +309,10 @@ describe('OverlayEditorDialog — edit', () => {
       overlayIdentifier: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
       revisionNumber: 1,
       name: 'Three-label overlay',
-      labels: [
+      elements: [
         {
+          kind: 'Text',
+          color: '#FFFFFFD9',
           text: 'Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -316,6 +321,8 @@ describe('OverlayEditorDialog — edit', () => {
           fontSizePx: 32,
         },
         {
+          kind: 'Text',
+          color: '#FFFFFFD9',
           text: 'Line 2',
           normalizedX: 0.5,
           normalizedY: 0.5,
@@ -324,6 +331,8 @@ describe('OverlayEditorDialog — edit', () => {
           fontSizePx: 24,
         },
         {
+          kind: 'Text',
+          color: '#FFFFFFD9',
           text: 'Line 3',
           normalizedX: 0.2,
           normalizedY: 0.8,
@@ -352,7 +361,9 @@ describe('OverlayEditorDialog — edit', () => {
     expect(editDraftMock).toHaveBeenCalledTimes(1);
     const body = (
       editDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
-        labels: Array<{
+        elements: Array<{
+          kind: string;
+          color: string;
           text: string;
           normalizedX: number;
           normalizedY: number;
@@ -363,10 +374,10 @@ describe('OverlayEditorDialog — edit', () => {
       }>
     )[0]!;
 
-    expect(body.labels, 'the mutation must receive all three labels, not just the one edited').toHaveLength(3);
-    expect(body.labels[0]!.text).toBe('Line 1 edited');
-    expect(body.labels[1], 'index 1 byte-identical to what was loaded').toEqual(THREE_LABELS.labels[1]);
-    expect(body.labels[2], 'index 2 byte-identical to what was loaded').toEqual(THREE_LABELS.labels[2]);
+    expect(body.elements, 'the mutation must receive all three elements, not just the one edited').toHaveLength(3);
+    expect(body.elements[0]!.text).toBe('Line 1 edited');
+    expect(body.elements[1], 'index 1 byte-identical to what was loaded').toEqual(THREE_LABELS.elements[1]);
+    expect(body.elements[2], 'index 2 byte-identical to what was loaded').toEqual(THREE_LABELS.elements[2]);
   });
 
   describe('The version has to be read before Save can be trusted (FR-013)', () => {
@@ -494,7 +505,7 @@ describe('OverlayEditorDialog — edit', () => {
       overlayIdentifier: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
       revisionNumber: 4,
       name: 'Line-2 Title',
-      labels: [{ ...EDIT_TARGET.labels[0]!, text: 'Line 4' }],
+      elements: [{ ...(EDIT_TARGET.elements[0] as OverlayTextElement), text: 'Line 4' }],
     };
     // Reopen on an unrelated draft that was never refused.
     rerender(
@@ -505,6 +516,116 @@ describe('OverlayEditorDialog — edit', () => {
 
     expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 4');
     expect(screen.queryByTestId('chain-recovery-alert')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Spec 300 (#2349) FR-019, new behaviour, RED (ADR-0139). The dialog must
+   * find the Text element by kind, never by a fixed index — a mixed
+   * `[Box, Text]` draft's Box must not be coerced into a label, and the
+   * Text element at index 1 is the one the editor shows and edits.
+   */
+  it('Edits the Text element of a [Box, Text] draft, never the Box at index 0, and saves both unchanged-Box + edited-Text', async () => {
+    const user = userEvent.setup();
+    const BOX_THEN_TEXT: OverlayEditTarget = {
+      overlayIdentifier: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+      revisionNumber: 1,
+      name: 'Mixed overlay',
+      elements: [
+        {
+          kind: 'Box',
+          color: '#D32F2FFF',
+          normalizedX: 0.05,
+          normalizedY: 0.05,
+          normalizedWidth: 0.2,
+          normalizedHeight: 0.2,
+        },
+        {
+          kind: 'Text',
+          color: '#FFFFFFD9',
+          text: 'Line 1',
+          normalizedX: 0.1,
+          normalizedY: 0.1,
+          normalizedWidth: 0.3,
+          normalizedHeight: 0.08,
+          fontSizePx: 32,
+        },
+      ],
+    };
+    chainQueryState = {
+      data: { overlayIdentifier: BOX_THEN_TEXT.overlayIdentifier, version: 7 },
+      isLoading: false,
+      isError: false,
+    };
+    renderDialog(BOX_THEN_TEXT);
+
+    // The Box is not rendered through the single-label editor, and is not
+    // shown as if it were the label.
+    expect(screen.queryByTestId('overlay-editor-dialog-shapes-only-notice')).not.toBeInTheDocument();
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 1');
+
+    const textInput = screen.getByTestId('overlay-editor-text');
+    await user.clear(textInput);
+    await user.type(textInput, 'Line 1 edited');
+
+    await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+
+    expect(editDraftMock).toHaveBeenCalledTimes(1);
+    const body = (
+      editDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
+        elements: Array<Record<string, unknown>>;
+      }>
+    )[0]!;
+    expect(body.elements).toHaveLength(2);
+    expect(body.elements[0], 'the Box at index 0 is byte-identical to what was loaded').toEqual(
+      BOX_THEN_TEXT.elements[0],
+    );
+    expect((body.elements[1] as { text: string }).text).toBe('Line 1 edited');
+    expect((body.elements[1] as { kind: string }).kind).toBe('Text');
+    expect((body.elements[1] as { color: string }).color).toBe('#FFFFFFD9');
+  });
+
+  /**
+   * Spec 300 (#2349) FR-019, new behaviour, RED (ADR-0139). A draft with no
+   * Text element at all (shapes only) has nothing for the single-label
+   * editor to show — it must not coerce a shape into a label, and Save
+   * still sends the shapes unchanged.
+   */
+  it('Shows a notice instead of the editor for a [Box]-only draft, and saves the Box unchanged', async () => {
+    const BOX_ONLY: OverlayEditTarget = {
+      overlayIdentifier: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+      revisionNumber: 1,
+      name: 'Shapes-only overlay',
+      elements: [
+        {
+          kind: 'Box',
+          color: '#D32F2FFF',
+          normalizedX: 0.05,
+          normalizedY: 0.05,
+          normalizedWidth: 0.2,
+          normalizedHeight: 0.2,
+        },
+      ],
+    };
+    chainQueryState = {
+      data: { overlayIdentifier: BOX_ONLY.overlayIdentifier, version: 7 },
+      isLoading: false,
+      isError: false,
+    };
+    const user = userEvent.setup();
+    renderDialog(BOX_ONLY);
+
+    expect(screen.getByTestId('overlay-editor-dialog-shapes-only-notice')).toBeInTheDocument();
+    expect(screen.queryByTestId('overlay-editor-text')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /^save draft$/i }));
+
+    expect(editDraftMock).toHaveBeenCalledTimes(1);
+    const body = (
+      editDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
+        elements: Array<Record<string, unknown>>;
+      }>
+    )[0]!;
+    expect(body.elements).toEqual(BOX_ONLY.elements);
   });
 });
 
@@ -701,7 +822,7 @@ describe('Frame capture (spec 147)', () => {
     expect(createDraftMock).toHaveBeenCalledTimes(1);
   });
 
-  it('Submits a byte-identical { name, labels } payload whether or not a frame was captured', async () => {
+  it('Submits a byte-identical { name, elements } payload whether or not a frame was captured', async () => {
     installCanvasStub();
     renderDialog();
 
@@ -726,12 +847,21 @@ describe('Frame capture (spec 147)', () => {
     const payload = (
       createDraftMock.mock.calls[0] as unknown as ReadonlyArray<{
         name: string;
-        labels: Array<Record<string, unknown>>;
+        elements: Array<Record<string, unknown>>;
       }>
     )[0]!;
-    expect(Object.keys(payload).sort()).toEqual(['labels', 'name']);
-    expect(Object.keys(payload.labels[0]!).sort()).toEqual(
-      ['fontSizePx', 'normalizedHeight', 'normalizedWidth', 'normalizedX', 'normalizedY', 'text'].sort(),
+    expect(Object.keys(payload).sort()).toEqual(['elements', 'name']);
+    expect(Object.keys(payload.elements[0]!).sort()).toEqual(
+      [
+        'color',
+        'fontSizePx',
+        'kind',
+        'normalizedHeight',
+        'normalizedWidth',
+        'normalizedX',
+        'normalizedY',
+        'text',
+      ].sort(),
     );
   });
 

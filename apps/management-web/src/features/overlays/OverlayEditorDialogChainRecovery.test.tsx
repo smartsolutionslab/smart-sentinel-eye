@@ -128,8 +128,10 @@ const EDIT_TARGET: OverlayEditTarget = {
   overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
   revisionNumber: 1,
   name: 'Line-1 Title',
-  labels: [
+  elements: [
     {
+      kind: 'Text',
+      color: '#FFFFFFD9',
       text: 'Line 1',
       normalizedX: 0.1,
       normalizedY: 0.1,

@@ -22,16 +22,22 @@ export interface LayoutRevisionArchivedMessage {
 }
 
 /**
- * One label on a published overlay revision's SignalR frame, in paint order
- * (spec 150 FR-005).
+ * One element on a published overlay revision's SignalR frame, in paint
+ * order (spec 150 FR-005; spec 300 #2349, ADR-0165 — a kind + colour on
+ * every element). `text`/`fontSizePx` are present exactly when `kind` is
+ * `'Text'`; a `Box`/`Ellipse` carries `null` for both (mirrors
+ * `OverlayElementV3`).
  */
-export interface OverlayRevisionPublishedMessageLabel {
-  text: string;
+export interface OverlayRevisionPublishedMessageElement {
+  kind: 'Text' | 'Box' | 'Ellipse';
+  /** `#RRGGBBAA` (ADR-0165 §2). */
+  color: string;
   normalizedX: number;
   normalizedY: number;
   normalizedWidth: number;
   normalizedHeight: number;
-  fontSizePx: number;
+  text: string | null;
+  fontSizePx: number | null;
 }
 
 /**
@@ -40,16 +46,18 @@ export interface OverlayRevisionPublishedMessageLabel {
  * so kiosks subscribe to overlay updates over the same connection.
  *
  * <p>
- * Spec 150 (#2345): the revision now carries an ordered, non-empty set of
- * 1..8 labels instead of one flattened label — the collection mirrors
- * `OverlayRevisionPublishedV2`/`OverlayLabelV2` (ADR-0164).
+ * Spec 150 (#2345): the revision carries an ordered, non-empty set of
+ * 1..8 elements instead of one flattened label — the collection mirrors
+ * `OverlayRevisionPublishedV2`/`OverlayLabelV2` (ADR-0164). Spec 300
+ * (#2349, ADR-0165) widens each element past text-only to a kind + colour,
+ * mirroring `OverlayRevisionPublishedV3`/`OverlayElementV3`.
  * </p>
  */
 export interface OverlayRevisionPublishedMessage {
   overlay: string;
   revisionNumber: number;
   name: string;
-  labels: OverlayRevisionPublishedMessageLabel[];
+  elements: OverlayRevisionPublishedMessageElement[];
   publishedAt: string;
 }
 
@@ -73,9 +81,11 @@ export interface OverlayRevisionArchivedMessage {
  *
  * <p>
  * Spec 150 (#2345): `resolvedTexts` carries the resolved text of every label
- * on the overlay, index-aligned with the published revision's `labels`
+ * on the overlay, index-aligned with the published revision's `elements`
  * (FR-011 — one version bump per overlay, not per label; mirrors
- * `ResolvedOverlayTextChangedV2`).
+ * `ResolvedOverlayTextChangedV2`). Spec 300 (#2349, ADR-0165): a non-text
+ * element contributes `""` at its index, so the alignment holds for a mixed
+ * set too (FR-009).
  * </p>
  */
 export interface ResolvedOverlayTextChangedMessage {

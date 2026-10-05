@@ -34,6 +34,8 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
   });
 
   const label = {
+    kind: 'Text' as const,
+    color: '#FFFFFFD9',
     text: 'Production Line 1',
     normalizedX: 0.25,
     normalizedY: 0.05,

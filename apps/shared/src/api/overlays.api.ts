@@ -6,7 +6,50 @@ export type { CreateOverlayDraftInput };
 
 export type OverlayRevisionState = 'Draft' | 'Published' | 'Archived';
 
+/** The Text variant's wire shape — `kind`/`color` mandatory, the way every real element the API returns carries both. */
+export interface OverlayTextElement {
+  kind: 'Text';
+  color: string;
+  text: string;
+  normalizedX: number;
+  normalizedY: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
+  fontSizePx: number;
+}
+
+/** A Box or Ellipse stroke — the non-text variants of {@link OverlayElement} (ADR-0165). */
+export interface OverlayShape {
+  kind: 'Box' | 'Ellipse';
+  color: string;
+  normalizedX: number;
+  normalizedY: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
+}
+
+/**
+ * One overlay primitive — a text label, a box, or an ellipse (spec 300,
+ * #2349, ADR-0165). `OverlayTextElement | OverlayShape`, both with a
+ * mandatory `kind`, so code consuming a real element set (`LayoutGrid.tsx`,
+ * `CameraViewer.tsx`) discriminates exhaustively.
+ */
+export type OverlayElement = OverlayTextElement | OverlayShape;
+
+/**
+ * The shape `OverlayEditor.tsx`'s `value` prop expects — kept separate from
+ * {@link OverlayTextElement}, with `kind` and `color` optional, because that
+ * component is also exercised standalone with fixtures that set neither, by
+ * guards this spec must leave byte-identical (FR-016). An absent `color` is
+ * treated the same as {@link DEFAULT_OVERLAY_COLOR} by every reader
+ * (`overlayLabelSurfaceStyle`). Every `OverlayTextElement` already satisfies
+ * this structurally (required fields satisfy optional ones), so no cast is
+ * needed handing a real element to the editor — only the reverse direction
+ * (editor output back onto the wire-typed array) needs one.
+ */
 export interface OverlayLabel {
+  kind?: 'Text';
+  color?: string;
   text: string;
   normalizedX: number;
   normalizedY: number;
@@ -19,8 +62,8 @@ export interface OverlayRevision {
   revisionIdentifier: string;
   revisionNumber: number;
   state: OverlayRevisionState;
-  /** Ordered, non-empty set of 1..8 labels (spec 150, ADR-0164). Paint order is array order. */
-  labels: OverlayLabel[];
+  /** Ordered, non-empty set of 1..8 elements, any mix of kinds (spec 300, ADR-0165). Paint order is array order. */
+  elements: OverlayElement[];
   createdAt: string;
   createdBy: string;
   publishedAt: string | null;
@@ -41,8 +84,8 @@ export interface PublishedOverlay {
   overlayIdentifier: string;
   name: string;
   revisionNumber: number;
-  /** Ordered, non-empty set of 1..8 labels (spec 150, ADR-0164). Paint order is array order. */
-  labels: OverlayLabel[];
+  /** Ordered, non-empty set of 1..8 elements, any mix of kinds (spec 300, ADR-0165). Paint order is array order. */
+  elements: OverlayElement[];
   publishedAt: string;
 }
 
@@ -117,12 +160,12 @@ export const overlaysApi = createApi({
         { type: 'OverlayList', id: 'ALL' },
       ],
     }),
-    editDraftOverlayRevision: build.mutation<number, OverlayRevisionRouteInput & { labels: OverlayLabel[] }>({
-      query: ({ overlayIdentifier, revisionNumber, version, labels }) => ({
+    editDraftOverlayRevision: build.mutation<number, OverlayRevisionRouteInput & { elements: OverlayElement[] }>({
+      query: ({ overlayIdentifier, revisionNumber, version, elements }) => ({
         url: `/${overlayIdentifier}/revisions/${revisionNumber}`,
         method: 'PATCH',
         headers: ifMatch(version),
-        body: { labels },
+        body: { elements },
       }),
       invalidatesTags: (_r, _e, { overlayIdentifier }) => [
         { type: 'Overlay', id: overlayIdentifier },

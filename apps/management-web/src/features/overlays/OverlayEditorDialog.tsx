@@ -2,9 +2,14 @@ import {
   useCreateOverlayDraftMutation,
   useEditDraftOverlayRevisionMutation,
   useGetOverlayQuery,
+  type OverlayElement,
   type OverlayLabel,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
-import { createOverlayDraftSchema, type CreateOverlayDraftInput } from '@smart-sentinel-eye/shared/api/overlays.schema';
+import {
+  createOverlayDraftSchema,
+  DEFAULT_OVERLAY_COLOR,
+  type CreateOverlayDraftInput,
+} from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
@@ -28,23 +33,24 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 /**
  * Spec 152. Carries what the page already knows about the draft being
  * edited, so the dialog needs no lookup to render its first frame — the
- * `labels` array lifted off the target `OverlayRevision`, not the whole
+ * `elements` array lifted off the target `OverlayRevision`, not the whole
  * revision (a spread would carry `state`/`createdAt`/etc. into the form
  * value and then into the PATCH body).
  *
  * <p>
- * Spec 150 (#2345) FR-018: `labels` is the WHOLE set, not just the one the
- * dialog's form shows (index 0). The dialog edits index 0 only — the shared
- * `OverlayEditor` still edits exactly one label (FR-016) — but must hold and
- * submit every label the draft carries, or indices 1..N are silently deleted
- * on the first console edit of any multi-label overlay.
+ * Spec 150 (#2345) FR-018: `elements` is the WHOLE set, not just the one the
+ * dialog's form shows. Spec 300 (#2349) FR-019: the shared `OverlayEditor`
+ * still edits exactly one Text element (FR-016) — found by kind, never by a
+ * fixed index — but this must hold and submit every element the draft
+ * carries, or the rest are silently deleted on the first console edit of a
+ * mixed-kind overlay.
  * </p>
  */
 export interface OverlayEditTarget {
   overlayIdentifier: string;
   revisionNumber: number;
   name: string;
-  labels: OverlayLabel[];
+  elements: OverlayElement[];
 }
 
 export interface OverlayEditorDialogProps {
@@ -56,8 +62,10 @@ export interface OverlayEditorDialogProps {
 
 const DEFAULT_INPUT: CreateOverlayDraftInput = {
   name: '',
-  labels: [
+  elements: [
     {
+      kind: 'Text',
+      color: DEFAULT_OVERLAY_COLOR,
       text: 'Overlay text',
       normalizedX: 0.1,
       normalizedY: 0.1,
@@ -67,6 +75,17 @@ const DEFAULT_INPUT: CreateOverlayDraftInput = {
     },
   ],
 };
+
+/**
+ * Spec 300 (#2349) FR-019: the dialog edits the Text element wherever it
+ * sits in the set, never index 0 — a mixed `[Box, Text]` draft must not
+ * have its Box coerced into a label. `-1` when the set carries no Text
+ * element at all (shapes only), which the render below turns into a
+ * notice rather than a crash.
+ */
+function textIndexOf(elements: readonly OverlayElement[]): number {
+  return elements.findIndex((element) => element.kind === 'Text');
+}
 
 export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayEditorDialogProps) {
   const isEdit = editTarget !== undefined;
@@ -143,11 +162,28 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // computes one beside `EMPTY_CREATE`. `name` is still seeded from the
   // chain's real name even though the field is hidden in edit mode, so
   // `createOverlayDraftSchema` — unchanged — keeps validating it. The form
-  // holds the WHOLE `labels` array (FR-018), not just the one index 0 shows.
+  // holds the WHOLE `elements` array (FR-018), not just the one the editor
+  // shows.
   const defaultValues = useMemo<CreateOverlayDraftInput>(() => {
     if (editTarget === undefined) return DEFAULT_INPUT;
-    return { name: editTarget.name, labels: editTarget.labels };
+    // The cast is needed because `OverlayShape` (`overlays.api.ts`) declares
+    // `kind: 'Box' | 'Ellipse'` as ONE interface, while `CreateOverlayDraftInput`
+    // (the schema's inferred output) carries `boxSchema`'s and `ellipseSchema`'s
+    // member types separately — a discriminated union of two distinct object
+    // types, not one shape with a union-valued `kind` — so neither narrows onto
+    // the other structurally. `color` here is also pre-`canonicalColor`
+    // (upper-cased, alpha-appended); every element from the API already
+    // satisfies that shape at runtime, but TS cannot see through the schema's
+    // `.transform()` to know it. (This is unrelated to `OverlayLabel`'s own
+    // optional `kind`/`color` — that is a different type, kept only for
+    // `OverlayEditor.tsx`'s byte-identical guards, FR-016.)
+    return { name: editTarget.name, elements: editTarget.elements as CreateOverlayDraftInput['elements'] };
   }, [editTarget]);
+
+  // Spec 300 (#2349) FR-019: fixed for the life of one open/edit — the set
+  // of kinds a draft carries does not change interactively, only an
+  // element's own fields do, so this is derived from the seed, not watched.
+  const textIndex = useMemo(() => textIndexOf(defaultValues.elements), [defaultValues]);
 
   const {
     control,
@@ -171,9 +207,21 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
   // react-redux context value" (plan.md "Frontend wiring"). The settled text
   // drives the query; `value.text` (via `Controller` below) keeps driving the
   // input, never the reverse — `useDebouncedValue`'s own doc comment says the
-  // field would drop characters otherwise. Index 0 only (spec 150) — the
-  // dialog edits exactly one label, FR-016's single-label editor seam.
-  const labelText = useWatch({ control, name: 'labels.0.text' }) ?? defaultValues.labels[0]!.text;
+  // field would drop characters otherwise. The Text element only (spec 150;
+  // spec 300 FR-019) — the dialog edits exactly one label, FR-016's
+  // single-label editor seam. `''` when the set carries no Text element
+  // (shapes only) — there is nothing to resolve.
+  const hasTextElement = textIndex >= 0;
+  const defaultLabelText = hasTextElement ? (defaultValues.elements[textIndex] as OverlayLabel).text : '';
+  // Watches the whole array, not `elements.${textIndex}.text` — `textIndex`
+  // can be `-1` (no Text element), and a `useWatch` call must not be made
+  // conditional on a value that can change across renders of the same
+  // mounted dialog (rules of hooks).
+  const watchedElements = useWatch({ control, name: 'elements' });
+  const watchedLabelText = hasTextElement
+    ? (watchedElements?.[textIndex] as OverlayLabel | undefined)?.text
+    : undefined;
+  const labelText = watchedLabelText ?? defaultLabelText;
   const settledLabelText = useDebouncedValue(labelText);
   const shouldResolve = settledLabelText.includes('{{');
   const {
@@ -206,14 +254,14 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
       // explanation at all).
       if (currentChain === undefined) return;
       // FR-018: the whole set, all N elements — not just the one the form
-      // shows. `ReplaceLabels`/FR-006 make an edit a wholesale replacement,
-      // so sending only `input.labels[0]` would silently delete every other
-      // label on the draft's first console edit.
+      // shows. `ReplaceElements`/FR-006 make an edit a wholesale replacement,
+      // so sending only the one element the editor shows would silently
+      // delete every other element on the draft's first console edit.
       const result = await editDraftOverlayRevision({
         overlayIdentifier: editTarget.overlayIdentifier,
         revisionNumber: editTarget.revisionNumber,
         version: currentChain.version,
-        labels: input.labels,
+        elements: input.elements,
       });
       if (!('error' in result)) {
         reset(defaultValues);
@@ -322,28 +370,45 @@ export function OverlayEditorDialog({ open, onOpenChange, editTarget }: OverlayE
             <Input id="overlay-name" autoFocus {...register('name')} />
           </FormField>
         )}
-        <Controller
-          control={control}
-          name="labels.0"
-          render={({ field }) => (
-            <OverlayEditor
-              value={field.value}
-              onChange={field.onChange}
-              getToken={getToken}
-              resolvedPreview={resolvedPreview}
-              isResolving={isResolving}
-              resolveFailed={resolveFailed}
-            />
-          )}
-        />
-        {errors.labels?.[0]?.text?.message !== undefined && (
-          // #2365: a stable testid so a test can address this alert without an
-          // unscoped role query, now that OverlayEditor's own OverlayGeometryFields
-          // always mounts four `role="alert"` regions in the same tree.
-          <p role="alert" data-testid="overlay-editor-dialog-label-error" className="text-sm text-accent-fault">
-            {errors.labels[0].text.message}
+        {hasTextElement ? (
+          <Controller
+            control={control}
+            name={`elements.${textIndex}`}
+            render={({ field }) => (
+              <OverlayEditor
+                value={field.value as OverlayLabel}
+                onChange={field.onChange}
+                getToken={getToken}
+                resolvedPreview={resolvedPreview}
+                isResolving={isResolving}
+                resolveFailed={resolveFailed}
+              />
+            )}
+          />
+        ) : (
+          // FR-019: a mixed-kind draft with no Text element at all (shapes
+          // only) has nothing for this single-label editor to show. The
+          // shapes themselves are not coerced into a label, and Save still
+          // sends them unchanged (onSubmit carries the whole `elements`
+          // array either way).
+          <p data-testid="overlay-editor-dialog-shapes-only-notice" className="text-sm text-fg-muted">
+            This overlay has only shapes. Edit them through the API until the editor supports shapes (#2343).
           </p>
         )}
+        {hasTextElement &&
+          (() => {
+            const textErrorMessage = (errors.elements?.[textIndex] as { text?: { message?: string } } | undefined)?.text
+              ?.message;
+            if (textErrorMessage === undefined) return null;
+            // #2365: a stable testid so a test can address this alert without an
+            // unscoped role query, now that OverlayEditor's own OverlayGeometryFields
+            // always mounts four `role="alert"` regions in the same tree.
+            return (
+              <p role="alert" data-testid="overlay-editor-dialog-label-error" className="text-sm text-accent-fault">
+                {textErrorMessage}
+              </p>
+            );
+          })()}
         {/*
           Not gated on `isEdit`: the chain query is `skipToken` outside edit
           mode, so `chainFailed`/`chainFetching` are already inert there, and

@@ -110,8 +110,10 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
             overlayIdentifier: OVERLAY_X,
             name: 'Line-1 Title',
             revisionNumber: 1,
-            labels: [
+            elements: [
               {
+                kind: 'Text',
+                color: '#FFFFFFD9',
                 text: 'Production Line 1',
                 normalizedX: 0.1,
                 normalizedY: 0.1,
