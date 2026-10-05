@@ -10,7 +10,7 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 /// </summary>
 public sealed class Revision
 {
-    private readonly List<Label> labels = [];
+    private readonly List<OverlayElement> elements = [];
 
     public OverlayRevisionIdentifier Id { get; private set; }
 
@@ -19,19 +19,20 @@ public sealed class Revision
     public OverlayRevisionState State { get; private set; } = null!;
 
     /// <summary>
-    /// The ordered, non-empty set of labels this revision carries (spec 150).
-    /// Replaced atomically via <see cref="ReplaceLabels"/> — there is no
-    /// per-label mutator (FR-006). Sorted by <see cref="Label.Ordinal"/> on
-    /// every access rather than trusted to arrive that way: EF's
-    /// owned-collection mapping for <c>overlay_revision_labels</c> has no
-    /// explicit <c>.OrderBy(...)</c> configured, so the ordering every
-    /// consumer needs — DTO mapping, <see cref="Overlay.Publish"/>'s event,
-    /// <see cref="Overlay.BranchDraft"/>'s ordinal reassignment — would
-    /// otherwise depend on EF's current single-query materialization
-    /// strategy implicitly ordering by key rather than on a contract this
-    /// type owns and enforces itself.
+    /// The ordered, non-empty set of elements this revision carries (spec
+    /// 150; spec 300 / ADR-0165 renamed from <c>Labels</c>). Replaced
+    /// atomically via <see cref="ReplaceElements"/> — there is no
+    /// per-element mutator (FR-006). Sorted by
+    /// <see cref="OverlayElement.Ordinal"/> on every access rather than
+    /// trusted to arrive that way: EF's owned-collection mapping for
+    /// <c>overlay_revision_elements</c> has no explicit <c>.OrderBy(...)</c>
+    /// configured, so the ordering every consumer needs — DTO mapping,
+    /// <see cref="Overlay.Publish"/>'s event, <see cref="Overlay.BranchDraft"/>'s
+    /// ordinal reassignment — would otherwise depend on EF's current
+    /// single-query materialization strategy implicitly ordering by key
+    /// rather than on a contract this type owns and enforces itself.
     /// </summary>
-    public IReadOnlyList<Label> Labels => [.. labels.OrderBy(label => label.Ordinal.Value)];
+    public IReadOnlyList<OverlayElement> Elements => [.. elements.OrderBy(element => element.Ordinal.Value)];
 
     public Creation Creation { get; private set; } = null!;
 
@@ -43,7 +44,7 @@ public sealed class Revision
 
     internal static Revision NewDraft(
         OverlayRevisionNumber number,
-        IReadOnlyList<Label> labels,
+        IReadOnlyList<OverlayElement> elements,
         DateTimeOffset createdAt,
         OperatorIdentifier createdBy)
     {
@@ -54,39 +55,38 @@ public sealed class Revision
             State = OverlayRevisionState.Draft,
             Creation = Creation.From(CreatedAt.From(createdAt), createdBy),
         };
-        revision.labels.AddRange(CloneWithOrdinals(labels));
+        revision.elements.AddRange(CloneWithOrdinals(elements));
         return revision;
     }
 
     internal static Revision Branch(
         OverlayRevisionNumber number,
-        IReadOnlyList<Label> labels,
+        IReadOnlyList<OverlayElement> elements,
         DateTimeOffset createdAt,
         OperatorIdentifier createdBy) =>
-        // Copy the base revision's labels: each is mapped as an EF-owned
+        // Copy the base revision's elements: each is mapped as an EF-owned
         // entity keyed on its owner revision, so the branched revision must
-        // own its own instances. Sharing the same CLR Label across two
-        // revisions makes EF try to re-key the owned entity onto a new
+        // own its own instances. Sharing the same CLR OverlayElement across
+        // two revisions makes EF try to re-key the owned entity onto a new
         // principal and throws. NewDraft already clones per element (FR-007),
         // so Branch is a straight delegation to it.
-        NewDraft(number, labels, createdAt, createdBy);
+        NewDraft(number, elements, createdAt, createdBy);
 
     /// <summary>
-    /// Deep-copies every label — including each label's owned
-    /// <c>Position</c>/<c>Size</c>, since a <c>with</c> expression is shallow
-    /// and (spec 060) those are themselves owned entities keyed on the
-    /// label — and reassigns dense zero-based ordinals from the given order
-    /// (FR-005, FR-007). This is the highest-risk line in the backend change:
-    /// without the per-element clone, EF tries to re-key an owned entity onto
-    /// a new principal and throws.
+    /// Deep-copies every element — including each element's owned
+    /// <c>Position</c>/<c>Size</c>/<c>Text</c> and its <c>Color</c>, since
+    /// those are themselves owned entities keyed on the element (spec 060;
+    /// spec 300 ADR-0165), via <see cref="OverlayElement.DeepClone"/> — and
+    /// reassigns dense zero-based ordinals from the given order (FR-005,
+    /// FR-007). This is the highest-risk line in the backend change: without
+    /// the per-element clone, EF tries to re-key an owned entity onto a new
+    /// principal and throws.
     /// </summary>
-    private static IEnumerable<Label> CloneWithOrdinals(IReadOnlyList<Label> source)
+    private static IEnumerable<OverlayElement> CloneWithOrdinals(IReadOnlyList<OverlayElement> source)
     {
         for (int i = 0; i < source.Count; i++)
         {
-            Label label = source[i];
-            yield return (label with { Position = label.Position with { }, Size = label.Size with { } })
-                .AtOrdinal(i);
+            yield return source[i].DeepClone().AtOrdinal(i);
         }
     }
 
@@ -113,22 +113,22 @@ public sealed class Revision
     }
 
     /// <summary>
-    /// Atomically replaces this Draft revision's entire label set (FR-006).
-    /// Mirrors <c>LayoutComposition.Revision.ReplaceTiles</c>: the owning
-    /// aggregate validates the set invariants before calling; only the
-    /// Draft-state guard lives here (a programmer error to edit a non-Draft
-    /// revision — throws as before).
+    /// Atomically replaces this Draft revision's entire element set
+    /// (FR-006). Mirrors <c>LayoutComposition.Revision.ReplaceTiles</c>: the
+    /// owning aggregate validates the set invariants before calling; only
+    /// the Draft-state guard lives here (a programmer error to edit a
+    /// non-Draft revision — throws as before).
     /// </summary>
-    internal void ReplaceLabels(IReadOnlyList<Label> newLabels)
+    internal void ReplaceElements(IReadOnlyList<OverlayElement> newElements)
     {
-        Ensure.That(newLabels).IsNotNull();
+        Ensure.That(newElements).IsNotNull();
         if (State != OverlayRevisionState.Draft)
         {
             throw new InvalidOperationException(
                 $"Revision {Number} is {State}; only Draft revisions are editable.");
         }
-        labels.Clear();
-        labels.AddRange(CloneWithOrdinals(newLabels));
+        elements.Clear();
+        elements.AddRange(CloneWithOrdinals(newElements));
     }
 
     internal void Archive(DateTimeOffset archivedAt)

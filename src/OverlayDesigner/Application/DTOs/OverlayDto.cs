@@ -23,30 +23,36 @@ public sealed record OverlayDto(
 
 /// <summary>
 /// Per-revision row inside <see cref="OverlayDto"/>. Spec 150 (#2345): the
-/// revision now carries an ordered, non-empty set of 1..8 labels instead of
-/// one flattened label, so kiosks rendering an overlay can pick up every
-/// label's coordinates + font without a second request.
+/// revision now carries an ordered, non-empty set of 1..8 elements instead
+/// of one flattened label, so kiosks rendering an overlay can pick up every
+/// element's coordinates + font without a second request. Spec 300 (#2349,
+/// ADR-0165) widened each element to carry a kind and colour.
 /// </summary>
 public sealed record OverlayRevisionDto(
     Guid RevisionIdentifier,
     int RevisionNumber,
     string State,
-    IReadOnlyList<OverlayLabelDto> Labels,
+    IReadOnlyList<OverlayElementDto> Elements,
     DateTimeOffset CreatedAt,
     Guid CreatedBy,
     DateTimeOffset? PublishedAt,
     DateTimeOffset? ArchivedAt);
 
 /// <summary>
-/// A single label on a revision, in ordinal (paint) order (spec 150 FR-005).
+/// A single element on a revision, in ordinal (paint) order (spec 150
+/// FR-005; spec 300 #2349, ADR-0165 — renamed from <c>OverlayLabelDto</c>).
+/// <c>Text</c>/<c>FontSizePx</c> are present exactly when <c>Kind</c> is
+/// <c>"Text"</c>.
 /// </summary>
-public sealed record OverlayLabelDto(
-    string Text,
+public sealed record OverlayElementDto(
+    string Kind,
+    string Color,
     decimal NormalizedX,
     decimal NormalizedY,
     decimal NormalizedWidth,
     decimal NormalizedHeight,
-    int FontSizePx);
+    string? Text,
+    int? FontSizePx);
 
 /// <summary>
 /// Single-row projection for the management-web overlay picker on the
@@ -57,5 +63,5 @@ public sealed record PublishedOverlayDto(
     Guid OverlayIdentifier,
     string Name,
     int RevisionNumber,
-    IReadOnlyList<OverlayLabelDto> Labels,
+    IReadOnlyList<OverlayElementDto> Elements,
     DateTimeOffset PublishedAt);

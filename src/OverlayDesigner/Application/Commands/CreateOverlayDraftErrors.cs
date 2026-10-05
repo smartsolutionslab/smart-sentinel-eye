@@ -18,17 +18,17 @@ public abstract record CreateOverlayDraftError(string Code, string Message, Http
             HttpStatusCode.Conflict);
 
     /// <summary>Spec 150 FR-003 — a revision must carry at least one label.</summary>
-    public sealed record EmptyLabelSet()
+    public sealed record EmptyElementSet()
         : CreateOverlayDraftError(
-            "OVERLAY_LABELS_EMPTY",
-            "A revision must carry at least one label.",
+            "OVERLAY_ELEMENTS_EMPTY",
+            "A revision must carry at least one element.",
             HttpStatusCode.BadRequest);
 
     /// <summary>Spec 150 FR-002, ADR-0164 — the label set exceeds the ceiling.</summary>
-    public sealed record TooManyLabels(int Count)
+    public sealed record TooManyElements(int Count)
         : CreateOverlayDraftError(
-            "OVERLAY_LABELS_TOO_MANY",
-            $"A revision may carry at most {Label.MaxLabels} labels; {Count} were submitted.",
+            "OVERLAY_ELEMENTS_TOO_MANY",
+            $"A revision may carry at most {OverlayElement.MaxElements} elements; {Count} were submitted.",
             HttpStatusCode.BadRequest);
 }
 
@@ -43,17 +43,17 @@ public static class CreateOverlayDraftFailures
     public static CreateOverlayDraftError OverlayNameTaken(string name) =>
         new CreateOverlayDraftError.OverlayNameTaken(name);
 
-    public static CreateOverlayDraftError EmptyLabelSet() =>
-        new CreateOverlayDraftError.EmptyLabelSet();
+    public static CreateOverlayDraftError EmptyElementSet() =>
+        new CreateOverlayDraftError.EmptyElementSet();
 
-    public static CreateOverlayDraftError TooManyLabels(int count) =>
-        new CreateOverlayDraftError.TooManyLabels(count);
+    public static CreateOverlayDraftError TooManyElements(int count) =>
+        new CreateOverlayDraftError.TooManyElements(count);
 
-    public static CreateOverlayDraftError FromViolation(LabelSetViolation violation, int count) =>
+    public static CreateOverlayDraftError FromViolation(ElementSetViolation violation, int count) =>
         violation switch
         {
-            LabelSetViolation.Empty => EmptyLabelSet(),
-            LabelSetViolation.TooMany => TooManyLabels(count),
-            _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown label-set violation."),
+            ElementSetViolation.Empty => EmptyElementSet(),
+            ElementSetViolation.TooMany => TooManyElements(count),
+            _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown element-set violation."),
         };
 }

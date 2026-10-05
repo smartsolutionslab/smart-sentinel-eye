@@ -10,7 +10,7 @@ using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
-public class OverlayRevisionPublishedV2HandlerTests
+public class OverlayRevisionPublishedV3HandlerTests
 {
     private static readonly DateTimeOffset Moment =
         DateTimeOffset.Parse("2026-05-28T08:14:33.040Z", CultureInfo.InvariantCulture);
@@ -30,14 +30,14 @@ public class OverlayRevisionPublishedV2HandlerTests
     public async Task Relays_the_overlay_publish_onto_the_broadcaster_with_every_field_mapped()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionPublishedV2Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
+        OverlayRevisionPublishedV3Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
 
         Guid overlay = Guid.CreateVersion7();
-        OverlayRevisionPublishedV2 message = new(
+        OverlayRevisionPublishedV3 message = new(
             Overlay: overlay,
             RevisionNumber: 3,
             Name: "Line-1",
-            Labels: [new OverlayLabelV2("Hello", 0.2m, 0.3m, 0.4m, 0.5m, 32)],
+            Elements: [new OverlayElementV3("Text", "#FFFFFFD9", 0.2m, 0.3m, 0.4m, 0.5m, "Hello", 32)],
             PublishedAt: Moment,
             PublishedBy: Guid.CreateVersion7(),
             Metadata: TestMetadata);
@@ -48,30 +48,32 @@ public class OverlayRevisionPublishedV2HandlerTests
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(3);
         notification.Name.ShouldBe("Line-1");
-        OverlayLifecycleLabel label = notification.Labels.ShouldHaveSingleItem();
-        label.Text.ShouldBe("Hello");
-        label.NormalizedX.ShouldBe(0.2m);
-        label.NormalizedHeight.ShouldBe(0.5m);
-        label.FontSizePx.ShouldBe(32);
+        OverlayLifecycleElement element = notification.Elements.ShouldHaveSingleItem();
+        element.Kind.ShouldBe("Text");
+        element.Color.ShouldBe("#FFFFFFD9");
+        element.Text.ShouldBe("Hello");
+        element.NormalizedX.ShouldBe(0.2m);
+        element.NormalizedHeight.ShouldBe(0.5m);
+        element.FontSizePx.ShouldBe(32);
         notification.PublishedAt.ShouldBe(Moment);
     }
 
-    /// <summary>Spec 150 (#2345): every label of the set is relayed, in order.</summary>
+    /// <summary>Spec 150 (#2345): every element of the set is relayed, in order.</summary>
     [Fact]
-    public async Task Relays_every_label_of_the_set_in_order()
+    public async Task Relays_every_element_of_the_set_in_order()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionPublishedV2Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
+        OverlayRevisionPublishedV3Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
 
         Guid overlay = Guid.CreateVersion7();
-        OverlayRevisionPublishedV2 message = new(
+        OverlayRevisionPublishedV3 message = new(
             Overlay: overlay,
             RevisionNumber: 1,
             Name: "Line-1",
-            Labels:
+            Elements:
             [
-                new OverlayLabelV2("First", 0.1m, 0.1m, 0.2m, 0.2m, 16),
-                new OverlayLabelV2("Second", 0.2m, 0.2m, 0.2m, 0.2m, 20),
+                new OverlayElementV3("Text", "#FFFFFFD9", 0.1m, 0.1m, 0.2m, 0.2m, "First", 16),
+                new OverlayElementV3("Text", "#FFFFFFD9", 0.2m, 0.2m, 0.2m, 0.2m, "Second", 20),
             ],
             PublishedAt: Moment,
             PublishedBy: Guid.CreateVersion7(),
@@ -80,9 +82,34 @@ public class OverlayRevisionPublishedV2HandlerTests
         await handler.Handle(message, CancellationToken.None);
 
         OverlayLifecyclePublishedNotification notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
-        notification.Labels.Count.ShouldBe(2);
-        notification.Labels[0].Text.ShouldBe("First");
-        notification.Labels[1].Text.ShouldBe("Second");
+        notification.Elements.Count.ShouldBe(2);
+        notification.Elements[0].Text.ShouldBe("First");
+        notification.Elements[1].Text.ShouldBe("Second");
+    }
+
+    /// <summary>Spec 300 (#2349): a non-text element relays with null text and font size.</summary>
+    [Fact]
+    public async Task Relays_a_non_text_element_with_null_text_and_font_size()
+    {
+        FakeLayoutLifecycleBroadcaster broadcaster = new();
+        OverlayRevisionPublishedV3Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
+
+        Guid overlay = Guid.CreateVersion7();
+        OverlayRevisionPublishedV3 message = new(
+            Overlay: overlay,
+            RevisionNumber: 1,
+            Name: "Line-1",
+            Elements: [new OverlayElementV3("Box", "#D32F2F00", 0.1m, 0.2m, 0.4m, 0.5m, null, null)],
+            PublishedAt: Moment,
+            PublishedBy: Guid.CreateVersion7(),
+            Metadata: TestMetadata);
+
+        await handler.Handle(message, CancellationToken.None);
+
+        OverlayLifecycleElement element = broadcaster.OverlaysPublished.ShouldHaveSingleItem().Elements.ShouldHaveSingleItem();
+        element.Kind.ShouldBe("Box");
+        element.Text.ShouldBeNull();
+        element.FontSizePx.ShouldBeNull();
     }
 
     /// <summary>FR-010 — referenced by one fab, told to that fab only.</summary>
@@ -156,11 +183,11 @@ public class OverlayRevisionPublishedV2HandlerTests
         broadcaster.OverlaysPublished.ShouldHaveSingleItem().Fabs.ShouldBeEmpty();
     }
 
-    private static OverlayRevisionPublishedV2Handler NewHandler(
+    private static OverlayRevisionPublishedV3Handler NewHandler(
         FakeLayoutLifecycleBroadcaster broadcaster, InMemoryLayoutRepository layouts) =>
         new(broadcaster,
             new FabsReferencingOverlayQueryHandler(new InMemoryLayoutQuerySource(layouts)),
-            NullLogger<OverlayRevisionPublishedV2Handler>.Instance);
+            NullLogger<OverlayRevisionPublishedV3Handler>.Instance);
 
     private static void Seed(
         InMemoryLayoutRepository layouts, FabIdentifier fab, Guid overlay, bool publish)
@@ -179,11 +206,11 @@ public class OverlayRevisionPublishedV2HandlerTests
         layouts.Add(layout);
     }
 
-    private static OverlayRevisionPublishedV2 MessageFor(Guid overlay) => new(
+    private static OverlayRevisionPublishedV3 MessageFor(Guid overlay) => new(
         Overlay: overlay,
         RevisionNumber: 1,
         Name: "Line-1",
-        Labels: [new OverlayLabelV2("Hello", 0.2m, 0.3m, 0.4m, 0.5m, 32)],
+        Elements: [new OverlayElementV3("Text", "#FFFFFFD9", 0.2m, 0.3m, 0.4m, 0.5m, "Hello", 32)],
         PublishedAt: Moment,
         PublishedBy: Guid.CreateVersion7(),
         Metadata: TestMetadata);

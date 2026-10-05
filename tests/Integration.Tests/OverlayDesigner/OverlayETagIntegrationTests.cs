@@ -110,10 +110,12 @@ public class OverlayETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             new
             {
                 name = $"Etag-{Guid.NewGuid():N}"[..16],
-                labels = new[]
+                elements = new[]
                 {
                     new
                     {
+                        kind = "Text",
+                        color = "#FFFFFFD9",
                         text = "Production Line 1",
                         normalizedX = 0.5m,
                         normalizedY = 0.05m,

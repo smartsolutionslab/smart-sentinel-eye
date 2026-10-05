@@ -14,8 +14,8 @@ public class EditDraftRevisionCommandHandlerTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
-    private static Label OtherLabel() =>
-        Label.From("Updated", NormalizedPosition.From(0.2m, 0.3m), NormalizedSize.From(0.4m, 0.5m), 64);
+    private static OverlayElement OtherLabel() =>
+        OverlayElement.TextElement("Updated", 64, NormalizedPosition.From(0.2m, 0.3m), NormalizedSize.From(0.4m, 0.5m), OverlayColor.Default);
 
     [Fact]
     public async Task Editing_a_Draft_updates_the_Label()
@@ -25,10 +25,10 @@ public class EditDraftRevisionCommandHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
+            .WithLabel(OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
-        Label replacement = OtherLabel();
+        OverlayElement replacement = OtherLabel();
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
@@ -37,7 +37,7 @@ public class EditDraftRevisionCommandHandlerTests
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        overlay.Revisions.Single().Labels.Single().ShouldBe(replacement);
+        overlay.Revisions.Single().Elements.Single().ShouldBe(replacement);
     }
 
     [Fact]
@@ -64,7 +64,7 @@ public class EditDraftRevisionCommandHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
+            .WithLabel(OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
 
@@ -87,7 +87,7 @@ public class EditDraftRevisionCommandHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
+            .WithLabel(OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
         overlay.Publish(OverlayRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
@@ -103,11 +103,11 @@ public class EditDraftRevisionCommandHandlerTests
     }
 
     [Fact]
-    public async Task An_empty_label_set_returns_EmptyLabelSet_and_leaves_the_revision_unchanged()
+    public async Task An_empty_label_set_returns_EmptyElementSet_and_leaves_the_revision_unchanged()
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Label initial = Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32);
+        OverlayElement initial = OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
@@ -122,23 +122,23 @@ public class EditDraftRevisionCommandHandlerTests
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.ShouldBeOfType<EditDraftRevisionError.EmptyLabelSet>();
-        overlay.Revisions.Single().Labels.Single().ShouldBe(initial);
+        result.Error.ShouldBeOfType<EditDraftRevisionError.EmptyElementSet>();
+        overlay.Revisions.Single().Elements.Single().ShouldBe(initial);
     }
 
     [Fact]
-    public async Task More_labels_than_the_ceiling_returns_TooManyLabels_and_leaves_the_revision_unchanged()
+    public async Task More_labels_than_the_ceiling_returns_TooManyElements_and_leaves_the_revision_unchanged()
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Label initial = Label.From("Initial", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32);
+        OverlayElement initial = OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(initial)
             .Build();
         overlays.Add(overlay);
-        List<Label> tooMany = Enumerable.Range(0, Label.MaxLabels + 1).Select(_ => OtherLabel()).ToList();
+        List<OverlayElement> tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1).Select(_ => OtherLabel()).ToList();
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
@@ -147,7 +147,7 @@ public class EditDraftRevisionCommandHandlerTests
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.ShouldBeOfType<EditDraftRevisionError.TooManyLabels>();
-        overlay.Revisions.Single().Labels.Single().ShouldBe(initial);
+        result.Error.ShouldBeOfType<EditDraftRevisionError.TooManyElements>();
+        overlay.Revisions.Single().Elements.Single().ShouldBe(initial);
     }
 }

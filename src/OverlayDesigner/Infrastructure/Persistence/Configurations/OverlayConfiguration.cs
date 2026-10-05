@@ -27,8 +27,9 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Configurat
 ///
 /// <para>
 /// Spec 150 (#2345): a revision now carries an ordered, non-empty set of
-/// 1..8 <see cref="Label"/>s instead of one. Labels are mapped as a nested
-/// owned collection on <c>overlay_revision_labels</c>, keyed
+/// 1..8 <see cref="OverlayElement"/>s instead of one. Elements are mapped as
+/// a nested owned collection on <c>overlay_revision_elements</c> (spec 300,
+/// #2349, ADR-0165 — renamed from <c>overlay_revision_labels</c>), keyed
 /// <c>(revision_id, ordinal)</c> — the join LayoutComposition already pays
 /// for <c>layout_revision_tiles</c>.
 /// </para>
@@ -122,53 +123,80 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
                 .HasConversion(state => state.Value, value => OverlayRevisionState.From(value))
                 .IsRequired();
 
-            // Labels are a nested owned collection, one level deeper than
-            // anything else in this feature: a composite value object (Label)
-            // owning two more composite value objects (Position, Size),
-            // itself owned by the revisions collection. A label has no
-            // identity of its own, so the composite key is
-            // (revision_id, ordinal) — the label's LabelOrdinal, flattened
-            // into the scalar mapped below (spec 150 FR-005).
-            revisions.OwnsMany(revision => revision.Labels, labels =>
+            // Elements are a nested owned collection, one level deeper than
+            // anything else in this feature: a composite value object
+            // (OverlayElement) owning two more composite value objects
+            // (Position, Size) plus an optional one (Text), itself owned by
+            // the revisions collection. An element has no identity of its
+            // own, so the composite key is (revision_id, ordinal) — the
+            // element's ElementOrdinal, flattened into the scalar mapped
+            // below (spec 150 FR-005). Spec 300 (#2349, ADR-0165) widened
+            // the table from text-only labels to a closed kind + colour
+            // model; the migration (T009) renames the physical table from
+            // <c>overlay_revision_labels</c> to <c>overlay_revision_elements</c>
+            // and its columns to match this mapping.
+            revisions.OwnsMany(revision => revision.Elements, elements =>
             {
-                labels.ToTable("overlay_revision_labels");
-                labels.WithOwner().HasForeignKey("revision_id");
+                elements.ToTable("overlay_revision_elements");
+                elements.WithOwner().HasForeignKey("revision_id");
 
-                // Field-backed, not a CLR property: the label exposes only its
-                // LabelOrdinal value object, so the scalar the key needs is
-                // mapped onto its private field rather than published as an
-                // int on a domain type (constitution §II). The name must be
-                // the field name exactly — EF refuses a field-only property
-                // whose name differs (LayoutConfiguration's row/col comment
-                // records the same cost).
-                labels.Property<int>("ordinal").HasColumnName("ordinal").IsRequired().ValueGeneratedNever();
-                labels.HasKey("revision_id", "ordinal");
-                labels.Ignore(label => label.Ordinal);
+                // Field-backed, not a CLR property: the element exposes only
+                // its ElementOrdinal value object, so the scalar the key
+                // needs is mapped onto its private field rather than
+                // published as an int on a domain type (constitution §II).
+                // The name must be the field name exactly — EF refuses a
+                // field-only property whose name differs
+                // (LayoutConfiguration's row/col comment records the same
+                // cost).
+                elements.Property<int>("ordinal").HasColumnName("ordinal").IsRequired().ValueGeneratedNever();
+                elements.HasKey("revision_id", "ordinal");
+                elements.Ignore(element => element.Ordinal);
 
-                labels.Property(labelValue => labelValue.Text)
-                    .HasColumnName("label_text")
-                    .HasMaxLength(Label.MaximumTextLength)
+                elements.Property(element => element.Kind)
+                    .HasColumnName("kind")
+                    .HasMaxLength(16)
+                    .HasConversion(kind => kind.Value, value => ElementKind.From(value))
+                    .IsRequired();
+
+                elements.Property(element => element.Color)
+                    .HasColumnName("color")
+                    .HasMaxLength(9)
+                    .HasConversion(color => color.Value, value => OverlayColor.From(value))
                     .IsRequired();
 
                 // The four columns stay where they were — the owned-reference
                 // default would name them Position_X and make them nullable,
                 // which is #2022's shape, so both the column name and the
                 // Navigation(...).IsRequired() below are load-bearing.
-                labels.OwnsOne(labelValue => labelValue.Position, position =>
+                elements.OwnsOne(element => element.Position, position =>
                 {
-                    position.Property(value => value.X).HasColumnName("label_x").IsRequired();
-                    position.Property(value => value.Y).HasColumnName("label_y").IsRequired();
+                    position.Property(value => value.X).HasColumnName("x").IsRequired();
+                    position.Property(value => value.Y).HasColumnName("y").IsRequired();
                 });
-                labels.Navigation(labelValue => labelValue.Position).IsRequired();
+                elements.Navigation(element => element.Position).IsRequired();
 
-                labels.OwnsOne(labelValue => labelValue.Size, size =>
+                elements.OwnsOne(element => element.Size, size =>
                 {
-                    size.Property(value => value.Width).HasColumnName("label_width").IsRequired();
-                    size.Property(value => value.Height).HasColumnName("label_height").IsRequired();
+                    size.Property(value => value.Width).HasColumnName("width").IsRequired();
+                    size.Property(value => value.Height).HasColumnName("height").IsRequired();
                 });
-                labels.Navigation(labelValue => labelValue.Size).IsRequired();
+                elements.Navigation(element => element.Size).IsRequired();
 
-                labels.Property(labelValue => labelValue.FontSizePx).HasColumnName("label_font_size_px").IsRequired();
+                // Text is the one optional owned reference in this
+                // configuration (#2022's Position/Size comment says NOT
+                // NULL is load-bearing there; here it is the opposite,
+                // deliberately): present iff Kind is Text (ADR-0165 §1), so
+                // there is no Navigation(...).IsRequired() call and its two
+                // columns are nullable.
+                elements.OwnsOne(element => element.Text, text =>
+                {
+                    text.Property(value => value.Value)
+                        .HasColumnName("text")
+                        .HasMaxLength(TextContent.MaximumTextLength);
+
+                    text.Property(value => value.FontSizePx)
+                        .HasColumnName("font_size_px");
+                });
             });
 
             // The nested case: a composite inside an owned collection, one

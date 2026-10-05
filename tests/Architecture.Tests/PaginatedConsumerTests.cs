@@ -500,13 +500,24 @@ public class PaginatedConsumerTests
 
         return ExportedHead.Matches(text)
             .Where(head => !readable.Contains(head.Groups["name"].Value))
-            .Where(head => Declaration(text, head.Index, boundaries).Contains('{', StringComparison.Ordinal))
+            .Where(head => DeclarationCode(text, head.Index, boundaries).Contains('{', StringComparison.Ordinal))
             .Select(head => head.Groups["name"].Value)
             .ToArray();
     }
 
     private static string Declaration(string text, int start, int[] boundaries) =>
         text[start..boundaries.FirstOrDefault(boundary => boundary > start, text.Length)];
+
+    /// <summary>
+    /// A declaration's span with its comments blanked, so a trailing JSDoc
+    /// block for the <em>next</em> export — <c>{@link Other}</c> opens a
+    /// literal brace of its own — cannot be mistaken for a brace the
+    /// declaration itself failed to close. Comment-free is what
+    /// <see cref="ExportedShape"/> is read against, so the unreadable check
+    /// must be comment-free too.
+    /// </summary>
+    private static string DeclarationCode(string text, int start, int[] boundaries) =>
+        SourceMask.Apply(Declaration(text, start, boundaries), MaskStrictness.CommentsBlankedLiteralsIntact);
 
     /// <summary>
     /// The text of every <c>*.api.ts</c> under <c>apps/*/src</c>,

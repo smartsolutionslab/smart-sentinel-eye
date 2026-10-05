@@ -167,4 +167,39 @@ public class VariableValueChangedDomainEventHandlerTests
             bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
         push.ResolvedTexts.Single().ShouldBe("B / 82.5");
     }
+
+    /// <summary>
+    /// Spec 300 (#2349), ADR-0165, T014: a Box at ordinal 0 contributes ""
+    /// to the cached list (per <c>OverlayRevisionPublishedV3Handler</c>), and
+    /// resolution over "every text in the list" already handles it —
+    /// confirmed by test, not assumed (plan.md §"SystemVariables").
+    /// </summary>
+    [Fact]
+    public async Task A_box_at_ordinal_zero_resolves_to_an_empty_string_and_the_text_element_still_resolves()
+    {
+        FakeEventBus bus = new();
+        InMemoryReverseIndex index = new();
+        InMemoryVariableRepository repo = new();
+        FakeOverlayTextVersions versions = new();
+
+        Guid overlay = Guid.CreateVersion7();
+        index.UpsertOverlayReferences(overlay, [string.Empty, "OEE: {{oeeLine1}}%"]);
+
+        VariableValueChangedDomainEventHandler handler = new(
+            bus, index, versions, repo, new Resolver(),
+            NullLogger<VariableValueChangedDomainEventHandler>.Instance);
+
+        await handler.Handle(
+            new VariableValueChangedDomainEvent(
+                VariableIdentifier.New(), FabIdentifier.From("munich"), VariableName.From("oeeLine1"), VariableType.Number,
+                new VariableValue.NumberValue(82.5), FixedMoment,
+                OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
+            CancellationToken.None);
+
+        ResolvedOverlayTextChangedV2 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        push.ResolvedTexts.Count.ShouldBe(2);
+        push.ResolvedTexts[0].ShouldBe(string.Empty);
+        push.ResolvedTexts[1].ShouldBe("OEE: 82.5%");
+    }
 }

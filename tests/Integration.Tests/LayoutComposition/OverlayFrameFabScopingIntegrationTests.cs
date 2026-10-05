@@ -155,10 +155,12 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
         HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"Ovl-{Guid.NewGuid():N}"[..16],
-            labels = new[]
+            elements = new[]
             {
                 new
                 {
+                    kind = "Text",
+                    color = "#FFFFFFD9",
                     text = "Production Line 1",
                     normalizedX = 0.5m,
                     normalizedY = 0.05m,

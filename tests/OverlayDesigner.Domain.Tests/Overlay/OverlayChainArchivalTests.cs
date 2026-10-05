@@ -138,11 +138,7 @@ public class OverlayChainArchivalTests
         Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(Later);
-        Label edited = Label.From(
-            "Rolling Mill B",
-            NormalizedPosition.From(0.1m, 0.1m),
-            NormalizedSize.From(0.2m, 0.05m),
-            32);
+        OverlayElement edited = OverlayElement.TextElement("Rolling Mill B", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.05m), OverlayColor.Default);
 
         ShouldAgree(overlay);
         overlay.EditDraft(OverlayRevisionNumber.One, [edited], clock);

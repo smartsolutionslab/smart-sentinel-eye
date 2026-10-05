@@ -23,6 +23,8 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
 
     private static object SampleLabelBody(string text = "Production Line 1", int fontSizePx = 48) => new
     {
+        kind = "Text",
+        color = "#FFFFFFD9",
         text,
         normalizedX = 0.5m,
         normalizedY = 0.05m,
@@ -41,7 +43,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"Rev-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody() },
+                elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -59,7 +61,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         // Edit v2's label.
         HttpResponseMessage edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, $"revisions/{v2}",
-            new { labels = new[] { SampleLabelBody("Updated label", 64) } });
+            new { elements = new[] { SampleLabelBody("Updated label", 64) } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // Publish v2 → atomic swap: v1 becomes Archived, v2 becomes Published.
@@ -76,7 +78,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         JsonElement r2 = revisions.EnumerateArray().Single(r => r.GetProperty("revisionNumber").GetInt32() == 2);
         r1.GetProperty("state").GetString().ShouldBe("Archived");
         r2.GetProperty("state").GetString().ShouldBe("Published");
-        JsonElement r2Label = r2.GetProperty("labels")[0];
+        JsonElement r2Label = r2.GetProperty("elements")[0];
         r2Label.GetProperty("text").GetString().ShouldBe("Updated label");
         r2Label.GetProperty("fontSizePx").GetInt32().ShouldBe(64);
     }
@@ -91,7 +93,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"Rvt-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody() },
+                elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -137,7 +139,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"Recov-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody("Rolling Mill A", 64) },
+                elements = new[] { SampleLabelBody("Rolling Mill A", 64) },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -161,7 +163,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             .EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
         branchedRevision.GetProperty("state").GetString().ShouldBe("Draft");
-        JsonElement branchedLabel = branchedRevision.GetProperty("labels")[0];
+        JsonElement branchedLabel = branchedRevision.GetProperty("elements")[0];
         branchedLabel.GetProperty("text").GetString().ShouldBe("Rolling Mill A");
         branchedLabel.GetProperty("fontSizePx").GetInt32().ShouldBe(64);
 
@@ -169,7 +171,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             overlays,
             overlayIdentifier,
             $"revisions/{recovered}",
-            new { labels = new[] { SampleLabelBody("Rolling Mill B", 32) } })).StatusCode.ShouldBe(HttpStatusCode.OK);
+            new { elements = new[] { SampleLabelBody("Rolling Mill B", 32) } })).StatusCode.ShouldBe(HttpStatusCode.OK);
 
         (await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{recovered}/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -186,7 +188,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         JsonElement live = revisions.EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
         live.GetProperty("state").GetString().ShouldBe("Published");
-        live.GetProperty("labels")[0].GetProperty("text").GetString().ShouldBe("Rolling Mill B");
+        live.GetProperty("elements")[0].GetProperty("text").GetString().ShouldBe("Rolling Mill B");
     }
 
     /// <summary>
@@ -196,11 +198,21 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     /// owned <c>Position</c>/<c>Size</c>) across two revisions, and EF throws
     /// trying to re-key an owned entity onto a new principal on
     /// <c>SaveChanges</c> — a failure a hand-written fake repository cannot
-    /// reproduce. Branching a three-label revision and saving must succeed,
-    /// and every label's geometry and ordinal must survive the round trip.
+    /// reproduce.
+    ///
+    /// <para>
+    /// Spec 300 (#2349, ADR-0165) widens the trap one level down: the owned
+    /// reference that must not be shared across revisions is now the
+    /// optional <c>Text</c> component too, and <c>Color</c> is a second
+    /// per-element scalar that a careless copy could leave aliased or
+    /// defaulted. A set of three same-kind Texts cannot exercise the
+    /// nullable-component case at all, so this branches a mixed
+    /// <c>[Box, Text, Ellipse]</c> set and asserts every kind's <c>Color</c>
+    /// and nullable <c>Text</c> came through the deep copy distinctly.
+    /// </para>
     /// </summary>
     [Fact]
-    public async Task Branching_a_three_label_revision_deep_copies_every_label_and_saves()
+    public async Task Branching_a_mixed_kind_revision_deep_copies_every_element_and_saves()
     {
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
@@ -209,11 +221,11 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"Branch3-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[]
+                elements = new object[]
                 {
-                    new { text = "First", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m, fontSizePx = 16 },
-                    new { text = "Second", normalizedX = 0.2m, normalizedY = 0.2m, normalizedWidth = 0.2m, normalizedHeight = 0.2m, fontSizePx = 20 },
-                    new { text = "Third", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m, fontSizePx = 24 },
+                    new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
+                    new { kind = "Text", color = "#FFFFFFD9", text = "Second", normalizedX = 0.2m, normalizedY = 0.2m, normalizedWidth = 0.2m, normalizedHeight = 0.2m, fontSizePx = 20 },
+                    new { kind = "Ellipse", color = "#2E7D32FF", normalizedX = 0.3m, normalizedY = 0.3m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
                 },
             });
         created.EnsureSuccessStatusCode();
@@ -234,20 +246,32 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             .GetProperty("revisions")
             .EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == draftNumber);
-        JsonElement labels = draft.GetProperty("labels");
-        labels.GetArrayLength().ShouldBe(3);
-        labels[0].GetProperty("text").GetString().ShouldBe("First");
-        labels[0].GetProperty("normalizedX").GetDecimal().ShouldBe(0.1m);
-        labels[0].GetProperty("normalizedY").GetDecimal().ShouldBe(0.1m);
-        labels[0].GetProperty("fontSizePx").GetInt32().ShouldBe(16);
-        labels[1].GetProperty("text").GetString().ShouldBe("Second");
-        labels[1].GetProperty("normalizedX").GetDecimal().ShouldBe(0.2m);
-        labels[1].GetProperty("normalizedY").GetDecimal().ShouldBe(0.2m);
-        labels[1].GetProperty("fontSizePx").GetInt32().ShouldBe(20);
-        labels[2].GetProperty("text").GetString().ShouldBe("Third");
-        labels[2].GetProperty("normalizedX").GetDecimal().ShouldBe(0.3m);
-        labels[2].GetProperty("normalizedY").GetDecimal().ShouldBe(0.3m);
-        labels[2].GetProperty("fontSizePx").GetInt32().ShouldBe(24);
+        JsonElement elements = draft.GetProperty("elements");
+        elements.GetArrayLength().ShouldBe(3);
+
+        JsonElement box = elements[0];
+        box.GetProperty("kind").GetString().ShouldBe("Box");
+        box.GetProperty("color").GetString().ShouldBe("#1565C0FF");
+        box.GetProperty("normalizedX").GetDecimal().ShouldBe(0.1m);
+        box.GetProperty("normalizedY").GetDecimal().ShouldBe(0.1m);
+        box.GetProperty("text").ValueKind.ShouldBe(JsonValueKind.Null);
+        box.GetProperty("fontSizePx").ValueKind.ShouldBe(JsonValueKind.Null);
+
+        JsonElement text = elements[1];
+        text.GetProperty("kind").GetString().ShouldBe("Text");
+        text.GetProperty("color").GetString().ShouldBe("#FFFFFFD9");
+        text.GetProperty("normalizedX").GetDecimal().ShouldBe(0.2m);
+        text.GetProperty("normalizedY").GetDecimal().ShouldBe(0.2m);
+        text.GetProperty("text").GetString().ShouldBe("Second");
+        text.GetProperty("fontSizePx").GetInt32().ShouldBe(20);
+
+        JsonElement ellipse = elements[2];
+        ellipse.GetProperty("kind").GetString().ShouldBe("Ellipse");
+        ellipse.GetProperty("color").GetString().ShouldBe("#2E7D32FF");
+        ellipse.GetProperty("normalizedX").GetDecimal().ShouldBe(0.3m);
+        ellipse.GetProperty("normalizedY").GetDecimal().ShouldBe(0.3m);
+        ellipse.GetProperty("text").ValueKind.ShouldBe(JsonValueKind.Null);
+        ellipse.GetProperty("fontSizePx").ValueKind.ShouldBe(JsonValueKind.Null);
 
         // Publishing the branch is the second half of FR-007's proof: a
         // deep-copied-but-corrupted set could still read back correctly and
@@ -288,7 +312,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"Ord3-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
+                elements = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -299,18 +323,18 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         // that scrambles it.
         HttpResponseMessage edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = new[] { SampleLabelBody("X"), SampleLabelBody("B"), SampleLabelBody("C") } });
+            new { elements = new[] { SampleLabelBody("X"), SampleLabelBody("B"), SampleLabelBody("C") } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
         HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
-            .GetProperty("labels");
+            .GetProperty("elements");
 
-        labels.GetArrayLength().ShouldBe(3);
-        labels[0].GetProperty("text").GetString().ShouldBe("X");
-        labels[1].GetProperty("text").GetString().ShouldBe("B");
-        labels[2].GetProperty("text").GetString().ShouldBe("C");
+        elements.GetArrayLength().ShouldBe(3);
+        elements[0].GetProperty("text").GetString().ShouldBe("X");
+        elements[1].GetProperty("text").GetString().ShouldBe("B");
+        elements[2].GetProperty("text").GetString().ShouldBe("C");
     }
 
     /// <summary>
@@ -326,23 +350,23 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"Ord1-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
+                elements = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         HttpResponseMessage edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = new[] { SampleLabelBody("OnlyOne") } });
+            new { elements = new[] { SampleLabelBody("OnlyOne") } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
         HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
-            .GetProperty("labels");
+            .GetProperty("elements");
 
-        labels.GetArrayLength().ShouldBe(1);
-        labels[0].GetProperty("text").GetString().ShouldBe("OnlyOne");
+        elements.GetArrayLength().ShouldBe(1);
+        elements[0].GetProperty("text").GetString().ShouldBe("OnlyOne");
     }
 
     /// <summary>
@@ -358,25 +382,25 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"OrdG-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody("Solo") },
+                elements = new[] { SampleLabelBody("Solo") },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         HttpResponseMessage edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = new[] { SampleLabelBody("One"), SampleLabelBody("Two"), SampleLabelBody("Three") } });
+            new { elements = new[] { SampleLabelBody("One"), SampleLabelBody("Two"), SampleLabelBody("Three") } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
         HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
-            .GetProperty("labels");
+            .GetProperty("elements");
 
-        labels.GetArrayLength().ShouldBe(3);
-        labels[0].GetProperty("text").GetString().ShouldBe("One");
-        labels[1].GetProperty("text").GetString().ShouldBe("Two");
-        labels[2].GetProperty("text").GetString().ShouldBe("Three");
+        elements.GetArrayLength().ShouldBe(3);
+        elements[0].GetProperty("text").GetString().ShouldBe("One");
+        elements[1].GetProperty("text").GetString().ShouldBe("Two");
+        elements[2].GetProperty("text").GetString().ShouldBe("Three");
     }
 
     /// <summary>
@@ -403,7 +427,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     /// Core does not document or guarantee this, so it is not something to
     /// rely on, but it means this test is not a disproof-by-counterexample —
     /// it is regression/documentation coverage for the contract
-    /// <see cref="SmartSentinelEye.OverlayDesigner.Domain.Overlay.Revision.Labels"/>
+    /// <see cref="SmartSentinelEye.OverlayDesigner.Domain.Overlay.Revision.Elements"/>
     /// now owns explicitly, not evidence the bug was ever observed to fire.
     /// No fabricated transcript exists for this test; if a future change to
     /// the query shape (a split query, a raw-SQL read path, a planner
@@ -421,7 +445,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new
             {
                 name = $"OrdRaw-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody("A") },
+                elements = new[] { SampleLabelBody("A") },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -432,22 +456,24 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         await InsertRawLabelAsync(overlayIdentifier, ordinal: 1, text: "B");
 
         HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement labels = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
-            .GetProperty("labels");
+            .GetProperty("elements");
 
-        labels.GetArrayLength().ShouldBe(3);
-        labels[0].GetProperty("text").GetString().ShouldBe("A");
-        labels[1].GetProperty("text").GetString().ShouldBe("B");
-        labels[2].GetProperty("text").GetString().ShouldBe("C");
+        elements.GetArrayLength().ShouldBe(3);
+        elements[0].GetProperty("text").GetString().ShouldBe("A");
+        elements[1].GetProperty("text").GetString().ShouldBe("B");
+        elements[2].GetProperty("text").GetString().ShouldBe("C");
     }
 
     /// <summary>
-    /// Inserts one <c>overlay_revision_labels</c> row directly via SQL for
-    /// the overlay's revision 1, bypassing the domain and EF entirely —
-    /// mirrors <c>TileSpanIntegrationTests.InsertRawTileNamingNoSpanColumnAsync</c>.
-    /// Geometry is fixed; only the ordinal and text vary, which is all the
-    /// physical-order counterfactual needs.
+    /// Inserts one <c>overlay_revision_elements</c> row directly via SQL
+    /// (spec 300, #2349, ADR-0165 — renamed from
+    /// <c>overlay_revision_labels</c>) for the overlay's revision 1,
+    /// bypassing the domain and EF entirely — mirrors
+    /// <c>TileSpanIntegrationTests.InsertRawTileNamingNoSpanColumnAsync</c>.
+    /// Geometry, kind and colour are fixed; only the ordinal and text vary,
+    /// which is all the physical-order counterfactual needs.
     /// </summary>
     private async Task InsertRawLabelAsync(Guid overlayIdentifier, int ordinal, string text)
     {
@@ -455,9 +481,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
 
         await db.Database.ExecuteSqlRawAsync(
             """
-            INSERT INTO overlay_revision_labels
-                (revision_id, ordinal, label_text, label_x, label_y, label_width, label_height, label_font_size_px)
-            SELECT revision_id, {1}, {2}, 0.1, 0.1, 0.2, 0.2, 16
+            INSERT INTO overlay_revision_elements
+                (revision_id, ordinal, kind, color, text, x, y, width, height, font_size_px)
+            SELECT revision_id, {1}, 'Text', '#FFFFFFD9', {2}, 0.1, 0.1, 0.2, 0.2, 16
               FROM overlay_revisions
              WHERE overlay_id = {0} AND revision_number = 1;
             """,

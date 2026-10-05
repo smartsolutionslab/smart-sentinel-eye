@@ -37,17 +37,17 @@ public abstract record EditDraftRevisionError(string Code, string Message, HttpS
             HttpStatusCode.Conflict);
 
     /// <summary>Spec 150 FR-003 — a revision must carry at least one label.</summary>
-    public sealed record EmptyLabelSet()
+    public sealed record EmptyElementSet()
         : EditDraftRevisionError(
-            "OVERLAY_LABELS_EMPTY",
-            "A revision must carry at least one label.",
+            "OVERLAY_ELEMENTS_EMPTY",
+            "A revision must carry at least one element.",
             HttpStatusCode.BadRequest);
 
     /// <summary>Spec 150 FR-002, ADR-0164 — the label set exceeds the ceiling.</summary>
-    public sealed record TooManyLabels(int Count)
+    public sealed record TooManyElements(int Count)
         : EditDraftRevisionError(
-            "OVERLAY_LABELS_TOO_MANY",
-            $"A revision may carry at most {Label.MaxLabels} labels; {Count} were submitted.",
+            "OVERLAY_ELEMENTS_TOO_MANY",
+            $"A revision may carry at most {OverlayElement.MaxElements} elements; {Count} were submitted.",
             HttpStatusCode.BadRequest);
 }
 
@@ -71,17 +71,17 @@ public static class EditDraftRevisionFailures
     public static EditDraftRevisionError OverlayRevisionStale(Guid overlay, int expectedVersion, int actualVersion) =>
         new EditDraftRevisionError.OverlayRevisionStale(overlay, expectedVersion, actualVersion);
 
-    public static EditDraftRevisionError EmptyLabelSet() =>
-        new EditDraftRevisionError.EmptyLabelSet();
+    public static EditDraftRevisionError EmptyElementSet() =>
+        new EditDraftRevisionError.EmptyElementSet();
 
-    public static EditDraftRevisionError TooManyLabels(int count) =>
-        new EditDraftRevisionError.TooManyLabels(count);
+    public static EditDraftRevisionError TooManyElements(int count) =>
+        new EditDraftRevisionError.TooManyElements(count);
 
-    public static EditDraftRevisionError FromViolation(LabelSetViolation violation, int count) =>
+    public static EditDraftRevisionError FromViolation(ElementSetViolation violation, int count) =>
         violation switch
         {
-            LabelSetViolation.Empty => EmptyLabelSet(),
-            LabelSetViolation.TooMany => TooManyLabels(count),
-            _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown label-set violation."),
+            ElementSetViolation.Empty => EmptyElementSet(),
+            ElementSetViolation.TooMany => TooManyElements(count),
+            _ => throw new ArgumentOutOfRangeException(nameof(violation), violation, "Unknown element-set violation."),
         };
 }

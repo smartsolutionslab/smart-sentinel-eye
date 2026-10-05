@@ -62,30 +62,36 @@ public sealed record LayoutRevisionArchivedNotification(
 /// only so the broadcaster contract does not need to reference
 /// OverlayDesigner.Domain — including its NormalizedPosition and
 /// NormalizedSize, which group these same four coordinates and were declined
-/// here for exactly that reason. Spec 150 (#2345): <c>Labels</c> carries the
-/// revision's ordered, non-empty set of 1..8 labels instead of one flattened
-/// label.
+/// here for exactly that reason. Spec 150 (#2345): <c>Elements</c> carries the
+/// revision's ordered, non-empty set of 1..8 elements instead of one
+/// flattened label. Spec 300 (#2349, ADR-0165) widened each element to carry
+/// a kind and colour — renamed from <c>Labels</c>.
 /// </summary>
 public sealed record OverlayLifecyclePublishedNotification(
     IReadOnlyList<FabIdentifier> Fabs,
     Guid Overlay,
     int RevisionNumber,
     string Name,
-    IReadOnlyList<OverlayLifecycleLabel> Labels,
+    IReadOnlyList<OverlayLifecycleElement> Elements,
     DateTimeOffset PublishedAt);
 
 /// <summary>
-/// A single label on the published revision, in ordinal (paint) order
-/// (spec 150 FR-005). Primitives only — see
+/// A single element on the published revision, in ordinal (paint) order
+/// (spec 150 FR-005; spec 300 #2349, ADR-0165 — renamed from
+/// <c>OverlayLifecycleLabel</c>). Primitives only — see
 /// <see cref="OverlayLifecyclePublishedNotification"/>.
+/// <c>Text</c>/<c>FontSizePx</c> are present exactly when <c>Kind</c> is
+/// <c>"Text"</c>.
 /// </summary>
-public sealed record OverlayLifecycleLabel(
-    string Text,
+public sealed record OverlayLifecycleElement(
+    string Kind,
+    string Color,
     decimal NormalizedX,
     decimal NormalizedY,
     decimal NormalizedWidth,
     decimal NormalizedHeight,
-    int FontSizePx);
+    string? Text,
+    int? FontSizePx);
 
 /// <summary>
 /// Wire shape for "an overlay revision became Archived" pushes.

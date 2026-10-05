@@ -69,10 +69,12 @@ internal static class OverlayRequests
         HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"{namePrefix}-{Guid.NewGuid():N}"[..16],
-            labels = new[]
+            elements = new[]
             {
                 new
                 {
+                    kind = "Text",
+                    color = "#FFFFFFD9",
                     text = labelText,
                     normalizedX = 0.5m,
                     normalizedY = 0.05m,

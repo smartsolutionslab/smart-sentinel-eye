@@ -4,7 +4,7 @@ namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay.Events;
 
 /// <summary>
 /// In-process domain event raised when a Revision transitions to
-/// Published. Translated to <c>OverlayRevisionPublishedV2</c> on the
+/// Published. Translated to <c>OverlayRevisionPublishedV3</c> on the
 /// integration bus and to a SignalR broadcast (via the shared
 /// <c>ILayoutLifecycleBroadcaster</c> abstraction from LayoutComposition)
 /// by the Application layer (spec 004 FR-010 + FR-011).
@@ -13,6 +13,6 @@ public sealed record OverlayRevisionPublishedDomainEvent(
     OverlayIdentifier Overlay,
     OverlayRevisionNumber RevisionNumber,
     OverlayName Name,
-    IReadOnlyList<Label> Labels,
+    IReadOnlyList<OverlayElement> Elements,
     DateTimeOffset PublishedAt,
     OperatorIdentifier PublishedBy) : IDomainEvent;

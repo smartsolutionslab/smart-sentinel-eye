@@ -80,17 +80,13 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         string name = UniqueName();
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
-            "/overlays", new { name, labels = new[] { SampleLabelBody() } });
+            "/overlays", new { name, elements = new[] { SampleLabelBody() } });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
         await using OverlayDesignerDbContext context = await aspire.CreateOverlayDesignerDbContextAsync();
         context.Overlays.Add(Overlay.CreateDraft(
             OverlayName.From(name),
-            [Label.From(
-                "Duplicate",
-                NormalizedPosition.From(0.5m, 0.05m),
-                NormalizedSize.From(0.3m, 0.08m),
-                48)],
+            [OverlayElement.TextElement("Duplicate", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default)],
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new SystemClock()));
 
@@ -150,7 +146,7 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
         IEnumerable<Task<HttpResponseMessage>> attempts = Enumerable
             .Range(0, Writers)
             .Select(_ => overlays.PostAsJsonAsync(
-                "/overlays", new { name = contested, labels = new[] { SampleLabelBody() } }));
+                "/overlays", new { name = contested, elements = new[] { SampleLabelBody() } }));
 
         HttpResponseMessage[] answers = await Task.WhenAll(attempts);
 
@@ -209,7 +205,7 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
         archive.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archive));
 
         HttpResponseMessage reused = await overlays.PostAsJsonAsync(
-            "/overlays", new { name, labels = new[] { SampleLabelBody() } });
+            "/overlays", new { name, elements = new[] { SampleLabelBody() } });
 
         reused.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(reused));
         (await CountRowsNamedAsync(name)).ShouldBe(2);
@@ -229,7 +225,7 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
         Guid stranded = await CreateAsync(overlays, name);
         (await OverlayRequests.PostAsync(overlays, stranded, "revisions/1/archive"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
-        (await overlays.PostAsJsonAsync("/overlays", new { name, labels = new[] { SampleLabelBody() } }))
+        (await overlays.PostAsJsonAsync("/overlays", new { name, elements = new[] { SampleLabelBody() } }))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
         HttpResponseMessage refused = await OverlayRequests.PostAsync(overlays, stranded, "draft");
@@ -256,9 +252,9 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
         string upper = lower.ToUpperInvariant();
 
         HttpResponseMessage first = await overlays.PostAsJsonAsync(
-            "/overlays", new { name = lower, labels = new[] { SampleLabelBody() } });
+            "/overlays", new { name = lower, elements = new[] { SampleLabelBody() } });
         HttpResponseMessage second = await overlays.PostAsJsonAsync(
-            "/overlays", new { name = upper, labels = new[] { SampleLabelBody() } });
+            "/overlays", new { name = upper, elements = new[] { SampleLabelBody() } });
 
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(first));
         second.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(second));
@@ -271,7 +267,7 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
     private static async Task<Guid> CreateAsync(HttpClient overlays, string name)
     {
         HttpResponseMessage created = await overlays.PostAsJsonAsync(
-            "/overlays", new { name, labels = new[] { SampleLabelBody() } });
+            "/overlays", new { name, elements = new[] { SampleLabelBody() } });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
         return await created.Content.ReadFromJsonAsync<Guid>();
@@ -287,6 +283,8 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
 
     private static object SampleLabelBody() => new
     {
+        kind = "Text",
+        color = "#FFFFFFD9",
         text = "Production Line 1",
         normalizedX = 0.5m,
         normalizedY = 0.05m,

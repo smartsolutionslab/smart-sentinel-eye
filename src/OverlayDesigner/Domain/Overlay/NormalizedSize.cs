@@ -5,7 +5,7 @@ using SmartSentinelEye.Shared.Kernel.Primitives;
 namespace SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 
 /// <summary>
-/// The resolution-independent extent of a <see cref="Label"/> within its camera
+/// The resolution-independent extent of an <see cref="OverlayElement"/> within its camera
 /// cell (spec 004 FR-005). Both components are in <c>(0, 1]</c>.
 ///
 /// <para>

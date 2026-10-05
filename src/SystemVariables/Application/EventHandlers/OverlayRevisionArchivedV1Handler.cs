@@ -8,7 +8,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// <summary>
 /// Wolverine subscriber that drops the overlay from the reverse-index
 /// when its revision is Archived. Subsequent variable changes will
-/// not fan out to this overlay until a new <c>OverlayRevisionPublishedV2</c>
+/// not fan out to this overlay until a new <c>OverlayRevisionPublishedV3</c>
 /// re-establishes its references.
 /// </summary>
 public sealed class OverlayRevisionArchivedV1Handler(

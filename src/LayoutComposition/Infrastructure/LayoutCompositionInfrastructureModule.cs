@@ -116,7 +116,7 @@ public static class LayoutCompositionInfrastructureModule
         //   - Spec 004: OverlayDesigner's overlay-revision publish/archive.
         //   - Spec 005: SystemVariables' resolved-overlay-text change.
         builder.Services.AddScoped<OverlayHighlightRequestedV1Handler>();
-        builder.Services.AddScoped<OverlayRevisionPublishedV2Handler>();
+        builder.Services.AddScoped<OverlayRevisionPublishedV3Handler>();
         builder.Services.AddScoped<OverlayRevisionArchivedV1Handler>();
         builder.Services.AddScoped<ResolvedOverlayTextChangedV2Handler>();
         //   - Spec 296: Automation's rule-driven wall-switch request.

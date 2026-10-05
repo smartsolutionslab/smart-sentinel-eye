@@ -63,8 +63,8 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             Overlay: notification.Overlay,
             RevisionNumber: notification.RevisionNumber,
             Name: notification.Name,
-            Labels: [.. notification.Labels.Select(label => new OverlayLabelHubEntry(
-                label.Text, label.NormalizedX, label.NormalizedY, label.NormalizedWidth, label.NormalizedHeight, label.FontSizePx))],
+            Elements: [.. notification.Elements.Select(element => new OverlayElementHubEntry(
+                element.Kind, element.Color, element.NormalizedX, element.NormalizedY, element.NormalizedWidth, element.NormalizedHeight, element.Text, element.FontSizePx))],
             PublishedAt: notification.PublishedAt);
 
         // One send per fab that references the overlay (FR-010), and none at

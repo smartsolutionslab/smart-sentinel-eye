@@ -23,7 +23,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Tests.Resolution;
 /// <b>The discriminator is deliberate.</b> Raising every non-success status to
 /// <c>Error</c> would satisfy the two refusal facts below and be wrong:
 /// FR-005 keeps an overlay-designer outage at <c>Warning</c>, because that one
-/// genuinely does self-heal from <c>OverlayRevisionPublishedV2</c> events. The
+/// genuinely does self-heal from <c>OverlayRevisionPublishedV3</c> events. The
 /// 503 fact is green before this change and must stay green after it.
 /// </para>
 /// </summary>
@@ -35,10 +35,10 @@ public class ReverseIndexSeederHostedServiceTests
 
     private static readonly Guid Overlay = Guid.CreateVersion7();
 
-    // Spec 150 (#2345): the scalar "text" property is gone — a revision now
-    // carries "labels", an array of objects each with its own "text". Two
-    // labels here so the fixture also proves the seeder reads every one of
-    // them, not just the first.
+    // Spec 300 (#2349), ADR-0165: the revision's set is "elements", not
+    // "labels" — each a kind + colour. Two Text elements here so the
+    // fixture also proves the seeder reads every one of them, not just the
+    // first.
     private static readonly string PublishedListing = $$"""
         {
           "chains": [],
@@ -47,9 +47,9 @@ public class ReverseIndexSeederHostedServiceTests
               "overlayIdentifier": "{{Overlay}}",
               "name": "Line 1 OEE",
               "revisionNumber": 3,
-              "labels": [
-                { "text": "{{LabelText}}" },
-                { "text": "{{SecondLabelText}}" }
+              "elements": [
+                { "kind": "Text", "color": "#FFFFFFD9", "text": "{{LabelText}}" },
+                { "kind": "Text", "color": "#FFFFFFD9", "text": "{{SecondLabelText}}" }
               ],
               "publishedAt": "2026-09-10T08:00:00Z"
             }
@@ -98,7 +98,7 @@ public class ReverseIndexSeederHostedServiceTests
 
     /// <summary>
     /// The message that ships today ends "The index will populate as new
-    /// OverlayRevisionPublishedV2 events arrive." That sentence is true of an
+    /// OverlayRevisionPublishedV3 events arrive." That sentence is true of an
     /// overlay-designer outage and false of a rejected credential: no event
     /// republishes the overlays that were already published before the process
     /// started, so the index stays empty for the life of the host. A message
@@ -186,17 +186,19 @@ public class ReverseIndexSeederHostedServiceTests
     }
 
     /// <summary>
-    /// Spec 150 (#2345) T014 — the silent-break this re-verification guards.
-    /// A revision's GET payload dropped the scalar "text" property for
-    /// "labels" (an array). Reading the old property name compiles cleanly
-    /// and throws nothing; it just seeds zero overlays on every cold start,
-    /// so every placeholder on every wall silently stops resolving the next
-    /// time SystemVariables restarts. Proved by counterfactual: against the
-    /// pre-spec-150 parsing (read "text" off the overlay element directly),
-    /// this exact payload seeds zero — see the PR body for the transcript.
+    /// Spec 150 (#2345) T014, re-verified by spec 300 (#2349) — the
+    /// silent-break this re-verification guards. A revision's GET payload
+    /// carries its set under <c>"elements"</c>, not <c>"labels"</c> (spec
+    /// 300 renamed the field again on top of spec 150's text → labels cut).
+    /// Reading the old property name compiles cleanly and throws nothing;
+    /// it just seeds zero overlays on every cold start, so every
+    /// placeholder on every wall silently stops resolving the next time
+    /// SystemVariables restarts — the exact class of bug spec 150 shipped
+    /// once already. Proved by counterfactual below
+    /// (<see cref="Against_the_unchanged_labels_reading_seeder_this_payload_seeds_zero"/>).
     /// </summary>
     [Fact]
-    public async Task A_published_listing_in_the_new_shape_seeds_every_label_of_every_overlay()
+    public async Task A_published_listing_in_the_new_shape_seeds_every_element_of_every_overlay()
     {
         Seed seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
 
@@ -207,46 +209,68 @@ public class ReverseIndexSeederHostedServiceTests
     }
 
     /// <summary>
-    /// Phase-6 should-fix (spec 150, #2345) — a label missing <c>"text"</c>
-    /// must not shift every later label onto the wrong index.
-    /// <c>ResolvedTexts</c> is index-aligned with the label array by contract,
-    /// so skipping the malformed element instead of filling it with
-    /// <see cref="string.Empty"/> silently corrupts every label after it.
-    /// Proved by counterfactual, mirroring
-    /// <see cref="A_published_listing_in_the_new_shape_seeds_every_label_of_every_overlay"/>:
-    /// against the skipping implementation this three-label listing seeds only
-    /// two texts, with the third label's text landing at index 1 instead of 2.
+    /// Spec 300 (#2349), ADR-0165, T014 — a <c>Box</c> element (no
+    /// <c>"text"</c> at all, unlike every element before this spec) at
+    /// ordinal 0 must not shift the <c>Text</c> element at ordinal 1 onto
+    /// the wrong index. <c>ResolvedTexts</c> is index-aligned with the
+    /// element array by contract, so the seeder fills the Box's slot with
+    /// <see cref="string.Empty"/> rather than skipping it.
     /// </summary>
     [Fact]
-    public async Task A_label_missing_text_contributes_an_empty_string_at_its_own_index()
+    public async Task A_box_then_text_payload_seeds_an_empty_string_then_the_text()
     {
-        string listing = $$"""
-            {
-              "chains": [],
-              "published": [
-                {
-                  "overlayIdentifier": "{{Overlay}}",
-                  "name": "Line 1 OEE",
-                  "revisionNumber": 1,
-                  "labels": [
-                    { "text": "{{LabelText}}" },
-                    { },
-                    { "text": "{{SecondLabelText}}" }
-                  ],
-                  "publishedAt": "2026-09-10T08:00:00Z"
-                }
-              ]
-            }
-            """;
+        string listing = BoxThenTextListing();
 
         Seed seed = await RunAsync(HttpStatusCode.OK, listing);
 
         IReadOnlyList<string>? texts = seed.Index.LookupLabelTexts(Overlay);
-        texts!.Count.ShouldBe(3, "the missing-text label must still occupy its own slot.");
-        texts[0].ShouldBe(LabelText);
-        texts[1].ShouldBe(string.Empty, "a label with no \"text\" contributes an empty string, not a shift.");
-        texts[2].ShouldBe(SecondLabelText, "the third label must stay at index 2, not slide to index 1.");
+        texts!.Count.ShouldBe(2, "the Box must still occupy its own slot.");
+        texts[0].ShouldBe(string.Empty, "a Box has no \"text\"; it contributes an empty string, not a shift.");
+        texts[1].ShouldBe(LabelText, "the Text element must stay at index 1, not slide to index 0.");
     }
+
+    /// <summary>
+    /// The counterfactual for both facts above, run against the pre-spec-300
+    /// parsing that reads <c>"labels"</c> instead of <c>"elements"</c> —
+    /// inlined here rather than exercised through the real seeder, since the
+    /// production code no longer contains that branch. This is the proof
+    /// that the red test above is red for the right reason: a seeder that
+    /// still reads <c>"labels"</c> finds no such property on this payload
+    /// and silently seeds <b>zero</b> overlays, which is exactly the outage
+    /// T014 guards against.
+    /// </summary>
+    [Fact]
+    public void Against_the_unchanged_labels_reading_seeder_this_payload_seeds_zero()
+    {
+        using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(BoxThenTextListing());
+        System.Text.Json.JsonElement overlay = document.RootElement.GetProperty("published")[0];
+
+        bool unchangedSeederWouldSeedThisOverlay =
+            overlay.TryGetProperty("labels", out System.Text.Json.JsonElement labelsElement)
+            && labelsElement.ValueKind == System.Text.Json.JsonValueKind.Array;
+
+        unchangedSeederWouldSeedThisOverlay.ShouldBeFalse(
+            "the unchanged seeder reads \"labels\", which this \"elements\"-shaped payload does not have — "
+            + "it would seed zero overlays from this exact payload.");
+    }
+
+    private static string BoxThenTextListing() => $$"""
+        {
+          "chains": [],
+          "published": [
+            {
+              "overlayIdentifier": "{{Overlay}}",
+              "name": "Line 1 OEE",
+              "revisionNumber": 1,
+              "elements": [
+                { "kind": "Box", "color": "#D32F2F00" },
+                { "kind": "Text", "color": "#FFFFFFD9", "text": "{{LabelText}}" }
+              ],
+              "publishedAt": "2026-09-10T08:00:00Z"
+            }
+          ]
+        }
+        """;
 
     // ---- the credential itself ----
 
@@ -346,7 +370,7 @@ public class ReverseIndexSeederHostedServiceTests
     /// status — overlay-designer unreachable, DNS not up yet, connection
     /// refused during a rolling start — is the outage case FR-005 keeps at
     /// <c>Warning</c>, and it genuinely does self-heal from
-    /// <c>OverlayRevisionPublishedV2</c> events.
+    /// <c>OverlayRevisionPublishedV3</c> events.
     ///
     /// <para>
     /// Green before this change and green after it. An implementation that

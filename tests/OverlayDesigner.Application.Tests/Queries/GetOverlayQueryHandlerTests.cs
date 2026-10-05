@@ -22,7 +22,7 @@ public class GetOverlayQueryHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
-            .WithLabel(Label.From("Hello", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
+            .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
         IOverlayQuerySource source = new InMemoryOverlayQuerySource(overlays);
@@ -34,7 +34,7 @@ public class GetOverlayQueryHandlerTests
         result.IsSuccess.ShouldBeTrue();
         result.Value.OverlayIdentifier.ShouldBe(overlay.Id.Value);
         result.Value.Revisions.Single().State.ShouldBe("Draft");
-        result.Value.Revisions.Single().Labels.Single().Text.ShouldBe("Hello");
+        result.Value.Revisions.Single().Elements.Single().Text.ShouldBe("Hello");
     }
 
     // Without the version on the read side a caller has nothing to put in
@@ -47,7 +47,7 @@ public class GetOverlayQueryHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-2")
-            .WithLabel(Label.From("Hello", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32))
+            .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
 
@@ -71,7 +71,7 @@ public class GetOverlayQueryHandlerTests
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-3")
-            .WithLabel(Label.From("Hello", NormalizedPosition.From(0.11m, 0.22m), NormalizedSize.From(0.33m, 0.44m), 32))
+            .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.11m, 0.22m), NormalizedSize.From(0.33m, 0.44m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
 
@@ -80,12 +80,12 @@ public class GetOverlayQueryHandlerTests
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        OverlayLabelDto label = result.Value.Revisions.Single().Labels.Single();
-        label.NormalizedX.ShouldBe(0.11m);
-        label.NormalizedY.ShouldBe(0.22m);
-        label.NormalizedWidth.ShouldBe(0.33m);
-        label.NormalizedHeight.ShouldBe(0.44m);
-        label.FontSizePx.ShouldBe(32);
+        OverlayElementDto element = result.Value.Revisions.Single().Elements.Single();
+        element.NormalizedX.ShouldBe(0.11m);
+        element.NormalizedY.ShouldBe(0.22m);
+        element.NormalizedWidth.ShouldBe(0.33m);
+        element.NormalizedHeight.ShouldBe(0.44m);
+        element.FontSizePx.ShouldBe(32);
     }
 
     [Fact]
@@ -93,8 +93,8 @@ public class GetOverlayQueryHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Label first = Label.From("First", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), 16);
-        Label second = Label.From("Second", NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.2m, 0.2m), 20);
+        OverlayElement first = OverlayElement.TextElement("First", 16, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
+        OverlayElement second = OverlayElement.TextElement("Second", 20, NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-4")
@@ -107,10 +107,10 @@ public class GetOverlayQueryHandlerTests
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        IReadOnlyList<OverlayLabelDto> labels = result.Value.Revisions.Single().Labels;
-        labels.Count.ShouldBe(2);
-        labels[0].Text.ShouldBe("First");
-        labels[1].Text.ShouldBe("Second");
+        IReadOnlyList<OverlayElementDto> elements = result.Value.Revisions.Single().Elements;
+        elements.Count.ShouldBe(2);
+        elements[0].Text.ShouldBe("First");
+        elements[1].Text.ShouldBe("Second");
     }
 
     [Fact]
