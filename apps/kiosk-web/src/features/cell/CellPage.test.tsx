@@ -118,6 +118,17 @@ const reportLagByCamera = new Map<string, (camera: string, lag: number, buffer: 
  */
 const renderCountByCamera = new Map<string, number>();
 
+/** The shape this file's `CameraViewer` double captures per overlay element — enough to check kind, colour, text and geometry without rendering the real composite (which has its own coverage, `CameraViewerMixedElementsCharacterisation.test.tsx`). */
+interface MockOverlayElement {
+  kind: 'Text' | 'Box' | 'Ellipse';
+  color: string;
+  text?: string;
+  normalizedX: number;
+  normalizedY: number;
+  normalizedWidth: number;
+  normalizedHeight: number;
+}
+
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   CameraViewer: ({
     cameraIdentifier,
@@ -125,7 +136,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
     onLagMeasured,
   }: {
     cameraIdentifier: string;
-    overlays?: readonly { text: string }[];
+    overlays?: readonly MockOverlayElement[];
     onLagMeasured?: (camera: string, lag: number, buffer: number) => void;
   }) => {
     if (onLagMeasured) {
@@ -133,11 +144,18 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
       reportLagByCamera.set(cameraIdentifier, onLagMeasured);
     }
     renderCountByCamera.set(cameraIdentifier, (renderCountByCamera.get(cameraIdentifier) ?? 0) + 1);
-    // This file's fixtures are all single-label (multi-label rendering is
-    // T019/T023's own coverage) — the first label's text stands in for the
-    // whole set, matching every existing assertion here unchanged.
+    // This file's fixtures are overwhelmingly single-label (multi-label
+    // rendering is T019/T023's own coverage) — the first label's text stands
+    // in for the whole set, matching every existing assertion here unchanged.
+    // `data-overlay-elements` is the FULL set (spec 300, #2349, S2): a mixed
+    // Box/Text overlay cannot be checked through `data-overlay-text` alone,
+    // since index 0 there may not be the Text element at all.
     return (
-      <div data-testid="camera-viewer" data-overlay-text={overlays?.[0]?.text ?? ''}>
+      <div
+        data-testid="camera-viewer"
+        data-overlay-text={overlays?.[0]?.text ?? ''}
+        data-overlay-elements={JSON.stringify(overlays ?? [])}
+      >
         {cameraIdentifier}
       </div>
     );
@@ -267,8 +285,10 @@ function publishedOverlay(text: string) {
           revisionIdentifier: 'or1',
           revisionNumber: 1,
           state: 'Published',
-          labels: [
+          elements: [
             {
+              kind: 'Text',
+              color: '#FFFFFFD9',
               text,
               normalizedX: 0.5,
               normalizedY: 0.05,
@@ -304,7 +324,9 @@ function publishedOverlayWithLabels(texts: readonly string[]) {
           revisionIdentifier: 'or1',
           revisionNumber: 1,
           state: 'Published',
-          labels: texts.map((text, ordinal) => ({
+          elements: texts.map((text, ordinal) => ({
+            kind: 'Text',
+            color: '#FFFFFFD9',
             text,
             normalizedX: 0.1,
             normalizedY: 0.05 + ordinal * 0.1,
@@ -312,6 +334,54 @@ function publishedOverlayWithLabels(texts: readonly string[]) {
             normalizedHeight: 0.08,
             fontSizePx: 48,
           })),
+          createdAt: '2026-05-27T10:00:00Z',
+          createdBy: '00000000-0000-0000-0000-000000000001',
+          publishedAt: '2026-05-27T10:00:00Z',
+          archivedAt: null,
+        },
+      ],
+    },
+  };
+}
+
+/**
+ * A `[Box, Text]` overlay (spec 300, #2349, ADR-0165) — a shape at index 0,
+ * a placeholder-bearing Text element at index 1. Used to prove FR-009's
+ * index alignment: the SystemVariables snapshot's `resolvedTexts` must land
+ * on the Text element's own index, not on the first element of the array.
+ */
+function publishedOverlayWithBoxAndText(text: string) {
+  return {
+    data: {
+      overlayIdentifier: 'ovl-mixed',
+      name: 'Mixed overlay',
+      createdAt: '2026-05-27T10:00:00Z',
+      createdBy: '00000000-0000-0000-0000-000000000001',
+      revisions: [
+        {
+          revisionIdentifier: 'or1',
+          revisionNumber: 1,
+          state: 'Published',
+          elements: [
+            {
+              kind: 'Box',
+              color: '#D32F2FFF',
+              normalizedX: 0.6,
+              normalizedY: 0.6,
+              normalizedWidth: 0.2,
+              normalizedHeight: 0.2,
+            },
+            {
+              kind: 'Text',
+              color: '#FFFFFFD9',
+              text,
+              normalizedX: 0.1,
+              normalizedY: 0.05,
+              normalizedWidth: 0.3,
+              normalizedHeight: 0.08,
+              fontSizePx: 48,
+            },
+          ],
           createdAt: '2026-05-27T10:00:00Z',
           createdBy: '00000000-0000-0000-0000-000000000001',
           publishedAt: '2026-05-27T10:00:00Z',
@@ -526,8 +596,10 @@ describe('CellPage', () => {
                   revisionIdentifier: 'or1',
                   revisionNumber: 1,
                   state: 'Published',
-                  labels: [
+                  elements: [
                     {
+                      kind: 'Text',
+                      color: '#FFFFFFD9',
                       text: 'Production Line 1',
                       normalizedX: 0.5,
                       normalizedY: 0.05,
@@ -551,6 +623,65 @@ describe('CellPage', () => {
     const viewers = screen.getAllByTestId('camera-viewer');
     expect(viewers[0]!.getAttribute('data-overlay-text')).toBe('Production Line 1');
     expect(viewers[1]!.getAttribute('data-overlay-text')).toBe('');
+  });
+
+  /**
+   * Spec 300 (#2349) phase-6 S2. `renderElements` in `LayoutGrid.tsx` reads
+   * `resolvedTexts[index]` across the FULL element set (FR-009) — a shape
+   * contributes `""` at its own index rather than shifting the Text
+   * element's resolved value into its slot. An off-by-one here would
+   * silently paint resolved text on the wrong element (or on the Box).
+   */
+  describe('A mixed [Box, Text] overlay resolves index-aligned (FR-009)', () => {
+    afterEach(() => {
+      store.dispatch(systemVariablesApi.util.resetApiState());
+    });
+
+    it('Shows the resolved text on the Text element and renders exactly one shape at its own geometry', async () => {
+      getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
+      mockLayout(
+        publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-mixed', row: 0, col: 0 })]),
+      );
+      // The `{{…}}` is load-bearing: without a placeholder the page's
+      // `hasPlaceholder` gate skips the snapshot query outright.
+      getOverlayMock.mockReturnValue(publishedOverlayWithBoxAndText('OEE {{oeeline1}}'));
+
+      await act(async () => {
+        await store.dispatch(
+          systemVariablesApi.util.upsertQueryData(
+            'getOverlaySnapshot',
+            { overlayIdentifier: 'ovl-mixed', fabId: 'munich' },
+            {
+              overlayIdentifier: 'ovl-mixed',
+              // Index-aligned with the FULL element set (FR-009): index 0
+              // (the Box) resolves to '', index 1 (the Text) to the real
+              // value — never shifted so the Text's value lands on index 0.
+              resolvedTexts: ['', 'resolved value'],
+              version: 1,
+            },
+          ),
+        );
+      });
+
+      renderPage();
+
+      const elements = JSON.parse(
+        screen.getByTestId('camera-viewer').getAttribute('data-overlay-elements') ?? '[]',
+      ) as Array<{ kind: string; text?: string; normalizedX: number; normalizedY: number }>;
+
+      expect(elements).toHaveLength(2);
+      expect(elements[0], 'the Box must keep its own geometry, not borrow the Text element’s').toMatchObject({
+        kind: 'Box',
+        normalizedX: 0.6,
+        normalizedY: 0.6,
+      });
+      expect(elements[1]).toMatchObject({
+        kind: 'Text',
+        text: 'resolved value',
+        normalizedX: 0.1,
+        normalizedY: 0.05,
+      });
+    });
   });
 
   it('Falls back to the picker prompt when no Published revision exists', () => {
@@ -631,8 +762,10 @@ describe('CellPage', () => {
               revisionIdentifier: 'or1',
               revisionNumber: 1,
               state: 'Archived',
-              labels: [
+              elements: [
                 {
+                  kind: 'Text',
+                  color: '#FFFFFFD9',
                   text: 'Old text',
                   normalizedX: 0.5,
                   normalizedY: 0.05,
@@ -2431,8 +2564,10 @@ describe('CellPage', () => {
           overlay: 'ov-1',
           revisionNumber: 3,
           name: 'Line label',
-          labels: [
+          elements: [
             {
+              kind: 'Text',
+              color: '#FFFFFFD9',
               text: 'Line label',
               normalizedX: 0.5,
               normalizedY: 0.05,
@@ -2547,6 +2682,55 @@ describe('CellPage', () => {
     });
 
     /**
+     * Spec 300 (#2349) FR-018, new behaviour, RED (ADR-0139) — the silent-break
+     * site tasks.md calls out for T020: `renderElementsKey` has to carry
+     * `color`, not just `text`. A colour-only republish (the text is
+     * byte-identical) must still re-measure `overlay_draw`, and an equal
+     * re-render must still not — exactly the counterfactual pair the sibling
+     * test above proves for text.
+     */
+    it('Fires the draw measurement once for a colour-only republish, and not for an equal re-render', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-draw-color', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlayWithLabels(['Station A']));
+
+      renderPage();
+      const callsAfterMount = measureOverlayDrawMock.mock.calls.length;
+      expect(callsAfterMount, 'at least the initial paint is measured').toBeGreaterThan(0);
+
+      // An equal re-render: nothing about kind/color/text changed.
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+      expect(
+        measureOverlayDrawMock.mock.calls.length,
+        'two state-change re-renders changed nothing about the element set',
+      ).toBe(callsAfterMount);
+
+      // A colour-only republish: the text is unchanged, only the colour
+      // differs.
+      const recoloured = publishedOverlayWithLabels(['Station A']);
+      recoloured.data.revisions[0]!.elements[0]!.color = '#D32F2FFF';
+      getOverlayMock.mockReturnValue(recoloured);
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+
+      expect(measureOverlayDrawMock.mock.calls.length, 'exactly one more measurement for the colour-only change').toBe(
+        callsAfterMount + 1,
+      );
+    });
+
+    /**
      * Phase-6 regression (#2345 v2 revision). The multi-label rewrite of
      * `hasPlaceholder` dropped the `publishedOverlay?.text?.includes` guard's
      * second `?.` — the one defending against spec 141 site 3's wire-drift
@@ -2568,12 +2752,12 @@ describe('CellPage', () => {
         ]),
       );
       const overlay = publishedOverlayWithLabels(['Station A', 'Line 1']);
-      const labels = overlay.data.revisions[0]!.labels;
+      const elements = overlay.data.revisions[0]!.elements;
       // Models the wire-drift case itself: the cast is the only way to
       // construct the shape an absent/renamed `text` field would actually
       // produce, exactly as the omitted-`overlayIdentifier` fixture does for
       // site 1 (`CellPage.test.tsx:1667`).
-      labels[1] = { ...labels[1]!, text: undefined as unknown as string };
+      elements[1] = { ...elements[1]!, text: undefined as unknown as string };
       getOverlayMock.mockReturnValue(overlay);
 
       renderPage();

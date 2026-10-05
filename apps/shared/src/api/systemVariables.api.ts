@@ -75,7 +75,7 @@ export interface ListVariablesInput {
 
 /**
  * Spec 150 (#2345): `resolvedTexts` carries the resolved text of every label
- * on the overlay, index-aligned with the published revision's `labels`
+ * on the overlay, index-aligned with the published revision's `elements`
  * (FR-011 — the cache key stays per-overlay; only its cached value widens).
  */
 export interface ResolvedOverlaySnapshot {

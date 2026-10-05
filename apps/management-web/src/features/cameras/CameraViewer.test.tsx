@@ -20,6 +20,8 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
 function renderViewer(overlay?: {
+  kind: 'Text';
+  color: string;
   text: string;
   normalizedX: number;
   normalizedY: number;
@@ -41,6 +43,8 @@ function renderViewer(overlay?: {
 describe('CameraViewer overlay rendering', () => {
   it('Renders the overlay label when the overlay prop is set', () => {
     renderViewer({
+      kind: 'Text',
+      color: '#FFFFFFD9',
       text: 'Production Line 1',
       normalizedX: 0.5,
       normalizedY: 0.05,

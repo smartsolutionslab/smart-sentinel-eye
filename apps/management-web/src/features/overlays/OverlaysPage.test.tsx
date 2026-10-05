@@ -76,8 +76,10 @@ function chain(overrides: Partial<Overlay> = {}): Overlay {
         revisionIdentifier: '33333333-3333-3333-3333-333333333333',
         revisionNumber: 1,
         state: 'Draft',
-        labels: [
+        elements: [
           {
+            kind: 'Text',
+            color: '#FFFFFFD9',
             text: 'Production Line 1',
             normalizedX: 0.1,
             normalizedY: 0.1,
@@ -149,6 +151,104 @@ describe('OverlaysPage', () => {
     expect(screen.getByText('Production Line 1')).toBeInTheDocument();
   });
 
+  /**
+   * Spec 300 (#2349) phase-6 S5: `firstTextOrShapesOnly` replaced
+   * `summarised.labels[0]!.text`, which would have shown the Box's own
+   * fields (or crashed) rather than the set's one Text element.
+   */
+  it("Shows the Text element's text for a mixed [Box, Text] revision", () => {
+    listOverlaysMock.mockReturnValue({
+      data: response([
+        chain({
+          name: 'Mixed overlay',
+          revisions: [
+            {
+              revisionIdentifier: '33333333-3333-3333-3333-333333333333',
+              revisionNumber: 1,
+              state: 'Draft',
+              elements: [
+                {
+                  kind: 'Box',
+                  color: '#D32F2FFF',
+                  normalizedX: 0.05,
+                  normalizedY: 0.05,
+                  normalizedWidth: 0.2,
+                  normalizedHeight: 0.2,
+                },
+                {
+                  kind: 'Text',
+                  color: '#FFFFFFD9',
+                  text: 'Production Line 1',
+                  normalizedX: 0.1,
+                  normalizedY: 0.1,
+                  normalizedWidth: 0.3,
+                  normalizedHeight: 0.08,
+                  fontSizePx: 32,
+                },
+              ],
+              createdAt: '2026-05-27T10:00:00Z',
+              createdBy: '22222222-2222-2222-2222-222222222222',
+              publishedAt: null,
+              archivedAt: null,
+            },
+          ],
+        }),
+      ]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText('Production Line 1')).toBeInTheDocument();
+    expect(screen.queryByText('Shapes only')).not.toBeInTheDocument();
+  });
+
+  /**
+   * Spec 300 (#2349) phase-6 S5: a shapes-only revision carries no Text
+   * element at all — `summarised.labels[0]!.text` would have crashed here.
+   */
+  it('Shows "Shapes only" for a revision with no Text element', () => {
+    listOverlaysMock.mockReturnValue({
+      data: response([
+        chain({
+          name: 'Shapes-only overlay',
+          revisions: [
+            {
+              revisionIdentifier: '33333333-3333-3333-3333-333333333333',
+              revisionNumber: 1,
+              state: 'Draft',
+              elements: [
+                {
+                  kind: 'Box',
+                  color: '#D32F2FFF',
+                  normalizedX: 0.05,
+                  normalizedY: 0.05,
+                  normalizedWidth: 0.2,
+                  normalizedHeight: 0.2,
+                },
+              ],
+              createdAt: '2026-05-27T10:00:00Z',
+              createdBy: '22222222-2222-2222-2222-222222222222',
+              publishedAt: null,
+              archivedAt: null,
+            },
+          ],
+        }),
+      ]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.getByText('Shapes only')).toBeInTheDocument();
+  });
+
   it('Clicking Publish on a Draft fires the publish mutation', async () => {
     const user = userEvent.setup();
     listOverlaysMock.mockReturnValue({
@@ -196,8 +296,10 @@ describe('OverlaysPage — archive confirmation', () => {
           revisionIdentifier: '33333333-3333-3333-3333-333333333333',
           revisionNumber: 2,
           state: 'Published',
-          labels: [
+          elements: [
             {
+              kind: 'Text',
+              color: '#FFFFFFD9',
               text: 'Production Line 1',
               normalizedX: 0.1,
               normalizedY: 0.1,
@@ -312,16 +414,19 @@ describe('OverlaysPage — archive confirmation', () => {
 /** Spec 037 — recovering an archived overlay. Same shape as LayoutsPage. */
 describe('OverlaysPage — recovering an archived overlay', () => {
   // `text` is a convenience override for the (single) label's text — spec
-  // 150 moved it off the revision and onto `labels[0]`, and every call site
-  // below still wants to say it in one word.
-  function revision(overrides: Partial<Omit<Overlay['revisions'][number], 'labels'>> & { text?: string }) {
+  // 150 moved it off the revision and onto `labels[0]` (now `elements[0]`,
+  // spec 300 #2349), and every call site below still wants to say it in one
+  // word.
+  function revision(overrides: Partial<Omit<Overlay['revisions'][number], 'elements'>> & { text?: string }) {
     const { text, ...rest } = overrides;
     return {
       revisionIdentifier: '33333333-3333-3333-3333-333333333333',
       revisionNumber: 1,
       state: 'Archived' as const,
-      labels: [
+      elements: [
         {
+          kind: 'Text' as const,
+          color: '#FFFFFFD9',
           text: text ?? 'Production Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -495,8 +600,10 @@ describe('OverlaysPage — every chain shape offers something', () => {
       revisionIdentifier: `r${revisionNumber}`,
       revisionNumber,
       state,
-      labels: [
+      elements: [
         {
+          kind: 'Text' as const,
+          color: '#FFFFFFD9',
           text: 'Production Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -572,8 +679,10 @@ describe('OverlaysPage — archive and discard on one chain', () => {
       revisionIdentifier: `r${revisionNumber}`,
       revisionNumber,
       state,
-      labels: [
+      elements: [
         {
+          kind: 'Text' as const,
+          color: '#FFFFFFD9',
           text: 'Production Line 1',
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -814,8 +923,10 @@ describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
       revisionIdentifier: `r${revisionNumber}`,
       revisionNumber,
       state: 'Draft' as const,
-      labels: [
+      elements: [
         {
+          kind: 'Text' as const,
+          color: '#FFFFFFD9',
           text,
           normalizedX: 0.1,
           normalizedY: 0.1,
@@ -963,8 +1074,10 @@ describe('OverlaysPage — Edit (new draft), Revert and Archive keep focus while
           revisionIdentifier: 'r1',
           revisionNumber: 2,
           state: 'Published' as const,
-          labels: [
+          elements: [
             {
+              kind: 'Text' as const,
+              color: '#FFFFFFD9',
               text: 'Production Line 1',
               normalizedX: 0.1,
               normalizedY: 0.1,

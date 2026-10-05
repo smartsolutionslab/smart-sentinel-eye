@@ -108,6 +108,14 @@
      wall and the editor (overlayLabelStyle.ts). */
   --color-bg-label: color-mix(in oklab, var(--white) 85%, transparent);
   --color-fg-on-label: var(--gray-900);
+  /* Spec 300 (#2349), ADR-0165 §2 — the ink a `Text` overlay element paints
+     once its colour's worst-case contrast picks a side (textLegibility.ts
+     `inkFor`). These must stay pure black and pure white: every floor in
+     the legibility rule depends on the extremes, and softening either one
+     (e.g. to gray-900) silently lowers contrast below the pinned 4.5. Not
+     theme-redefined — an overlay sits on video, not on a theme surface. */
+  --color-overlay-ink-dark: var(--black);
+  --color-overlay-ink-light: var(--white);
   --color-scrim: color-mix(in oklab, var(--black) 60%, transparent);
   --color-fg-primary: var(--gray-50);
   --color-fg-muted: var(--gray-500);

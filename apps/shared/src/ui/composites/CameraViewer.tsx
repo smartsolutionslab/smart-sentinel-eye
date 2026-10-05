@@ -20,7 +20,7 @@ import {
 import { useWhepSession } from './useWhepSession.js';
 import type { CameraViewerStatus } from './useWhepSession.js';
 import type { PlayoutTargetOutcome } from '../../streaming/WhepClient.js';
-import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
+import { overlayLabelSurfaceStyle, overlayShapeStyle } from './overlayLabelStyle.js';
 
 export type { CameraViewerStatus } from './useWhepSession.js';
 
@@ -28,19 +28,36 @@ export type { CameraViewerStatus } from './useWhepSession.js';
 // nowhere near the budget it observes (FR-012).
 const DECODE_SAMPLE_INTERVAL_MS = 5_000;
 
-/**
- * Optional label drawn over the live video. Coordinates are normalized
- * to [0,1] so the overlay scales with the viewer regardless of viewport
- * size (spec 004 FR-005 / FR-013).
- */
-export interface CameraViewerOverlay {
-  text: string;
+/** Shared geometry every overlay element carries, normalized to [0,1] so it scales with the viewer regardless of viewport size (spec 004 FR-005 / FR-013). */
+interface CameraViewerOverlayGeometry {
   normalizedX: number;
   normalizedY: number;
   normalizedWidth: number;
   normalizedHeight: number;
+}
+
+/** A text label drawn over the live video. */
+export interface CameraViewerOverlayLabel extends CameraViewerOverlayGeometry {
+  kind: 'Text';
+  /** `#RRGGBBAA` (spec 300, #2349, ADR-0165). */
+  color: string;
+  text: string;
   fontSizePx: number;
 }
+
+/** A Box or Ellipse stroke drawn over the live video (spec 300, #2349, ADR-0165). No text layout, no shadow, no animation — costs no more than the label it can replace. */
+export interface CameraViewerOverlayShape extends CameraViewerOverlayGeometry {
+  kind: 'Box' | 'Ellipse';
+  /** `#RRGGBBAA`, any alpha — strokes carry no readability floor (ADR-0165 §2). */
+  color: string;
+}
+
+/**
+ * One overlay element drawn over the live video — a text label, a box, or
+ * an ellipse (spec 300, #2349, ADR-0165 — a union mirroring the API, one
+ * renderer switch per spec 150 FR-012).
+ */
+export type CameraViewerOverlay = CameraViewerOverlayLabel | CameraViewerOverlayShape;
 
 // Spec 045: faster than the decode sampler, because alignment is a control
 // loop rather than an observation — a wall that takes half a minute to
@@ -404,11 +421,18 @@ export function CameraViewer({
         className="h-full w-full object-contain"
         aria-label={!cameraName ? 'Live camera video' : `Live video: ${cameraName}`}
       />
-      {overlays?.map((overlay, ordinal) => (
-        // `ordinal` — the label's position in the ordered set, not the text
-        // (FR-004 permits duplicate text across labels) — is the key.
-        <OverlayLabel key={ordinal} overlay={overlay} />
-      ))}
+      {overlays?.map((overlay, ordinal) =>
+        // `ordinal` — the element's position in the ordered set, not its
+        // content (FR-004 permits duplicate text across labels) — is the
+        // key. Both kinds stay direct children of this aspect-ratio box,
+        // with no wrapper (spec 150 FR-012, guarded by
+        // OverlayLabelNodeCountCharacterisation).
+        overlay.kind === 'Text' ? (
+          <OverlayLabel key={ordinal} overlay={overlay} />
+        ) : (
+          <OverlayShape key={ordinal} overlay={overlay} />
+        ),
+      )}
       {/* Always mounted, never inserted with its content (#2346): a live
           region a screen reader has not yet seen does not announce the text
           it is born holding, so this has to exist — empty — before the first
@@ -530,7 +554,7 @@ function ViewerOverlay({
   );
 }
 
-function OverlayLabel({ overlay }: { overlay: CameraViewerOverlay }) {
+function OverlayLabel({ overlay }: { overlay: CameraViewerOverlayLabel }) {
   return (
     <span
       data-testid="camera-viewer-overlay-label"
@@ -546,6 +570,26 @@ function OverlayLabel({ overlay }: { overlay: CameraViewerOverlay }) {
     >
       {overlay.text}
     </span>
+  );
+}
+
+/** A Box or Ellipse stroke, `aria-hidden` (it carries no information a screen reader can read) and never intercepting pointer events (spec 300, #2349, ADR-0165). */
+function OverlayShape({ overlay }: { overlay: CameraViewerOverlayShape }) {
+  return (
+    <span
+      data-testid="camera-viewer-overlay-shape"
+      data-kind={overlay.kind}
+      aria-hidden="true"
+      style={{
+        ...overlayShapeStyle(overlay),
+        position: 'absolute',
+        left: `${overlay.normalizedX * 100}%`,
+        top: `${overlay.normalizedY * 100}%`,
+        width: `${overlay.normalizedWidth * 100}%`,
+        height: `${overlay.normalizedHeight * 100}%`,
+        pointerEvents: 'none',
+      }}
+    />
   );
 }
 

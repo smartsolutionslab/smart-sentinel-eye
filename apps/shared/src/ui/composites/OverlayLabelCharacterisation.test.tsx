@@ -37,6 +37,8 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
         getToken={async () => null}
         overlays={[
           {
+            kind: 'Text',
+            color: '#FFFFFFD9',
             text: 'Production Line 1',
             normalizedX: 0.25,
             normalizedY: 0.05,

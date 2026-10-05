@@ -24,6 +24,8 @@ describe('CameraViewer overlay label node count (characterisation — the gap th
   });
 
   function renderViewer(overlay?: {
+    kind: 'Text';
+    color: string;
     text: string;
     normalizedX: number;
     normalizedY: number;
@@ -46,6 +48,8 @@ describe('CameraViewer overlay label node count (characterisation — the gap th
 
   it('Renders exactly one overlay-label node for a tile with an overlay', () => {
     renderViewer({
+      kind: 'Text',
+      color: '#FFFFFFD9',
       text: 'Production Line 1',
       normalizedX: 0.25,
       normalizedY: 0.05,
@@ -65,6 +69,8 @@ describe('CameraViewer overlay label node count (characterisation — the gap th
 
   it("Renders the overlay-label node as a direct child of the 'relative aspect-video' container", () => {
     const container = renderViewer({
+      kind: 'Text',
+      color: '#FFFFFFD9',
       text: 'Production Line 1',
       normalizedX: 0.25,
       normalizedY: 0.05,

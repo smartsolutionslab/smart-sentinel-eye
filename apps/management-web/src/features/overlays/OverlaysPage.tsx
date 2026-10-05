@@ -5,8 +5,9 @@ import {
   usePublishOverlayRevisionMutation,
   useRevertOverlayRevisionMutation,
   type Overlay,
-  type OverlayLabel,
+  type OverlayElement,
   type OverlayRevision,
+  type OverlayTextElement,
   type OverlayRevisionState,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
 import {
@@ -82,7 +83,7 @@ export function OverlaysPage() {
       overlayIdentifier: chain.overlayIdentifier,
       revisionNumber: result.data,
       name: chain.name,
-      labels: labelsOf(baseline),
+      elements: elementsOf(baseline),
     });
   };
 
@@ -152,7 +153,7 @@ export function OverlaysPage() {
               </header>
               <p className="mt-1 text-xs text-fg-muted font-mono">{chain.overlayIdentifier}</p>
               {summarised !== undefined && (
-                <p className="mt-1 text-sm text-fg-muted truncate">{summarised.labels[0]!.text}</p>
+                <p className="mt-1 text-sm text-fg-muted truncate">{firstTextOrShapesOnly(summarised.elements)}</p>
               )}
               <div className="mt-3 flex gap-2">
                 {draft !== undefined && (
@@ -208,7 +209,7 @@ export function OverlaysPage() {
                         overlayIdentifier: chain.overlayIdentifier,
                         revisionNumber: draft.revisionNumber,
                         name: chain.name,
-                        labels: labelsOf(draft),
+                        elements: elementsOf(draft),
                       })
                     }
                   >
@@ -378,10 +379,22 @@ function containsRevisionIn(chain: Overlay, state: OverlayRevisionState): boolea
   return chain.revisions.some((r) => r.state === state);
 }
 
-// Spec 152, widened by spec 150 FR-018. Copies the revision's WHOLE `labels`
-// array rather than lifting just the fields `OverlayEditor` shows (index 0) —
-// the dialog edits one label, but the edit target (and later the PATCH body)
-// must carry every label the draft has, or editing truncates the set to one.
-function labelsOf(revision: OverlayRevision): OverlayLabel[] {
-  return revision.labels.map((label) => ({ ...label }));
+// Spec 152, widened by spec 150 FR-018, then by spec 300 (#2349, ADR-0165)
+// past text-only. Copies the revision's WHOLE `elements` array rather than
+// lifting just the one `OverlayEditor` shows — the dialog edits exactly one
+// Text element, but the edit target (and later the PATCH body) must carry
+// every element the draft has, or editing truncates the set.
+function elementsOf(revision: OverlayRevision): OverlayElement[] {
+  return revision.elements.map((element) => ({ ...element }));
+}
+
+function isTextElement(element: OverlayElement): element is OverlayTextElement {
+  return element.kind === 'Text';
+}
+
+// Spec 300 (#2349), ADR-0165: the row summary shows the first Text
+// element's text, or "Shapes only" when the revision carries none (FR-019).
+function firstTextOrShapesOnly(elements: OverlayElement[]): string {
+  const firstText = elements.find(isTextElement);
+  return firstText?.text ?? 'Shapes only';
 }

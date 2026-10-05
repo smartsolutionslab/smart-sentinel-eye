@@ -1,9 +1,12 @@
 import { useGetLayoutQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
 import type { LayoutTile } from '@smart-sentinel-eye/shared/api/layouts.api';
 import { useGetOverlayQuery } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { OverlayElement, OverlayTextElement } from '@smart-sentinel-eye/shared/api/overlays.api';
+import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
+import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import clsx from 'clsx';
@@ -311,6 +314,11 @@ interface TileProps {
   style: CSSProperties;
 }
 
+/** Spec 300 (#2349), ADR-0165: a type guard, not a bare `=== 'Text'` comparison, so `.filter`/narrowing sees a `OverlayTextElement[]` rather than staying `OverlayElement[]`. */
+function isTextElement(element: OverlayElement): element is OverlayTextElement {
+  return element.kind === 'Text';
+}
+
 /**
  * Keeps handing back the same `value` reference across renders whose `key` —
  * a cheap scalar derived from it — is unchanged, even though `value` itself
@@ -380,25 +388,29 @@ function Tile({
   // OverlayArchived frame OR a fetched overlay with no Published revision
   // (archived before this kiosk ever loaded the layout).
   const overlayUnavailable = unavailable || (overlay !== undefined && publishedOverlay === undefined);
-  // Spec 150 (#2345): the published revision's ordered, non-empty label set —
+  // Spec 150 (#2345): the published revision's ordered, non-empty element set —
   // undefined only while the overlay query has not yet resolved a Published
-  // revision.
-  const labels = publishedOverlay?.labels;
-  // The SystemVariables snapshot only matters for overlays whose label set
-  // embeds a `{{name}}` placeholder in ANY label — a wholly static set has
-  // none, so the service holds no resolved snapshot for it and the fetch
-  // would 404. Skip it for static sets (avoids the console noise + a
-  // pointless round-trip); the resolved-text SignalR push still upserts the
-  // cache for overlays that do use variables.
-  const hasPlaceholder = labels?.some((label) => label.text?.includes('{{')) ?? false;
+  // revision. Spec 300 (#2349, ADR-0165): a mix of Text/Box/Ellipse kinds.
+  const elements = publishedOverlay?.elements;
+  // Spec 300 (#2349, ADR-0165): a shape has no text to know or resolve —
+  // both of the below consider Text elements only.
+  const textElements = elements?.filter(isTextElement);
+  // The SystemVariables snapshot only matters for overlays whose Text
+  // elements embed a `{{name}}` placeholder in ANY of them — a wholly
+  // static set has none, so the service holds no resolved snapshot for it
+  // and the fetch would 404. Skip it for static sets (avoids the console
+  // noise + a pointless round-trip); the resolved-text SignalR push still
+  // upserts the cache for overlays that do use variables.
+  const hasPlaceholder = textElements?.some((label) => label.text?.includes('{{')) ?? false;
   // Spec 141 site 3 (FR-005, plan R5) / spec 150: whether the tile actually
-  // *knows* every label's text — while the overlay query is still loading, or
-  // when a label's `text` is absent (the out-of-scope omitted/renamed case),
-  // `hasPlaceholder` above is `false` for the same reason a genuinely static
-  // set is, and the two must not be conflated. A verdict is registered only
-  // when this is true, and it stays one verdict per overlay (FR-011) — not
-  // per label.
-  const labelTextKnown = labels !== undefined && labels.every((label) => typeof label.text === 'string');
+  // *knows* every Text element's text — while the overlay query is still
+  // loading, or when a Text element's `text` is absent (the out-of-scope
+  // omitted/renamed case), `hasPlaceholder` above is `false` for the same
+  // reason a genuinely static set is, and the two must not be conflated. A
+  // verdict is registered only when this is true, and it stays one verdict
+  // per overlay (FR-011) — not per element. A set with no Text element at
+  // all (shapes only) is vacuously "known" (`every` on an empty array).
+  const labelTextKnown = textElements !== undefined && textElements.every((label) => typeof label.text === 'string');
   useEffect(() => {
     if (overlayIdentifier === null || !labelTextKnown) return;
     onLabelVerdict(overlayIdentifier, hasPlaceholder);
@@ -419,8 +431,13 @@ function Tile({
 
   // Prefer the SystemVariables-resolved text over the raw label, positionally
   // — never a whole-list fallback, so a snapshot shorter than the set (a race
-  // across a republish) cannot drop labels (spec 150).
-  const liveTexts = labels?.map((label, index) => snapshot?.resolvedTexts[index] ?? label.text);
+  // across a republish) cannot drop labels (spec 150). Spec 300 (#2349,
+  // ADR-0165): index-aligned with the FULL element set, not just the Text
+  // ones — a Box/Ellipse contributes `""` at its index (FR-009), the same
+  // slot the backend's reverse index and resolved-text handlers hold for it.
+  const liveTexts = elements?.map(
+    (element, index) => snapshot?.resolvedTexts[index] ?? (element.kind === 'Text' ? element.text : ''),
+  );
   // A stable scalar derived from the resolved texts. `\u0000` cannot appear in
   // an operator-authored label, so this is a lossless join for the purpose of
   // detecting "did anything in the set actually change" — the same role
@@ -451,33 +468,51 @@ function Tile({
   // cannot be called in a loop, and the set shares one age.
   const resolvedTexts = useLabelDelay(stableLiveTexts, frameAgeMilliseconds, reportHeld);
 
-  const renderLabels =
-    !overlayUnavailable && labels !== undefined && resolvedTexts !== undefined
-      ? labels.map((label, index) => ({
-          text: resolvedTexts[index] ?? label.text,
-          normalizedX: label.normalizedX,
-          normalizedY: label.normalizedY,
-          normalizedWidth: label.normalizedWidth,
-          normalizedHeight: label.normalizedHeight,
-          fontSizePx: label.fontSizePx,
-        }))
+  const renderElements: CameraViewerOverlay[] | undefined =
+    !overlayUnavailable && elements !== undefined && resolvedTexts !== undefined
+      ? elements.map((element, index) =>
+          element.kind === 'Text'
+            ? {
+                kind: 'Text',
+                color: element.color ?? DEFAULT_OVERLAY_COLOR,
+                text: resolvedTexts[index] ?? element.text,
+                normalizedX: element.normalizedX,
+                normalizedY: element.normalizedY,
+                normalizedWidth: element.normalizedWidth,
+                normalizedHeight: element.normalizedHeight,
+                fontSizePx: element.fontSizePx,
+              }
+            : {
+                kind: element.kind,
+                color: element.color,
+                normalizedX: element.normalizedX,
+                normalizedY: element.normalizedY,
+                normalizedWidth: element.normalizedWidth,
+                normalizedHeight: element.normalizedHeight,
+              },
+        )
       : undefined;
 
   // Spec 040: the overlay-draw leg (ADR-0015, ≤ 50 ms — a whole leg). Timed
   // from the overlay's rendered state changing to the browser having painted
   // it. Observation only: nothing here alters what is drawn or when.
   //
-  // Keyed on a stable scalar derived from the label set and the highlight,
+  // Keyed on a stable scalar derived from the element set and the highlight,
   // never on the array itself (spec 150) — an array dependency is a new
   // reference on every render and floods the instrument with no-op samples,
   // the exact defect #1888/#1889 fixed and ADR-0123 forbids reintroducing.
-  const renderLabelsKey = renderLabels?.map((label) => label.text).join('\u0000');
+  // Spec 300 (#2349, ADR-0165) FR-018: `kind|color|text` per element, not
+  // text alone — a colour-only republish must re-measure `overlay_draw`,
+  // and an unchanged re-render must not (#1888/#1889).
+  const renderElementsKey = renderElements
+    ?.map((element) => `${element.kind}|${element.color}|${element.kind === 'Text' ? element.text : ''}`)
+    .join('\u0000');
   useEffect(() => {
-    if (renderLabelsKey === undefined) {
+    if (renderElementsKey === undefined) {
       return;
     }
     measureOverlayDraw(tile.cameraIdentifier, getToken);
-  }, [renderLabelsKey, highlighted, tile.cameraIdentifier, getToken]);
+  }, [renderElementsKey, highlighted, tile.cameraIdentifier, getToken]);
 
   return (
     <div
@@ -499,7 +534,7 @@ function Tile({
       <CameraViewer
         cameraIdentifier={tile.cameraIdentifier}
         getToken={getToken}
-        overlays={renderLabels}
+        overlays={renderElements}
         playoutTargetMilliseconds={playoutTargetMilliseconds}
         onLagMeasured={onLagMeasured}
       />
