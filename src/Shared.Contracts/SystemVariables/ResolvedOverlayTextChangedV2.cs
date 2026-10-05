@@ -20,9 +20,13 @@ namespace SmartSentinelEye.Shared.Contracts.SystemVariables;
 ///
 /// <para>
 /// <c>ResolvedTexts</c> is a positional list, index-aligned with the
-/// revision's labels — it carries no ordinal of its own because the
-/// ordinal is dense and both lists come from the same revision, so
-/// position already <em>is</em> the ordinal. If #2348 (z-order) makes
+/// revision's elements (spec 300, #2349, ADR-0165 widened a revision's
+/// payload from text-only labels to a closed kind + colour model) — it
+/// carries no ordinal of its own because the ordinal is dense and both
+/// lists come from the same revision, so position already <em>is</em> the
+/// ordinal. A non-text element (<c>Box</c>/<c>Ellipse</c>) contributes
+/// <c>""</c> at its index, so the list stays the same length as
+/// <c>OverlayRevisionPublishedV3.Elements</c>. If #2348 (z-order) makes
 /// ordinals sparse, this should become <c>(ordinal, text)</c> pairs
 /// instead.
 /// </para>

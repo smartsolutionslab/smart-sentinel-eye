@@ -33,64 +33,64 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     private Overlay() { }
 
     /// <summary>
-    /// Validates a candidate label set against the two spec-150 invariants
-    /// (ADR-0164), returning the first violation or <see cref="Option{T}.None"/>
-    /// when valid. The single source of truth shared by create + edit so
-    /// both paths reject identically — mirrors
+    /// Validates a candidate element set against the two spec-150 invariants
+    /// (ADR-0164, ADR-0165), returning the first violation or
+    /// <see cref="Option{T}.None"/> when valid. The single source of truth
+    /// shared by create + edit so both paths reject identically — mirrors
     /// <c>Layout.ValidateGrid</c>.
     /// </summary>
-    public static Option<LabelSetViolation> ValidateLabels(IReadOnlyList<Label> labels)
+    public static Option<ElementSetViolation> ValidateElements(IReadOnlyList<OverlayElement> elements)
     {
-        Ensure.That(labels).IsNotNull();
+        Ensure.That(elements).IsNotNull();
 
-        if (labels.Count == 0)
+        if (elements.Count == 0)
         {
-            return Option<LabelSetViolation>.Some(LabelSetViolation.Empty);
+            return Option<ElementSetViolation>.Some(ElementSetViolation.Empty);
         }
-        if (labels.Count > Label.MaxLabels)
+        if (elements.Count > OverlayElement.MaxElements)
         {
-            return Option<LabelSetViolation>.Some(LabelSetViolation.TooMany);
+            return Option<ElementSetViolation>.Some(ElementSetViolation.TooMany);
         }
-        return Option<LabelSetViolation>.None;
+        return Option<ElementSetViolation>.None;
     }
 
     /// <summary>
-    /// The aggregate's own backstop for the two spec-150 label-set invariants
-    /// (ADR-0164). Reached only when a caller skipped
-    /// <see cref="ValidateLabels"/>: command handlers validate first and map
-    /// the violation to an <c>OVERLAY_LABELS_*</c> <c>400</c>, so an
+    /// The aggregate's own backstop for the two spec-150 element-set
+    /// invariants (ADR-0164, ADR-0165). Reached only when a caller skipped
+    /// <see cref="ValidateElements"/>: command handlers validate first and map
+    /// the violation to an <c>OVERLAY_ELEMENTS_*</c> <c>400</c>, so an
     /// operator's bad input is a <see cref="Shared.Kernel.Result{TValue,TError}"/>
     /// failure and never this throw (ADR-0047). A violation arriving here is
     /// programmer error, the same category as the illegal state transitions
     /// elsewhere in this file.
     /// </summary>
-    private static void RequireValidLabels(IReadOnlyList<Label> labels)
+    private static void RequireValidElements(IReadOnlyList<OverlayElement> elements)
     {
-        Option<LabelSetViolation> violation = ValidateLabels(labels);
+        Option<ElementSetViolation> violation = ValidateElements(elements);
         if (violation.HasValue)
         {
             throw new InvalidOperationException(
-                $"{labels.Count} label(s) violates {violation.Value}.");
+                $"{elements.Count} element(s) violates {violation.Value}.");
         }
     }
 
     /// <summary>
     /// Mints a new logical Overlay chain with its first revision in
     /// <c>Draft</c>. No domain event is raised — drafts are not
-    /// observable to kiosks until Publish. The label set is validated by the
-    /// command handler first (<see cref="ValidateLabels"/>), and enforced
-    /// again here as a backstop (<see cref="RequireValidLabels"/>).
+    /// observable to kiosks until Publish. The element set is validated by
+    /// the command handler first (<see cref="ValidateElements"/>), and
+    /// enforced again here as a backstop (<see cref="RequireValidElements"/>).
     /// </summary>
     public static Overlay CreateDraft(
         OverlayName name,
-        IReadOnlyList<Label> labels,
+        IReadOnlyList<OverlayElement> elements,
         OperatorIdentifier createdBy,
         IClock clock)
     {
         Ensure.That(name).IsNotNull();
-        Ensure.That(labels).IsNotNull();
+        Ensure.That(elements).IsNotNull();
         Ensure.That(clock).IsNotNull();
-        RequireValidLabels(labels);
+        RequireValidElements(elements);
 
         DateTimeOffset now = clock.UtcNow;
         Overlay overlay = new()
@@ -100,14 +100,14 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
             Creation = Creation.From(CreatedAt.From(now), createdBy),
         };
         overlay.revisions.Add(
-            Revision.NewDraft(OverlayRevisionNumber.One, labels, now, createdBy));
+            Revision.NewDraft(OverlayRevisionNumber.One, elements, now, createdBy));
         overlay.RecomputeArchival(now);
         return overlay;
     }
 
     /// <summary>
     /// Branches a new Draft revision off the chain's current Published
-    /// revision; pre-fills the Label from the prior revision so the
+    /// revision; pre-fills the elements from the prior revision so the
     /// editor mutates a known-good baseline (spec 004 US4).
     ///
     /// <para>
@@ -127,28 +127,28 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
 
         DateTimeOffset now = clock.UtcNow;
         OverlayRevisionNumber next = MaxRevisionNumber().Next();
-        Revision draft = Revision.Branch(next, baseRevision.Labels, now, by);
+        Revision draft = Revision.Branch(next, baseRevision.Elements, now, by);
         revisions.Add(draft);
         RecomputeArchival(now);
         return draft;
     }
 
     /// <summary>
-    /// Wholesale replacement of an existing Draft revision's label set
-    /// (spec 150 FR-006). The label set is validated by the command handler
-    /// first (<see cref="ValidateLabels"/>), and enforced again here as a
-    /// backstop (<see cref="RequireValidLabels"/>) — before the revision
-    /// lookup, so a bad argument is refused regardless of which revision or
-    /// state it targets.
+    /// Wholesale replacement of an existing Draft revision's element set
+    /// (spec 150 FR-006). The element set is validated by the command
+    /// handler first (<see cref="ValidateElements"/>), and enforced again
+    /// here as a backstop (<see cref="RequireValidElements"/>) — before the
+    /// revision lookup, so a bad argument is refused regardless of which
+    /// revision or state it targets.
     /// </summary>
     public void EditDraft(
-        OverlayRevisionNumber number, IReadOnlyList<Label> labels, IClock clock)
+        OverlayRevisionNumber number, IReadOnlyList<OverlayElement> elements, IClock clock)
     {
-        Ensure.That(labels).IsNotNull();
+        Ensure.That(elements).IsNotNull();
         Ensure.That(clock).IsNotNull();
-        RequireValidLabels(labels);
+        RequireValidElements(elements);
         Revision target = RequireRevision(number);
-        target.ReplaceLabels(labels);
+        target.ReplaceElements(elements);
         RecomputeArchival(clock.UtcNow);
     }
 
@@ -172,7 +172,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
             Raise(new OverlayRevisionArchivedDomainEvent(Id, prior.Number, now, by));
         }
         Raise(new OverlayRevisionPublishedDomainEvent(
-            Id, number, Name, target.Labels, now, by));
+            Id, number, Name, target.Elements, now, by));
         RecomputeArchival(now);
     }
 

@@ -14,8 +14,8 @@ public class CreateOverlayDraftCommandHandlerTests
     private static readonly DateTimeOffset FixedMoment =
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture);
 
-    private static Label SampleLabel() =>
-        Label.From("Line-1", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), 32);
+    private static OverlayElement SampleLabel() =>
+        OverlayElement.TextElement("Line-1", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
 
     [Fact]
     public async Task First_creation_with_a_unique_name_returns_a_new_OverlayIdentifier()
@@ -79,7 +79,7 @@ public class CreateOverlayDraftCommandHandlerTests
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.ShouldBeOfType<CreateOverlayDraftError.EmptyLabelSet>();
+        result.Error.ShouldBeOfType<CreateOverlayDraftError.EmptyElementSet>();
         overlays.Overlays.ShouldBeEmpty();
     }
 
@@ -89,7 +89,7 @@ public class CreateOverlayDraftCommandHandlerTests
         InMemoryOverlayRepository overlays = new();
         CreateOverlayDraftCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<CreateOverlayDraftCommandHandler>.Instance);
-        List<Label> tooMany = Enumerable.Range(0, Label.MaxLabels + 1).Select(_ => SampleLabel()).ToList();
+        List<OverlayElement> tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1).Select(_ => SampleLabel()).ToList();
 
         Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
@@ -99,7 +99,7 @@ public class CreateOverlayDraftCommandHandlerTests
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.ShouldBeOfType<CreateOverlayDraftError.TooManyLabels>();
+        result.Error.ShouldBeOfType<CreateOverlayDraftError.TooManyElements>();
         overlays.Overlays.ShouldBeEmpty();
     }
 }

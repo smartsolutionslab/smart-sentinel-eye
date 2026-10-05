@@ -140,7 +140,7 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
                                         .HasForeignKey("RevisionId");
                                 });
 
-                            b1.OwnsMany("SmartSentinelEye.OverlayDesigner.Domain.Overlay.Label", "Labels", b2 =>
+                            b1.OwnsMany("SmartSentinelEye.OverlayDesigner.Domain.Overlay.OverlayElement", "Elements", b2 =>
                                 {
                                     b2.Property<Guid>("revision_id")
                                         .HasColumnType("uuid");
@@ -149,69 +149,97 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
                                         .HasColumnType("integer")
                                         .HasColumnName("ordinal");
 
-                                    b2.Property<int>("FontSizePx")
-                                        .HasColumnType("integer")
-                                        .HasColumnName("label_font_size_px");
-
-                                    b2.Property<string>("Text")
+                                    b2.Property<string>("Color")
                                         .IsRequired()
-                                        .HasMaxLength(256)
-                                        .HasColumnType("character varying(256)")
-                                        .HasColumnName("label_text");
+                                        .HasMaxLength(9)
+                                        .HasColumnType("character varying(9)")
+                                        .HasColumnName("color");
+
+                                    b2.Property<string>("Kind")
+                                        .IsRequired()
+                                        .HasMaxLength(16)
+                                        .HasColumnType("character varying(16)")
+                                        .HasColumnName("kind");
 
                                     b2.HasKey("revision_id", "ordinal");
 
-                                    b2.ToTable("overlay_revision_labels", (string)null);
+                                    b2.ToTable("overlay_revision_elements", (string)null);
 
                                     b2.WithOwner()
                                         .HasForeignKey("revision_id");
 
                                     b2.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.NormalizedPosition", "Position", b3 =>
                                         {
-                                            b3.Property<Guid>("Labelrevision_id")
+                                            b3.Property<Guid>("OverlayElementrevision_id")
                                                 .HasColumnType("uuid");
 
-                                            b3.Property<int>("Labelordinal")
+                                            b3.Property<int>("OverlayElementordinal")
                                                 .HasColumnType("integer");
 
                                             b3.Property<decimal>("X")
                                                 .HasColumnType("numeric")
-                                                .HasColumnName("label_x");
+                                                .HasColumnName("x");
 
                                             b3.Property<decimal>("Y")
                                                 .HasColumnType("numeric")
-                                                .HasColumnName("label_y");
+                                                .HasColumnName("y");
 
-                                            b3.HasKey("Labelrevision_id", "Labelordinal");
+                                            b3.HasKey("OverlayElementrevision_id", "OverlayElementordinal");
 
-                                            b3.ToTable("overlay_revision_labels");
+                                            b3.ToTable("overlay_revision_elements");
 
                                             b3.WithOwner()
-                                                .HasForeignKey("Labelrevision_id", "Labelordinal");
+                                                .HasForeignKey("OverlayElementrevision_id", "OverlayElementordinal");
                                         });
 
                                     b2.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.NormalizedSize", "Size", b3 =>
                                         {
-                                            b3.Property<Guid>("Labelrevision_id")
+                                            b3.Property<Guid>("OverlayElementrevision_id")
                                                 .HasColumnType("uuid");
 
-                                            b3.Property<int>("Labelordinal")
+                                            b3.Property<int>("OverlayElementordinal")
                                                 .HasColumnType("integer");
 
                                             b3.Property<decimal>("Height")
                                                 .HasColumnType("numeric")
-                                                .HasColumnName("label_height");
+                                                .HasColumnName("height");
 
                                             b3.Property<decimal>("Width")
                                                 .HasColumnType("numeric")
-                                                .HasColumnName("label_width");
+                                                .HasColumnName("width");
 
-                                            b3.HasKey("Labelrevision_id", "Labelordinal");
+                                            b3.HasKey("OverlayElementrevision_id", "OverlayElementordinal");
 
-                                            b3.ToTable("overlay_revision_labels");
+                                            b3.ToTable("overlay_revision_elements");
 
                                             b3.WithOwner()
-                                                .HasForeignKey("Labelrevision_id", "Labelordinal");
+                                                .HasForeignKey("OverlayElementrevision_id", "OverlayElementordinal");
+                                        });
+
+                                    b2.OwnsOne("SmartSentinelEye.OverlayDesigner.Domain.Overlay.TextContent", "Text", b3 =>
+                                        {
+                                            b3.Property<Guid>("OverlayElementrevision_id")
+                                                .HasColumnType("uuid");
+
+                                            b3.Property<int>("OverlayElementordinal")
+                                                .HasColumnType("integer");
+
+                                            b3.Property<int>("FontSizePx")
+                                                .HasColumnType("integer")
+                                                .HasColumnName("font_size_px");
+
+                                            b3.Property<string>("Value")
+                                                .IsRequired()
+                                                .HasMaxLength(256)
+                                                .HasColumnType("character varying(256)")
+                                                .HasColumnName("text");
+
+                                            b3.HasKey("OverlayElementrevision_id", "OverlayElementordinal");
+
+                                            b3.ToTable("overlay_revision_elements");
+
+                                            b3.WithOwner()
+                                                .HasForeignKey("OverlayElementrevision_id", "OverlayElementordinal");
                                         });
 
                                     b2.Navigation("Position")
@@ -219,12 +247,14 @@ namespace SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence.Migrations
 
                                     b2.Navigation("Size")
                                         .IsRequired();
+
+                                    b2.Navigation("Text");
                                 });
 
                             b1.Navigation("Creation")
                                 .IsRequired();
 
-                            b1.Navigation("Labels");
+                            b1.Navigation("Elements");
                         });
 
                     b.Navigation("Creation")

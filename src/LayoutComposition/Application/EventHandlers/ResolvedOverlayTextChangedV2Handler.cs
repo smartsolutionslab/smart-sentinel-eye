@@ -12,7 +12,7 @@ namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 /// <c>/hubs/layouts</c> SignalR hub via the broadcaster LayoutComposition
 /// owns (spec 005 FR-013, widened to a set by spec 150 / #2345).
 /// SystemVariables does the resolution; the broadcast lives here with the
-/// hub. See <see cref="OverlayRevisionPublishedV2Handler"/> for the
+/// hub. See <see cref="OverlayRevisionPublishedV3Handler"/> for the
 /// rationale.
 /// </summary>
 public sealed class ResolvedOverlayTextChangedV2Handler(

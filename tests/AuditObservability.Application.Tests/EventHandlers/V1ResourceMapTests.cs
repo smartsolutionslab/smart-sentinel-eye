@@ -398,18 +398,22 @@ public class V1ResourceMapTests
             overlay.ToString());
     }
 
-    // 14. OverlayDesigner.OverlayRevisionPublishedV2 -> overlay / Overlay
+    // 14. OverlayDesigner.OverlayRevisionPublishedV3 -> overlay / Overlay
+    // (spec 300, #2349, ADR-0165 — confirmed by test, not assumed: the
+    // convention's namespace tail "OverlayDesigner" resolves to
+    // DomainResourceKind.Overlay, and the picker's first Guid property
+    // on the V3 shape is still Overlay.)
     private static MappingCase OverlayRevisionPublishedCase()
     {
         Guid overlay = Guid.CreateVersion7();
         return new MappingCase(
-            typeof(OverlayRevisionPublishedV2),
+            typeof(OverlayRevisionPublishedV3),
             ResourceKind.Overlay,
-            () => new OverlayRevisionPublishedV2(
+            () => new OverlayRevisionPublishedV3(
                 overlay,
                 1,
                 "Name-sentinel",
-                [new OverlayLabelV2("Text-sentinel", 1.1m, 2.2m, 3.3m, 4.4m, 16)],
+                [new OverlayElementV3("Text", "#FFFFFFD9", 1.1m, 2.2m, 3.3m, 4.4m, "Text-sentinel", 16)],
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 Guid.CreateVersion7(),
                 TestMetadata),

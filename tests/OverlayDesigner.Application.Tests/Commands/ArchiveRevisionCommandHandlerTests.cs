@@ -18,7 +18,7 @@ public class ArchiveRevisionCommandHandlerTests
     {
         Overlay overlay = new OverlayBuilder()
             .At(clock.UtcNow)
-            .WithLabel(Label.From("Hello", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48))
+            .WithLabel(OverlayElement.TextElement("Hello", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
         return overlay;

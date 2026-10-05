@@ -10,7 +10,7 @@ public abstract record GetOverlaySnapshotError(string Code, string Message, Http
     /// The overlay isn't in the reverse-index. Two reasons:
     /// <list type="bullet">
     /// <item>It was never Published (only Published overlays land in
-    ///   the index via <c>OverlayRevisionPublishedV2</c>).</item>
+    ///   the index via <c>OverlayRevisionPublishedV3</c>).</item>
     /// <item>Its Published revision was Archived, dropping it from
     ///   the index per FR-014.</item>
     /// </list>

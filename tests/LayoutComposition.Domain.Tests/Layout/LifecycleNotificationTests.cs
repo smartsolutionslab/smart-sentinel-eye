@@ -55,7 +55,7 @@ public class LifecycleNotificationTests
         OverlayLifecyclePublishedNotification notification = new(
             [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
             overlay, 1, "Line-1 Title",
-            [new OverlayLifecycleLabel("Production Line 1", 0.5m, 0.05m, 0.3m, 0.08m, 48)],
+            [new OverlayLifecycleElement("Text", "#FFFFFFD9", 0.5m, 0.05m, 0.3m, 0.08m, "Production Line 1", 48)],
             FixedMoment);
 
         // Plural, unlike the layout frames above. An overlay has no fab of its
@@ -65,22 +65,24 @@ public class LifecycleNotificationTests
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(1);
         notification.Name.ShouldBe("Line-1 Title");
-        OverlayLifecycleLabel label = notification.Labels.ShouldHaveSingleItem();
-        label.Text.ShouldBe("Production Line 1");
-        label.NormalizedX.ShouldBe(0.5m);
-        label.NormalizedY.ShouldBe(0.05m);
-        label.NormalizedWidth.ShouldBe(0.3m);
-        label.NormalizedHeight.ShouldBe(0.08m);
-        label.FontSizePx.ShouldBe(48);
+        OverlayLifecycleElement element = notification.Elements.ShouldHaveSingleItem();
+        element.Kind.ShouldBe("Text");
+        element.Text.ShouldBe("Production Line 1");
+        element.NormalizedX.ShouldBe(0.5m);
+        element.NormalizedY.ShouldBe(0.05m);
+        element.NormalizedWidth.ShouldBe(0.3m);
+        element.NormalizedHeight.ShouldBe(0.08m);
+        element.FontSizePx.ShouldBe(48);
         notification.PublishedAt.ShouldBe(FixedMoment);
     }
 
     /// <summary>
-    /// Spec 150 (#2345): a revision carries an ordered set of 1..8 labels,
-    /// not one flattened label.
+    /// Spec 150 (#2345): a revision carries an ordered set of 1..8 elements,
+    /// not one flattened label. Spec 300 (#2349, ADR-0165) widened each
+    /// element to carry a kind and colour.
     /// </summary>
     [Fact]
-    public void OverlayLifecyclePublishedNotification_carries_every_label_in_order()
+    public void OverlayLifecyclePublishedNotification_carries_every_element_in_order()
     {
         Guid overlay = Guid.CreateVersion7();
 
@@ -88,14 +90,35 @@ public class LifecycleNotificationTests
             [FabIdentifier.From("munich")],
             overlay, 1, "Line-1 Title",
             [
-                new OverlayLifecycleLabel("First", 0.1m, 0.1m, 0.2m, 0.2m, 16),
-                new OverlayLifecycleLabel("Second", 0.2m, 0.2m, 0.2m, 0.2m, 20),
+                new OverlayLifecycleElement("Text", "#FFFFFFD9", 0.1m, 0.1m, 0.2m, 0.2m, "First", 16),
+                new OverlayLifecycleElement("Text", "#FFFFFFD9", 0.2m, 0.2m, 0.2m, 0.2m, "Second", 20),
             ],
             FixedMoment);
 
-        notification.Labels.Count.ShouldBe(2);
-        notification.Labels[0].Text.ShouldBe("First");
-        notification.Labels[1].Text.ShouldBe("Second");
+        notification.Elements.Count.ShouldBe(2);
+        notification.Elements[0].Text.ShouldBe("First");
+        notification.Elements[1].Text.ShouldBe("Second");
+    }
+
+    /// <summary>
+    /// Spec 300 (#2349), ADR-0165: a non-text element carries null text and
+    /// font size.
+    /// </summary>
+    [Fact]
+    public void OverlayLifecyclePublishedNotification_carries_a_non_text_element_with_null_text_and_font_size()
+    {
+        Guid overlay = Guid.CreateVersion7();
+
+        OverlayLifecyclePublishedNotification notification = new(
+            [FabIdentifier.From("munich")],
+            overlay, 1, "Line-1 Title",
+            [new OverlayLifecycleElement("Box", "#D32F2F00", 0.1m, 0.2m, 0.4m, 0.5m, null, null)],
+            FixedMoment);
+
+        OverlayLifecycleElement element = notification.Elements.ShouldHaveSingleItem();
+        element.Kind.ShouldBe("Box");
+        element.Text.ShouldBeNull();
+        element.FontSizePx.ShouldBeNull();
     }
 
     /// <summary>

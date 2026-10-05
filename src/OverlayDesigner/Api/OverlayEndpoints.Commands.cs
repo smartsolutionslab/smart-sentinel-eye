@@ -15,19 +15,104 @@ namespace SmartSentinelEye.OverlayDesigner.Api;
 public static partial class OverlayEndpoints
 {
     /// <summary>
-    /// Parses one wire-shape label into the domain value object. Called in a
-    /// loop inside the caller's single <c>try</c> (spec 150), so the first
-    /// bad label in the set 400s the whole set naming its field — the
-    /// existing single-label behaviour, reproduced rather than re-plumbed.
+    /// Parses one wire-shape element into the domain value object. Called in
+    /// a loop inside the caller's single <c>try</c> (spec 150; spec 300
+    /// #2349 widened it to a kind switch), so the first bad element in the
+    /// set 400s the whole set naming its field — the existing
+    /// single-element behaviour, reproduced rather than re-plumbed.
     /// </summary>
-    private static Label ParseLabel(LabelRequest request)
+    private static OverlayElement ParseElement(ElementRequest request)
     {
         Ensure.That(request).IsNotNull();
-        return Label.From(
-            request.Text,
-            NormalizedPosition.From(request.NormalizedX, request.NormalizedY),
-            NormalizedSize.From(request.NormalizedWidth, request.NormalizedHeight),
-            request.FontSizePx);
+
+        NormalizedPosition position = NormalizedPosition.From(request.NormalizedX, request.NormalizedY);
+        NormalizedSize size = NormalizedSize.From(request.NormalizedWidth, request.NormalizedHeight);
+        OverlayColor color = ParseColor(request.Color);
+        ElementKind kind = ParseKind(request.Kind);
+
+        return kind == ElementKind.Text
+            ? ParseTextElement(request, position, size, color)
+            : ParseShapeElement(kind, request, position, size, color);
+    }
+
+    /// <summary>
+    /// <see cref="OverlayColor.From"/>'s own guard names its parameter
+    /// <c>value</c> (<c>Ensure.That</c>'s default), which is correct for the
+    /// value object's own tests (T005) but wrong at this trust boundary —
+    /// FR-003 requires the problem detail to name <c>color</c>. Re-thrown
+    /// here rather than changed at the source, so the domain-level
+    /// expectation stays exactly what T005 pins.
+    /// </summary>
+    private static OverlayColor ParseColor(string color)
+    {
+        try
+        {
+            return OverlayColor.From(color);
+        }
+        catch (ArgumentException)
+        {
+            throw new ArgumentException(
+                $"color must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA. Got '{color}'.",
+                nameof(color));
+        }
+    }
+
+    /// <summary>Same re-naming as <see cref="ParseColor"/>, for <see cref="ElementKind.From"/> (FR-002/FR-003).</summary>
+    private static ElementKind ParseKind(string kind)
+    {
+        try
+        {
+            return ElementKind.From(kind);
+        }
+        catch (ArgumentException)
+        {
+            throw new ArgumentException($"kind: unknown ElementKind '{kind}'.", nameof(kind));
+        }
+    }
+
+    /// <summary>
+    /// A <c>Box</c>/<c>Ellipse</c> carries neither <c>text</c> nor
+    /// <c>fontSizePx</c> (FR-004) — guarded here, naming the offending
+    /// field, because <see cref="OverlayElement.Box"/>/<see cref="OverlayElement.Ellipse"/>
+    /// take no such arguments to silently drop.
+    /// </summary>
+    private static OverlayElement ParseShapeElement(
+        ElementKind kind, ElementRequest request, NormalizedPosition position, NormalizedSize size, OverlayColor color)
+    {
+        RequireNoTextFields(kind, request.Text, request.FontSizePx);
+
+        return kind == ElementKind.Box
+            ? OverlayElement.Box(position, size, color)
+            : OverlayElement.Ellipse(position, size, color);
+    }
+
+    private static void RequireNoTextFields(ElementKind kind, string? text, int? fontSizePx)
+    {
+        if (text is not null)
+        {
+            throw new ArgumentException($"text must be absent for a {kind} element.", nameof(text));
+        }
+        if (fontSizePx is not null)
+        {
+            throw new ArgumentException($"fontSizePx must be absent for a {kind} element.", nameof(fontSizePx));
+        }
+    }
+
+    /// <summary>
+    /// <paramref name="request"/>'s <c>Text</c>/<c>FontSizePx</c> are
+    /// nullable at the wire boundary (absent for <c>Box</c>/<c>Ellipse</c>).
+    /// A missing value here defaults to the type's zero value rather than
+    /// being guarded directly, so the factory's own guards
+    /// (<see cref="TextContent.From"/>) are the single place that rejects it
+    /// — naming <c>text</c> or <c>fontSizePx</c> exactly as they would for a
+    /// present-but-invalid value.
+    /// </summary>
+    private static OverlayElement ParseTextElement(
+        ElementRequest request, NormalizedPosition position, NormalizedSize size, OverlayColor color)
+    {
+        string text = request.Text ?? string.Empty;
+        int fontSizePx = request.FontSizePx ?? 0;
+        return OverlayElement.TextElement(text, fontSizePx, position, size, color);
     }
 
     private static async Task<IResult> CreateDraft(
@@ -48,12 +133,12 @@ public static partial class OverlayEndpoints
         }
 
         OverlayName name;
-        List<Label> labels;
+        List<OverlayElement> elements;
         try
         {
-            Ensure.That(body.Labels).IsNotNull();
+            Ensure.That(body.Elements).IsNotNull();
             name = OverlayName.From(body.Name);
-            labels = [.. body.Labels.Select(ParseLabel)];
+            elements = [.. body.Elements.Select(ParseElement)];
         }
         catch (ArgumentException ex)
         {
@@ -72,7 +157,7 @@ public static partial class OverlayEndpoints
                 services.Clock),
             identifier => $"/overlays/{identifier}",
             async token => (await handler.HandleAsync(
-                    new CreateOverlayDraftCommand(name, labels, actingOperator), token)).Match(
+                    new CreateOverlayDraftCommand(name, elements, actingOperator), token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
@@ -216,12 +301,12 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
         OverlayRevisionNumber number;
-        List<Label> labels;
+        List<OverlayElement> elements;
         try
         {
-            Ensure.That(body.Labels).IsNotNull();
+            Ensure.That(body.Elements).IsNotNull();
             number = OverlayRevisionNumber.From(revisionNumber);
-            labels = [.. body.Labels.Select(ParseLabel)];
+            elements = [.. body.Elements.Select(ParseElement)];
         }
         catch (ArgumentException ex)
         {
@@ -238,7 +323,7 @@ public static partial class OverlayEndpoints
 
         Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler
             .HandleAsync(
-                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, labels, expectedVersion),
+                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, elements, expectedVersion),
                 cancellationToken);
 
         return result.Match<IResult>(

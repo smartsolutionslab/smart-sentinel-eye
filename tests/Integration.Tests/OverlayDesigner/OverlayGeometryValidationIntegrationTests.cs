@@ -51,6 +51,8 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         decimal normalizedWidth = 0.3m,
         decimal normalizedHeight = 0.08m) => new
         {
+            kind = "Text",
+            color = "#FFFFFFD9",
             text = "Production Line 1",
             normalizedX,
             normalizedY,
@@ -69,7 +71,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                labels = new[] { LabelBody(normalizedY: 2m) },
+                elements = new[] { LabelBody(normalizedY: 2m) },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -89,7 +91,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                labels = new[] { LabelBody(normalizedWidth: 0m) },
+                elements = new[] { LabelBody(normalizedWidth: 0m) },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -107,7 +109,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
 
         HttpResponseMessage response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = new[] { LabelBody(normalizedX: -1m) } });
+            new { elements = new[] { LabelBody(normalizedX: -1m) } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -124,7 +126,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
 
         HttpResponseMessage response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = new[] { LabelBody(normalizedHeight: 2m) } });
+            new { elements = new[] { LabelBody(normalizedHeight: 2m) } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -147,7 +149,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                labels = new[] { LabelBody(normalizedX: 0m, normalizedY: 1m, normalizedWidth: 1m, normalizedHeight: 1m) },
+                elements = new[] { LabelBody(normalizedX: 0m, normalizedY: 1m, normalizedWidth: 1m, normalizedHeight: 1m) },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
@@ -173,7 +175,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        problem.GetProperty("detail").GetString()!.ShouldContain("body.Labels");
+        problem.GetProperty("detail").GetString()!.ShouldContain("body.Elements");
     }
 
     /// <summary>
@@ -195,7 +197,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        problem.GetProperty("detail").GetString()!.ShouldContain("body.Labels");
+        problem.GetProperty("detail").GetString()!.ShouldContain("body.Elements");
     }
 
     /// <summary>
@@ -216,7 +218,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                labels = new object?[] { null },
+                elements = new object?[] { null },
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -236,7 +238,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
 
         HttpResponseMessage response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = new object?[] { null } });
+            new { elements = new object?[] { null } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -246,23 +248,23 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     /// <summary>
     /// Phase-6 should-fix (spec 150, #2345) — the edit path's label-set-size
     /// rejection had zero test coverage. Nine labels exceeds
-    /// <see cref="Label.MaxLabels"/> (8), so the edit must answer <c>400</c>
-    /// <c>OVERLAY_LABELS_TOO_MANY</c>, mirroring the create path's own backstop
+    /// <see cref="SmartSentinelEye.OverlayDesigner.Domain.Overlay.OverlayElement.MaxElements"/> (8), so the edit must answer <c>400</c>
+    /// <c>OVERLAY_ELEMENTS_TOO_MANY</c>, mirroring the create path's own backstop
     /// (<c>Overlay.ValidateLabels</c>).
     /// </summary>
     [Fact]
-    public async Task Edit_with_nine_labels_returns_400_OVERLAY_LABELS_TOO_MANY()
+    public async Task Edit_with_nine_labels_returns_400_OVERLAY_ELEMENTS_TOO_MANY()
     {
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         Guid overlayIdentifier = await CreateDraftAsync(overlays);
 
         HttpResponseMessage response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
-            new { labels = Enumerable.Range(0, 9).Select(_ => LabelBody()).ToArray() });
+            new { elements = Enumerable.Range(0, 9).Select(_ => LabelBody()).ToArray() });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
-        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_LABELS_TOO_MANY");
+        problem.GetProperty("title").GetString().ShouldBe("OVERLAY_ELEMENTS_TOO_MANY");
     }
 
     private static async Task<Guid> CreateDraftAsync(HttpClient overlays)
@@ -272,7 +274,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             new
             {
                 name = $"Geo-{Guid.NewGuid():N}"[..16],
-                labels = new[] { LabelBody() },
+                elements = new[] { LabelBody() },
             });
         created.EnsureSuccessStatusCode();
 

@@ -30,7 +30,7 @@ public class OverlayTests
     [Fact]
     public void CreateDraft_yields_revision_one_in_Draft_with_no_pending_events()
     {
-        Label label = Label.From("Production Line 1", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
+        OverlayElement label = OverlayElement.TextElement("Production Line 1", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
 
         Domain.Overlay.Overlay overlay = new OverlayBuilder()
             .Named("Line-1 Title")
@@ -43,7 +43,7 @@ public class OverlayTests
         Revision only = overlay.Revisions[0];
         only.Number.ShouldBe(OverlayRevisionNumber.One);
         only.State.ShouldBe(OverlayRevisionState.Draft);
-        only.Labels.Single().ShouldBe(label);
+        only.Elements.Single().ShouldBe(label);
         only.PublishedAt.ShouldBeNull();
         only.ArchivedAt.ShouldBeNull();
         overlay.PendingEvents.ShouldBeEmpty();
@@ -52,7 +52,7 @@ public class OverlayTests
     [Fact]
     public void Publish_a_Draft_raises_OverlayRevisionPublished_with_the_Label()
     {
-        Label label = Label.From("Hello", NormalizedPosition.From(0.2m, 0.3m), NormalizedSize.From(0.4m, 0.5m), 32);
+        OverlayElement label = OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.2m, 0.3m), NormalizedSize.From(0.4m, 0.5m), OverlayColor.Default);
         Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(label).Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
@@ -66,14 +66,14 @@ public class OverlayTests
             overlay.PendingEvents.OfType<OverlayRevisionPublishedDomainEvent>().ShouldHaveSingleItem();
         evt.Overlay.ShouldBe(overlay.Id);
         evt.RevisionNumber.ShouldBe(OverlayRevisionNumber.One);
-        evt.Labels.Single().ShouldBe(label);
+        evt.Elements.Single().ShouldBe(label);
         evt.PublishedBy.ShouldBe(by);
     }
 
     [Fact]
     public void BranchDraft_off_Published_yields_revision_two_with_the_same_label()
     {
-        Label label = Label.From("Production Line 1", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
+        OverlayElement label = OverlayElement.TextElement("Production Line 1", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
         Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(label).Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
@@ -84,7 +84,7 @@ public class OverlayTests
 
         draft.Number.Value.ShouldBe(2);
         draft.State.ShouldBe(OverlayRevisionState.Draft);
-        draft.Labels.Single().ShouldBe(label);
+        draft.Elements.Single().ShouldBe(label);
         overlay.Revisions.Count.ShouldBe(2);
     }
 
@@ -95,7 +95,7 @@ public class OverlayTests
         // object: Label is an EF-owned entity keyed on its owner, so a shared
         // instance breaks owned-entity fixup on save (issue #955). Value-equal,
         // reference-distinct.
-        Label label = Label.From("Production Line 1", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
+        OverlayElement label = OverlayElement.TextElement("Production Line 1", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
         Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(label).Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
@@ -104,8 +104,8 @@ public class OverlayTests
 
         Revision draft = overlay.BranchDraft(by, clock);
 
-        draft.Labels.Single().ShouldBe(published.Labels.Single());
-        ReferenceEquals(draft.Labels.Single(), published.Labels.Single()).ShouldBeFalse();
+        draft.Elements.Single().ShouldBe(published.Elements.Single());
+        ReferenceEquals(draft.Elements.Single(), published.Elements.Single()).ShouldBeFalse();
     }
 
     [Fact]
@@ -167,12 +167,12 @@ public class OverlayTests
     {
         Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
-        Label newLabel = Label.From("Updated", NormalizedPosition.From(0.1m, 0.2m), NormalizedSize.From(0.3m, 0.4m), 20);
+        OverlayElement newLabel = OverlayElement.TextElement("Updated", 20, NormalizedPosition.From(0.1m, 0.2m), NormalizedSize.From(0.3m, 0.4m), OverlayColor.Default);
 
         overlay.EditDraft(OverlayRevisionNumber.One, [newLabel], clock);
 
         overlay.Revisions.Count.ShouldBe(1);
-        overlay.Revisions.Single().Labels.Single().ShouldBe(newLabel);
+        overlay.Revisions.Single().Elements.Single().ShouldBe(newLabel);
         overlay.Revisions.Single().State.ShouldBe(OverlayRevisionState.Draft);
     }
 
@@ -219,7 +219,7 @@ public class OverlayTests
     [Fact]
     public void BranchDraft_on_a_fully_archived_chain_recovers_the_label()
     {
-        Label label = Label.From("Rolling Mill A", NormalizedPosition.From(0.25m, 0.8m), NormalizedSize.From(0.4m, 0.1m), 64);
+        OverlayElement label = OverlayElement.TextElement("Rolling Mill A", 64, NormalizedPosition.From(0.25m, 0.8m), NormalizedSize.From(0.4m, 0.1m), OverlayColor.Default);
         Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(label).Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
@@ -232,13 +232,13 @@ public class OverlayTests
 
         recovered.Number.Value.ShouldBe(2);
         recovered.State.ShouldBe(OverlayRevisionState.Draft);
-        Label recoveredLabel = recovered.Labels.Single();
-        recoveredLabel.Text.ShouldBe("Rolling Mill A");
+        OverlayElement recoveredLabel = recovered.Elements.Single();
+        recoveredLabel.Text!.Value.ShouldBe("Rolling Mill A");
         recoveredLabel.Position.X.ShouldBe(0.25m);
         recoveredLabel.Position.Y.ShouldBe(0.8m);
         recoveredLabel.Size.Width.ShouldBe(0.4m);
         recoveredLabel.Size.Height.ShouldBe(0.1m);
-        recoveredLabel.FontSizePx.ShouldBe(64);
+        recoveredLabel.Text.FontSizePx.ShouldBe(64);
     }
 
     /// <summary>
@@ -249,7 +249,7 @@ public class OverlayTests
     [Fact]
     public void A_recovered_draft_can_be_edited_and_published()
     {
-        Label replacement = Label.From("Rolling Mill B", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
+        OverlayElement replacement = OverlayElement.TextElement("Rolling Mill B", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
         Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
@@ -261,7 +261,7 @@ public class OverlayTests
         overlay.Publish(recovered.Number, by, clock);
 
         recovered.State.ShouldBe(OverlayRevisionState.Published);
-        recovered.Labels.Single().Text.ShouldBe("Rolling Mill B");
+        recovered.Elements.Single().Text!.Value.ShouldBe("Rolling Mill B");
     }
 
     /// <summary>
@@ -274,8 +274,8 @@ public class OverlayTests
     [Fact]
     public void BranchDraft_prefers_the_Published_revision_over_an_archived_newer_one()
     {
-        Label live = Label.From("Live", NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), 48);
-        Label abandoned = Label.From("Abandoned", NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.05m), 32);
+        OverlayElement live = OverlayElement.TextElement("Live", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
+        OverlayElement abandoned = OverlayElement.TextElement("Abandoned", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.05m), OverlayColor.Default);
         Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabel(live).Build();
         OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
@@ -288,6 +288,6 @@ public class OverlayTests
         Revision draftThree = overlay.BranchDraft(by, clock);
 
         draftThree.Number.Value.ShouldBe(3);
-        draftThree.Labels.Single().Text.ShouldBe("Live");
+        draftThree.Elements.Single().Text!.Value.ShouldBe("Live");
     }
 }

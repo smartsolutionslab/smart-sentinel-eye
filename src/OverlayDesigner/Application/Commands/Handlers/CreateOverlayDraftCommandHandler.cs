@@ -16,12 +16,12 @@ public sealed class CreateOverlayDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayName? name, IReadOnlyList<Label> labels, OperatorIdentifier createdBy) = command;
+        (OverlayName? name, IReadOnlyList<OverlayElement> elements, OperatorIdentifier createdBy) = command;
 
-        Option<LabelSetViolation> violation = Overlay.ValidateLabels(labels);
+        Option<ElementSetViolation> violation = Overlay.ValidateElements(elements);
         if (violation.HasValue)
         {
-            return Failure(CreateOverlayDraftFailures.FromViolation(violation.Value, labels.Count));
+            return Failure(CreateOverlayDraftFailures.FromViolation(violation.Value, elements.Count));
         }
 
         Option<Overlay> existing = await overlays
@@ -31,7 +31,7 @@ public sealed class CreateOverlayDraftCommandHandler(
             return Failure(CreateOverlayDraftFailures.OverlayNameTaken(name.Value));
         }
 
-        Overlay overlay = Overlay.CreateDraft(name, labels, createdBy, clock);
+        Overlay overlay = Overlay.CreateDraft(name, elements, createdBy, clock);
         overlays.Add(overlay);
         await overlays.SaveAsync(cancellationToken);
 

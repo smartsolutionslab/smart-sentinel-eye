@@ -192,10 +192,12 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
     private static object DraftOverlayBody() => new
     {
         name = $"Seed-{Guid.NewGuid():N}"[..16],
-        labels = new[]
+        elements = new[]
         {
             new
             {
+                kind = "Text",
+                color = "#FFFFFFD9",
                 text = "spec 126 scope probe",
                 normalizedX = 0.1m,
                 normalizedY = 0.1m,

@@ -55,6 +55,8 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
 
     private static object SampleLabelBody() => new
     {
+        kind = "Text",
+        color = "#FFFFFFD9",
         text = "Production Line 1",
         normalizedX = 0.5m,
         normalizedY = 0.05m,
@@ -76,7 +78,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             new
             {
                 name = $"Psh-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody() },
+                elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
         Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
@@ -151,11 +153,12 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             $"publish→push took {sw.Elapsed.TotalMilliseconds:F0} ms");
 
         both[0].Overlay.ShouldBe(siblingIdentifier);
-        OverlayLabelHubEntry label = both[0].Labels.ShouldHaveSingleItem();
+        OverlayElementHubEntry label = both[0].Elements.ShouldHaveSingleItem();
+        label.Kind.ShouldBe("Text");
         label.Text.ShouldBe("Production Line 1");
         // The frame is parsed off all four geometry fields above and, until
         // now, only Text and FontSizePx were read back. This is the only
-        // end-to-end net over the EF column mapping, so a label_x/label_y
+        // end-to-end net over the EF column mapping, so an x/y
         // transposition in the persistence configuration lands here.
         label.NormalizedX.ShouldBe(0.5m);
         label.NormalizedY.ShouldBe(0.05m);
@@ -172,7 +175,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             new
             {
                 name = $"Psh-{Guid.NewGuid():N}".Substring(0, 16),
-                labels = new[] { SampleLabelBody() },
+                elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
         return await created.Content.ReadFromJsonAsync<Guid>();
@@ -230,15 +233,21 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             Overlay: payload.GetProperty("overlay").GetGuid(),
             RevisionNumber: payload.GetProperty("revisionNumber").GetInt32(),
             Name: payload.GetProperty("name").GetString()!,
-            Labels: [.. payload.GetProperty("labels").EnumerateArray().Select(ParseLabel)],
+            Elements: [.. payload.GetProperty("elements").EnumerateArray().Select(ParseElement)],
             PublishedAt: payload.GetProperty("publishedAt").GetDateTimeOffset());
 
-    private static OverlayLabelHubEntry ParseLabel(JsonElement label) =>
+    private static OverlayElementHubEntry ParseElement(JsonElement element) =>
         new(
-            Text: label.GetProperty("text").GetString()!,
-            NormalizedX: label.GetProperty("normalizedX").GetDecimal(),
-            NormalizedY: label.GetProperty("normalizedY").GetDecimal(),
-            NormalizedWidth: label.GetProperty("normalizedWidth").GetDecimal(),
-            NormalizedHeight: label.GetProperty("normalizedHeight").GetDecimal(),
-            FontSizePx: label.GetProperty("fontSizePx").GetInt32());
+            Kind: element.GetProperty("kind").GetString()!,
+            Color: element.GetProperty("color").GetString()!,
+            NormalizedX: element.GetProperty("normalizedX").GetDecimal(),
+            NormalizedY: element.GetProperty("normalizedY").GetDecimal(),
+            NormalizedWidth: element.GetProperty("normalizedWidth").GetDecimal(),
+            NormalizedHeight: element.GetProperty("normalizedHeight").GetDecimal(),
+            Text: element.GetProperty("text").ValueKind == JsonValueKind.Null
+                ? null
+                : element.GetProperty("text").GetString(),
+            FontSizePx: element.GetProperty("fontSizePx").ValueKind == JsonValueKind.Null
+                ? null
+                : element.GetProperty("fontSizePx").GetInt32());
 }
