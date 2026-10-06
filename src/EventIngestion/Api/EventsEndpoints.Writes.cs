@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
@@ -130,6 +131,7 @@ public static partial class EventsEndpoints
         [FromServices] IFabStorageReadiness storage,
         [FromServices] IClock clock,
         [FromServices] ILoggerFactory loggerFactory,
+        [FromServices] IMemoryCache cache,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
@@ -138,7 +140,7 @@ public static partial class EventsEndpoints
         ILogger logger = loggerFactory.CreateLogger(typeof(EventsEndpoints));
 
         WebhookIntegration? integration = await AuthenticateWebhookAsync(
-            integrationName, request, fabId, integrations, logger, cancellationToken);
+            integrationName, request, fabId, integrations, logger, cache, cancellationToken);
         if (integration is null)
         {
             return Results.Unauthorized();
@@ -185,8 +187,9 @@ public static partial class EventsEndpoints
     /// Every failure path collapses to <c>null</c> so the 401 response never
     /// leaks which integrations exist — including, now, whether one exists in
     /// another plant. A revoked integration is additionally written to an
-    /// internal audit log (spec 302, #2205); every other refusal stays
-    /// silent, exactly as before.
+    /// internal application log (spec 302, #2205), at most once per
+    /// <see cref="RevokedWebhookDeliveryLogWindow"/> per integration; every
+    /// other refusal stays silent, exactly as before.
     /// </summary>
     private static async Task<WebhookIntegration?> AuthenticateWebhookAsync(
         string integrationName,
@@ -194,6 +197,7 @@ public static partial class EventsEndpoints
         string fabId,
         IWebhookIntegrationRepository integrations,
         ILogger logger,
+        IMemoryCache cache,
         CancellationToken cancellationToken)
     {
         string? authHeader = request.Headers.Authorization;
@@ -224,8 +228,12 @@ public static partial class EventsEndpoints
 
         if (integration.RevokedAt is RevokedAt revokedAt)
         {
-            logger.RevokedWebhookIntegrationDeliveryRefused(
-                integration.Name, integration.Id, integration.Fab, revokedAt);
+            if (IsNewRevokedWebhookDeliveryLog(cache, integration.Id))
+            {
+                logger.RevokedWebhookIntegrationDeliveryRefused(
+                    integration.Name, integration.Id, integration.Fab, revokedAt);
+            }
+
             return null;
         }
 
@@ -246,6 +254,41 @@ public static partial class EventsEndpoints
             ? await ValidateJwtAsync(request, integration, fabId)
             : integration.TokenHash.Matches(token);
         return authorized ? integration : null;
+    }
+
+    /// <summary>
+    /// Dedup window for the revoked-webhook-delivery log (review finding on
+    /// #2205): matches <c>WhepAuthorizeRateLimiting</c>'s production default
+    /// (<c>StreamDistribution/Api/appsettings.json</c>'s <c>Window: "00:01:00"</c>).
+    /// This route is <c>AllowAnonymous</c> and the revoked check runs before any
+    /// credential or fab check, so an integration's <b>name</b> — public, it is
+    /// in every sender's config and in the URL path, never secret — is enough
+    /// for anyone to trigger this branch at an unlimited rate; logging on every
+    /// refusal would let that caller flood the one OTLP sink ADR-0118 gives
+    /// this service.
+    /// </summary>
+    private static readonly TimeSpan RevokedWebhookDeliveryLogWindow = TimeSpan.FromMinutes(1);
+
+    /// <summary>
+    /// Mirrors <c>StreamDistribution/Api/Program.cs</c>'s
+    /// <c>IsNewWhepAuthorizeThrottleTransition</c>: an <see cref="IMemoryCache"/>
+    /// entry per key, absolute-expiring after <see cref="RevokedWebhookDeliveryLogWindow"/>,
+    /// gives "log once per transition, re-arm once a full window has passed"
+    /// without a hand-rolled dictionary that never evicts. Keyed on the
+    /// integration's identifier, not the caller, so the window is shared by
+    /// every anonymous caller refused for the same revoked integration.
+    /// </summary>
+    private static bool IsNewRevokedWebhookDeliveryLog(
+        IMemoryCache cache, WebhookIntegrationIdentifier identifier)
+    {
+        string key = $"revoked-webhook-delivery-log:{identifier.Value}";
+        if (cache.TryGetValue(key, out _))
+        {
+            return false;
+        }
+
+        cache.Set(key, true, RevokedWebhookDeliveryLogWindow);
+        return true;
     }
 
     /// <summary>
