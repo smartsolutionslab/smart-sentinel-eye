@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, render, screen, within, fireEvent } from '@testing-library/react';
+import { act, render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { createMemoryRouter, RouterProvider, useParams } from 'react-router-dom';
 import { store } from '../../app/store.js';
 import type { ListOverlaysResponse, Overlay } from '@smart-sentinel-eye/shared/api/overlays.api';
 
@@ -1173,5 +1174,171 @@ describe('OverlaysPage — Edit draft (:209) stays native disabled, out of scope
     const editDraft = screen.getByRole('button', { name: /^edit draft$/i });
     expect(editDraft).toBeDisabled();
     expect(editDraft).not.toHaveAttribute('aria-disabled', 'true');
+  });
+});
+
+/**
+ * Spec 305 (#2350) FR-002, new behaviour, RED (ADR-0139/0144). `OverlaysPage`
+ * still opens `OverlayEditorDialog` for every one of these actions today —
+ * `setDialogOpen`/`setEditTarget`, never a navigation — so every assertion
+ * below fails on the URL never changing, not on a missing control (the
+ * dialog-opening tests above already cover the controls existing and being
+ * called correctly; this is additive, per plan.md's two-colour split, and
+ * leaves every test above unmodified).
+ *
+ * Rendered under a real router (`createMemoryRouter` + `RouterProvider`,
+ * mirroring `CameraDetailPageNavigation.test.tsx`) with stub destinations for
+ * the two new routes, so a navigation is observed by the URL and the
+ * destination's own rendered content actually changing — not by a mocked
+ * `useNavigate`.
+ */
+describe('OverlaysPage — navigating instead of opening a dialog (spec 305, #2350)', () => {
+  beforeEach(() => {
+    editDraftMock.mockClear();
+    branchMock.mockClear();
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+    branchState = { isLoading: false };
+    revertState = { isLoading: false };
+    listOverlaysMock.mockReset();
+  });
+
+  function StubNewOverlayPage() {
+    return <h1>New overlay (stub)</h1>;
+  }
+
+  function StubEditOverlayPage() {
+    const { overlayIdentifier, revisionNumber } = useParams();
+    return (
+      <h1>
+        Editing {overlayIdentifier} revision {revisionNumber} (stub)
+      </h1>
+    );
+  }
+
+  function renderPageWithRouter(initial = '/overlays') {
+    const router = createMemoryRouter(
+      [
+        { path: '/overlays', element: <OverlaysPage /> },
+        { path: '/overlays/new', element: <StubNewOverlayPage /> },
+        { path: '/overlays/:overlayIdentifier/revisions/:revisionNumber/edit', element: <StubEditOverlayPage /> },
+      ],
+      { initialEntries: [initial] },
+    );
+    render(
+      <Provider store={store}>
+        <RouterProvider router={router} />
+      </Provider>,
+    );
+    return router;
+  }
+
+  it('New overlay navigates to /overlays/new', async () => {
+    const user = userEvent.setup();
+    listOverlaysMock.mockReturnValue({
+      data: response([]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    const router = renderPageWithRouter();
+
+    await user.click(screen.getByRole('button', { name: /^new overlay$/i }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/overlays/new'));
+  });
+
+  it('Edit draft navigates directly to the edit URL for that revision, with no branch/POST request first', async () => {
+    const user = userEvent.setup();
+    listOverlaysMock.mockReturnValue({
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    const router = renderPageWithRouter();
+
+    await user.click(screen.getByRole('button', { name: /^edit draft$/i }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        '/overlays/11111111-1111-1111-1111-111111111111/revisions/1/edit',
+      ),
+    );
+    expect(branchMock).not.toHaveBeenCalled();
+    expect(editDraftMock).not.toHaveBeenCalled();
+  });
+
+  it('Edit (new draft) branches first, then navigates to the branched revision', async () => {
+    const user = userEvent.setup();
+    branchMock.mockResolvedValueOnce({ data: 9 });
+    listOverlaysMock.mockReturnValue({
+      data: response([
+        chain({
+          revisions: [
+            {
+              revisionIdentifier: 'r1',
+              revisionNumber: 1,
+              state: 'Published',
+              elements: chain().revisions[0]!.elements,
+              createdAt: '2026-05-27T10:00:00Z',
+              createdBy: '22222222-2222-2222-2222-222222222222',
+              publishedAt: '2026-05-28T10:00:00Z',
+              archivedAt: null,
+            },
+          ],
+        }),
+      ]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    const router = renderPageWithRouter();
+
+    await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe(
+        '/overlays/11111111-1111-1111-1111-111111111111/revisions/9/edit',
+      ),
+    );
+  });
+
+  it('A refused branch does not navigate; the page stays on /overlays', async () => {
+    const user = userEvent.setup();
+    branchMock.mockResolvedValueOnce({ error: { status: 409, data: { title: 'OVERLAY_REVISION_STALE' } } });
+    listOverlaysMock.mockReturnValue({
+      data: response([
+        chain({
+          revisions: [
+            {
+              revisionIdentifier: 'r1',
+              revisionNumber: 1,
+              state: 'Published',
+              elements: chain().revisions[0]!.elements,
+              createdAt: '2026-05-27T10:00:00Z',
+              createdBy: '22222222-2222-2222-2222-222222222222',
+              publishedAt: '2026-05-28T10:00:00Z',
+              archivedAt: null,
+            },
+          ],
+        }),
+      ]),
+      isLoading: false,
+      isFetching: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    const router = renderPageWithRouter();
+
+    await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(router.state.location.pathname).toBe('/overlays');
   });
 });
