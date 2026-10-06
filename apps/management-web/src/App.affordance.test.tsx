@@ -30,7 +30,7 @@ const authState = vi.hoisted(() => ({
   isLoading: false,
   isAuthenticated: false,
   error: undefined as Error | undefined,
-  user: undefined as { access_token: string } | undefined,
+  user: undefined as { access_token: string; profile: { sub: string } } | undefined,
 }));
 
 const sessionCallbacks = vi.hoisted(() => ({
@@ -54,6 +54,7 @@ vi.mock('react-oidc-context', () => ({
     isAuthenticated: authState.isAuthenticated,
     error: authState.error,
     user: authState.user,
+    events: { addUserLoaded: vi.fn(), removeUserLoaded: vi.fn() },
     signinRedirect: oidcMocks.signinRedirect,
     signinSilent: oidcMocks.signinSilent,
   }),
