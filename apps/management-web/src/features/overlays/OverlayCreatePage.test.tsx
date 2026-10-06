@@ -113,6 +113,11 @@ describe('OverlayCreatePage (spec 305, #2350, US2)', () => {
     await user.type(screen.getByLabelText(/name/i), 'Line-9 Title');
     await user.click(screen.getByRole('button', { name: /save as draft/i }));
 
+    // Phase-6 review nit N3: wait on the call that must have happened first,
+    // so a late (not actually absent) navigation can't accidentally satisfy
+    // the pathname check below.
+    await waitFor(() => expect(createDraftMock).toHaveBeenCalled());
+
     expect(await screen.findByTestId('chain-recovery-alert')).toHaveTextContent(/already taken/i);
     expect(router.state.location.pathname).toBe('/overlays/new');
   });
