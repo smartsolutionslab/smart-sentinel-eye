@@ -46,6 +46,7 @@ const { setAccessTokenProvider, setSessionRenewer, setOnSessionExpired } = await
   '@smart-sentinel-eye/shared/api/gateway'
 );
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
+const { useResetApiCachesOnSubjectChange } = await import('./useResetApiCachesOnSubjectChange.js');
 
 const ok = (body: CameraDetail) =>
   new Response(JSON.stringify(body), { status: 200, headers: { 'content-type': 'application/json' } });
@@ -111,6 +112,7 @@ function createManager(): UserManager {
  */
 function Gate({ cameraId }: { cameraId: string }) {
   const auth = useAuth();
+  useResetApiCachesOnSubjectChange();
 
   setAccessTokenProvider(() => auth.user?.access_token);
   setSessionRenewer(() =>
@@ -243,10 +245,14 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
     // only the refusal (spec.md US1 scenario 2).
     expect(screen.getByTestId('camera-name')).toHaveTextContent('none');
 
-    // Confirms the renewal actually happened and the retry carried its token
-    // (would only be reached once the assertion above holds).
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(authorizationOf(fetchMock.mock.calls[2]!)).toBe('Bearer B-TOKEN');
+    // Confirms the renewal actually happened and the retry carried its new
+    // token. Plan.md §4 test 5 asserts "the last request's Authorization is
+    // Bearer B-TOKEN" — not an exact call count. RTK Query 2.12's own hooks
+    // middleware resubscribes the still-mounted query when `resetApiCaches`
+    // clears its subscription, firing one extra real fetch beside gateway's
+    // explicit 401 retry (the "(and any resubscribe fetch 404)" case the
+    // plan already names) — so the total can be 3 or 4 depending on timing.
+    expect(authorizationOf(fetchMock.mock.calls.at(-1)!)).toBe('Bearer B-TOKEN');
   });
 
   // Plan.md §4 test 6 — expected RED on the second half only. An unload (no
