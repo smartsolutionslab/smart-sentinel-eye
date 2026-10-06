@@ -21,10 +21,12 @@ export interface OverlayEditorProps {
   value: OverlayLabel;
   onChange: (next: OverlayLabel) => void;
   /**
-   * Pixel-space backdrop the label is positioned over. Defaults to a
-   * 16:9 800x450 canvas — large enough to be usable, small enough to
-   * fit inside a Dialog. The fixed aspect ratio keeps normalized
-   * coordinates resolution-independent.
+   * Pixel-space backdrop the label is positioned over. Defaults to a 16:9
+   * 800x450 canvas — a caller with a measured size (spec 305, #2350,
+   * `useCanvasFit`) passes its own `widthPx`/`heightPx` here instead; this
+   * default is only what a caller with no measurement falls back to. The
+   * fixed aspect ratio keeps normalized coordinates resolution-independent
+   * either way.
    */
   canvasWidthPx?: number;
   canvasHeightPx?: number;
@@ -38,7 +40,7 @@ export interface OverlayEditorProps {
    */
   getToken?: () => Promise<string | null>;
   /**
-   * Spec 148 US1 + US3 — the caller (`OverlayEditorDialog`) owns the debounce
+   * Spec 148 US1 + US3 — the caller (`OverlayDraftForm`) owns the debounce
    * and the `useResolveOverlayTextQuery` call and passes the settled result
    * down as props, so this component stays Redux-free: it lives in
    * `apps/shared`, is consumed by two apps, and a shared presentational
@@ -322,7 +324,7 @@ export function OverlayEditor({
   // unchanged, and then clear this back to `null` (FR-014: "discarded when
   // the gesture ends" — spec.md:217).
   // `OverlayGeometryFields` then falls back to the `value` prop, which in the
-  // real, controlled `OverlayEditorDialog.tsx` (a `<Controller>`) is updated
+  // real, controlled `OverlayDraftForm.tsx` (a `<Controller>`) is updated
   // by this same `onChange` on the very next render, so the field keeps
   // reading correctly across the handoff.
   const [preview, setPreview] = useState<OverlayGeometry | null>(null);
@@ -671,7 +673,7 @@ export function OverlayEditor({
           above and the input grid below, so the label still precedes the
           text input in DOM order (`OverlayEditorKeyboard.test.tsx:103`).
           `type="button"` is mandatory: the editor renders inside
-          `OverlayEditorDialog`'s `<form>`, and a bare `<button>` would
+          `OverlayDraftForm`'s `<form>`, and a bare `<button>` would
           submit it.
 
           `aria-disabled`, not the native `disabled` attribute (phase 6
