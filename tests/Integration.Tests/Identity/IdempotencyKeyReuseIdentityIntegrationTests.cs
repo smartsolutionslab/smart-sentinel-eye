@@ -62,8 +62,8 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
             HttpStatusCode.UnprocessableEntity,
             "a key already used to create alpha must not be honoured for a different integration (beta): "
             + await DiagnoseAsync(second));
-        (await TitleOfAsync(second)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        TitleOf(secondBody).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not carry a client secret — today it discloses alpha's, mislabelled as beta's");
         (await ListWebhooksAsync(identity)).EnumerateArray().ShouldNotContain(
@@ -95,7 +95,7 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
             HttpStatusCode.UnprocessableEntity,
             "a key used for the create must not also answer the rotate — they are two different operations "
             + "under the same integration: " + await DiagnoseAsync(rotated));
-        (await TitleOfAsync(rotated)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
+        TitleOf(await rotated.Content.ReadFromJsonAsync<JsonElement>()).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
         JsonElement listed = await FindWebhookAsync(identity, name);
         listed.GetProperty("version").GetInt32().ShouldBe(
@@ -152,8 +152,8 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
             HttpStatusCode.UnprocessableEntity,
             "a key already used to register device one must not be honoured for device two: "
             + await DiagnoseAsync(second));
-        (await TitleOfAsync(second)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        TitleOf(secondBody).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not disclose device one's secret under device two's name");
         (await ListDevicesAsync(identity)).EnumerateArray().ShouldNotContain(
@@ -179,8 +179,8 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
             HttpStatusCode.UnprocessableEntity,
             "a key already used to enroll kiosk one must not be honoured for kiosk two: "
             + await DiagnoseAsync(second));
-        (await TitleOfAsync(second)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        TitleOf(secondBody).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not disclose kiosk one's secret under kiosk two's name");
         (await ListKiosksAsync(identity)).EnumerateArray().ShouldNotContain(
@@ -268,14 +268,16 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
     }
 
-    private static async Task<string?> TitleOfAsync(HttpResponseMessage response)
-    {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
-
-        return problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out JsonElement title)
+    /// <summary>
+    /// Takes an already-read body rather than the response, because
+    /// <see cref="HttpContent"/> cannot be read twice — a caller that also
+    /// needs other fields off the same body (e.g. <c>clientSecret</c>) must
+    /// read once and pass the parsed <see cref="JsonElement"/> to both.
+    /// </summary>
+    private static string? TitleOf(JsonElement problem) =>
+        problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out JsonElement title)
             ? title.GetString()
             : null;
-    }
 
     private async Task<string> DiagnoseAsync(HttpResponseMessage response) =>
         $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}"

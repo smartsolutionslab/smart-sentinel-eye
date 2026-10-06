@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -19,12 +20,17 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 /// caught this*).
 ///
 /// <para>
-/// <b>Every row here is damaged, never hand-inserted.</b> Registering once
+/// <b>Most rows here are damaged, never hand-inserted.</b> Registering once
 /// through the real endpoint and then backdating the row it wrote is what makes
 /// the recipe honest: <c>caller</c> is the operator identifier the endpoint
 /// derives from the bearer token, and a hand-written value would land the row
 /// in a different scope, leave the real claim untouched, and pass while
-/// proving nothing (<c>plan.md</c> §*Testability*).
+/// proving nothing (<c>plan.md</c> §*Testability*). The one exception is
+/// <see cref="SeedUnfinishedReservationAsync"/>, added for spec 302
+/// (#2424/#2492) — see its own doc comment for why that fact needs a row that
+/// was never completed in the first place, and why seeding it with the
+/// <i>correct</i> scope and fingerprint is not the wrong-scope hand-insert this
+/// paragraph warns against.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -33,6 +39,36 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     private const string Fab = "munich";
     private const string DresdenOperator = "op-dresden@dresden.test";
     private const string OperatorPassword = "Operator1234";
+    private const string CameraRtspUrl = "rtsp://camera.test/stream";
+
+    /// <summary>
+    /// <c>CameraCatalog.Api.CameraEndpoints</c>'s own <c>RegisterEndpoint</c>
+    /// constant, mirrored here because it is private to that class (and this
+    /// test project has no reference to <c>CameraCatalog.Api</c> — see
+    /// <see cref="SeedRegisterCameraRequest"/>) —
+    /// <see cref="SeedUnfinishedReservationAsync"/> needs the exact same
+    /// literal to seed a row <c>BeginAsync</c> would recognise.
+    /// </summary>
+    private const string RegisterCameraEndpoint = "POST /cameras";
+
+    /// <summary>
+    /// Mirrors <c>CameraCatalog.Api.Requests.RegisterCameraRequest</c>'s exact
+    /// shape — same property names, same declaration order — purely so
+    /// <see cref="IdempotencyFingerprint.Of{TRequest}"/> serialises it
+    /// byte-for-byte identically: the fingerprint envelope only ever sees the
+    /// serialised field values, never the CLR type name, so a type with the
+    /// same shape fingerprints the same. A local type rather than a
+    /// <c>ProjectReference</c> to <c>CameraCatalog.Api</c> — a project
+    /// dependency no other integration test here needs — keeps this test-only
+    /// fix test-side, consistent with every other fact in this file reaching
+    /// the system only over HTTP.
+    /// </summary>
+    private sealed record SeedRegisterCameraRequest
+    {
+        public required string Name { get; init; }
+
+        public required string RtspUrl { get; init; }
+    }
 
     /// <summary>
     /// T003 — the red case. Today the damaged row is still read back as
@@ -86,7 +122,20 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// identifier or answer <c>409</c> — both are acceptable outcomes for the
     /// loser. What must never happen is the one thing a plain <c>DO NOTHING</c>
     /// -&gt; <c>DO UPDATE</c> without the <c>SET</c> would allow: <b>both</b>
-    /// candidate names actually created.
+    /// concurrent attempts actually running the create.
+    /// </para>
+    ///
+    /// <para>
+    /// Spec 302 (#2424/#2492) forced both concurrent retries onto the <i>same</i>
+    /// name: a mismatched fingerprint is now refused before the stale/in-progress
+    /// logic this fact exists to exercise ever runs, so <c>candidateA</c>/
+    /// <c>candidateB</c> as two different names no longer reaches that logic at
+    /// all — see <see cref="SeedUnfinishedReservationAsync"/> for why the
+    /// reservation itself also had to stop going through the real endpoint. With
+    /// one shared name, "both ran the create" would surface as a domain-level
+    /// name conflict rather than two distinct cameras, so the proof is now: at
+    /// most one distinct identifier is ever created, and the name is registered
+    /// exactly once.
     /// </para>
     /// </summary>
     [Fact]
@@ -94,15 +143,12 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     {
         using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
         string key = NewKey();
-        string firstName = NewName();
-        string candidateA = NewName();
-        string candidateB = NewName();
+        string name = NewName();
 
-        await RegisterAsync(cameras, firstName, key);
-        await DamageToUnfinishedAsync(key, TimeSpan.FromMinutes(30));
+        await SeedUnfinishedReservationAsync(key, name, TimeSpan.FromMinutes(30));
 
-        Task<HttpResponseMessage> requestA = SendAsync(cameras, candidateA, key);
-        Task<HttpResponseMessage> requestB = SendAsync(cameras, candidateB, key);
+        Task<HttpResponseMessage> requestA = SendAsync(cameras, name, key);
+        Task<HttpResponseMessage> requestB = SendAsync(cameras, name, key);
         HttpResponseMessage[] responses = await Task.WhenAll(requestA, requestB);
 
         try
@@ -112,15 +158,30 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
                 $"both concurrent attempts must answer either 201 or 409, never an error: "
                 + $"{string.Join(", ", responses.Select(r => r.StatusCode))}");
 
-            string[] names = await NamesAsync(cameras);
-            bool createdA = names.Contains(candidateA);
-            bool createdB = names.Contains(candidateB);
+            Guid[] createdIdentifiers = new Guid[responses.Length];
+            int createdCount = 0;
+            foreach (HttpResponseMessage response in responses)
+            {
+                if (response.StatusCode == HttpStatusCode.Created)
+                {
+                    createdIdentifiers[createdCount++] =
+                        (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+                }
+            }
 
-            (createdA ^ createdB).ShouldBeTrue(
-                $"exactly one of the two concurrent reclaims must have run the work — "
-                + $"candidateA created: {createdA}, candidateB created: {createdB}. Both true is the "
-                + "double-application SET reserved_at = NOW() exists to prevent; both false means "
-                + "neither reclaimed a reservation that should have been reclaimable by one of them.");
+            createdIdentifiers.Take(createdCount).Distinct().Count().ShouldBe(
+                1,
+                "a 201 answer here is either the winner's own create or the loser's replay of it, so "
+                + "every 201 must carry the same identifier — two different identifiers would mean the "
+                + "create ran twice, the exact double-application SET reserved_at = NOW() exists to "
+                + "prevent.");
+
+            string[] names = await NamesAsync(cameras);
+            names.Count(registered => registered == name).ShouldBe(
+                1,
+                "exactly one concurrent reclaim must have run the create — the reservation was seeded "
+                + "unfinished with the name never previously registered, so one of the two attempts "
+                + "must have created it, and only once.");
         }
         finally
         {
@@ -142,20 +203,28 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
         string key = NewKey();
         string firstName = NewName();
-        string secondName = NewName();
 
         await RegisterAsync(cameras, firstName, key);
 
         await DamageToUnfinishedAsync(key, TimeSpan.FromSeconds(10));
 
-        using HttpResponseMessage response = await SendAsync(cameras, secondName, key);
+        // Spec 302 (#2424/#2492): the retry must present firstName, not a
+        // different name — a mismatched fingerprint is refused (422) before
+        // this fact's in-progress logic ever runs. Reusing firstName matches
+        // the seeded fingerprint, falls through to the in-progress check this
+        // fact exists to exercise, and — because in-progress never re-runs the
+        // create — never collides with firstName's already-registered camera.
+        using HttpResponseMessage response = await SendAsync(cameras, firstName, key);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe(IdempotencyHeaders.InProgressErrorCode);
 
-        (await NamesAsync(cameras)).ShouldNotContain(
-            secondName, "a still-live reservation must not let a second attempt through.");
+        string[] names = await NamesAsync(cameras);
+        names.Count(registered => registered == firstName).ShouldBe(
+            1,
+            "a still-live reservation must not let a second attempt through — the refusal must not have "
+            + "re-run the create and registered firstName a second time.");
     }
 
     /// <summary>
@@ -170,13 +239,15 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
         string key = NewKey();
         string firstName = NewName();
-        string secondName = NewName();
 
         Guid firstIdentifier = await RegisterAsync(cameras, firstName, key);
 
         await AgeCompletedReservationAsync(key, TimeSpan.FromDays(30));
 
-        using HttpResponseMessage response = await SendAsync(cameras, secondName, key);
+        // Spec 302 (#2424/#2492): the retry must present firstName, not a
+        // different name, or the fingerprint mismatch would refuse it (422)
+        // before the completed-replay logic this fact exercises ever runs.
+        using HttpResponseMessage response = await SendAsync(cameras, firstName, key);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         Guid replayedIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
@@ -185,9 +256,12 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
             "a completed key must be replayed no matter how old its reservation is — reclaiming a "
             + "completed row would turn a replayable answer back into a fresh registration.");
 
-        (await NamesAsync(cameras)).ShouldNotContain(
-            secondName, "the second body must never have been registered — that would be the key "
-            + "applying twice, which is the one thing it promises not to do.");
+        string[] names = await NamesAsync(cameras);
+        names.Count(registered => registered == firstName).ShouldBe(
+            1,
+            "the replay must never have re-run the create — the reused name must still be registered "
+            + "exactly once, not a second time, which would be the key applying twice, the one thing it "
+            + "promises not to do.");
     }
 
     /// <summary>
@@ -300,7 +374,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     {
         HttpRequestMessage request = new(HttpMethod.Post, $"/cameras?fabId={fabId}")
         {
-            Content = JsonContent.Create(new { name, rtspUrl = "rtsp://camera.test/stream" }),
+            Content = JsonContent.Create(new { name, rtspUrl = CameraRtspUrl }),
         };
 
         if (key is not null)
@@ -348,6 +422,86 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
              WHERE key = {0};
             """,
             key, age);
+    }
+
+    /// <summary>
+    /// Spec 302 (#2424/#2492) phase-6 review — a third damage recipe, needed
+    /// only by <see cref="Two_concurrent_reclaims_of_one_stale_reservation_only_one_wins"/>.
+    ///
+    /// <para>
+    /// <see cref="DamageToUnfinishedAsync"/> simulates "crashed before
+    /// completing" by actually completing the create (through the real
+    /// endpoint) and then unwinding the row's columns — the camera it created
+    /// still exists even though the row claims otherwise. That dishonesty
+    /// never mattered before, because every retry deliberately used a
+    /// <i>different</i> name from the original reservation. The fingerprint
+    /// mismatch check this spec adds now refuses any retry whose body does not
+    /// match the original before the stale/in-progress logic ever runs, so the
+    /// concurrent-reclaim fact's two retries must present the <b>same</b> name
+    /// as the reservation they are racing to reclaim — and that name is already
+    /// a real, registered camera under <c>DamageToUnfinishedAsync</c>'s recipe,
+    /// which would make the winning reclaim's create collide with
+    /// <c>ux_cameras_fab_name_normalized_active</c> instead of answering 201.
+    /// </para>
+    ///
+    /// <para>
+    /// A row that was truly never completed never ran the create in the first
+    /// place, so this seeds the row directly — with the exact <c>(key,
+    /// endpoint, caller)</c> scope and the <c>fab</c>/<c>request_fingerprint</c>
+    /// a real <c>BeginAsync</c> would have written for this request (computed
+    /// with the production <see cref="IdempotencyFingerprint.Of{TRequest}"/>
+    /// hashing pipeline, never hand-rolled — see
+    /// <see cref="SeedRegisterCameraRequest"/> for why its input is a local
+    /// mirror type rather than the real <c>RegisterCameraRequest</c>),
+    /// <c>resource_identifier = NULL</c>,
+    /// <c>completed_at = NULL</c>, and a backdated <c>reserved_at</c> — without
+    /// ever calling the real endpoint first. The name is therefore free for
+    /// whichever concurrent retry wins the race to create for the first time,
+    /// which is a more honest model of "crashed before completing" than
+    /// <see cref="DamageToUnfinishedAsync"/>'s recipe, not a shortcut around it.
+    /// This is not the wrong-scope hand-insert this file's own doc comment
+    /// warns against — the scope and fingerprint are exactly what the real
+    /// endpoint would have written.
+    /// </para>
+    /// </summary>
+    private async Task SeedUnfinishedReservationAsync(string key, string name, TimeSpan age)
+    {
+        string token = await aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+
+        // Guid.Parse + ToString(), not the raw claim string: CameraEndpoints'
+        // ResolveOperator parses the subject into a Guid and stores
+        // registeredBy.Value.ToString()'s canonical lowercase-hyphenated
+        // format, which need not match the raw JWT claim's own casing.
+        string caller = Guid.Parse(SubjectOf(token)).ToString();
+
+        SeedRegisterCameraRequest request = new() { Name = name, RtspUrl = CameraRtspUrl };
+        string fingerprint = IdempotencyFingerprint.Of(request).Value;
+
+        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO idempotency_key
+                (key, endpoint, caller, resource_identifier, reserved_at, completed_at, fab, request_fingerprint)
+            VALUES
+                ({0}, {1}, {2}, NULL, NOW() - {3}, NULL, {4}, {5});
+            """,
+            key, RegisterCameraEndpoint, caller, age, Fab, fingerprint);
+    }
+
+    /// <summary>
+    /// The admin token's subject claim — the same value <c>ResolveOperator</c>
+    /// turns into the <c>caller</c> column, needed by
+    /// <see cref="SeedUnfinishedReservationAsync"/> to seed a row under the
+    /// exact scope a real reservation for this token would use.
+    /// </summary>
+    private static string SubjectOf(string token)
+    {
+        JwtSecurityTokenHandler handler = new() { MapInboundClaims = false };
+
+        return handler.ReadJwtToken(token).Claims
+            .First(claim => string.Equals(claim.Type, "sub", StringComparison.Ordinal))
+            .Value;
     }
 
     /// <summary>
