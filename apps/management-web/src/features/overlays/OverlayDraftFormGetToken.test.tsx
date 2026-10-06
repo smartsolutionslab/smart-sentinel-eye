@@ -45,12 +45,12 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/OverlayEditor', () => ({
   },
 }));
 
-const { OverlayEditorDialog } = await import('./OverlayEditorDialog.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
 
 function dialogTree() {
   return (
     <Provider store={store}>
-      <OverlayEditorDialog open={true} onOpenChange={() => {}} />
+      <OverlayDraftForm onDone={() => {}} onCancel={() => {}} />
     </Provider>
   );
 }

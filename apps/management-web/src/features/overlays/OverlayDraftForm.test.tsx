@@ -4,8 +4,7 @@ import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
 import { store } from '../../app/store.js';
-import type { OverlayTextElement } from '@smart-sentinel-eye/shared/api/overlays.api';
-import type { OverlayEditTarget } from './OverlayEditorDialog.js';
+import type { OverlayEditTarget } from './OverlayDraftForm.js';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
 const editDraftMock = vi.fn(async (_body: unknown) => ({ data: 1 }));
@@ -104,12 +103,12 @@ beforeEach(() => {
   useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
 });
 
-const { OverlayEditorDialog } = await import('./OverlayEditorDialog.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
 
 function renderDialog(editTarget?: OverlayEditTarget, onOpenChange: (open: boolean) => void = () => {}) {
   return render(
     <Provider store={store}>
-      <OverlayEditorDialog open={true} onOpenChange={onOpenChange} editTarget={editTarget} />
+      <OverlayDraftForm editTarget={editTarget} onDone={() => onOpenChange(false)} onCancel={() => onOpenChange(false)} />
     </Provider>,
   );
 }
@@ -237,18 +236,19 @@ describe('OverlayEditorDialog — edit', () => {
     };
   });
 
-  it('Seeds the label field from the target, hides the Name field, and titles the dialog for that revision', () => {
+  // Spec 305 (#2350), plan.md §Phase 4a: the title/"draft v1 of Line-1
+  // Title" description assertions this test used to carry are dropped here,
+  // not edited — that text is `OverlayEditorDialog`'s own `title`/
+  // `description` props (plan.md "title/description/reset-on-close stay
+  // here"), never part of the extracted form body, so it is not observable
+  // by rendering `OverlayDraftForm` directly. `OverlayEditorDialog.tsx`
+  // itself is retired at T012 in this same PR, so that two-line ternary gets
+  // no replacement suite of its own.
+  it('Seeds the label field from the target and hides the Name field', () => {
     renderDialog(EDIT_TARGET);
 
     expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
     expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 1');
-    expect(screen.getByText(/^edit overlay draft$/i)).toBeInTheDocument();
-
-    // FR-008: the description names the revision AND the overlay, because on
-    // a chain with two drafts there are two revisions' worth of ambiguity
-    // about which one is about to be overwritten.
-    const description = screen.getByText(/draft v1/i);
-    expect(description.textContent).toContain('Line-1 Title');
   });
 
   it(
@@ -471,52 +471,17 @@ describe('OverlayEditorDialog — edit', () => {
   });
 
   /**
-   * Phase-6 review finding, new behaviour, RED. `OverlaysPage` keeps the edit
-   * dialog permanently mounted and drives `open`/`editTarget` together
-   * (`open={editTarget !== undefined}`), so a close and a reopen on a
-   * *different* draft is exactly A→undefined→B on this one component — not
-   * an unmount and a fresh mount.
-   *
-   * The reset effect (`OverlayEditorDialog.tsx:98-100`) keys on `open`, which
-   * changes in lockstep with `isEdit`: on close `isEdit` has already gone
-   * false, so `resetMutationState` resolves to `createState.reset` and the
-   * refused *edit* mutation's error is never cleared. This mock's `reset`
-   * functions are behavioural for exactly this reason (see the vi.mock
-   * factory above) — a `vi.fn()` that does nothing cannot fail this test
-   * either way.
+   * Spec 305 (#2350), plan.md §Phase 4a. Retired here, not re-hosted: this
+   * test drove `OverlayEditorDialog` through `open={false}` then `open={true}`
+   * on one mounted instance (the dialog's own A→undefined→B pattern) to prove
+   * its close-resets-mutation-state effect worked. `OverlayDraftForm` has no
+   * `open` prop — a fresh mount per target is now what provides the same
+   * guarantee (see `OverlayDraftForm.tsx`'s cleanup-on-unmount effect) — so
+   * this mechanism-specific test has no equivalent here. The dialog's own
+   * A→undefined→B retention case (a different defect: `data` vs `currentData`
+   * surviving an argument change) is re-pinned on the route directly in
+   * `OverlayEditPageNavigation.test.tsx`.
    */
-  it('Does not carry a refused edit banner over to a different draft after closing', async () => {
-    editError = {
-      status: 409,
-      data: { title: 'OVERLAY_REVISION_NOT_DRAFT', detail: 'Revision 1 of Line-1 Title is no longer a draft.' },
-    };
-    const { rerender } = renderDialog(EDIT_TARGET);
-    expect(await screen.findByTestId('chain-recovery-alert')).toBeInTheDocument();
-
-    // Close — `open` and `editTarget` fall together, as OverlaysPage.tsx
-    // always drives them.
-    rerender(
-      <Provider store={store}>
-        <OverlayEditorDialog open={false} onOpenChange={() => {}} editTarget={undefined} />
-      </Provider>,
-    );
-
-    const OTHER_TARGET: OverlayEditTarget = {
-      overlayIdentifier: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
-      revisionNumber: 4,
-      name: 'Line-2 Title',
-      elements: [{ ...(EDIT_TARGET.elements[0] as OverlayTextElement), text: 'Line 4' }],
-    };
-    // Reopen on an unrelated draft that was never refused.
-    rerender(
-      <Provider store={store}>
-        <OverlayEditorDialog open={true} onOpenChange={() => {}} editTarget={OTHER_TARGET} />
-      </Provider>,
-    );
-
-    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Line 4');
-    expect(screen.queryByTestId('chain-recovery-alert')).not.toBeInTheDocument();
-  });
 
   /**
    * Spec 300 (#2349) FR-019, new behaviour, RED (ADR-0139). The dialog must
@@ -736,15 +701,19 @@ describe('Frame capture (spec 147)', () => {
     });
   }
 
-  function ControlledDialog() {
-    const [open, setOpen] = useState(true);
-    return <OverlayEditorDialog open={open} onOpenChange={setOpen} />;
+  // The dialog's own `open`-driven unmount, expressed without a `Dialog`:
+  // `onCancel`/`onDone` both drop the form from the tree, the same way
+  // closing the dialog let Radix's `Presence` unmount it.
+  function ControlledForm() {
+    const [mounted, setMounted] = useState(true);
+    if (!mounted) return null;
+    return <OverlayDraftForm onDone={() => setMounted(false)} onCancel={() => setMounted(false)} />;
   }
 
   function renderControlledDialog() {
     return render(
       <Provider store={store}>
-        <ControlledDialog />
+        <ControlledForm />
       </Provider>,
     );
   }
