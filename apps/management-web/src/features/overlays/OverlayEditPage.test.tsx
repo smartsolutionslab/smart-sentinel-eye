@@ -264,7 +264,13 @@ describe('OverlayEditPage — seeding and the four notice states (spec 305, #235
   it('Shows a RetryBanner on a failed read, and Retry re-issues it', async () => {
     const user = userEvent.setup();
     const refetchChainMock = vi.fn();
-    chainQueryState = { currentData: undefined, isFetching: false, isError: true, error: { status: 500 }, refetch: refetchChainMock };
+    chainQueryState = {
+      currentData: undefined,
+      isFetching: false,
+      isError: true,
+      error: { status: 500 },
+      refetch: refetchChainMock,
+    };
 
     renderEditPage(OVERLAY_ID, '1');
 

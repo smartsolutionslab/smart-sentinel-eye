@@ -108,7 +108,11 @@ const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
 function renderDialog(editTarget?: OverlayEditTarget, onOpenChange: (open: boolean) => void = () => {}) {
   return render(
     <Provider store={store}>
-      <OverlayDraftForm editTarget={editTarget} onDone={() => onOpenChange(false)} onCancel={() => onOpenChange(false)} />
+      <OverlayDraftForm
+        editTarget={editTarget}
+        onDone={() => onOpenChange(false)}
+        onCancel={() => onOpenChange(false)}
+      />
     </Provider>,
   );
 }
