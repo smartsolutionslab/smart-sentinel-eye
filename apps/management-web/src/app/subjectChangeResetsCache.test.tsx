@@ -6,7 +6,7 @@ import { AuthProvider, useAuth } from 'react-oidc-context';
 import { UserManager, User, WebStorageStateStore } from 'oidc-client-ts';
 import type { CameraDetail } from '@smart-sentinel-eye/shared/api/cameras.api';
 
-// Spec 303 (#2524) T001 — RED.
+// Spec 303 (#2524).
 //
 // This file drives the real `AuthProvider` + `UserManager` dispatch, the real
 // gateway's 401-retry/renewal path, and a real RTK Query cache, exactly as
@@ -16,27 +16,10 @@ import type { CameraDetail } from '@smart-sentinel-eye/shared/api/cameras.api';
 // fix introduces. A mocked `useAuth`/`useGetCameraQuery` could not see it,
 // for the same reason `App.test.tsx` cannot (see that file's own comment).
 //
-// Deliberately, this file does NOT import `createSubjectWatcher` or
-// `useResetApiCachesOnSubjectChange` — both are new files plan.md §1
-// describes but T001 must not create (ADR-0139/0144: tests only). Vite's
-// import-analysis statically resolves every import, dynamic or static,
-// before a single test in the file runs; importing either nonexistent
-// module collapses the WHOLE file to "0 tests" (verified directly: see this
-// task's report). That would make every scenario here report as a
-// collection failure, including plan.md §4 test 4's "same-subject renewal"
-// guard, which the plan requires to be independently observed GREEN before
-// the fix. So the `Gate` probe below mirrors today's REAL `AuthGate`
-// (`App.tsx`'s three setters) with nothing added — which is also exactly
-// what spec.md §5's own acceptance test describes: it never names the hook
-// either, only the OIDC/gateway/RTK Query mechanics. See this task's report
-// for the full reasoning and the two Vitest runs that prove the import
-// behaviour above; it is flagged there as a discrepancy against plan.md's
-// literal wording ("mirrors AuthGate's three setters and the new hook") for
-// the architect/orchestrator to settle. Once wired, the implementer's hook
-// still needs a call site IN THIS Gate for scenarios 5/6 below to turn
-// green — that one-line addition is forward-wiring parity with production
-// `AuthGate`, not a test assertion change, but it is a real gap this report
-// calls out rather than silently papering over.
+// The `Gate` probe below mirrors production `AuthGate` (`App.tsx`'s three
+// setters, plus the hook under test) rather than importing `AuthGate`
+// itself, so this file is not coupled to `App.tsx`'s routing/session-expiry
+// chrome — only to the auth wiring spec.md §5's acceptance test describes.
 //
 // gateway.ts resolves its origin once at module load; stub it before
 // importing anything that touches it, same as staleBearerRetry.test.tsx and
@@ -198,17 +181,19 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
     expect(screen.queryByTestId('camera-error')).not.toBeInTheDocument();
   });
 
-  // Plan.md §4 test 5 — expected RED. Today's real defect: a renewal that
-  // resolves to a different subject does not clear anything, so RTK Query
-  // keeps A's stale `data` sitting next to the new error.
+  // Plan.md §4 test 5. Covers the reachable-today path: a renewal that
+  // resolves to a different subject must clear the stale camera before the
+  // gateway's 401 retry lands.
   it('A renewal that resolves to a different subject clears the stale camera on the 401 retry', async () => {
     const manager = createManager();
     await manager.storeUser(userWith('A-TOKEN', 'operator-a'));
 
     fetchMock.mockResolvedValueOnce(ok(cameraRecord('camera-switch', 'Camera A View')));
 
+    const store = createStore();
+
     render(
-      <Provider store={createStore()}>
+      <Provider store={store}>
         <AuthProvider userManager={manager}>
           <Gate cameraId="camera-switch" />
         </AuthProvider>
@@ -218,11 +203,20 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
     expect(await screen.findByTestId('camera-name')).toHaveTextContent('Camera A View');
 
     // The only stub in this test, and the only reason it exists is to avoid a
-    // network round trip to a real Keycloak: these are the exact two
-    // statements oidc-client-ts performs before resolving a renewal
-    // (`staleBearerRetry.test.tsx:120-131`). `events.load` raises the
-    // library's own `userLoaded` event, synchronously, exactly as the real
-    // library does — nothing about the ordering is faked.
+    // network round trip to a real Keycloak: these are the two statements
+    // oidc-client-ts's own silent-renewal path performs once a renewal is
+    // accepted (`staleBearerRetry.test.tsx:120-131`). This is a SIMPLIFIED
+    // simulation of a subject change, not a faithful replica of
+    // `signinSilent`'s full validation: the real library's refresh-token path
+    // defaults `validateSubOnSilentRenew` to `true` and rejects a genuinely
+    // different `sub` before ever raising `userLoaded` (security review,
+    // #2524 — see `auth.test.ts`'s guard and spec.md §2). This stub bypasses
+    // that check on purpose, to exercise this hook's defense-in-depth for the
+    // OIDC flows where a real subject change over `userLoaded` IS reachable
+    // (`signinPopup`, `signinResourceOwnerCredentials`, or a future/accidental
+    // `validateSubOnSilentRenew: false`) without standing up one of those
+    // flows end to end. `events.load` itself does raise the library's own
+    // `userLoaded` event synchronously, same as the real library.
     manager.signinSilent = vi.fn(async () => {
       const userB = userWith('B-TOKEN', 'operator-b');
       await manager.storeUser(userB);
@@ -231,8 +225,29 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
     });
 
     // The retry's refetch: 401 first (the token A still holds), then 404
-    // under B's bearer (B may not see camera "camera-switch").
-    fetchMock.mockResolvedValueOnce(unauthorized()).mockResolvedValueOnce(notFound());
+    // under B's bearer (B may not see camera "camera-switch"). Any further
+    // call (e.g. RTK Query's own resubscribe) gets a default 404 too, rather
+    // than an unstubbed `undefined` surfacing as an accidental fetch error.
+    fetchMock
+      .mockResolvedValueOnce(unauthorized())
+      .mockImplementationOnce(() => {
+        // Proves the reset landed BEFORE the retry went out, not merely that
+        // the end state eventually converges (frontend review, #2524): a
+        // render-effect design watching `auth.user` instead of the
+        // `userLoaded` event would still pass the end-state assertions below,
+        // because the retry/resubscribe cycle still converges — but it would
+        // let this retry go out while the cache still held A's record.
+        const state = store.getState() as Record<
+          string,
+          { queries: Record<string, { data?: { name?: string } } | undefined> } | undefined
+        >;
+        const staleUnderA = Object.values(state[camerasApi.reducerPath]?.queries ?? {}).some(
+          (entry) => entry?.data?.name === 'Camera A View',
+        );
+        expect(staleUnderA).toBe(false);
+        return Promise.resolve(notFound());
+      });
+    fetchMock.mockResolvedValue(notFound());
 
     fireEvent.click(screen.getByTestId('refetch'));
 
@@ -240,9 +255,9 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
       expect(screen.getByTestId('camera-error')).toBeInTheDocument();
     });
 
-    // RED today: the cache was never reset ahead of the retry, so A's name is
-    // still rendered right next to the refusal, where an operator should see
-    // only the refusal (spec.md US1 scenario 2).
+    // The cache was reset ahead of the retry, so A's name is no longer
+    // rendered next to the refusal — an operator sees only the refusal
+    // (spec.md US1 scenario 2).
     expect(screen.getByTestId('camera-name')).toHaveTextContent('none');
 
     // Confirms the renewal actually happened and the retry carried its new
@@ -255,9 +270,62 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
     expect(authorizationOf(fetchMock.mock.calls.at(-1)!)).toBe('Bearer B-TOKEN');
   });
 
-  // Plan.md §4 test 6 — expected RED on the second half only. An unload (no
-  // subject) must not reset anything (FR-004); a later load with a genuinely
-  // different subject must.
+  // Phase-6 review (security, #2524): the scenario above goes through a 401,
+  // where the OLD token is already known-bad. This scenario proves the fix
+  // also holds when the old token is still VALID — reachable without any
+  // 401 at all (`signinPopup`, `signinResourceOwnerCredentials`, or a
+  // misconfigured `validateSubOnSilentRenew: false`) — so a resubscribe fetch
+  // firing in the gap between the `userLoaded` event and `AuthGate`'s own
+  // re-render cannot ride out under the previous subject's bearer and land
+  // back in the cache this hook just cleared.
+  it('A subject change with no 401 never lets a resubscribe fetch carry the old bearer', async () => {
+    const manager = createManager();
+    await manager.storeUser(userWith('A-TOKEN', 'operator-a'));
+
+    fetchMock.mockResolvedValueOnce(ok(cameraRecord('camera-leak', 'Camera A View')));
+
+    render(
+      <Provider store={createStore()}>
+        <AuthProvider userManager={manager}>
+          <Gate cameraId="camera-leak" />
+        </AuthProvider>
+      </Provider>,
+    );
+
+    expect(await screen.findByTestId('camera-name')).toHaveTextContent('Camera A View');
+
+    const callsBeforeChange = fetchMock.mock.calls.length;
+    // No 401 is ever queued for this test: A's token is still valid. Any
+    // call that reaches the mock unstubbed gets this default instead of an
+    // accidental fetch error.
+    fetchMock.mockResolvedValue(notFound());
+
+    const userB = userWith('B-TOKEN', 'operator-b');
+    await act(async () => {
+      await manager.storeUser(userB);
+      // Raised directly, with no 401 and no `signinSilent` stub involved —
+      // the path a `signinPopup` or `signinResourceOwnerCredentials` renewal
+      // would take, and the one a misconfigured
+      // `validateSubOnSilentRenew: false` would also take.
+      await manager.events.load(userB);
+    });
+
+    await waitFor(() => {
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(callsBeforeChange);
+    });
+
+    // Every request issued after the subject change — including any
+    // RTK-Query-driven resubscribe fetch — must carry B's bearer. None may
+    // carry A's: that would be the previous subject's token reaching the
+    // network after the cache was supposedly cleared for them.
+    for (const call of fetchMock.mock.calls.slice(callsBeforeChange)) {
+      expect(authorizationOf(call)).not.toBe('Bearer A-TOKEN');
+      expect(authorizationOf(call)).toBe('Bearer B-TOKEN');
+    }
+  });
+
+  // Plan.md §4 test 6. An unload (no subject) must not reset anything
+  // (FR-004); a later load with a genuinely different subject must.
   it('Unloading the user resets nothing, but a later load with a different subject does', async () => {
     const manager = createManager();
     await manager.storeUser(userWith('A-TOKEN', 'operator-a'));
@@ -289,8 +357,8 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
       await manager.events.load(userB);
     });
 
-    // RED today: a later load with a DIFFERENT subject should count as a
-    // change from A and clear the cache, but nothing resets anything yet.
+    // A later load with a DIFFERENT subject counts as a change from A and
+    // clears the cache.
     await waitFor(() => {
       expect(screen.getByTestId('camera-name')).toHaveTextContent('none');
     });

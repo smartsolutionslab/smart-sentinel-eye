@@ -2,16 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { createSubjectWatcher } from './subjectWatcher.js';
 
 /**
- * Spec 303 (#2524) T001 — RED.
+ * Spec 303 (#2524).
  *
  * `createSubjectWatcher` is the pure decision at the centre of the fix:
  * "does this OIDC `profile.sub` count as a change from the last one this page
  * load has seen?" It remembers the last *defined* subject and tells its
  * caller only when a newly observed, defined subject differs from it.
- *
- * `./subjectWatcher.ts` does not exist yet (plan.md §1, §4 test 1) — this
- * whole file is expected to fail to resolve its import until T002 creates it.
- * That is the acceptable compile-error red for a pure helper (ADR-0139).
  */
 describe('createSubjectWatcher (spec 303, #2524)', () => {
   it('Records the first defined subject silently — no callback on the first sighting', () => {
