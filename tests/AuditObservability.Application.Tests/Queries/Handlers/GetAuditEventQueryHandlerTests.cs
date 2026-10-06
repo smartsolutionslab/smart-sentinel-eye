@@ -39,4 +39,23 @@ public class GetAuditEventQueryHandlerTests
         result.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
         ((GetAuditEventError.AuditEventNotFound)result.Error).AuditIdentifier.ShouldBe(missing);
     }
+
+    // Spec 306 (#2540) — the wire value must be exactly the enum name
+    // ("NotApplicable"), not a different casing or a serialiser default.
+    [Fact]
+    public async Task The_returned_row_carries_its_fab_attribution_by_name()
+    {
+        AuditEventEntity row = new AuditEventBuilder()
+            .WithFab(null)
+            .WithFabScope(FabScope.Neutral)
+            .Build();
+        TestAuditEventQuerySource source = new([row]);
+        GetAuditEventQueryHandler handler = new(source);
+
+        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(
+            new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.FabAttribution.ShouldBe("NotApplicable");
+    }
 }

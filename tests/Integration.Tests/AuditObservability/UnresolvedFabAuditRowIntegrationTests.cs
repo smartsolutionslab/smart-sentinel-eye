@@ -98,6 +98,32 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
             + $"later row fab={arranged.NullFabRow.GetProperty("fab")}");
     }
 
+    // Spec 306 (#2540) SC-1/SC-2 — the marker that distinguishes "fab-owned
+    // but unresolved" from "genuinely fab-neutral" (see also
+    // NeutralFabRetentionRowIntegrationTests, which pins the contrasting
+    // NotApplicable case on the same null fab: null).
+    [Fact]
+    public async Task The_null_fab_health_row_is_marked_unresolved()
+    {
+        Arrangement arranged = await ArrangedAsync();
+
+        arranged.NullFabRow.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
+        arranged.NullFabRow.GetProperty("fabAttribution").GetString().ShouldBe("Unresolved",
+            "SC-1 (spec 306): StreamHealthChangedV1 is fab-owned, so a null fab here means the fab "
+            + "failed to resolve, not that the row has no fab dimension");
+    }
+
+    [Fact]
+    public async Task The_same_cameras_earlier_row_is_marked_resolved()
+    {
+        Arrangement arranged = await ArrangedAsync();
+
+        arranged.MunichRow.GetProperty("fab").GetString().ShouldBe("munich");
+        arranged.MunichRow.GetProperty("fabAttribution").GetString().ShouldBe("Resolved",
+            "SC-2 (spec 306) control: the earlier, fab-carrying row is Resolved, proving the marker "
+            + "isn't a constant across every row this arrangement produces");
+    }
+
     [Fact]
     public async Task The_fab_scoped_timeline_returns_the_null_fab_row()
     {
@@ -138,17 +164,19 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     /// <summary>
-    /// SC-5. <b>This records the current, undecided exposure — it is not a
-    /// requirement that this stay true.</b> #2517 asks a human to decide
-    /// whether a fab-owned resource may legitimately record a null fab; this
-    /// fact is one of the two read paths that make the answer "yes, and
-    /// readable by anyone" today (see also
-    /// <see cref="Get_single_returns_the_null_fab_row_to_another_fabs_operator"/>).
-    /// Whichever way #2540 resolves that question, a fix that excludes a
-    /// null-fab row from the unscoped search turns this fact red. <b>That red is the fix landing, not a
-    /// regression</b> — per ADR-0144 this delivery cannot weaken the
-    /// assertion to pre-empt it, so update this comment (not the assertion)
-    /// to point at the closed decision when that day comes.
+    /// SC-5. <b>Records the current exposure, which #2540 deliberately kept.</b>
+    /// #2540 was settled by labelling, not by closing: a null-fab row now carries
+    /// <c>fabAttribution</c> — <c>Unresolved</c> for a fab-owned resource whose fab
+    /// nobody resolved (this row), <c>NotApplicable</c> for a genuinely fab-neutral
+    /// one — so the two meanings of <c>Fab == null</c> are no longer one column
+    /// value (spec 306). What the unscoped search returns, and to whom, did not
+    /// change. A later fix that withholds <c>Unresolved</c> rows from other fabs'
+    /// operators turns this fact red; <b>that red is the fix landing, not a
+    /// regression</b> — update this comment, not the assertion, and name that
+    /// issue. Such a fix must key on <c>fabAttribution</c>, never on
+    /// <c>Fab == null</c> alone, which would also hide the <c>NotApplicable</c>
+    /// rows #1300 made visible. See also
+    /// <see cref="Get_single_returns_the_null_fab_row_to_another_fabs_operator"/>.
     /// </summary>
     [Fact]
     public async Task An_unscoped_search_returns_the_null_fab_row_to_another_fabs_operator()
@@ -179,18 +207,17 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     }
 
     /// <summary>
-    /// SC-6 / F0. <b>This records the current, undecided exposure — it is not
-    /// a requirement that this stay true.</b> <c>GetSingle</c> skips
-    /// <c>IFabAuthorizationGuard</c> entirely when a row's fab is null
-    /// (<c>AuditEndpoints.cs</c>), so today any <c>sse.audit.read</c> holder
-    /// who has the audit identifier reads it, whatever fab the underlying
-    /// resource belongs to. #2517 asks a human to decide whether that
-    /// conflation is acceptable; whichever way #2540 resolves it, a fix that
-    /// adds a guard here (or resolves the fab before returning) turns this
-    /// fact red. <b>That red is the fix
-    /// landing, not a regression</b> — per ADR-0144 this delivery cannot
-    /// weaken the assertion to pre-empt it, so update this comment (not the
-    /// assertion) to point at the closed decision when that day comes.
+    /// SC-6 / F0. <b>Records the current exposure, which #2540 deliberately
+    /// kept.</b> <c>GetSingle</c> still skips <c>IFabAuthorizationGuard</c> when a
+    /// row's fab is null (<c>AuditEndpoints.cs</c>), so any <c>sse.audit.read</c>
+    /// holder with the audit identifier reads it, whatever fab the underlying
+    /// resource belongs to. #2540 was settled by labelling (spec 306): this row now
+    /// says <c>fabAttribution: Unresolved</c>, distinguishing it from a genuinely
+    /// fab-neutral <c>NotApplicable</c> row, but who may read it did not change. A
+    /// later fix that guards <c>Unresolved</c> rows here (or resolves their fab)
+    /// turns this fact red; <b>that red is the fix landing, not a regression</b> —
+    /// update this comment, not the assertion, and name that issue. Key such a fix
+    /// on <c>fabAttribution</c>, not on <c>Fab == null</c>.
     /// </summary>
     [Fact]
     public async Task Get_single_returns_the_null_fab_row_to_another_fabs_operator()

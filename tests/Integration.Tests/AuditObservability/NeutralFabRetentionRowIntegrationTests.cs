@@ -83,6 +83,34 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
             + "so the null fab on the chunk announcement is not an artefact of a broken pipeline");
     }
 
+    // Spec 306 (#2540) SC-3/SC-4 — the counterfactual that matters: this
+    // class's Announcement and UnresolvedFabAuditRowIntegrationTests'
+    // NullFabRow both carry fab: null, but a genuinely neutral row is
+    // NotApplicable while a fab-owned row whose fab failed to resolve is
+    // Unresolved. Neither assertion can pass against a marker that is a
+    // constant.
+    [Fact]
+    public async Task The_archived_chunks_announcement_is_marked_not_applicable()
+    {
+        Arrangement arranged = await ArrangedAsync();
+
+        arranged.Announcement.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
+        arranged.Announcement.GetProperty("fabAttribution").GetString().ShouldBe("NotApplicable",
+            "SC-3 (spec 306): AuditChunkArchivedV1 is fab-neutral by construction (spec 217 F1), "
+            + "distinguishing it from a fab-owned row whose fab failed to resolve");
+    }
+
+    [Fact]
+    public async Task The_fab_carrying_row_in_the_same_window_is_marked_resolved()
+    {
+        Arrangement arranged = await ArrangedAsync();
+
+        arranged.FabCarryingRow.GetProperty("fab").GetString().ShouldBe("munich");
+        arranged.FabCarryingRow.GetProperty("fabAttribution").GetString().ShouldBe("Resolved",
+            "SC-4 (spec 306) control: a real fab in the same run is Resolved, proving the marker "
+            + "isn't a constant across every row this arrangement produces");
+    }
+
     [Fact]
     public async Task The_neutral_announcement_is_reachable_from_a_fab_scoped_timeline()
     {
