@@ -75,15 +75,21 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     /// The same caller, the same key, a <b>different</b> body.
     ///
     /// <para>
-    /// ADR-0142 makes a key mean "this operation, at most once" — so the second
-    /// request is a replay and the second kind is never registered, silently.
-    /// That is the documented behaviour and this test pins it; it is also a
-    /// sharp edge an operator scripting registrations with a fixed key will
-    /// meet, and <c>spec.md</c> FR-008 does not mention it.
+    /// <b>Inverted by spec 302 (#2424), deliberately, not deleted</b>
+    /// (spec.md §"A test pins the defect as intended behaviour", FR-009). This
+    /// test used to assert that the second request replayed the first — ADR-0142
+    /// read literally as "same key returns the same answer" was compatible with
+    /// that, which is how it came to be pinned as documented behaviour. The
+    /// human decision recorded on #2424/#2492 is that a key names <i>one</i>
+    /// request: reusing it for a different one must be refused, never replayed,
+    /// because the same shape elsewhere discloses another request's live
+    /// secret (the webhook-rotation exploit #2424 is named for). This assertion
+    /// is strictly stronger than the one it replaces, per ADR-0144's rule that a
+    /// deliberate, cited behaviour change is not a weakened gate.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task A_key_reused_for_a_different_kind_replays_the_first_registration()
+    public async Task A_key_reused_for_a_different_kind_is_refused_and_registers_nothing()
     {
         string key = $"reused-{Guid.NewGuid():N}";
         string firstKind = UniqueKind();
@@ -93,17 +99,42 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
         HttpResponseMessage first = await RegisterWithKeyAsync(dresden, firstKind, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
 
-        HttpResponseMessage replay = await RegisterWithKeyAsync(dresden, secondKind, key);
+        HttpResponseMessage second = await RegisterWithKeyAsync(dresden, secondKind, key);
 
-        replay.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(replay));
-        (await IdentifierOfAsync(replay)).ShouldBe(
-            await IdentifierOfAsync(first),
-            "one key means one operation; a second body under it is a replay, not a second create");
+        second.StatusCode.ShouldBe(
+            HttpStatusCode.UnprocessableEntity,
+            "a key already used to register the first kind must not be honoured for a different kind: "
+            + await Diagnose(second));
+        (await TitleOfAsync(second)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
-        JsonElement rows = await ListRowsAsync(dresden, await Diagnose(replay));
+        JsonElement rows = await ListRowsAsync(dresden, await Diagnose(second));
         CountOf(rows, secondKind).ShouldBe(
-            0, "the replayed body must not have been registered as well — that would be the key "
-            + "applying twice, which is the one thing it promises not to do");
+            0, "the second kind must never have been registered by the refused request");
+    }
+
+    /// <summary>
+    /// The positive half of the inversion above: the resolved fab, not the raw
+    /// query string, is what the comparison uses, so a single-fab operator who
+    /// leaves <c>fabId</c> implicit on the first call and names it explicitly on
+    /// the retry still gets a replay — not a mismatch.
+    /// </summary>
+    [Fact]
+    public async Task A_retry_that_names_the_fab_it_first_left_implicit_still_replays()
+    {
+        string key = $"resolved-fab-{Guid.NewGuid():N}";
+        string kind = UniqueKind();
+        using HttpClient dresden = await ClientFor(DresdenOperator);
+
+        HttpResponseMessage first = await RegisterWithKeyAsync(dresden, kind, key);
+        first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
+
+        HttpResponseMessage second = await RegisterWithKeyAsync(dresden, kind, key, fabId: "dresden");
+
+        second.StatusCode.ShouldBe(
+            HttpStatusCode.Created,
+            "the same caller, body and key, with the resolved fab unchanged, must still replay: "
+            + await Diagnose(second));
+        (await IdentifierOfAsync(second)).ShouldBe(await IdentifierOfAsync(first));
     }
 
     /// <summary>
