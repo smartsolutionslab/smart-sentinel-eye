@@ -507,8 +507,7 @@ public class V1ResourceMapTests
     // 20. SystemVariables.SystemVariableValueRequestedV1 -> DEFECT B: expected variable / Name.
     //     The contract carries no variable guid; SystemVariables addresses every route by
     //     {name}. Today's only Guid on the contract is CausingEventIdentifier, so the
-    //     reflection picker wrongly takes that instead of falling back to the Name allow-list
-    //     entry (the fallback never runs once a Guid property is found).
+    //     convention picker wrongly resolves to that instead of Name.
     private static MappingCase SystemVariableValueRequestedCase()
     {
         string name = "Name-sentinel";
