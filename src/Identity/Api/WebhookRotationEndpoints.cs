@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -45,6 +46,7 @@ public static class WebhookRotationEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status502BadGateway);
 
@@ -155,9 +157,23 @@ public static class WebhookRotationEndpoints
         // first attempt already delivered. If-Match happens to prevent that
         // today, but only because the version moved — it guards against
         // concurrent writers, not against a duplicate of one writer's request.
+        // The fingerprint folds in the route `{name}` and the upsert
+        // precondition, not only the body: a key reused across *create* and
+        // *rotate* of the same integration — or across two different
+        // integrations — is two different operations, not one replayed onto
+        // the other (spec 302 / #2424).
+        string preconditionText = expectedVersion.Match(
+            some: version => version.ToString(CultureInfo.InvariantCulture),
+            none: () => "*");
+
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(supplied, RotateEndpoint, actingOperator.Value.ToString())),
+                key.Map(supplied => IdempotencyScope.For(
+                    supplied,
+                    RotateEndpoint,
+                    actingOperator.Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(body, name, preconditionText))),
                 services.Idempotency,
                 services.Clock),
             async token =>

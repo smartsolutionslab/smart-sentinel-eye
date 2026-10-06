@@ -152,7 +152,12 @@ public static partial class OverlayEndpoints
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(supplied, CreateEndpoint, actingOperator.Value.ToString())),
+                key.Map(supplied => IdempotencyScope.For(
+                    supplied,
+                    CreateEndpoint,
+                    actingOperator.Value.ToString(),
+                    Option<string>.None,
+                    IdempotencyFingerprint.Of(body))),
                 services.Idempotency,
                 services.Clock),
             identifier => $"/overlays/{identifier}",

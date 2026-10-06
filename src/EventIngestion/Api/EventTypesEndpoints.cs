@@ -48,7 +48,8 @@ public static class EventTypesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Events.Read)
@@ -120,7 +121,11 @@ public static class EventTypesEndpoints
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
                 key.Map(supplied => IdempotencyScope.For(
-                    supplied, RegisterEndpoint, registeredBy.Value.ToString())),
+                    supplied,
+                    RegisterEndpoint,
+                    registeredBy.Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(body))),
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-types/{kind.Value}",

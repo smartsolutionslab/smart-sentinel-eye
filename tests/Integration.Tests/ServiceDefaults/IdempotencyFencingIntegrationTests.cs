@@ -280,7 +280,14 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     }
 
     private static IdempotencyScope NewScope() =>
-        IdempotencyScope.For(IdempotencyKey.From($"fence-{Guid.CreateVersion7():N}"), Endpoint, Caller);
+        IdempotencyScope.For(
+            IdempotencyKey.From($"fence-{Guid.CreateVersion7():N}"),
+            Endpoint,
+            Caller,
+            Option<string>.Some("fence-fab"),
+            IdempotencyFingerprint.Of(new FencingProbeRequest("fence")));
+
+    private sealed record FencingProbeRequest(string Value);
 
     private async Task AgeAsync(IdempotencyScope scope, TimeSpan age)
     {

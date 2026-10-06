@@ -14,7 +14,14 @@ namespace SmartSentinelEye.ServiceDefaults.Tests.Idempotency;
 public class IdempotentRequestTests
 {
     private static readonly IdempotencyScope Scope =
-        IdempotencyScope.For(IdempotencyKey.From("key-1"), "POST /devices/register", "admin@fab");
+        IdempotencyScope.For(
+            IdempotencyKey.From("key-1"),
+            "POST /devices/register",
+            "admin@fab",
+            Option<string>.Some("munich"),
+            IdempotencyFingerprint.Of(new ProbeRequest("fixed")));
+
+    private sealed record ProbeRequest(string Value);
 
     private static readonly Guid Created = Guid.Parse("0198f1c0-0000-7000-8000-000000000001");
 
@@ -296,6 +303,47 @@ public class IdempotentRequestTests
         await Run(store);
 
         store.Released.ShouldBe(0);
+    }
+
+    /// <summary>
+    /// Spec 302 (#2424/#2492) FR-005 — a claim bound to a different request's
+    /// fab or fingerprint must be refused outright: no replay (it is not this
+    /// claim's answer to give), and no work (the row belongs to someone
+    /// else's request). <see cref="IdempotencyReservation.Mismatched"/> and
+    /// <see cref="IdempotencyHeaders.ReusedErrorCode"/> do not exist yet — this
+    /// is deliberate, expected compile-error red per the architect's plan; the
+    /// engineer's commit is what makes it exist.
+    /// </summary>
+    [Fact]
+    public async Task A_key_bound_to_a_different_request_is_refused_with_422_and_neither_work_nor_replay_runs()
+    {
+        RecordingStore store = new() { Next = IdempotencyReservation.Mismatched };
+
+        IResult result = await Run(store);
+
+        ProblemHttpResult problem = result.ShouldBeOfType<ProblemHttpResult>();
+        problem.StatusCode.ShouldBe(StatusCodes.Status422UnprocessableEntity);
+        problem.ProblemDetails.Title.ShouldBe(IdempotencyHeaders.ReusedErrorCode);
+        store.WorkRuns.ShouldBe(0, "a mismatch must never run the work — the row belongs to a different request.");
+        store.Released.ShouldBe(0, "the row is not this claim's to release — it was never claimed.");
+        store.Completed.ShouldBeNull();
+    }
+
+    /// <summary>
+    /// A mismatch must be answered on the very first claim, never waited out
+    /// across the in-progress poll loop — an in-flight mismatched row would
+    /// otherwise sit through up to five seconds of polling before being
+    /// refused.
+    /// </summary>
+    [Fact]
+    public async Task A_mismatched_key_is_refused_without_waiting_out_the_in_progress_poll()
+    {
+        RecordingStore store = new() { Next = IdempotencyReservation.Mismatched };
+
+        await Run(store, new InstantClock());
+
+        store.Begins.ShouldBe(
+            1, "a mismatch must be refused on the very first claim, not polled like an in-progress row.");
     }
 
     private static Task<IResult> Run(RecordingStore store) => Run(store, TimeProvider.System);

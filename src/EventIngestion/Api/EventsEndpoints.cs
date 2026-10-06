@@ -54,7 +54,10 @@ public static partial class EventsEndpoints
             // Spec 019: the fab has no event storage yet — temporary by
             // construction. Spec 020 adds the other cause: the write itself
             // failed, so nothing was accepted and the caller can retry.
-            .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
+            // Spec 302 (#2424/#2492): a key already bound to a different
+            // manual event is refused rather than replayed.
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         writes.MapPost("/webhook/{integrationName}", IngestWebhook)
             .AllowAnonymous() // auth is the static bearer token, not OIDC
