@@ -1,7 +1,7 @@
 import { useGetOverlayQuery, type OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
-import { useRef, useState, type ComponentRef } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { OverlayDraftForm, type OverlayEditTarget } from './OverlayDraftForm.js';
 import { useCanvasFit } from './useCanvasFit.js';
@@ -114,8 +114,7 @@ export function OverlayEditPage() {
   // FR-006. Measured on the page's own content column; `OverlayEditor` keeps
   // its 800x450 default whenever this is `undefined` (no `ResizeObserver`,
   // or no layout yet).
-  const containerRef = useRef<ComponentRef<'section'>>(null);
-  const fit = useCanvasFit(containerRef);
+  const { fit, ref: containerRef } = useCanvasFit();
 
   if (revisionNumber === undefined) {
     return <NotFoundNotice />;
