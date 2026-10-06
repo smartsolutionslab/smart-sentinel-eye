@@ -62,4 +62,45 @@ public static class IdempotencyKeyTable
 
         migrationBuilder.Sql("DROP TABLE IF EXISTS idempotency_key;");
     }
+
+    /// <summary>
+    /// Spec 302 (#2424/#2492). Adds the two columns a request binding needs.
+    /// <see cref="Create"/> is not widened to include them: seven historical
+    /// migrations call it, and widening it would make this <c>ALTER TABLE</c>
+    /// fail on a fresh database with "column already exists".
+    ///
+    /// <para>
+    /// <c>fab VARCHAR(64)</c>: every context's <c>FabIdentifier</c> maximum
+    /// length is 32; 64 is headroom, not a guess at a new rule. Nullable
+    /// because OverlayDesigner has no fab.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>request_fingerprint CHAR(64)</c>: nullable only for legacy rows —
+    /// every row written after this migration always sets it, and a stored
+    /// <c>NULL</c> never equals anything (fail closed).
+    /// </para>
+    /// </summary>
+    public static void AddRequestBinding(MigrationBuilder migrationBuilder)
+    {
+        Ensure.That(migrationBuilder).IsNotNull();
+
+        migrationBuilder.Sql("""
+            ALTER TABLE idempotency_key
+                ADD COLUMN fab                 VARCHAR(64) NULL,
+                ADD COLUMN request_fingerprint CHAR(64)    NULL;
+            """);
+    }
+
+    /// <summary>The inverse of <see cref="AddRequestBinding"/>.</summary>
+    public static void DropRequestBinding(MigrationBuilder migrationBuilder)
+    {
+        Ensure.That(migrationBuilder).IsNotNull();
+
+        migrationBuilder.Sql("""
+            ALTER TABLE idempotency_key
+                DROP COLUMN IF EXISTS request_fingerprint,
+                DROP COLUMN IF EXISTS fab;
+            """);
+    }
 }
