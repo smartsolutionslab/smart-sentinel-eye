@@ -4,11 +4,11 @@ using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 namespace SmartSentinelEye.AuditObservability.Application.Tests.EventHandlers;
 
 /// <summary>
-/// Pins the precondition that makes <see cref="V1ResourceMap"/>'s
-/// <c>IdentifierPropertyNames</c> allow-list fallback unreachable: every
-/// contract the convention picker builds for declares at least one public
-/// <see cref="Guid"/> property, so <c>BuildConventionPicker</c>'s
-/// <c>pick is null</c> branch is never taken.
+/// Pins the precondition that every convention-mapped contract either
+/// declares a public <see cref="Guid"/> property or is excluded via a
+/// hand-tweak: with no fallback allow-list in <see cref="V1ResourceMap"/>,
+/// a convention-mapped contract with no <see cref="Guid"/> property has no
+/// other way to resolve a resource identifier.
 ///
 /// <para>
 /// Derives the convention-mapped set from
@@ -39,10 +39,10 @@ public class V1ResourceMapFallbackReachabilityTests
         List<Type> withoutGuid = [.. conventionMapped.Where(type => !DeclaresAGuidProperty(type))];
 
         withoutGuid.ShouldBeEmpty(
-            "Convention-mapped contract(s) with no Guid property, which would reach the " +
-            $"IdentifierPropertyNames fallback: {string.Join(", ", withoutGuid.Select(type => type.FullName))}. " +
-            "Add a hand-tweak in V1ResourceMap.Conventions, or confirm the fallback allow-list still names " +
-            "the right property.");
+            "Convention-mapped contract(s) with no Guid property, which would resolve to a " +
+            $"null resource identifier: {string.Join(", ", withoutGuid.Select(type => type.FullName))}. " +
+            "Add a hand-tweak in V1ResourceMap.Conventions, or give the contract a Guid identifier " +
+            "property.");
     }
 
     private static bool DeclaresAGuidProperty(Type type) =>
