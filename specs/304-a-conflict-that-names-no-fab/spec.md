@@ -32,10 +32,15 @@ the realm-global `GetByClientIdAsync`; and `:79-82`, Keycloak's
 ```
 
 Nothing in it depends on the holder: no fab, no `RegisteredClientIdentifier`, no
-kind, no registrant. The lookup path is the same query for either holder, so no
-branch or timing difference exists either. **The decision's stated property —
-the same 409 regardless of which fab holds the conflict — already holds; it is
-simply unpinned.** No test today registers the same id from two fabs.
+kind, no registrant. The lookup path is the same query for either holder, so
+no fab-dependent branch or timing difference exists either — a fab-neutral
+timing difference remains between an active-row conflict and a disabled-row-
+or-Keycloak-only conflict (the latter falls through to `CreateClientAsync`,
+costing an admin-token fetch plus a `GET clients?clientId=` round trip),
+unrelated to which fab holds anything, out of scope here. **The decision's
+stated property — the same 409 regardless of which fab holds the conflict —
+already holds; it is simply unpinned.** No test today registers the same id
+from two fabs.
 
 **What the DELETE precedent actually does** (spec 180 US1):
 `DisableDeviceCommandHandler` uses `GetWithinFabAsync(fab, clientId)`
