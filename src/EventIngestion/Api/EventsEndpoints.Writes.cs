@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -128,13 +129,16 @@ public static partial class EventsEndpoints
         [FromServices] IWebhookIntegrationRepository integrations,
         [FromServices] IFabStorageReadiness storage,
         [FromServices] IClock clock,
+        [FromServices] ILoggerFactory loggerFactory,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
         Ensure.That(request).IsNotNull();
 
+        ILogger logger = loggerFactory.CreateLogger(typeof(EventsEndpoints));
+
         WebhookIntegration? integration = await AuthenticateWebhookAsync(
-            integrationName, request, fabId, integrations, cancellationToken);
+            integrationName, request, fabId, integrations, logger, cancellationToken);
         if (integration is null)
         {
             return Results.Unauthorized();
@@ -180,13 +184,16 @@ public static partial class EventsEndpoints
     /// delivery names a plant other than the integration's own.
     /// Every failure path collapses to <c>null</c> so the 401 response never
     /// leaks which integrations exist — including, now, whether one exists in
-    /// another plant.
+    /// another plant. A revoked integration is additionally written to an
+    /// internal audit log (spec 302, #2205); every other refusal stays
+    /// silent, exactly as before.
     /// </summary>
     private static async Task<WebhookIntegration?> AuthenticateWebhookAsync(
         string integrationName,
         HttpRequest request,
         string fabId,
         IWebhookIntegrationRepository integrations,
+        ILogger logger,
         CancellationToken cancellationToken)
     {
         string? authHeader = request.Headers.Authorization;
@@ -208,12 +215,19 @@ public static partial class EventsEndpoints
 
         Option<WebhookIntegration> found = await integrations
             .GetByNameAsync(parsedName, cancellationToken);
-        if (!found.HasValue || found.Value.IsRevoked)
+        if (!found.HasValue)
         {
             return null;
         }
 
         WebhookIntegration integration = found.Value;
+
+        if (integration.RevokedAt is RevokedAt revokedAt)
+        {
+            logger.RevokedWebhookIntegrationDeliveryRefused(
+                integration.Name, integration.Id, integration.Fab, revokedAt);
+            return null;
+        }
 
         // The delivery's plant must be the integration's own, in BOTH modes and
         // before the token is even considered (#1545). Until this, only the JWT
