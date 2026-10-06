@@ -856,7 +856,43 @@ test('the edit page survives a reload (spec 305, #2350)', async ({ page }) => {
     };
   }
 
+  // Phase-6 review (should-fix 2): the draft was never moved off
+  // `createOverlayDraft`'s default geometry, and the page's own loading
+  // placeholder (`OverlayEditPage.tsx`'s `PLACEHOLDER_ELEMENTS`) normalizes
+  // to that SAME default — so comparing default-against-default here could
+  // not have told "reload preserved the saved position" from "reload
+  // preserved nothing at all, and both reads happened to land on the
+  // default". Dragging the label and saving before the reload, per spec.md
+  // step 4 ("the label is where you left it"), is what makes the two
+  // distinguishable.
+  const defaultPosition = await labelPositionRelativeToCanvas();
+
+  const box = await label.boundingBox();
+  if (box === null) {
+    throw new Error('the overlay label should have a bounding box once the edit page has rendered');
+  }
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 150, box.y + box.height / 2 + 60, { steps: 10 });
+  await page.mouse.up();
+
+  const movedPosition = await labelPositionRelativeToCanvas();
+  // The drag actually moved it off the default — otherwise the rest of this
+  // test would still be comparing default against default.
+  expect(Math.abs(movedPosition.x - defaultPosition.x)).toBeGreaterThan(0.02);
+
+  const saveDraftButton = page.getByRole('button', { name: /^save draft$/i });
+  await expect(saveDraftButton).toHaveAttribute('aria-disabled', 'false');
+  await saveDraftButton.click();
+  await expect(page).toHaveURL(/\/overlays$/, { timeout: FIRST_WRITE_TIMEOUT_MS });
+
+  // Re-open the same draft so the moved, saved geometry — not the create
+  // page's default — is what is on screen when the reload below happens.
+  await row.getByRole('button', { name: /^edit draft$/i }).click();
+  await expect(page).toHaveURL(urlBeforeReload);
+
   const beforeReload = await labelPositionRelativeToCanvas();
+  expect(beforeReload.x).toBeCloseTo(movedPosition.x, 2);
 
   await page.reload();
 
@@ -892,12 +928,18 @@ test.describe('at a 1920x1080 viewport', () => {
     await expect(page).toHaveURL(/\/overlays\/new$/);
 
     const canvas = page.getByTestId('overlay-editor-canvas');
+
+    // Phase-6 review (should-fix 3): `ResizeObserver` delivers after
+    // layout, so a bounding-box read taken immediately after the URL check
+    // above can still observe the 800px default — poll until the fit has
+    // actually landed, then take the one measurement the aspect-ratio
+    // assertion below needs.
+    await expect.poll(async () => (await canvas.boundingBox())?.width).toBeGreaterThan(800);
+
     const box = await canvas.boundingBox();
     if (box === null) {
       throw new Error('the canvas should have a bounding box once the create page has rendered');
     }
-
-    expect(box.width).toBeGreaterThan(800);
     const expectedHeight = (box.width * 9) / 16;
     expect(Math.abs(box.height - expectedHeight)).toBeLessThanOrEqual(1);
   });
