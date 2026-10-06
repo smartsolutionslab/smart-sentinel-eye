@@ -101,7 +101,12 @@ public class CrossFabRegistrationConflictIntegrationTests(AspireFixture aspire)
         string clientId = await RegisterAsync(munich, device, "munich", HttpStatusCode.Created);
 
         using HttpClient dresden = await DresdenClientAsync();
-        await SendRegisterAsync(dresden, device, "dresden");
+        HttpResponseMessage dresdenConflict = await SendRegisterAsync(dresden, device, "dresden");
+        dresdenConflict.StatusCode.ShouldBe(
+            HttpStatusCode.Conflict,
+            "the cross-fab attempt must actually hit the uniqueness conflict, not some unrelated "
+            + "rejection (e.g. a 403) that would make the side-effect checks below pass vacuously; "
+            + await aspire.DiagnoseAsync("identity", dresdenConflict));
 
         HttpResponseMessage dresdenList = await dresden.GetAsync("/devices?fabId=dresden");
         dresdenList.StatusCode.ShouldBe(

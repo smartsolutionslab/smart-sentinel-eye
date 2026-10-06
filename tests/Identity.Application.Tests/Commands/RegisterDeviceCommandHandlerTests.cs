@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.DTOs;
+using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
@@ -96,6 +97,79 @@ public class RegisterDeviceCommandHandlerTests
             + "nothing in the response may vary by which fab actually holds the clientId");
         repo.Clients.ShouldHaveSingleItem().Fab.ShouldBe(FabIdentifier.From("munich"));
         keycloak.Created.ShouldHaveSingleItem();
+    }
+
+    /// <summary>
+    /// Spec 304 US1 — exercises the *other* conflict branch
+    /// (<c>RegisterDeviceCommandHandler.cs:79-82</c>), which the fact above
+    /// cannot reach: every DB-backed scenario leaves a row for the
+    /// conflicting clientId, so <c>GetByClientIdAsync</c> (:46-51) always
+    /// wins the race and the Keycloak catch never runs. Here the database
+    /// has no row at all — only Keycloak holds the clientId, seeded directly
+    /// via <see cref="FakeKeycloakAdminClient.CreateClientAsync"/> without
+    /// going through the repository, modelling "created in Keycloak, DB
+    /// write never landed" or any other state where the two diverge. Both a
+    /// same-fab and a cross-fab attempt against that Keycloak-only conflict
+    /// must throw <see cref="KeycloakClientAlreadyExistsException"/> carrying
+    /// only the caller's own clientId (never the holder's), so the two
+    /// resulting errors must be record-equal and neither may mention the
+    /// holder's fab.
+    /// </summary>
+    [Fact]
+    public async Task A_clientId_held_only_in_Keycloak_is_refused_with_the_same_holder_neutral_error_regardless_of_the_callers_fab()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        RegisterDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<RegisterDeviceCommandHandler>.Instance);
+
+        // Keycloak already holds "plc-station-4" under munich; the database
+        // has no row for it at all, so GetByClientIdAsync cannot be the
+        // branch that catches this conflict.
+        await keycloak.CreateClientAsync(
+            new KeycloakClientRepresentation(
+                ClientId: "plc-station-4",
+                Name: "plc station-4",
+                ServiceAccountsEnabled: true,
+                StandardFlowEnabled: false,
+                DirectAccessGrantsEnabled: false,
+                PublicClient: false,
+                DefaultClientScopes: [],
+                OptionalClientScopes: [],
+                Attributes: new Dictionary<string, string> { ["sse.fab"] = "munich" }),
+            fabGroupPath: "/fabs/munich",
+            CancellationToken.None);
+
+        RegisterDeviceCommand munichCommand = HappyCommand();
+        RegisterDeviceCommand dresdenCommand = munichCommand with
+        {
+            Fab = FabIdentifier.From("dresden"),
+            RegisteredBy = OperatorIdentifier.From(Guid.CreateVersion7()),
+        };
+
+        Result<DeviceCredentialsDto, RegisterDeviceError> munichAttempt =
+            await handler.HandleAsync(munichCommand, CancellationToken.None);
+        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
+            await handler.HandleAsync(dresdenCommand, CancellationToken.None);
+
+        munichAttempt.IsSuccess.ShouldBeFalse();
+        dresdenAttempt.IsSuccess.ShouldBeFalse();
+        munichAttempt.Error.ShouldBeOfType<RegisterDeviceError.DeviceAlreadyRegistered>();
+        dresdenAttempt.Error.ShouldBe(
+            munichAttempt.Error,
+            "a cross-fab attempt against a Keycloak-only conflict must answer exactly what "
+            + "a same-fab attempt against the same conflict answers");
+        dresdenAttempt.Error.ShouldBe(RegisterDeviceFailures.DeviceAlreadyRegistered("plc-station-4"));
+
+        repo.Clients.ShouldBeEmpty("neither attempt may persist anything to the database");
+
+        string dresdenMessage = ((RegisterDeviceError.DeviceAlreadyRegistered)dresdenAttempt.Error).Message;
+        string munichMessage = ((RegisterDeviceError.DeviceAlreadyRegistered)munichAttempt.Error).Message;
+        dresdenMessage.ShouldNotContain(
+            "munich", customMessage: $"the error must never name the holder's fab — got: {dresdenMessage}");
+        munichMessage.ShouldNotContain(
+            "munich", customMessage: $"the error must never name the holder's fab — got: {munichMessage}");
     }
 
     [Theory]
