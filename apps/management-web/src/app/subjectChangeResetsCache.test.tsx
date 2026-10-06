@@ -25,9 +25,8 @@ import type { CameraDetail } from '@smart-sentinel-eye/shared/api/cameras.api';
 // importing anything that touches it, same as staleBearerRetry.test.tsx and
 // CameraDetailPageNavigation.test.tsx.
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
-const { setAccessTokenProvider, setSessionRenewer, setOnSessionExpired } = await import(
-  '@smart-sentinel-eye/shared/api/gateway'
-);
+const { setAccessTokenProvider, setSessionRenewer, setOnSessionExpired } =
+  await import('@smart-sentinel-eye/shared/api/gateway');
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
 const { useResetApiCachesOnSubjectChange } = await import('./useResetApiCachesOnSubjectChange.js');
 
@@ -228,25 +227,23 @@ describe('A changed OIDC subject and the RTK Query cache (spec 303, #2524 observ
     // under B's bearer (B may not see camera "camera-switch"). Any further
     // call (e.g. RTK Query's own resubscribe) gets a default 404 too, rather
     // than an unstubbed `undefined` surfacing as an accidental fetch error.
-    fetchMock
-      .mockResolvedValueOnce(unauthorized())
-      .mockImplementationOnce(() => {
-        // Proves the reset landed BEFORE the retry went out, not merely that
-        // the end state eventually converges (frontend review, #2524): a
-        // render-effect design watching `auth.user` instead of the
-        // `userLoaded` event would still pass the end-state assertions below,
-        // because the retry/resubscribe cycle still converges — but it would
-        // let this retry go out while the cache still held A's record.
-        const state = store.getState() as Record<
-          string,
-          { queries: Record<string, { data?: { name?: string } } | undefined> } | undefined
-        >;
-        const staleUnderA = Object.values(state[camerasApi.reducerPath]?.queries ?? {}).some(
-          (entry) => entry?.data?.name === 'Camera A View',
-        );
-        expect(staleUnderA).toBe(false);
-        return Promise.resolve(notFound());
-      });
+    fetchMock.mockResolvedValueOnce(unauthorized()).mockImplementationOnce(() => {
+      // Proves the reset landed BEFORE the retry went out, not merely that
+      // the end state eventually converges (frontend review, #2524): a
+      // render-effect design watching `auth.user` instead of the
+      // `userLoaded` event would still pass the end-state assertions below,
+      // because the retry/resubscribe cycle still converges — but it would
+      // let this retry go out while the cache still held A's record.
+      const state = store.getState() as Record<
+        string,
+        { queries: Record<string, { data?: { name?: string } } | undefined> } | undefined
+      >;
+      const staleUnderA = Object.values(state[camerasApi.reducerPath]?.queries ?? {}).some(
+        (entry) => entry?.data?.name === 'Camera A View',
+      );
+      expect(staleUnderA).toBe(false);
+      return Promise.resolve(notFound());
+    });
     fetchMock.mockResolvedValue(notFound());
 
     fireEvent.click(screen.getByTestId('refetch'));
