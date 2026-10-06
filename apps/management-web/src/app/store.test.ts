@@ -10,17 +10,12 @@ import { wallsApi, type Wall } from '@smart-sentinel-eye/shared/api/walls.api';
 import { store, apiSlices, resetApiCaches } from './store.js';
 
 /**
- * Spec 303 (#2524) T001 — RED.
+ * Spec 303 (#2524).
  *
- * `apiSlices` and `resetApiCaches` do not exist on `store.ts` yet (plan.md
- * §1, §4 test 2) — both named imports below are expected to fail: `store.ts`
- * itself exists, so this is the "missing named export" case, not a missing
- * module. `apiSlices`/`resetApiCaches` typecheck as errors under `tsc
- * --noEmit` (TS2305), and resolve to `undefined` at Vitest's runtime (esbuild
- * does not enforce named-export existence the way real ESM/tsc does) — so
- * each test below fails with a `TypeError` the first time it touches one of
- * them, not with a suite-level import failure. Both are genuine, acceptable
- * compile-era red for the right reason (FR-005's foundation is missing).
+ * `apiSlices` is the single source of truth `resetApiCaches` dispatches
+ * against (plan.md §1, §4 test 2); the drift guard below fails the build if
+ * a 9th `createApi` slice is added to `reducer`/`middleware` without also
+ * being added to `apiSlices` (FR-005).
  */
 
 const ONE_QUERY_SEEDED = 'camera-1';

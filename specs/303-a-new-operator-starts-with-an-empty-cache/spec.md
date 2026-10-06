@@ -41,6 +41,14 @@ old operator's record, with a "could not refresh" banner, where they should see
 a clean refusal. `resetApiState` has no call site in the app today; it appears
 only in tests.
 
+The headline silent-renewal case above is already blocked at the library layer:
+`oidc-client-ts`'s `validateSubOnSilentRenew` defaults to `true` and rejects a
+genuinely different `sub` before `userLoaded` ever fires. This mechanism is
+defense-in-depth for the other paths that still reach `userLoaded` with a
+changed subject — `signinPopup`, `signinResourceOwnerCredentials`, or a
+future/accidental `validateSubOnSilentRenew: false` — not a second line of
+defense for a path the library already closes (security review, #2524).
+
 ## 3. User story
 
 **US1 (P1)**: As an operator who takes over a management console whose

@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef } from 'react';
 import { useAuth } from 'react-oidc-context';
 import type { User } from 'oidc-client-ts';
 import { useDispatch } from 'react-redux';
+import { setAccessTokenProvider } from '@smart-sentinel-eye/shared/api/gateway';
 import { resetApiCaches, type AppDispatch } from './store.js';
 import { createSubjectWatcher } from './subjectWatcher.js';
 
@@ -33,6 +34,19 @@ import { createSubjectWatcher } from './subjectWatcher.js';
  * a bootstrap value once a real `userLoaded` event has fired: idempotent for
  * an unchanged subject, but without the guard a late bootstrap commit could
  * still read as a change from whatever the event already observed.
+ *
+ * Phase-6 review (security): the event handler also re-registers the
+ * gateway's access-token provider with the event's own `user`, before
+ * dispatching the resets. `AuthGate` (`App.tsx`) registers the provider from
+ * `auth.user` during render too, but that render is scheduled by
+ * `react-oidc-context`'s own `useReducer` dispatch — a later, separate update
+ * from this handler's synchronous `userLoaded` callback. Any RTK Query hook
+ * still subscribed when `resetApiCaches` clears its cache resubscribes
+ * immediately (RTK 2.12's hooks middleware), and that resubscribe fetch would
+ * otherwise read the stale provider closure and carry the PREVIOUS subject's
+ * bearer — reopening the disclosure this hook exists to close. Registering
+ * here first means every request from this point on, including that
+ * resubscribe, already carries the new subject's token.
  */
 export function useResetApiCachesOnSubjectChange(): void {
   const auth = useAuth();
@@ -47,6 +61,7 @@ export function useResetApiCachesOnSubjectChange(): void {
 
   useEffect(() => {
     const onUserLoaded = (user: User) => {
+      setAccessTokenProvider(() => user.access_token);
       receivedEventRef.current = true;
       observeRef.current?.(user.profile.sub);
     };

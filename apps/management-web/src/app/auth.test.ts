@@ -35,3 +35,20 @@ describe('The console names its own client, not the retired bundle client (spec 
     expect(config.scope?.split(' ')).toEqual(['openid']);
   });
 });
+
+/**
+ * Spec 303 (#2524) security review: `useResetApiCachesOnSubjectChange`'s
+ * defense-in-depth for a subject change over `userLoaded` only matters for
+ * the OIDC flows that can still reach that event with a genuinely different
+ * `sub` — `oidc-client-ts`'s silent-renewal path already rejects one via
+ * `validateSubOnSilentRenew`, which defaults to `true`. This guards the
+ * premise: a future change to `oidcConfig` that disables that default would
+ * reopen the headline scenario the library closes today, silently.
+ */
+describe('The console never disables the library default subject check (spec 303, #2524)', () => {
+  it('Does not set validateSubOnSilentRenew to false', () => {
+    const settings = oidcConfig as typeof oidcConfig & { validateSubOnSilentRenew?: boolean };
+
+    expect(settings.validateSubOnSilentRenew).not.toBe(false);
+  });
+});
