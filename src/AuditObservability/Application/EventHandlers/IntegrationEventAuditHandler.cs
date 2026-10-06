@@ -72,7 +72,8 @@ public sealed class IntegrationEventAuditHandler(AuditingMessageHandler auditing
                 : ActorIdentifier.System,
             ActorUsername: Option<string>.None,
             EventIdentifier: EventIdentifier.From(meta.EventIdentifier),
-            Payload: JsonSerializer.Serialize(message, message.GetType()));
+            Payload: JsonSerializer.Serialize(message, message.GetType()),
+            FabScope: FabNeutralEvents.ScopeOf(message.GetType()));
 
         return auditing.HandleAsync(message.GetType(), message, envelope, cancellationToken);
     }

@@ -20,4 +20,5 @@ public sealed record AuditRowDto(
     Guid EventIdentifier,
     string Payload,
     int PayloadSizeBytes,
-    short SchemaVersion);
+    short SchemaVersion,
+    string FabAttribution);
