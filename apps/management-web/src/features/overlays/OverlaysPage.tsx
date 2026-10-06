@@ -205,7 +205,9 @@ export function OverlaysPage() {
                   <Button
                     variant="secondary"
                     disabled={disabled}
-                    onClick={() => navigate(`/overlays/${chain.overlayIdentifier}/revisions/${draft.revisionNumber}/edit`)}
+                    onClick={() =>
+                      navigate(`/overlays/${chain.overlayIdentifier}/revisions/${draft.revisionNumber}/edit`)
+                    }
                   >
                     Edit draft
                   </Button>

@@ -199,7 +199,9 @@ export function OverlayEditPage() {
 }
 
 function isNotFound(error: unknown): boolean {
-  return typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 404;
+  return (
+    typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 404
+  );
 }
 
 function PageHeader({ revisionNumber, name }: { revisionNumber: number; name: string | undefined }) {

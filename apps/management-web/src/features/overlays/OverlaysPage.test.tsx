@@ -1307,9 +1307,7 @@ describe('OverlaysPage — navigating instead of opening a dialog (spec 305, #23
     await user.click(screen.getByRole('button', { name: /^edit draft$/i }));
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        '/overlays/11111111-1111-1111-1111-111111111111/revisions/1/edit',
-      ),
+      expect(router.state.location.pathname).toBe('/overlays/11111111-1111-1111-1111-111111111111/revisions/1/edit'),
     );
     expect(branchMock).not.toHaveBeenCalled();
     expect(editDraftMock).not.toHaveBeenCalled();
@@ -1345,9 +1343,7 @@ describe('OverlaysPage — navigating instead of opening a dialog (spec 305, #23
     await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
 
     await waitFor(() =>
-      expect(router.state.location.pathname).toBe(
-        '/overlays/11111111-1111-1111-1111-111111111111/revisions/9/edit',
-      ),
+      expect(router.state.location.pathname).toBe('/overlays/11111111-1111-1111-1111-111111111111/revisions/9/edit'),
     );
   });
 

@@ -31,7 +31,10 @@ vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) =>
     // so the real hook is never reached by a component test (cameras/streams
     // mocks below do the same for the rest of OverlayEditor's wiring).
     useGetOverlayQuery: () => ({ currentData: undefined, isFetching: false, isError: false, refetch: vi.fn() }),
-    useEditDraftOverlayRevisionMutation: () => [vi.fn(async () => ({ data: 1 })), { isLoading: false, error: undefined, reset: vi.fn() }],
+    useEditDraftOverlayRevisionMutation: () => [
+      vi.fn(async () => ({ data: 1 })),
+      { isLoading: false, error: undefined, reset: vi.fn() },
+    ],
   };
 });
 
