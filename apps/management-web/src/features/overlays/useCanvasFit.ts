@@ -22,12 +22,17 @@ export function useCanvasFit(ref: RefObject<HTMLElement | null>): CanvasFit | un
 
   useEffect(() => {
     const element = ref.current;
-    if (element === null || typeof ResizeObserver === 'undefined') {
+    // `globalThis.ResizeObserver`, not the bare identifier: this app's
+    // eslint config carries no DOM-constructor globals (the same reasoning
+    // `OverlayDraftForm.tsx`'s own `ComponentRef<'button'>` comment gives),
+    // and widening it is the gate-weakening ADR-0144 rules out.
+    const ResizeObserverCtor = globalThis.ResizeObserver;
+    if (element === null || ResizeObserverCtor === undefined) {
       setFit(undefined);
       return;
     }
 
-    const observer = new ResizeObserver((entries) => {
+    const observer = new ResizeObserverCtor((entries) => {
       const entry = entries[0];
       if (entry === undefined) return;
       const widthPx = Math.floor(entry.contentRect.width);

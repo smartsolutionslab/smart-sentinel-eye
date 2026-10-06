@@ -1,7 +1,7 @@
 import { useGetOverlayQuery, type OverlayElement } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
-import { useRef } from 'react';
+import { useRef, useState, type ComponentRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { OverlayDraftForm, type OverlayEditTarget } from './OverlayDraftForm.js';
 import { useCanvasFit } from './useCanvasFit.js';
@@ -72,7 +72,6 @@ export function OverlayEditPage() {
   // request, not two (plan.md).
   const {
     currentData: chain,
-    isFetching: chainFetching,
     isError: chainFailed,
     error: chainError,
     refetch: refetchChain,
@@ -89,25 +88,33 @@ export function OverlayEditPage() {
   // `OverlayDraftForm` itself, never this seed, which is what keeps an
   // in-progress edit from being wiped by a background refetch.
   //
-  // Reset only when the key itself changes (a real navigation to a
-  // different overlay/revision on this one mounted page instance) — not on
-  // every render, which would defeat the "never again" half of the rule.
+  // `useState` + a synchronous reset during render — React's own documented
+  // "adjusting state when a prop changes" pattern — not a ref: this project's
+  // `react-hooks/refs` lint rule forbids reading a ref during render, and
+  // more importantly a ref write here would still let ONE stale render
+  // through before an effect-deferred reset took effect, which is exactly
+  // the leak `OverlayEditPageNavigation.test.tsx` (B must never show A's
+  // content) exists to catch. Calling `setState` mid-render instead bails
+  // out and re-renders immediately, before anything commits.
   const seedKey = `${overlayIdentifier}/${revisionNumber}`;
-  const seedRef = useRef<{ key: string; editTarget: OverlayEditTarget } | null>(null);
-  if (seedRef.current !== null && seedRef.current.key !== seedKey) {
-    seedRef.current = null;
+  const [seed, setSeed] = useState<{ key: string; editTarget: OverlayEditTarget } | null>(null);
+  let currentSeed = seed;
+  if (currentSeed !== null && currentSeed.key !== seedKey) {
+    currentSeed = null;
+    setSeed(null);
   }
-  if (seedRef.current === null && revisionNumber !== undefined && chain !== undefined && revision?.state === 'Draft') {
-    seedRef.current = {
+  if (currentSeed === null && revisionNumber !== undefined && chain !== undefined && revision?.state === 'Draft') {
+    currentSeed = {
       key: seedKey,
       editTarget: { overlayIdentifier, revisionNumber, name: chain.name, elements: revision.elements },
     };
+    setSeed(currentSeed);
   }
 
   // FR-006. Measured on the page's own content column; `OverlayEditor` keeps
   // its 800x450 default whenever this is `undefined` (no `ResizeObserver`,
   // or no layout yet).
-  const containerRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<ComponentRef<'section'>>(null);
   const fit = useCanvasFit(containerRef);
 
   if (revisionNumber === undefined) {
@@ -141,7 +148,7 @@ export function OverlayEditPage() {
   }
 
   const editTarget: OverlayEditTarget =
-    seedRef.current?.editTarget ?? { overlayIdentifier, revisionNumber, name: '', elements: PLACEHOLDER_ELEMENTS };
+    currentSeed?.editTarget ?? { overlayIdentifier, revisionNumber, name: '', elements: PLACEHOLDER_ELEMENTS };
 
   return (
     <section ref={containerRef} className="p-6">

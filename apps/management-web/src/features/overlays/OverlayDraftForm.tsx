@@ -160,14 +160,15 @@ export function OverlayDraftForm({ editTarget, onDone, onCancel, canvasWidthPx, 
   // clear create's state, leaving a refused edit's error free to leak into
   // whatever mounts next.
   //
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately
-  // mount-once: the cleanup must run exactly once, on unmount, not on every
-  // render the mutation hooks happen to return a new object from.
+  // Deliberately mount-once: the cleanup must run exactly once, on unmount,
+  // not on every render the mutation hooks happen to return a new object
+  // from.
   useEffect(() => {
     return () => {
       createState.reset();
       editState.reset();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- see above
   }, []);
 
   // The create seed (`DEFAULT_INPUT`) is untouched; edit seeds a second value
