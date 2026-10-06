@@ -5,6 +5,7 @@ import { setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } from '
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { oidcConfig } from './app/auth.js';
 import { createAppRouter } from './app/router.js';
+import { useResetApiCachesOnSubjectChange } from './app/useResetApiCachesOnSubjectChange.js';
 
 export function App() {
   return (
@@ -16,6 +17,7 @@ export function App() {
 
 function AuthGate() {
   const auth = useAuth();
+  useResetApiCachesOnSubjectChange();
   const [sessionExpired, setSessionExpired] = useState(false);
 
   // Register the bearer getter synchronously, before any child query dispatches,
