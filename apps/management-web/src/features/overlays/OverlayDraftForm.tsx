@@ -66,6 +66,18 @@ export interface OverlayDraftFormProps {
    */
   canvasWidthPx?: number;
   canvasHeightPx?: number;
+  /**
+   * Phase-6 should-fix 4 (#2350). `OverlayEditPage` passes this while it is
+   * still showing the PLACEHOLDER `editTarget` (the chain's first read is
+   * in flight, nothing real to edit yet) — without it the placeholder's
+   * text field and label are both interactive, and whatever the operator
+   * types or drags into them is silently replaced the instant the real
+   * seed lands and `reset(defaultValues)` runs. Save is already gated by
+   * `saveBlocked` regardless of this prop (`currentChain === undefined`
+   * during this same window), so this only closes the input side, not the
+   * submit side.
+   */
+  readOnly?: boolean;
 }
 
 const DEFAULT_INPUT: CreateOverlayDraftInput = {
@@ -95,7 +107,17 @@ function textIndexOf(elements: readonly OverlayElement[]): number {
   return elements.findIndex((element) => element.kind === 'Text');
 }
 
-export function OverlayDraftForm({ editTarget, onDone, onCancel, canvasWidthPx, canvasHeightPx }: OverlayDraftFormProps) {
+/** Phase-6 should-fix 4 (#2350) — `readOnly`'s `OverlayEditor.onChange` override. */
+function noop(): void {}
+
+export function OverlayDraftForm({
+  editTarget,
+  onDone,
+  onCancel,
+  canvasWidthPx,
+  canvasHeightPx,
+  readOnly = false,
+}: OverlayDraftFormProps) {
   const isEdit = editTarget !== undefined;
   const [createOverlayDraft, createState] = useCreateOverlayDraftMutation();
   const [editDraftOverlayRevision, editState] = useEditDraftOverlayRevisionMutation();
@@ -370,22 +392,34 @@ export function OverlayDraftForm({ editTarget, onDone, onCancel, canvasWidthPx, 
         </FormField>
       )}
       {hasTextElement ? (
-        <Controller
-          control={control}
-          name={`elements.${textIndex}`}
-          render={({ field }) => (
-            <OverlayEditor
-              value={field.value as OverlayLabel}
-              onChange={field.onChange}
-              canvasWidthPx={canvasWidthPx}
-              canvasHeightPx={canvasHeightPx}
-              getToken={getToken}
-              resolvedPreview={resolvedPreview}
-              isResolving={isResolving}
-              resolveFailed={resolveFailed}
-            />
-          )}
-        />
+        // Phase-6 should-fix 4 (#2350): while `readOnly` (the PLACEHOLDER
+        // seed, before the real chain read has landed), `onChange` is a
+        // no-op rather than `field.onChange` — every mutation path
+        // `OverlayEditor` has (typing, dragging, the keyboard nudges,
+        // undo/redo) funnels through this one callback
+        // (`useOverlayEditHistory`'s own `onChange(next)` calls), so this
+        // closes all of them at once rather than one input channel at a
+        // time. `pointer-events-none` is paired with it only as a visual
+        // cue — the actual guarantee is the no-op, which also holds for a
+        // Tab-focused keyboard edit that no CSS property would stop.
+        <div aria-busy={readOnly || undefined} className={readOnly ? 'pointer-events-none opacity-60' : undefined}>
+          <Controller
+            control={control}
+            name={`elements.${textIndex}`}
+            render={({ field }) => (
+              <OverlayEditor
+                value={field.value as OverlayLabel}
+                onChange={readOnly ? noop : field.onChange}
+                canvasWidthPx={canvasWidthPx}
+                canvasHeightPx={canvasHeightPx}
+                getToken={getToken}
+                resolvedPreview={resolvedPreview}
+                isResolving={isResolving}
+                resolveFailed={resolveFailed}
+              />
+            )}
+          />
+        </div>
       ) : (
         // FR-019: a mixed-kind draft with no Text element at all (shapes
         // only) has nothing for this single-label editor to show. The

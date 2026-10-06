@@ -120,41 +120,75 @@ export function OverlayEditPage() {
     return <NotFoundNotice />;
   }
 
-  if (chainFailed) {
-    if (isNotFound(chainError)) {
-      return <NotFoundNotice />;
+  // Phase-6 blockers 1+2 (#2350): both of these are only decided "while
+  // nothing is seeded yet". In RTK Query 2.12, a rejected refetch keeps
+  // `currentData` but sets `isError` — so once `OverlayDraftForm` is holding
+  // an in-progress edit, a LATER bad read (the operator's own Retry, or a
+  // conflict's own tag-invalidation refetch — `editDraftOverlayRevision`
+  // invalidates `Overlay` on error too) must not swap the whole form out for
+  // one of these page-level notices, discarding whatever is typed.
+  // `OverlayDraftForm`'s own `ChainRecoveryNotice` (a failed read) and its
+  // own `OVERLAY_REVISION_NOT_DRAFT` handling (a conflict, plan.md step 5)
+  // are what cover both cases once seeded — this page defers to them
+  // entirely rather than only partially.
+  if (currentSeed === null) {
+    if (chainFailed) {
+      if (isNotFound(chainError)) {
+        return <NotFoundNotice />;
+      }
+      return (
+        <section ref={containerRef} className="p-6">
+          <PageHeader revisionNumber={revisionNumber} name={chain?.name} />
+          <RetryBanner message="Could not load this overlay." onRetry={() => void refetchChain()} />
+        </section>
+      );
     }
+
+    if (chain !== undefined) {
+      if (revision === undefined) {
+        return <NotFoundNotice />;
+      }
+      if (revision.state !== 'Draft') {
+        return <NotDraftNotice />;
+      }
+    }
+  }
+
+  // Phase-6 should-fix 4 (#2350): nothing has seeded yet (the chain's first
+  // read is still in flight, and none of the notices above fired), but the
+  // form still mounts now — unmounting it the instant the real seed lands a
+  // moment later is exactly how `OverlayEditPageNavigation.test.tsx`'s own
+  // A->B case is driven (one `OverlayDraftForm` instance, never a fresh
+  // mount for the same key), and Save's own gate (`currentChain ===
+  // undefined` inside `OverlayDraftForm`) already keeps Save unavailable for
+  // this whole window. What must not happen is the operator typing into, or
+  // dragging, the PLACEHOLDER content below and having it silently
+  // overwritten the instant the real seed arrives — `readOnly` keeps the
+  // editor visible and Save's disablement observable, while refusing that
+  // input until there is something real to edit.
+  if (currentSeed === null) {
     return (
       <section ref={containerRef} className="p-6">
         <PageHeader revisionNumber={revisionNumber} name={chain?.name} />
-        <RetryBanner message="Could not load this overlay." onRetry={() => void refetchChain()} />
+        <OverlayDraftForm
+          key={seedKey}
+          editTarget={{ overlayIdentifier, revisionNumber, name: '', elements: PLACEHOLDER_ELEMENTS }}
+          readOnly
+          onDone={() => navigate('/overlays')}
+          onCancel={() => navigate('/overlays')}
+          canvasWidthPx={fit?.widthPx}
+          canvasHeightPx={fit?.heightPx}
+        />
       </section>
     );
   }
 
-  // Only decided once the read has actually resolved — while it is still in
-  // flight for the first time (no error yet either), the editor below is
-  // shown optimistically so Save's own gate (inside `OverlayDraftForm`) is
-  // what the operator sees go from unavailable to available, exactly as it
-  // already does on the dialog this page replaces.
-  if (chain !== undefined) {
-    if (revision === undefined) {
-      return <NotFoundNotice />;
-    }
-    if (revision.state !== 'Draft') {
-      return <NotDraftNotice />;
-    }
-  }
-
-  const editTarget: OverlayEditTarget =
-    currentSeed?.editTarget ?? { overlayIdentifier, revisionNumber, name: '', elements: PLACEHOLDER_ELEMENTS };
-
   return (
     <section ref={containerRef} className="p-6">
-      <PageHeader revisionNumber={revisionNumber} name={chain?.name ?? editTarget.name} />
+      <PageHeader revisionNumber={revisionNumber} name={chain?.name ?? currentSeed.editTarget.name} />
       <OverlayDraftForm
         key={seedKey}
-        editTarget={editTarget}
+        editTarget={currentSeed.editTarget}
         onDone={() => navigate('/overlays')}
         onCancel={() => navigate('/overlays')}
         canvasWidthPx={fit?.widthPx}
