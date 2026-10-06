@@ -58,6 +58,46 @@ public class RegisterDeviceCommandHandlerTests
         second.Error.ShouldBeOfType<RegisterDeviceError.DeviceAlreadyRegistered>();
     }
 
+    /// <summary>
+    /// Spec 304 US1 — the 409 is already fab-neutral; this pins it. Whether
+    /// the conflicting registration is attempted from the holder's own fab or
+    /// from another fab entirely, <c>GetByClientIdAsync</c> is the same
+    /// realm-global lookup (spec plan 304 §1), so both refusals must carry
+    /// the identical <see cref="RegisterDeviceError.DeviceAlreadyRegistered"/>
+    /// value and neither attempt may create anything.
+    /// </summary>
+    [Fact]
+    public async Task A_clientId_held_by_another_fab_is_refused_with_the_same_error_as_one_held_by_the_callers_fab()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        RegisterDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<RegisterDeviceCommandHandler>.Instance);
+
+        RegisterDeviceCommand munichCommand = HappyCommand();
+        await handler.HandleAsync(munichCommand, CancellationToken.None);
+
+        RegisterDeviceCommand dresdenCommand = munichCommand with
+        {
+            Fab = FabIdentifier.From("dresden"),
+            RegisteredBy = OperatorIdentifier.From(Guid.CreateVersion7()),
+        };
+        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
+            await handler.HandleAsync(dresdenCommand, CancellationToken.None);
+        Result<DeviceCredentialsDto, RegisterDeviceError> munichSecondAttempt =
+            await handler.HandleAsync(munichCommand, CancellationToken.None);
+
+        dresdenAttempt.IsSuccess.ShouldBeFalse();
+        munichSecondAttempt.IsSuccess.ShouldBeFalse();
+        dresdenAttempt.Error.ShouldBe(
+            munichSecondAttempt.Error,
+            "a cross-fab conflict must answer exactly what a same-fab conflict answers — "
+            + "nothing in the response may vary by which fab actually holds the clientId");
+        repo.Clients.ShouldHaveSingleItem().Fab.ShouldBe(FabIdentifier.From("munich"));
+        keycloak.Created.ShouldHaveSingleItem();
+    }
+
     [Theory]
     [InlineData("manual")]
     [InlineData("webhook")]
