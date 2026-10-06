@@ -103,12 +103,32 @@ function response(chains: Overlay[]): ListOverlaysResponse {
   return { chains, published: [] };
 }
 
-function renderPage() {
-  return render(
+/**
+ * Spec 305 (#2350), T011: `OverlaysPage` now calls `useNavigate()`
+ * unconditionally (`New overlay`, `Edit draft`, `Edit (new draft)`), which
+ * throws outside a Router context — so every call site in this file needs
+ * one, not only the tests that actually assert on navigation. Stub
+ * destinations for the two new routes, mirroring the local
+ * `renderPageWithRouter` the "navigating instead of opening a dialog"
+ * describe block below already uses; `router` is additive on the return
+ * value, so every existing `renderPage();` / `const { unmount } =
+ * renderPage();` call site keeps working unchanged.
+ */
+function renderPage(initial = '/overlays') {
+  const router = createMemoryRouter(
+    [
+      { path: '/overlays', element: <OverlaysPage /> },
+      { path: '/overlays/new', element: <h1>New overlay (stub)</h1> },
+      { path: '/overlays/:overlayIdentifier/revisions/:revisionNumber/edit', element: <h1>Edit overlay (stub)</h1> },
+    ],
+    { initialEntries: [initial] },
+  );
+  const result = render(
     <Provider store={store}>
-      <OverlaysPage />
+      <RouterProvider router={router} />
     </Provider>,
   );
+  return { router, ...result };
 }
 
 describe('OverlaysPage', () => {
@@ -521,29 +541,36 @@ describe('OverlaysPage — recovering an archived overlay', () => {
   });
 
   /**
-   * Spec 152 T006 / US2, new behaviour, RED. `OverlaysPage` branches and stops
-   * today — nothing opens after `branchMock` resolves — so this fails on a
-   * missing dialog, not a missing call (the two tests above already cover the
-   * call).
+   * Spec 152 T006 / US2, rewritten for spec 305 (#2350) T011/T007: a
+   * successful branch now navigates to the branched revision's own edit URL
+   * instead of opening a dialog — seeding that revision is `OverlayEditPage`'s
+   * job (its own suite covers it), not observable from this page, which
+   * carries no list-state seed across the navigation at all (spec 305's
+   * declared scope decision).
    */
-  it('Opens the editor on the branched revision, seeded from the archived revision it branched from', async () => {
+  it('Navigates to the branched revision after Edit (new draft) succeeds', async () => {
     const user = userEvent.setup();
     showing([chain({ revisions: [revision({ revisionNumber: 1 })] })]);
-    renderPage();
+    const { router } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
 
-    expect(await screen.findByText(/^edit overlay draft$/i)).toBeInTheDocument();
-    expect(screen.getByText(/draft v2/i)).toBeInTheDocument();
-    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Production Line 1');
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/overlays/11111111-1111-1111-1111-111111111111/revisions/2/edit'),
+    );
   });
 
   /**
-   * Spec 152 Decision 2 / FR-003: US2 seeds from `live ?? newest`, so a
-   * published revision under a discarded draft must seed the LIVE one, not
-   * the newer-numbered draft it discarded.
+   * Spec 152 Decision 2 / FR-003, rewritten for spec 305 (#2350): which
+   * revision `onEdit` branches FROM (live vs. a discarded, newer-numbered
+   * draft) is no longer observable from this page either — the branch call
+   * carries only `{ overlayIdentifier, version }` (plan.md "Navigation
+   * wiring in OverlaysPage"), and seeding the destination page is
+   * `OverlayEditPage`'s job. What remains this page's to prove is that the
+   * branched revision's own URL is still reached regardless of which
+   * baseline the server branched from.
    */
-  it('Seeds the editor from the PUBLISHED revision, not the discarded draft, when both exist', async () => {
+  it('Navigates to the branched revision even when a published revision sits under a discarded draft', async () => {
     const user = userEvent.setup();
     showing([
       chain({
@@ -559,11 +586,13 @@ describe('OverlaysPage — recovering an archived overlay', () => {
         ],
       }),
     ]);
-    renderPage();
+    const { router } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
 
-    expect(await screen.findByTestId('overlay-editor-text')).toHaveValue('Live label');
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/overlays/11111111-1111-1111-1111-111111111111/revisions/2/edit'),
+    );
   });
 
   /**
@@ -574,11 +603,11 @@ describe('OverlaysPage — recovering an archived overlay', () => {
    * negative half of FR-003 so a future implementation cannot open the editor
    * on a refusal by accident.
    */
-  it('Opens nothing when the branch is refused', async () => {
+  it('Navigates nowhere when the branch is refused', async () => {
     const user = userEvent.setup();
     branchMock.mockResolvedValueOnce({ error: { status: 409, data: { title: 'OVERLAY_REVISION_STALE' } } });
     showing([chain({ revisions: [revision({ revisionNumber: 1 })] })]);
-    renderPage();
+    const { router } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
     await act(async () => {
@@ -586,7 +615,7 @@ describe('OverlaysPage — recovering an archived overlay', () => {
     });
 
     expect(branchMock).toHaveBeenCalled();
-    expect(screen.queryByText(/^edit overlay draft$/i)).not.toBeInTheDocument();
+    expect(router.state.location.pathname).toBe('/overlays');
   });
 });
 
@@ -964,7 +993,12 @@ describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
   });
 
   /** FR-002: no branch, no PATCH, no optimistic update — only the dialog opens. */
-  it('Opens the editor on that draft and sends no request', async () => {
+  /**
+   * Rewritten for spec 305 (#2350) T011/T007: `Edit draft` navigates
+   * directly to that draft's own edit URL rather than opening a dialog;
+   * FR-002's "sends nothing" half is unchanged — still no branch, no PATCH.
+   */
+  it("Navigates to that draft's own edit URL and sends no request", async () => {
     const user = userEvent.setup();
     listOverlaysMock.mockReturnValue({
       data: response([chain()]),
@@ -973,11 +1007,13 @@ describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
       error: undefined,
       refetch: vi.fn(),
     });
-    renderPage();
+    const { router } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /^edit draft$/i }));
 
-    expect(await screen.findByText(/^edit overlay draft$/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/overlays/11111111-1111-1111-1111-111111111111/revisions/1/edit'),
+    );
     expect(branchMock).not.toHaveBeenCalled();
     expect(editDraftMock).not.toHaveBeenCalled();
   });
@@ -987,7 +1023,13 @@ describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
    * Draft, not "the" draft. Consistent with what Publish and Discard already
    * target on the same row.
    */
-  it('Targets the newest draft on a chain holding two open drafts', async () => {
+  /**
+   * Rewritten for spec 305 (#2350): which draft the navigation targets is
+   * now proven by the URL itself (revision 3, the newer one), rather than by
+   * a dialog's seeded content — the content itself is `OverlayEditPage`'s
+   * own seeding, covered by its own suite.
+   */
+  it('Navigates to the newest draft on a chain holding two open drafts', async () => {
     const user = userEvent.setup();
     listOverlaysMock.mockReturnValue({
       data: response([chain({ revisions: [draftRevision(2, 'Older draft'), draftRevision(3, 'Newer draft')] })]),
@@ -996,12 +1038,13 @@ describe('OverlaysPage — editing a draft in place (spec 152 US1)', () => {
       error: undefined,
       refetch: vi.fn(),
     });
-    renderPage();
+    const { router } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /^edit draft$/i }));
 
-    expect(await screen.findByText(/draft v3/i)).toBeInTheDocument();
-    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Newer draft');
+    await waitFor(() =>
+      expect(router.state.location.pathname).toBe('/overlays/11111111-1111-1111-1111-111111111111/revisions/3/edit'),
+    );
   });
 });
 

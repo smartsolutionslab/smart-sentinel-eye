@@ -3,6 +3,8 @@ import { AuditPage } from '../features/audit/AuditPage.js';
 import { CameraDetailPage } from '../features/cameras/CameraDetailPage.js';
 import { CamerasPage } from '../features/cameras/CamerasPage.js';
 import { LayoutsPage } from '../features/layouts/LayoutsPage.js';
+import { OverlayCreatePage } from '../features/overlays/OverlayCreatePage.js';
+import { OverlayEditPage } from '../features/overlays/OverlayEditPage.js';
 import { OverlaysPage } from '../features/overlays/OverlaysPage.js';
 import { RulesPage } from '../features/rules/RulesPage';
 import { SystemVariablesPage } from '../features/systemVariables/SystemVariablesPage.js';
@@ -54,6 +56,12 @@ export const createAppRouter = () =>
         { path: 'walls', element: <WallsPage />, errorElement: <SurfaceCrash /> },
         { path: 'walls/:wallIdentifier', element: <WallDetailPage />, errorElement: <SurfaceCrash /> },
         { path: 'overlays', element: <OverlaysPage />, errorElement: <SurfaceCrash /> },
+        { path: 'overlays/new', element: <OverlayCreatePage />, errorElement: <SurfaceCrash /> },
+        {
+          path: 'overlays/:overlayIdentifier/revisions/:revisionNumber/edit',
+          element: <OverlayEditPage />,
+          errorElement: <SurfaceCrash />,
+        },
         { path: 'rules', element: <RulesPage />, errorElement: <SurfaceCrash /> },
         { path: 'system-variables', element: <SystemVariablesPage />, errorElement: <SurfaceCrash /> },
         { path: 'audit', element: <AuditPage />, errorElement: <SurfaceCrash /> },

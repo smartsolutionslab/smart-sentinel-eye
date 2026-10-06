@@ -21,15 +21,14 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
-import { OverlayEditorDialog, type OverlayEditTarget } from './OverlayEditorDialog.js';
 
 const STATE_FILTERS: ReadonlyArray<OverlayRevisionState | 'All'> = ['All', 'Draft', 'Published', 'Archived'];
 
 export function OverlaysPage() {
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<OverlayEditTarget>();
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<OverlayRevisionState | 'All'>('All');
   // Spec 036, narrowed by spec 038. The `published` flag is gone: Archive is
   // offered only when a live revision exists and targets that revision, so the
@@ -72,26 +71,23 @@ export function OverlaysPage() {
   const chains = data?.chains ?? [];
   const visible = filter === 'All' ? chains : chains.filter((c) => containsRevisionIn(c, filter));
 
-  // Spec 152 US2. Mirrors `LayoutsPage.tsx:76-84`: the branch is itself a
-  // write, so it happens first and only on success does the dialog open —
-  // seeded from `baseline`, the same revision the server branches from
-  // (`Overlay.cs:76-77`: `CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()`).
-  const onEdit = async (chain: Overlay, baseline: OverlayRevision) => {
+  // Spec 152 US2, spec 305 (#2350) FR-002: the branch is itself a write, so
+  // it happens first and only on success does the page navigate — to the
+  // branched revision the server actually returned, not a seed computed
+  // here. A URL carries no list state (spec 305's declared scope decision),
+  // so `OverlayEditPage` re-reads the chain itself; this page no longer
+  // needs a baseline to seed anything with.
+  const onEdit = async (chain: Overlay) => {
     const result = await branchDraft({ overlayIdentifier: chain.overlayIdentifier, version: chain.version });
     if ('error' in result) return;
-    setEditTarget({
-      overlayIdentifier: chain.overlayIdentifier,
-      revisionNumber: result.data,
-      name: chain.name,
-      elements: elementsOf(baseline),
-    });
+    navigate(`/overlays/${chain.overlayIdentifier}/revisions/${result.data}/edit`);
   };
 
   return (
     <section className="p-6">
       <header className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-semibold">Overlays</h1>
-        <Button onClick={() => setDialogOpen(true)}>New overlay</Button>
+        <Button onClick={() => navigate('/overlays/new')}>New overlay</Button>
       </header>
 
       <div className="mb-4 flex gap-2">
@@ -139,11 +135,16 @@ export function OverlaysPage() {
           // LayoutsPage and for the same reason — deciding from `newest` left a
           // live overlay under a discarded draft offering nothing, and an
           // Archive button that discarded a draft under a false warning.
-          // `newest` is back (spec 152 US2): Edit (new draft) now opens the
-          // designer on what it branches, and needs a baseline to seed it with
-          // — the same `live ?? newest` rule LayoutsPage uses, because the
-          // server picks the branch source by that rule either way.
-          const { live, draft, newest, summarised, fullyArchived } = chainView(chain.revisions);
+          //
+          // Spec 305 (#2350): `newest` itself is no longer read here. US2
+          // used to seed the dialog from `live ?? newest` as the branch's
+          // baseline; a route carries no seed (spec 305's declared scope
+          // decision), so `onEdit` now only needs `chain.version` for the
+          // branch call, and `OverlayEditPage` re-reads the branched
+          // revision's content itself. `fullyArchived` is still read below —
+          // it is true only when a baseline (`newest`) exists, which is what
+          // the "Edit (new draft)" gate itself needs.
+          const { live, draft, summarised, fullyArchived } = chainView(chain.revisions);
           const disabled = publishing || archiving || branching || reverting;
           return (
             <li key={chain.overlayIdentifier} className="rounded-md border border-fg-muted/30 bg-bg-elevated px-4 py-3">
@@ -193,25 +194,19 @@ export function OverlaysPage() {
                   </Button>
                 )}
                 {/*
-                  Spec 152 US1. Edits the draft that already exists — the
-                  action neither this row nor LayoutsPage's offered before,
-                  and the one the issue's own scenario needed: a freshly
-                  created overlay is `{D}`, where `Edit (new draft)`'s gate
-                  below is false. Sends nothing on click (FR-002) — the
-                  dialog opens against `draft`, and only Save writes.
+                  Spec 152 US1, spec 305 (#2350) FR-002. Edits the draft that
+                  already exists — the action neither this row nor
+                  LayoutsPage's offered before, and the one the issue's own
+                  scenario needed: a freshly created overlay is `{D}`, where
+                  `Edit (new draft)`'s gate below is false. Sends nothing on
+                  click — a direct navigation to the draft's own edit URL,
+                  and only Save writes.
                 */}
                 {draft !== undefined && (
                   <Button
                     variant="secondary"
                     disabled={disabled}
-                    onClick={() =>
-                      setEditTarget({
-                        overlayIdentifier: chain.overlayIdentifier,
-                        revisionNumber: draft.revisionNumber,
-                        name: chain.name,
-                        elements: elementsOf(draft),
-                      })
-                    }
+                    onClick={() => navigate(`/overlays/${chain.overlayIdentifier}/revisions/${draft.revisionNumber}/edit`)}
                   >
                     Edit draft
                   </Button>
@@ -234,7 +229,7 @@ export function OverlaysPage() {
                     // defect class FR-013 exists to reject by name.
                     onClick={() => {
                       if (disabled) return;
-                      void onEdit(chain, live ?? newest!);
+                      void onEdit(chain);
                     }}
                   >
                     Edit (new draft)
@@ -362,30 +357,12 @@ export function OverlaysPage() {
           </p>
         )}
       </ArchiveConfirmation>
-
-      <OverlayEditorDialog open={dialogOpen} onOpenChange={setDialogOpen} />
-      <OverlayEditorDialog
-        open={editTarget !== undefined}
-        onOpenChange={(next) => {
-          if (!next) setEditTarget(undefined);
-        }}
-        editTarget={editTarget}
-      />
     </section>
   );
 }
 
 function containsRevisionIn(chain: Overlay, state: OverlayRevisionState): boolean {
   return chain.revisions.some((r) => r.state === state);
-}
-
-// Spec 152, widened by spec 150 FR-018, then by spec 300 (#2349, ADR-0165)
-// past text-only. Copies the revision's WHOLE `elements` array rather than
-// lifting just the one `OverlayEditor` shows — the dialog edits exactly one
-// Text element, but the edit target (and later the PATCH body) must carry
-// every element the draft has, or editing truncates the set.
-function elementsOf(revision: OverlayRevision): OverlayElement[] {
-  return revision.elements.map((element) => ({ ...element }));
 }
 
 function isTextElement(element: OverlayElement): element is OverlayTextElement {
