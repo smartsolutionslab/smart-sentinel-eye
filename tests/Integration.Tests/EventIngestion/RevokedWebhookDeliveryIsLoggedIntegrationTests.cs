@@ -170,6 +170,78 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
             + $"Captured lines:{Environment.NewLine}{CapturedLines(capture)}");
     }
 
+    /// <summary>
+    /// Review finding on #2205 (phase 6, both reviewers): every fact above
+    /// posts with <c>fabId</c> equal to the integration's own fab, so nothing
+    /// here proves the log call actually runs before
+    /// <c>AuthenticateWebhookAsync</c>'s <c>IsIntegrationsOwnFab</c> check — a
+    /// regression that moved it after would still pass every fact above — and
+    /// the "never logs the caller-supplied fabId" property is untested, since
+    /// caller fabId and the integration's own fab are identical everywhere
+    /// else. Registers and revokes an integration in <see cref="Fab"/>
+    /// ("munich"), then posts the delivery naming a different, syntactically
+    /// valid fab ("dresden") as the caller's <c>fabId</c>. The 401 must stay
+    /// unchanged; the record must still name the integration's own fab
+    /// (proving the log ran even though the fab check would have refused
+    /// first) and must never name the caller-supplied one.
+    ///
+    /// <para>
+    /// Uses its own, distinct integration — never one another fact in this
+    /// file already revoked — because the rate-limiting fix for #2205's
+    /// review logs at most once per integration per window
+    /// (<c>IsNewRevokedWebhookDeliveryLog</c>); sharing an integration with
+    /// another fact's refused delivery in the same run could silently
+    /// suppress this fact's own record.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_revoked_delivery_with_a_mismatched_fabId_still_logs_the_integrations_own_fab()
+    {
+        const string callerFab = "dresden";
+
+        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        string name = UniqueName("revoked-mismatched-fab");
+        string token = await RegisterAndCaptureTokenInFabAsync(admin, name, Fab);
+        await RevokeAsync(admin, name);
+
+        using LogCapture capture = aspire.CaptureLogs(EventIngestionResource);
+
+        HttpResponseMessage refused = await PostWebhookAsync(name, callerFab, token);
+
+        // (a) the external 401 is unchanged by which fab the caller named —
+        // checked first and in full, exactly as the facts above do.
+        refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await DiagnoseAsync(refused));
+        (await refused.Content.ReadAsStringAsync()).ShouldBeEmpty(
+            "the 401 body must stay empty regardless of which fabId the caller named.");
+
+        string expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
+        bool logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
+        logged.ShouldBeTrue(
+            $"expected the {EventIngestionResource} log to contain a record matching "
+            + $"\"{expectedPhrase}\" even though the caller named a fab other than the integration's "
+            + $"own; found none. Captured lines:{Environment.NewLine}{CapturedLines(capture)}");
+
+        string matchedLine = capture.Lines.First(line => line.Contains(expectedPhrase, StringComparison.Ordinal));
+
+        // (b) the record names the integration's OWN fab — proving the log
+        // call ran before (or regardless of) the fab-rejection check, which
+        // would have refused on "dresden" and never reached this branch had
+        // the ordering regressed.
+        matchedLine.ShouldContain(
+            $"in fab {Fab}",
+            Case.Sensitive,
+            $"the revoked-delivery record must name the integration's own fab ('{Fab}'); it did not, "
+            + $"which means the log either moved after the fab check or stopped naming the "
+            + $"integration's own fab. Line: {matchedLine}");
+
+        // (c) the record never carries the caller-supplied, mismatched fabId.
+        matchedLine.ShouldNotContain(
+            callerFab,
+            Case.Sensitive,
+            $"the revoked-delivery record carried the caller-supplied fabId ('{callerFab}'), which it "
+            + $"must never do — only the integration's own fab is ever logged. Line: {matchedLine}");
+    }
+
     // ---- copied (not refactored) from WebhookRevocationRefusesDeliveryIntegrationTests ----
 
     /// <summary>
@@ -240,6 +312,24 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
         aspire.DiagnoseAsync("event-ingestion", response);
 
     // ---- new to this file ----
+
+    /// <summary>
+    /// Like <see cref="RegisterAndCaptureTokenAsync"/>, but names the fab
+    /// explicitly rather than relying on the admin's default resolution — so
+    /// <see cref="A_revoked_delivery_with_a_mismatched_fabId_still_logs_the_integrations_own_fab"/>
+    /// can be certain which fab the integration belongs to, independent of
+    /// the admin account's own fab membership.
+    /// </summary>
+    private static async Task<string> RegisterAndCaptureTokenInFabAsync(HttpClient admin, string name, string fab)
+    {
+        HttpResponseMessage created = await admin.PostAsJsonAsync(
+            $"/webhook-integrations?fabId={fab}", new { name, defaultKind = "WebhookAlarm" });
+        created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
+
+        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+
+        return body.GetProperty("token").GetString()!;
+    }
 
     /// <summary>
     /// Polls <paramref name="capture"/> for <paramref name="marker"/> at
