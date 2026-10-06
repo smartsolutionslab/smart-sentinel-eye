@@ -1,4 +1,3 @@
-import { useRef, type ComponentRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { OverlayDraftForm } from './OverlayDraftForm.js';
 import { useCanvasFit } from './useCanvasFit.js';
@@ -12,8 +11,7 @@ import { useCanvasFit } from './useCanvasFit.js';
  */
 export function OverlayCreatePage() {
   const navigate = useNavigate();
-  const containerRef = useRef<ComponentRef<'section'>>(null);
-  const fit = useCanvasFit(containerRef);
+  const { fit, ref: containerRef } = useCanvasFit();
 
   return (
     <section ref={containerRef} className="p-6">
