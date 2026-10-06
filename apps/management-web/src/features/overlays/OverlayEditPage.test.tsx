@@ -1,5 +1,6 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { skipToken } from '@reduxjs/toolkit/query/react';
@@ -23,28 +24,50 @@ const editDraftMock = vi.fn(async () => ({ data: 1 }));
 let editError: unknown = undefined;
 
 /**
- * Mutable per-test, mirroring `OverlayEditorDialog.test.tsx`'s own
- * `chainQueryState`: a `vi.mock` factory is hoisted above every test, so the
- * mock itself cannot vary by call — the test sets this object in place and
- * the mocked hook always reads the latest value.
+ * Phase-6 review (should-fix 1): mutable per-test state, mirroring
+ * `OverlayEditorDialog.test.tsx`'s own `chainQueryState` — a `vi.mock`
+ * factory is hoisted above every test, so the mock itself cannot vary by
+ * call, and the test sets this object in place.
+ *
+ * Unlike that older harness, this one is a REAL subscription
+ * (`useSyncExternalStore`), the same pattern `OverlayDraftFormSaveGate.test.tsx`
+ * already uses for its own mutation state: a plain mutable object read
+ * straight from the mock's closure is NOT a subscription, so
+ * `rerender(<Provider>...<RouterProvider/></Provider>)` on an unchanged route
+ * element is a no-op — React bails out before re-rendering `OverlayEditPage`
+ * at all, and the mocked hook is never called again to pick up the new
+ * value. A naive page that re-derives its seed on every render passed the
+ * old "does not reseed" test for exactly this reason (phase-6 review,
+ * proved by counterfactual). `setChainQueryState` below notifies every
+ * subscriber, so a change pushed through it inside `act()` genuinely
+ * reaches a mounted `OverlayEditPage` and is re-evaluated.
  */
-let chainQueryState: {
+interface ChainQueryState {
   currentData?: Overlay;
   isFetching: boolean;
   isError: boolean;
   error?: unknown;
   refetch: () => void;
-} = { currentData: undefined, isFetching: false, isError: false, refetch: vi.fn() };
+}
+
+let chainQueryState: ChainQueryState = { currentData: undefined, isFetching: false, isError: false, refetch: vi.fn() };
+let chainQueryListeners: Array<() => void> = [];
+
+function setChainQueryState(next: ChainQueryState) {
+  chainQueryState = next;
+  for (const listener of chainQueryListeners) listener();
+}
+
+function subscribeChainQueryState(listener: () => void) {
+  chainQueryListeners = [...chainQueryListeners, listener];
+  return () => {
+    chainQueryListeners = chainQueryListeners.filter((entry) => entry !== listener);
+  };
+}
 
 const useGetOverlayQueryMock = vi.fn((...args: unknown[]) => {
   void args;
-  return {
-    currentData: chainQueryState.currentData,
-    isFetching: chainQueryState.isFetching,
-    isError: chainQueryState.isError,
-    error: chainQueryState.error,
-    refetch: chainQueryState.refetch,
-  };
+  return useSyncExternalStore(subscribeChainQueryState, () => chainQueryState);
 });
 
 vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {
@@ -95,6 +118,11 @@ beforeEach(() => {
   useGetOverlayQueryMock.mockClear();
   editError = undefined;
   chainQueryState = { currentData: undefined, isFetching: false, isError: false, refetch: vi.fn() };
+  // Defensive: `@testing-library/react`'s auto-cleanup already unmounts the
+  // previous test's tree (unsubscribing it) before this runs, but resetting
+  // the listener list here too means a leaked subscription from a test that
+  // throws before unmount can never bleed a stale `setState` into the next.
+  chainQueryListeners = [];
 });
 
 afterEach(() => {
@@ -282,13 +310,13 @@ describe('OverlayEditPage — Save and Cancel both leave the page (spec 305, #23
 describe('OverlayEditPage — the form seeds once (spec 305 FR-003, plan.md "Seed once")', () => {
   it('Does not reseed the text field from a background refetch once an edit is in progress', async () => {
     const user = userEvent.setup();
-    chainQueryState = {
+    setChainQueryState({
       currentData: chainOf(OVERLAY_ID, 5, 'Line 3', [draftRevision(2, 'Original label')]),
       isFetching: false,
       isError: false,
       refetch: vi.fn(),
-    };
-    const { router, rerender } = renderEditPage(OVERLAY_ID, '2');
+    });
+    renderEditPage(OVERLAY_ID, '2');
 
     const textInput = screen.getByTestId('overlay-editor-text');
     await user.clear(textInput);
@@ -297,17 +325,92 @@ describe('OverlayEditPage — the form seeds once (spec 305 FR-003, plan.md "See
     // Simulate a background refetch — e.g. the conflict-recovery refetch
     // FR-003 names — that answers with different content for the SAME
     // revision. Only the If-Match version may move; the seed must not.
-    chainQueryState = {
-      ...chainQueryState,
-      currentData: chainOf(OVERLAY_ID, 6, 'Line 3', [draftRevision(2, 'Refetched from server')]),
-    };
-    rerender(
-      <Provider store={store}>
-        <RouterProvider router={router} />
-      </Provider>,
-    );
+    //
+    // Pushed through the real subscription (`act` + `setChainQueryState`),
+    // not a `rerender` on an unchanged route element — a `rerender` here
+    // would be a no-op (phase-6 review, should-fix 1: proved by
+    // counterfactual, see the harness's own doc comment above) and this
+    // test would pass even against a page that reseeds on every render.
+    act(() => {
+      setChainQueryState({
+        ...chainQueryState,
+        currentData: chainOf(OVERLAY_ID, 6, 'Line 3', [draftRevision(2, 'Refetched from server')]),
+      });
+    });
 
     expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Edited by operator');
+  });
+
+  /**
+   * Phase-6 review, blocker 1 (#2350): in RTK Query 2.12, a rejected refetch
+   * keeps `currentData` but sets `isError` — so this fires on the form's own
+   * "Retry" action OR on a conflict's tag-invalidation refetch exactly as
+   * the background-refetch case above does, and the page's own
+   * `if (chainFailed)` branch used to fire regardless of whether a seed
+   * already existed, unmounting `OverlayDraftForm` (and everything typed
+   * into it) for the `RetryBanner`. Reproduced live: seed, type, push
+   * `isError: true`, and the typed text used to vanish.
+   */
+  it('Keeps the typed edit on screen when a later read fails once an edit is in progress (phase-6 blocker 1)', async () => {
+    const user = userEvent.setup();
+    setChainQueryState({
+      currentData: chainOf(OVERLAY_ID, 5, 'Line 3', [draftRevision(2, 'Original label')]),
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    renderEditPage(OVERLAY_ID, '2');
+
+    const textInput = screen.getByTestId('overlay-editor-text');
+    await user.clear(textInput);
+    await user.type(textInput, 'Edited by operator');
+
+    act(() => {
+      setChainQueryState({ ...chainQueryState, isError: true, error: { status: 503 } });
+    });
+
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Edited by operator');
+    // The point of the fix: the page-level `RetryBanner` branch must not
+    // have taken over — that branch unmounts `OverlayDraftForm` entirely.
+    expect(screen.queryByText(/could not load this overlay/i)).not.toBeInTheDocument();
+  });
+
+  /**
+   * Phase-6 review, blocker 2 (#2350): plan.md step 5 ("After the form
+   * seeds, a later read that shows the revision left Draft... does NOT swap
+   * the editor for the notice; the form's existing
+   * `OVERLAY_REVISION_NOT_DRAFT` handling covers that case") was
+   * unimplemented — the page's `revision.state !== 'Draft'` check ran
+   * regardless of whether a seed already existed, replacing the whole
+   * editor with `NotDraftNotice` on a later conflict refetch. Reproduced
+   * live: seed, type, push a chain where the revision is Published, and the
+   * editor used to disappear entirely.
+   */
+  it('Keeps the typed edit on screen when a later read shows the revision left Draft (phase-6 blocker 2)', async () => {
+    const user = userEvent.setup();
+    setChainQueryState({
+      currentData: chainOf(OVERLAY_ID, 5, 'Line 3', [draftRevision(2, 'Original label')]),
+      isFetching: false,
+      isError: false,
+      refetch: vi.fn(),
+    });
+    renderEditPage(OVERLAY_ID, '2');
+
+    const textInput = screen.getByTestId('overlay-editor-text');
+    await user.clear(textInput);
+    await user.type(textInput, 'Edited by operator');
+
+    act(() => {
+      setChainQueryState({
+        ...chainQueryState,
+        currentData: chainOf(OVERLAY_ID, 6, 'Line 3', [publishedRevision(2, 'Refetched from server')]),
+      });
+    });
+
+    expect(screen.getByTestId('overlay-editor-text')).toHaveValue('Edited by operator');
+    // The point of the fix: the page-level `NotDraftNotice` must not have
+    // taken over — that notice replaces the whole editor.
+    expect(screen.queryByText(/no longer a draft/i)).not.toBeInTheDocument();
   });
 });
 
