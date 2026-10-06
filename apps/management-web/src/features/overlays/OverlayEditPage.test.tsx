@@ -313,7 +313,7 @@ describe('OverlayEditPage — the form seeds once (spec 305 FR-003, plan.md "See
 describe('OverlayEditPage — the canvas uses the page width (spec 305 FR-006)', () => {
   // Untyped against the DOM lib's `ResizeObserver*` names deliberately — this
   // app's eslint config has no per-tag DOM lib globals (the same reasoning
-  // `OverlayEditorDialog.tsx`'s own `ComponentRef<'button'>` comment gives),
+  // `OverlayDraftForm.tsx`'s own `ComponentRef<'button'>` comment gives),
   // and widening it is the gate-weakening ADR-0144 rules out.
   class FakeResizeObserver {
     static instances: FakeResizeObserver[] = [];

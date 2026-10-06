@@ -156,7 +156,7 @@ function renderDialog() {
  * phase-6 review): RTK Query keeps `currentData` defined through a
  * same-argument refetch, clearing it only on a `skipToken` step or an arg
  * change (neither happens here) — the spec itself says so
- * (`OverlayEditorDialog.tsx:72-81`). Overwriting it to `undefined` was only
+ * (`OverlayDraftForm.tsx`'s own `useGetOverlayQuery` call). Overwriting it to `undefined` was only
  * ever accidentally correct for Retry, whose precondition already has no
  * data; it was wrong for Reload, whose precondition is a *successful* prior
  * read.
@@ -478,13 +478,14 @@ describe('OverlayEditorDialog — a recovery control that survives its own activ
    * Spec 158 (issue #2379) — new behaviour, RED (ADR-0139).
    *
    * `currentData` survives a same-argument refetch (the comment block above
-   * `useGetOverlayQuery` at `OverlayEditorDialog.tsx:72-82` states this, and
+   * `OverlayDraftForm.tsx`'s own `useGetOverlayQuery` call states this, and
    * `beginReRead()` above deliberately spreads `...chainQueryState` rather
    * than clearing `data` to model it). So while a re-read of the same
    * overlay is in flight, `currentChain` stays defined at the pre-re-read
    * version, and the shipped predicate
-   * (`isLoading || (isEdit && currentChain === undefined)`) was the gate at
-   * `OverlayEditorDialog.tsx:311`, until `36a27d01` added `chainFetching` —
+   * (`isLoading || (isEdit && currentChain === undefined)`) was the gate in
+   * `OverlayDraftForm.tsx` (originally `OverlayEditorDialog.tsx`), until
+   * `36a27d01` added `chainFetching` —
    * it was false, so Save stayed enabled and would have submitted
    * `version: 7`, the exact version the re-read exists to correct.
    *

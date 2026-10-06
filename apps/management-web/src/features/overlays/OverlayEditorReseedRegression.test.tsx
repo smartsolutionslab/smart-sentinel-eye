@@ -10,12 +10,13 @@ import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayE
  * a hand-rolled `useState` passthrough: its `onChange` calls `setValue(next)`
  * with the exact object the hook itself just built, so `value` on the next
  * render is reference-identical to what `useOverlayEditHistory` last
- * emitted. It is not `OverlayEditorDialog.tsx`'s real parent, and no test in
- * either new suite renders `OverlayEditor` under that real parent — so the
- * production wiring has never actually been exercised.
+ * emitted. It is not `OverlayDraftForm.tsx`'s (originally
+ * `OverlayEditorDialog.tsx`'s) real parent, and no test in either new suite
+ * renders `OverlayEditor` under that real parent — so the production wiring
+ * has never actually been exercised.
  *
  * <p>
- * `OverlayEditorDialog.tsx:252-264` wires `OverlayEditor` through RHF's
+ * `OverlayDraftForm.tsx` wires `OverlayEditor` through RHF's
  * `Controller`, exactly reproduced by the harness below. `useController`
  * (which `Controller` calls internally) sources `field.value` through
  * `useWatch`, and `useWatch` re-derives its return value via
@@ -33,7 +34,7 @@ import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayE
  * `useOverlayEditHistory`'s re-seed detector
  * (`useOverlayEditHistory.ts:113-121`) compares `value` against
  * `lastEmitted` by reference only, so it reads every one of the
- * `Controller`'s own echoes as an external re-seed — `OverlayEditorDialog.tsx`
+ * `Controller`'s own echoes as an external re-seed — `OverlayDraftForm.tsx`
  * calling `reset(defaultValues)` — and clears both stacks the render after
  * every single edit. Against the real component tree:
  * </p>
