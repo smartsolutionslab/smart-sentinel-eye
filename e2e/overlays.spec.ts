@@ -73,7 +73,7 @@ const WHITE_FIELD_BACKGROUND_COLOR = 'oklch(1 0 0)';
 // No save, so no `FIRST_WRITE_*` timeout and no disposable — the teardown's
 // `E2E ` pattern is not involved (spec.md §US3).
 //
-// Deliberately not asserted here: the dialog's own `camera-catalog/cameras`
+// Deliberately not asserted here: the create page's own `camera-catalog/cameras`
 // fetch (spec.md §8) — `e2e/cameras.spec.ts` already covers that path with
 // the same authenticated operator, and binding it to this test would fail
 // this test for a reason unrelated to what it pins.
@@ -169,8 +169,8 @@ test('the checkerboard follows the theme; the label does not (spec 293)', async 
 // boundary to the server exactly — the client-side /100-vs-quantize
 // discrimination is `OverlayGeometryFields.test.tsx`'s job (24.87 does not
 // discriminate the two; it is used here only as an ordinary value). There is
-// no edit dialog (`OverlayEditorDialog` is create-only), so the read-back is
-// a gateway call, not a re-open.
+// no re-open of the created overlay — this test only exercises the create
+// page — so the read-back is a gateway call, not a re-open.
 test('operator types an exact geometry and the saved overlay carries it through the gateway', async ({ page }) => {
   test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
 
@@ -266,7 +266,10 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
   const row = page.getByRole('listitem').filter({ hasText: name });
   await row.getByRole('button', { name: /^edit draft$/i }).click();
 
-  await expect(page.getByRole('dialog')).toBeVisible();
+  // Spec 305 (#2350): a route, not a modal — Edit draft lands on the
+  // revision's own edit URL, with no element with role "dialog" anywhere.
+  await expect(page).toHaveURL(/\/overlays\/[^/]+\/revisions\/1\/edit$/);
+  await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect(page.getByLabel(/^name$/i)).toHaveCount(0);
   const textField = page.getByTestId('overlay-editor-text');
   await textField.fill('E2E Edited');
@@ -282,6 +285,9 @@ test('operator edits a saved draft in place, onto the same revision', async ({ p
   const saveDraftButton = page.getByRole('button', { name: /^save draft$/i });
   await expect(saveDraftButton).toHaveAttribute('aria-disabled', 'false');
   await saveDraftButton.click();
+
+  // FR-004: Save success navigates back to the list.
+  await expect(page).toHaveURL(/\/overlays$/, { timeout: FIRST_WRITE_TIMEOUT_MS });
 
   // Same revision, not a new one: the badge still reads v1 · Draft.
   await expect(row.getByText('E2E Edited')).toBeVisible({ timeout: FIRST_WRITE_TIMEOUT_MS });
@@ -310,9 +316,9 @@ test('operator drags a label, undoes it, and undoes back to the saved geometry',
 
   const row = page.getByRole('listitem').filter({ hasText: name });
   await row.getByRole('button', { name: /^edit draft$/i }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page).toHaveURL(/\/overlays\/[^/]+\/revisions\/1\/edit$/);
 
-  // Step 2 — the value the dialog opened with, read back from the field
+  // Step 2 — the value the page opened with, read back from the field
   // rather than assumed, so the test pins whatever DEFAULT_INPUT actually
   // is today.
   const leftField = page.getByLabel('Left', { exact: true });
@@ -450,39 +456,39 @@ test('a stale-version conflict does not cost the keyboard operator their place a
       timeout: FIRST_WRITE_TIMEOUT_MS,
     });
     await rowTwo.getByRole('button', { name: /^edit draft$/i }).click();
-    await expect(pageTwo.getByRole('dialog')).toBeVisible();
-    // Accessible-name pattern, not a plain `/^save draft$/i`: this dialog's
+    // Spec 305 (#2350): a route, not a modal.
+    await expect(pageTwo).toHaveURL(/\/overlays\/[^/]+\/revisions\/1\/edit$/);
+    // Accessible-name pattern, not a plain `/^save draft$/i`: this page's
     // submit button relabels itself `Saving…` for exactly as long as
-    // `isLoading` is true (`OverlayEditorDialog.tsx:360`) — the PATCH-pending
+    // `isLoading` is true (`OverlayDraftForm.tsx`) — the PATCH-pending
     // window this test exists to observe. A locator that only matches the
     // settled label resolves to nothing during that window, so a retrying
     // assertion built on it silently skips past the window instead of
-    // sampling inside it. Still Save-specific within this dialog: neither
+    // sampling inside it. Still Save-specific within this page: neither
     // `Cancel` nor create mode's `Save as draft` matches either branch.
     const saveButtonTwo = pageTwo.getByRole('button', { name: /^(save draft|saving…)$/i });
-    // Phase-6 finding 2 (issue #2387): the dialog becomes visible on its
-    // first frame, before its own chain GET has answered — unsynchronised
-    // with the first writer's PATCH below. If that GET lands after the
-    // first writer's edit (a slow first read against a cold
-    // OverlayDesigner, exactly what `FIRST_WRITE_TIMEOUT_MS` exists for),
-    // pageTwo mounts holding the version the first writer is about to move
-    // past, but its own read then answers with the already-updated chain —
-    // no 409 is ever raised, and this test fails 300s later at `alertTwo`
-    // below, reading like a product bug rather than a race. Save is gated
-    // on `currentChain === undefined` (`OverlayEditorDialog.tsx:267`), so
-    // waiting for the gate to open here — the same idiom as :153, just
-    // stronger (finding 4) — pins "pageTwo's own chain read has landed"
-    // before the first writer is allowed to move the version out from
-    // under it.
+    // Phase-6 finding 2 (issue #2387): the page renders on its first frame,
+    // before its own chain GET has answered — unsynchronised with the first
+    // writer's PATCH below. If that GET lands after the first writer's edit
+    // (a slow first read against a cold OverlayDesigner, exactly what
+    // `FIRST_WRITE_TIMEOUT_MS` exists for), pageTwo mounts holding the
+    // version the first writer is about to move past, but its own read then
+    // answers with the already-updated chain — no 409 is ever raised, and
+    // this test fails 300s later at `alertTwo` below, reading like a product
+    // bug rather than a race. Save is gated on `currentChain === undefined`
+    // (`OverlayDraftForm.tsx`), so waiting for the gate to open here — the
+    // same idiom as :153, just stronger (finding 4) — pins "pageTwo's own
+    // chain read has landed" before the first writer is allowed to move the
+    // version out from under it.
     await expect(saveButtonTwo).toHaveAttribute('aria-disabled', 'false');
 
     // The first writer moves the version out from under the second.
     const rowOne = pageOne.getByRole('listitem').filter({ hasText: name });
     await rowOne.getByRole('button', { name: /^edit draft$/i }).click();
-    await expect(pageOne.getByRole('dialog')).toBeVisible();
+    await expect(pageOne).toHaveURL(/\/overlays\/[^/]+\/revisions\/1\/edit$/);
     await pageOne.getByTestId('overlay-editor-text').fill('E2E First Writer');
     await pageOne.getByRole('button', { name: /^save draft$/i }).click();
-    await expect(pageOne.getByRole('dialog')).toHaveCount(0);
+    await expect(pageOne).toHaveURL(/\/overlays$/);
 
     // Slow only the second context's PATCH, so the pending window is
     // observable rather than a single-frame flicker on a warm local stack —
@@ -582,7 +588,7 @@ test('a stale-version conflict does not cost the keyboard operator their place a
     // Gate-open pairing (rule 2, tasks.md): pressing it now actually saves,
     // onto the recovered version.
     await pageTwo.keyboard.press('Enter');
-    await expect(pageTwo.getByRole('dialog')).toHaveCount(0, { timeout: FIRST_WRITE_TIMEOUT_MS });
+    await expect(pageTwo).toHaveURL(/\/overlays$/, { timeout: FIRST_WRITE_TIMEOUT_MS });
   } finally {
     await first.close();
     await second.close();
@@ -808,4 +814,91 @@ test('the advisory appearing and clearing does not move the Save button (spec 25
   expect(afterAdvisoryCleared.y).toBe(before.y);
 
   await page.getByRole('button', { name: /^cancel$/i }).click();
+});
+
+// Spec 305 (#2350) T013 — the one thing a dialog could never be asked to
+// prove: the editor survives a reload. `OverlayEditorDialog`'s state lived
+// entirely in React, so reloading the browser always landed back on the
+// bare `/overlays` list with the draft's edits gone; this is exactly the
+// defect a route fixes (spec.md "The edit page survives a reload").
+test('the edit page survives a reload (spec 305, #2350)', async ({ page }) => {
+  test.setTimeout(FIRST_WRITE_TEST_TIMEOUT_MS);
+
+  await signInAsOperator(page);
+
+  await openSection(page, 'Overlays');
+
+  const name = `E2E Reload ${Date.now()}`;
+  await createOverlayDraft(page, name);
+
+  const row = page.getByRole('listitem').filter({ hasText: name });
+  await row.getByRole('button', { name: /^edit draft$/i }).click();
+  await expect(page).toHaveURL(/\/overlays\/[^/]+\/revisions\/1\/edit$/);
+  const urlBeforeReload = page.url();
+
+  const textField = page.getByTestId('overlay-editor-text');
+  // DEFAULT_INPUT's own label text (OverlayDraftForm.tsx) — this draft was
+  // never edited, so the stored value is whatever the create page seeded.
+  await expect(textField).toHaveValue('Overlay text');
+
+  const canvas = page.getByTestId('overlay-editor-canvas');
+  const label = page.getByTestId('overlay-editor-label');
+
+  async function labelPositionRelativeToCanvas(): Promise<{ x: number; y: number }> {
+    const canvasBox = await canvas.boundingBox();
+    const labelBox = await label.boundingBox();
+    if (canvasBox === null || labelBox === null) {
+      throw new Error('the canvas and the label should both have a bounding box once the edit page has rendered');
+    }
+    return {
+      x: (labelBox.x - canvasBox.x) / canvasBox.width,
+      y: (labelBox.y - canvasBox.y) / canvasBox.height,
+    };
+  }
+
+  const beforeReload = await labelPositionRelativeToCanvas();
+
+  await page.reload();
+
+  // The URL survives the reload unchanged — the point of the route, where
+  // the dialog had nothing to survive it with at all.
+  expect(page.url()).toBe(urlBeforeReload);
+  await expect(textField).toHaveValue('Overlay text');
+
+  const afterReload = await labelPositionRelativeToCanvas();
+  // Normalised to the canvas, not raw pixels (plan.md's own reasoning for
+  // every normalized-coordinate assertion in this suite): the canvas may
+  // measure a handful of pixels differently across a reload (a scrollbar
+  // appearing, a font metric settling) without the label's actual, stored
+  // position having moved at all.
+  expect(afterReload.x).toBeCloseTo(beforeReload.x, 2);
+  expect(afterReload.y).toBeCloseTo(beforeReload.y, 2);
+});
+
+// Spec 305 (#2350) T013 — FR-006, the whole point of moving off the dialog:
+// the canvas is no longer capped at the dialog's 800px-in-a-448px-box
+// overflow. 1920x1080 is also kiosk-label-scales-with-its-tile.spec.ts's
+// viewport, chosen for the same reason — a size the old modal could never
+// have grown into regardless of the browser window around it.
+test.describe('at a 1920x1080 viewport', () => {
+  test.use({ viewport: { width: 1920, height: 1080 } });
+
+  test('the canvas is wider than 800px and stays 16:9 (spec 305, #2350)', async ({ page }) => {
+    await signInAsOperator(page);
+
+    await openSection(page, 'Overlays');
+
+    await page.getByRole('button', { name: /new overlay/i }).click();
+    await expect(page).toHaveURL(/\/overlays\/new$/);
+
+    const canvas = page.getByTestId('overlay-editor-canvas');
+    const box = await canvas.boundingBox();
+    if (box === null) {
+      throw new Error('the canvas should have a bounding box once the create page has rendered');
+    }
+
+    expect(box.width).toBeGreaterThan(800);
+    const expectedHeight = (box.width * 9) / 16;
+    expect(Math.abs(box.height - expectedHeight)).toBeLessThanOrEqual(1);
+  });
 });
