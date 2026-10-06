@@ -136,7 +136,10 @@ test('the rule is registered at error in every app that has tests', async () => 
     [sharedApp, path.join(sharedApp, 'src', 'ui', 'composites', 'CameraViewer.test.tsx')],
     [
       managementWebApp,
-      path.join(managementWebApp, 'src', 'features', 'overlays', 'OverlayEditorDialog.test.tsx'),
+      // Spec 305 (#2350) deleted `OverlayEditorDialog`/its test file; the
+      // editor's own behaviour now lives in `OverlayDraftForm` (phase-6
+      // review nit N4).
+      path.join(managementWebApp, 'src', 'features', 'overlays', 'OverlayDraftForm.test.tsx'),
     ],
     [kioskWebApp, path.join(kioskWebApp, 'src', 'app', 'wallMode.test.ts')],
   ];
