@@ -113,4 +113,66 @@ public class AuditEventTests
             System.Text.Encoding.UTF8.GetByteCount(payloadWithMultibyte));
         row.Payload.Size.Value.ShouldBeGreaterThan(payloadWithMultibyte.Length);
     }
+
+    // Spec 306 (#2540) SC-1/SC-5/SC-6 — FabAttribution is derived in From from
+    // the envelope's Fab and the event type's FabScope. See plan.md §8.1.
+    [Fact]
+    public void From_marks_a_row_with_a_fab_as_resolved()
+    {
+        AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
+
+        row.FabAttribution.ShouldBe(FabAttribution.Resolved);
+    }
+
+    [Fact]
+    public void From_marks_a_fab_owned_event_with_no_fab_as_unresolved()
+    {
+        V1Envelope noFab = SampleEnvelope() with { Fab = Option<FabIdentifier>.None };
+        AuditEventEntity row = AuditEventEntity.From(noFab, SampleMapping(), new FakeClock(Received));
+
+        row.FabAttribution.ShouldBe(FabAttribution.Unresolved);
+    }
+
+    [Fact]
+    public void From_marks_a_fab_neutral_event_with_no_fab_as_not_applicable()
+    {
+        V1Envelope neutralNoFab = SampleEnvelope() with
+        {
+            Fab = Option<FabIdentifier>.None,
+            FabScope = FabScope.Neutral,
+        };
+        AuditEventEntity row = AuditEventEntity.From(neutralNoFab, SampleMapping(), new FakeClock(Received));
+
+        row.FabAttribution.ShouldBe(FabAttribution.NotApplicable);
+    }
+
+    [Fact]
+    public void From_marks_a_fab_neutral_event_that_carries_a_fab_as_resolved()
+    {
+        // SC-5: the fab is evidence; a non-null fab is never discarded or
+        // relabelled just because the event type is registered neutral.
+        V1Envelope neutralWithFab = SampleEnvelope() with { FabScope = FabScope.Neutral };
+        AuditEventEntity row = AuditEventEntity.From(neutralWithFab, SampleMapping(), new FakeClock(Received));
+
+        row.FabAttribution.ShouldBe(FabAttribution.Resolved);
+        row.Fab!.Value.ShouldBe("munich");
+    }
+
+    [Fact]
+    public void From_treats_an_envelope_with_no_declared_scope_as_fab_owned()
+    {
+        // SC-6: built without naming FabScope at all, so this exercises
+        // V1Envelope's own default rather than an explicit FabScope.Owned.
+        V1Envelope undeclaredScope = new(
+            EventTypeName: "StreamHealthChangedV1",
+            OccurredAt: Occurred,
+            Fab: Option<FabIdentifier>.None,
+            Actor: ActorIdentifier.From(ActorGuid),
+            ActorUsername: Option<string>.None,
+            EventIdentifier: EventIdentifier.From(EventGuid),
+            Payload: PayloadJson);
+        AuditEventEntity row = AuditEventEntity.From(undeclaredScope, V1Mapping.Unmapped, new FakeClock(Received));
+
+        row.FabAttribution.ShouldBe(FabAttribution.Unresolved);
+    }
 }

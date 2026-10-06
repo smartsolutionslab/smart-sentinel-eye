@@ -13,6 +13,7 @@ internal sealed class AuditEventBuilder
     private readonly DateTimeOffset _receivedAt =
         DateTimeOffset.Parse("2026-05-29T08:14:34Z", CultureInfo.InvariantCulture);
     private string? _fab = "munich";
+    private FabScope _fabScope = FabScope.Owned;
     private string _eventKind = "CameraRegisteredV1";
     private string? _resourceKind = ResourceKind.Camera.Value;
     private string? _resourceIdentifier = "33333333-3333-3333-3333-333333333333";
@@ -23,6 +24,7 @@ internal sealed class AuditEventBuilder
 
     public AuditEventBuilder WithOccurredAt(DateTimeOffset moment) { _occurredAt = moment; return this; }
     public AuditEventBuilder WithFab(string? fab) { _fab = fab; return this; }
+    public AuditEventBuilder WithFabScope(FabScope scope) { _fabScope = scope; return this; }
     public AuditEventBuilder WithEventKind(string kind) { _eventKind = kind; return this; }
     public AuditEventBuilder WithResource(string? kind, string? identifier)
     { _resourceKind = kind; _resourceIdentifier = identifier; return this; }
@@ -46,7 +48,8 @@ internal sealed class AuditEventBuilder
                 ? Option<string>.None
                 : Option<string>.Some(_actorUsername),
             EventIdentifier: EventIdentifier.From(_eventIdentifier),
-            Payload: _payload);
+            Payload: _payload,
+            FabScope: _fabScope);
 
         Option<ResourceIdentifier> identifier = _resourceIdentifier is null
             ? Option<ResourceIdentifier>.None

@@ -5,8 +5,11 @@ using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Contracts;
+using SmartSentinelEye.Shared.Contracts.AuditObservability;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
+using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
+using SmartSentinelEye.Shared.Contracts.StreamDistribution;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.EventHandlers;
 
@@ -68,5 +71,64 @@ public class IntegrationEventAuditHandlerTests
         AuditEvent row = repo.Committed[0];
         row.Fab!.Value.ShouldBe("munich");
         row.Actor.IsSystem.ShouldBeTrue();
+    }
+
+    // Spec 306 (#2540), plan.md §8.2 — FabScope.ScopeOf(message.GetType()) is
+    // plugged into the envelope built in AuditAsync, so these exercise the
+    // classification end to end through the real FabNeutralEvents register.
+    [Fact]
+    public async Task Handle_marks_a_stream_health_event_with_no_fab_as_unresolved()
+    {
+        InMemoryAuditEventRepository repo = new();
+        StreamHealthChangedV1 evt = new(
+            Guid.CreateVersion7(), "Healthy", "Degraded", OccurredAt, "connection reset",
+            Metadata: new EventMetadata(Guid.CreateVersion7(), OccurredAt, Fab: null, Actor: null));
+
+        await Build(repo).Handle(evt, default);
+
+        repo.Committed.Count.ShouldBe(1);
+        repo.Committed[0].FabAttribution.ShouldBe(FabAttribution.Unresolved);
+    }
+
+    [Fact]
+    public async Task Handle_marks_an_overlay_publication_as_not_applicable()
+    {
+        InMemoryAuditEventRepository repo = new();
+        OverlayRevisionPublishedV3 evt = new(
+            Guid.CreateVersion7(), 1, "north-gate", [], OccurredAt, Guid.CreateVersion7(),
+            Metadata: new EventMetadata(Guid.CreateVersion7(), OccurredAt, Fab: null, Actor: null));
+
+        await Build(repo).Handle(evt, default);
+
+        repo.Committed.Count.ShouldBe(1);
+        repo.Committed[0].FabAttribution.ShouldBe(FabAttribution.NotApplicable);
+    }
+
+    [Fact]
+    public async Task Handle_marks_an_archived_chunk_announcement_as_not_applicable()
+    {
+        InMemoryAuditEventRepository repo = new();
+        AuditChunkArchivedV1 evt = new(
+            Guid.CreateVersion7(), null, 10, OccurredAt, OccurredAt, OccurredAt, "archives/key", "d41d8cd98f00b204e9800998ecf8427e",
+            Metadata: new EventMetadata(Guid.CreateVersion7(), OccurredAt, Fab: null, Actor: null));
+
+        await Build(repo).Handle(evt, default);
+
+        repo.Committed.Count.ShouldBe(1);
+        repo.Committed[0].FabAttribution.ShouldBe(FabAttribution.NotApplicable);
+    }
+
+    [Fact]
+    public async Task Handle_marks_a_camera_event_with_a_fab_as_resolved()
+    {
+        InMemoryAuditEventRepository repo = new();
+        CameraRegisteredV1 evt = new(
+            Guid.CreateVersion7(), "north-gate", "rtsp://example/cam", OccurredAt, Guid.CreateVersion7(),
+            Metadata: new EventMetadata(Guid.CreateVersion7(), OccurredAt, Fab: "munich", Actor: null));
+
+        await Build(repo).Handle(evt, default);
+
+        repo.Committed.Count.ShouldBe(1);
+        repo.Committed[0].FabAttribution.ShouldBe(FabAttribution.Resolved);
     }
 }
