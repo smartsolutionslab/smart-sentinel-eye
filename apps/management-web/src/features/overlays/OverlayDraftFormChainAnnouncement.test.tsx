@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react';
 import { Provider } from 'react-redux';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { store } from '../../app/store.js';
-import type { OverlayEditTarget } from './OverlayEditorDialog.js';
+import type { OverlayEditTarget } from './OverlayDraftForm.js';
 
 /**
  * Spec 160 (issue #2387) US3 — new behaviour, RED (ADR-0139).
@@ -109,7 +109,7 @@ beforeEach(() => {
   useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
 });
 
-const { OverlayEditorDialog } = await import('./OverlayEditorDialog.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
 
 const EDIT_TARGET: OverlayEditTarget = {
   overlayIdentifier: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -132,7 +132,7 @@ const EDIT_TARGET: OverlayEditTarget = {
 function renderDialog() {
   return render(
     <Provider store={store}>
-      <OverlayEditorDialog open={true} onOpenChange={() => {}} editTarget={EDIT_TARGET} />
+      <OverlayDraftForm editTarget={EDIT_TARGET} onDone={() => {}} onCancel={() => {}} />
     </Provider>,
   );
 }

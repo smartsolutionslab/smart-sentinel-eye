@@ -63,7 +63,7 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   };
 });
 
-const { OverlayEditorDialog } = await import('./OverlayEditorDialog.js');
+const { OverlayDraftForm } = await import('./OverlayDraftForm.js');
 
 function createStore() {
   return configureStore({
@@ -78,7 +78,7 @@ function createStore() {
 function renderDialog(store: ReturnType<typeof createStore>) {
   return render(
     <Provider store={store}>
-      <OverlayEditorDialog open={true} onOpenChange={() => {}} />
+      <OverlayDraftForm onDone={() => {}} onCancel={() => {}} />
     </Provider>,
   );
 }
