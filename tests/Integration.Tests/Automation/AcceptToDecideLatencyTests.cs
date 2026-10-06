@@ -512,12 +512,12 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     /// <para>
     /// Selected on <c>payload-&gt;&gt;'Name'</c> rather than
     /// <c>resource_identifier</c>. <c>V1ResourceMap</c>'s convention picker
-    /// prefers the first <c>Guid</c>-typed property and only falls back to the
-    /// name allow-list when there is none — <c>SystemVariableValueRequestedV1</c>
-    /// has one, <c>CausingEventIdentifier</c>, so its <c>resource_identifier</c>
-    /// is the causing plant-floor event and not the variable. Verified against a
+    /// takes the first <c>Guid</c>-typed property —
+    /// <c>SystemVariableValueRequestedV1</c> has one,
+    /// <c>CausingEventIdentifier</c>, so its <c>resource_identifier</c> is the
+    /// causing plant-floor event and not the variable. Verified against a
     /// real <c>OverlayHighlightRequestedV1</c> row, which carries its
-    /// <c>OverlayIdentifier</c> there for the same reason.
+    /// <c>OverlayIdentifier</c> there via a hand-tweak instead.
     /// </para>
     ///
     /// <para>
