@@ -40,7 +40,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
             await dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $"""
                 INSERT INTO audit_events (
-                    audit_id, occurred_at, received_at, fab_id,
+                    audit_id, occurred_at, received_at, fab_id, fab_attribution,
                     event_kind, resource_kind, resource_identifier,
                     actor_identifier, actor_username, event_identifier,
                     payload, payload_size_bytes, schema_version,
@@ -48,6 +48,7 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
                 VALUES (
                     {row.Id.Value}, {row.OccurredAt.Value}, {row.ReceivedAt.Value},
                     {fab},
+                    {row.FabAttribution.ToString()},
                     {row.EventKind.Value},
                     {resourceKind},
                     {resourceIdentifier},

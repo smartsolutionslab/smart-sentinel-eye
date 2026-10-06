@@ -65,6 +65,15 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
                 fab => fab == null ? null : fab.Value,
                 value => value == null ? null : FabIdentifier.From(value));
 
+        // Spec 306 (#2540). Written explicitly by AuditEventRepository's raw
+        // insert — this mapping governs reads and the migration's column
+        // shape, not the write path.
+        builder.Property(auditEvent => auditEvent.FabAttribution)
+            .HasColumnName("fab_attribution")
+            .HasConversion<string>()
+            .HasMaxLength(16)
+            .IsRequired();
+
         builder.Property(auditEvent => auditEvent.EventKind)
             .HasColumnName("event_kind")
             .HasMaxLength(EventKind.MaximumLength)

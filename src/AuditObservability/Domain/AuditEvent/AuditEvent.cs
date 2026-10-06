@@ -34,7 +34,20 @@ public sealed class AuditEvent
 
     public ReceivedAt ReceivedAt { get; private init; } = null!;
 
+    /// <summary>
+    /// Null when the subject has no fab by construction, or when it has one
+    /// that nobody resolved — see <see cref="FabAttribution"/> for which.
+    /// </summary>
     public FabIdentifier? Fab { get; private init; }
+
+    /// <summary>
+    /// States what a null <see cref="Fab"/> on this row means (spec 306 /
+    /// #2540): <see cref="FabAttribution.Resolved"/> when <see cref="Fab"/>
+    /// is not null, <see cref="FabAttribution.NotApplicable"/> when the event
+    /// type is fab-neutral, <see cref="FabAttribution.Unresolved"/>
+    /// otherwise.
+    /// </summary>
+    public FabAttribution FabAttribution { get; private init; }
 
     public EventKind EventKind { get; private init; } = null!;
 
@@ -144,6 +157,7 @@ public sealed class AuditEvent
             ReceivedAt = ReceivedAt.From(clock.UtcNow),
             HandlerEnteredAt = handlerEnteredAt.HasValue ? HandlerEnteredAt.From(handlerEnteredAt.Value) : null,
             Fab = envelope.Fab.HasValue ? envelope.Fab.Value : null,
+            FabAttribution = ResolveFabAttribution(envelope),
             EventKind = EventKind.From(envelope.EventTypeName),
             ResourceKind = mapping.Kind.HasValue ? mapping.Kind.Value : null,
             ResourceIdentifier = mapping.ResourceIdentifier.HasValue ? mapping.ResourceIdentifier.Value : null,
@@ -153,6 +167,24 @@ public sealed class AuditEvent
             Payload = StoredPayload.From(envelope.Payload),
             SchemaVersion = SchemaVersion.Current,
         };
+    }
+
+    /// <summary>
+    /// Spec 306 (#2540) SC-1/SC-3/SC-5/SC-6. A fab is evidence and is never
+    /// discarded or relabelled: a carried fab is always
+    /// <see cref="FabAttribution.Resolved"/>, whatever the event type's
+    /// <see cref="FabScope"/> says. Only in the fab's absence does the type's
+    /// scope decide between <see cref="FabAttribution.NotApplicable"/> and
+    /// the fail-safe <see cref="FabAttribution.Unresolved"/>.
+    /// </summary>
+    private static FabAttribution ResolveFabAttribution(V1Envelope envelope)
+    {
+        if (envelope.Fab.HasValue)
+        {
+            return FabAttribution.Resolved;
+        }
+
+        return envelope.FabScope == FabScope.Neutral ? FabAttribution.NotApplicable : FabAttribution.Unresolved;
     }
 }
 
@@ -171,7 +203,8 @@ public sealed record V1Envelope(
     ActorIdentifier Actor,
     Option<string> ActorUsername,
     EventIdentifier EventIdentifier,
-    string Payload);
+    string Payload,
+    FabScope FabScope = FabScope.Owned);
 
 /// <summary>
 /// Resource-pivot metadata for a single <c>*V1</c> type, looked

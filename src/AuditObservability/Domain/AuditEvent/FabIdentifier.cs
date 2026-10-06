@@ -7,9 +7,12 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// AuditObservability's own copy of the fab identifier (spec
 /// 009). We don't share VOs across contexts per ADR-0044, so this
 /// mirrors the same shape every other context's <c>FabIdentifier</c>
-/// uses. Optional on an audit row because some cross-cutting V1s
-/// (e.g. <see cref="Shared.Contracts.AuditObservability.AuditChunkArchivedV1"/>
-/// with no <c>FabId</c>) are not fab-scoped.
+/// uses. Optional on an audit row: null means either that the row's event
+/// type is not fab-scoped (e.g.
+/// <see cref="Shared.Contracts.AuditObservability.AuditChunkArchivedV1"/>
+/// with no <c>FabId</c>), or that it is fab-scoped and resolution simply
+/// failed — the two are no longer conflated, see
+/// <see cref="AuditEvent.FabAttribution"/> (spec 306 / #2540).
 /// </summary>
 public sealed record FabIdentifier : StringValueObject, IComparable<FabIdentifier>
 {
