@@ -6,7 +6,6 @@ import {
   useRevertOverlayRevisionMutation,
   type Overlay,
   type OverlayElement,
-  type OverlayRevision,
   type OverlayTextElement,
   type OverlayRevisionState,
 } from '@smart-sentinel-eye/shared/api/overlays.api';
