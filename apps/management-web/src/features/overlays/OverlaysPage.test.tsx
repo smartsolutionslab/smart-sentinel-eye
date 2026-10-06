@@ -610,11 +610,12 @@ describe('OverlaysPage — recovering an archived overlay', () => {
     const { router } = renderPage();
 
     await user.click(screen.getByRole('button', { name: /edit \(new draft\)/i }));
-    await act(async () => {
-      await Promise.resolve();
-    });
+    // Phase-6 review nit N3: a single microtask flush can't tell "never
+    // navigated" from "navigated, but not yet" — `waitFor` on the call that
+    // must have happened first makes a late (not actually absent)
+    // navigation unable to slip past this check.
+    await waitFor(() => expect(branchMock).toHaveBeenCalled());
 
-    expect(branchMock).toHaveBeenCalled();
     expect(router.state.location.pathname).toBe('/overlays');
   });
 });
