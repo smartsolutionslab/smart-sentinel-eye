@@ -325,6 +325,12 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   **The scope includes the authenticated caller.** Keys are strings
   callers invent, so `"1"` and `"retry"` will collide; keyed on the string
   alone the second caller is handed the first caller's resource.
+
+  **The scope also includes the resolved fab and a request fingerprint**
+  (spec 302, #2424/#2492) — a key names *one* request, so a reuse against a
+  different fab or a different body is a reuse, not a second request under
+  the same identity. A mismatch answers `422 IDEMPOTENCY_KEY_REUSED` rather
+  than replaying.
 - **Prefer `Option<T>` to a nullable parameter, in Domain and
   Application** (ADR-0141). A nullable parameter says a value may be
   absent; `Option<T>` says what absent *means* and forces the caller to

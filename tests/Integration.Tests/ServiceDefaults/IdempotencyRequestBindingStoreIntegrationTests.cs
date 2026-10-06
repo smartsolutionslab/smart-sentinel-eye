@@ -145,6 +145,32 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
         mismatch.Outcome.ShouldBe(IdempotencyOutcome.Mismatched);
     }
 
+    /// <summary>
+    /// The positive control for the fab-less path: nothing but the OverlayDesigner
+    /// call site ever passes <see cref="Option{T}.None"/> for fab, and every
+    /// other fact about that path (the two above) checks refusal. Without this,
+    /// a mutation collapsing the <c>none: () => row.Fab is null</c> branch to
+    /// <c>() => false</c> would make every fab-less replay wrongly mismatch, and
+    /// nothing in this suite would catch it.
+    /// </summary>
+    [Fact]
+    public async Task A_fabless_scope_presented_with_the_same_binding_still_replays()
+    {
+        IdempotencyKey key = NewKey();
+        IdempotencyFingerprint fingerprint = Fingerprint("alpha");
+        IdempotencyScope scope = Scope(key, Option<string>.None, fingerprint);
+        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        IdempotencyStore<CameraCatalogDbContext> store = new(db);
+
+        IdempotencyReservation reserved = await store.BeginAsync(scope, CancellationToken.None);
+        await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
+
+        IdempotencyReservation replay = await store.BeginAsync(scope, CancellationToken.None);
+
+        replay.Outcome.ShouldBe(IdempotencyOutcome.Completed);
+        replay.ResourceIdentifier.Value.ShouldBe(ResourceA);
+    }
+
     /// <summary>The converse of the case above: a fab-bearing scope does not match a fabless row.</summary>
     [Fact]
     public async Task A_fab_bearing_scope_does_not_match_a_row_written_without_a_fab()

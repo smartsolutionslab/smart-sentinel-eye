@@ -50,9 +50,9 @@ public sealed record IdempotencyScope(
         Ensure.That(endpoint).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(caller).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(fingerprint).IsNotNull();
-        if (fab.HasValue && string.IsNullOrWhiteSpace(fab.Value))
+        if (fab.HasValue)
         {
-            throw new ArgumentException("fab must not be blank when present.", nameof(fab));
+            Ensure.That(fab.Value, nameof(fab)).IsNotNullOrWhiteSpace();
         }
 
         return new IdempotencyScope(key, endpoint, caller, fab, fingerprint);

@@ -16,7 +16,20 @@ namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 /// <b>Why the bound DTO and not the raw body.</b> Minimal APIs have already
 /// consumed the body stream by the time a handler runs, so re-serialising the
 /// <i>bound</i> DTO is what is available — and it is also what "the same
-/// request" should mean: it normalises whitespace and property order away.
+/// request" should mean: it normalises whitespace and the DTO's own declared
+/// member order away, because System.Text.Json serialises those in
+/// declaration order regardless of what order the caller sent them in.
+/// </para>
+///
+/// <para>
+/// <b>What it does not normalise.</b> A <see cref="JsonElement"/>-typed
+/// member (e.g. <c>IngestManualEventRequest.Payload</c>) is re-serialised in
+/// whatever key order the original caller sent, not canonicalised; and a
+/// <c>decimal</c> member fingerprints by its original scale, so <c>0.5</c>
+/// and <c>0.50</c> differ. A client that re-serialises such a value between
+/// retries can get a false mismatch — fails safe (a spurious 422, never a
+/// wrong replay), but worth knowing before assuming two "identical" retries
+/// always fingerprint the same.
 /// </para>
 ///
 /// <para>
@@ -29,7 +42,10 @@ namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 /// Serialised with a private, frozen <see cref="JsonSerializerOptions"/> —
 /// never the app's own HTTP options — so an app-wide option change does not
 /// silently re-fingerprint live keys. Nothing is reversible from the stored
-/// value; no body is stored (ADR-0142 §Decision.3 holds).
+/// value; no body is stored (ADR-0142 §Decision.3 holds). A DTO shape change
+/// (e.g. a new optional member added later) re-fingerprints every key still
+/// in flight at deploy time — every such key answers a mismatch once rather
+/// than replaying, an accepted tradeoff rather than a defect.
 /// </para>
 /// </summary>
 public sealed class IdempotencyFingerprint : IEquatable<IdempotencyFingerprint>
