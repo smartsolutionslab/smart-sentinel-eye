@@ -210,6 +210,14 @@ public class StatusProducerDeclarationTests
         // fails nothing in this file — see spec 208's FR-010/US3, corrected
         // after phase 6 found the spec claiming otherwise.
         new("M15", "StreamDistribution /streams/authorize fixed-window rate limiter", "429", Visibility.Chain, null, null),
+        // Spec 302 (#2424/#2492). IdempotentRequest answers 422
+        // IDEMPOTENCY_KEY_REUSED when a claim comes back
+        // IdempotencyOutcome.Mismatched — handler-body visible, like M11/M12,
+        // because the antecedent is the IdempotentRequest.Execute*Async call
+        // inside the mapped handler's own body, not the mapping chain itself.
+        new("M16", "IdempotentRequest key-reuse refusal", "422", Visibility.HandlerBody,
+            "tests/Architecture.Tests/IdempotentKeyReuseDeclarationTests.cs",
+            "Every_endpoint_that_runs_an_idempotent_request_declares_the_422_it_answers"),
     ];
 
     /// <summary>The endpoint files, found by glob and never named, one theory case each.</summary>
