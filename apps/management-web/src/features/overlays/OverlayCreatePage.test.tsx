@@ -11,7 +11,12 @@ import { store } from '../../app/store.js';
  * RED (ADR-0139/0144) — not a wrong assertion against code that compiles.
  */
 
-const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
+// Mirrors `OverlayDraftFormSaveGate.test.tsx`'s harness: the trigger's
+// resolved value tracks the same `createError` the mutation-state tuple
+// reports, so a test that sets `createError` before clicking Save actually
+// gets the `{ error }` shape `OverlayDraftForm.tsx`'s `'error' in result`
+// check needs — not an unconditional success that navigates away regardless.
+const createDraftMock = vi.fn(async () => (createError ? { error: createError } : { data: 'noop' }));
 let createError: unknown = undefined;
 
 vi.mock('@smart-sentinel-eye/shared/api/overlays.api', async (importOriginal) => {

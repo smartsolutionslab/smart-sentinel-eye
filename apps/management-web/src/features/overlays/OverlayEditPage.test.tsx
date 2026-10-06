@@ -92,6 +92,7 @@ beforeEach(() => {
   });
   useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
   editDraftMock.mockClear();
+  useGetOverlayQueryMock.mockClear();
   editError = undefined;
   chainQueryState = { currentData: undefined, isFetching: false, isError: false, refetch: vi.fn() };
 });
