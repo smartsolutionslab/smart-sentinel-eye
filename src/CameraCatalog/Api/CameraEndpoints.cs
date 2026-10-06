@@ -48,7 +48,8 @@ public static class CameraEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // 404 rather than 403 for another fab's camera (spec 028 FR-004), and
         // it is declared here so the generated OpenAPI says so: a 403 would
@@ -181,7 +182,12 @@ public static class CameraEndpoints
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(supplied, RegisterEndpoint, registeredBy.Value.ToString())),
+                key.Map(supplied => IdempotencyScope.For(
+                    supplied,
+                    RegisterEndpoint,
+                    registeredBy.Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(request))),
                 services.Idempotency,
                 services.Clock),
             identifier => $"/cameras/{identifier}",

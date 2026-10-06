@@ -34,6 +34,13 @@ public static class IdempotencyHeaders
     public const string InProgressErrorCode = "IDEMPOTENT_REQUEST_IN_PROGRESS";
 
     /// <summary>
+    /// Spec 302 (#2424/#2492) — returned when a key is bound to a different
+    /// request: a different fab, a different resource, or a legacy row with
+    /// no recorded fingerprint.
+    /// </summary>
+    public const string ReusedErrorCode = "IDEMPOTENCY_KEY_REUSED";
+
+    /// <summary>
     /// Yields the caller's key, or <see cref="Option{T}.None"/> when the header
     /// is absent. Returns <c>false</c> only when a header was sent and could not
     /// be used — silently ignoring a malformed key would give the caller the

@@ -13,6 +13,15 @@ public enum IdempotencyOutcome
 
     /// <summary>An earlier attempt finished; its result identifier is carried alongside.</summary>
     Completed,
+
+    /// <summary>
+    /// Spec 302 (#2424/#2492) — a stored row with this <c>(key, endpoint,
+    /// caller)</c> exists, but its fab or fingerprint differs from the
+    /// scope's (or the stored fingerprint is <c>NULL</c>, a legacy row that
+    /// fails closed). Reported whether the row is completed or still
+    /// in-progress — a mismatch is refused immediately, never waited on.
+    /// </summary>
+    Mismatched,
 }
 
 /// <summary>
@@ -50,6 +59,14 @@ public sealed record IdempotencyReservation(
 
     public static IdempotencyReservation CompletedWith(Guid resourceIdentifier) =>
         new(IdempotencyOutcome.Completed, Option<Guid>.Some(resourceIdentifier), Option<IdempotencyClaim>.None);
+
+    /// <summary>
+    /// Spec 302 (#2424/#2492) — this caller's key is bound to a different
+    /// request. No identifier to replay (the row is not this caller's answer)
+    /// and no claim (the row was never this caller's to complete or release).
+    /// </summary>
+    public static IdempotencyReservation Mismatched { get; } =
+        new(IdempotencyOutcome.Mismatched, Option<Guid>.None, Option<IdempotencyClaim>.None);
 }
 
 /// <summary>

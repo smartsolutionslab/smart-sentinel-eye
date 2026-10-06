@@ -55,6 +55,13 @@ public sealed record IdempotentExecution(
 /// first attempt to land and replays its answer, and only refuses if it is still
 /// unfinished.
 /// </para>
+///
+/// <para>
+/// Spec 302 (#2424/#2492) adds a fourth outcome to the three above:
+/// <see cref="IdempotencyOutcome.Mismatched"/> — the key is bound to a
+/// <i>different</i> request — is refused immediately with
+/// <c>422 IDEMPOTENCY_KEY_REUSED</c>, never waited on and never replayed.
+/// </para>
 /// </summary>
 public static class IdempotentRequest
 {
@@ -96,6 +103,18 @@ public static class IdempotentRequest
                 title: IdempotencyHeaders.InProgressErrorCode,
                 detail: "An earlier request with this Idempotency-Key is still running. Retry shortly.",
                 statusCode: StatusCodes.Status409Conflict);
+        }
+
+        // Spec 302 (#2424/#2492). Neither work nor replay runs: the row
+        // belongs to a different request, so there is nothing of this
+        // caller's to do and nothing of this caller's to release. The detail
+        // names no fab, identifier or name of the first request.
+        if (reservation.Outcome == IdempotencyOutcome.Mismatched)
+        {
+            return Results.Problem(
+                title: IdempotencyHeaders.ReusedErrorCode,
+                detail: "This Idempotency-Key was first used for a different request. Send a new key for a new request.",
+                statusCode: StatusCodes.Status422UnprocessableEntity);
         }
 
         return await RunAndRecordAsync(execution, reservation.Claim.Value, work, cancellationToken);

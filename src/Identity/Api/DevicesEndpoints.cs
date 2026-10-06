@@ -45,7 +45,8 @@ public static class DevicesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         // 409 because DisableDeviceCommandHandler loads a client that already
         // exists, mutates it and saves — the lost update ADR-0113 Layer 2
@@ -137,7 +138,12 @@ public static class DevicesEndpoints
 
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(supplied, RegisterEndpoint, actingOperator.Value.ToString())),
+                key.Map(supplied => IdempotencyScope.For(
+                    supplied,
+                    RegisterEndpoint,
+                    actingOperator.Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(body))),
                 services.Idempotency,
                 services.Clock),
             async token =>

@@ -26,10 +26,12 @@ namespace SmartSentinelEye.EventIngestion.Api;
 public static class EventSourcesEndpoints
 {
     /// <summary>
-    /// Route identity an idempotency key is scoped to (ADR-0142). The resolved
-    /// <c>fab/source</c> is appended at the call site, not folded in here: a
-    /// multi-fab operator who reuses a key across two fabs (or two sources)
-    /// must get two declarations, not the first one replayed onto the second.
+    /// Route identity an idempotency key is scoped to (ADR-0142). Spec 302
+    /// (#2424/#2492) moves the fab/source distinction from the endpoint
+    /// string (which risked overflowing <c>endpoint VARCHAR(128)</c> for a
+    /// long source name, and covered neither the fab dimension generally nor
+    /// the rest of the body) into the scope's fingerprint and fab, where
+    /// every other call site already puts it.
     /// </summary>
     private const string DeclareEndpoint = "POST /event-sources";
 
@@ -54,7 +56,8 @@ public static class EventSourcesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
-            .ProducesProblem(StatusCodes.Status409Conflict);
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Events.Read)
@@ -126,8 +129,10 @@ public static class EventSourcesEndpoints
             new IdempotentExecution(
                 key.Map(supplied => IdempotencyScope.For(
                     supplied,
-                    $"{DeclareEndpoint} {fab.Value}/{source.Value}",
-                    declaredBy.Value.ToString())),
+                    DeclareEndpoint,
+                    declaredBy.Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(body))),
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-sources/{source.Value}",

@@ -1,4 +1,6 @@
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
+using NpgsqlTypes;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Idempotency;
@@ -54,14 +56,24 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // ADR-0142 exists to prevent.
         const string claim =
             """
-            INSERT INTO idempotency_key (key, endpoint, caller, reserved_at)
-            VALUES ({0}, {1}, {2}, NOW())
+            INSERT INTO idempotency_key (key, endpoint, caller, fab, request_fingerprint, reserved_at)
+            VALUES ({0}, {1}, {2}, {3}, {4}, NOW())
             ON CONFLICT (key, endpoint, caller) DO UPDATE
-               SET reserved_at = NOW()
+               SET reserved_at = NOW(),
+                   fab = EXCLUDED.fab,
+                   request_fingerprint = EXCLUDED.request_fingerprint
              WHERE idempotency_key.resource_identifier IS NULL
-               AND idempotency_key.reserved_at < NOW() - {3}
+               AND idempotency_key.reserved_at < NOW() - {5}
             RETURNING reserved_at AS "Value";
             """;
+
+        // Spec 302 (#2424/#2492). A typed parameter, not a bare `null`: an
+        // untyped null in the raw-SQL parameter array cannot be type-inferred
+        // against the fab column, and Npgsql throws rather than guessing.
+        NpgsqlParameter fabParameter = new("fab", NpgsqlDbType.Varchar)
+        {
+            Value = scope.Fab.Match<object>(some: value => value, none: static () => DBNull.Value),
+        };
 
         // #2491. SqlQueryRaw, not ExecuteSqlRawAsync, because the INSERT ...
         // RETURNING above is the fencing token itself — the value this claim
@@ -73,7 +85,12 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         DateTime[] claimed = await dbContext.Database
             .SqlQueryRaw<DateTime>(
                 claim,
-                [scope.Key.Value, scope.Endpoint, scope.Caller, IdempotencyReclamation.StaleAfter])
+                scope.Key.Value,
+                scope.Endpoint,
+                scope.Caller,
+                fabParameter,
+                scope.Fingerprint.Value,
+                IdempotencyReclamation.StaleAfter)
             .ToArrayAsync(cancellationToken);
 
         if (claimed.Length == 1)
@@ -83,11 +100,14 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
 
         // Someone else holds the key. Whether they finished is the whole
         // question: a completed row replays, an unfinished one is the retry
-        // racing the attempt that provoked it.
-        Guid?[] existing = await dbContext.Database
-            .SqlQueryRaw<Guid?>(
+        // racing the attempt that provoked it — but first, whether that row
+        // is even an answer to *this* request at all (spec 302 I2).
+        StoredBinding[] existing = await dbContext.Database
+            .SqlQueryRaw<StoredBinding>(
                 """
-                SELECT resource_identifier AS "Value"
+                SELECT resource_identifier AS "ResourceIdentifier",
+                       fab AS "Fab",
+                       request_fingerprint AS "RequestFingerprint"
                 FROM idempotency_key
                 WHERE key = {0} AND endpoint = {1} AND caller = {2};
                 """,
@@ -97,13 +117,39 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // Empty means the holder released it between our insert and this read.
         // Reporting in-progress rather than reserved keeps this caller honest:
         // it does not own the key, so it must claim it again rather than assume.
-        if (existing.Length == 0 || existing[0] is not { } identifier)
+        if (existing.Length == 0)
+        {
+            return IdempotencyReservation.InProgress;
+        }
+
+        StoredBinding row = existing[0];
+
+        // Spec 302 (#2424/#2492) I2/I3, checked before completed/in-progress:
+        // a mismatched row — including one with a NULL stored fingerprint, a
+        // legacy row that fails closed — is refused at once, whether it is
+        // still running or already finished. Waiting on it, then replaying it,
+        // would hand this caller another request's answer.
+        bool fabMatches = scope.Fab.Match(
+            some: value => string.Equals(row.Fab, value, StringComparison.Ordinal),
+            none: () => row.Fab is null);
+        bool fingerprintMatches = row.RequestFingerprint is { } storedFingerprint
+            && string.Equals(storedFingerprint, scope.Fingerprint.Value, StringComparison.Ordinal);
+
+        if (!fabMatches || !fingerprintMatches)
+        {
+            return IdempotencyReservation.Mismatched;
+        }
+
+        if (row.ResourceIdentifier is not { } identifier)
         {
             return IdempotencyReservation.InProgress;
         }
 
         return IdempotencyReservation.CompletedWith(identifier);
     }
+
+    /// <summary>The fall-through read's shape: every column a mismatch decision needs.</summary>
+    private sealed record StoredBinding(Guid? ResourceIdentifier, string? Fab, string? RequestFingerprint);
 
     public async Task CompleteAsync(
         IdempotencyClaim claim, Guid resourceIdentifier, CancellationToken cancellationToken)

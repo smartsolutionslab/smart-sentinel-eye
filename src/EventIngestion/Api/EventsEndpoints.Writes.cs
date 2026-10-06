@@ -100,7 +100,11 @@ public static partial class EventsEndpoints
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
                 key.Map(supplied => IdempotencyScope.For(
-                    supplied, IngestManualEndpoint, user.ToOperatorIdentifier().Value.ToString())),
+                    supplied,
+                    IngestManualEndpoint,
+                    user.ToOperatorIdentifier().Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(body))),
                 services.Idempotency,
                 services.Clock),
             identifier => $"/events/{identifier}",

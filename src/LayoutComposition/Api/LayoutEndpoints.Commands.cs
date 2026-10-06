@@ -164,7 +164,12 @@ public static partial class LayoutEndpoints
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(supplied, CreateEndpoint, actingOperator.Value.ToString())),
+                key.Map(supplied => IdempotencyScope.For(
+                    supplied,
+                    CreateEndpoint,
+                    actingOperator.Value.ToString(),
+                    Option<string>.Some(fab.Value),
+                    IdempotencyFingerprint.Of(body))),
                 services.Idempotency,
                 services.Clock),
             identifier => $"/layouts/{identifier}",
