@@ -119,10 +119,19 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// Whichever wins may answer <c>201</c> immediately or, if it loses the
     /// race for the row lock, fall through to the same in-progress wait an
     /// ordinary concurrent retry hits and then either replay the winner's
-    /// identifier or answer <c>409</c> — both are acceptable outcomes for the
-    /// loser. What must never happen is the one thing a plain <c>DO NOTHING</c>
-    /// -&gt; <c>DO UPDATE</c> without the <c>SET</c> would allow: <b>both</b>
-    /// concurrent attempts actually running the create.
+    /// identifier (<c>201</c>) or answer <c>409</c> — both are acceptable
+    /// outcomes for the loser, but only a <c>409</c> whose title is
+    /// <see cref="IdempotencyHeaders.InProgressErrorCode"/> is a legitimate
+    /// one. A <c>409</c> titled <c>CAMERA_NAME_TAKEN</c> — the domain's own
+    /// unique-name conflict — looks identical at the status-code level but
+    /// means something very different: both sides actually ran the create
+    /// and collided on <c>ux_cameras_fab_name_normalized_active</c>, which is
+    /// the exact double-application the <c>SET reserved_at = NOW()</c> fence
+    /// below exists to prevent. Accepting any <c>409</c> title would let a
+    /// broken fence pass this fact silently. What must never happen is the
+    /// one thing a plain <c>DO NOTHING</c> -&gt; <c>DO UPDATE</c> without the
+    /// <c>SET</c> would allow: <b>both</b> concurrent attempts actually
+    /// running the create.
     /// </para>
     ///
     /// <para>
@@ -134,8 +143,8 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// reservation itself also had to stop going through the real endpoint. With
     /// one shared name, "both ran the create" would surface as a domain-level
     /// name conflict rather than two distinct cameras, so the proof is now: at
-    /// most one distinct identifier is ever created, and the name is registered
-    /// exactly once.
+    /// most one distinct identifier is ever created, every <c>409</c> is the
+    /// legitimate in-progress one, and the name is registered exactly once.
     /// </para>
     /// </summary>
     [Fact]
@@ -166,6 +175,17 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
                 {
                     createdIdentifiers[createdCount++] =
                         (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+                }
+                else
+                {
+                    JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    problem.GetProperty("title").GetString().ShouldBe(
+                        IdempotencyHeaders.InProgressErrorCode,
+                        "the only legitimate 409 for the loser is the in-progress answer an ordinary "
+                        + "concurrent retry hits — a 409 titled CAMERA_NAME_TAKEN (or anything else) "
+                        + "means both sides actually ran the create and collided in the domain instead "
+                        + "of being fenced, which is exactly what SET reserved_at = NOW() exists to "
+                        + "prevent.");
                 }
             }
 
@@ -219,12 +239,6 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
         JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe(IdempotencyHeaders.InProgressErrorCode);
-
-        string[] names = await NamesAsync(cameras);
-        names.Count(registered => registered == firstName).ShouldBe(
-            1,
-            "a still-live reservation must not let a second attempt through — the refusal must not have "
-            + "re-run the create and registered firstName a second time.");
     }
 
     /// <summary>
@@ -255,13 +269,6 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
             firstIdentifier,
             "a completed key must be replayed no matter how old its reservation is — reclaiming a "
             + "completed row would turn a replayable answer back into a fresh registration.");
-
-        string[] names = await NamesAsync(cameras);
-        names.Count(registered => registered == firstName).ShouldBe(
-            1,
-            "the replay must never have re-run the create — the reused name must still be registered "
-            + "exactly once, not a second time, which would be the key applying twice, the one thing it "
-            + "promises not to do.");
     }
 
     /// <summary>

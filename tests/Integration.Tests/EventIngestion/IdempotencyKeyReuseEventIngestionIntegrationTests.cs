@@ -9,21 +9,21 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// Spec 302 (#2424/#2492) on the remaining two EventIngestion call sites.
 ///
 /// <para>
-/// <c>POST /event-sources</c> carries a local patch
-/// (<c>EventSourcesEndpoints.DeclareEndpoint</c> folds the resolved fab and
-/// source into the scope's <c>Endpoint</c> string) that happens to close this
-/// exact case for <i>that one endpoint</i> today — a different source makes a
-/// different <c>Endpoint</c>, so the second request is a fresh reservation,
-/// not a replay, and it is answered 201 rather than refused. Spec 302 reverts
-/// that patch (it can overflow <c>endpoint VARCHAR(128)</c> and does not cover
+/// <c>POST /event-sources</c> used to carry a local patch
+/// (<c>EventSourcesEndpoints.DeclareEndpoint</c> folded the resolved fab and
+/// source into the scope's <c>Endpoint</c> string) that happened to close this
+/// exact case for <i>that one endpoint</i> — a different source made a
+/// different <c>Endpoint</c>, so the second request was a fresh reservation,
+/// not a replay, and was answered 201 rather than refused. Spec 302 reverts
+/// that patch (it can overflow <c>endpoint VARCHAR(128)</c> and did not cover
 /// the rest of the body) in favour of the general fingerprint mechanism, so
 /// the behaviour this test wants — <c>422</c>, nothing declared — is still
-/// true after the fix even though the <i>reason</i> changes.
+/// true after the fix even though the <i>reason</i> changed.
 /// </para>
 ///
 /// <para>
-/// <c>POST /events/manual</c> carries no such patch: a different event under
-/// the same key replays the first event's identifier today, with a fresh
+/// <c>POST /events/manual</c> carried no such patch: a different event under
+/// the same key used to replay the first event's identifier, with a fresh
 /// <c>EventIdentifier</c> never actually stored.
 /// </para>
 /// </summary>
@@ -34,9 +34,9 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
 
     /// <summary>
     /// Declares <c>plc</c> under a key, then reuses that key for <c>webhook</c>
-    /// — a different source, same fab, same caller. Today this answers 201 for
-    /// both (the local endpoint-string fold makes the second call a fresh
-    /// reservation); after the fix it must answer 422 and leave webhook
+    /// — a different source, same fab, same caller. This used to answer 201 for
+    /// both (the local endpoint-string fold made the second call a fresh
+    /// reservation); the fix makes it answer 422 and leave webhook
     /// undeclared. Restores both sources to <c>discovery</c> in a
     /// <c>finally</c>, mirroring <c>EventSourceModeIntegrationTests</c>'s own
     /// reuse-with-key case.
@@ -70,9 +70,10 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
     }
 
     /// <summary>
-    /// Two different manual events under one key. Today the second request
-    /// replays the first event's identifier; the second event's own
-    /// (fresh) <c>EventIdentifier</c> is discarded and nothing new is stored.
+    /// Two different manual events under one key. The second request used to
+    /// replay the first event's identifier, discarding the second event's own
+    /// (fresh) <c>EventIdentifier</c> and storing nothing new; the fix refuses
+    /// it instead.
     /// </summary>
     [Fact]
     public async Task A_key_reused_for_a_different_manual_event_is_refused()
