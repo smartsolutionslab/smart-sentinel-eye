@@ -19,8 +19,13 @@ ARG MOSQUITTO_SHA256=d665fe7d0032881b1371a47f34169ee4edab67903b2cd2b4c083822823f
 # Base images below are pinned by digest (spec 195, issue #2296) so a floating
 # tag cannot change what this build produces with no diff and no PR (#2265).
 # This makes the image pinned, not reproducible: apt-get below still resolves
-# against whatever deb.debian.org serves at build time — deliberately left
-# unfrozen, see the follow-up filed for that decision (spec 195 §8.1).
+# against whatever deb.debian.org serves at build time. Decided, not an
+# oversight (issue #2475): pinning package versions only holds against a
+# frozen mirror such as snapshot.debian.org, which would mean a third-party
+# archive host in the build path and, the real cost, freezing security
+# updates for a broker that terminates TLS until someone deliberately bumps
+# the pin. Security-patch currency matters more than build reproducibility
+# for this service, so apt-get stays unfrozen on purpose.
 
 # --- Stage 1: build Mosquitto (glibc) so we get the broker binary,
 #     libmosquitto, and the plugin headers (mosquitto_broker.h is not in
