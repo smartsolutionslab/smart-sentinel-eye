@@ -16,29 +16,21 @@ namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
 /// <c>Shared.Contracts.CameraCatalog.CameraRegisteredV1</c> →
 /// <c>"camera"</c>) is mapped to a <see cref="ResourceKind"/>
 /// via a small dictionary; the resource identifier is picked from
-/// the first property whose name appears in
-/// <see cref="IdentifierPropertyNames"/>.
+/// the first public <see cref="Guid"/> property.
 /// </para>
 ///
 /// <para>
 /// Hand-tweaks (e.g. for a V1 whose identifier is a business name
 /// instead of a Guid, or a namespace whose tail doesn't match the
 /// canonical resource vocabulary) sit in
-/// <see cref="Conventions.HandTweaks"/>. Unmatched V1s still
-/// audit, just with null resource fields (FR-005).
+/// <see cref="Conventions.HandTweaks"/>. A convention-mapped V1 with
+/// no <see cref="Guid"/> property, and no hand-tweak, resolves to a
+/// null resource identifier — it still audits, just without the
+/// resource pivot (FR-005).
 /// </para>
 /// </summary>
 public sealed partial class V1ResourceMap
 {
-    private static readonly string[] IdentifierPropertyNames =
-    [
-        "Name",
-        "OverlayIdentifier",
-        "RegisteredClientIdentifier",
-        "ChunkIdentifier",
-        "EventIdentifier",
-    ];
-
     private readonly FrozenDictionary<Type, V1MappingEntry> entries;
     private readonly HashSet<string> explicitlyOptedOut;
 
@@ -147,39 +139,11 @@ public sealed partial class V1ResourceMap
 
         // Prefer the first Guid-typed property — every aggregate root in
         // the platform identifies itself with a Guid v7 (ADR-0039 / 0090),
-        // so it's the most reliable signal across the V1 corpus.
+        // so it's the most reliable signal across the V1 corpus. There is
+        // no name-based fallback: a contract whose first Guid is the wrong
+        // one, or that has no Guid at all, needs a hand-tweak instead,
+        // registered in Conventions.HandTweaks.
         PropertyInfo? pick = Array.Find(props, property => property.PropertyType == typeof(Guid));
-
-        // Fall back to the small allow-list of canonical property names,
-        // but only when the contract has no Guid property at all. A
-        // contract whose first Guid is the wrong one, say an actor or a
-        // parent reference, still matches the Find above and never
-        // reaches this fallback. That case needs a hand-tweak instead,
-        // registered in Conventions.
-        //
-        // Kept pending a decision on the fallback's future. All
-        // five names match a real property, but only "Name" and
-        // "EventIdentifier" sit on convention-mapped contracts (Camera /
-        // SystemVariables and FabEventIngestedV1) — the fallback could
-        // plausibly reach them if such a contract ever lost its Guid
-        // property. The other three ("OverlayIdentifier",
-        // "RegisteredClientIdentifier", "ChunkIdentifier") belong to
-        // hand-tweaked contracts, which are resolved in Conventions.HandTweaks
-        // before this picker ever runs, and can never reach it either way.
-        // Of the two plausibly-reachable names, there are no Guid-less
-        // convention-mapped contracts today — pinned by
-        // V1ResourceMapFallbackReachabilityTests.
-        if (pick is null)
-        {
-            foreach (string candidate in IdentifierPropertyNames)
-            {
-                pick = Array.Find(props, property => property.Name == candidate);
-                if (pick is not null)
-                {
-                    break;
-                }
-            }
-        }
 
         if (pick is null)
         {
