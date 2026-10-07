@@ -21,13 +21,15 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// Phase-4a colour: red (spec §6). Red on develop, naming exactly:
-/// <c>LiveUpdatesBadge.tsx</c> (<c>border-accent-warning/40</c>,
+/// Phase-4a colour (spec 297, issue #2635): originally red on develop,
+/// naming <c>LiveUpdatesBadge.tsx</c> (<c>border-accent-warning/40</c>,
 /// <c>bg-accent-warning/15</c>), <c>TileAlignmentBadge.tsx</c>
-/// (<c>bg-accent-warning/30</c>), <c>LayoutGrid.tsx</c>
-/// (<c>bg-accent-warning/30</c>, the *Overlay unavailable* chip —
-/// <c>LayoutGrid.tsx:211</c>'s <c>bg-accent-active/20</c> action button is
-/// allowlisted separately and untouched by this spec).
+/// (<c>bg-accent-warning/30</c>) and <c>LayoutGrid.tsx</c>'s *Overlay
+/// unavailable* chip (<c>bg-accent-warning/30</c>); fixed since. The
+/// <c>LayoutGrid.tsx</c> action button's own <c>bg-accent-active/20</c> was a
+/// separate concern (affordance, not status) tolerated via the allowlist
+/// below under #2694 until that issue shrank it to empty — see that fact's
+/// own red-first note.
 /// </para>
 /// </summary>
 public class WallStatusChipTests
@@ -35,29 +37,20 @@ public class WallStatusChipTests
     private const string KioskSrc = "apps/kiosk-web/src";
 
     /// <summary>
-    /// Shrink-only (spec §3.2, issue #2694): the wall's four full-screen
-    /// action buttons use the triad as affordance, not status — a different
-    /// concern from the status chips this spec converts, out of scope here.
+    /// Shrink-only (spec §3.2). Issue #2694 (phase 4a): the allowlist entries
+    /// for the wall's four full-screen action buttons
+    /// (<c>WallPage.tsx</c>, <c>ReconnectingScreen.tsx</c>,
+    /// <c>PickerPage.tsx</c>, <c>LayoutGrid.tsx</c>) are removed here, ahead
+    /// of the production fix (phase 4b) that swaps those buttons from
+    /// <c>bg-accent-active/20 text-accent-active</c> to
+    /// <c>bg-accent-subtle text-accent</c>. Until that fix lands,
+    /// <see cref="No_translucent_triad_colour_on_the_wall"/> is red against
+    /// today's four still-unfixed call sites — that is the point: the
+    /// allowlist is shrink-only, so removing an entry for a call site that
+    /// still has the matched text is exactly how this guard is meant to go
+    /// red for new behaviour (ADR-0139/ADR-0144).
     /// </summary>
-    private static readonly (string RelativePath, string Match, string Reason)[] Allowlist =
-    [
-        (
-            "apps/kiosk-web/src/features/wall/WallPage.tsx",
-            "bg-accent-active/20",
-            "#2694 — a full-screen action button, not over video; the triad as affordance."),
-        (
-            "apps/kiosk-web/src/features/auth/ReconnectingScreen.tsx",
-            "bg-accent-active/20",
-            "#2694 — a full-screen action button, not over video; the triad as affordance."),
-        (
-            "apps/kiosk-web/src/features/picker/PickerPage.tsx",
-            "bg-accent-active/20",
-            "#2694 — a full-screen action button, not over video; the triad as affordance."),
-        (
-            "apps/kiosk-web/src/features/cell/LayoutGrid.tsx",
-            "bg-accent-active/20",
-            "#2694 — a full-screen action button, not over video; the triad as affordance."),
-    ];
+    private static readonly (string RelativePath, string Match, string Reason)[] Allowlist = [];
 
     private static readonly Regex TranslucentTriadColour = new(
         @"(?<![\w-])(?:bg|border|text|ring|outline|fill|stroke)-accent-(?:active|warning|fault)/\d+",
