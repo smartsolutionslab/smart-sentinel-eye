@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
@@ -271,5 +272,106 @@ public class RotateWebhookClientCommandHandlerTests
             ExpectedCrossFabRefusal(),
             $"got {result.Error}; a name that exists nowhere must answer exactly as a name that exists "
             + "in another fab does");
+    }
+
+    /// <summary>
+    /// Issue #2749. Dresden already runs an <b>active</b> webhook integration
+    /// named "shared" — a real Keycloak client, not the disabled kind
+    /// <c>HttpKeycloakAdminClient</c> replaces on re-registration (#2728). A
+    /// munich operator tries to <b>create</b> their own webhook of the same
+    /// name: munich's fab-scoped repository lookup (spec 182's AS-4/AS-9 fix)
+    /// finds nothing under "webhook-shared" in munich, so the handler takes
+    /// the create branch and asks Keycloak to mint "webhook-shared" — which
+    /// Keycloak refuses because Dresden's client is already there, via
+    /// <see cref="KeycloakClientAlreadyExistsException"/>.
+    ///
+    /// <para>
+    /// Today that exception falls into the handler's generic catch and comes
+    /// back as <c>502 KEYCLOAK_UNAVAILABLE</c> with "Keycloak client
+    /// 'webhook-shared' already exists." as the message — telling munich's
+    /// caller, who holds no access to Dresden's fab, that Dresden runs an
+    /// integration by that name. The refusal must instead be a generic
+    /// conflict that never names the clientId, mirroring
+    /// <c>UniqueConstraintExceptionHandler</c>'s <c>409
+    /// RESOURCE_ALREADY_EXISTS</c> — this codebase's existing answer for
+    /// exactly this shape of "someone else already has this" collision —
+    /// that handler deliberately echoes nothing from the colliding row, for
+    /// the identical reason: a multi-fab deployment can collide on a value
+    /// the caller cannot see.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_munich_create_colliding_with_dresdens_active_webhook_gets_a_generic_conflict_that_does_not_name_the_client()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        RegisteredClient dresdenClient = RegisteredClient.Register(
+            ClientId.From("webhook-shared"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("dresden"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Seed(dresdenClient, version: 1);
+
+        // Dresden's Keycloak client is planted directly, the same way
+        // RotateWebhookClientCommandHandler's own create branch would have
+        // minted it, so munich's attempt below collides with a real entry
+        // rather than one the fake never heard of.
+        FakeKeycloakAdminClient keycloak = new();
+        await keycloak.CreateClientAsync(
+            new KeycloakClientRepresentation(
+                ClientId: "webhook-shared",
+                Name: "Webhook shared",
+                ServiceAccountsEnabled: true,
+                StandardFlowEnabled: false,
+                DirectAccessGrantsEnabled: false,
+                PublicClient: false,
+                DefaultClientScopes: [],
+                OptionalClientScopes: [],
+                Attributes: new Dictionary<string, string>
+                {
+                    ["sse.kind"] = "webhook",
+                    ["sse.fab"] = "dresden",
+                }),
+            fabGroupPath: "/fabs/dresden",
+            CancellationToken.None);
+        string dresdenSecretBeforeAttempt = keycloak.CurrentSecrets["webhook-shared"];
+
+        FakeEventBus bus = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        // munich's own fab-scoped lookup finds nothing under "webhook-shared",
+        // so this reads as the create intent (If-None-Match: *) to the handler.
+        RotateWebhookClientCommand command = new(
+            "shared", FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.None);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(command, CancellationToken.None);
+
+        result.IsFailure.ShouldBeTrue(
+            "munich must not be able to create a webhook client that collides with Dresden's");
+
+        string errorText = $"{result.Error.Code} {result.Error.Message}";
+        errorText.Contains("webhook-shared", StringComparison.Ordinal).ShouldBeFalse(
+            $"the refusal must not name the clientId — a munich caller must not learn Dresden owns "
+            + $"this name; got '{errorText}'");
+
+        result.Error.Code.ShouldNotBe(
+            "KEYCLOAK_UNAVAILABLE",
+            "a same-name collision with another fab's client is a conflict the caller caused, not "
+            + "Keycloak being unreachable");
+        result.Error.Status.ShouldBe(
+            HttpStatusCode.Conflict,
+            $"this must be a generic 409 conflict — mirroring UniqueConstraintExceptionHandler's "
+            + $"RESOURCE_ALREADY_EXISTS — not the 502 munich's caller gets today; got "
+            + $"{result.Error.Status} ({result.Error.Code}: {result.Error.Message})");
+
+        bus.Published.ShouldBeEmpty(
+            "no WebhookIntegrationRotatedV1 may be published for a create that never happened");
+        keycloak.CurrentSecrets["webhook-shared"].ShouldBe(
+            dresdenSecretBeforeAttempt,
+            "Dresden's live secret must be unchanged by munich's refused collision attempt");
     }
 }
