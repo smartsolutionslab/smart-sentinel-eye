@@ -37,18 +37,8 @@ public class WallStatusChipTests
     private const string KioskSrc = "apps/kiosk-web/src";
 
     /// <summary>
-    /// Shrink-only (spec §3.2). Issue #2694 (phase 4a): the allowlist entries
-    /// for the wall's four full-screen action buttons
-    /// (<c>WallPage.tsx</c>, <c>ReconnectingScreen.tsx</c>,
-    /// <c>PickerPage.tsx</c>, <c>LayoutGrid.tsx</c>) are removed here, ahead
-    /// of the production fix (phase 4b) that swaps those buttons from
-    /// <c>bg-accent-active/20 text-accent-active</c> to
-    /// <c>bg-accent-subtle text-accent</c>. Until that fix lands,
-    /// <see cref="No_translucent_triad_colour_on_the_wall"/> is red against
-    /// today's four still-unfixed call sites — that is the point: the
-    /// allowlist is shrink-only, so removing an entry for a call site that
-    /// still has the matched text is exactly how this guard is meant to go
-    /// red for new behaviour (ADR-0139/ADR-0144).
+    /// Shrink-only (spec §3.2). Emptied by #2694 when the four wall action
+    /// buttons moved to <c>bg-accent-subtle text-accent</c>.
     /// </summary>
     private static readonly (string RelativePath, string Match, string Reason)[] Allowlist = [];
 
@@ -59,10 +49,9 @@ public class WallStatusChipTests
     private static readonly Regex IssueReference = new(@"#\d+", RegexOptions.Compiled);
 
     /// <summary>
-    /// Red on develop, naming exactly <c>LiveUpdatesBadge.tsx</c> (×2),
-    /// <c>TileAlignmentBadge.tsx</c> and <c>LayoutGrid.tsx</c> (the *Overlay
-    /// unavailable* chip's own match, distinct from the allowlisted action
-    /// button's).
+    /// Scans every file under <see cref="KioskSrc"/> for the translucent
+    /// triad colour pattern, failing on any match not covered by
+    /// <see cref="Allowlist"/>.
     /// </summary>
     [Fact]
     public void No_translucent_triad_colour_on_the_wall()
