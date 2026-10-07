@@ -75,6 +75,22 @@ public abstract record RotateWebhookClientError(string Code, string Message, Htt
             "WEBHOOK_CLIENT_NOT_FOUND",
             $"No webhook client '{ClientId}' exists to be at version {ExpectedVersion}. Send If-None-Match: * to create it.",
             HttpStatusCode.PreconditionFailed);
+
+    /// <summary>
+    /// The Keycloak clientId derived from the requested integration name is
+    /// already taken — by this caller's own fab, or by another fab's webhook
+    /// client the caller's fab-scoped lookup above never saw. Deliberately
+    /// generic, mirroring <see cref="SmartSentinelEye.ServiceDefaults.Persistence.UniqueConstraintExceptionHandler"/>:
+    /// naming the clientId here would tell a caller that another fab already
+    /// owns this integration name, turning the refusal into a cross-fab
+    /// existence oracle.
+    /// </summary>
+    public sealed record WebhookClientNameConflict()
+        : RotateWebhookClientError(
+            "RESOURCE_ALREADY_EXISTS",
+            "Something with that name or key already exists. Choose a different one — "
+            + "retrying this request unchanged will be refused again.",
+            HttpStatusCode.Conflict);
 }
 
 /// <summary>
@@ -99,4 +115,7 @@ public static class RotateWebhookClientFailures
 
     public static RotateWebhookClientError WebhookClientNotFound(string clientId, int expectedVersion) =>
         new RotateWebhookClientError.WebhookClientNotFound(clientId, expectedVersion);
+
+    public static RotateWebhookClientError WebhookClientNameConflict() =>
+        new RotateWebhookClientError.WebhookClientNameConflict();
 }
