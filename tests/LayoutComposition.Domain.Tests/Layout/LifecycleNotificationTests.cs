@@ -122,15 +122,12 @@ public class LifecycleNotificationTests
     }
 
     /// <summary>
-    /// Spec 301 (#2720) US2. Was
-    /// "ResolvedOverlayTextChangedNotification_carries_every_resolved_text",
-    /// asserting the old positional <c>ResolvedTexts : IReadOnlyList&lt;string&gt;</c>
-    /// (spec 150, #2345). The notification now carries template-keyed pairs —
+    /// The notification carries template-keyed pairs —
     /// <c>Texts : IReadOnlyList&lt;ResolvedOverlayText&gt;</c>, each a
     /// <c>(Template, Resolved)</c> pair — so a consumer pairs by template,
-    /// never by position (spec.md FR-005). Rewritten, not construction-only:
-    /// this type does not exist on today's code, so this fact is red by
-    /// construction until T011 lands.
+    /// never by position. Supersedes the old positional
+    /// <c>ResolvedTexts : IReadOnlyList&lt;string&gt;</c> shape (spec 150,
+    /// #2345), which required matching texts to templates by array index.
     /// </summary>
     [Fact]
     public void ResolvedOverlayTextChangedNotification_carries_every_resolved_pair_by_template()

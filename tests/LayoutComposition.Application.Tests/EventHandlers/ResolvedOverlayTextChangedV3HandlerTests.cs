@@ -9,17 +9,12 @@ using SmartSentinelEye.Shared.Contracts.SystemVariables;
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
 /// <summary>
-/// Spec 301 (#2720) US2, T011 — the V3 relay. Mirrors
-/// <c>ResolvedOverlayTextChangedV2HandlerTests</c> (left in place; V2's own
-/// production type is not deleted until T008 lands), carrying pairs instead
-/// of a positional list.
-///
-/// <para>
-/// <b>Red by construction.</b> Neither <c>ResolvedOverlayTextChangedV3</c>
-/// nor <c>ResolvedOverlayTextChangedV3Handler</c> exists on today's code —
-/// this whole file fails to resolve until T008 (the contract cut) and T011
-/// (the handler) land.
-/// </para>
+/// The V3 relay: <c>ResolvedOverlayTextChangedV3Handler</c> turns the
+/// integration event's template-keyed pairs into the domain-level
+/// <c>ResolvedOverlayTextChangedNotification</c>, carrying pairs through
+/// rather than flattening them into a positional list, so a downstream
+/// consumer still pairs by template rather than by index. V2 (the
+/// positional-list contract and its handler) has been removed entirely.
 /// </summary>
 public class ResolvedOverlayTextChangedV3HandlerTests
 {
