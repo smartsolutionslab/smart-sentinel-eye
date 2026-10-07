@@ -1382,3 +1382,82 @@ describe('OverlaysPage — navigating instead of opening a dialog (spec 305, #23
     expect(router.state.location.pathname).toBe('/overlays');
   });
 });
+
+/**
+ * Spec 310 (#2725) T004, plan.md §5 row 4. Three consecutive 403 refreshes of
+ * the overlays list must drop the stale rows — the page renders exactly as a
+ * first-load refusal does (FR-004). RED today: `OverlaysPage.tsx` wires no
+ * revocation fallback, so `data` keeps the last successful page regardless
+ * of how many 403s accumulate.
+ */
+describe('OverlaysPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
+  beforeEach(() => {
+    listOverlaysMock.mockReset();
+    // Independent of the mutation describes above — reset explicitly rather
+    // than rely on execution order.
+    publishState = { isLoading: false };
+    archiveState = { isLoading: false };
+    branchState = { isLoading: false };
+    revertState = { isLoading: false };
+  });
+
+  function forbiddenRefresh(requestId: string) {
+    return {
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId,
+      refetch: vi.fn(),
+    };
+  }
+
+  it('Keeps the stale rows after only two consecutive 403s', () => {
+    listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r1'));
+    const { rerender, router } = renderPage();
+
+    listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r2'));
+    rerender(
+      <Provider store={store}>
+        <RouterProvider router={router} />
+      </Provider>,
+    );
+
+    expect(screen.getByText('Line-1 Title')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load overlays/i);
+  });
+
+  it('Shows no stale row and the existing failure banner, exactly as a first-load refusal, after a third consecutive 403', () => {
+    listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r1'));
+    const { rerender, router, container } = renderPage();
+
+    listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r2'));
+    rerender(
+      <Provider store={store}>
+        <RouterProvider router={router} />
+      </Provider>,
+    );
+
+    listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r3'));
+    rerender(
+      <Provider store={store}>
+        <RouterProvider router={router} />
+      </Provider>,
+    );
+
+    expect(screen.queryByText('Line-1 Title')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load overlays/i);
+
+    // FR-004: byte-for-byte the same render as a first-load failure.
+    listOverlaysMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 500 },
+      refetch: vi.fn(),
+    });
+    const { container: firstLoadRefusal } = renderPage();
+
+    expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+});

@@ -20,6 +20,11 @@ type GetCameraResult = {
   isFetching?: boolean;
   error: unknown;
   refetch?: unknown;
+  // Spec 310 (#2725) T003. Optional, like `isFetching` above and for the same
+  // reason: every pre-existing mockReturnValue omits it, which is `undefined`
+  // and must never count a strike (plan.md §1.2) — only the new tests below
+  // set it.
+  requestId?: string;
 };
 
 const getCamera = vi.hoisted(() =>
@@ -699,5 +704,96 @@ describe('CameraDetailPage', () => {
     expect(screen.queryByText(camera.name)).toBeNull();
     expect(screen.queryByRole('alert')).toBeNull();
     expect(screen.queryByRole('button', { name: /retry/i })).toBeNull();
+  });
+});
+
+/**
+ * Spec 310 (#2725) T003, plan.md §5 row 3. Three consecutive 403 refreshes of
+ * the identifier on screen must take the record off screen, rendering the
+ * page's existing no-record refusal byte-for-byte (FR-004) — not a new
+ * sentence. `error !== undefined` with `currentData` set is exactly "Keeps
+ * showing the camera when its own refresh fails" above (US1-A/spec 211): the
+ * only thing distinguishing these cases from that one is that every response
+ * here is a 403, three in a row, each carrying its own `requestId`.
+ *
+ * RED today: `CameraDetailPage.tsx` wires no `useRevocationFallback` call, so
+ * `record` stays `currentData` regardless of how many 403s accumulate — the
+ * heading stays "Line-1-Entrance" after the third one instead of flipping to
+ * "No such camera".
+ */
+describe('CameraDetailPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
+  beforeEach(() => {
+    listCameras.mockClear();
+    viewerRenders.length = 0;
+    currentToken.value = ACCESS_TOKEN;
+  });
+
+  function treeFor(identifier: string) {
+    return (
+      <Provider store={store}>
+        <MemoryRouter initialEntries={[`/cameras/${identifier}`]}>
+          <Routes>
+            <Route path="/cameras/:cameraIdentifier" element={<CameraDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </Provider>
+    );
+  }
+
+  function forbiddenRefresh(requestId: string): GetCameraResult {
+    return {
+      data: camera,
+      currentData: camera,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId,
+      refetch: vi.fn(),
+    };
+  }
+
+  it('Keeps the record, beside the could-not-refresh banner, after only two consecutive 403s', () => {
+    getCamera.mockReturnValue(forbiddenRefresh('revocation-r1'));
+    const { rerender } = render(treeFor(camera.cameraIdentifier));
+
+    getCamera.mockReturnValue(forbiddenRefresh('revocation-r2'));
+    rerender(treeFor(camera.cameraIdentifier));
+
+    expect(screen.getByRole('heading', { name: 'Line-1-Entrance' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
+    expect(screen.queryByRole('heading', { name: /no such camera/i })).toBeNull();
+  });
+
+  it('Shows "No such camera" — exactly as a first-load refusal does — after a third consecutive 403', () => {
+    getCamera.mockReturnValue(forbiddenRefresh('revocation-r1'));
+    const { rerender, container } = render(treeFor(camera.cameraIdentifier));
+
+    getCamera.mockReturnValue(forbiddenRefresh('revocation-r2'));
+    rerender(treeFor(camera.cameraIdentifier));
+
+    getCamera.mockReturnValue(forbiddenRefresh('revocation-r3'));
+    rerender(treeFor(camera.cameraIdentifier));
+
+    expect(screen.getByRole('heading', { name: /no such camera/i })).toBeInTheDocument();
+    expect(screen.queryByText(camera.name)).toBeNull();
+    expect(screen.queryByText(camera.rtspUrl)).toBeNull();
+    expect(screen.queryByTestId('camera-viewer')).toBeNull();
+    expect(screen.queryByRole('button', { name: /^rename$/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /correct the address/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /retire camera/i })).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
+
+    // FR-004: byte-for-byte the same render as an identifier the API refuses
+    // from the very first load — a different identifier so the comparison
+    // cannot be satisfied by the two renders merely sharing a cache.
+    getCamera.mockReturnValue({
+      data: undefined,
+      currentData: undefined,
+      isLoading: false,
+      error: { status: 404 },
+    });
+    const { container: firstLoadRefusal } = render(treeFor('66666666-6666-6666-6666-666666666666'));
+
+    expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
   });
 });

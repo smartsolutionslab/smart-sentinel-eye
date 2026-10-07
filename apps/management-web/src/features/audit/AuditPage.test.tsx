@@ -266,3 +266,76 @@ describe('AuditPage — Next keeps focus on the terminal page (spec 273 A1)', ()
     expect(searchMock.mock.calls.length).toBe(callsBefore);
   });
 });
+
+/**
+ * Spec 310 (#2725) T004, plan.md §5 row 4. Three consecutive 403 refreshes of
+ * the same search must drop the stale rows — the page renders exactly as a
+ * first-load refusal does (FR-004). RED today: `AuditPage.tsx` wires no
+ * revocation fallback, so `data` keeps the last successful search regardless
+ * of how many 403s accumulate.
+ */
+describe('AuditPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
+  beforeEach(() => {
+    searchMock.mockReset();
+  });
+
+  function forbiddenRefresh(requestId: string) {
+    return {
+      data: { rows: [auditRow()], nextCursor: null } satisfies AuditPageData,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId,
+      refetch: vi.fn(),
+    };
+  }
+
+  it('Keeps the stale rows after only two consecutive 403s', () => {
+    searchMock.mockReturnValue(forbiddenRefresh('audit-r1'));
+    const { rerender } = renderPage();
+
+    searchMock.mockReturnValue(forbiddenRefresh('audit-r2'));
+    rerender(
+      <Provider store={store}>
+        <AuditPage />
+      </Provider>,
+    );
+
+    expect(screen.getByText('CameraRegisteredV1')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load the audit trail/i);
+  });
+
+  it('Shows no stale row and the existing failure banner, exactly as a first-load refusal, after a third consecutive 403', () => {
+    searchMock.mockReturnValue(forbiddenRefresh('audit-r1'));
+    const { rerender, container } = renderPage();
+
+    searchMock.mockReturnValue(forbiddenRefresh('audit-r2'));
+    rerender(
+      <Provider store={store}>
+        <AuditPage />
+      </Provider>,
+    );
+
+    searchMock.mockReturnValue(forbiddenRefresh('audit-r3'));
+    rerender(
+      <Provider store={store}>
+        <AuditPage />
+      </Provider>,
+    );
+
+    expect(screen.queryByText('CameraRegisteredV1')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load the audit trail/i);
+
+    // FR-004: byte-for-byte the same render as a first-load failure.
+    searchMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 500 },
+      refetch: vi.fn(),
+    });
+    const { container: firstLoadRefusal } = renderPage();
+
+    expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+});
