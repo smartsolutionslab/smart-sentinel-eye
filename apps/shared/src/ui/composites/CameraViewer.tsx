@@ -637,7 +637,7 @@ function labelFor(status: CameraViewerStatus, stream: StreamHealth | undefined):
   if (status === 'connecting') return 'Connecting…';
   if (status === 'reconnecting') return 'Reconnecting…';
   if (status === 'offline') return 'Stream is offline';
-  if (status === 'error') return 'Viewer error';
+  if (status === 'error') return 'Access refused';
   if (stream?.state === 'Provisioning') return 'Provisioning stream…';
   return 'Idle';
 }
