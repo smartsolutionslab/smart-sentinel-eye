@@ -64,6 +64,7 @@ public sealed class MediaMtxReconciler(
         // converters and EF cannot translate the factory call into SQL.
         var streams = await context.Streams
             .AsNoTracking()
+            .Where(stream => stream.State != StreamState.Retired)
             .Select(stream => new { stream.Path, stream.SourceUrl })
             .ToListAsync(cancellationToken);
 
