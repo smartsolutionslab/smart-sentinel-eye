@@ -174,6 +174,15 @@ distinguished (403) is a scope-level refusal on these endpoints — per-resource
 404 by design (spec 029 FR-006) and are never counted. Nothing per-resource can be enumerated
 from whether the fallback trips. No ADR is needed.
 
+**Implementation note (FR-004), phase 6 finding S1.** The three list pages initially wired
+`refused ? undefined : data` with no regard for `error`, so once an operator changed a filter —
+resetting the fallback's strikes to zero for the new subject (FR-003) — a 403 on the new
+argument set's own first request rendered the *previous* argument set's rows via RTK Query's
+`lastResult` carryover, instead of nothing. Fixed by applying `CameraDetailPage`'s own
+`error !== undefined ? currentData : data` guard (spec 211, §1.1 above) to all three. This is a
+bug-fix application of a pattern already decided and already built elsewhere in this tree, not a
+change to §0's N=3 / per-identifier / reset-on-non-403 decision.
+
 ## 4. Locked tech
 
 React 19 + TypeScript, RTK Query 2.12 (ADR-0075), Vitest + Testing Library, existing
