@@ -672,9 +672,8 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
    * rest of this file already drives, rather than building a new one.
    *
    * ADR-0167 decided the fix (`useLayoutEffect` for the `getTokenRef` sync in
-   * `useWhepSession.ts:135-137`) without touching it here — phase 4b's job,
-   * not this test's. This test only pins which token the release `DELETE`
-   * must carry.
+   * `useWhepSession`) without touching it here — phase 4b's job, not this
+   * test's. This test only pins which token the release `DELETE` must carry.
    */
   describe('A session release presents the freshest committed token (#2740, ADR-0167)', () => {
     function deleteCalls(): unknown[][] {
@@ -705,13 +704,13 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       const released = deleteCalls();
       expect(released, "camera A's session release DELETE must have been issued").toHaveLength(1);
 
-      // RED today (ADR-0167): the `getTokenRef` sync is a plain `useEffect`,
-      // whose SETUP runs only after every passive effect's CLEANUP in this
-      // commit has already run — so the session effect's cleanup
-      // (`client.close()` → `releaseSession()` → `getTokenRef.current()`)
-      // reads the ref before the sync effect updates it, and the DELETE
-      // carries 'token-old': the credential that authorized the session
-      // being released, not the fresh one.
+      // With a passive `useEffect` sync, the cleanup reads the ref before it
+      // is updated: a passive effect's SETUP runs only after every passive
+      // effect's CLEANUP in this commit has already run, so the session
+      // effect's cleanup (`client.close()` → `releaseSession()` →
+      // `getTokenRef.current()`) reads the ref before the sync effect
+      // updates it, and the DELETE carries 'token-old': the credential that
+      // authorized the session being released, not the fresh one.
       expect(authorizationOf(released[0]!), 'the release must present the freshest committed credential').toBe(
         'Bearer token-new',
       );
@@ -736,12 +735,12 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
       const released = deleteCalls();
       expect(released, 'the unmount session release DELETE must have been issued').toHaveLength(1);
 
-      // GREEN today — characterisation, not a new red. The token change
-      // landed in its own earlier commit, so the ref is already current by
-      // the time the session effect's cleanup runs at unmount, regardless of
-      // whether the sync runs as `useEffect` (today) or `useLayoutEffect`
-      // (ADR-0167). Confirms the staleness above is narrow to the
-      // same-commit case, not a general one.
+      // Characterisation, not a new red. The token change landed in its own
+      // earlier commit, so the ref is already current by the time the
+      // session effect's cleanup runs at unmount, regardless of whether the
+      // sync runs as a passive `useEffect` or a `useLayoutEffect`. Confirms
+      // the staleness above is narrow to the same-commit case, not a general
+      // one.
       expect(authorizationOf(released[0]!)).toBe('Bearer token-new');
     });
   });

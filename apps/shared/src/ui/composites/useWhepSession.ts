@@ -131,6 +131,10 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   // changes on every parent render. Hold the latest reference and read it
   // at connect time, so the effect below doesn't tear down and renegotiate
   // the RTCPeerConnection on every render — only when the stream changes.
+  // Layout, not passive (#2740, ADR-0167): the session cleanup below reads
+  // this ref during teardown, and passive cleanups run before passive
+  // setups in the same commit — a plain `useEffect` here would still be
+  // holding the previous render's token when that cleanup fires.
   const getTokenRef = useRef(getToken);
   useLayoutEffect(() => {
     getTokenRef.current = getToken;
