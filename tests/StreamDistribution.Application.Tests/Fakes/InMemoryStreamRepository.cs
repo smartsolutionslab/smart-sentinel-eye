@@ -13,6 +13,14 @@ public sealed class InMemoryStreamRepository : IStreamRepository
     private readonly List<Domain.Stream.Stream> _pendingAdds = [];
     public int SaveCallCount { get; private set; }
 
+    /// <summary>
+    /// Lets a test make the save itself fail — a DB blip between
+    /// <c>Add</c> and <c>SaveAsync</c> (spec 309 FR-001). Invoked before the
+    /// pending adds are committed, so a throwing hook leaves the row
+    /// unpersisted, as a failed save would.
+    /// </summary>
+    public Action OnSave { get; set; } = () => { };
+
     public IReadOnlyList<Domain.Stream.Stream> Streams => _streams;
 
     public Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
@@ -43,6 +51,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
+        OnSave();
         _streams.AddRange(_pendingAdds);
         _pendingAdds.Clear();
         SaveCallCount++;

@@ -50,8 +50,19 @@ public class CameraRegisteredIntegrationEventHandlerTests
         gateway.AddCalls.Count.ShouldBe(1);
     }
 
+    /// <summary>
+    /// Spec 309 FR-004 (declared edit — <c>AddCalls.Count</c> was 1 and the
+    /// name said "idempotent" of the gateway call itself; missed in the
+    /// original characterisation table and corrected alongside its sibling,
+    /// <c>ProvisionStreamCommandHandlerTests.Provision_for_an_existing_camera_returns_the_existing_identifier_and_re_asserts_its_path</c>).
+    /// A redelivery through this handler reaches the same command handler as
+    /// a direct redelivery, so it now re-asserts the MediaMTX path instead of
+    /// skipping the gateway call. The handler is still idempotent in the
+    /// sense that matters — one row, no error — the gateway call is simply
+    /// no longer deduplicated.
+    /// </summary>
     [Fact]
-    public async Task On_redelivery_is_idempotent_because_the_command_handler_is()
+    public async Task On_redelivery_re_asserts_the_path_because_the_command_handler_does()
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
@@ -72,7 +83,7 @@ public class CameraRegisteredIntegrationEventHandlerTests
         await handler.Handle(message);
 
         streams.Streams.Count.ShouldBe(1);
-        gateway.AddCalls.Count.ShouldBe(1);
+        gateway.AddCalls.Count.ShouldBe(2);
     }
 
     [Fact]
