@@ -14,7 +14,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// re-resolves every affected overlay's whole label set (spec 150,
 /// #2345 — the archived variable's placeholder reverts to literal in
 /// every label that carries it, per FR-011) and publishes a single
-/// <see cref="ResolvedOverlayTextChangedV2"/> per overlay for
+/// <see cref="ResolvedOverlayTextChangedV3"/> per overlay for
 /// LayoutComposition to broadcast — same split as the value-changed
 /// handler.
 /// </summary>
@@ -96,12 +96,14 @@ public sealed class VariableArchivedDomainEventHandler(
                 snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
             }
 
-            IReadOnlyList<string> resolvedTexts = [.. labelTexts.Select(text => resolver.Resolve(text, snapshot))];
+            IReadOnlyList<ResolvedOverlayTextV3> texts =
+                [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
+                    .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
             long version = versionsByOverlay[overlayId];
 
-            ResolvedOverlayTextChangedV2 resolvedOverlayTextChangedEvent = new(
+            ResolvedOverlayTextChangedV3 resolvedOverlayTextChangedEvent = new(
                 Overlay: overlayId,
-                ResolvedTexts: resolvedTexts,
+                Texts: texts,
                 Version: version,
                 Metadata: new(
                     Guid.CreateVersion7(),

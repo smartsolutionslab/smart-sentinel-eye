@@ -28,7 +28,7 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure;
 ///
 /// <para>
 /// The variable-changed / archived domain-event handlers publish a
-/// <c>ResolvedOverlayTextChangedV2</c> per affected overlay; the SignalR
+/// <c>ResolvedOverlayTextChangedV3</c> per affected overlay; the SignalR
 /// push lives in LayoutComposition (the hub owner), which subscribes to
 /// that event. This context therefore has no dependency on
 /// LayoutComposition.

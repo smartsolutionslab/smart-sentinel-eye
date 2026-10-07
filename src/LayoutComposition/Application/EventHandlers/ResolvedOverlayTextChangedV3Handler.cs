@@ -7,24 +7,25 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 
 /// <summary>
-/// Wolverine subscriber on <see cref="ResolvedOverlayTextChangedV2"/> from
-/// SystemVariables. Relays the already-resolved overlay texts onto the
-/// <c>/hubs/layouts</c> SignalR hub via the broadcaster LayoutComposition
-/// owns (spec 005 FR-013, widened to a set by spec 150 / #2345).
+/// Wolverine subscriber on <see cref="ResolvedOverlayTextChangedV3"/> from
+/// SystemVariables. Relays the already-resolved, template-keyed overlay
+/// text pairs onto the <c>/hubs/layouts</c> SignalR hub via the broadcaster
+/// LayoutComposition owns (spec 005 FR-013, widened to a set by spec 150 /
+/// #2345; template-keyed by spec 301, #2720, US2, FR-005).
 /// SystemVariables does the resolution; the broadcast lives here with the
 /// hub. See <see cref="OverlayRevisionPublishedV3Handler"/> for the
 /// rationale.
 /// </summary>
-public sealed class ResolvedOverlayTextChangedV2Handler(
+public sealed class ResolvedOverlayTextChangedV3Handler(
     ILayoutLifecycleBroadcaster broadcaster,
     ILatencyBudget latency,
-    ILogger<ResolvedOverlayTextChangedV2Handler> logger)
+    ILogger<ResolvedOverlayTextChangedV3Handler> logger)
 {
-    public async Task Handle(ResolvedOverlayTextChangedV2 message, CancellationToken cancellationToken)
+    public async Task Handle(ResolvedOverlayTextChangedV3 message, CancellationToken cancellationToken)
     {
         Ensure.That(message).IsNotNull();
 
-        var (overlay, resolvedTexts, version, metadata) = message;
+        var (overlay, texts, version, metadata) = message;
 
         // FR-015: the push goes to the fab the change happened in, and nowhere
         // else. A frame with no fab is dropped rather than broadcast widely —
@@ -42,7 +43,7 @@ public sealed class ResolvedOverlayTextChangedV2Handler(
         await broadcaster.ResolvedOverlayTextChangedAsync(
             new ResolvedOverlayTextChangedNotification(
                 overlay,
-                resolvedTexts,
+                [.. texts.Select(pair => new ResolvedOverlayText(pair.Template, pair.Resolved))],
                 version,
                 metadata.Fab),
             cancellationToken);

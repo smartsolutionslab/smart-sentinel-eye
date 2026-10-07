@@ -118,7 +118,7 @@ public static class LayoutCompositionInfrastructureModule
         builder.Services.AddScoped<OverlayHighlightRequestedV1Handler>();
         builder.Services.AddScoped<OverlayRevisionPublishedV3Handler>();
         builder.Services.AddScoped<OverlayRevisionArchivedV1Handler>();
-        builder.Services.AddScoped<ResolvedOverlayTextChangedV2Handler>();
+        builder.Services.AddScoped<ResolvedOverlayTextChangedV3Handler>();
         //   - Spec 296: Automation's rule-driven wall-switch request.
         builder.Services.AddScoped<WallSceneSwitchRequestedV1Handler>();
 

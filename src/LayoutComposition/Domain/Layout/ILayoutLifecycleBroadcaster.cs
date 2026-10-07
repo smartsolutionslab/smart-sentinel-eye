@@ -106,11 +106,12 @@ public sealed record OverlayLifecycleArchivedNotification(
 /// <summary>
 /// Wire shape for "an overlay's resolved text changed" pushes
 /// (spec 005 FR-013, widened to a set by spec 150 / #2345). Pushed when a
-/// system variable referenced by any label in an overlay's set changes,
-/// gets archived, or the overlay itself is republished with new
-/// references. <c>Version</c> is a monotonic per-overlay counter so the
-/// kiosk can discard out-of-order frames — it bumps once per change, not
-/// once per label.
+/// system variable referenced by any label in an overlay's set changes or
+/// gets archived — SystemVariables' own reverse-index upsert on publish
+/// does not push this frame, only re-seeds the cache the next change
+/// resolves against. <c>Version</c> is a monotonic per-overlay counter so
+/// the kiosk can discard out-of-order frames — it bumps once per change,
+/// not once per label.
 /// </summary>
 /// <para>
 /// <c>Fab</c> decides who receives it (spec 014 FR-015). A resolved text is
@@ -118,11 +119,20 @@ public sealed record OverlayLifecycleArchivedNotification(
 /// different values in different fabs — so delivering it everywhere would put
 /// Munich's figure on Dresden's wall.
 /// </para>
+/// <para>
+/// <c>Texts</c> is template-keyed, not positional (spec 301, #2720, US2,
+/// FR-005) — one <see cref="ResolvedOverlayText"/> pair per distinct
+/// <c>Text</c> template, in ordinal order of first appearance. A consumer
+/// pairs by <c>Template</c>, never by index.
+/// </para>
 public sealed record ResolvedOverlayTextChangedNotification(
     Guid Overlay,
-    IReadOnlyList<string> ResolvedTexts,
+    IReadOnlyList<ResolvedOverlayText> Texts,
     long Version,
     string Fab);
+
+/// <summary>One resolved label, keyed by the raw template it was resolved from.</summary>
+public sealed record ResolvedOverlayText(string Template, string Resolved);
 
 /// <summary>
 /// Wire shape for "an overlay should be highlighted" pushes

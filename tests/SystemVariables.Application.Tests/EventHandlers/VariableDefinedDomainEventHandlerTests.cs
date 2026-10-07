@@ -70,7 +70,7 @@ public class VariableDefinedDomainEventHandlerTests
 
     // Defining a variable is not a value change: nothing already on screen
     // moves, so this handler must publish exactly one event. Its two siblings
-    // both fan out to ResolvedOverlayTextChangedV2 and copying either of them
+    // both fan out to ResolvedOverlayTextChangedV3 and copying either of them
     // wholesale would push a redundant frame at every kiosk.
     [Fact]
     public async Task Does_not_fan_out_to_overlay_resolution()
