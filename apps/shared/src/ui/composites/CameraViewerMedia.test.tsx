@@ -203,6 +203,7 @@ const NON_LIVE_LABELS = [
   'Idle',
   'Stream is offline',
   'Viewer error',
+  'Access refused',
   'Provisioning stream…',
 ];
 
