@@ -54,13 +54,31 @@ export function CamerasPage() {
     limit: PAGE_SIZE,
     name: fragment === '' ? undefined : fragment,
   };
-  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useListCamerasQuery(listArgs);
+  const {
+    data: fetched,
+    currentData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    requestId,
+  } = useListCamerasQuery(listArgs);
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
   // take the stale rows off screen, leaving only the existing failure banner
   // — the same render a first-load refusal produces.
   const refused = useRevocationFallback(JSON.stringify(listArgs), { error, isFetching, requestId });
-  const data = refused ? undefined : fetched;
+
+  // `fetched` (`data`) can still hold a *previous* argument set's rows for a
+  // moment after the filter changes — RTK Query's `lastResult` fallback
+  // carries them forward with no refetch in between — while `currentData` is
+  // only ever the cache entry for the argument set being requested right
+  // now. Mirrors `CameraDetailPage`'s `record` (spec 211): below the
+  // threshold, a failed refresh of THIS argument set still shows its own
+  // stale rows (`currentData`, kept by RTK across repeated failures of the
+  // same args); it must not show a DIFFERENT argument set's rows carried
+  // over by `fetched` alone.
+  const data = refused ? undefined : error !== undefined ? currentData : fetched;
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const totalCount = data?.count ?? 0;
