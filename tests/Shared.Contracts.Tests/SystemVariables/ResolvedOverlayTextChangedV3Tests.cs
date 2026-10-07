@@ -7,16 +7,12 @@ using SmartSentinelEye.Shared.Contracts.SystemVariables;
 namespace SmartSentinelEye.Shared.Contracts.Tests.SystemVariables;
 
 /// <summary>
-/// Spec 301 (#2720) US2, T008 — the clean contract cut. Mirrors
-/// <c>ResolvedOverlayTextChangedV2Tests</c> (left in place; V2's own
-/// production type is not deleted until this task lands), but
-/// <c>Texts</c> is now template-keyed pairs, not a positional list.
-///
-/// <para>
-/// <b>Red by construction.</b> Neither <c>ResolvedOverlayTextChangedV3</c>
-/// nor <c>ResolvedOverlayTextV3</c> exists on today's code, so this whole
-/// file fails to resolve.
-/// </para>
+/// The V3 contract shape: <c>Texts</c> carries template-keyed pairs
+/// (<c>ResolvedOverlayTextV3</c>, each a <c>(Template, Resolved)</c>
+/// pair), not a positional list, so a consumer pairs by template and
+/// never by index. V2 (the positional-list contract) has been removed
+/// entirely — there is no production type or test file for it left to
+/// mirror.
 /// </summary>
 public class ResolvedOverlayTextChangedV3Tests
 {

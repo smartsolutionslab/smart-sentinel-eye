@@ -4,18 +4,12 @@ using SmartSentinelEye.SystemVariables.Domain.Variable;
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Resolution;
 
 /// <summary>
-/// Spec 301 (#2720) US2, T009 — new type, no implementation yet.
 /// <c>ResolvedTextPairs</c> is the one place the pair-by-template rule is
-/// written (plan.md "SystemVariables"): every producer
-/// (<c>VariableValueChangedDomainEventHandler</c>,
+/// written: every producer (<c>VariableValueChangedDomainEventHandler</c>,
 /// <c>VariableArchivedDomainEventHandler</c>,
-/// <c>GetOverlaySnapshotQueryHandler</c>) calls it, so the rule cannot
-/// diverge between the push and the snapshot.
-///
-/// <para>
-/// <b>Red by construction.</b> <c>ResolvedTextPairs</c> does not exist on
-/// today's code, so this whole file fails to resolve.
-/// </para>
+/// <c>GetOverlaySnapshotQueryHandler</c>) calls it, so the push and the
+/// snapshot cannot diverge on how a resolved value is paired with its
+/// template.
 /// </summary>
 public class ResolvedTextPairsTests
 {
