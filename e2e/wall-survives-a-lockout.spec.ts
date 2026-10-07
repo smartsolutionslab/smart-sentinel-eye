@@ -113,9 +113,9 @@ test.describe('A wall survives a lockout (spec 214 US2, SC-6)', () => {
     // layout, or minting the admin token throws first, that inner `finally`
     // is never entered — correctly, since nothing has been locked yet to
     // clear.
-    let provider = '';
-    let adminToken = '';
-    let userId = '';
+    let provider: string;
+    let adminToken: string;
+    let userId: string;
 
     try {
       const page = context.pages()[0] ?? (await context.newPage());
