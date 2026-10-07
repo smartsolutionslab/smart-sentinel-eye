@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, within, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { createMemoryRouter, RouterProvider, useParams } from 'react-router-dom';
+import { createMemoryRouter, MemoryRouter, RouterProvider, useParams } from 'react-router-dom';
 import { store } from '../../app/store.js';
 import type { ListOverlaysResponse, Overlay } from '@smart-sentinel-eye/shared/api/overlays.api';
 
@@ -1389,6 +1389,18 @@ describe('OverlaysPage — navigating instead of opening a dialog (spec 305, #23
  * first-load refusal does (FR-004). RED today: `OverlaysPage.tsx` wires no
  * revocation fallback, so `data` keeps the last successful page regardless
  * of how many 403s accumulate.
+ *
+ * Rendered under a plain `MemoryRouter`, not `renderPage`'s data router —
+ * `RouterProvider` wraps its matched route in `React.memo` keyed on
+ * `router.state`/`router.routes` identity, and `rerender()` with the same
+ * `router` instance never changes either, so the memo bails and
+ * `OverlaysPage` never re-invokes `useListOverlaysQuery` a second time: the
+ * `rerender()` calls below were silently inert under the data router (no
+ * second or third call ever reached the mock). `OverlaysPage` only calls
+ * `useNavigate()` here, which works under any router context, and this
+ * suite asserts on rendered content, not on the URL — so `MemoryRouter`
+ * carries no cost, and it's the same pattern `CamerasPage.test.tsx`'s own
+ * revocation-fallback tests already use successfully.
  */
 describe('OverlaysPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
   beforeEach(() => {
@@ -1412,14 +1424,26 @@ describe('OverlaysPage — revocation fallback, three consecutive 403s (spec 310
     };
   }
 
+  function renderWithMemoryRouter() {
+    return render(
+      <Provider store={store}>
+        <MemoryRouter>
+          <OverlaysPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+  }
+
   it('Keeps the stale rows after only two consecutive 403s', () => {
     listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r1'));
-    const { rerender, router } = renderPage();
+    const { rerender } = renderWithMemoryRouter();
 
     listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r2'));
     rerender(
       <Provider store={store}>
-        <RouterProvider router={router} />
+        <MemoryRouter>
+          <OverlaysPage />
+        </MemoryRouter>
       </Provider>,
     );
 
@@ -1429,19 +1453,23 @@ describe('OverlaysPage — revocation fallback, three consecutive 403s (spec 310
 
   it('Shows no stale row and the existing failure banner, exactly as a first-load refusal, after a third consecutive 403', () => {
     listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r1'));
-    const { rerender, router, container } = renderPage();
+    const { rerender, container } = renderWithMemoryRouter();
 
     listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r2'));
     rerender(
       <Provider store={store}>
-        <RouterProvider router={router} />
+        <MemoryRouter>
+          <OverlaysPage />
+        </MemoryRouter>
       </Provider>,
     );
 
     listOverlaysMock.mockReturnValue(forbiddenRefresh('overlays-r3'));
     rerender(
       <Provider store={store}>
-        <RouterProvider router={router} />
+        <MemoryRouter>
+          <OverlaysPage />
+        </MemoryRouter>
       </Provider>,
     );
 
@@ -1456,7 +1484,7 @@ describe('OverlaysPage — revocation fallback, three consecutive 403s (spec 310
       error: { status: 500 },
       refetch: vi.fn(),
     });
-    const { container: firstLoadRefusal } = renderPage();
+    const { container: firstLoadRefusal } = renderWithMemoryRouter();
 
     expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
   });
