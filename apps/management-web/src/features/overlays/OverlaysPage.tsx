@@ -19,6 +19,7 @@ import { revisionSummary } from '@smart-sentinel-eye/shared/format/revisionSumma
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
@@ -51,7 +52,13 @@ export function OverlaysPage() {
     liveRevision: number | undefined;
   } | null>(null);
 
-  const { data, isLoading, isFetching, error, refetch } = useListOverlaysQuery(undefined);
+  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useListOverlaysQuery(undefined);
+
+  // Spec 310 (#2725). Three consecutive 403 refreshes take the stale rows off
+  // screen, leaving only the existing failure banner.
+  const refused = useRevocationFallback('overlays', { error, isFetching, requestId });
+  const data = refused ? undefined : fetched;
+
   const [publishRevision, publishState] = usePublishOverlayRevisionMutation();
   const [archiveRevision, archiveState] = useArchiveOverlayRevisionMutation();
   const [branchDraft, branchState] = useBranchDraftOverlayRevisionMutation();

@@ -5,6 +5,7 @@ import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
+import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 
 const PAGE_SIZE = 50;
 
@@ -73,7 +74,13 @@ export function AuditPage() {
   const [applied, setApplied] = useState<SearchAuditInput>({ pageSize: PAGE_SIZE });
   const [selected, setSelected] = useState<AuditRow | null>(null);
 
-  const { data, isLoading, isFetching, error, refetch } = useSearchAuditQuery(applied);
+  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useSearchAuditQuery(applied);
+
+  // Spec 310 (#2725). Three consecutive 403 refreshes of this applied query
+  // take the stale rows off screen, leaving only the existing failure banner.
+  const refused = useRevocationFallback(JSON.stringify(applied), { error, isFetching, requestId });
+  const data = refused ? undefined : fetched;
+
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   // ADR-0151: hoisted once so the click guard reads the same value — activating
   // Next on the terminal page would otherwise set cursor: undefined, the FIRST
