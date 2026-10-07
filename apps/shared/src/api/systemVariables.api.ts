@@ -74,13 +74,27 @@ export interface ListVariablesInput {
 }
 
 /**
- * Spec 150 (#2345): `resolvedTexts` carries the resolved text of every label
- * on the overlay, index-aligned with the published revision's `elements`
- * (FR-011 — the cache key stays per-overlay; only its cached value widens).
+ * One `Text` element's resolved value, keyed by its own raw template
+ * (spec 301, #2720 US2) rather than by its position in the overlay's
+ * element list. Mirrors the server's `ResolvedOverlayTextDto`.
+ */
+export interface ResolvedOverlayText {
+  template: string;
+  resolved: string;
+}
+
+/**
+ * Spec 301 (#2720) US2: `texts` holds one entry per distinct `Text`
+ * template of the overlay's published revision, keyed by the template
+ * itself (FR-005/FR-007 — the cache key stays per-overlay; only its cached
+ * value widens). A shape contributes no entry at all — the old
+ * index-aligned `resolvedTexts` with `""` padding for shapes (spec 150
+ * FR-011, spec 300 FR-009) is retired with it, along with
+ * `ResolvedOverlayTextChangedV2`.
  */
 export interface ResolvedOverlaySnapshot {
   overlayIdentifier: string;
-  resolvedTexts: string[];
+  texts: ResolvedOverlayText[];
   version: number;
 }
 

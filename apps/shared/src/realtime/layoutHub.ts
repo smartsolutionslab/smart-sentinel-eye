@@ -68,6 +68,16 @@ export interface OverlayRevisionArchivedMessage {
 }
 
 /**
+ * One `Text` element's resolved value on a resolved-overlay-text SignalR
+ * frame, keyed by its own raw template (spec 301, #2720 US2). Mirrors
+ * `ResolvedOverlayTextV3`.
+ */
+export interface ResolvedOverlayTextChangedMessageText {
+  template: string;
+  resolved: string;
+}
+
+/**
  * Wire shape for resolved-overlay-text SignalR frames (spec 005
  * FR-013). Pushed when a referenced system variable changes value,
  * gets archived, or the overlay itself republishes. `version` is a
@@ -80,18 +90,18 @@ export interface OverlayRevisionArchivedMessage {
  * what is not its own (ADR-0145).
  *
  * <p>
- * Spec 150 (#2345): `resolvedTexts` carries the resolved text of every label
- * on the overlay, index-aligned with the published revision's `elements`
- * (FR-011 — one version bump per overlay, not per label; mirrors
- * `ResolvedOverlayTextChangedV2`). Spec 300 (#2349, ADR-0165): a non-text
- * element contributes `""` at its index, so the alignment holds for a mixed
- * set too (FR-009).
+ * Spec 301 (#2720) US2: `texts` carries one `(template, resolved)` pair per
+ * distinct `Text` template of the overlay, keyed by the template itself
+ * rather than by position (FR-005/FR-007 — one version bump per overlay, not
+ * per label; mirrors `ResolvedOverlayTextChangedV3`). A shape contributes no
+ * entry. This replaces the index-aligned `resolvedTexts` (spec 150 FR-011,
+ * spec 300 FR-009) that mirrored the now-deleted `ResolvedOverlayTextChangedV2`.
  * </p>
  */
 export interface ResolvedOverlayTextChangedMessage {
   overlay: string;
   fab: string;
-  resolvedTexts: string[];
+  texts: ResolvedOverlayTextChangedMessageText[];
   version: number;
 }
 
