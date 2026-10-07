@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react';
+import { StrictMode } from 'react';
 import { describe, expect, it } from 'vitest';
 import {
   REVOCATION_STRIKE_THRESHOLD,
@@ -123,5 +124,47 @@ describe('useRevocationFallback', () => {
     // third strike.
     rerender({ subject: 'camera-d', query: settled(403, 'd1') });
     expect(result.current).toBe(false);
+  });
+
+  /**
+   * N2 (phase 6). The hook's docblock claims StrictMode safety — state is
+   * adjusted during render, not in an effect, specifically so React's
+   * intentional double-render/double-effect in `StrictMode` cannot double-
+   * count one response. Nothing exercised that claim until now.
+   */
+  describe('under React.StrictMode', () => {
+    function renderFallbackStrict(subject: string, query: RevocationQueryState) {
+      return renderHook(({ subject: s, query: q }) => useRevocationFallback(s, q), {
+        initialProps: { subject, query },
+        wrapper: StrictMode,
+      });
+    }
+
+    it('reaches true from three settled 403s, each counted once despite the double render', () => {
+      const { result, rerender } = renderFallbackStrict('camera-c', settled(403, 'r1'));
+      expect(result.current).toBe(false);
+
+      rerender({ subject: 'camera-c', query: settled(403, 'r2') });
+      expect(result.current).toBe(false);
+
+      rerender({ subject: 'camera-c', query: settled(403, 'r3') });
+      expect(result.current).toBe(true);
+    });
+
+    it('does not double-count a single settled 403 that StrictMode renders twice', () => {
+      const { result, rerender } = renderFallbackStrict('camera-c', settled(403, 'r1'));
+      expect(result.current).toBe(false);
+
+      // Re-rendering with the SAME requestId — the shape of StrictMode's own
+      // double render of an unchanged commit — must not add a second strike.
+      rerender({ subject: 'camera-c', query: settled(403, 'r1') });
+      expect(result.current).toBe(false);
+
+      rerender({ subject: 'camera-c', query: settled(403, 'r2') });
+      expect(result.current).toBe(false);
+
+      rerender({ subject: 'camera-c', query: settled(403, 'r3') });
+      expect(result.current).toBe(true);
+    });
   });
 });
