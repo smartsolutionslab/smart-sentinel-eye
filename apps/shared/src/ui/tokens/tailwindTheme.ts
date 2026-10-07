@@ -64,11 +64,15 @@ export const tailwindTheme = {
     // utility resolves `--text-color-*` before `--color-*`, so this is the
     // only namespace a `text-accent-<role>` utility reads; `bg-`/`border-`
     // keep resolving through `colors.accent` to the signal vars, unchanged.
+    // The `-on-video` keys (#2709) exist so text on the theme-invariant video
+    // ground keeps the signal, instead of the per-theme `-text` roles above.
     textColor: {
       accent: {
         active: 'var(--color-accent-active-text)',
         warning: 'var(--color-accent-warning-text)',
         fault: 'var(--color-accent-fault-text)',
+        'warning-on-video': 'var(--color-accent-warning-on-video)',
+        'fault-on-video': 'var(--color-accent-fault-on-video)',
       },
     },
     spacing: {

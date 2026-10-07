@@ -533,9 +533,9 @@ function ViewerOverlay({
 }) {
   const tone =
     failedRead || status === 'error' || status === 'offline'
-      ? 'text-accent-fault'
+      ? 'text-accent-fault-on-video'
       : status === 'reconnecting'
-        ? 'text-accent-warning'
+        ? 'text-accent-warning-on-video'
         : 'text-fg-muted';
 
   const hint = hintFor(message, queryError);
