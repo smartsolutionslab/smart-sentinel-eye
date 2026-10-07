@@ -2,6 +2,7 @@ import { useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
+import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
@@ -41,7 +42,22 @@ export function CameraDetailPage() {
   const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
   const [renaming, setRenaming] = useState(false);
-  const { data: camera, currentData, isLoading, isFetching, error, refetch } = useGetCameraQuery({ cameraIdentifier });
+  const {
+    data: camera,
+    currentData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    requestId,
+  } = useGetCameraQuery({ cameraIdentifier });
+
+  // Spec 310 (#2725). Three consecutive 403 refreshes of this identifier take
+  // the record off screen — the operator's access was revoked mid-session,
+  // and the existing refresh-failure banner alone would keep it (and its
+  // viewer and controls) visible indefinitely. `refused` masks `record`
+  // below, so the status itself is never read here (FR-005).
+  const refused = useRevocationFallback(cameraIdentifier, { error, isFetching, requestId });
 
   // `camera` (`data`) can still hold a *previously viewed* identifier's record
   // for a moment after the URL changes — including across a same-instance
@@ -50,7 +66,7 @@ export function CameraDetailPage() {
   // the cache entry for the identifier being requested right now. `record` is
   // what both the gate below and every render site read, so neither can
   // disagree about which identifier is on screen.
-  const record = error !== undefined ? currentData : camera;
+  const record = refused ? undefined : error !== undefined ? currentData : camera;
 
   // `data` may still be the previous identifier's record (see above); while
   // this identifier's first response is in flight and nothing has failed,

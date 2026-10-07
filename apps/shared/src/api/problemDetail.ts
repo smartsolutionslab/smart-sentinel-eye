@@ -39,6 +39,22 @@ export function isConflict(error: unknown): boolean {
   );
 }
 
+/**
+ * True when the server answered 403 — a scope-level refusal, as opposed to a
+ * per-resource one (spec 029 FR-006 answers those 404). Read by
+ * `useRevocationFallback` only; a page must not call it (spec 030 FR-008 /
+ * spec 310 FR-005).
+ *
+ * Same shape as {@link isConflict}: a plain `status` check, nothing richer, so
+ * RTK's string statuses (`FETCH_ERROR`, `PARSING_ERROR`) are never mistaken
+ * for it.
+ */
+export function isForbidden(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 403
+  );
+}
+
 /** Fallback used when a 409 arrives without an RFC-7807 detail. */
 export const CONFLICT_FALLBACK =
   'Someone else changed this while you were working. Reload to see their version, then reapply your change.';

@@ -14,6 +14,7 @@ import {
 import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotice';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { SystemVariableDialog } from './SystemVariableDialog.js';
@@ -39,9 +40,14 @@ export function SystemVariablesPage() {
   // fetch would leave the Archived and All tabs permanently empty — and it was
   // pulling every row to the browser to do it, which against 1618 of them is
   // its own problem.
-  const { data, isLoading, isFetching, error, refetch } = useListVariablesQuery(
-    filter === 'All' ? { includeArchived: true } : { state: filter },
-  );
+  const variablesArgs = filter === 'All' ? { includeArchived: true } : { state: filter };
+  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useListVariablesQuery(variablesArgs);
+
+  // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
+  // take the stale rows off screen, leaving only the existing failure banner.
+  const refused = useRevocationFallback(JSON.stringify(variablesArgs), { error, isFetching, requestId });
+  const data = refused ? undefined : fetched;
+
   const [setVariableValue, setValueState] = useSetVariableValueMutation();
   const [archiveVariable, archiveState] = useArchiveVariableMutation();
 

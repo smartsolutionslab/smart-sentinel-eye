@@ -19,6 +19,7 @@ import { FaultNotice } from '@smart-sentinel-eye/shared/ui/composites/FaultNotic
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { DropdownMenu, type MenuEntry } from '@smart-sentinel-eye/shared/ui/primitives/DropdownMenu';
+import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useState } from 'react';
 import { ArchiveConfirmation } from '../ArchiveConfirmation';
 import { chainView } from '../chainView.js';
@@ -53,7 +54,13 @@ export function LayoutsPage() {
     liveRevision: number | undefined;
   } | null>(null);
 
-  const { data, isLoading, isFetching, error, refetch } = useListLayoutsQuery(undefined);
+  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useListLayoutsQuery(undefined);
+
+  // Spec 310 (#2725). Three consecutive 403 refreshes take the stale rows off
+  // screen, leaving only the existing failure banner.
+  const refused = useRevocationFallback('layouts', { error, isFetching, requestId });
+  const data = refused ? undefined : fetched;
+
   const [publishRevision, publishState] = usePublishRevisionMutation();
   const [archiveRevision, archiveState] = useArchiveRevisionMutation();
   const [branchDraft, branchState] = useBranchDraftRevisionMutation();

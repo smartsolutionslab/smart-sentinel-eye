@@ -14,7 +14,7 @@ import {
   type DataTableSort,
 } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { useMemo, useState } from 'react';
-import { useDebouncedValue } from '@smart-sentinel-eye/shared/hooks';
+import { useDebouncedValue, useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { Link } from 'react-router-dom';
 import { RegisterCameraDialog } from './RegisterCameraDialog.js';
 import { StreamHealthBadge } from './StreamHealthBadge.js';
@@ -47,13 +47,20 @@ export function CamerasPage() {
     setOffset(0);
   }
 
-  const { data, isLoading, isFetching, error, refetch } = useListCamerasQuery({
+  const listArgs = {
     sort: sort.field,
     order: sort.direction as CameraSortOrder,
     offset,
     limit: PAGE_SIZE,
     name: fragment === '' ? undefined : fragment,
-  });
+  };
+  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useListCamerasQuery(listArgs);
+
+  // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
+  // take the stale rows off screen, leaving only the existing failure banner
+  // — the same render a first-load refusal produces.
+  const refused = useRevocationFallback(JSON.stringify(listArgs), { error, isFetching, requestId });
+  const data = refused ? undefined : fetched;
 
   const items = useMemo(() => data?.items ?? [], [data?.items]);
   const totalCount = data?.count ?? 0;
