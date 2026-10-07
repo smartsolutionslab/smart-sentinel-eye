@@ -917,3 +917,80 @@ In 4 of the `develop` runs read above (36246570937, 36285820840, 36339555959,
 
 Unchanged from §5 and §9.6. **Leg: composite + render (≤ 50 ms).** No product
 code changes. The FR-021 tightening is harness-only. No leg in §IV changes state.
+
+## 11. Resumption: the report-only slice, #2770
+
+Issue #2770, split off #2337. §10.5 took the report-only branch (T018): the
+real FR-022 window's 3σ (25.65-26.11 ms) fails FR-019's 25 ms feasibility test,
+so no `baseline.json` ships and #2337 stays open pending an ADR. Per tasks.md's
+own progress note (added 2026-09-30), T028 and T021's *report-only forms* —
+summary wording, and a job that collects the figure across all 4 shards and
+always exits 0 — were not ADR-blocked and were left as follow-up. This section
+is that follow-up. T022 (the blur counterfactual) and T023-T025 (wrap-up) are
+**not** part of this slice and remain open.
+
+### 11.1 T028, delivered narrower than FR-020 describes
+
+FR-020 (§4) describes T028 as replacing "no threshold is asserted" **once a
+threshold ships** — the gate-branch case, which this issue is not. §10.5's
+report-only branch means no threshold ever ships here, so FR-020's literal
+trigger condition never fires, and by its own letter T028 would stay undone
+forever. #2770 overrides this narrowly: the old wording ("no threshold is
+asserted") is misleading on its own terms once T018's decision exists — it
+reads as "not built yet," when the real state is "built the measurement,
+found it can't support a threshold yet, and is waiting on an ADR." That is a
+decided state, not a pending one, and the summary should say which.
+
+`scripts/render-leg-summary.mjs`'s per-shard section now reads:
+
+> **report-only: FR-019 not met** (3σ = 25.65 ms ≥ 25 ms) — no threshold is
+> enforced on this leg pending an ADR on what CI may enforce here (#2337); see
+> `figures.md` and the `render-leg-gate` job.
+
+`render-leg-summary.test.mjs:134`'s assertion is replaced (not weakened — the
+underlying claim, "nothing is enforced," still holds and is still asserted)
+with a match on `report-only`, `FR-019 not met` and `ADR`, plus a
+`doesNotMatch` on the retired "no threshold is asserted" wording. RED first:
+run against the unmodified script, quoted in the PR; GREEN after.
+
+The 3σ figure (25.65 ms) is a constant in the script, documented as re-derived
+from `figures.md`'s `## Verdict` — not computed at run time, because nothing
+in a shard's own attempt files carries the baseline window's variance. Whoever
+resolves #2337's ADR must update this constant (or remove it) alongside
+whatever `baseline.json`/threshold wiring that decision produces.
+
+### 11.2 T021, the report-only job
+
+`render-leg-gate` (plan §10.1) collects every shard's `render-leg-attempt-*.json`
+via `actions/download-artifact` (first use in this repo, pinned by full commit
+SHA, `d3f86a106a0bac45b974a628896c90dbdf5c8093` = `v4.3.0`) and runs a new
+script, `scripts/render-leg-gate-report.mjs`, instead of `render-leg-check.mjs`
+(T020). §10.5/plan §9.4 are explicit that the checker must not run against a
+derived, uncommitted baseline — that would be a threshold by the back door.
+The new script never calls `process.exit` with a non-zero code and wraps its
+`main()` in the same top-level try/catch `render-leg-summary.mjs` already
+uses, so a bug in it cannot redden the build either.
+
+**FR-023, narrowed for this branch.** §10.6 describes FR-023 as the job
+*failing* on a skipped/cancelled `e2e-shards` ("the job fails ... it never
+passes"). That description is the gate-branch's. On the report-only branch,
+the job never fails by construction (#2770's own scope): on `skipped` or
+`cancelled` it prints `unmeasured: e2e-shards <result>, no figure was taken`
+to the same effect, but exits 0. §10.6 is superseded for as long as #2337's
+ADR is unresolved; whichever branch that ADR produces governs FR-023's real
+exit code from then on.
+
+### 11.3 What this slice deliberately leaves alone
+
+- **No `baseline.json`, no threshold, no `render-leg-check.mjs` change beyond
+  one additive export** (`discoverShards`, guarded behind the same
+  `isMainModule` check `render-leg-summary.mjs` already uses, so
+  `render-leg-gate-report.mjs` can import it without triggering its
+  `process.exit`-bearing `main()` as an import side effect). T020's own
+  tests (25 cases) are unaffected and still pass.
+- **T022's counterfactual is not run.** There is nothing to prove by
+  counterfactual on a job that asserts nothing — a deliberate `filter:
+  blur(4px)` tile would change the printed figure, not the exit code, which
+  is exactly the job's contract.
+- **#2337 stays open.** This slice makes the figure visible across all four
+  shards on every run; it does not resolve the ADR question §10.5 raised.
