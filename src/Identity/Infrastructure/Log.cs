@@ -64,6 +64,15 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "The kiosk privilege startup sweep could not complete; enrolled kiosks may still hold inherited realm privileges until the next start.")]
     public static partial void KioskPrivilegeSweepFailed(this ILogger logger, Exception exception);
 
+    // #2728's follow-up security review. Worth a line precisely because it is
+    // destructive and rare: this only fires for the narrow, intended
+    // replacement case (disabled, same sse.kind, same sse.fab) that
+    // CreateClientAsync's existence probe treats as a prior registration
+    // rather than a conflict — everything else still throws
+    // KeycloakClientAlreadyExistsException.
+    [LoggerMessage(Level = LogLevel.Information, Message = "CreateClientAsync('{ClientId}'): replacing a disabled Keycloak client ({OldClientUuid}) found under the same clientId, stamped with the same sse.kind, with a freshly created one.")]
+    public static partial void ReplacedDisabledClient(this ILogger logger, string clientId, string oldClientUuid);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Applying Identity EF Core migrations.")]
     public static partial void ApplyingMigrations(this ILogger logger);
 

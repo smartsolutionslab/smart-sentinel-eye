@@ -20,9 +20,13 @@ namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 /// Idempotency notes:
 /// <list type="bullet">
 /// <item><c>CreateClientAsync</c> probes for an existing client
-/// with the same <c>clientId</c> and throws
-/// <see cref="KeycloakClientAlreadyExistsException"/> on hit, so
-/// the handler can surface a typed 409 instead of an opaque 4xx.</item>
+/// with the same <c>clientId</c>. A hit throws
+/// <see cref="KeycloakClientAlreadyExistsException"/> unless the found
+/// client is disabled, stamped with the same <c>sse.kind</c> (and
+/// <c>sse.fab</c>, where the representation carries one) as the one being
+/// created — only that narrow case is a previously-disabled registration
+/// being replaced, and it is deleted and recreated instead of refused
+/// (#2728).</item>
 /// <item><c>DisableClientAsync</c> on an unknown client is a
 /// silent no-op (we cannot un-create what was never created).</item>
 /// </list>
@@ -55,17 +59,34 @@ public sealed class HttpKeycloakAdminClient(
         string realm = options.Value.Realm;
 
         // Existence probe — Keycloak's create endpoint returns 409 on
-        // duplicate, but we want a typed exception either way. DisableClientAsync
-        // never deletes the Keycloak-side client, only flips `enabled`, so a
-        // previously disabled device's clientId is still here on
-        // re-registration; delete it and create fresh rather than refusing
-        // forever (#2728).
-        string? conflictingClientUuid = await TryGetClientUuidAsync(
+        // duplicate, but we want a typed exception either way.
+        // DisableClientAsync never deletes the Keycloak-side client, only
+        // flips `enabled`, so a previously disabled registration's clientId
+        // is still here on re-registration. That narrow case — disabled, and
+        // stamped with the same sse.kind (and sse.fab, where we have one) as
+        // the client being created now — is deleted and recreated rather
+        // than refused forever (#2728).
+        //
+        // Everything else conflicts: an active client (including a realm
+        // infrastructure client such as `management-web`, which carries no
+        // `sse.kind` at all and so never matches) is never deleted, and
+        // neither is a disabled client of a different kind or a different
+        // fab. A security review of the first cut of this fix found that an
+        // unconditional delete-on-hit let any caller holding
+        // `sse.identity.kiosks.write` take down an arbitrary realm client by
+        // naming it as the clientId of a kiosk enrolment.
+        ClientRow? conflicting = await TryGetClientRowAsync(
             realm, representation.ClientId, cancellationToken);
-        if (conflictingClientUuid is not null)
+        if (conflicting is not null)
         {
+            if (!IsReplaceableDisabledClient(conflicting, representation))
+            {
+                throw new KeycloakClientAlreadyExistsException(representation.ClientId);
+            }
+
+            logger.ReplacedDisabledClient(representation.ClientId, conflicting.Id);
             await TryDeleteClientAsync(
-                realm, representation.ClientId, conflictingClientUuid, cancellationToken);
+                realm, representation.ClientId, conflicting.Id, cancellationToken);
         }
 
         using HttpRequestMessage create = new(HttpMethod.Post, $"admin/realms/{realm}/clients")
@@ -82,15 +103,6 @@ public sealed class HttpKeycloakAdminClient(
         string? clientUuid = await TryGetClientUuidAsync(realm, representation.ClientId, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Keycloak accepted POST /clients but no client with clientId='{representation.ClientId}' is visible.");
-        if (clientUuid == conflictingClientUuid)
-        {
-            // TryDeleteClientAsync is best-effort and swallows delivery failures
-            // (it exists to compensate without masking the caller's real error).
-            // If Keycloak still reports the same uuid under this clientId after
-            // create ran, the delete above did not actually take — this is a
-            // genuine conflict, not a client we are free to reuse.
-            throw new KeycloakClientAlreadyExistsException(representation.ClientId);
-        }
 
         try
         {
@@ -180,6 +192,10 @@ public sealed class HttpKeycloakAdminClient(
     }
 
     private async Task<string?> TryGetClientUuidAsync(
+        string realm, string clientId, CancellationToken cancellationToken) =>
+        (await TryGetClientRowAsync(realm, clientId, cancellationToken))?.Id;
+
+    private async Task<ClientRow?> TryGetClientRowAsync(
         string realm, string clientId, CancellationToken cancellationToken)
     {
         string url = $"admin/realms/{realm}/clients?clientId={Uri.EscapeDataString(clientId)}";
@@ -188,7 +204,45 @@ public sealed class HttpKeycloakAdminClient(
         ClientRow[] rows = await response.Content
             .ReadFromJsonAsync<ClientRow[]>(JsonOptions, cancellationToken)
             ?? [];
-        return rows.Length == 0 ? null : rows[0].Id;
+        return rows.Length == 0 ? null : rows[0];
+    }
+
+    /// <summary>
+    /// Whether a client Keycloak already has under this clientId is the
+    /// narrow, intended replacement case — a previously disabled
+    /// registration — rather than a genuine conflict (#2728).
+    ///
+    /// <para>
+    /// All three callers of <c>CreateClientAsync</c>
+    /// (<c>RegisterDeviceCommandHandler</c>, <c>EnrollKioskCommandHandler</c>,
+    /// <c>RotateWebhookClientCommandHandler</c>) stamp <c>sse.kind</c> on
+    /// every client they create, so a found client carrying no <c>sse.kind</c>
+    /// at all — any realm infrastructure client, such as
+    /// <c>management-web</c> or <c>identity-admin</c> — never matches and is
+    /// never a candidate for deletion, however it was named. Matching
+    /// <c>sse.fab</c> too (where both sides have one) keeps one fab's
+    /// disabled client from being replaced by another fab's registration
+    /// that happens to resolve to the same clientId.
+    /// </para>
+    /// </summary>
+    private static bool IsReplaceableDisabledClient(
+        ClientRow found, KeycloakClientRepresentation representation)
+    {
+        if (found.Enabled || found.Attributes is null)
+        {
+            return false;
+        }
+
+        if (!found.Attributes.TryGetValue("sse.kind", out string? foundKind)
+            || !representation.Attributes.TryGetValue("sse.kind", out string? newKind)
+            || foundKind != newKind)
+        {
+            return false;
+        }
+
+        bool foundHasFab = found.Attributes.TryGetValue("sse.fab", out string? foundFab);
+        bool newHasFab = representation.Attributes.TryGetValue("sse.fab", out string? newFab);
+        return foundHasFab == newHasFab && foundFab == newFab;
     }
 
     private async Task AssignServiceAccountToGroupAsync(
@@ -442,7 +496,7 @@ public sealed class HttpKeycloakAdminClient(
         }
     }
 
-    private sealed record ClientRow(string Id, string ClientId);
+    private sealed record ClientRow(string Id, string ClientId, bool Enabled, Dictionary<string, string>? Attributes);
 
     private sealed record ClientDetailRow(string Id, string ClientId, Dictionary<string, string>? Attributes);
 
