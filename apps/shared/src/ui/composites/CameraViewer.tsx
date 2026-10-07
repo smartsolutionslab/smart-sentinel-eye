@@ -3,11 +3,13 @@ import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 import { useCallback, useEffect, useRef } from 'react';
 import {
+  createReportThrottle,
   decodeElapsedBetween,
   decodeSampleFrom,
   missingDecodeFieldIn,
   reportKioskLatency,
   type DecodeSample,
+  type ReportThrottle,
 } from '../../observability/kioskLatency.js';
 import { logResilienceEvent } from '../../observability/resilienceLog.js';
 import {
@@ -207,6 +209,18 @@ export function CameraViewer({
   // per-swap firehose these counters exist to avoid.
   const decodeSampleFailuresRef = useRef(0);
   const lagSampleFailuresRef = useRef(0);
+
+  // Spec 307 (#2563). One throttle per mounted tile, created once and never
+  // recreated — a reconnect rebuilds the WHEP session but must not reopen
+  // the send window, so this lives at component scope rather than inside
+  // either sampler effect below. Shared by both tile legs deliberately:
+  // `createReportThrottle` keys its decision by `KioskMeasurement` name, so
+  // `receive_to_decoded` and `presentation_buffer` already get independent
+  // windows from this one instance.
+  const reportThrottleRef = useRef<ReportThrottle | undefined>(undefined);
+  if (reportThrottleRef.current === undefined) {
+    reportThrottleRef.current = createReportThrottle();
+  }
   const reportSamplerFailure = useCallback(
     (counter: { current: number }, transition: 'decode-sampler-failed' | 'lag-sampler-failed', error: unknown) => {
       const count = countReportableFailure(counter);
@@ -250,7 +264,7 @@ export function CameraViewer({
           // Null rather than zero when no frames arrived: a zero would read as
           // a perfect score for a journey nobody timed.
           if (elapsed !== null) {
-            reportKioskLatency('receive_to_decoded', cameraIdentifier, elapsed, getToken);
+            reportKioskLatency('receive_to_decoded', cameraIdentifier, elapsed, getToken, reportThrottleRef.current);
           }
         }
         previous = current;
@@ -329,7 +343,7 @@ export function CameraViewer({
           // is write-only in getStats, so the setpoint would report a perfect
           // score for something nobody measured (FR-007).
           if (buffered !== null) {
-            reportKioskLatency('presentation_buffer', cameraIdentifier, buffered, getToken);
+            reportKioskLatency('presentation_buffer', cameraIdentifier, buffered, getToken, reportThrottleRef.current);
           }
         }
         previous = current;

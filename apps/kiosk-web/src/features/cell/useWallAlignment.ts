@@ -7,7 +7,11 @@ import {
   type AlignmentState,
   type TileLag,
 } from '@smart-sentinel-eye/shared/observability/wallAlignment';
-import { reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
+import {
+  createReportThrottle,
+  reportKioskLatency,
+  type ReportThrottle,
+} from '@smart-sentinel-eye/shared/observability/kioskLatency';
 
 /**
  * The per-wall playout control loop (spec 045 US1, ADR-0128).
@@ -94,6 +98,15 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
   useEffect(() => {
     getTokenRef.current = getToken;
   });
+
+  // Spec 307 (#2563). One throttle per wall (per hook instance), created
+  // once. Only the `wall_skew` **report** is thinned to at most once per
+  // window — the settle cycle itself, including `setTarget` and the
+  // deadband/hysteresis it feeds, keeps running every cycle unchanged.
+  const reportThrottleRef = useRef<ReportThrottle | undefined>(undefined);
+  if (reportThrottleRef.current === undefined) {
+    reportThrottleRef.current = createReportThrottle();
+  }
 
   const [target, setTarget] = useState<number | null>(null);
   const [held, setHeld] = useState<ReadonlySet<string>>(() => new Set());
@@ -218,7 +231,7 @@ export function useWallAlignment(tileCount: number, getToken?: () => Promise<str
         // and refuses a report that names none.
         const camera = lagsRef.current.get(laggiest.camera)?.camera;
         if (camera !== undefined) {
-          reportKioskLatency('wall_skew', camera, skew, getTokenRef.current);
+          reportKioskLatency('wall_skew', camera, skew, getTokenRef.current, reportThrottleRef.current);
         }
       }
     }, SETTLE_INTERVAL_MS);

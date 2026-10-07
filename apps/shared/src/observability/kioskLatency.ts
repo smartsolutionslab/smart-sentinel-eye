@@ -57,6 +57,49 @@ export type KioskMeasurement =
 const ABSURDLY_LONG_MS = 60_000;
 
 /**
+ * A 4-tile wall at rest POSTs 246 req/min, 198 of them this path — more than
+ * the gateway's shared rate-limit bucket gives it (spec 307, #2563). The
+ * measurement SAMPLERS keep their existing cadence unchanged; only how often
+ * a sample gets SENT over the network is thinned, to at most once per this
+ * interval per {@link KioskMeasurement}.
+ */
+export const PERIODIC_REPORT_INTERVAL_MS = 30_000;
+
+/**
+ * Answers whether a sample for this measurement may be sent now. `true` the
+ * first time a given measurement is asked, then `false` for any ask within
+ * the throttle's interval of the last admitted ask for that SAME
+ * measurement, then `true` again once the window elapses.
+ */
+export type ReportThrottle = (measurement: KioskMeasurement) => boolean;
+
+/**
+ * Builds a {@link ReportThrottle} keyed by {@link KioskMeasurement} name, so
+ * `wall_skew` and `presentation_buffer` — or `presentation_buffer` and
+ * `receive_to_decoded` on the same tile — never block each other. The
+ * caller decides the throttle's *scope* (per tile, per wall) by how many
+ * instances it creates, not by anything this function does.
+ *
+ * <p>
+ * `performance.now()`, never `Date.now()` — the same PTP-stepped-clock
+ * reasoning {@link reportKioskLatency}'s own doc states for every timestamp
+ * on this path.
+ * </p>
+ */
+export function createReportThrottle(intervalMs: number = PERIODIC_REPORT_INTERVAL_MS): ReportThrottle {
+  const lastAdmittedAt = new Map<KioskMeasurement, number>();
+
+  return (measurement) => {
+    const now = performance.now();
+    const last = lastAdmittedAt.get(measurement);
+    if (last !== undefined && now - last < intervalMs) return false;
+
+    lastAdmittedAt.set(measurement, now);
+    return true;
+  };
+}
+
+/**
  * Reports one measurement. Never throws and never rejects: a kiosk that cannot
  * report its latency must carry on showing video, and an observer that can break
  * the thing it observes is worse than no observer (spec 040 FR-011).
@@ -66,6 +109,7 @@ export function reportKioskLatency(
   camera: string,
   elapsedMilliseconds: number,
   getToken: () => Promise<string | null>,
+  throttle?: ReportThrottle,
 ): void {
   // The same two guards the server enforces, applied here so a figure that
   // cannot be describing a journey is not sent at all. This does not replace
@@ -93,6 +137,12 @@ export function reportKioskLatency(
   if (import.meta.env.DEV) {
     console.info('[latency]', { measurement, camera, elapsedMilliseconds });
   }
+
+  // Spec 307 (#2563). Consulted only for a figure that already passed the
+  // guards above, so an invalid figure can never spend a window a later,
+  // valid figure needs. Refusing here skips the network path entirely —
+  // `getToken` is never called — not merely the POST body.
+  if (throttle !== undefined && !throttle(measurement)) return;
 
   void send(measurement, camera, elapsedMilliseconds, getToken);
 }
