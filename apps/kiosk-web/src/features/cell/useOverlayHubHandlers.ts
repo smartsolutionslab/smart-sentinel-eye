@@ -199,7 +199,7 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
           { overlayIdentifier: message.overlay, fabId: message.fab },
           {
             overlayIdentifier: message.overlay,
-            resolvedTexts: message.resolvedTexts,
+            texts: message.texts,
             version: message.version,
           },
         ),

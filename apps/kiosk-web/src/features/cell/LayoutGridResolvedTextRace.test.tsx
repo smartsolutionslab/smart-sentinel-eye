@@ -257,7 +257,14 @@ describe('LayoutGrid Tile — a reorder republished while the snapshot is stale 
     // `texts: [{ template: 'L1 {{t1}}', resolved: 'L1 21' }, { template:
     // 'L2 {{t2}}', resolved: 'L2 35' }]` — the assertions below do not move.
     getSnapshotMock.mockReturnValue({
-      data: { overlayIdentifier: 'ovl-x', resolvedTexts: ['L1 21', 'L2 35'], version: 1 },
+      data: {
+        overlayIdentifier: 'ovl-x',
+        texts: [
+          { template: 'L1 {{t1}}', resolved: 'L1 21' },
+          { template: 'L2 {{t2}}', resolved: 'L2 35' },
+        ],
+        version: 1,
+      },
       isLoading: false,
     });
 
@@ -307,7 +314,11 @@ describe('LayoutGrid Tile — a reorder republished while the snapshot is stale 
     // shape with `texts: [{ template: 'Temp: {{t}}', resolved: 'Temp: 21' }]`
     // — the assertions below do not move.
     getSnapshotMock.mockReturnValue({
-      data: { overlayIdentifier: 'ovl-x', resolvedTexts: ['Temp: 21'], version: 1 },
+      data: {
+        overlayIdentifier: 'ovl-x',
+        texts: [{ template: 'Temp: {{t}}', resolved: 'Temp: 21' }],
+        version: 1,
+      },
       isLoading: false,
     });
 
