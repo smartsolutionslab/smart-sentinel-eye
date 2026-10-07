@@ -31,6 +31,22 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         using HttpResponseMessage response = await http
             .PostAsJsonAsync($"/v3/config/paths/add/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
 
+        // Idempotent on the path name (spec 309 FR-002): MediaMTX answers 400
+        // for several add/ faults (bad source, bad config) and only the error
+        // string distinguishes them, so a string match would be coupled to
+        // wording a MediaMTX bump may change silently. Asking the GET
+        // endpoint directly fails safe — anything but 200 rethrows the
+        // original add/ failure below.
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
+        {
+            using HttpResponseMessage check = await http.GetAsync($"/v3/config/paths/get/{path.Value}", cancellationToken);
+            if (check.StatusCode == System.Net.HttpStatusCode.OK)
+            {
+                logger.MediaMtxPathAlreadyRegistered(path);
+                return;
+            }
+        }
+
         response.EnsureSuccessStatusCode();
         logger.RegisteredMediaMtxPath(path, rtspSourceUrl);
     }

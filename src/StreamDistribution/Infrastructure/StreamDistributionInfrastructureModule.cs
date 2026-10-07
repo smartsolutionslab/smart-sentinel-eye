@@ -97,12 +97,14 @@ public static class StreamDistributionInfrastructureModule
             client.BaseAddress = new Uri(options.ManagementUrl);
         })
             // Its two non-idempotent methods are idempotent in fact (ADR-0143).
-            // add/ sets a path to a source and answers 4xx if it already exists,
-            // which is not retried anyway; patch/ sets the source to a fixed
-            // value, so applying it twice lands in the same place. Without this
-            // a MediaMTX blip during provisioning would leave a stream
-            // unprovisioned on the first attempt and never try again, which the
-            // two-second health sweep would then report as a broken camera.
+            // add/ is idempotent in fact (spec 309 FR-002): an existing path is
+            // treated as success by the gateway, so a retry after a lost
+            // response lands in the same place; patch/ sets the source to a
+            // fixed value, so applying it twice lands in the same place too.
+            // Without this a MediaMTX blip during provisioning would leave a
+            // stream unprovisioned on the first attempt and never try again,
+            // which the two-second health sweep would then report as a broken
+            // camera.
             .RetryEveryMethod();
 
         builder.Services.AddHostedService<StreamHealthWatcher>();

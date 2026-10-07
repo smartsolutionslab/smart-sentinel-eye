@@ -34,6 +34,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Registered MediaMTX path {Path} -> {Source}.")]
     public static partial void RegisteredMediaMtxPath(this ILogger logger, MediaMtxPath path, string source);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "MediaMTX path {Path} was already registered; treating add as success (spec 309).")]
+    public static partial void MediaMtxPathAlreadyRegistered(this ILogger logger, MediaMtxPath path);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Re-pointed MediaMTX path {Path} at {Source}.")]
     public static partial void RepointedMediaMtxPath(this ILogger logger, MediaMtxPath path, string source);
 

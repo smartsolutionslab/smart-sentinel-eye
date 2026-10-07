@@ -9,6 +9,18 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Stream;
 /// </summary>
 public interface IRtspGateway
 {
+    /// <summary>
+    /// Registers a path with MediaMTX, pointed at <paramref name="rtspSourceUrl"/>.
+    ///
+    /// <para>
+    /// Idempotent on the path name (spec 309 FR-002): if MediaMTX already has
+    /// a path by this name, the call completes successfully rather than
+    /// throwing. This makes a redelivery of a provisioning attempt — or a
+    /// resilience-handler retry of a lost response — safe to call again.
+    /// Any other rejection (e.g. a source MediaMTX cannot parse) still
+    /// throws <see cref="HttpRequestException"/>.
+    /// </para>
+    /// </summary>
     Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken);
 
     Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken);
