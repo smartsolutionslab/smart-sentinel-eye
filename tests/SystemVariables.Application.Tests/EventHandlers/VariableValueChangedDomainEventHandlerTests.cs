@@ -44,10 +44,12 @@ public class VariableValueChangedDomainEventHandlerTests
         v1.Name.ShouldBe("oeeLine1");
         v1.Value.ShouldBe("82.5");
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
-        push.ResolvedTexts.Single().ShouldBe("OEE: 82.5%");
+        ResolvedOverlayTextV3 pair = push.Texts.ShouldHaveSingleItem();
+        pair.Template.ShouldBe("OEE: {{oeeLine1}}%");
+        pair.Resolved.ShouldBe("OEE: 82.5%");
         // #2426 -- the version comes from the durable store (a first-ever
         // advance returns the cutover floor, never 1), not from
         // IReverseIndex. A handler that still read the reverse index's
@@ -78,7 +80,7 @@ public class VariableValueChangedDomainEventHandlerTests
             CancellationToken.None);
 
         bus.Published.OfType<SystemVariableValueChangedV1>().ShouldHaveSingleItem();
-        bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldBeEmpty();
+        bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldBeEmpty();
 
         // No overlay references the variable, so there is nothing to advance.
         versions.AdvanceCalls.ShouldBeEmpty();
@@ -119,7 +121,7 @@ public class VariableValueChangedDomainEventHandlerTests
             1, "a fan-out over N affected overlays must advance the store once, not N times");
         versions.AdvanceCalls[0].ShouldBe([overlayA, overlayB], ignoreOrder: true);
 
-        ResolvedOverlayTextChangedV2[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV2>()];
+        ResolvedOverlayTextChangedV3[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV3>()];
         pushes.Length.ShouldBe(2);
         pushes.ShouldAllBe(push => push.Version == FakeOverlayTextVersions.Floor);
     }
@@ -163,19 +165,24 @@ public class VariableValueChangedDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
-        push.ResolvedTexts.Single().ShouldBe("B / 82.5");
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
+        push.Texts.Single().Resolved.ShouldBe("B / 82.5");
     }
 
     /// <summary>
-    /// Spec 300 (#2349), ADR-0165, T014: a Box at ordinal 0 contributes ""
-    /// to the cached list (per <c>OverlayRevisionPublishedV3Handler</c>), and
-    /// resolution over "every text in the list" already handles it —
-    /// confirmed by test, not assumed (plan.md §"SystemVariables").
+    /// Spec 301 (#2720) US2, FR-005. Was
+    /// "A_box_at_ordinal_zero_resolves_to_an_empty_string_and_the_text_element_still_resolves"
+    /// (spec 300, #2349, ADR-0165, T014): under V2's positional list a Box at
+    /// ordinal 0 contributed <c>""</c> so the list stayed index-aligned with
+    /// the element array. FR-005 retires that padding — "Shapes contribute
+    /// nothing" — so the Box gets no entry at all, and the set has exactly
+    /// one pair: the Text element's own template. Rewritten, not
+    /// construction-only: the old assertion encoded exactly the padding rule
+    /// this spec deletes.
     /// </summary>
     [Fact]
-    public async Task A_box_at_ordinal_zero_resolves_to_an_empty_string_and_the_text_element_still_resolves()
+    public async Task A_box_contributes_no_entry_and_the_text_element_still_resolves_by_its_own_template()
     {
         FakeEventBus bus = new();
         InMemoryReverseIndex index = new();
@@ -196,10 +203,10 @@ public class VariableValueChangedDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
-        push.ResolvedTexts.Count.ShouldBe(2);
-        push.ResolvedTexts[0].ShouldBe(string.Empty);
-        push.ResolvedTexts[1].ShouldBe("OEE: 82.5%");
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
+        ResolvedOverlayTextV3 pair = push.Texts.ShouldHaveSingleItem("the Box must contribute no entry at all, not an empty one");
+        pair.Template.ShouldBe("OEE: {{oeeLine1}}%");
+        pair.Resolved.ShouldBe("OEE: 82.5%");
     }
 }

@@ -57,12 +57,16 @@ describe('useLayoutLifecycle', () => {
     // Consumer re-renders with a new closure (e.g. overlayIdentifier resolved).
     rerender({ onChanged: second });
 
-    const message: ResolvedOverlayTextChangedMessage = {
+    // Spec 301 (#2720) US2 — template-keyed (`texts`), not positional
+    // (`resolvedTexts`). This test only proves the callback forwards
+    // whatever object it is handed, so the shape itself is otherwise inert
+    // here.
+    const message = {
       overlay: 'ovl-1',
       fab: 'munich',
-      resolvedTexts: ['Live value'],
+      texts: [{ template: 'Live {{value}}', resolved: 'Live value' }],
       version: 2,
-    };
+    } as unknown as ResolvedOverlayTextChangedMessage;
     capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
 
     expect(second).toHaveBeenCalledWith(message);

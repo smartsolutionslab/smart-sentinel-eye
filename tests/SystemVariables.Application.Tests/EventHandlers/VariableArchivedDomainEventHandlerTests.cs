@@ -42,7 +42,7 @@ public class VariableArchivedDomainEventHandlerTests
 
     // #2068. The archived event's own metadata, not the resolved-text push's.
     // This file already asserted Metadata.Fab twice — both times on
-    // ResolvedOverlayTextChangedV2 — and the defect survived it. A stored audit
+    // ResolvedOverlayTextChangedV3 (V2 before spec 301 #2720) — and the defect survived it. A stored audit
     // row carrying no fab is readable by every operator of every fab (#1300),
     // and the query cannot tell "legitimately cross-fab" from "the publisher
     // forgot", so the assertion has to be here.
@@ -92,11 +92,11 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
         // 'shift' renders, 'oeeLine1' reverts to its literal placeholder.
-        push.ResolvedTexts.Single().ShouldBe("A - OEE: {{oeeLine1}}%");
+        push.Texts.Single().Resolved.ShouldBe("A - OEE: {{oeeLine1}}%");
         // #2426 -- the version comes from the durable store, not the
         // retired reverse-index counter (which would have returned 1 here).
         push.Version.ShouldBe(FakeOverlayTextVersions.Floor);
@@ -129,10 +129,10 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         // Both placeholders revert to literal: shift is Unset, target is the one archived.
-        push.ResolvedTexts.Single().ShouldBe("{{shift}}-{{target}}");
+        push.Texts.Single().Resolved.ShouldBe("{{shift}}-{{target}}");
         // The fab decides which plant's wall the push reaches (ADR-0115). Asserting
         // the value, not its presence: a null here is what the consumer drops.
         push.Metadata.Fab.ShouldBe("munich");
@@ -157,7 +157,7 @@ public class VariableArchivedDomainEventHandlerTests
             CancellationToken.None);
 
         bus.Published.OfType<SystemVariableArchivedV1>().ShouldHaveSingleItem();
-        bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldBeEmpty();
+        bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldBeEmpty();
 
         // No overlay references the variable, so there is nothing to advance.
         versions.AdvanceCalls.ShouldBeEmpty();
@@ -195,7 +195,7 @@ public class VariableArchivedDomainEventHandlerTests
             1, "a fan-out over N affected overlays must advance the store once, not N times");
         versions.AdvanceCalls[0].ShouldBe([overlayA, overlayB], ignoreOrder: true);
 
-        ResolvedOverlayTextChangedV2[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV2>()];
+        ResolvedOverlayTextChangedV3[] pushes = [.. bus.Published.OfType<ResolvedOverlayTextChangedV3>()];
         pushes.Length.ShouldBe(2);
         pushes.ShouldAllBe(push => push.Version == FakeOverlayTextVersions.Floor);
     }
@@ -237,9 +237,9 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
-        push.ResolvedTexts.Single().ShouldBe("B / {{oee}}");
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
+        push.Texts.Single().Resolved.ShouldBe("B / {{oee}}");
     }
 
     // Spec 235, C3 (characterisation). Pins the name-skip inside
@@ -282,8 +282,8 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
-        push.ResolvedTexts.Single().ShouldBe("OEE: {{oee}}%");
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
+        push.Texts.Single().Resolved.ShouldBe("OEE: {{oee}}%");
     }
 }

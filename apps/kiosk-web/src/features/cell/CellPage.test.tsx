@@ -9,7 +9,7 @@ import type {
   ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import type { OverlaySnapshotInput, ResolvedOverlaySnapshot } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { store } from '../../app/store.js';
 
@@ -346,9 +346,11 @@ function publishedOverlayWithLabels(texts: readonly string[]) {
 
 /**
  * A `[Box, Text]` overlay (spec 300, #2349, ADR-0165) — a shape at index 0,
- * a placeholder-bearing Text element at index 1. Used to prove FR-009's
- * index alignment: the SystemVariables snapshot's `resolvedTexts` must land
- * on the Text element's own index, not on the first element of the array.
+ * a placeholder-bearing Text element at index 1. Used to prove spec 301
+ * FR-005/FR-007: the SystemVariables snapshot's `texts` pairs are keyed by
+ * the Text element's own template, not by array position, and the Box gets
+ * no entry at all (shapes contribute nothing — the old index-aligned `""`
+ * padding this comment used to describe is retired with V2).
  */
 function publishedOverlayWithBoxAndText(text: string) {
   return {
@@ -443,13 +445,30 @@ function spyOnConsoleInfo() {
 }
 
 /**
+ * Spec 301 (#2720) US2 — `ResolvedOverlayTextChangedMessage` is template-keyed
+ * (`texts: { template, resolved }[]`) rather than the old positional
+ * `resolvedTexts: string[]` this file used to construct. Every push fixture
+ * below now builds this local shape; `pushText`/`push` cast it onto the hub
+ * callback's declared parameter type at the one call site that matters — the
+ * cast reproduces the wire shape SystemVariables now sends, it does not dodge
+ * a type a real server would never produce (same pattern `textFrameWithoutFab`
+ * already used for the fab-less case).
+ */
+interface PushedResolvedTextMessage {
+  overlay: string;
+  fab?: string;
+  texts: ReadonlyArray<{ template: string; resolved: string }>;
+  version: number;
+}
+
+/**
  * Fires one resolved-text frame and lets the cache write and the re-render it
  * causes settle — `upsertQueryData` is dispatched without being awaited, so a
  * fixed count of microtask turns is not enough (#2069, #2084).
  */
-async function pushText(message: ResolvedOverlayTextChangedMessage) {
+async function pushText(message: PushedResolvedTextMessage) {
   await act(async () => {
-    capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
+    capturedCallbacks?.onResolvedOverlayTextChanged?.(message as unknown as ResolvedOverlayTextChangedMessage);
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
 }
@@ -626,18 +645,27 @@ describe('CellPage', () => {
   });
 
   /**
-   * Spec 300 (#2349) phase-6 S2. `renderElements` in `LayoutGrid.tsx` reads
-   * `resolvedTexts[index]` across the FULL element set (FR-009) — a shape
-   * contributes `""` at its own index rather than shifting the Text
-   * element's resolved value into its slot. An off-by-one here would
-   * silently paint resolved text on the wrong element (or on the Box).
+   * Spec 301 (#2720) US2, FR-005/FR-007. Was "...resolves index-aligned
+   * (FR-009)" — spec 300's index alignment (a shape padding its own slot
+   * with `""`) is retired with V2 (spec.md FR-005: "Shapes contribute
+   * nothing"). `Tile` now looks the Text element's own resolved value up by
+   * its raw template, never by position, so the Box needs no entry — not an
+   * empty one — and cannot be mistaken for the Text element's slot.
+   *
+   * <p>
+   * <b>Rewritten, not construction-only.</b> The old assertion
+   * (`resolvedTexts: ['', 'resolved value']`, a V2-shape positional pairing)
+   * encoded exactly the premise this spec retires; keeping it unmodified
+   * would characterise a contract this feature deletes. Flagged in the PR
+   * per the test-writer brief.
+   * </p>
    */
-  describe('A mixed [Box, Text] overlay resolves index-aligned (FR-009)', () => {
+  describe('A mixed [Box, Text] overlay resolves by template, not position (spec 301 FR-005/FR-007)', () => {
     afterEach(() => {
       store.dispatch(systemVariablesApi.util.resetApiState());
     });
 
-    it('Shows the resolved text on the Text element and renders exactly one shape at its own geometry', async () => {
+    it('Shows the resolved text on the Text element by its own template and renders exactly one shape at its own geometry', async () => {
       getSnapshotMock.mockImplementation(useSnapshotFromTheRealCache);
       mockLayout(
         publishedRevision(1, 1, [tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-mixed', row: 0, col: 0 })]),
@@ -653,12 +681,13 @@ describe('CellPage', () => {
             { overlayIdentifier: 'ovl-mixed', fabId: 'munich' },
             {
               overlayIdentifier: 'ovl-mixed',
-              // Index-aligned with the FULL element set (FR-009): index 0
-              // (the Box) resolves to '', index 1 (the Text) to the real
-              // value — never shifted so the Text's value lands on index 0.
-              resolvedTexts: ['', 'resolved value'],
+              // Template-keyed (spec 301 FR-005): one entry for the Text
+              // element's own template, and NO entry for the Box — the Box
+              // never had a template to resolve, and the old "" padding at
+              // its index is exactly what FR-005 retires.
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'resolved value' }],
               version: 1,
-            },
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -1091,9 +1120,9 @@ describe('CellPage', () => {
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
             {
               overlayIdentifier: 'ovl-x',
-              resolvedTexts: ['OEE 41.0'],
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 41.0' }],
               version: 1,
-            },
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -1110,9 +1139,9 @@ describe('CellPage', () => {
           // declared characterisation control and must not move (plan.md
           // declaration 3).
           fab: 'munich',
-          resolvedTexts: ['OEE 82.5'],
+          texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 82.5' }],
           version: 2,
-        });
+        } as unknown as ResolvedOverlayTextChangedMessage);
         // `upsertQueryData` is a thunk the page dispatches without awaiting,
         // and the re-render it causes is notified on a later task still — the
         // same real wall-clock settle the #2069 block's own `push` helper
@@ -1188,9 +1217,9 @@ describe('CellPage', () => {
             { overlayIdentifier: overlay, fabId: 'munich' },
             {
               overlayIdentifier: overlay,
-              resolvedTexts: [text],
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: text }],
               version: 1,
-            },
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -1220,9 +1249,14 @@ describe('CellPage', () => {
     const settleMilliseconds = 100;
 
     /** Fires one frame and lets the cache write and re-render it causes settle. */
-    async function push(message: { overlay: string; fab: string; resolvedTexts: string[]; version: number }) {
+    async function push(message: {
+      overlay: string;
+      fab: string;
+      texts: ReadonlyArray<{ template: string; resolved: string }>;
+      version: number;
+    }) {
       await act(async () => {
-        capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
+        capturedCallbacks?.onResolvedOverlayTextChanged?.(message as unknown as ResolvedOverlayTextChangedMessage);
         await new Promise((resolve) => setTimeout(resolve, settleMilliseconds));
       });
     }
@@ -1232,7 +1266,12 @@ describe('CellPage', () => {
       const label = await aMunichWallShowing('ovl-foreign-text', 'OEE 41.0');
       expect(label()).toBe('OEE 41.0');
 
-      await push({ overlay: 'ovl-foreign-text', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await push({
+        overlay: 'ovl-foreign-text',
+        fab: 'dresden',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
 
       expect(label(), "a munich wall showed dresden's production figure").toBe('OEE 41.0');
     });
@@ -1255,8 +1294,18 @@ describe('CellPage', () => {
       const label = await aMunichWallShowing('ovl-version-mark', 'OEE 41.0');
       expect(label()).toBe('OEE 41.0');
 
-      await push({ overlay: 'ovl-version-mark', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 5 });
-      await push({ overlay: 'ovl-version-mark', fab: 'munich', resolvedTexts: ['OEE 82.5'], version: 2 });
+      await push({
+        overlay: 'ovl-version-mark',
+        fab: 'dresden',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 5,
+      });
+      await push({
+        overlay: 'ovl-version-mark',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 82.5' }],
+        version: 2,
+      });
 
       expect(label(), "a dresden frame moved munich's version mark, so munich's own update was dropped").toBe(
         'OEE 82.5',
@@ -1319,7 +1368,12 @@ describe('CellPage', () => {
       const label = await aMunichWallShowing('ovl-own-fab', 'OEE 41.0');
       expect(label()).toBe('OEE 41.0');
 
-      await push({ overlay: 'ovl-own-fab', fab: 'munich', resolvedTexts: ['OEE 82.5'], version: 2 });
+      await push({
+        overlay: 'ovl-own-fab',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 82.5' }],
+        version: 2,
+      });
 
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
     });
@@ -1411,12 +1465,8 @@ describe('CellPage', () => {
      * declaration is precisely what a version-skewed server does not honour —
      * so the cast reproduces the fault rather than dodging the type.
      */
-    function textFrameWithoutFab(
-      overlay: string,
-      resolvedText: string,
-      version: number,
-    ): ResolvedOverlayTextChangedMessage {
-      return { overlay, resolvedTexts: [resolvedText], version } as unknown as ResolvedOverlayTextChangedMessage;
+    function textFrameWithoutFab(overlay: string, resolvedText: string, version: number): PushedResolvedTextMessage {
+      return { overlay, texts: [{ template: 'OEE {{oeeline1}}', resolved: resolvedText }], version };
     }
 
     /** The same omission on the highlight route, which travels its own path. */
@@ -1484,7 +1534,12 @@ describe('CellPage', () => {
       const info = spyOnConsoleInfo();
       const label = aMunichWall('ovl-foreign-not-skew');
 
-      await pushText({ overlay: 'ovl-foreign-not-skew', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await pushText({
+        overlay: 'ovl-foreign-not-skew',
+        fab: 'dresden',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
 
       expect(label(), "a munich wall showed dresden's production figure").toBe('OEE {{oeeline1}}');
       expect(
@@ -1535,7 +1590,12 @@ describe('CellPage', () => {
       const info = spyOnConsoleInfo();
       const label = aMunichWall('ovl-own-not-skew');
 
-      await pushText({ overlay: 'ovl-own-not-skew', fab: 'munich', resolvedTexts: ['OEE 82.5'], version: 2 });
+      await pushText({
+        overlay: 'ovl-own-not-skew',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 82.5' }],
+        version: 2,
+      });
 
       expect(label(), "the wall stopped applying its own plant's frames").toBe('OEE 82.5');
       expect(resilienceLines(info.mock.calls, 'resolved-text-without-fab')).toEqual([]);
@@ -1669,7 +1729,12 @@ describe('CellPage', () => {
         getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
         renderPage();
 
-        await pushText({ overlay: 'ovl-2320-empty-text', fab: '', resolvedTexts: ['OEE 99.9'], version: 2 });
+        await pushText({
+          overlay: 'ovl-2320-empty-text',
+          fab: '',
+          texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+          version: 2,
+        });
 
         expect(
           systemVariablesApi.endpoints.getOverlaySnapshot.select({
@@ -1730,7 +1795,12 @@ describe('CellPage', () => {
         getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
         renderPage();
 
-        await pushText({ overlay: 'ovl-2320-ws-text', fab: ' ', resolvedTexts: ['OEE 99.9'], version: 2 });
+        await pushText({
+          overlay: 'ovl-2320-ws-text',
+          fab: ' ',
+          texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+          version: 2,
+        });
 
         expect(
           systemVariablesApi.endpoints.getOverlaySnapshot.select({
@@ -1957,9 +2027,9 @@ describe('CellPage', () => {
 
       await pushText({
         overlay: 'ovl-blind',
-        resolvedTexts: ['OEE 99.9'],
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
         version: 2,
-      } as unknown as ResolvedOverlayTextChangedMessage);
+      } as unknown as PushedResolvedTextMessage);
 
       expect(
         resilienceLines(info.mock.calls, 'resolved-text-without-fab'),
@@ -2023,7 +2093,12 @@ describe('CellPage', () => {
         'the kiosk-side check found no {{, so the snapshot is skipped',
       ).toEqual({ skip: true });
 
-      await pushText({ overlay: 'ovl-drift', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await pushText({
+        overlay: 'ovl-drift',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
 
       expect(label(), 'the report does not resolve the disagreement (FR-006)').toBe('OEE [[oeeline1]]');
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
@@ -2042,8 +2117,18 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
-      await pushText({ overlay: 'ovl-drift-latch', fab: 'munich', resolvedTexts: ['OEE 100.0'], version: 3 });
+      await pushText({
+        overlay: 'ovl-drift-latch',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
+      await pushText({
+        overlay: 'ovl-drift-latch',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 100.0' }],
+        version: 3,
+      });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
         { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-drift-latch' },
@@ -2077,7 +2162,12 @@ describe('CellPage', () => {
 
       // Silent: no verdict exists yet, so nothing can disagree — but the
       // version mark still advances to 5.
-      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedTexts: ['OEE 5.0'], version: 5 });
+      await pushText({
+        overlay: 'ovl-verdict-race',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 5.0' }],
+        version: 5,
+      });
       expect(
         resilienceLines(info.mock.calls, 'resolved-text-for-static-label'),
         'no verdict exists yet, so a push cannot yet disagree with one',
@@ -2097,7 +2187,12 @@ describe('CellPage', () => {
       });
 
       // Loses the version race (3 <= 5) — must still be reported.
-      await pushText({ overlay: 'ovl-verdict-race', fab: 'munich', resolvedTexts: ['OEE 3.0'], version: 3 });
+      await pushText({
+        overlay: 'ovl-verdict-race',
+        fab: 'munich',
+        texts: [{ template: 'OEE [[oeeline1]]', resolved: 'OEE 3.0' }],
+        version: 3,
+      });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([
         { subsystem: 'hub', transition: 'resolved-text-for-static-label', overlay: 'ovl-verdict-race' },
@@ -2117,7 +2212,12 @@ describe('CellPage', () => {
       renderPage();
       const label = () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
 
-      await pushText({ overlay: 'ovl-placeholder', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await pushText({
+        overlay: 'ovl-placeholder',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
 
       expect(label(), 'the push applied, so execution reached the new guard').toBe('OEE 99.9');
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
@@ -2134,7 +2234,12 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-loading', fab: 'munich', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await pushText({
+        overlay: 'ovl-loading',
+        fab: 'munich',
+        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
       expect(getOverlayMock, 'the tile rendered and the code ran').toHaveBeenCalledWith('ovl-loading', {
@@ -2153,7 +2258,12 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-foreign-static', fab: 'dresden', resolvedTexts: ['OEE 99.9'], version: 2 });
+      await pushText({
+        overlay: 'ovl-foreign-static',
+        fab: 'dresden',
+        texts: [{ template: 'OEE [[oeeline1]]', resolved: 'OEE 99.9' }],
+        version: 2,
+      });
 
       expect(resilienceLines(info.mock.calls, 'resolved-text-for-static-label')).toEqual([]);
     });
@@ -2310,7 +2420,11 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedTexts: ['first'], version: 1 },
+            {
+              overlayIdentifier: 'ovl-x',
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'first' }],
+              version: 1,
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -2336,7 +2450,11 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedTexts: ['second'], version: 2 },
+            {
+              overlayIdentifier: 'ovl-x',
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'second' }],
+              version: 2,
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -2376,7 +2494,11 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedTexts: ['first'], version: 1 },
+            {
+              overlayIdentifier: 'ovl-x',
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'first' }],
+              version: 1,
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -2402,7 +2524,11 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedTexts: ['second'], version: 2 },
+            {
+              overlayIdentifier: 'ovl-x',
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'second' }],
+              version: 2,
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -2438,7 +2564,11 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedTexts: ['first'], version: 1 },
+            {
+              overlayIdentifier: 'ovl-x',
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'first' }],
+              version: 1,
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -2454,7 +2584,11 @@ describe('CellPage', () => {
           systemVariablesApi.util.upsertQueryData(
             'getOverlaySnapshot',
             { overlayIdentifier: 'ovl-x', fabId: 'munich' },
-            { overlayIdentifier: 'ovl-x', resolvedTexts: ['second'], version: 2 },
+            {
+              overlayIdentifier: 'ovl-x',
+              texts: [{ template: 'OEE {{oeeline1}}', resolved: 'second' }],
+              version: 2,
+            } as unknown as ResolvedOverlaySnapshot,
           ),
         );
       });
@@ -2762,7 +2896,15 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({ overlay: 'ovl-text-drift', fab: 'munich', resolvedTexts: ['Station A', 'Line 1'], version: 2 });
+      await pushText({
+        overlay: 'ovl-text-drift',
+        fab: 'munich',
+        texts: [
+          { template: 'Station A', resolved: 'Station A' },
+          { template: 'Line 1', resolved: 'Line 1' },
+        ],
+        version: 2,
+      });
 
       expect(
         resilienceLines(info.mock.calls, 'resolved-text-for-static-label'),

@@ -8,10 +8,19 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 const { systemVariablesApi } = await import('./systemVariables.api.js');
 
 function snapshotResponse(): Response {
-  return new Response(JSON.stringify({ overlayIdentifier: 'ovl-1', resolvedTexts: ['Line 1'], version: 1 }), {
-    status: 200,
-    headers: { 'Content-Type': 'application/json' },
-  });
+  // Spec 301 (#2720) US2 — template-keyed `texts` pairs, not positional
+  // `resolvedTexts`.
+  return new Response(
+    JSON.stringify({
+      overlayIdentifier: 'ovl-1',
+      texts: [{ template: 'Line {{n}}', resolved: 'Line 1' }],
+      version: 1,
+    }),
+    {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    },
+  );
 }
 
 function createStore() {

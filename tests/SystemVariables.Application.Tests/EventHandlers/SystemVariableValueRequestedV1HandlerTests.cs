@@ -347,8 +347,8 @@ public class SystemVariableValueRequestedV1HandlerTests
                 "oeeLine1", "82.5", Moment, Guid.CreateVersion7(), MetadataFor("munich", Accepted)),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push = bus.Published
-            .OfType<ResolvedOverlayTextChangedV2>()
+        ResolvedOverlayTextChangedV3 push = bus.Published
+            .OfType<ResolvedOverlayTextChangedV3>()
             .ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
         push.Metadata.RootIngestedAt.ShouldBe(
