@@ -23,10 +23,10 @@ import { store } from '../../app/store.js';
  * No overlay here carries a `{{placeholder}}`, so `hasPlaceholder` is false
  * and every tile skips the snapshot query outright — this file never
  * exercises the snapshot's shape (positional `resolvedTexts` pre-spec-301,
- * template-keyed `texts` after #2720). Only the fallback path
- * (`element.kind === 'Text' ? element.text : ''`) is reached, which is
- * exactly the one US1 is about and is unaffected by US2's template-keyed
- * lookup.
+ * template-keyed `texts` after #2720). A Text element with no snapshot entry
+ * for its own raw template simply falls back to that raw text unchanged,
+ * which is exactly the path US1 is about and is unaffected by US2's
+ * template-keyed lookup.
  * </p>
  *
  * <p>

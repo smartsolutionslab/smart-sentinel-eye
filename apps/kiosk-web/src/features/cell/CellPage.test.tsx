@@ -9,7 +9,7 @@ import type {
   ResolvedOverlayTextChangedMessage,
 } from '@smart-sentinel-eye/shared/realtime/layoutHub';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
-import type { OverlaySnapshotInput, ResolvedOverlaySnapshot } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import type { OverlaySnapshotInput } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { overlaysApi } from '@smart-sentinel-eye/shared/api/overlays.api';
 import { store } from '../../app/store.js';
 
@@ -448,29 +448,43 @@ function spyOnConsoleInfo() {
  * Spec 301 (#2720) US2 — `ResolvedOverlayTextChangedMessage` is template-keyed
  * (`texts: { template, resolved }[]`) rather than the old positional
  * `resolvedTexts: string[]` this file used to construct. Every push fixture
- * below now builds this local shape; `pushText`/`push` cast it onto the hub
- * callback's declared parameter type at the one call site that matters — the
- * cast reproduces the wire shape SystemVariables now sends, it does not dodge
- * a type a real server would never produce (same pattern `textFrameWithoutFab`
- * already used for the fab-less case).
+ * below now builds the real wire type directly; no cast needed, since a
+ * well-formed frame already matches it. `textFrameWithoutFab` below is the
+ * one deliberate exception — it reproduces a fab-less, skewed-server frame,
+ * which is supposed to not type-check cleanly against this happy-path type.
  */
-interface PushedResolvedTextMessage {
-  overlay: string;
-  fab?: string;
-  texts: ReadonlyArray<{ template: string; resolved: string }>;
-  version: number;
-}
 
 /**
  * Fires one resolved-text frame and lets the cache write and the re-render it
  * causes settle — `upsertQueryData` is dispatched without being awaited, so a
  * fixed count of microtask turns is not enough (#2069, #2084).
  */
-async function pushText(message: PushedResolvedTextMessage) {
+async function pushText(message: ResolvedOverlayTextChangedMessage) {
   await act(async () => {
-    capturedCallbacks?.onResolvedOverlayTextChanged?.(message as unknown as ResolvedOverlayTextChangedMessage);
+    capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
     await new Promise((resolve) => setTimeout(resolve, 100));
   });
+}
+
+/**
+ * The frame an older LayoutComposition puts on the wire: no `fab` field at
+ * all. `ResolvedOverlayTextChangedMessage` declares `fab: string`, and that
+ * declaration is precisely what a version-skewed server does not honour — so
+ * the cast reproduces the fault rather than dodging the type. Module-scoped
+ * (rather than local to one describe block) so both the #2084 and the spec
+ * 141 site 2 blocks below can share this one cast instead of each growing
+ * their own.
+ */
+function textFrameWithoutFab(
+  overlay: string,
+  resolvedText: string,
+  version: number,
+): ResolvedOverlayTextChangedMessage {
+  return {
+    overlay,
+    texts: [{ template: 'OEE {{oeeline1}}', resolved: resolvedText }],
+    version,
+  } as unknown as ResolvedOverlayTextChangedMessage;
 }
 
 /**
@@ -687,7 +701,7 @@ describe('CellPage', () => {
               // its index is exactly what FR-005 retires.
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'resolved value' }],
               version: 1,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -1122,7 +1136,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 41.0' }],
               version: 1,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -1141,7 +1155,7 @@ describe('CellPage', () => {
           fab: 'munich',
           texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 82.5' }],
           version: 2,
-        } as unknown as ResolvedOverlayTextChangedMessage);
+        });
         // `upsertQueryData` is a thunk the page dispatches without awaiting,
         // and the re-render it causes is notified on a later task still — the
         // same real wall-clock settle the #2069 block's own `push` helper
@@ -1219,7 +1233,7 @@ describe('CellPage', () => {
               overlayIdentifier: overlay,
               texts: [{ template: 'OEE {{oeeline1}}', resolved: text }],
               version: 1,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -1249,14 +1263,9 @@ describe('CellPage', () => {
     const settleMilliseconds = 100;
 
     /** Fires one frame and lets the cache write and re-render it causes settle. */
-    async function push(message: {
-      overlay: string;
-      fab: string;
-      texts: ReadonlyArray<{ template: string; resolved: string }>;
-      version: number;
-    }) {
+    async function push(message: ResolvedOverlayTextChangedMessage) {
       await act(async () => {
-        capturedCallbacks?.onResolvedOverlayTextChanged?.(message as unknown as ResolvedOverlayTextChangedMessage);
+        capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
         await new Promise((resolve) => setTimeout(resolve, settleMilliseconds));
       });
     }
@@ -1457,16 +1466,6 @@ describe('CellPage', () => {
       getOverlayMock.mockReturnValue(publishedOverlay('OEE {{oeeline1}}'));
       renderPage();
       return () => screen.getByTestId('camera-viewer').getAttribute('data-overlay-text');
-    }
-
-    /**
-     * The frame an older LayoutComposition puts on the wire: no `fab` field at
-     * all. `ResolvedOverlayTextChangedMessage` declares `fab: string`, and that
-     * declaration is precisely what a version-skewed server does not honour —
-     * so the cast reproduces the fault rather than dodging the type.
-     */
-    function textFrameWithoutFab(overlay: string, resolvedText: string, version: number): PushedResolvedTextMessage {
-      return { overlay, texts: [{ template: 'OEE {{oeeline1}}', resolved: resolvedText }], version };
     }
 
     /** The same omission on the highlight route, which travels its own path. */
@@ -2025,11 +2024,7 @@ describe('CellPage', () => {
 
       renderPage();
 
-      await pushText({
-        overlay: 'ovl-blind',
-        texts: [{ template: 'OEE {{oeeline1}}', resolved: 'OEE 99.9' }],
-        version: 2,
-      } as unknown as PushedResolvedTextMessage);
+      await pushText(textFrameWithoutFab('ovl-blind', 'OEE 99.9', 2));
 
       expect(
         resilienceLines(info.mock.calls, 'resolved-text-without-fab'),
@@ -2424,7 +2419,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'first' }],
               version: 1,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -2454,7 +2449,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'second' }],
               version: 2,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -2498,7 +2493,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'first' }],
               version: 1,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -2528,7 +2523,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'second' }],
               version: 2,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -2568,7 +2563,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'first' }],
               version: 1,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });
@@ -2588,7 +2583,7 @@ describe('CellPage', () => {
               overlayIdentifier: 'ovl-x',
               texts: [{ template: 'OEE {{oeeline1}}', resolved: 'second' }],
               version: 2,
-            } as unknown as ResolvedOverlaySnapshot,
+            },
           ),
         );
       });

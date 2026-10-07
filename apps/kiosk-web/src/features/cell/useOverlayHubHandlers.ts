@@ -199,7 +199,12 @@ export function useOverlayHubHandlers(tiles: readonly LayoutTile[], wallFab: str
           { overlayIdentifier: message.overlay, fabId: message.fab },
           {
             overlayIdentifier: message.overlay,
-            texts: message.texts,
+            // Review S2 (#2720): a not-yet-upgraded server on the old wire
+            // shape sends no `texts` field at all — fall back to `[]`
+            // rather than caching `undefined`, which crashes every reader
+            // of this snapshot (`LayoutGrid.tsx`'s `snapshot?.texts.map`)
+            // on a wall that is supposed to run 24/7.
+            texts: message.texts ?? [],
             version: message.version,
           },
         ),
