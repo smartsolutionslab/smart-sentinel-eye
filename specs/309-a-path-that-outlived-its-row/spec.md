@@ -206,9 +206,16 @@ existing path all change. New tests must be observed failing for the stated reas
 2. `ProvisionStreamCommandHandlerTests.Provision_for_an_existing_camera_returns_the_existing_identifier_and_does_not_re_register`
    — renamed `..._and_re_asserts_its_path`; `gateway.AddCalls.Count.ShouldBe(1)` becomes `ShouldBe(2)`
    (FR-004). Identifier and row-count assertions unchanged.
+3. `CameraRegisteredIntegrationEventHandlerTests.On_redelivery_is_idempotent_because_the_command_handler_is`
+   — same scenario as #2, reached through the integration-event handler rather than the command
+   handler directly: a redelivered `CameraRegisteredV1` for an existing, non-Retired stream now
+   re-asserts its MediaMTX path. Originally and incorrectly listed below as characterisation —
+   missed when this table was first drafted, corrected under issue #2658. Renamed
+   `On_redelivery_re_asserts_the_path_because_the_command_handler_does`;
+   `gateway.AddCalls.Count.ShouldBe(1)` becomes `ShouldBe(2)`. Row-count assertion unchanged.
 
 **Characterisation (green before and after, unmodified):** the rest of
-`ProvisionStreamCommandHandlerTests`, `CameraRegisteredIntegrationEventHandlerTests`,
+`ProvisionStreamCommandHandlerTests` and the rest of `CameraRegisteredIntegrationEventHandlerTests`,
 `ProvisionStreamIntegrationTests` (including its redelivery fact, which after FR-004 exercises
 FR-002 against real MediaMTX), `MediaMtxReconcilerIntegrationTests`, `RetireStreamIntegrationTests`,
 `WhepAuthIntegrationTests`.
