@@ -9,7 +9,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
 /// </summary>
 public sealed class FakeRtspGateway : IRtspGateway
 {
-    private readonly Dictionary<MediaMtxPath, RtspPathHealth> _paths = [];
+    private readonly Dictionary<MediaMtxPath, RtspPathHealth> paths = [];
     public List<(MediaMtxPath Path, string Source)> AddCalls { get; } = [];
     public List<MediaMtxPath> RemoveCalls { get; } = [];
     public Action<MediaMtxPath, string> OnAddPath { get; set; } = (_, _) => { };
@@ -30,7 +30,7 @@ public sealed class FakeRtspGateway : IRtspGateway
     {
         OnAddPath(path, rtspSourceUrl);
         AddCalls.Add((path, rtspSourceUrl));
-        _paths[path] = new RtspPathHealth(
+        paths[path] = new RtspPathHealth(
             IsReady: true,
             LastError: null,
             LastFrameAt: null,
@@ -42,7 +42,7 @@ public sealed class FakeRtspGateway : IRtspGateway
     {
         OnRemovePath(path);
         RemoveCalls.Add(path);
-        _paths.Remove(path);
+        paths.Remove(path);
         return Task.CompletedTask;
     }
 
@@ -56,9 +56,9 @@ public sealed class FakeRtspGateway : IRtspGateway
         OnRepointPath(path, rtspSourceUrl);
         RepointCalls.Add((path, rtspSourceUrl));
 
-        if (_paths.ContainsKey(path))
+        if (paths.ContainsKey(path))
         {
-            _paths[path] = new RtspPathHealth(
+            paths[path] = new RtspPathHealth(
                 IsReady: true,
                 LastError: null,
                 LastFrameAt: null,
@@ -70,7 +70,7 @@ public sealed class FakeRtspGateway : IRtspGateway
 
     public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
-        if (_paths.TryGetValue(path, out RtspPathHealth? health))
+        if (paths.TryGetValue(path, out RtspPathHealth? health))
         {
             return Task.FromResult(health);
         }
@@ -82,5 +82,5 @@ public sealed class FakeRtspGateway : IRtspGateway
     }
 
     public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
-        Task.FromResult<IReadOnlyList<MediaMtxPath>>(_paths.Keys.ToArray());
+        Task.FromResult<IReadOnlyList<MediaMtxPath>>(paths.Keys.ToArray());
 }

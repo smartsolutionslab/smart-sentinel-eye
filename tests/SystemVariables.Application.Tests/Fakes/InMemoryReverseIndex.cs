@@ -11,18 +11,18 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryReverseIndex : IReverseIndex
 {
-    private readonly ConcurrentDictionary<string, HashSet<Guid>> _byName = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<Guid, IReadOnlyList<string>> _labelsByOverlay = new();
+    private readonly ConcurrentDictionary<string, HashSet<Guid>> byName = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<Guid, IReadOnlyList<string>> labelsByOverlay = new();
 
     public void UpsertOverlayReferences(Guid overlayIdentifier, IReadOnlyList<string> labelTexts)
     {
         Ensure.That(labelTexts).IsNotNull();
         // Drop the overlay's old entries, then re-insert from the new labels.
         RemoveOverlayInternal(overlayIdentifier);
-        _labelsByOverlay[overlayIdentifier] = labelTexts;
+        labelsByOverlay[overlayIdentifier] = labelTexts;
         foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
         {
-            HashSet<Guid> set = _byName.GetOrAdd(name, _ => []);
+            HashSet<Guid> set = byName.GetOrAdd(name, _ => []);
             lock (set) { set.Add(overlayIdentifier); }
         }
     }
@@ -30,12 +30,12 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     public void RemoveOverlay(Guid overlayIdentifier)
     {
         RemoveOverlayInternal(overlayIdentifier);
-        _labelsByOverlay.TryRemove(overlayIdentifier, out _);
+        labelsByOverlay.TryRemove(overlayIdentifier, out _);
     }
 
     private void RemoveOverlayInternal(Guid overlayIdentifier)
     {
-        foreach (KeyValuePair<string, HashSet<Guid>> kv in _byName)
+        foreach (KeyValuePair<string, HashSet<Guid>> kv in byName)
         {
             lock (kv.Value) { kv.Value.Remove(overlayIdentifier); }
         }
@@ -43,7 +43,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 
     public IReadOnlyCollection<Guid> LookupOverlays(string variableName)
     {
-        if (!_byName.TryGetValue(variableName, out HashSet<Guid>? set))
+        if (!byName.TryGetValue(variableName, out HashSet<Guid>? set))
         {
             return Array.Empty<Guid>();
         }
@@ -52,7 +52,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     }
 
     public IReadOnlyList<string>? LookupLabelTexts(Guid overlayIdentifier) =>
-        _labelsByOverlay.TryGetValue(overlayIdentifier, out IReadOnlyList<string>? labels) ? labels : null;
+        labelsByOverlay.TryGetValue(overlayIdentifier, out IReadOnlyList<string>? labels) ? labels : null;
 
-    public IReadOnlyCollection<Guid> AllOverlays() => _labelsByOverlay.Keys.ToArray();
+    public IReadOnlyCollection<Guid> AllOverlays() => labelsByOverlay.Keys.ToArray();
 }

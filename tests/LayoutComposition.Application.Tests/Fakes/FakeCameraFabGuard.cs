@@ -16,10 +16,10 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 /// </summary>
 public sealed class FakeCameraFabGuard : ICameraFabGuard
 {
-    private readonly Dictionary<Guid, FabIdentifier> _fabsByCamera = [];
-    private readonly bool _permissive;
+    private readonly Dictionary<Guid, FabIdentifier> fabsByCamera = [];
+    private readonly bool permissive;
 
-    private FakeCameraFabGuard(bool permissive) => _permissive = permissive;
+    private FakeCameraFabGuard(bool permissive) => this.permissive = permissive;
 
     /// <summary>Accepts every camera, whatever fab is asked about.</summary>
     public static FakeCameraFabGuard Permissive() => new(permissive: true);
@@ -31,7 +31,7 @@ public sealed class FakeCameraFabGuard : ICameraFabGuard
     {
         foreach (CameraIdentifier camera in cameras)
         {
-            _fabsByCamera[camera.Value] = fab;
+            fabsByCamera[camera.Value] = fab;
         }
 
         return this;
@@ -42,7 +42,7 @@ public sealed class FakeCameraFabGuard : ICameraFabGuard
         IReadOnlyList<CameraIdentifier> cameras,
         CancellationToken cancellationToken)
     {
-        if (_permissive)
+        if (permissive)
         {
             return Task.FromResult<IReadOnlyList<CameraIdentifier>>([]);
         }
@@ -50,7 +50,7 @@ public sealed class FakeCameraFabGuard : ICameraFabGuard
         IReadOnlyList<CameraIdentifier> outside =
         [
             .. cameras.Where(camera =>
-                !_fabsByCamera.TryGetValue(camera.Value, out FabIdentifier? actual) || actual != fab)
+                !fabsByCamera.TryGetValue(camera.Value, out FabIdentifier? actual) || actual != fab)
         ];
 
         return Task.FromResult(outside);

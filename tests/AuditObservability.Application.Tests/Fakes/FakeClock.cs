@@ -4,11 +4,11 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class FakeClock : IClock
 {
-    private DateTimeOffset _now;
+    private DateTimeOffset now;
 
-    public FakeClock(DateTimeOffset now) => _now = now;
+    public FakeClock(DateTimeOffset now) => this.now = now;
 
-    public DateTimeOffset UtcNow => _now;
+    public DateTimeOffset UtcNow => now;
 
-    public void Advance(TimeSpan by) => _now = _now.Add(by);
+    public void Advance(TimeSpan by) => now = now.Add(by);
 }
