@@ -536,6 +536,11 @@ describe('SystemVariablesPage — revocation fallback, three consecutive 403s (s
   function forbiddenRefresh(requestId: string) {
     return {
       data: [variable()],
+      // A repeated failure of the SAME argument set keeps RTK Query's own
+      // cache entry's `data` (what `currentData` exposes) — only a successful
+      // response for a *different* arg set evicting it clears it, never a
+      // rejected refetch of the one that produced it.
+      currentData: [variable()],
       isLoading: false,
       isFetching: false,
       error: { status: 403 },
@@ -591,5 +596,63 @@ describe('SystemVariablesPage — revocation fallback, three consecutive 403s (s
     const { container: firstLoadRefusal } = renderPage();
 
     expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+
+  /**
+   * Phase 6 finding S1. `SystemVariablesPage` passed `fetched`
+   * (`useListVariablesQuery`'s raw `data`) straight through once `refused` was
+   * false, with no regard for `error`. RTK Query's `data` falls back to
+   * `lastResult?.data` whenever the *current* argument set's request has not
+   * succeeded — so once the operator switches the state filter (Defined /
+   * Archived / All), the fallback resets to `false` for the new subject
+   * (FR-003), and if the new argument set's first request then 403s, this bug
+   * rendered the OLD filter's rows instead of nothing. `currentData` is
+   * `undefined` here because the new argument set has never once succeeded.
+   */
+  it("Does not show a previous filter's stale rows when the new filter's own request is refused", async () => {
+    const user = userEvent.setup();
+    listMock.mockReturnValue(forbiddenRefresh('variables-leak-r1'));
+    const { rerender } = renderPage();
+
+    listMock.mockReturnValue(forbiddenRefresh('variables-leak-r2'));
+    rerender(
+      <Provider store={store}>
+        <SystemVariablesPage />
+      </Provider>,
+    );
+
+    listMock.mockReturnValue(forbiddenRefresh('variables-leak-r3'));
+    rerender(
+      <Provider store={store}>
+        <SystemVariablesPage />
+      </Provider>,
+    );
+
+    expect(screen.queryByText('oeeLine1')).toBeNull();
+
+    // The operator switches the state filter **for real** — clicking the
+    // Archived tab, not a prop change, so `useRevocationFallback`'s own
+    // subject (`JSON.stringify(variablesArgs)`, keyed off this page's actual
+    // `filter` state) changes for real and resets its strike count (FR-003).
+    // The new argument set's first request 403s — `data` (fetched) still
+    // carries the OLD filter's row via RTK's `lastResult` fallback, but
+    // `currentData` is undefined because this new argument set has never
+    // succeeded.
+    listMock.mockReturnValue({
+      data: [variable()],
+      currentData: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId: 'variables-leak-new-filter-1',
+      refetch: vi.fn(),
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Archived' }));
+
+    await vi.waitFor(() => expect(listMock).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'Archived' })));
+
+    expect(screen.queryByText('oeeLine1')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load variables/i);
   });
 });
