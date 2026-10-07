@@ -185,9 +185,8 @@ describe('CameraViewer report cadence (#2563)', () => {
     expect(onLagMeasured, 'the wall callback must actually have run').toHaveBeenCalled();
     expect(container.querySelector('video'), 'throttling the report must not cost the picture').not.toBeNull();
 
-    // Today's actual, unthrottled cadence — the fact spec 307 is about.
-    expect(postedCallsFor('presentation_buffer').length, 'today, unthrottled').toBe(59);
-    expect(postedCallsFor('receive_to_decoded').length, 'today, unthrottled').toBe(23);
+    // Before this fix, this ran 59 presentation_buffer and 23 receive_to_decoded
+    // POSTs over the same window — see the PR body for the captured red evidence.
 
     // The target this change ships.
     expect(postedCallsFor('presentation_buffer')).toHaveLength(4);

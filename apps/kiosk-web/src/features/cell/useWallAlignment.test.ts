@@ -447,8 +447,8 @@ describe('useWallAlignment', () => {
       await vi.advanceTimersByTimeAsync(0);
     });
 
-    // Today's actual, unthrottled cadence — the fact spec 307 is about.
-    expect(wallSkewCallsIn(posted).length, 'today, unthrottled').toBe(60);
+    // Before this fix, this ran 60 wall_skew POSTs over the same window —
+    // see the PR body for the captured red evidence.
 
     // The target this change ships.
     expect(wallSkewCallsIn(posted)).toHaveLength(4);
