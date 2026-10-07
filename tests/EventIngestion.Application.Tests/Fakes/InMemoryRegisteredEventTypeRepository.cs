@@ -13,10 +13,10 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryRegisteredEventTypeRepository : IRegisteredEventTypeRepository
 {
-    private readonly List<RegisteredEventType> _eventTypes = [];
-    private readonly HashSet<Guid> _persisted = [];
+    private readonly List<RegisteredEventType> eventTypes = [];
+    private readonly HashSet<Guid> persisted = [];
 
-    public IReadOnlyList<RegisteredEventType> EventTypes => _eventTypes;
+    public IReadOnlyList<RegisteredEventType> EventTypes => eventTypes;
 
     /// <summary>
     /// Places an entry that already exists in the database, at
@@ -29,15 +29,15 @@ public sealed class InMemoryRegisteredEventTypeRepository : IRegisteredEventType
 
         AggregateVersions.SetTo(eventType, version);
 
-        _eventTypes.Add(eventType);
-        _persisted.Add(eventType.Id.Value);
+        eventTypes.Add(eventType);
+        persisted.Add(eventType.Id.Value);
         eventType.ClearPendingEvents();
     }
 
     public Task<Option<RegisteredEventType>> GetRegisteredAsync(
         FabIdentifier fab, Kind kind, CancellationToken cancellationToken)
     {
-        RegisteredEventType? found = _eventTypes.SingleOrDefault(
+        RegisteredEventType? found = eventTypes.SingleOrDefault(
             eventType => eventType.Fab == fab && eventType.Kind == kind
                 && eventType.State == RegistrationState.Registered);
 
@@ -49,14 +49,14 @@ public sealed class InMemoryRegisteredEventTypeRepository : IRegisteredEventType
     public void Add(RegisteredEventType eventType)
     {
         Ensure.That(eventType).IsNotNull();
-        _eventTypes.Add(eventType);
+        eventTypes.Add(eventType);
     }
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (RegisteredEventType eventType in _eventTypes)
+        foreach (RegisteredEventType eventType in eventTypes)
         {
-            bool wasAlreadyPersisted = !_persisted.Add(eventType.Id.Value);
+            bool wasAlreadyPersisted = !persisted.Add(eventType.Id.Value);
             if (wasAlreadyPersisted && eventType.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(eventType);

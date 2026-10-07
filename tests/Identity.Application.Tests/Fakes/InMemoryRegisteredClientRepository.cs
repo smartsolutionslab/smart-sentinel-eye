@@ -14,10 +14,10 @@ namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryRegisteredClientRepository : IRegisteredClientRepository
 {
-    private readonly List<RegisteredClientAggregate> _clients = [];
-    private readonly HashSet<Guid> _persisted = [];
+    private readonly List<RegisteredClientAggregate> clients = [];
+    private readonly HashSet<Guid> persisted = [];
 
-    public IReadOnlyList<RegisteredClientAggregate> Clients => _clients;
+    public IReadOnlyList<RegisteredClientAggregate> Clients => clients;
 
     /// <summary>
     /// One-shot: when set, the next <see cref="SaveAsync"/> throws this
@@ -39,15 +39,15 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         Ensure.That(client).IsNotNull();
 
         AggregateVersions.SetTo(client, version);
-        _clients.Add(client);
-        _persisted.Add(client.Id.Value);
+        clients.Add(client);
+        persisted.Add(client.Id.Value);
         client.ClearPendingEvents();
     }
 
     public Task<Option<RegisteredClientAggregate>> GetByIdentifierAsync(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
     {
-        RegisteredClientAggregate? found = _clients.SingleOrDefault(c => c.Id == identifier);
+        RegisteredClientAggregate? found = clients.SingleOrDefault(c => c.Id == identifier);
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
             : Option<RegisteredClientAggregate>.Some(found));
@@ -59,7 +59,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         Ensure.That(clientId).IsNotNull();
         // Disabled rows release the name for re-registration (mirrors
         // spec 005's archived-name pattern).
-        RegisteredClientAggregate? found = _clients.SingleOrDefault(c =>
+        RegisteredClientAggregate? found = clients.SingleOrDefault(c =>
             c.ClientId == clientId && c.DisabledAt is null);
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
@@ -75,7 +75,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         // Fab is part of the match, not a filter applied afterwards — mirrors
         // the production predicate (spec 180 US1). Disabled rows are excluded,
         // matching GetByClientIdAsync.
-        RegisteredClientAggregate? found = _clients.SingleOrDefault(c =>
+        RegisteredClientAggregate? found = clients.SingleOrDefault(c =>
             c.ClientId == clientId && c.Fab == fab && c.DisabledAt is null);
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
@@ -85,7 +85,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     public void Add(RegisteredClientAggregate client)
     {
         Ensure.That(client).IsNotNull();
-        _clients.Add(client);
+        clients.Add(client);
     }
 
     public Task SaveAsync(CancellationToken cancellationToken)
@@ -97,13 +97,13 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
             throw toThrow;
         }
 
-        foreach (RegisteredClientAggregate c in _clients)
+        foreach (RegisteredClientAggregate c in clients)
         {
             // Mirrors AggregateVersionInterceptor.RequiresBump: an Added root
             // starts at 0 and is not bumped; an already-persisted root with
             // changes is. Pending events stand in for the change tracker's
             // Modified state — every mutator on this aggregate raises one.
-            bool wasAlreadyPersisted = !_persisted.Add(c.Id.Value);
+            bool wasAlreadyPersisted = !persisted.Add(c.Id.Value);
             if (wasAlreadyPersisted && c.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(c);

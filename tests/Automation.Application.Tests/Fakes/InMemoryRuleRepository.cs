@@ -6,14 +6,14 @@ namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 
 public sealed class InMemoryRuleRepository : IRuleRepository
 {
-    private readonly List<RuleAggregate> _rules = [];
+    private readonly List<RuleAggregate> rules = [];
 
-    public IReadOnlyList<RuleAggregate> Rules => _rules;
+    public IReadOnlyList<RuleAggregate> Rules => rules;
 
     public Task<Option<RuleAggregate>> GetByIdentifierAsync(
         RuleIdentifier rule, CancellationToken cancellationToken)
     {
-        RuleAggregate? found = _rules.SingleOrDefault(r => r.Id == rule);
+        RuleAggregate? found = rules.SingleOrDefault(r => r.Id == rule);
         return Task.FromResult(found is null
             ? Option<RuleAggregate>.None
             : Option<RuleAggregate>.Some(found));
@@ -29,7 +29,7 @@ public sealed class InMemoryRuleRepository : IRuleRepository
         // (spec 013). Matching production here matters — a fake that ignored
         // the fab would let every handler test pass while the real lookup
         // returned another fab's rule.
-        RuleAggregate? found = _rules.SingleOrDefault(r =>
+        RuleAggregate? found = rules.SingleOrDefault(r =>
             r.Fab == fab && r.Name == name && r.State != RuleState.Archived);
         return Task.FromResult(found is null
             ? Option<RuleAggregate>.None
@@ -39,12 +39,12 @@ public sealed class InMemoryRuleRepository : IRuleRepository
     public void Add(RuleAggregate rule)
     {
         Ensure.That(rule).IsNotNull();
-        _rules.Add(rule);
+        rules.Add(rule);
     }
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (RuleAggregate rule in _rules)
+        foreach (RuleAggregate rule in rules)
         {
             rule.ClearPendingEvents();
         }

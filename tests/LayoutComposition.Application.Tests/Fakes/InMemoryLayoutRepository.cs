@@ -10,16 +10,16 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryLayoutRepository : ILayoutRepository
 {
-    private readonly List<Layout> _layouts = [];
+    private readonly List<Layout> layouts = [];
 
-    public IReadOnlyList<Layout> Layouts => _layouts;
+    public IReadOnlyList<Layout> Layouts => layouts;
 
     public Task<Option<Layout>> GetByIdentifierAsync(
         IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layout, CancellationToken cancellationToken)
     {
         Ensure.That(fabs).IsNotNull();
         // Fab as part of the lookup, mirroring the real repository (FR-006).
-        Layout? found = _layouts.SingleOrDefault(
+        Layout? found = layouts.SingleOrDefault(
             candidate => candidate.Id == layout && fabs.Contains(candidate.Fab));
         return Task.FromResult(found is null ? Option<Layout>.None : Option<Layout>.Some(found));
     }
@@ -34,7 +34,7 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
         // now reads the chain's own marker rather than its revisions (spec 086)
         // — left on the old predicate this fake would keep the Application
         // suite green against a rule production no longer applies.
-        Layout? found = _layouts.SingleOrDefault(candidate =>
+        Layout? found = layouts.SingleOrDefault(candidate =>
             candidate.Fab == fab &&
             candidate.Name == name &&
             candidate.ArchivedAt is null);
@@ -44,12 +44,12 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
     public void Add(Layout layout)
     {
         Ensure.That(layout).IsNotNull();
-        _layouts.Add(layout);
+        layouts.Add(layout);
     }
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (Layout layout in _layouts)
+        foreach (Layout layout in layouts)
         {
             layout.ClearPendingEvents();
         }

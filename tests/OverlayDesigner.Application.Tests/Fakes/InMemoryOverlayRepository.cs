@@ -5,13 +5,13 @@ namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 
 public sealed class InMemoryOverlayRepository : IOverlayRepository
 {
-    private readonly List<Overlay> _overlays = [];
+    private readonly List<Overlay> overlays = [];
 
-    public IReadOnlyList<Overlay> Overlays => _overlays;
+    public IReadOnlyList<Overlay> Overlays => overlays;
 
     public Task<Option<Overlay>> GetByIdentifierAsync(OverlayIdentifier overlay, CancellationToken cancellationToken)
     {
-        Overlay? found = _overlays.SingleOrDefault(candidate => candidate.Id == overlay);
+        Overlay? found = overlays.SingleOrDefault(candidate => candidate.Id == overlay);
         return Task.FromResult(found is null ? Option<Overlay>.None : Option<Overlay>.Some(found));
     }
 
@@ -23,7 +23,7 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
         // fake would keep the Application suite green against a rule production
         // no longer applies — the two are equivalent today, and the fake is
         // where that would stop being noticed.
-        Overlay? found = _overlays.SingleOrDefault(candidate =>
+        Overlay? found = overlays.SingleOrDefault(candidate =>
             candidate.Name == name &&
             candidate.ArchivedAt is null);
         return Task.FromResult(found is null ? Option<Overlay>.None : Option<Overlay>.Some(found));
@@ -32,12 +32,12 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
     public void Add(Overlay overlay)
     {
         Ensure.That(overlay).IsNotNull();
-        _overlays.Add(overlay);
+        overlays.Add(overlay);
     }
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (Overlay overlay in _overlays)
+        foreach (Overlay overlay in overlays)
         {
             overlay.ClearPendingEvents();
         }

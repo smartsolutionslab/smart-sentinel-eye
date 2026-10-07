@@ -11,9 +11,9 @@ namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 /// </summary>
 public sealed class CapturingLogger<T> : ILogger<T>
 {
-    private readonly List<(LogLevel Level, string Message, Exception? Exception)> _entries = [];
+    private readonly List<(LogLevel Level, string Message, Exception? Exception)> entries = [];
 
-    public IReadOnlyList<(LogLevel Level, string Message, Exception? Exception)> Entries => _entries;
+    public IReadOnlyList<(LogLevel Level, string Message, Exception? Exception)> Entries => entries;
 
     public IDisposable BeginScope<TState>(TState state)
         where TState : notnull => NullScope.Instance;
@@ -28,7 +28,7 @@ public sealed class CapturingLogger<T> : ILogger<T>
         Func<TState, Exception?, string> formatter)
     {
         Ensure.That(formatter).IsNotNull();
-        _entries.Add((logLevel, formatter(state, exception), exception));
+        entries.Add((logLevel, formatter(state, exception), exception));
     }
 }
 

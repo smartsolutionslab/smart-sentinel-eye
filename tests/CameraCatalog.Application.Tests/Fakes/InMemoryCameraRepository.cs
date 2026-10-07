@@ -10,15 +10,15 @@ namespace SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryCameraRepository : ICameraRepository
 {
-    private readonly List<Camera> _cameras = [];
-    private readonly List<Camera> _pendingAdds = [];
+    private readonly List<Camera> cameras = [];
+    private readonly List<Camera> pendingAdds = [];
     public int SaveCallCount { get; private set; }
 
-    public IReadOnlyList<Camera> Cameras => _cameras;
+    public IReadOnlyList<Camera> Cameras => cameras;
 
     public Task<Option<Camera>> GetByIdentifierAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Camera? found = _cameras.FirstOrDefault(candidate => candidate.Id.Equals(camera));
+        Camera? found = cameras.FirstOrDefault(candidate => candidate.Id.Equals(camera));
         return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));
     }
 
@@ -30,7 +30,7 @@ public sealed class InMemoryCameraRepository : ICameraRepository
     public Task<Option<Camera>> GetWithinFabAsync(
         FabIdentifier fab, CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Camera? found = _cameras.FirstOrDefault(
+        Camera? found = cameras.FirstOrDefault(
             candidate => candidate.Id.Equals(camera) && candidate.Fab.Equals(fab));
 
         return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));
@@ -63,18 +63,18 @@ public sealed class InMemoryCameraRepository : ICameraRepository
         CameraName name,
         Option<CameraIdentifier> excluding,
         CancellationToken cancellationToken) =>
-        Task.FromResult(_cameras.Any(candidate =>
+        Task.FromResult(cameras.Any(candidate =>
             candidate.Fab.Equals(fab)
             && candidate.Name.Equals(name)
             && candidate.Status != CameraStatus.Decommissioned
             && !excluding.Match(some => candidate.Id.Equals(some), () => false)));
 
-    public void Add(Camera camera) => _pendingAdds.Add(camera);
+    public void Add(Camera camera) => pendingAdds.Add(camera);
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        _cameras.AddRange(_pendingAdds);
-        _pendingAdds.Clear();
+        cameras.AddRange(pendingAdds);
+        pendingAdds.Clear();
         SaveCallCount++;
         return Task.CompletedTask;
     }

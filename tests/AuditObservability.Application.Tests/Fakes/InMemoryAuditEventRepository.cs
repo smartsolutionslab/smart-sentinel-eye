@@ -5,28 +5,28 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class InMemoryAuditEventRepository : IAuditEventRepository
 {
-    private readonly List<AuditEventEntity> _committed = [];
-    private readonly List<AuditEventEntity> _pending = [];
+    private readonly List<AuditEventEntity> committed = [];
+    private readonly List<AuditEventEntity> pending = [];
 
-    public IReadOnlyList<AuditEventEntity> Committed => _committed;
+    public IReadOnlyList<AuditEventEntity> Committed => committed;
 
     public int SaveAsyncCallCount { get; private set; }
 
-    public void Add(AuditEventEntity audit) => _pending.Add(audit);
+    public void Add(AuditEventEntity audit) => pending.Add(audit);
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
         SaveAsyncCallCount++;
-        foreach (AuditEventEntity row in _pending)
+        foreach (AuditEventEntity row in pending)
         {
             // Idempotent on EventIdentifier — mirrors the production
             // INSERT ... ON CONFLICT (event_identifier) DO NOTHING.
-            if (!_committed.Any(c => c.EventIdentifier == row.EventIdentifier))
+            if (!committed.Any(c => c.EventIdentifier == row.EventIdentifier))
             {
-                _committed.Add(row);
+                committed.Add(row);
             }
         }
-        _pending.Clear();
+        pending.Clear();
         return Task.CompletedTask;
     }
 }

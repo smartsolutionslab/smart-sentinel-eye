@@ -14,7 +14,7 @@ namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 /// </summary>
 public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
 {
-    private readonly Dictionary<string, KeycloakClientRepresentation> _clients =
+    private readonly Dictionary<string, KeycloakClientRepresentation> clients =
         new(StringComparer.Ordinal);
 
     public List<string> Disabled { get; } = [];
@@ -79,11 +79,11 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
 
         Ensure.That(representation).IsNotNull();
         Created.Add(representation);
-        if (_clients.ContainsKey(representation.ClientId))
+        if (clients.ContainsKey(representation.ClientId))
         {
             throw new KeycloakClientAlreadyExistsException(representation.ClientId);
         }
-        _clients.Add(representation.ClientId, representation);
+        clients.Add(representation.ClientId, representation);
 
         // **Production strips as part of creating, so this must too** (spec 052).
         // A fake that created an account and left the privilege on it would let
@@ -94,7 +94,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         {
             // The real client removes the half-enrolled client before rethrowing,
             // so a retry is not blocked by a leftover.
-            _clients.Remove(representation.ClientId);
+            clients.Remove(representation.ClientId);
             throw new InvalidOperationException(
                 $"Keycloak refused to strip '{representation.ClientId}'.");
         }
@@ -114,7 +114,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
             ThrowAndClear();
         }
 
-        if (!_clients.ContainsKey(clientId))
+        if (!clients.ContainsKey(clientId))
         {
             throw new KeycloakClientNotFoundException(clientId);
         }
@@ -138,7 +138,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
             ThrowAndClear();
         }
 
-        if (!_clients.ContainsKey(clientId))
+        if (!clients.ContainsKey(clientId))
         {
             throw new KeycloakClientNotFoundException(clientId);
         }
@@ -175,7 +175,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
 
         // Mirrors production: the set is derived from the attribute enrolment
         // stamps, not from a naming convention repeated here.
-        IReadOnlyList<string> kiosks = _clients
+        IReadOnlyList<string> kiosks = clients
             .Where(entry => entry.Value.Attributes is not null
                 && entry.Value.Attributes.TryGetValue("sse.kind", out string? kind)
                 && kind == "kiosk")

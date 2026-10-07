@@ -6,11 +6,11 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 
 public sealed class InMemoryEventRepository : IEventRepository
 {
-    private readonly List<EventAggregate> _events = [];
+    private readonly List<EventAggregate> events = [];
 
     private int committed;
 
-    public IReadOnlyList<EventAggregate> Events => _events;
+    public IReadOnlyList<EventAggregate> Events => events;
 
     /// <summary>
     /// When set, the next <see cref="SaveAsync"/> throws it and discards
@@ -23,7 +23,7 @@ public sealed class InMemoryEventRepository : IEventRepository
     public Task<Option<EventAggregate>> GetByIdentifierAsync(
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken)
     {
-        EventAggregate? found = _events.SingleOrDefault(e =>
+        EventAggregate? found = events.SingleOrDefault(e =>
             e.Fab == fab && e.Id == identifier);
         return Task.FromResult(found is null
             ? Option<EventAggregate>.None
@@ -32,29 +32,29 @@ public sealed class InMemoryEventRepository : IEventRepository
 
     public Task<bool> ExistsAsync(
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken) =>
-        Task.FromResult(_events.Any(e => e.Fab == fab && e.Id == identifier));
+        Task.FromResult(events.Any(e => e.Fab == fab && e.Id == identifier));
 
     public Task<IReadOnlySet<EventIdentifier>> ExistingAsync(
         IReadOnlyCollection<(FabIdentifier Fab, EventIdentifier Identifier)> candidates,
         CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlySet<EventIdentifier>>(
             candidates
-                .Where(candidate => _events.Any(e => e.Fab == candidate.Fab && e.Id == candidate.Identifier))
+                .Where(candidate => events.Any(e => e.Fab == candidate.Fab && e.Id == candidate.Identifier))
                 .Select(candidate => candidate.Identifier)
                 .ToHashSet());
 
-    public void Add(EventAggregate @event) => _events.Add(@event);
+    public void Add(EventAggregate @event) => events.Add(@event);
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
         if (SaveFailure is not null)
         {
-            _events.RemoveRange(committed, _events.Count - committed);
+            events.RemoveRange(committed, events.Count - committed);
             return Task.FromException(SaveFailure);
         }
 
-        committed = _events.Count;
-        foreach (EventAggregate e in _events)
+        committed = events.Count;
+        foreach (EventAggregate e in events)
         {
             e.ClearPendingEvents();
         }

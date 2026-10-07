@@ -15,10 +15,10 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRepository
 {
-    private readonly List<WebhookIntegration> _integrations = [];
-    private readonly HashSet<Guid> _persisted = [];
+    private readonly List<WebhookIntegration> integrations = [];
+    private readonly HashSet<Guid> persisted = [];
 
-    public IReadOnlyList<WebhookIntegration> Integrations => _integrations;
+    public IReadOnlyList<WebhookIntegration> Integrations => integrations;
 
     /// <summary>
     /// Places an integration that already exists in the database, at
@@ -32,8 +32,8 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
 
         AggregateVersions.SetTo(integration, version);
 
-        _integrations.Add(integration);
-        _persisted.Add(integration.Id.Value);
+        integrations.Add(integration);
+        persisted.Add(integration.Id.Value);
         integration.ClearPendingEvents();
     }
 
@@ -41,7 +41,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
         WebhookIntegrationName name, CancellationToken cancellationToken)
     {
         Ensure.That(name).IsNotNull();
-        WebhookIntegration? found = _integrations.SingleOrDefault(i => i.Name == name);
+        WebhookIntegration? found = integrations.SingleOrDefault(i => i.Name == name);
         return Task.FromResult(found is null
             ? Option<WebhookIntegration>.None
             : Option<WebhookIntegration>.Some(found));
@@ -58,7 +58,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        WebhookIntegration? found = _integrations.SingleOrDefault(i => i.Name == name && i.Fab == fab);
+        WebhookIntegration? found = integrations.SingleOrDefault(i => i.Name == name && i.Fab == fab);
         return Task.FromResult(found is null
             ? Option<WebhookIntegration>.None
             : Option<WebhookIntegration>.Some(found));
@@ -67,18 +67,18 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
     public void Add(WebhookIntegration integration)
     {
         Ensure.That(integration).IsNotNull();
-        _integrations.Add(integration);
+        integrations.Add(integration);
     }
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (WebhookIntegration i in _integrations)
+        foreach (WebhookIntegration i in integrations)
         {
             // Mirrors AggregateVersionInterceptor.RequiresBump: an Added root
             // starts at 0 and is not bumped; an already-persisted root with
             // changes is. Pending events stand in for the change tracker's
             // Modified state — every mutator on this aggregate raises one.
-            bool wasAlreadyPersisted = !_persisted.Add(i.Id.Value);
+            bool wasAlreadyPersisted = !persisted.Add(i.Id.Value);
             if (wasAlreadyPersisted && i.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(i);

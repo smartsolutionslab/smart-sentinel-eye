@@ -4,7 +4,7 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
 {
-    private readonly Dictionary<Guid, ChunkArchiveResult> _store = [];
+    private readonly Dictionary<Guid, ChunkArchiveResult> store = [];
 
     public List<AuditChunk> ArchivedChunks { get; } = [];
     public Exception? FailNextCall { get; set; }
@@ -19,7 +19,7 @@ public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
             throw toThrow;
         }
 
-        if (_store.TryGetValue(chunk.ChunkIdentifier, out ChunkArchiveResult? cached))
+        if (store.TryGetValue(chunk.ChunkIdentifier, out ChunkArchiveResult? cached))
         {
             ArchivedChunks.Add(chunk);
             return Task.FromResult(cached with { AlreadyArchived = true });
@@ -30,7 +30,7 @@ public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
             ContentMd5: $"md5-{chunk.ChunkIdentifier:N}"[..16],
             RowCount: 42,
             AlreadyArchived: false);
-        _store[chunk.ChunkIdentifier] = fresh;
+        store[chunk.ChunkIdentifier] = fresh;
         ArchivedChunks.Add(chunk);
         return Task.FromResult(fresh);
     }
@@ -38,16 +38,16 @@ public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
 
 public sealed class FakeAuditChunkInventory : IAuditChunkInventory
 {
-    private readonly List<AuditChunk> _chunks;
+    private readonly List<AuditChunk> chunks;
 
-    public FakeAuditChunkInventory(IEnumerable<AuditChunk> seed) => _chunks = [.. seed];
+    public FakeAuditChunkInventory(IEnumerable<AuditChunk> seed) => chunks = [.. seed];
 
     public List<AuditChunk> Dropped { get; } = [];
 
     public Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(
         DateTimeOffset boundary, CancellationToken cancellationToken)
     {
-        IReadOnlyList<AuditChunk> stale = _chunks
+        IReadOnlyList<AuditChunk> stale = chunks
             .Where(c => c.OccurredUntil <= boundary)
             .ToList();
         return Task.FromResult(stale);
@@ -56,7 +56,7 @@ public sealed class FakeAuditChunkInventory : IAuditChunkInventory
     public Task DropChunkAsync(AuditChunk chunk, CancellationToken cancellationToken)
     {
         Dropped.Add(chunk);
-        _chunks.RemoveAll(c => c.ChunkIdentifier == chunk.ChunkIdentifier);
+        chunks.RemoveAll(c => c.ChunkIdentifier == chunk.ChunkIdentifier);
         return Task.CompletedTask;
     }
 }

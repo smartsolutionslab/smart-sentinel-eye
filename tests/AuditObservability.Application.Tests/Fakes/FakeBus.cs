@@ -4,14 +4,14 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 
 public sealed class FakeBus : IEventBus
 {
-    private readonly List<object> _published = [];
+    private readonly List<object> published = [];
 
-    public IReadOnlyList<object> Published => _published;
+    public IReadOnlyList<object> Published => published;
 
     public Task PublishAsync<TEvent>(TEvent integrationEvent, CancellationToken cancellationToken = default)
         where TEvent : notnull
     {
-        _published.Add(integrationEvent);
+        published.Add(integrationEvent);
         return Task.CompletedTask;
     }
 }

@@ -35,8 +35,8 @@ namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 /// </summary>
 public sealed class InMemoryRuleCache : IRuleCache
 {
-    private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> _byTrigger = new();
-    private readonly object _gate = new();
+    private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> byTrigger = new();
+    private readonly object gate = new();
     private readonly List<(string Fab, string TriggerSource, string TriggerKind)> lookups = [];
 
     /// <summary>
@@ -49,7 +49,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         get
         {
-            lock (_gate)
+            lock (gate)
             {
                 return lookups.ToArray();
             }
@@ -61,16 +61,16 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         Ensure.That(fab).IsNotNull();
 
-        lock (_gate)
+        lock (gate)
         {
             lookups.Add((fab.Value, triggerSource, triggerKind));
         }
 
-        if (!_byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
+        if (!byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
         {
             return Array.Empty<CompiledRule>();
         }
-        lock (_gate)
+        lock (gate)
         {
             return bucket.ToArray();
         }
@@ -88,8 +88,8 @@ public sealed class InMemoryRuleCache : IRuleCache
         (string Fab, string TriggerSource, string TriggerKind) key =
             (rule.Fab.Value, rule.TriggerSource.Value, rule.TriggerKind.Value);
 
-        List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => []);
-        lock (_gate)
+        List<CompiledRule> bucket = byTrigger.GetOrAdd(key, _ => []);
+        lock (gate)
         {
             bucket.RemoveAll(c => c.Identifier == rule.Id);
             bucket.Add(compiled);
@@ -99,9 +99,9 @@ public sealed class InMemoryRuleCache : IRuleCache
 
     public void Remove(RuleIdentifier rule)
     {
-        lock (_gate)
+        lock (gate)
         {
-            foreach (List<CompiledRule> bucket in _byTrigger.Values)
+            foreach (List<CompiledRule> bucket in byTrigger.Values)
             {
                 bucket.RemoveAll(c => c.Identifier == rule);
             }
@@ -112,9 +112,9 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         get
         {
-            lock (_gate)
+            lock (gate)
             {
-                return _byTrigger.Values.Sum(b => b.Count);
+                return byTrigger.Values.Sum(b => b.Count);
             }
         }
     }
