@@ -31,7 +31,7 @@ public sealed partial class AspireFixture
     {
         Ensure.That(resourceName).IsNotNull().IsNotNullOrWhiteSpace();
 
-        if (!_logTails.ContainsKey(resourceName))
+        if (!logTails.ContainsKey(resourceName))
         {
             throw new InvalidOperationException(
                 $"'{resourceName}' is not tailed — add it to AspireFixture.TailedResources before "
@@ -88,7 +88,7 @@ public sealed partial class AspireFixture
     /// </summary>
     internal void RecordLogLine(string resourceName, string content)
     {
-        ConcurrentQueue<string> tail = _logTails.GetOrAdd(resourceName, _ => new ConcurrentQueue<string>());
+        ConcurrentQueue<string> tail = logTails.GetOrAdd(resourceName, _ => new ConcurrentQueue<string>());
         tail.Enqueue(content);
         while (tail.Count > 400)
         {

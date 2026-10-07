@@ -41,7 +41,7 @@ public class AspireFixtureReportSelectionTests
     public void A_one_shot_that_finished_with_a_captured_null_exit_code_is_not_reported()
     {
         // The dominant shape, not an edge case: the state capture assigns
-        // `_exitCodes[name] = evt.Snapshot.ExitCode` for every resource it
+        // `exitCodes[name] = evt.Snapshot.ExitCode` for every resource it
         // observes, so a resource with no exit code has a *present null*, not
         // an absent key. Reading that as a non-zero exit would report every
         // healthy resource and drop `migrations` from the failure section.
