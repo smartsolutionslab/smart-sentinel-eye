@@ -601,4 +601,40 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
     expect(FakePeerConnection.instances).toHaveLength(0);
   });
+
+  /**
+   * Spec 233 (issue #2355), T003. Characterisation, green today (plan §4):
+   * a 401 today reaches `useWhepSession`'s ladder as `'reconnecting'`, and
+   * `FrameGrabber`'s FR-016 fail-fast arm already treats `'reconnecting'` as
+   * a failed capture, so this abandons immediately rather than waiting for
+   * the 10 s outer timeout. This is the regression net for FR-006: once a
+   * refusal starts arriving as `'error'` instead, this test is the one that
+   * catches it if the fail-fast arm is never extended to `'error'` too.
+   */
+  it('Abandons a capture whose WHEP offer is refused without waiting for the timeout', async () => {
+    fetchMock.mockImplementation(async (_url: string, init?: RequestInit) => {
+      if (init?.method === 'DELETE') {
+        return { ok: true, status: 200 };
+      }
+      return { ok: false, status: 401, text: async () => 'unauthorized' };
+    });
+    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+
+    selectCamera(CAMERA_42.cameraIdentifier);
+    pressCapture();
+    await flushMicrotasks();
+
+    // Already visible without advancing the 10 s outer timeout.
+    expect(screen.getByTestId('frame-capture-alert')).toBeVisible();
+    expect(isChecked(screen.getByRole('radio', { name: 'Checkerboard' }))).toBe(true);
+
+    const postCount = () =>
+      fetchMock.mock.calls.filter(([, init]) => (init as RequestInit | undefined)?.method !== 'DELETE').length;
+    expect(postCount()).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(postCount()).toBe(1);
+  });
 });
