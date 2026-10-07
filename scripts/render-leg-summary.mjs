@@ -27,6 +27,15 @@ import { readRenderLegRecords } from '../e2e/support/render-leg.ts';
 
 const DEFAULT_DIRECTORY = 'test-results';
 const LEG_BUDGET_MILLISECONDS = 50;
+// T028 (#2770), plan.md §9.4's report-only branch. T018's FR-019 decision
+// (specs/225-the-render-leg-ci-never-reads/figures.md `## Verdict`) found the
+// primary (21-run, FR-022-complete) dataset's 3σ = 25.65 ms against the 25 ms
+// limit — a deliberate finding, not an omission, so the old "no threshold is
+// asserted" wording (which read as "not built yet") is replaced rather than
+// kept. Re-derive from figures.md's raw samples before changing this
+// constant; the ADR #2337 is waiting on may replace it.
+const FR019_LIMIT_MILLISECONDS = 25;
+const MEASURED_THREE_SIGMA_MILLISECONDS = 25.65;
 
 function oneDecimal(value) {
   return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1);
@@ -64,8 +73,9 @@ function renderSection(attempts) {
     '### Composite + render leg (`overlay_draw`) — spec 225 US1 / #2337',
     '',
     `Constitution §IV budget: ≤ ${LEG_BUDGET_MILLISECONDS} ms (overlay composite + render). ` +
-      '**No threshold is asserted here** — this step only makes the figure readable; a regression gate is ' +
-      'a separate story (US4).',
+      `**report-only: FR-019 not met** (3σ = ${twoDecimals(MEASURED_THREE_SIGMA_MILLISECONDS)} ms ≥ ` +
+      `${FR019_LIMIT_MILLISECONDS} ms) — no threshold is enforced on this leg pending an ADR on what CI may ` +
+      'enforce here (#2337); see `figures.md` and the `render-leg-gate` job.',
     '',
   ];
 

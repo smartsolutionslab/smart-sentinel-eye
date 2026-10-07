@@ -25,6 +25,7 @@
 
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { readRenderLegRecords } from '../e2e/support/render-leg.ts';
 import { AGREEMENT_EPSILON } from './render-leg-constants.mjs';
 import { twoDecimals } from './render-leg-summary.mjs';
@@ -122,7 +123,14 @@ function readBaseline(baselinePath) {
 // Mirrors `actions/download-artifact`'s own layout for a glob pattern
 // (plan.md §8.1) — one `playwright-report-<n>-of-4` directory per shard,
 // each carrying its own `test-results/`.
-function discoverShards(shardsDirectory) {
+//
+// Exported so `render-leg-gate-report.mjs` (T021, #2770) can reuse this exact
+// layout definition rather than redeclaring it byte-identically — one
+// definition of the `actions/download-artifact` shape, not two that could
+// drift. Importing this module does not run `main()`; see the
+// `isMainModule` guard below (unused here, but matches the sibling scripts'
+// own convention for the same reason).
+export function discoverShards(shardsDirectory) {
   let entries;
   try {
     entries = readdirSync(shardsDirectory, { withFileTypes: true });
@@ -320,4 +328,16 @@ function main() {
   process.exit(0);
 }
 
-main();
+// Guards the CLI entry point so `render-leg-gate-report.mjs` (T021, #2770)
+// can import `discoverShards` (above) without running this script's own
+// `main()` — and its `process.exit(1)`s — as an import-time side effect.
+// Mirrors `render-leg-summary.mjs`'s identical guard. `node scripts/
+// render-leg-check.mjs <shards-dir> <baseline-path>` (every existing caller,
+// including every test in `render-leg-check.test.mjs`, which spawns this as
+// a child process) is unaffected: `process.argv[1]` is this file's own path
+// only when it is the process actually invoked.
+const isMainModule = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+
+if (isMainModule) {
+  main();
+}

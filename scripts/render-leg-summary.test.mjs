@@ -131,7 +131,16 @@ test('a single attempt with samples prints the leg, its budget, and the frame in
   assert.match(outcome.summary, /40/, describeFailure(outcome)); // p50
   assert.match(outcome.summary, /16\.67/, describeFailure(outcome));
   assert.match(outcome.summary, /16\.40\b/, describeFailure(outcome));
-  assert.match(outcome.summary, /no threshold is asserted/i, describeFailure(outcome));
+  // T028 (#2770): the old wording ("no threshold is asserted") read as "not
+  // built yet" — but T018's FR-019 decision (figures.md `## Verdict`) is a
+  // deliberate finding, not an omission, so the wording now says so and
+  // names the ADR this is waiting on. Replaced on purpose (spec FR-020's
+  // intent, applied to the report-only branch plan.md §9.4 actually took);
+  // not weakened — the claim "no threshold is enforced" still holds.
+  assert.match(outcome.summary, /report-only/i, describeFailure(outcome));
+  assert.match(outcome.summary, /FR-019 not met/i, describeFailure(outcome));
+  assert.match(outcome.summary, /ADR/i, describeFailure(outcome));
+  assert.doesNotMatch(outcome.summary, /no threshold is asserted/i, describeFailure(outcome));
 });
 
 test("the cadence reading derives the 1.5x/2x floor from this run's own frame interval, not T alone (phase-6 review)", () => {

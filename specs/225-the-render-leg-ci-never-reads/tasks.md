@@ -20,11 +20,21 @@ rather than issue state. Spec §10 and plan §9 hold the evidence.**
 | T015–T017 (`figures.md`) | **done**, this branch, commit `068ef445`. 21 real `develop` push-CI runs in the FR-022 window (20 under spec §10.5's own prior count), both datasets computed from the runs' own artifacts | `figures.md` |
 | T018 (FR-014 decision gate) | **done — report-only branch taken.** FR-019 fails on both datasets (3σ = 25.65 ms / 26.11 ms against the 25 ms limit — by 0.65 ms / 1.11 ms, smaller than the estimate's own ~4 ms sampling error on 3σ) | `figures.md` §Decision |
 | T019, T019c (`baseline.json` + the real-pair check) | **deferred by T018's decision, per plan §9.4.** Genuinely ADR-blocked: both need a committed threshold number, and deciding what that number should be is the ADR the lane may not write | `figures.md` §Decision |
-| T028, T021, T022 | **not built this branch.** Their *threshold* forms need the same ADR as T019. Their *report-only* forms (T028's report-only summary wording; T021 as a job that always exits 0) are **not themselves ADR-blocked** — building a report that asserts nothing requires no threshold decision — but were not attempted in this PR, which scoped to T029 plus the evidence in `figures.md`. Left as follow-up, either alongside the ADR or before it | tasks.md (this note) |
+| T028, T021, T022 | **superseded by the 2026-10-07 row below.** Recorded here for the historical record: at the time of this note, their *report-only* forms were judged not ADR-blocked but had not been attempted | tasks.md (this note) |
 | T023–T025 | not started | — |
 
 **Open, in order: T029 → T015 → T016 → T017 → T018 ⟨GATE⟩, done this branch. Still open: (T019 → T019c) → T028 → T021 → T022 ⟨GATE⟩ → T023–T025**, all of it downstream of the ADR #2337 is blocked on.
 They go in one PR on `ci/2337-render-leg-gate-completion` (plan §9.1).
+
+**Progress (2026-10-07), issue #2770 (split off #2337), spec §11 / plan §10 hold
+the evidence:**
+
+| Task | State | How verified |
+|---|---|---|
+| T028 (summary wording, report-only form) | **done.** `render-leg-summary.mjs`'s per-shard section no longer says "no threshold is asserted"; it says `report-only: FR-019 not met (3σ = 25.65 ms ≥ 25 ms)` and names the ADR (#2337). RED quoted against the unmodified script (`render-leg-summary.test.mjs:134`'s old assertion failed first), GREEN after. Narrower than FR-020's literal condition — spec §11.1 says why | `scripts/render-leg-summary.mjs`, `render-leg-summary.test.mjs` |
+| T021 (`render-leg-gate` job, report-only form) | **done.** New job in `ci.yml`, `needs: [e2e-shards]`, `if: always()`, `actions/download-artifact` pinned by full SHA (`d3f86a106a0bac45b974a628896c90dbdf5c8093` = v4.3.0, this repo's first use), new script `scripts/render-leg-gate-report.mjs` (NOT `render-leg-check.mjs` — §9.4 forbids running the real checker against an uncommitted baseline). Verified to exit 0 in every scenario tried: records present, absent, malformed, two shards, `e2e-shards` result `skipped`/`cancelled`/`success`/missing. 8/8 tests pass. `actionlint` clean on `ci.yml` | `.github/workflows/ci.yml`, `scripts/render-leg-gate-report.mjs` (+ `.test.mjs`) |
+| T020 (`render-leg-check.mjs`), additive fix only | **unaffected, re-verified.** One export (`discoverShards`) plus the `isMainModule` guard `render-leg-summary.mjs` already used — needed because the unguarded `main()` would otherwise run as an import side effect and call `process.exit` before the new script's own `main()` ran. 25/25 existing tests still pass | spec §11.3, plan §10.1 |
+| T019, T019c, T022, T023–T025 | **still not built**, as before — genuinely ADR-blocked or dependent on the ADR branch (T022 has nothing to prove by counterfactual on a job with no exit-code logic). #2337 stays open | spec §11.3 |
 
 **T018's outcome:** on the real FR-022 window, FR-019 **fails** on both the
 21-run and 20-run datasets (spec §10.5; `figures.md`). The report-only branch

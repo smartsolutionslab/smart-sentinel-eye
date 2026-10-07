@@ -1030,3 +1030,67 @@ jobs:
             echo "::error::backend=$backend frontend=$frontend e2e-shards=$shards e2e-shard-coverage=$guard (expected success/success)."
             exit 1
           fi
+
+  # Spec 225 §9.4/§9.5, #2770 — the composite-and-render leg's cross-shard
+  # report. Plan.md §8.1 designed this as a job, not a step inside
+  # `e2e-shards`, because the span test runs in exactly one of four shards:
+  # a step inside any single shard cannot see the other three, and FR-012
+  # forbids guessing whether "no record here" means "not my shard" or
+  # "unmeasured".
+  #
+  # Report-only, not a gate (T018's decision, figures.md `## Verdict`): the
+  # real FR-022 window's 3σ (25.65-26.11 ms) fails FR-019's 25 ms feasibility
+  # test, so no `baseline.json` is committed — a baseline that exists is a
+  # threshold that exists, and this data does not support one honestly.
+  # `render-leg-check.mjs` (T020, the regression gate that DOES exit
+  # non-zero) is therefore deliberately NOT invoked here: running it against
+  # a derived, uncommitted threshold would be a threshold by the back door.
+  # This job's own script, `render-leg-gate-report.mjs`, never exits
+  # non-zero — its whole purpose is visibility (making the figure readable in
+  # one place, across all 4 shards, instead of a reviewer hunting through
+  # four 14-day artifacts), not enforcement. #2337 stays open pending the ADR
+  # on what CI may enforce on this leg; the lane may not write that ADR
+  # (ADR-0144).
+  #
+  # Not added to `e2e`'s `needs` (plan.md §8.1): keeping this separate from
+  # the suite's own pass/fail is deliberate even report-only, so a later
+  # threshold-gate branch doesn't have to be carved out of `e2e` retroactively.
+  # `if: always()` so it still runs and still reports when `e2e-shards`
+  # partially failed, was skipped, or was cancelled (FR-023).
+  render-leg-gate:
+    name: render leg gate (composite + render, section IV) — report-only
+    runs-on: ubuntu-latest
+    needs: [e2e-shards]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Node 22
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      # Only when e2e-shards actually ran (FR-023): downloading against a
+      # skipped/cancelled upstream would either find nothing or find a stale
+      # artifact from a run that isn't this one. `continue-on-error` so a
+      # download-side failure (e.g. the pattern matches nothing) still falls
+      # through to the report step below, which must be the one that names
+      # the problem (`render-leg-gate-report.mjs` prints "unmeasured" either
+      # way) -- this job's own result stays `if: always()`-reachable rather
+      # than stopping dead on this step.
+      - name: Download the Playwright report from every shard
+        if: needs.e2e-shards.result != 'skipped' && needs.e2e-shards.result != 'cancelled'
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: playwright-report-*-of-4
+          path: shards
+
+      # Report-only: see the job-level comment above. Always `always()` and
+      # the script itself never exits non-zero (NFR-001-style contract,
+      # mirroring render-leg-summary.mjs) -- this step cannot redden the
+      # build no matter what shape the shard layout turns out to be.
+      - name: Report the render leg across all 4 shards (report-only — cannot fail the build)
+        if: always()
+        run: node scripts/render-leg-gate-report.mjs shards "${{ needs.e2e-shards.result }}"

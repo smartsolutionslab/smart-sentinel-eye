@@ -615,3 +615,76 @@ real pair can drift unchecked (spec §10.1).
 
 On the report-only branch there is no `baseline.json`, so T019c is deferred
 along with T019. Say so in the PR.
+
+---
+
+## 10. Addendum, #2770: T021/T028 built, on the report-only branch §9.4 named
+
+Spec §11 is the authoritative record of this slice; this section is its plan
+counterpart, kept to §9's own rule of amending rather than rewriting.
+
+### 10.1 T021: the job, as actually built
+
+§8.1's YAML shape stands, with the report-only substitution §9.4 already
+specified (not `render-leg-check.mjs`, but "render-leg-summary.mjs-style
+reporting across the shard union"):
+
+```yaml
+render-leg-gate:
+  name: render leg gate (composite + render, section IV) — report-only
+  runs-on: ubuntu-latest
+  needs: [e2e-shards]
+  if: always()
+  timeout-minutes: 5
+  steps:
+    - checkout
+    - setup-node 22                       # no pnpm install, per §9.5
+    - actions/download-artifact            # d3f86a106a0bac45b974a628896c90dbdf5c8093 = v4.3.0
+      if: needs.e2e-shards.result != 'skipped' && needs.e2e-shards.result != 'cancelled'
+      continue-on-error: true              # §9.5: a download-side failure must
+                                           # still fall through to the report step
+      with: { pattern: playwright-report-*-of-4, path: shards }
+    - node scripts/render-leg-gate-report.mjs shards "${{ needs.e2e-shards.result }}"
+      if: always()
+```
+
+`scripts/render-leg-gate-report.mjs` is new, not `render-leg-check.mjs` reused
+with a flag — §9.4 forbids running the real checker against a derived,
+uncommitted baseline, and a flag that disables a checker's own exit code is
+exactly that checker with extra steps. The new script:
+
+- reuses `render-leg-check.mjs`'s `discoverShards` (now exported) rather than
+  redeclaring the `actions/download-artifact` layout a second time;
+- reuses `render-leg-summary.mjs`'s `twoDecimals`;
+- never calls `process.exit` with a non-zero argument, and wraps `main()` in
+  the same top-level try/catch `render-leg-summary.mjs` uses, for the same
+  NFR-001-shaped reason: a bug in a report-only script must not redden the
+  build it was added to make more readable, not less.
+
+**A latent hazard this surfaced:** `render-leg-check.mjs` called its own
+`main()` unconditionally at module scope, with no `isMainModule` guard. That
+was safe as long as nothing ever imported it — true until now. Importing it
+to reuse `discoverShards` would have run its `main()` as a side effect,
+reading `process.argv` meant for `render-leg-gate-report.mjs` and very likely
+calling `process.exit(1)` before the new script's own `main()` ran at all,
+which would have broken the one invariant T021 exists to guarantee. Fixed by
+giving `render-leg-check.mjs` the identical `isMainModule` guard
+`render-leg-summary.mjs` already had (two lines, additive); verified against
+its own 25-case test suite, unchanged and still green, and against a direct
+`import()` of the module with no `main()` side effect observed.
+
+### 10.2 T028: the wording, narrower than §9.4's generic form
+
+§9.4 says T028's wording "says the same" as the job's report-only message.
+Built that way: `render-leg-summary.mjs`'s per-shard section states the
+measured 3σ, names FR-019 as not met, and points at `figures.md` and
+`render-leg-gate` — the same facts the job-level report states, at shard
+granularity instead of across the union. Spec §11.1 records why this is
+narrower than FR-020's literal condition ("once a threshold ships") and why
+#2770 asked for it anyway.
+
+### 10.3 Not built in this slice
+
+T019/T019c (blocked on the ADR, unchanged from §9.4), T022 (nothing to prove
+by counterfactual on a job with no exit-code logic to trip), T023-T025
+(wrap-up, not reached). `baseline.json` is not committed. #2337 stays open.
