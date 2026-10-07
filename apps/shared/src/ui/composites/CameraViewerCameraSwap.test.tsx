@@ -661,4 +661,88 @@ describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157
     expect(screen.queryByText('Connecting…')).toBeNull();
     expect(fetchMock.mock.calls.filter(isPostTo(CAM_A_WHEP_URL))).toHaveLength(1);
   });
+
+  /**
+   * Issue #2740 / ADR-0167. Spec 222 scoped PROBE B — same-commit `whepUrl`
+   * and `getToken` change — out of its own slice and filed it as #2544,
+   * explicitly noting that closing the gap here "needs a different
+   * instrument... freshness would have to be read off an `Authorization`
+   * header after forcing a reconnect" (spec 222 §Scope). This is that
+   * instrument, reusing the same `FakePeerConnection` + `fetch` harness the
+   * rest of this file already drives, rather than building a new one.
+   *
+   * ADR-0167 decided the fix (`useLayoutEffect` for the `getTokenRef` sync in
+   * `useWhepSession.ts:135-137`) without touching it here — phase 4b's job,
+   * not this test's. This test only pins which token the release `DELETE`
+   * must carry.
+   */
+  describe('A session release presents the freshest committed token (#2740, ADR-0167)', () => {
+    function deleteCalls(): unknown[][] {
+      return fetchMock.mock.calls.filter((call) => {
+        const [input, init] = call as [RequestInfo | URL, RequestInit | undefined];
+        const method = isRequestLike(input) ? input.method : (init?.method ?? 'GET');
+        return method === 'DELETE';
+      });
+    }
+
+    function authorizationOf(call: unknown[]): string | undefined {
+      const init = call[1] as RequestInit;
+      return (init.headers as Record<string, string>).Authorization;
+    }
+
+    it('Carries the NEW token on the release DELETE when whepUrl and getToken change in the same commit (PROBE B, inverted)', async () => {
+      setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
+      const view = render(viewerFor(CAM_A, async () => 'token-old'));
+      await goLive();
+
+      // Act — PROBE B's exact shape: the camera swap changes whepUrl (CAM_B's
+      // own stream read is deliberately left unanswered, as elsewhere in this
+      // file — the session effect short-circuits on `!whepUrl` before a new
+      // client is ever built) AND getToken changes, in the SAME rerender.
+      view.rerender(viewerFor(CAM_B, async () => 'token-new'));
+      await driveConnectChain();
+
+      const released = deleteCalls();
+      expect(released, "camera A's session release DELETE must have been issued").toHaveLength(1);
+
+      // RED today (ADR-0167): the `getTokenRef` sync is a plain `useEffect`,
+      // whose SETUP runs only after every passive effect's CLEANUP in this
+      // commit has already run — so the session effect's cleanup
+      // (`client.close()` → `releaseSession()` → `getTokenRef.current()`)
+      // reads the ref before the sync effect updates it, and the DELETE
+      // carries 'token-old': the credential that authorized the session
+      // being released, not the fresh one.
+      expect(authorizationOf(released[0]!), 'the release must present the freshest committed credential').toBe(
+        'Bearer token-new',
+      );
+    });
+
+    it('Carries the fresh token at unmount when getToken changed in an earlier, separate commit (PROBE C — characterisation)', async () => {
+      setStreamAnswer(CAM_A, () => jsonResponse(healthyStream(CAM_A, CAM_A_WHEP_URL)));
+      const view = render(viewerFor(CAM_A, async () => 'token-old'));
+      await goLive();
+
+      // A SEPARATE commit: only getToken changes, same camera — the "Keeps
+      // the session to camera A across an unrelated re-render" shape above,
+      // not a swap. Both the mount-time useRef initializer and the ref-sync
+      // effect have fully committed by the time this rerender's own effects
+      // flush, well before the unmount below.
+      view.rerender(viewerFor(CAM_A, async () => 'token-new'));
+      await driveConnectChain();
+
+      view.unmount();
+      await driveConnectChain();
+
+      const released = deleteCalls();
+      expect(released, 'the unmount session release DELETE must have been issued').toHaveLength(1);
+
+      // GREEN today — characterisation, not a new red. The token change
+      // landed in its own earlier commit, so the ref is already current by
+      // the time the session effect's cleanup runs at unmount, regardless of
+      // whether the sync runs as `useEffect` (today) or `useLayoutEffect`
+      // (ADR-0167). Confirms the staleness above is narrow to the
+      // same-commit case, not a general one.
+      expect(authorizationOf(released[0]!)).toBe('Bearer token-new');
+    });
+  });
 });
