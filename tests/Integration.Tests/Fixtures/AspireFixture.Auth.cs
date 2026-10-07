@@ -15,7 +15,7 @@ public sealed partial class AspireFixture
     // run does not hammer Keycloak with a fresh password grant per test
     // (same reasoning as Yumney's AspireFixture).
     private static readonly TimeSpan ExpirySafetyMargin = TimeSpan.FromMinutes(1);
-    private readonly ConcurrentDictionary<string, CachedToken> _tokenCache = new();
+    private readonly ConcurrentDictionary<string, CachedToken> tokenCache = new();
 
     /// <summary>
     /// Every service declares <c>WithHttpEndpoint()</c> in AppHost and none
@@ -74,7 +74,7 @@ public sealed partial class AspireFixture
         string username, string password, CancellationToken cancellationToken = default)
     {
         string cacheKey = $"{username}|{password}";
-        if (_tokenCache.TryGetValue(cacheKey, out CachedToken? cached) &&
+        if (tokenCache.TryGetValue(cacheKey, out CachedToken? cached) &&
             cached.ExpiresAt > DateTimeOffset.UtcNow + ExpirySafetyMargin)
         {
             return cached.AccessToken;
@@ -82,7 +82,7 @@ public sealed partial class AspireFixture
 
         CachedToken token = await FetchAccessTokenAsync(username, password, cancellationToken)
             .ConfigureAwait(false);
-        _tokenCache[cacheKey] = token;
+        tokenCache[cacheKey] = token;
         return token.AccessToken;
     }
 

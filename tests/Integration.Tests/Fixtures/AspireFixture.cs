@@ -94,7 +94,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromMinutes(8);
 
-    private DistributedApplication? _app;
+    private DistributedApplication? app;
 
     /// <summary>
     /// Services whose console output is tailed for diagnostics. A resource can
@@ -241,18 +241,18 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         "Terminated",
     ];
 
-    private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> _logTails = new(StringComparer.Ordinal);
-    private readonly ConcurrentDictionary<string, string> _logTailFailures = new(StringComparer.Ordinal);
-    private CancellationTokenSource? _logCts;
-    private Task[]? _logTailTasks;
+    private readonly ConcurrentDictionary<string, ConcurrentQueue<string>> logTails = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<string, string> logTailFailures = new(StringComparer.Ordinal);
+    private CancellationTokenSource? logCts;
+    private Task[]? logTailTasks;
 
     // xUnit invokes DisposeAsync; this IDisposable.Dispose only exists to
-    // satisfy CA1001 (the type owns _logCts). Resource disposal happens in
+    // satisfy CA1001 (the type owns logCts). Resource disposal happens in
     // DisposeAsync above.
-    public void Dispose() => _logCts?.Dispose();
+    public void Dispose() => logCts?.Dispose();
 
     public DistributedApplication App =>
-        _app ?? throw new InvalidOperationException("Aspire AppHost has not been started.");
+        app ?? throw new InvalidOperationException("Aspire AppHost has not been started.");
 
     public HttpClient CameraCatalog { get; private set; } = null!;
 
@@ -329,13 +329,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         builder.Services.ConfigureHttpClientDefaults(FixtureHttpClients.Configure);
 
-        _app = await builder.BuildAsync(cts.Token).ConfigureAwait(false);
+        app = await builder.BuildAsync(cts.Token).ConfigureAwait(false);
 
-        _logCts = new CancellationTokenSource();
+        logCts = new CancellationTokenSource();
 
         try
         {
-            await _app.StartAsync(cts.Token).ConfigureAwait(false);
+            await app.StartAsync(cts.Token).ConfigureAwait(false);
 
             // Subscribe only once the resources exist. Started before
             // StartAsync, WatchAsync has nothing to watch and completes
@@ -343,14 +343,14 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // nothing and reported it as "the service said nothing".
             foreach (string resource in TailedResources)
             {
-                _logTails.TryAdd(resource, new ConcurrentQueue<string>());
+                logTails.TryAdd(resource, new ConcurrentQueue<string>());
             }
 
-            _logTailTasks = TailedResources
-                .Select(resource => Task.Run(() => TailResourceLogsAsync(resource, _logCts.Token), _logCts.Token))
+            logTailTasks = TailedResources
+                .Select(resource => Task.Run(() => TailResourceLogsAsync(resource, logCts.Token), logCts.Token))
                 .ToArray();
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("keycloak", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
@@ -373,7 +373,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // state text through unmodified so the two cannot differ in fact —
             // but matching the comparer makes "the same condition" exact rather
             // than true-by-inspection.
-            ResourceEvent migrations = await _app.ResourceNotifications
+            ResourceEvent migrations = await app.ResourceNotifications
                 .WaitForResourceAsync(
                     "migrations",
                     migration => string.Equals(
@@ -388,7 +388,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 // Only on this branch: a healthy boot must not pay the bounded
                 // five-second log read.
                 Aspire.Hosting.ApplicationModel.ResourceLoggerService migrationLoggers =
-                    _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
+                    app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
                 string migrationsLog =
                     await CaptureOneResourceLogAsync(migrationLoggers, "migrations").ConfigureAwait(false);
@@ -400,11 +400,11 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     FormatMigrationFailureMessage(migrations.Snapshot.ExitCode.Value, migrationsLog));
             }
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("camera-catalog", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("mediamtx", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
@@ -417,35 +417,35 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // to poll short of opening an RTSP session, which the tests do
             // transitively; Running plus a test's own settle budget absorbs
             // FFmpeg's start.
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("fixture-video", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("stream-distribution", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("layout-composition", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("overlay-designer", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("audit-observability", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("event-ingestion", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("system-variables", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("automation", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
@@ -453,7 +453,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // resource with no gate here. LogTailDeliversIntegrationTests reads
             // its tail, so without this the suite relied on identity having
             // started and logged by the time the first test ran.
-            await _app.ResourceNotifications
+            await app.ResourceNotifications
                 .WaitForResourceAsync("identity", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
@@ -483,7 +483,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             Dictionary<string, string> states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
             string failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
-                FormatTimeoutMessage(StartupTimeout, states, _exitCodes, failedLogs, logTail),
+                FormatTimeoutMessage(StartupTimeout, states, exitCodes, failedLogs, logTail),
                 ex);
         }
 
@@ -528,24 +528,24 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         AuditObservability?.Dispose();
         EventIngestion?.Dispose();
 
-        if (_logCts is not null)
+        if (logCts is not null)
         {
-            await _logCts.CancelAsync().ConfigureAwait(false);
-            if (_logTailTasks is not null)
+            await logCts.CancelAsync().ConfigureAwait(false);
+            if (logTailTasks is not null)
             {
-                try { await Task.WhenAll(_logTailTasks).ConfigureAwait(false); }
+                try { await Task.WhenAll(logTailTasks).ConfigureAwait(false); }
                 catch (OperationCanceledException) { /* expected */ }
             }
-            _logCts.Dispose();
-            _logCts = null;
+            logCts.Dispose();
+            logCts = null;
         }
 
-        if (_app is not null)
+        if (app is not null)
         {
-            // No token by design: teardown runs after _logCts is disposed and
+            // No token by design: teardown runs after logCts is disposed and
             // must release the stack even if the run is being torn down.
-            await _app.StopAsync(CancellationToken.None).ConfigureAwait(false);
-            await ((IAsyncDisposable)_app).DisposeAsync().ConfigureAwait(false);
+            await app.StopAsync(CancellationToken.None).ConfigureAwait(false);
+            await ((IAsyncDisposable)app).DisposeAsync().ConfigureAwait(false);
         }
     }
 
@@ -564,7 +564,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     public async Task<string> ResourceDiagnosticsAsync(string resourceName)
     {
-        if (_app is null)
+        if (app is null)
         {
             return "(no application)";
         }
@@ -574,7 +574,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         try
         {
-            await foreach (ResourceEvent evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
+            await foreach (ResourceEvent evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
             {
                 if (!string.Equals(evt.Resource.Name, resourceName, StringComparison.Ordinal))
                 {
@@ -603,7 +603,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private async Task<Dictionary<string, string>> CaptureResourceStateMapAsync()
     {
         Dictionary<string, string> states = new(StringComparer.Ordinal);
-        if (_app is null)
+        if (app is null)
         {
             return states;
         }
@@ -611,10 +611,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
         try
         {
-            await foreach (ResourceEvent evt in _app.ResourceNotifications.WatchAsync(snapshot.Token))
+            await foreach (ResourceEvent evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
             {
                 states[evt.Resource.Name] = evt.Snapshot.State?.Text ?? "(unknown)";
-                _exitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
+                exitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
             }
         }
         catch (OperationCanceledException) { /* expected */ }
@@ -627,7 +627,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     // having it is why the one occurrence of #1918 could not be diagnosed
     // after the fact. Captured alongside the state so the next report answers
     // the question instead of raising it.
-    private readonly Dictionary<string, int?> _exitCodes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Which resources are worth dumping logs for after a startup timeout.
@@ -997,12 +997,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     private async Task<string> CaptureFailedResourceLogsAsync(Dictionary<string, string> states)
     {
-        if (_app is null)
+        if (app is null)
         {
             return "(app not built)";
         }
 
-        string[] failed = SelectResourcesToReport(states, _exitCodes);
+        string[] failed = SelectResourcesToReport(states, exitCodes);
 
         if (failed.Length == 0)
         {
@@ -1010,7 +1010,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         }
 
         Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
-            _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
+            app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
         Dictionary<string, string> logs = new(StringComparer.Ordinal);
         foreach (string name in failed)
@@ -1018,7 +1018,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             logs[name] = await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false);
         }
 
-        return FormatFailedResourceReport(states, _exitCodes, logs);
+        return FormatFailedResourceReport(states, exitCodes, logs);
     }
 
     /// <summary>
@@ -1169,13 +1169,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     public string RecentLogs(string resourceName, int lines = 120)
     {
-        if (!_logTails.TryGetValue(resourceName, out ConcurrentQueue<string>? tail))
+        if (!logTails.TryGetValue(resourceName, out ConcurrentQueue<string>? tail))
         {
             return $"(not tailed — add '{resourceName}' to AspireFixture.TailedResources)";
         }
 
         string[] recent = tail.TakeLast(lines).ToArray();
-        _logTailFailures.TryGetValue(resourceName, out string? failure);
+        logTailFailures.TryGetValue(resourceName, out string? failure);
 
         if (recent.Length == 0)
         {
@@ -1231,12 +1231,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     {
         resourceId = string.Empty;
 
-        if (_app is null)
+        if (app is null)
         {
             return false;
         }
 
-        if (!_app.ResourceNotifications.TryGetCurrentState(resourceName, out ResourceEvent? snapshot))
+        if (!app.ResourceNotifications.TryGetCurrentState(resourceName, out ResourceEvent? snapshot))
         {
             return false;
         }
@@ -1248,7 +1248,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task TailResourceLogsAsync(string resourceName, CancellationToken cancellationToken)
     {
-        if (_app is null)
+        if (app is null)
         {
             return;
         }
@@ -1256,7 +1256,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         try
         {
             Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
-                _app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
+                app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
             // **Re-subscribed in a loop, because a watch ends when its process
             // does.** A restarted resource is a new process, and the first
@@ -1317,7 +1317,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     // — #2038's symptom by a third route, on the one event this
                     // loop exists to survive. RecentLogs still reports the record,
                     // so a recovered tail does not hide the gap it left.
-                    _logTailFailures[resourceName] = $"{ex.GetType().Name}: {ex.Message}";
+                    logTailFailures[resourceName] = $"{ex.GetType().Name}: {ex.Message}";
                 }
 
                 // The stream ended, faulted, or the id we resolved was already
@@ -1345,7 +1345,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // Resolving ResourceLoggerService, or a delay that faulted past the
             // inner handler. Still must not block startup — but record why, so an
             // empty tail is distinguishable from a broken one.
-            _logTailFailures[resourceName] = $"{ex.GetType().Name}: {ex.Message}";
+            logTailFailures[resourceName] = $"{ex.GetType().Name}: {ex.Message}";
         }
     }
 

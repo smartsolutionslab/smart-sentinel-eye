@@ -16,11 +16,11 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 [Collection(AspireCollection.Name)]
 public class KeycloakAdminTokenProviderTests
 {
-    private readonly AspireFixture _fixture;
+    private readonly AspireFixture fixture;
 
     public KeycloakAdminTokenProviderTests(AspireFixture fixture)
     {
-        _fixture = fixture;
+        this.fixture = fixture;
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public class KeycloakAdminTokenProviderTests
 
     private KeycloakAdminTokenProvider CreateProvider()
     {
-        HttpClient http = _fixture.CreateKeycloakClient();
+        HttpClient http = fixture.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),
