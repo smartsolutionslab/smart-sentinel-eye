@@ -1,3 +1,5 @@
+using Aspire.Hosting;
+
 namespace SmartSentinelEye.Integration.Tests;
 
 /// <summary>
@@ -24,25 +26,14 @@ namespace SmartSentinelEye.Integration.Tests;
 /// </para>
 ///
 /// <para>
-/// <c>api-gateway</c> is the recorded exception (ADR-0153 clause 2,
-/// <c>AppHost.cs</c>'s <c>// HA (#1005)</c> comment block): it runs at 2
-/// replicas in run mode, gated off under <c>E2ETests=true</c> so the gateway
-/// routing/rate-limit integration tests resolve a single endpoint. Its fate —
-/// a shared rate-limiter store, or returning to one replica — is #2283's
-/// decision, not this guard's; this guard only pins the count as it stands.
-/// </para>
-///
-/// <para>
-/// The run-mode assertion below asserts <c>api-gateway</c> is present
-/// <em>and</em> at exactly 2, not merely that nothing else exceeds 1. A
-/// purely negative assertion ("nothing above one") passes vacuously against
-/// an empty model or a broken accessor; the known-broken exception is this
-/// guard's own liveness witness — the only resource in the system whose count
-/// is above one, so the only available proof that the guard can see a count
-/// above one at all. If #2283 returns the gateway to one replica, this
-/// witness is lost and whoever closes it must add a synthetic two-replica
-/// resource to a throwaway model, or accept the phase-4 counterfactual record
-/// as the standing evidence (spec 169 §5.4).
+/// A purely negative assertion ("nothing above one") passes vacuously against
+/// an empty model or a broken accessor. With no real resource above one
+/// instance left to witness that the accessor can see a count above one, the
+/// witness is a throwaway model holding one resource at two replicas beside
+/// one at the default, read through the same <c>ResourcesAboveOneInstance</c>
+/// the real-model assertions use (spec 169 §5.4). The real-model assertions
+/// also name <c>api-gateway</c> explicitly, so an empty model cannot satisfy
+/// them either.
 /// </para>
 /// </summary>
 [Trait("Category", "FixtureLogic")]
@@ -54,11 +45,6 @@ public class AppHostReplicaCountTests
         + "duplicates. Clause 3 is the only route to an exception — enumerate and resolve "
         + "the context's per-instance state, and add a test that runs two instances and "
         + "fails without the fix.";
-
-    private const string GatewayException =
-        "api-gateway's replica count is a recorded ADR-0153 clause-2 exception. #2283 owns "
-        + "the choice between a shared rate-limiter store and returning to one replica — it "
-        + "must not be changed by an unrelated slice.";
 
     /// <summary>
     /// Run mode with no <c>E2ETests</c>. Not the shape a developer's
@@ -80,20 +66,57 @@ public class AppHostReplicaCountTests
     ];
 
     [Fact]
-    public async Task A_run_mode_stack_composes_only_the_recorded_exception_above_one_instance()
+    public async Task A_run_mode_stack_composes_every_service_at_one_instance()
     {
         IReadOnlyList<IResource> resources = await ComposedResourcesAsync(RunModeArguments);
 
         Dictionary<string, int> aboveOneInstance = ResourcesAboveOneInstance(resources);
 
-        Dictionary<string, int> onlyRecordedException = new() { ["api-gateway"] = 2 };
+        aboveOneInstance.ShouldBeEmpty(
+            $"observed above-one-instance resources: [{Describe(aboveOneInstance)}]. A run-mode "
+            + $"AppHost model must compose every service at one instance, api-gateway included: "
+            + $"its in-memory rate limiter is per process, so a second replica multiplies every "
+            + $"caller's limit (#2283). {OneInstanceRule}");
+
+        IResource? gateway = resources.SingleOrDefault(resource => resource.Name == "api-gateway");
+
+        gateway.ShouldNotBeNull(
+            "api-gateway was absent from the run-mode model — 'nothing above one' is satisfied "
+            + "by an empty model, so this guard asserts the gateway's presence explicitly rather "
+            + "than trusting the negative check alone.");
+
+        gateway.GetReplicaCount().ShouldBe(
+            1,
+            "api-gateway must run as one instance in run mode: no shared rate-limiter store "
+            + "exists, so each replica would hold its own window (ADR-0153 clause 2, #2283).");
+    }
+
+    /// <summary>
+    /// The liveness witness. Neither real model has a resource above one
+    /// instance, so this proves on a throwaway model that
+    /// <c>ResourcesAboveOneInstance</c> still reports a count above one — and
+    /// only that one, not the resource left at the default. Builds the model
+    /// only; nothing is started, and the project path is never compiled.
+    /// </summary>
+    [Fact]
+    public void The_scan_reports_a_resource_composed_above_one_instance_and_nothing_else()
+    {
+        IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder([]);
+        string projectPath = SyntheticProjectPath();
+
+        builder.AddProject("synthetic-single", projectPath);
+        builder.AddProject("synthetic-doubled", projectPath).WithReplicas(2);
+
+        Dictionary<string, int> aboveOneInstance = ResourcesAboveOneInstance([.. builder.Resources]);
+
+        Dictionary<string, int> onlyTheDoubled = new() { ["synthetic-doubled"] = 2 };
 
         aboveOneInstance.ShouldBeEquivalentTo(
-            onlyRecordedException,
-            $"observed above-one-instance resources: [{Describe(aboveOneInstance)}]; expected only "
-            + $"[{Describe(onlyRecordedException)}]. A run-mode AppHost model must compose every "
-            + $"service at one instance except the recorded api-gateway exception. "
-            + $"{OneInstanceRule} {GatewayException}");
+            onlyTheDoubled,
+            $"observed above-one-instance resources: [{Describe(aboveOneInstance)}]; expected "
+            + $"exactly [{Describe(onlyTheDoubled)}]. The scan the real-model assertions rely on "
+            + "cannot see a replica count above one — or cannot tell it from one — so their "
+            + "'nothing above one' proves nothing.");
     }
 
     [Fact]
@@ -139,8 +162,30 @@ public class AppHostReplicaCountTests
         resources.ShouldContain(
             resource => resource.Name == "api-gateway",
             "api-gateway was absent from the composed model — the scan is broken, not "
-            + "passing, because a guard that cannot see its own liveness witness (spec 169 "
-            + "§5.4) proves nothing about any other resource either.");
+            + "passing, because a guard that cannot see the resource it names explicitly "
+            + "proves nothing about any other resource either.");
+    }
+
+    /// <summary>
+    /// A real project file, so the path-string <c>AddProject</c> overload has
+    /// something to point at; the witness never builds or starts it. Built
+    /// with <see cref="System.IO.Path.Combine(string[])"/>, not a literal
+    /// separator — green on Windows and red on Linux CI otherwise.
+    /// </summary>
+    private static string SyntheticProjectPath()
+    {
+        System.IO.DirectoryInfo? candidate = new(AppContext.BaseDirectory);
+        while (candidate is not null
+            && !System.IO.File.Exists(System.IO.Path.Combine(candidate.FullName, "SmartSentinelEye.slnx")))
+        {
+            candidate = candidate.Parent;
+        }
+
+        string root = candidate?.FullName
+            ?? throw new InvalidOperationException(
+                $"could not locate the repository root above {AppContext.BaseDirectory}");
+
+        return System.IO.Path.Combine(root, "src", "ApiGateway", "SmartSentinelEye.ApiGateway.csproj");
     }
 
     /// <summary>
