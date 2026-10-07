@@ -158,8 +158,8 @@ describe('CameraViewer report cadence (#2563)', () => {
   });
 
   /**
-   * Spec 307 US1, scenario 1. **The headline fact.** Today (red): the lag
-   * sampler ticks every 2 s, seeds on its first tick, and reports on every
+   * Spec 307 US1, scenario 1. **The headline fact.** Before this fix: the lag
+   * sampler ticked every 2 s, seeded on its first tick, and reported on every
    * one after — 59 `presentation_buffer` POSTs over 120 s. The decode
    * sampler, 5 s cadence, same shape — 23 `receive_to_decoded` POSTs. The
    * design caps each at 4: the first valid sample ships immediately, and
@@ -249,8 +249,8 @@ describe('CameraViewer report cadence (#2563)', () => {
    * on a reconnect, never the 30 s send window.
    *
    * <p>
-   * Red today for a different reason than scenario 1: nothing throttles
-   * anything yet, so a reconnect's fresh session produces a second
+   * Before this fix, for a different reason than scenario 1: nothing
+   * throttled anything, so a reconnect's fresh session produced a second
    * `presentation_buffer` POST well inside what would be the first POST's
    * 30 s window — proving the gap this case exists to close, independent of
    * the raw-cadence fact scenario 1 already established.

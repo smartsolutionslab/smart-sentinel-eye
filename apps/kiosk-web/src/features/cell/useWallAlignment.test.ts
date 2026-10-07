@@ -415,6 +415,19 @@ describe('useWallAlignment', () => {
    * wall size — proven here against the same threshold the three-tile fact
    * above uses.
    */
+  it('Reports no frame age for a departed tile on a one-tile wall, same as a larger one', () => {
+    const { result } = renderHook(() => useWallAlignment(1));
+
+    act(() => {
+      result.current.reportLag('a', 'cam-a', 150, 70);
+    });
+    expect(result.current.frameAgeFor('a'), 'the precondition, observed').toBe(150);
+
+    cycle(8); // > LAG_STALE_AFTER_MS (15_000ms) at 2_000ms/cycle
+
+    expect(result.current.frameAgeFor('a')).toBeNull();
+  });
+
   /**
    * Spec 307 (#2563). A 4-tile wall at rest sends 246 req/min; `wall_skew`
    * alone is 30 of those from one wall's settle cycle reporting every 2 s.
@@ -423,9 +436,9 @@ describe('useWallAlignment', () => {
    * per 30 s.
    *
    * <p>
-   * Today (red): every settle cycle computes a fresh skew from
+   * Before this fix: every settle cycle computed a fresh skew from
    * `lagsRef`'s current contents — no delta between samples is needed, so
-   * there is nothing to "seed" — and reports it unconditionally. 60 cycles
+   * there is nothing to "seed" — and reported it unconditionally. 60 cycles
    * over 120 s at 2 s/cycle ⇒ 60 `wall_skew` POSTs. The design admits the
    * first (leading edge) and then at most once per 30 s: 2, 32, 62, 92 s ⇒
    * 4.
@@ -462,18 +475,5 @@ describe('useWallAlignment', () => {
 
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
-  });
-
-  it('Reports no frame age for a departed tile on a one-tile wall, same as a larger one', () => {
-    const { result } = renderHook(() => useWallAlignment(1));
-
-    act(() => {
-      result.current.reportLag('a', 'cam-a', 150, 70);
-    });
-    expect(result.current.frameAgeFor('a'), 'the precondition, observed').toBe(150);
-
-    cycle(8); // > LAG_STALE_AFTER_MS (15_000ms) at 2_000ms/cycle
-
-    expect(result.current.frameAgeFor('a')).toBeNull();
   });
 });
