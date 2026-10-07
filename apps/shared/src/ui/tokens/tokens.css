@@ -140,11 +140,14 @@
   --color-accent-active-text: var(--color-accent-active);
   --color-accent-warning-text: var(--color-accent-warning);
   --color-accent-fault-text: var(--color-accent-fault);
-  /* On-video triad text (#2709; ADR-0146 item 4, note of 2026-10-07): the
-     ground is --color-bg-video, pinned black in every theme, so the signal
-     clears 4.5:1 on it everywhere and no theme may move these — unlike the
-     -text roles above, which adapt to a theme's own surfaces. Not declared
-     for `active`: no on-video call site paints green text (ADR-0036). */
+  /* On-video triad text (#2709): the ground is --color-bg-video, pinned
+     black in every theme, so the signal clears 4.5:1 on it everywhere and
+     no theme may move these — unlike the -text roles above, which adapt to
+     a theme's own surfaces. Not declared for `active`: no on-video call
+     site paints green text (ADR-0036). ADR-0146's amendment still reads
+     "used wherever the triad colours text"; this role is the recorded,
+     narrower exception for this one ground — #2735 tracks adding the note
+     to the ADR itself. */
   --color-accent-warning-on-video: var(--color-accent-warning);
   --color-accent-fault-on-video: var(--color-accent-fault);
 

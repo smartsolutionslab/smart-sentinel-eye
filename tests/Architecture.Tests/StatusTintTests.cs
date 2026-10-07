@@ -367,7 +367,7 @@ public class StatusTintTests
 
             if (rootDeclarations.Length == 0)
             {
-                problems.Add($"{onVideoName} is not declared in :root (#2709, ADR-0146 item 4 note 2026-10-07).");
+                problems.Add($"{onVideoName} is not declared in :root (#2709; ADR-0146 note pending, see #2735).");
             }
             else if (rootDeclarations[0].Value != expectedValue)
             {
