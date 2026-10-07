@@ -13,19 +13,19 @@ namespace SmartSentinelEye.EventIngestion.Domain.Tests.SourceMode;
 /// </summary>
 public sealed class SourceModeBuilder
 {
-    private FabIdentifier _fab = FabIdentifier.From("dresden");
-    private Source _source = Source.Manual;
-    private Domain.SourceMode.EventTypeMode _mode = Domain.SourceMode.EventTypeMode.Strict;
-    private OperatorIdentifier _declaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
-    private FakeClock _clock = new(
+    private FabIdentifier fab = FabIdentifier.From("dresden");
+    private Source source = Source.Manual;
+    private Domain.SourceMode.EventTypeMode mode = Domain.SourceMode.EventTypeMode.Strict;
+    private OperatorIdentifier declaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+    private FakeClock clock = new(
         DateTimeOffset.Parse("2026-05-28T08:14:33Z", CultureInfo.InvariantCulture));
 
-    public SourceModeBuilder WithFab(string fab) { _fab = FabIdentifier.From(fab); return this; }
-    public SourceModeBuilder WithSource(Source source) { _source = source; return this; }
-    public SourceModeBuilder WithMode(Domain.SourceMode.EventTypeMode mode) { _mode = mode; return this; }
-    public SourceModeBuilder DeclaredBy(OperatorIdentifier declaredBy) { _declaredBy = declaredBy; return this; }
-    public SourceModeBuilder At(DateTimeOffset moment) { _clock = new FakeClock(moment); return this; }
+    public SourceModeBuilder WithFab(string fab) { this.fab = FabIdentifier.From(fab); return this; }
+    public SourceModeBuilder WithSource(Source source) { this.source = source; return this; }
+    public SourceModeBuilder WithMode(Domain.SourceMode.EventTypeMode mode) { this.mode = mode; return this; }
+    public SourceModeBuilder DeclaredBy(OperatorIdentifier declaredBy) { this.declaredBy = declaredBy; return this; }
+    public SourceModeBuilder At(DateTimeOffset moment) { clock = new FakeClock(moment); return this; }
 
     public Domain.SourceMode.SourceMode Build() =>
-        Domain.SourceMode.SourceMode.Declare(_fab, _source, _mode, _declaredBy, _clock);
+        Domain.SourceMode.SourceMode.Declare(fab, source, mode, declaredBy, clock);
 }

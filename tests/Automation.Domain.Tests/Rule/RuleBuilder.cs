@@ -16,28 +16,28 @@ public sealed class RuleBuilder
     // Defaults to munich, which is also what the spec-013 migration backfills
     // pre-existing rules to — so a test that does not care about fabs reads
     // the same as it did before the field existed.
-    private FabIdentifier _fab = FabIdentifier.From("munich");
-    private RuleName _name = RuleName.From("high-oee-on-fast-cycle");
-    private TriggerSource _triggerSource = TriggerSource.From("plc");
-    private TriggerKind _triggerKind = TriggerKind.From("PlcCycleStart");
-    private RulePredicate _predicate = RulePredicate.From("$.payload.cycleTime <= 30");
-    private RuleAction _action = RuleAction.SetVariableValue.From(
+    private FabIdentifier fab = FabIdentifier.From("munich");
+    private RuleName name = RuleName.From("high-oee-on-fast-cycle");
+    private TriggerSource triggerSource = TriggerSource.From("plc");
+    private TriggerKind triggerKind = TriggerKind.From("PlcCycleStart");
+    private RulePredicate predicate = RulePredicate.From("$.payload.cycleTime <= 30");
+    private RuleAction action = RuleAction.SetVariableValue.From(
         "oeeLine1", "100 - $.payload.cycleTime * 2");
-    private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
-    private FakeClock _clock = new(
+    private OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+    private FakeClock clock = new(
         DateTimeOffset.Parse("2026-05-28T08:00:00Z", CultureInfo.InvariantCulture));
 
-    public RuleBuilder WithFab(string fab) { _fab = FabIdentifier.From(fab); return this; }
-    public RuleBuilder WithName(string name) { _name = RuleName.From(name); return this; }
-    public RuleBuilder WithTriggerSource(string source) { _triggerSource = TriggerSource.From(source); return this; }
-    public RuleBuilder WithTriggerKind(string kind) { _triggerKind = TriggerKind.From(kind); return this; }
-    public RuleBuilder WithPredicate(string predicate) { _predicate = RulePredicate.From(predicate); return this; }
-    public RuleBuilder WithAction(RuleAction action) { _action = action; return this; }
-    public RuleBuilder WithCreatedBy(OperatorIdentifier op) { _createdBy = op; return this; }
-    public RuleBuilder WithClock(DateTimeOffset now) { _clock = new FakeClock(now); return this; }
+    public RuleBuilder WithFab(string fab) { this.fab = FabIdentifier.From(fab); return this; }
+    public RuleBuilder WithName(string name) { this.name = RuleName.From(name); return this; }
+    public RuleBuilder WithTriggerSource(string source) { triggerSource = TriggerSource.From(source); return this; }
+    public RuleBuilder WithTriggerKind(string kind) { triggerKind = TriggerKind.From(kind); return this; }
+    public RuleBuilder WithPredicate(string predicate) { this.predicate = RulePredicate.From(predicate); return this; }
+    public RuleBuilder WithAction(RuleAction action) { this.action = action; return this; }
+    public RuleBuilder WithCreatedBy(OperatorIdentifier op) { createdBy = op; return this; }
+    public RuleBuilder WithClock(DateTimeOffset now) { clock = new FakeClock(now); return this; }
 
     public RuleAggregate Build() => RuleAggregate.Create(
-        _fab, _name, _triggerSource, _triggerKind, _predicate, _action, _createdBy, _clock);
+        fab, name, triggerSource, triggerKind, predicate, action, createdBy, clock);
 
-    public FakeClock Clock => _clock;
+    public FakeClock Clock => clock;
 }
