@@ -14,9 +14,12 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 /// <para>
 /// On boot, lists every canonical (<c>cam-{guid}</c>) path configured in
 /// MediaMTX, compares it against the set of paths currently held by
-/// Stream aggregates, and removes any MediaMTX path that no longer backs
-/// a stream (orphan cleanup — covers the "stream deleted while MediaMTX
-/// was down" case).
+/// non-Retired Stream aggregates, and removes any MediaMTX path that no
+/// longer backs a stream (orphan cleanup — covers the "stream deleted
+/// while MediaMTX was down" case). A Retired stream's leftover path
+/// counts as an orphan too, so this pass also finishes any removal that
+/// <c>RetireStreamCommandHandler</c>'s own <c>RemovePathAsync</c> call
+/// couldn't complete.
 /// </para>
 ///
 /// <para>
