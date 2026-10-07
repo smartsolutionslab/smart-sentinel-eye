@@ -105,6 +105,47 @@ public class CreateClientReplacementGuardTests
             + "a different kind under the same clientId is a conflict, not a replacement");
     }
 
+    /// <summary>
+    /// A disabled client of the <i>same</i> kind but a <i>different</i> fab —
+    /// the mismatch case <see cref="IsReplaceableDisabledClient"/>'s <c>sse.fab</c>
+    /// comparison exists to catch: without it, a fab-B registration could delete
+    /// fab-A's disabled client purely because both resolved to the same clientId.
+    /// </summary>
+    [Fact]
+    public async Task A_disabled_client_of_the_same_kind_but_a_different_fab_still_conflicts()
+    {
+        const string ClientId = "plc-oven-12";
+        StubKeycloakHandler keycloak = new(DisabledSameKindDifferentFabFlow(ClientId));
+
+        KeycloakClientAlreadyExistsException thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
+            () => CreateAsync(keycloak, Representation(ClientId, kind: "device", fab: "fab-b")));
+
+        thrown.ClientId.ShouldBe(ClientId);
+        keycloak.Requests.ShouldNotContain(
+            request => request.Method == "DELETE",
+            "the found client is disabled and the same kind, but belongs to a different fab — "
+            + "it must not be deleted by another fab's registration sharing the same clientId");
+    }
+
+    /// <summary>
+    /// The same-kind, same-fab case: the one genuine replacement, now proven
+    /// with a real matching fab on both sides rather than both sides absent.
+    /// </summary>
+    [Fact]
+    public async Task A_disabled_client_of_the_same_kind_and_the_same_fab_is_replaced()
+    {
+        const string ClientId = "plc-oven-12";
+        StubKeycloakHandler keycloak = new(DisabledSameKindSameFabFlow(ClientId));
+
+        KeycloakClientCredentials credentials = await CreateAsync(
+            keycloak, Representation(ClientId, kind: "device", fab: "fab-a"));
+
+        credentials.ClientSecret.ShouldBe(
+            "fresh-secret-after-same-fab-reregistration",
+            "the disabled client shares the same sse.kind and sse.fab, so it should have been "
+            + "deleted and a fresh one created in its place");
+    }
+
     private static Task<KeycloakClientCredentials> CreateAsync(
         StubKeycloakHandler keycloak, KeycloakClientRepresentation representation) =>
         new HttpKeycloakAdminClient(
@@ -145,6 +186,39 @@ public class CreateClientReplacementGuardTests
         {
             { Method: "GET", PathAndQuery: var path } when path.Contains("clientId=", StringComparison.Ordinal) =>
                 $$$"""[{"id":"{{{ExistingClientUuid}}}","clientId":"{{{clientId}}}","enabled":false,"attributes":{"sse.kind":"device","sse.fab":"munich"}}]""",
+            _ => null,
+        };
+
+    private static Func<StubKeycloakHandler, RecordedRequest, string?> DisabledSameKindDifferentFabFlow(string clientId) =>
+        (_, request) => request switch
+        {
+            { Method: "GET", PathAndQuery: var path } when path.Contains("clientId=", StringComparison.Ordinal) =>
+                $$$"""[{"id":"{{{ExistingClientUuid}}}","clientId":"{{{clientId}}}","enabled":false,"attributes":{"sse.kind":"device","sse.fab":"fab-a"}}]""",
+            _ => null,
+        };
+
+    /// <summary>
+    /// The full flow the fixed implementation needs for a genuine same-fab
+    /// replacement: the first probe finds the disabled client stamped with
+    /// the same <c>sse.kind</c> and <c>sse.fab</c> as the one being
+    /// (re-)created, a delete removes it, the create proceeds, and the
+    /// second probe (after create) finds the freshly-minted one.
+    /// </summary>
+    private static Func<StubKeycloakHandler, RecordedRequest, string?> DisabledSameKindSameFabFlow(string clientId) =>
+        (keycloak, request) => request switch
+        {
+            { Method: "GET", PathAndQuery: var path } when path.Contains("clientId=", StringComparison.Ordinal) =>
+                keycloak.CountOf("clientId=") == 1
+                    ? $$$"""[{"id":"{{{ExistingClientUuid}}}","clientId":"{{{clientId}}}","enabled":false,"attributes":{"sse.kind":"device","sse.fab":"fab-a"}}]"""
+                    : $$$"""[{"id":"22222222-2222-2222-2222-222222222222","clientId":"{{{clientId}}}"}]""",
+            { Method: "GET", PathAndQuery: var path } when path.EndsWith("/service-account-user", StringComparison.Ordinal) =>
+                """{"id":"33333333-3333-3333-3333-333333333333"}""",
+            { Method: "GET", PathAndQuery: var path } when path.Contains("/group-by-path/", StringComparison.Ordinal) =>
+                """{"id":"44444444-4444-4444-4444-444444444444","name":"munich","path":"/fabs/munich"}""",
+            { Method: "GET", PathAndQuery: var path } when path.EndsWith("/role-mappings/realm", StringComparison.Ordinal) =>
+                "[]",
+            { Method: "GET", PathAndQuery: var path } when path.EndsWith("/client-secret", StringComparison.Ordinal) =>
+                """{"type":"secret","value":"fresh-secret-after-same-fab-reregistration"}""",
             _ => null,
         };
 }
