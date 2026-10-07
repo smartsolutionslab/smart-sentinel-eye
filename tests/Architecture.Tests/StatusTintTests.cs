@@ -51,6 +51,19 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <see cref="The_neutral_label_is_legible_on_its_fill"/> are spec 297's own
 /// facts and must stay green, unmodified, throughout.
 /// </para>
+///
+/// <para>
+/// <b>Spec 308 (issue #2709):</b> <c>ViewerOverlay</c> paints its fault/warning
+/// triad labels directly on <c>--color-bg-video</c>, pinned black in every
+/// theme — not on a theme surface, so the per-theme <c>-text</c> role above is
+/// the wrong fit there (it moves in light). Two new roles,
+/// <c>--color-accent-&lt;role&gt;-on-video</c> for <c>warning</c> and
+/// <c>fault</c> only (no <c>active</c> call site paints on video), stay equal
+/// to the signal in every theme instead. Red on develop:
+/// <see cref="Each_on_video_text_role_is_its_signal_in_every_theme"/> and
+/// <see cref="A_triad_label_is_legible_on_video"/> — neither role is declared
+/// yet.
+/// </para>
 /// </summary>
 public class StatusTintTests
 {
@@ -63,6 +76,11 @@ public class StatusTintTests
     private const double MinimumTextContrast = 4.5; // WCAG 1.4.3.
 
     private static readonly string[] TriadRoles = ["active", "warning", "fault"];
+
+    // Spec 308 (#2709): deliberately NOT TriadRoles — no on-video call site
+    // paints green text, so --color-accent-active-on-video does not exist
+    // (spec §3.2, ADR-0036).
+    private static readonly string[] OnVideoRoles = ["warning", "fault"];
 
     private static readonly Regex SimpleVarValue = new(@"^var\(--[A-Za-z0-9-]+\)$", RegexOptions.Compiled);
 
@@ -314,6 +332,109 @@ public class StatusTintTests
                             $"[{themeName}] {textName} on {ground} is {ratio:F2}:1, below the "
                             + $"{MinimumTextContrast}:1 WCAG 1.4.3 threshold.");
                     }
+                }
+            }
+        }
+
+        problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>
+    /// New fact (spec 308 plan.md §6.1, issue #2709). Each on-video role —
+    /// <c>warning</c> and <c>fault</c> only (<see cref="OnVideoRoles"/>) —
+    /// must be declared <b>in <c>:root</c></b> with the value <c>var(--color-
+    /// accent-&lt;role&gt;)</c> exactly (citing the signal role, not a
+    /// primitive — FR-001), and must <b>not</b> be declared anywhere outside
+    /// <c>:root</c> (FR-002): the ground it sits on, <c>--color-bg-video</c>,
+    /// is pinned black in every theme, so nothing may move this text either.
+    /// Red on develop: neither role is declared at all.
+    /// </summary>
+    [Fact]
+    public void Each_on_video_text_role_is_its_signal_in_every_theme()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+
+        List<string> problems = [];
+
+        foreach (string role in OnVideoRoles)
+        {
+            string onVideoName = $"--color-accent-{role}-on-video";
+            string expectedValue = $"var(--color-accent-{role})";
+
+            Declaration[] rootDeclarations = [.. declarations.Where(d => d.Name == onVideoName && IsRootSelector(d.Selector))];
+
+            if (rootDeclarations.Length == 0)
+            {
+                problems.Add($"{onVideoName} is not declared in :root (#2709, ADR-0146 item 4 note 2026-10-07).");
+            }
+            else if (rootDeclarations[0].Value != expectedValue)
+            {
+                problems.Add(
+                    $"{onVideoName} is declared as '{rootDeclarations[0].Value}' in :root, expected "
+                    + $"'{expectedValue}' — it must cite the signal role, not a primitive (#2709).");
+            }
+
+            Declaration[] outsideRoot = [.. declarations.Where(d => d.Name == onVideoName && !IsRootSelector(d.Selector))];
+            if (outsideRoot.Length > 0)
+            {
+                problems.Add(
+                    $"{onVideoName} is redeclared outside :root: "
+                    + string.Join(", ", outsideRoot.Select(d => d.Selector))
+                    + " — the ground it sits on (--color-bg-video) never changes per theme, so neither may this role (#2709).");
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            $"{tokenFile.Name}'s on-video triad text roles are not pinned to their signal:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    /// <summary>
+    /// New fact (spec 308 plan.md §6.1, issue #2709). Each on-video role, on
+    /// <c>--color-bg-video</c>, clears 4.5:1 (WCAG 1.4.3) in every theme
+    /// (FR-003) — the counterfactual phase 6 must run (plan.md §6.1): pointing
+    /// light's value at <c>--color-accent-&lt;role&gt;-text</c> instead must
+    /// fail this fact (2.91 / 3.14, spec §1). Red on develop: neither role
+    /// resolves at all.
+    /// </summary>
+    [Fact]
+    public void A_triad_label_is_legible_on_video()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        Dictionary<string, string> rootMap = RootMap(declarations);
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+
+        List<string> problems = [];
+
+        foreach ((string themeName, Dictionary<string, string> map) in new[]
+                 {
+                     ("dark", rootMap),
+                     ("light", lightMap),
+                     ("high-contrast", highContrastMap),
+                 })
+        {
+            foreach (string role in OnVideoRoles)
+            {
+                string onVideoName = $"--color-accent-{role}-on-video";
+
+                (double ratio, string? error) = TryContrastRatio(onVideoName, "--color-bg-video", map);
+                if (error is not null)
+                {
+                    problems.Add($"[{themeName}] {error}");
+                    continue;
+                }
+
+                if (ratio < MinimumTextContrast)
+                {
+                    problems.Add(
+                        $"[{themeName}] {onVideoName} on --color-bg-video is {ratio:F2}:1, below the "
+                        + $"{MinimumTextContrast}:1 WCAG 1.4.3 threshold.");
                 }
             }
         }

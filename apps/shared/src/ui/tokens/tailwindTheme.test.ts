@@ -18,6 +18,12 @@ import { tailwindTheme } from './tailwindTheme.js';
  * `tailwind.config.ts` files import.
  *
  * Red on develop: `tailwindTheme.ts` has no `textColor` key at all yet.
+ *
+ * Spec 308 (issue #2709) adds two more `extend.textColor.accent` keys,
+ * `warning-on-video` / `fault-on-video`, for text painted directly on the
+ * theme-invariant `--color-bg-video` ground (spec 308 §2-3). The `toEqual`
+ * below gains those two entries — the declared assertion edit spec 308's
+ * tasks.md calls out; the three existing entries stay byte-identical.
  */
 describe('tailwindTheme', () => {
   it('maps each triad role under extend.textColor.accent to its -text var', () => {
@@ -25,6 +31,8 @@ describe('tailwindTheme', () => {
       active: 'var(--color-accent-active-text)',
       warning: 'var(--color-accent-warning-text)',
       fault: 'var(--color-accent-fault-text)',
+      'warning-on-video': 'var(--color-accent-warning-on-video)',
+      'fault-on-video': 'var(--color-accent-fault-on-video)',
     });
   });
 
@@ -32,5 +40,16 @@ describe('tailwindTheme', () => {
     expect(tailwindTheme.extend.colors.accent.active).toBe('var(--color-accent-active)');
     expect(tailwindTheme.extend.colors.accent.warning).toBe('var(--color-accent-warning)');
     expect(tailwindTheme.extend.colors.accent.fault).toBe('var(--color-accent-fault)');
+  });
+
+  it('maps each on-video role under extend.textColor.accent to its signal-tracking var', () => {
+    // Cast rather than index the `as const` object directly: until the two
+    // keys exist, TypeScript rejects the literal index at compile time
+    // (TS7053) — a build error, not the missing-key runtime failure this red
+    // test is supposed to show. The cast keeps the compile green on develop
+    // and lets the assertion itself carry the signal (ADR-0139).
+    const accentTextColors = tailwindTheme.extend.textColor.accent as Record<string, string>;
+    expect(accentTextColors['warning-on-video']).toBe('var(--color-accent-warning-on-video)');
+    expect(accentTextColors['fault-on-video']).toBe('var(--color-accent-fault-on-video)');
   });
 });
