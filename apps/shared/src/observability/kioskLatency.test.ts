@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
+  createReportThrottle,
   decodeElapsedBetween,
   decodeSampleFrom,
   missingDecodeFieldIn,
+  PERIODIC_REPORT_INTERVAL_MS,
   reportKioskLatency,
   type DecodeSample,
 } from './kioskLatency.js';
@@ -117,6 +119,167 @@ describe('reportKioskLatency — the guards', () => {
 
     expect(console.info).not.toHaveBeenCalled();
     await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+  });
+});
+
+/**
+ * Spec 307 (#2563). A 4-tile wall at rest POSTs 246 req/min, 198 of them this
+ * path — more than the gateway's shared rate-limit bucket gives it. The
+ * samplers keep their cadence; only the network **send** is thinned, at most
+ * once per {@link PERIODIC_REPORT_INTERVAL_MS} per measurement.
+ *
+ * <p>
+ * <b>Keyed by measurement, not by camera.</b> `createReportThrottle`'s
+ * caller decides the scope — one instance per mounted tile for the two tile
+ * legs, one per wall for `wall_skew` — by how many instances it creates;
+ * the throttle itself just answers per {@link KioskMeasurement} name, so
+ * `presentation_buffer` and `receive_to_decoded` on the same tile never
+ * block each other.
+ * </p>
+ *
+ * <p>
+ * `performance.now()`, never `Date.now()` — the same PTP-stepped-clock
+ * reasoning `reportKioskLatency`'s own doc states for every timestamp on
+ * this path.
+ * </p>
+ */
+describe('createReportThrottle', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('Admits the first sample for a measurement', () => {
+    const throttle = createReportThrottle();
+    expect(throttle('wall_skew')).toBe(true);
+  });
+
+  /**
+   * Boundary-exact: refused one millisecond short of the window, admitted
+   * at exactly the interval.
+   */
+  it('Refuses the same measurement one millisecond short of the window, and admits it at the boundary', () => {
+    const throttle = createReportThrottle();
+    expect(throttle('wall_skew')).toBe(true);
+
+    vi.advanceTimersByTime(PERIODIC_REPORT_INTERVAL_MS - 1);
+    expect(throttle('wall_skew')).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(throttle('wall_skew')).toBe(true);
+  });
+
+  it('Throttles each measurement independently, so one does not block another', () => {
+    const throttle = createReportThrottle();
+    expect(throttle('wall_skew')).toBe(true);
+    expect(throttle('wall_skew')).toBe(false);
+
+    // A different measurement's window has not been touched by the call above.
+    expect(throttle('presentation_buffer')).toBe(true);
+  });
+
+  it('Accepts a narrower interval than the default', () => {
+    const throttle = createReportThrottle(1_000);
+    expect(throttle('wall_skew')).toBe(true);
+
+    vi.advanceTimersByTime(999);
+    expect(throttle('wall_skew')).toBe(false);
+
+    vi.advanceTimersByTime(1);
+    expect(throttle('wall_skew')).toBe(true);
+  });
+});
+
+/**
+ * Spec 307 (#2563). `reportKioskLatency`'s new, optional 5th argument.
+ * Order of operations: guards → DEV console line → throttle → send — so a
+ * figure the guards already reject can never spend a window a later, valid
+ * figure needs, and a refused figure still shows up in the per-sample DEV
+ * line (spec 108's e2e harvest, ADR-0122 "alongside, not instead of").
+ */
+describe('reportKioskLatency — a caller-supplied throttle', () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(null, { status: 202 })),
+    );
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+    vi.restoreAllMocks();
+  });
+
+  it('Sends the sample when the throttle admits it', async () => {
+    reportKioskLatency('wall_skew', 'cam-1', 18, token, () => true);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+  });
+
+  /**
+   * US1's "conflict" and "bad request" scenarios both rest on this: a
+   * refused sample must cost nothing on the network path, while the DEV
+   * line stays per sample regardless of whether the network send happened.
+   */
+  it('Sends nothing when the throttle refuses, but still prints the DEV console line', async () => {
+    reportKioskLatency('wall_skew', 'cam-1', 18, token, () => false);
+
+    expect(console.info).toHaveBeenCalledWith('[latency]', {
+      measurement: 'wall_skew',
+      camera: 'cam-1',
+      elapsedMilliseconds: 18,
+    });
+
+    // `send` resolves `getToken` before it ever calls `fetch`, so the network
+    // call — were one going to happen — would not yet have landed on the very
+    // next synchronous line. Give it every chance to, before asserting it
+    // never does.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Proves the network path itself is skipped, not merely the POST body —
+   * a throttled call must not even resolve a token.
+   */
+  it('Never resolves the token when the throttle refuses the sample', () => {
+    const getToken = vi.fn(token);
+    reportKioskLatency('wall_skew', 'cam-1', 18, getToken, () => false);
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Guards run before the throttle is ever consulted, so an invalid figure
+   * cannot spend a window a later, valid figure needs.
+   */
+  it('Never consults the throttle for a figure the guards already reject', () => {
+    const throttle = vi.fn();
+    reportKioskLatency('wall_skew', 'cam-1', -3, token, throttle);
+    reportKioskLatency('wall_skew', 'cam-1', Number.NaN, token, throttle);
+    reportKioskLatency('wall_skew', 'cam-1', 60_001, token, throttle);
+
+    expect(throttle).not.toHaveBeenCalled();
+  });
+
+  it('Still sends nothing for an invalid figure even when a throttle would admit it', () => {
+    reportKioskLatency('wall_skew', 'cam-1', -3, token, () => true);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  /** The Gherkin "bad request" scenario end to end, against a real throttle. */
+  it('Ships the next valid figure in the window after an invalid figure was rejected by the guards', async () => {
+    const throttle = createReportThrottle();
+
+    reportKioskLatency('wall_skew', 'cam-1', -3, token, throttle);
+    reportKioskLatency('wall_skew', 'cam-1', 42, token, throttle);
+
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    const [, init] = vi.mocked(fetch).mock.calls[0]!;
+    expect(JSON.parse(String(init?.body)).elapsedMilliseconds).toBe(42);
   });
 });
 

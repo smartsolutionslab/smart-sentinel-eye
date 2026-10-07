@@ -415,6 +415,55 @@ describe('useWallAlignment', () => {
    * wall size — proven here against the same threshold the three-tile fact
    * above uses.
    */
+  /**
+   * Spec 307 (#2563). A 4-tile wall at rest sends 246 req/min; `wall_skew`
+   * alone is 30 of those from one wall's settle cycle reporting every 2 s.
+   * The control loop itself — `setTarget`, the deadband, hysteresis — is
+   * untouched; only the `wall_skew` **report** is thinned, to at most once
+   * per 30 s.
+   *
+   * <p>
+   * Today (red): every settle cycle computes a fresh skew from
+   * `lagsRef`'s current contents — no delta between samples is needed, so
+   * there is nothing to "seed" — and reports it unconditionally. 60 cycles
+   * over 120 s at 2 s/cycle ⇒ 60 `wall_skew` POSTs. The design admits the
+   * first (leading edge) and then at most once per 30 s: 2, 32, 62, 92 s ⇒
+   * 4.
+   * </p>
+   */
+  it('Ships wall_skew at most once per 30 s while the control loop keeps settling every cycle', async () => {
+    const { posted, getToken } = capturingKioskLatency();
+    const { result } = renderHook(() => useWallAlignment(3, getToken));
+
+    for (let n = 0; n < 60; n += 1) {
+      act(() => {
+        result.current.reportLag('a', 'cam-a', 20, 10);
+        result.current.reportLag('b', 'cam-b', 30, 15);
+        result.current.reportLag('c', 'cam-c', 120, 60);
+      });
+      cycle();
+    }
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    // Today's actual, unthrottled cadence — the fact spec 307 is about.
+    expect(wallSkewCallsIn(posted).length, 'today, unthrottled').toBe(60);
+
+    // The target this change ships.
+    expect(wallSkewCallsIn(posted)).toHaveLength(4);
+
+    // The settle cycle itself is unaffected by the send throttle — still
+    // driven to the induced spread (same arithmetic as "Drives an induced
+    // spread to the slowest tile" above).
+    expect(result.current.targetFor('a')).toBe(110); // 120 − 10 processing
+    expect(result.current.targetFor('b')).toBe(105); // 120 − 15 processing
+    expect(result.current.targetFor('c')).toBe(60); // 120 − 60 processing
+
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it('Reports no frame age for a departed tile on a one-tile wall, same as a larger one', () => {
     const { result } = renderHook(() => useWallAlignment(1));
 
