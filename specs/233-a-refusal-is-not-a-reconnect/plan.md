@@ -9,7 +9,7 @@ This is a frontend-only change in `apps/shared/src/ui/composites`. It touches no
 | File | Change |
 |---|---|
 | `useWhepSession.ts` | Classify the refusal, add the terminal transition and the resilience line, and correct the docblock |
-| `CameraViewer.tsx` | `labelFor('error')` becomes **Access refused**. Nothing else changes: the overlay tone for `'error'` is already `text-accent-fault` and the hint already comes from `errorMessage` |
+| `CameraViewer.tsx` | `labelFor('error')` (`:640`) becomes **Access refused**. Nothing else changes: the overlay tone for `'error'` is already `text-accent-fault-on-video` (`:549-550`, renamed by #2709), and the hint and status-region text already come from `errorMessage` via `hintFor`/`announcementFor` |
 | `FrameGrabber.tsx` | Add `'error'` to the fail-fast arm and correct the comment |
 
 ## 2. Design
@@ -30,7 +30,7 @@ It is local to `useWhepSession.ts` and not exported, with one call site (ADR-003
 
 ### D3: The terminal branch sits in the `connect()` rejection handler
 
-At `:343-346`:
+At `:347-350` (line numbers as of `3fd75492`; spec §1 lists the `396c4fa7` values):
 
 ```ts
 client.connect(videoEl, controller.signal).catch((cause: unknown) => {
@@ -56,10 +56,10 @@ client.connect(videoEl, controller.signal).catch((cause: unknown) => {
 |---|---|
 | Camera change | camera-swap effect → `transitionTo('connecting')`, and the session effect re-runs on `cameraIdentifier` |
 | `whepUrl` / `offlineMessage` change | session-effect dependencies |
-| Degraded → Healthy | the health effect bumps `retryNonce` (`:366-370`) |
+| Degraded → Healthy | the health effect bumps `retryNonce` (`:370-374`) |
 | Remount / reload | new hook instance |
 
-The `Degraded` demotion (`:362`) applies only to `live`, so it cannot pull a tile out of `'error'`. That is correct, and it needs no change.
+The `Degraded` demotion (`:366`) applies only to `live`, so it cannot pull a tile out of `'error'`. That is correct, and it needs no change.
 
 ### D5: The resilience line
 
@@ -67,7 +67,7 @@ The `Degraded` demotion (`:362`) applies only to `live`, so it cannot pull a til
 
 ### D6: FrameGrabber
 
-At `:99`, the condition becomes `status === 'reconnecting' || status === 'offline' || status === 'error'`. The comment at `:95-98` is rewritten to drop the "`'error'` is not reachable" claim and to say that a refusal now arrives as `'error'`.
+At `:110`, the condition becomes `status === 'reconnecting' || status === 'offline' || status === 'error'`. The comment at `:101-109` is rewritten to drop the "`'error'` is not reachable" claim and to say that a refusal now arrives as `'error'`.
 
 ## 3. Messaging / boundaries
 
@@ -87,7 +87,7 @@ Coverage: `apps/shared` falls under the Shared ≥ 90% gate (ADR-0065). The new 
 
 ## 5. Constitution and ADR check
 
-- §IV: N/A (spec §7). §Availability: R1 is recorded, not waived; it needs acceptance in writing (spec §5).
+- §IV: N/A (spec §7). §Availability: R1 is recorded, not waived; it was accepted in writing on 2026-10-07 (spec §5).
 - ADR-0143: the same argument spec 142 made, *do not re-send a credential that cannot succeed*, applied here to the setup path. No amendment is needed.
 - ADR-0036: three production files, a local predicate and a constant. No new abstraction, no config knob, no attempt counter.
 - ADR-0139 / §Testing: red first (spec §6).

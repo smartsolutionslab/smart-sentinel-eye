@@ -1,13 +1,13 @@
 # Spec 233: A refusal is not a reconnect
 
 **Issue**: #2355 · **Branch**: `fix/2355-whep-refusal-terminal-state` · **Phase**: 1 (Specify)
-**Date**: 2026-09-24 · **Base**: `396c4fa7` (branch cut from `origin/develop`)
+**Date**: 2026-09-24 · **Base**: `396c4fa7` (branch cut from `origin/develop`) · **Re-checked**: 2026-10-07 against `3fd75492` (694 commits later; §1 records what moved)
 **Context**: frontend only, `apps/shared/src/ui/composites` (used by `kiosk-web` and `management-web`). No bounded context, no C#, no contract change.
 **Engineer**: `frontend-engineer` · **Reviewer**: `frontend-reviewer` (+ `security-reviewer`, since this is the credential path)
 **Lane**: autonomous (ADR-0144)
 **Phase 4a colour**: **RED** (§6). The change adds a terminal state, a rendered refusal and a new log line.
 **Scope**: issue points **1–3 only**. Point 4 (should a refusal ever be re-attempted, and on what trigger) is **out of scope** and goes back to the orchestrator as a follow-up (§8).
-**ADRs**: ADR-0037 (phases), ADR-0144 (lane), ADR-0139 (new behaviour observed red), ADR-0036 (smallest change), ADR-0143 (a retry must not re-send a credential that cannot succeed; spec 142 applied it to the release path), ADR-0153 (one instance per service, which is why the hook has restart windows, §5 R1), ADR-0118 (one telemetry sink; the resilience line reaches it), ADR-0109 (disjoint files).
+**ADRs**: ADR-0037 (phases), ADR-0144 (lane), ADR-0139 (new behaviour observed red), ADR-0036 (smallest change), ADR-0143 (a retry must not re-send a credential that cannot succeed; spec 142 applied it to the release path), ADR-0153 (one instance per service, which is why the hook has restart windows, §5 R1), ADR-0118 (one telemetry sink; the resilience line reaches it), ADR-0109 (disjoint files), ADR-0161 (the authorize hook's cross-fab refusal, #2092, now a real source of refusals), ADR-0167 (the `getToken` ref is synced in a layout effect, §1 h).
 The issue cites ADR-0076. That ADR is superseded by ADR-0152 and covers SignalR transport, not WHEP, so this spec does not rely on it.
 **Constitution**: §IV: **N/A for all six legs** (§7). §Availability (24/7): see risk R1. §Testing: new behaviour starts red.
 **Amends**: spec 011 FR-003 ("retrying indefinitely"), adding a carve-out for authorization refusals (FR-001 below).
@@ -15,18 +15,27 @@ The issue cites ADR-0076. That ADR is superseded by ADR-0152 and covers SignalR 
 
 ---
 
-## 1. The premise, re-checked against `396c4fa7`
+## 1. The premise, re-checked against `396c4fa7`, then again against `3fd75492`
+
+Line numbers below are as of `3fd75492` (2026-10-07). Where the second re-check moved a reference, the `396c4fa7` value follows in brackets. No behavioural claim changed between the two checks; only line numbers, one class name, and the items under "What changed around it" did.
 
 | # | Issue claim | Status now |
 |---|---|---|
-| a | `useWhepSession.ts:290-292` sends every `connect()` rejection to `scheduleRetry` | **Holds, now at `:343-346`.** |
-| b | `WhepClient.postOffer` throws `WhepError('unauthorized')` on 401 and `('forbidden')` on 403, at `WhepClient.ts:283-286` | **Holds, and the file has moved** to `apps/shared/src/streaming/WhepClient.ts:281-289` (`errorForResponse`). One detail: a 403 whose body contains `unavailable` becomes `'stream-unavailable'`, not `'forbidden'`. |
-| c | `scheduleRetry` has no attempt ceiling and no terminal state | **Holds** (`:237-248`). The cap applies only to the delay (`RETRY_CAP_MS = 15_000`). |
+| a | `useWhepSession.ts:290-292` sends every `connect()` rejection to `scheduleRetry` | **Holds, now at `:347-350`** [`:343-346`]. |
+| b | `WhepClient.postOffer` throws `WhepError('unauthorized')` on 401 and `('forbidden')` on 403, at `WhepClient.ts:283-286` | **Holds, and the file has moved** to `apps/shared/src/streaming/WhepClient.ts:281-289` (`errorForResponse`), unchanged since `396c4fa7`. One detail: a 403 whose body contains `unavailable` becomes `'stream-unavailable'`, not `'forbidden'`. |
+| c | `scheduleRetry` has no attempt ceiling and no terminal state | **Holds** (`:241-252` [`:237-248`]). The cap applies only to the delay (`RETRY_CAP_MS = 15_000`). |
 | d | `transitionTo` is only called with `offline`, `reconnecting`, `live`, `connecting` | **Holds.** |
-| e | "there is no `error` status at all" | **Wrong.** `CameraViewerStatus` at `:8` already includes `'error'`. The hook never produces it. `CameraViewer.tsx` already handles it (`labelFor` `:572` → `'Viewer error'`; `ViewerOverlay` tone `:501` → `text-accent-fault`), so that code exists but is never reached. |
-| f | `FrameGrabber.tsx:84` branches on `status === 'error'` | **No longer true.** That arm was removed. `FrameGrabber.tsx:95-98` now says in a comment that `'error'` is unreachable and was dropped. Its fail-fast arm (`:99`) is `reconnecting \|\| offline`. **This change makes `'error'` reachable, so FrameGrabber has to be updated too** (FR-006). |
+| e | "there is no `error` status at all" | **Wrong.** `CameraViewerStatus` at `:8` already includes `'error'`. The hook never produces it. `CameraViewer.tsx` already handles it (`labelFor` `:640` [`:572`] → `'Viewer error'`; `ViewerOverlay` tone `:549-550` [`:501`] → `text-accent-fault-on-video`, renamed from `text-accent-fault` by #2709), so that code exists but is never reached. `announcementFor` (`:491`) builds the status-region text from the same label and hint, so FR-005's "announced equals painted" needs no extra code. |
+| f | `FrameGrabber.tsx:84` branches on `status === 'error'` | **No longer true.** That arm was removed. `FrameGrabber.tsx:101-109` [`:95-98`] now says in a comment that `'error'` is unreachable and was dropped. Its fail-fast arm (`:110` [`:99`]) is `reconnecting \|\| offline`. **This change makes `'error'` reachable, so FrameGrabber has to be updated too** (FR-006). Since `396c4fa7`, spec 234 (#2356) added `frame-capture-failed` resilience lines to FrameGrabber's canvas exits. The fail-fast arm still logs nothing of its own, and this spec does not change that: the refusal's cause is already on the channel as `whep-refused` (FR-004). |
 | g | "Nothing reports it" | **Partly true.** `transitionTo` already logs every transition generically (`connecting→reconnecting`), but no line names a refusal or its kind. |
-| h | "re-POSTs the same dead credential" | **Not quite.** Each attempt reads `getToken()` again (`getTokenRef`, `:134-137`), and all three consumers read the latest `auth.user?.access_token` from a ref. A retry after a silent renewal therefore sends the *new* token. This matters for point 4 (§8). |
+| h | "re-POSTs the same dead credential" | **Not quite.** Each attempt reads `getToken()` again (`getTokenRef`, `:138-141` [`:134-137`]), and all three consumers read the latest `auth.user?.access_token` from a ref. A retry after a silent renewal therefore sends the *new* token. Since `396c4fa7`, #2740 (ADR-0167) syncs that ref in a `useLayoutEffect`, so it is current even inside a same-commit cleanup. That strengthens this row and does not affect the refusal branch. This matters for point 4 (§8). |
+
+**What changed around it since `396c4fa7`, and why none of it invalidates this spec:**
+
+- **#2092 has landed** (`303a3f18`, ADR-0161). The authorize hook now answers `403` to a cross-fab watch, and to a stream not yet fab-attributed. Separately, spec 258 (#2486, `6c51e583`) stopped the hook accepting the `sse.management` bundle in place of `sse.streams.read`. Both are **real refusals that did not exist when this spec was written**, so the terminal state now has genuine traffic to serve, not only hypothetical traffic. Under spec 119 they still reach the browser as MediaMTX's `401` (§4, step 5 records what is actually observed).
+- **#2725's revocation fallback** concerns management-API reads (three consecutive `403`s mask a page's data). On `CameraDetailPage` that masks the record, and with it the `CameraViewer`. It is a different refusal on a different request, and it does not touch the WHEP path or the hook.
+- **#2283** re-partitioned the **API gateway's** limiter. Spec 208's `whep-authorize` limiter lives in StreamDistribution (`Program.cs:86`) and is unchanged. #2749 (webhooks) and #2556 (test-field renames in StreamDistribution test fakes) touch nothing on this path.
+- MediaMTX is still pinned at `1.21.0-ffmpeg` (`AppHost.cs:194` [`:188`]), so spec 119's "every non-2xx becomes 401" still applies.
 
 **A fact the issue does not mention, and it changes what a 401 means.**
 The browser POSTs directly to MediaMTX (`StreamWhepUrlBuilder`, no gateway in between). Spec 119's verification (§2, measured against MediaMTX 1.21.0, the version pinned at `AppHost.cs:188`) shows that MediaMTX answers the browser with the same `401 {"status":"error","error":"authentication error"}` for **every** non-2xx from `/streams/authorize`: a refusal, a hook `500`, and a hook it cannot reach at all. The same applies to a `429` from spec 208's limiter, whose only partition is MediaMTX's own IP. Two consequences:
@@ -34,7 +43,7 @@ The browser POSTs directly to MediaMTX (`StreamWhepUrlBuilder`, no gateway in be
 - In this deployment `'forbidden'` has not been observed. Refusals reach the browser as `'unauthorized'`. Phase 5 records which kind actually arrives (§4, step 5).
 - On the client, a genuine refusal and an infrastructure outage look identical. This spec makes both terminal. That is the accepted risk R1 (§5), and it is why point 4 matters (§8).
 
-**Exhaustiveness fallout: none.** `CameraViewerStatus` and `useWhepSession` are referenced only by `useWhepSession.ts`, `CameraViewer.tsx` and `FrameGrabber.tsx` (grep across `apps/`). No `switch` or `never` check exists over the union, and `kiosk-web`/`management-web` only pass `getToken`. The union does not change, because `'error'` is already a member.
+**Exhaustiveness fallout: none.** `CameraViewerStatus` and `useWhepSession` are referenced in code only by `useWhepSession.ts`, `CameraViewer.tsx` and `FrameGrabber.tsx` (grep across `apps/`; `LayoutGrid.tsx`, `CameraDetailPage.tsx` and `ChainRecoveryNotice.tsx` name `useWhepSession` in comments only, re-checked at `3fd75492`). No `switch` or `never` check exists over the union, and `kiosk-web`/`management-web` only pass `getToken`. The union does not change, because `'error'` is already a member.
 
 ---
 
@@ -143,7 +152,7 @@ Feature: WHEP authorization refusal ends the session
 The procedure repeats spec 119 §2's technique: repoint MediaMTX's hook at a stub that returns a chosen status, keeping the offer and path the same.
 
 1. Boot the AppHost (`MSYS_NO_PATHCONV=1`; one stack per machine). Open the kiosk wall for a published layout containing at least two cameras. Record every tile reading **Live**.
-2. `PATCH /v3/config/global/patch` on MediaMTX's API to set `authHTTPAddress` to a local stub that answers `403` (the cross-fab refusal #2092 will produce).
+2. `PATCH /v3/config/global/patch` on MediaMTX's API to set `authHTTPAddress` to a local stub that answers `403` (the shape of the cross-fab refusal #2092 now produces). The stub stays the primary method because it refuses every tile at once and counts calls per tile. Optionally, also observe one genuine refusal with no stub: a token whose fab claim names none of the camera's fabs (ADR-0161).
 3. Force the tiles to reconnect. Either restart the MediaMTX path, following the memory note "provoking a stream outage", or reload the wall.
 4. **Observe**: every affected tile reads **Access refused** within ~5 s (MediaMTX pauses ~2 s on an auth failure). The browser console has exactly one `[resilience] {subsystem:'stream', transition:'whep-refused', …}` per tile. Over the next **120 s** the stub receives **one** call per tile, not ~8.
 5. **Record the kind** the browser logged. Spec 119 predicts `'unauthorized'`, even though the stub answered 403. Write down what was actually observed.
@@ -165,14 +174,14 @@ The procedure repeats spec 119 §2's technique: repoint MediaMTX's hook at a stu
 
 ### Risks
 
-- **R1: accepted, needs written acceptance before phase 4 in the autonomous lane.** Under MediaMTX 1.21.0 a hook that is down, restarting (StreamDistribution runs one instance, ADR-0153), throttled, or unable to reach Keycloak reaches the browser as the same `401` as a real refusal (§1). Any tile that happens to reconnect during such a window **stays on "Access refused" until one of FR-003's triggers fires or the page is reloaded**. Today the same tile recovers by itself within ≤15 s. The trade is a retry storm plus a misleading "Reconnecting…" against a possibly-dark but honestly labelled tile. The label says the tile will not retry, and the resilience line makes the state visible. Point 4 (§8) is the proper fix. Until it lands, reloading the wall is the recovery.
+- **R1: accepted in writing by the user on 2026-10-07**, together with R2, via the orchestrator session that re-checked this spec. The phase 4 gate this used to hold is cleared. Under MediaMTX 1.21.0 a hook that is down, restarting (StreamDistribution runs one instance, ADR-0153), throttled, or unable to reach Keycloak reaches the browser as the same `401` as a real refusal (§1). Any tile that happens to reconnect during such a window **stays on "Access refused" until one of FR-003's triggers fires or the page is reloaded**. Today the same tile recovers by itself within ≤15 s. The trade is a retry storm plus a misleading "Reconnecting…" against a possibly-dark but honestly labelled tile. The label says the tile will not retry, and the resilience line makes the state visible. Point 4 (§8) is the proper fix. Until it lands, reloading the wall is the recovery.
 - **R2**: an access token that expires between silent renewals, with a reconnect landing in that gap, is now terminal where it used to self-heal. The window is small (`automaticSilentRenew` renews before expiry), but it is a 24/7 wall. Point 4 covers this case too.
 
 ---
 
 ## 6. Phase 4a colour: RED
 
-This is behaviour-changing, so every new-behaviour test must be observed failing first (ADR-0139). What red looks like on `396c4fa7`:
+This is behaviour-changing, so every new-behaviour test must be observed failing first (ADR-0139). What red looks like on `3fd75492` (unchanged from `396c4fa7`):
 
 - *reads Access refused* → `Unable to find an element with the text: Access refused` (the tile shows `Reconnecting…`).
 - *exactly one POST after 60 s* → `expected [ … ] to have a length of 1 but got 7` (1 s, 2, 4, 8, 15, 15, … ladder).
@@ -190,6 +199,6 @@ The ladder scenarios for transient failures, the camera-swap exit and FrameGrabb
 
 ## 8. Out of scope: point 4 (returned to the orchestrator)
 
-Should a refused tile ever re-attempt on its own, and on what trigger? That is a design decision, and ADR-0144 does not allow the lane to make one. §5 R1/R2 record what this spec costs until it is decided. The orchestrator's report carries the precise statement for filing.
+Should a refused tile ever re-attempt on its own, and on what trigger? That is a design decision, and ADR-0144 does not allow the lane to make one. §5 R1/R2 record what this spec costs until it is decided. It is filed as **#2769** (`agent:blocked` until that decision is made).
 
-Also out of scope: #2092 (fab check in the authorize hook), any change to `WhepClient`, and any MediaMTX version or config change.
+Also out of scope: any change to the authorize hook (#2092 has since landed as ADR-0161, and this spec only consumes its refusals), any change to `WhepClient`, and any MediaMTX version or config change.
