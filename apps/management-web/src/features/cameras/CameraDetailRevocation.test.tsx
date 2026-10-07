@@ -47,6 +47,21 @@ function forbiddenResponse(): Response {
   return jsonResponse({ title: 'FORBIDDEN', status: 403 }, 403);
 }
 
+/**
+ * A true "has this request settled" signal, read from the store rather than
+ * the DOM — `RetryBanner`'s button carries no `disabled` state to poll, and
+ * the record/banner markup is identical whether the second strike's refetch
+ * is still in flight or has already resolved (N1, phase 6). The base
+ * `endpoint.select(...)` selector's `status` goes to `'pending'` the instant
+ * a request for this cache entry — initial or refetch alike — is dispatched,
+ * and only leaves `'pending'` once the response has been written back
+ * (`writePendingCacheEntry`/`writeFulfilledCacheEntry` in RTK Query's own
+ * slice), which `isLoading` here mirrors.
+ */
+function isCameraQueryPending(store: ReturnType<typeof createStore>): boolean {
+  return camerasApi.endpoints.getCamera.select({ cameraIdentifier: CAMERA_IDENTIFIER })(store.getState()).isLoading;
+}
+
 function createStore() {
   return configureStore({
     reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
@@ -125,10 +140,16 @@ describe('CameraDetailPage against the real store and a stubbed network (spec 31
     expect(screen.getByRole('heading', { name: 'Line-1-Entrance' })).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
 
-    // Strike 2 — a genuine click of the real Retry button.
+    // Strike 2 — a genuine click of the real Retry button. Waiting on
+    // `callCount === 3` alone would pass as soon as the third fetch is
+    // *dispatched*, not once it has *settled* — `isFetching` only goes back
+    // to `false` after RTK Query has processed the response (N1, phase 6).
     const user = userEvent.setup();
     await user.click(retryAfterFirstStrike);
-    await waitFor(() => expect(callCount).toBe(3));
+    await waitFor(() => {
+      expect(callCount).toBe(3);
+      expect(isCameraQueryPending(store)).toBe(false);
+    });
 
     expect(screen.getByRole('heading', { name: 'Line-1-Entrance' })).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
