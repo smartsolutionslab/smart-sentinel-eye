@@ -41,7 +41,7 @@ function AuthGate() {
       <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
         <h1 className="text-3xl font-semibold">Session expired</h1>
         <p className="text-fg-muted">Automatic sign-in did not complete. Sign in again to resume the wall.</p>
-        <button type="button" className="rounded-md bg-accent-active px-6 py-3 text-bg-base" onClick={retrySignIn}>
+        <button type="button" className="rounded-md bg-accent-subtle px-6 py-3 text-accent" onClick={retrySignIn}>
           Sign in again
         </button>
       </main>
@@ -86,7 +86,7 @@ function AuthGate() {
         <h1 className="text-3xl font-semibold">Smart Sentinel Eye — Kiosk</h1>
         <button
           type="button"
-          className="rounded-md bg-accent-active px-6 py-3 text-bg-base"
+          className="rounded-md bg-accent-subtle px-6 py-3 text-accent"
           onClick={() => void auth.signinRedirect()}
         >
           Sign in
