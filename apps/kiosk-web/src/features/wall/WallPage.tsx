@@ -163,7 +163,7 @@ function WallPageForWall({ wallIdentifier }: { wallIdentifier: string }) {
         action={
           <button
             type="button"
-            className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
+            className="rounded-md bg-accent-subtle px-4 py-2 text-accent"
             onClick={() => void refetch()}
           >
             Retry

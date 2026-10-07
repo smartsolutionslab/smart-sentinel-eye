@@ -69,11 +69,7 @@ function PickerBody({ isLoading, hasError, published, walls, onRetry, onOpen, on
       <FullScreen
         message="Could not load layouts."
         action={
-          <button
-            type="button"
-            className="rounded-md bg-accent-active/20 px-4 py-2 text-accent-active"
-            onClick={onRetry}
-          >
+          <button type="button" className="rounded-md bg-accent-subtle px-4 py-2 text-accent" onClick={onRetry}>
             Retry
           </button>
         }
