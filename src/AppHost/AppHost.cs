@@ -673,9 +673,9 @@ var apiGateway = builder
 // E2ETests).
 //
 // This is a dev/e2e-only mitigation, not a fix to the production concern:
-// whether 100/min-per-replica is itself too tight for a real fab's
-// wall/NAT topology (many screens sharing one address behind an Ingress) is
-// tracked separately as #2563.
+// whether 100/min is itself too tight for a real fab's wall/NAT topology
+// (many screens sharing one address behind an Ingress) is tracked
+// separately as #2563.
 if (isRunMode && !isE2ETests)
 {
     apiGateway.WithEnvironment("RateLimiting__PermitLimit", "6000");

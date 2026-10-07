@@ -33,7 +33,7 @@ TimeSpan window = builder.Configuration.GetValue<TimeSpan?>("RateLimiting:Window
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy("per-fab", context =>
+    options.AddPolicy("per-source", context =>
         RateLimitPartition.GetFixedWindowLimiter(
             ResolveSourcePartition(context),
             _ => new FixedWindowRateLimiterOptions
@@ -51,7 +51,7 @@ builder.Services.AddRateLimiter(options =>
 // the latency budget (constitution §IV). TLS terminates at the deploy edge
 // (k3s Ingress / Helm, ADR-0024/0025) — the Aspire dev model is all-HTTP, so
 // there is no dev HTTPS endpoint here. Each route opts into CORS and the
-// "per-fab" rate-limit policy via configuration.
+// "per-source" rate-limit policy via configuration.
 builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddServiceDiscoveryDestinationResolver();
@@ -77,7 +77,7 @@ app.UseRateLimiter();
 // anonymous off-box caller reaching this gateway could exhaust the
 // whep-authorize partition MediaMTX's legitimate calls share, refusing
 // MediaMTX's own calls too and turning the CPU-exhaustion fix into a
-// fab-wide video DoS lever. The gateway's own "per-fab" limiter does not
+// fab-wide video DoS lever. The gateway's own "per-source" limiter does not
 // help here since every caller reaching this gateway in this topology
 // collapses into the same RemoteIpAddress. This literal route has higher
 // routing precedence

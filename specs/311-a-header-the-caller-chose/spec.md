@@ -94,8 +94,8 @@ US2 alone leaves it bypassable. Neither is observable as "fixed" without the oth
 
 ## 3. Functional requirements
 
-- **FR-001** The `per-fab` rate-limit policy partitions on the connection's source address only.
-  No request header contributes to the partition key.
+- **FR-001** The rate-limit policy partitions on the connection's source address only. No request
+  header contributes to the partition key.
 - **FR-002** Requests from one source that exceed `PermitLimit` within `Window` are refused `429`,
   whatever `X-Fab` value (or none) each carries.
 - **FR-003** The gateway removes any inbound `X-Fab` header before proxying, on every route.
@@ -107,7 +107,11 @@ US2 alone leaves it bypassable. Neither is observable as "fixed" without the oth
 - **FR-007** Comments that describe the old behaviour are corrected in the same change:
   `Program.cs` (rate-limit block, `ResolveFabPartition`, the spec-208 note's *"partitions on the
   caller-supplied X-Fab header"*), `AppHost.cs` HA block and spec-232 note, the two test classes'
-  doc comments. Policy name `per-fab` is kept (route config references it; renaming is churn).
+  doc comments. Policy name `per-fab` was originally kept at this phase (route config references
+  it; renaming looked like pure churn) — phase 6 review on the implementing branch judged the name
+  itself actively misleading once the key was source-IP, not X-Fab, and it was renamed to
+  `per-source` across `Program.cs` and all nine `appsettings.json` route entries in a follow-up
+  commit. No test references the string literal.
 
 ## 4. Acceptance scenarios
 

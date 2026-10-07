@@ -146,14 +146,18 @@ public static class StackStatusReport
 
         // Keyed by "the most specific identity known so far": the bare
         // resource name until a real event arrives, then that event's
-        // ResourceId. A resource with WithReplicas(2) (api-gateway,
-        // ADR-0153 clause 2 — the e2e job's own run-mode shape,
-        // AppHostReplicaCountTests) publishes one ResourceEvent per replica,
-        // all sharing Resource.Name but each carrying a distinct ResourceId
-        // (AspireFixture.cs:1154's TryResolveResourceId is why this repo
-        // already knows ResourceId, not Name, is the per-instance key).
-        // Keying this dictionary by Name alone let one replica's later event
-        // silently overwrite the other's — phase 6 review's finding. Folded
+        // ResourceId. A resource composed with WithReplicas(N > 1) would
+        // publish one ResourceEvent per replica, all sharing Resource.Name
+        // but each carrying a distinct ResourceId (AspireFixture.cs:1154's
+        // TryResolveResourceId is why this repo already knows ResourceId,
+        // not Name, is the per-instance key). No resource in AppHost.cs
+        // currently runs more than one instance — api-gateway was the last
+        // one to, and #2283 returned it to one (ADR-0153 clause 1,
+        // AppHostReplicaCountTests) — so there is no live multi-replica
+        // resource left to name as the example. Keying this dictionary by
+        // Name alone would still let one replica's later event silently
+        // overwrite another's if that ever changes again — phase 6 review's
+        // finding, made against api-gateway while it still ran two. Folded
         // back to one line per name in WriteReport via "worst state wins" so
         // the report's one-line-per-resource-name shape (plan.md §2.4, which
         // the gate parses byte-for-byte) never has to change.
