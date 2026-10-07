@@ -74,12 +74,21 @@ export function AuditPage() {
   const [applied, setApplied] = useState<SearchAuditInput>({ pageSize: PAGE_SIZE });
   const [selected, setSelected] = useState<AuditRow | null>(null);
 
-  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useSearchAuditQuery(applied);
+  const { data: fetched, currentData, isLoading, isFetching, error, refetch, requestId } = useSearchAuditQuery(applied);
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this applied query
   // take the stale rows off screen, leaving only the existing failure banner.
   const refused = useRevocationFallback(JSON.stringify(applied), { error, isFetching, requestId });
-  const data = refused ? undefined : fetched;
+
+  // `fetched` (`data`) can still hold a *previous* applied query's rows for a
+  // moment after the filter changes — RTK Query's `lastResult` fallback
+  // carries them forward with no refetch in between — while `currentData` is
+  // only ever the cache entry for the query being requested right now.
+  // Mirrors `CameraDetailPage`'s `record` (spec 211): below the threshold, a
+  // failed refresh of THIS query still shows its own stale rows
+  // (`currentData`); it must not show a DIFFERENT query's rows carried over
+  // by `fetched` alone.
+  const data = refused ? undefined : error !== undefined ? currentData : fetched;
 
   const rows = useMemo(() => data?.rows ?? [], [data?.rows]);
   // ADR-0151: hoisted once so the click guard reads the same value — activating

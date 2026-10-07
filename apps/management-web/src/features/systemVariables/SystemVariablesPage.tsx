@@ -41,12 +41,29 @@ export function SystemVariablesPage() {
   // pulling every row to the browser to do it, which against 1618 of them is
   // its own problem.
   const variablesArgs = filter === 'All' ? { includeArchived: true } : { state: filter };
-  const { data: fetched, isLoading, isFetching, error, refetch, requestId } = useListVariablesQuery(variablesArgs);
+  const {
+    data: fetched,
+    currentData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    requestId,
+  } = useListVariablesQuery(variablesArgs);
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
   // take the stale rows off screen, leaving only the existing failure banner.
   const refused = useRevocationFallback(JSON.stringify(variablesArgs), { error, isFetching, requestId });
-  const data = refused ? undefined : fetched;
+
+  // `fetched` (`data`) can still hold a *previous* argument set's rows for a
+  // moment after the filter changes — RTK Query's `lastResult` fallback
+  // carries them forward with no refetch in between — while `currentData` is
+  // only ever the cache entry for the argument set being requested right
+  // now. Mirrors `CameraDetailPage`'s `record` (spec 211): below the
+  // threshold, a failed refresh of THIS argument set still shows its own
+  // stale rows (`currentData`); it must not show a DIFFERENT argument set's
+  // rows carried over by `fetched` alone.
+  const data = refused ? undefined : error !== undefined ? currentData : fetched;
 
   const [setVariableValue, setValueState] = useSetVariableValueMutation();
   const [archiveVariable, archiveState] = useArchiveVariableMutation();
