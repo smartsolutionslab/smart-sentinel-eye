@@ -104,7 +104,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     }
 
     /// <summary>
-    /// #2742. <c>ProvisionStreamCommandHandlerTests
+    /// <c>ProvisionStreamCommandHandlerTests
     /// .Provision_for_a_retired_stream_does_not_re_register_its_path</c>
     /// documents the invariant that re-registering a Retired stream's path
     /// "would resurrect a path nobody wants reachable". The startup pass's
@@ -153,6 +153,52 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         configured.ShouldNotContain(
             retiredPath.Value,
             "re-registering a Retired stream's path would resurrect a path nobody wants reachable");
+    }
+
+    /// <summary>
+    /// The orphan-sweep half must not special-case a Retired stream whose
+    /// path is still configured in MediaMTX — e.g. because its own
+    /// RemovePathAsync call never completed. Excluding Retired rows from the
+    /// "expected" set (the fix for the re-add half above) also drops them out
+    /// of this half's protection, so a leftover Retired path is swept away
+    /// like any other orphan rather than being kept alive because its DB row
+    /// still exists.
+    /// </summary>
+    [Fact]
+    public async Task Reconciler_removes_a_retired_stream_s_leftover_path_as_an_orphan()
+    {
+        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+
+        Guid retiredCamera = Guid.CreateVersion7();
+        MediaMtxPath retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
+
+        // The path is still configured in MediaMTX — the stream's own
+        // RemovePathAsync never completed, so the row is Retired but
+        // MediaMTX was never told.
+        await AddMediaMtxPathAsync(mediaMtx, retiredPath, "rtsp://10.0.9.12/h264");
+
+        await using (StreamDistributionDbContext context =
+            await aspire.CreateStreamDistributionDbContextAsync())
+        {
+            Stream retired = Stream.Provision(
+                FabIdentifier.From("munich"),
+                CameraIdentifier.From(retiredCamera),
+                StreamSourceUrl.From("rtsp://10.0.9.12/h264"),
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                new TestClock(DateTimeOffset.UtcNow));
+            retired.Retire(new TestClock(DateTimeOffset.UtcNow));
+
+            context.Streams.Add(retired);
+            await context.SaveChangesAsync();
+        }
+
+        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        await reconciler.ReconcileOnceAsync(CancellationToken.None);
+
+        IReadOnlyList<string> configured = await ListMediaMtxPathNamesAsync(mediaMtx);
+        configured.ShouldNotContain(
+            retiredPath.Value,
+            "a Retired stream's leftover path must be swept as an orphan, not kept alive because its row still exists");
     }
 
     private async Task<MediaMtxReconciler> BuildReconcilerAsync()
