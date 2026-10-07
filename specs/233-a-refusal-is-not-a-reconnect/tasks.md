@@ -3,7 +3,7 @@
 **Spec**: [spec.md](./spec.md) · **Plan**: [plan.md](./plan.md) · **Issue**: #2355 (feature-level issue; no per-task issues, per the CLAUDE.md Phase 3 note)
 **Phase 4a colour**: **RED** (behaviour-changing), with named characterisation tests observed green.
 **Engineer**: `frontend-engineer`. The tests are written first by `test-writer`, who returns verbatim output.
-**Gate before phase 4**: spec §5 **R1 needs written acceptance** (human, via the orchestrator). Otherwise hold the issue.
+**Gate before phase 4**: spec §5 R1 needed written acceptance from a human, via the orchestrator. **It was accepted on 2026-10-07, so the gate is cleared.** Line references were re-checked against `3fd75492` the same day.
 
 No foundational tasks: no AppHost, Kernel or Contracts work. Everything is in `apps/shared`.
 
@@ -25,7 +25,7 @@ T001/T002 share one file, so they are one agent pass. T003 and T004 own disjoint
 |---|---|---|---|---|
 | T010 | | US1 | `useWhepSession.ts`: add a value import of `WhepError`, a module-local `isRefusal`, the `REFUSED_MESSAGE` constant, and the refusal branch in the `connect()` `.catch` (plan D2/D3). Update the hook docblock (`:108-110`) so it no longer says "retried indefinitely" without qualification. | T005 |
 | T011 | [P] | US1 | `CameraViewer.tsx`: `labelFor('error')` → `'Access refused'`. Leave `statusInfoFor`'s `'Viewer error'` (failedRead) unchanged (FR-007). | T005 |
-| T012 | [P] | US2 | `FrameGrabber.tsx`: add `status === 'error'` to the fail-fast arm and rewrite the `:90-98` comment (plan D6). | T005 |
+| T012 | [P] | US2 | `FrameGrabber.tsx`: add `status === 'error'` to the fail-fast arm (`:110`) and rewrite the `:101-109` comment (plan D6). Leave spec 234's `frame-capture-failed` lines on the canvas exits as they are. | T005 |
 | T013 | | — | Run the tests again, all green with T001–T004 unmodified. Then run `pnpm -r typecheck`, `pnpm -r lint`, and the full `apps/shared` suite, including `CameraViewer*.test.tsx`, `FrameCapture.test.tsx`, and `apps/kiosk-web` / `apps/management-web` tests that render `CameraViewer`. | T010–T012 |
 
 T011 and T012 own disjoint files. T010 is the only file with logic in it.
