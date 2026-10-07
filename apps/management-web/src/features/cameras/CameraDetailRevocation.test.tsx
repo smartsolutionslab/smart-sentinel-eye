@@ -167,7 +167,16 @@ describe('CameraDetailPage against the real store and a stubbed network (spec 31
       expect(isCameraQueryPending(store)).toBe(false);
     });
 
-    expect(await screen.findByRole('heading', { name: /no such camera/i })).toBeInTheDocument();
+    // Widened from the 1000ms default (#2762): this assertion has flaked in
+    // CI roughly every other run regardless of PR content, including on a
+    // PR that touched nothing but this file and a prior attempt at the same
+    // fix (strike 3's settlement wait, above) — never reproduced in 25+
+    // local runs in isolation. The remaining render work after the strike
+    // settles (useRevocationFallback's state update, the page's re-render,
+    // masking the record) is real but should be sub-100ms; a loaded
+    // 2-core GitHub runner occasionally needing more than 1000ms for it is
+    // the simplest remaining explanation that fits every data point so far.
+    expect(await screen.findByRole('heading', { name: /no such camera/i }, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText('Line-1-Entrance')).toBeNull();
     expect(screen.queryByText('rtsp://10.0.5.12/h264')).toBeNull();
     expect(screen.queryByTestId('camera-viewer')).toBeNull();
