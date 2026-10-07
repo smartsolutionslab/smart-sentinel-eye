@@ -52,6 +52,7 @@ export default [
       'react/react-in-jsx-scope': 'off',
       'react/prop-types': 'off',
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-useless-assignment': 'error',
     },
   },
   // ADR-0150 — waiting is a condition, not a count. Constitution §Testing,
