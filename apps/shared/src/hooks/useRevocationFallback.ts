@@ -33,6 +33,16 @@ interface RevocationState {
  * for `lastFragment`), not in an effect, so React StrictMode cannot double-
  * count one response and the boolean is correct in the same commit as the
  * response that produced it.
+ *
+ * **Returning to a previously-visited subject.** RTK Query can still hold a
+ * cached, rejected entry for a subject's `requestId` from an earlier visit.
+ * On the first render back — before the natural refetch this hook's own
+ * caller triggers has a chance to start — that cached `requestId` is new to
+ * THIS mount's `counted`, so it is read as a fresh strike. This is harmless:
+ * it is a real 403 that subject actually received, the threshold still
+ * behaves correctly within the visit, and the refetch that follows settles
+ * with its own `requestId` as usual. Flagged so a future reader does not
+ * "fix" this into skipping it and double-counting a later response instead.
  */
 export function useRevocationFallback(subject: string, query: RevocationQueryState): boolean {
   const [state, setState] = useState<RevocationState>({ subject, counted: undefined, strikes: 0 });
