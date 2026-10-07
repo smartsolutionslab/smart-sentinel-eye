@@ -142,6 +142,14 @@ export function reportKioskLatency(
   // guards above, so an invalid figure can never spend a window a later,
   // valid figure needs. Refusing here skips the network path entirely —
   // `getToken` is never called — not merely the POST body.
+  //
+  // The throttle admits before `send` runs, so a sample that is later
+  // dropped by `getToken` resolving null or by a failed `fetch` still spends
+  // the full 30 s window — intentional, not an oversight: this function is a
+  // best-effort observer, not a guaranteed-delivery channel, and the
+  // alternative (reopening the window on a failed send) would let a kiosk
+  // stuck in an early-boot token gap or a flaky network retry every cycle,
+  // which is exactly the cost this throttle exists to cap.
   if (throttle !== undefined && !throttle(measurement)) return;
 
   void send(measurement, camera, elapsedMilliseconds, getToken);
