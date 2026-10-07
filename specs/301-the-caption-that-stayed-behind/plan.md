@@ -7,8 +7,10 @@ the aggregate, the migration history and the `OverlayDesigner` API are untouched
 changes is how the wall **pairs** an element with its text (US1, US2), and how resolved
 text names what it was resolved from (US2).
 
-Every `file:line` is from the spec 300 tree (`D:\Github\sse-2349`, `e3671aef`). **Re-verify
-each one after #2349 merges.** That branch was still moving when this was written.
+US1/US3 `file:line`s were written against the spec 300 tree (`e3671aef`). **US2 (PR-B,
+#2720) citations were re-verified on `develop` at `0d1864f5`** (2026-10-07, after PR-A
+#2717 merged); where a US2 citation below differs from the original, the corrected one is
+the current one.
 
 ---
 
@@ -38,10 +40,25 @@ Four things in this spec could look like decisions. None of them is a new one.
    FR-006) with a permuted body. A `MoveElement` mutator *would* need an ADR, because it
    would revise ADR-0112 §2 (members have no identity). It is rejected (spec decision 2).
 2. **Overlap is legal.** This ratifies spec 150 FR-004 and adds no rule.
-3. **The resolved-text contract cut** follows ADR-0073 (semantic shift, so `V<N+1>`) and
-   the same-feature deletion precedent of specs 150 and 300. The change is from
-   index-aligned to template-keyed. It is a contract shape inside one integration, and
-   specs 150 and 300 both made changes of that size without an ADR.
+3. **The resolved-text contract cut** bumps to `V<N+1>` because the payload's meaning
+   shifts (index-aligned → template-keyed). **ADR-0073 is *not* the authority for deleting
+   V2 in the same commit** — it says the opposite: `docs/adr/0073-event-versioning.md:25-27`
+   requires the old version to stay publishable through a ~3-month deprecation window, and
+   `:35-36` requires a later coordinated removal PR. An earlier draft of this plan cited it
+   for the clean cut; that citation was wrong. The actual authority is precedent:
+   - **ADR-0112 §3** ("Contract versioning + migration — a clean V2 cut", `:100-128`;
+     "V1 is removed in the same feature… no dual-publish", `:109-111`): every subscriber
+     is in-repo and pre-production, so a deprecation window is speculative generality;
+   - **spec 150 FR-009**: this same event's own prior V1→V2 cut, made the same way with no
+     ADR written;
+   - **spec 300 / ADR-0165** (`:65`, "inside a clean `OverlayRevisionPublishedV3` cut").
+
+   Spec 301 recorded the clean-cut decision through its own human gate (`spec.md:429`).
+   **A human has additionally signed off on this exact exception for #2720, recorded on
+   the issue**; that sign-off plus the precedent above is the basis for proceeding without
+   a new ADR or an ADR-0073 amendment. Correcting ADR-0073's text to match the repo's
+   actual pre-production practice in general is tracked separately as **#2738** and does
+   not block this spec.
 4. **Aging the paired set** is ADR-0129 §2 ("a label is aged to match its picture")
    applied to spec 150 FR-014's "the set ages as a unit". **Reviewer check:** ADR-0129
    speaks of the *label*, meaning the value. If the reviewer reads §2 as "only the value
@@ -95,9 +112,11 @@ renderElements = overlayUnavailable ? undefined : heldElements
 - `renderElementsKey` (`:507`), the `overlay_draw` measurement key, is **not changed**. It
   stays `kind|color|text`. Adding geometry to it is follow-on 2. US1 must not change
   *when* `overlay_draw` is measured, only *what* is painted.
-- `liveTextFor(el, i)` is today's positional lookup in US1 (`snapshot?.resolvedTexts[i]`).
-  US2 replaces it with the template lookup. Keeping it positional in US1 is what makes US1
-  shippable alone.
+- `liveTextFor(el, i)` is pseudocode, not a named function. As shipped by PR-A it is the
+  inline expression at `LayoutGrid.tsx:446`
+  (`snapshot?.resolvedTexts[index] ?? (element.kind === 'Text' ? element.text : '')`)
+  inside the `liveElements` map (`:445`). US2 replaces that expression with the template
+  lookup. Keeping it positional in US1 is what made US1 shippable alone.
 
 ### Existing tests that may encode the defect
 
@@ -158,9 +177,20 @@ input the pairs need.
 - **`VariableValueChangedDomainEventHandler`** (`:85`) and
   **`VariableArchivedDomainEventHandler`** (`:102`) build `ResolvedOverlayTextChangedV3`
   from it. The version bump, fab scoping and pre-commit ordering (#2426) are untouched.
-- **`SystemVariableValueRequestedV1Handler`:** check whether it emits resolved text. The
-  grep lists it as a `LookupLabelTexts` / `UpsertOverlayReferences` consumer. If it emits,
-  it calls the helper too. If it only reads, it is unchanged.
+- **`SystemVariableValueRequestedV1Handler`: answered, it does not emit.** It dispatches
+  `SetVariableValueCommand` (`SystemVariableValueRequestedV1Handler.cs:83-98`), and the
+  push comes from `VariableValueChangedDomainEventHandler`. Its production code changes
+  only in the stale V2 comment at `:95`. **Its test does change:**
+  `SystemVariableValueRequestedV1HandlerTests.cs:350-351` asserts on the published
+  `ResolvedOverlayTextChangedV2` and migrates to V3 (type and accessor only).
+- **Stale V2 / index-alignment doc comments, corrected in the same commit** (they compile
+  either way, so nothing else will catch them):
+  - `Application/Resolution/IOverlayTextVersions.cs:5` (names `ResolvedOverlayTextChangedV2.Version`);
+  - `Infrastructure/SystemVariablesInfrastructureModule.cs:31` (names V2);
+  - `VariableValueChangedDomainEventHandler.cs:17`, `VariableArchivedDomainEventHandler.cs:17` (cref V2);
+  - `tests/SystemVariables.Infrastructure.Tests/Resolution/ReverseIndexSeederHostedServiceTests.cs:215`
+    ("`ResolvedTexts` is index-aligned with the element array by contract"): comment
+    wording only; its assertions are unedited.
 - **`GetOverlaySnapshotQueryHandler`:**
   - `ResolvedOverlaySnapshotDto(Guid OverlayIdentifier,
     IReadOnlyList<ResolvedOverlayTextDto> Texts, long Version)`, with
@@ -194,10 +224,17 @@ input the pairs need.
 
 ### AuditObservability
 
-- Add an `IntegrationEventAuditHandler` V3 overload and remove the V2 one.
-- Add a `V1ResourceMapTests` case proving V3 maps to the same resource kind V2 did. The
-  convention is assumed to cover it, and spec 300 found the same assumption worth proving
-  for `OverlayRevisionPublishedV3`.
+- Replace the `IntegrationEventAuditHandler` V2 overload (`IntegrationEventAuditHandler.cs:55`)
+  with a V3 one.
+- **The V2 resource mapping is a hand-tweak, not a convention.** It is registered
+  explicitly at `V1ResourceMap.Conventions.cs:74`
+  (`Add<ResolvedOverlayTextChangedV2>(map, DomainResourceKind.Overlay, changed => changed.Overlay)`).
+  Edit that line to V3 directly; there is no convention to rely on.
+- **Change the existing case 16** in `V1ResourceMapTests.cs:441-453`
+  (`ResolvedOverlayTextChangedCase`) from V2 to V3: the type, and the constructor's
+  `["ResolvedText-sentinel"]` becomes one `ResolvedOverlayTextV3` pair. **Do not add a new
+  case.** The expected resource kind (`Overlay`) and resource id (`overlay.ToString()`)
+  are unedited.
 
 ### Frontend (US2)
 
@@ -205,11 +242,16 @@ input the pairs need.
   overlayIdentifier; texts: { template: string; resolved: string }[]; version }`. Tags
   are unchanged.
 - **`apps/shared/src/realtime/layoutHub.ts`:** `ResolvedOverlayTextChangedMessage = {
-  overlay; fab; texts; version }`.
+  overlay; fab; texts; version }`. Its doc comment (`:83-94`, which names
+  `ResolvedOverlayTextChangedV2` at `:86` and describes the index alignment) is rewritten
+  to the pair-by-template rule. Same for `systemVariables.api.ts:77-83`.
 - **`useOverlayHubHandlers.ts`:** the `upsertQueryData` payload takes `texts`. **The fab
   filter, static-label report and version guard keep their order and logic** (FR-008).
   Their tests change only where they construct messages.
-- **`LayoutGrid.tsx` `Tile`, `liveTextFor`:**
+- **`LayoutGrid.tsx` `Tile`, the inline positional lookup at `:446`** (inside the
+  `liveElements` map; "`liveTextFor`" below is pseudocode for that expression, not an
+  existing function). Also update PR-A's US1 comment block at `:432-444`, which says the
+  lookup "stays positional in US1":
   ```
   resolvedByTemplate = useMemo(() => new Map(snapshot?.texts.map(t => [t.template, t.resolved])), [snapshot])
   liveTextFor(el) = el.kind !== 'Text'            ? undefined
@@ -225,7 +267,11 @@ input the pairs need.
       published revision. It changes on every publish that changes text and on no other
       render;
     - whether any placeholder template is missing from `resolvedByTemplate`;
-    - the query's `refetch`.
+    - the query's `refetch`. **`Tile` does not destructure it today**: it reads only
+      `{ data: snapshot }` from `useGetOverlaySnapshotQuery` (`LayoutGrid.tsx:427-430`).
+      T015 adds `refetch` to that destructuring. Note the query is skipped when
+      `overlayIdentifier` is null, there is no placeholder, or the fab is unnamed; the hook
+      must not call `refetch` while the query is skipped.
   - **Behaviour:** on a miss, it calls `refetch` at 1 s, 2 s and 4 s, stopping early once
     the miss clears. After the third failed attempt, it logs
     `logResilienceEvent('hub', 'resolved-text-template-miss', { overlay })` once per
@@ -324,7 +370,13 @@ age of 120 ms and fake timers):
 | `OverlayLabelCharacterisation`, `OverlayLabelParity`, `OverlayLabelNodeCountCharacterisation`, `overlayLabelStyle.test.ts` | Byte-identical. `CameraViewer` is not modified. |
 | `OverlayEditor*` guards, `OverlayEditorDialog*` tests | Byte-identical (FR-010). |
 | `useLabelDelay.test.ts` | Byte-identical. The hook is not modified. |
-| Kiosk hub-handler tests (fab filter, version guard, static-label report) | Only message-construction lines change (FR-008). An edited `expect` is a block. |
+| Kiosk hub-handler tests (fab filter, version guard, static-label report; they live in `CellPage.test.tsx`, ~35 `resolvedTexts:` construction sites) | Only message-construction lines change (FR-008). An edited `expect` is a block. |
+| `SystemVariables.Application.Tests/EventHandlers/VariableValueChangedPreCommitTests.cs:76,127` | Only the V2→V3 type in the `OfType<…>()` capture lines changes (FR-008). The pre-commit ordering assertions (#2426) are unedited. |
+| `SystemVariables.Application.Tests/EventHandlers/SystemVariableValueRequestedV1HandlerTests.cs:350-351` | Only the V2→V3 type and payload accessor change. |
+| `apps/kiosk-web/src/features/revocation/useLayoutLifecycle.test.tsx:63` | Only the message-construction line changes (`resolvedTexts: [...]` → `texts: [{ template, resolved }]`). |
+| `apps/shared/src/api/systemVariables.api.test.ts:11` | Only the fake response body changes shape. |
+| `apps/kiosk-web/src/features/cell/LayoutGridLabelPairing.test.tsx` (PR-A's own US1 test) | **Assertions byte-identical.** Fixture construction may change shape (snapshot `texts` pairs), and the comment wording at `:17` and `:312` (which describes `resolvedTexts` joined by index) is updated. Nothing else. |
+| `ReverseIndexSeederHostedServiceTests.cs:215` | Comment wording only (index-aligned → template-keyed). Assertions unedited. |
 | `ResolvedTextReachesItsFabTests`, `VersionSurvivesARestartTests`, `OverlaySnapshotReadiness` | Only the payload accessor changes (`ResolvedTexts[i]` → `Texts` lookup by template). The fab and version assertions are unedited. |
 
 ---
@@ -336,7 +388,9 @@ age of 120 ms and fake timers):
   This is the smallest vertical that removes the mis-join users can actually hit (on every
   reorder of an aged tile).
 - **PR-B: US2.** Cut from `develop` after PR-A merges. **It edits the same `Tile` function
-  in `LayoutGrid.tsx` as US1** (`liveTextFor`), so it is serial, not stacked. Backend
+  in `LayoutGrid.tsx` as US1** (the inline lookup at `:446`), so it is serial, not stacked.
+  **Tracked as #2720** (PR-A was #2348 / PR #2717). Both engineers work the **same branch
+  and the same PR**, backend first, then frontend. Backend
   (`Shared.Contracts` → SystemVariables / LayoutComposition / AuditObservability) by
   `backend-engineer`; kiosk side by `frontend-engineer`.
   - Each commit must build on its own. The contract cut, the deletion of V2 and every
@@ -372,6 +426,7 @@ age of 120 ms and fake timers):
 2. **Retry figures (US2):** 3 attempts at 1 s, 2 s and 4 s are unmeasured.
 3. **`PrimitiveBoundaryTests` scope (US2):** assumed to exclude LayoutComposition's
    notification records. Checked at T011.
-4. **`SystemVariableValueRequestedV1Handler` (US2):** whether it emits resolved text is
-   checked at T010, not assumed.
-5. **All line numbers** are from `e3671aef`, which is unmerged.
+4. **`SystemVariableValueRequestedV1Handler` (US2):** resolved, no longer an assumption. It
+   does not emit; it routes through `SetVariableValueCommand` (`:83-98`). Only its test
+   (`:350-351`) and a comment (`:95`) change.
+5. **Line numbers:** US1/US3 from `e3671aef`; US2's re-verified on `develop` `0d1864f5`.
