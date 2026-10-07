@@ -14,7 +14,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// event (Wolverine outbox), then for every overlay referencing the
 /// variable, resolves every label's text using one shared variable
 /// snapshot (spec 150, #2345 — a revision carries a set, not a scalar)
-/// and publishes a single <see cref="ResolvedOverlayTextChangedV2"/>
+/// and publishes a single <see cref="ResolvedOverlayTextChangedV3"/>
 /// per overlay carrying every resolved text under one version bump.
 /// LayoutComposition subscribes to that and pushes the SignalR frame on
 /// the hub it owns — the resolution stays here, the broadcast stays
@@ -79,12 +79,14 @@ public sealed class VariableValueChangedDomainEventHandler(
             IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot =
                 await BuildSnapshotAsync(labelTexts, domainEvent, cancellationToken);
 
-            IReadOnlyList<string> resolvedTexts = [.. labelTexts.Select(text => resolver.Resolve(text, snapshot))];
+            IReadOnlyList<ResolvedOverlayTextV3> texts =
+                [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
+                    .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
             long version = versionsByOverlay[overlayId];
 
-            ResolvedOverlayTextChangedV2 @event = new(
+            ResolvedOverlayTextChangedV3 @event = new(
                 Overlay: overlayId,
-                ResolvedTexts: resolvedTexts,
+                Texts: texts,
                 Version: version,
                 Metadata: new(
                     Guid.CreateVersion7(),

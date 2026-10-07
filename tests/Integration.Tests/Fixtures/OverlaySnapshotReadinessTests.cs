@@ -145,7 +145,7 @@ public class OverlaySnapshotReadinessTests
             if (body is not null)
             {
                 response.Content = new StringContent(
-                    JsonSerializer.Serialize(new { resolvedTexts = new[] { body } }),
+                    JsonSerializer.Serialize(new { texts = new[] { new { template = "t", resolved = body } } }),
                     Encoding.UTF8,
                     "application/json");
             }

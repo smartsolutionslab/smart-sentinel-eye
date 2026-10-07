@@ -2,7 +2,7 @@ namespace SmartSentinelEye.SystemVariables.Application.Resolution;
 
 /// <summary>
 /// Durable per-overlay version counter for
-/// <c>ResolvedOverlayTextChangedV2.Version</c> and the snapshot's
+/// <c>ResolvedOverlayTextChangedV3.Version</c> and the snapshot's
 /// <c>version</c> field (issue #2426). Replaces the process-lifetime
 /// counter that used to live on <see cref="IReverseIndex"/> — a
 /// restart of this service must not reset what a connected kiosk

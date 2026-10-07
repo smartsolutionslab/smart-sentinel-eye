@@ -129,15 +129,18 @@ public sealed class ReverseIndexSeederHostedService(
     /// <summary>
     /// Reads every element's <c>"text"</c> out of a revision's
     /// <c>"elements"</c> array, in array order (spec 150's ordinal order).
-    /// <c>ResolvedTexts</c> is index-aligned with the element array by
-    /// contract (<see
-    /// cref="SmartSentinelEye.SystemVariables.Application.DTOs.ResolvedOverlaySnapshotDto"/>),
-    /// so an element missing <c>"text"</c> (including every
+    /// This cached list stays index-aligned with the element array by
+    /// <see cref="IReverseIndex"/>'s own contract — unchanged by spec 301
+    /// (#2720): so an element missing <c>"text"</c> (including every
     /// <c>Box</c>/<c>Ellipse</c>, spec 300 #2349) contributes
     /// <see cref="string.Empty"/> at its position rather than being
     /// skipped — skipping would shift every later element onto the wrong
     /// index instead of failing the one element that is actually
-    /// malformed.
+    /// malformed. <see cref="SmartSentinelEye.SystemVariables.Application.Resolution.ResolvedTextPairs"/>
+    /// is the layer above this that drops that empty entry and keys the
+    /// rest by template; <see
+    /// cref="SmartSentinelEye.SystemVariables.Application.DTOs.ResolvedOverlaySnapshotDto"/>
+    /// no longer carries a positional list at all.
     /// </summary>
     private static List<string> ExtractElementTexts(JsonElement elementsElement)
     {

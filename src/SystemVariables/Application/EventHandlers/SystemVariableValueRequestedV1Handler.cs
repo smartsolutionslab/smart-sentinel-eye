@@ -92,7 +92,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
                 // leg here instead, which timed the value write — a prefix
                 // ending roughly 750 ms before the tile changed, under the
                 // leg's name (#2173). The measurement now belongs to
-                // LayoutComposition's ResolvedOverlayTextChangedV2Handler,
+                // LayoutComposition's ResolvedOverlayTextChangedV3Handler,
                 // where the frame is actually pushed.
                 metadata.RootIngestedAt is { } accepted
                     ? Option<DateTimeOffset>.Some(accepted)

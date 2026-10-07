@@ -105,7 +105,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         ResolvedOverlayTextChangedHubMessage message = new(
             Overlay: notification.Overlay,
             Fab: notification.Fab,
-            ResolvedTexts: notification.ResolvedTexts,
+            Texts: [.. notification.Texts.Select(pair => new ResolvedOverlayTextHubEntry(pair.Template, pair.Resolved))],
             Version: notification.Version);
 
         // Group, not All: the resolved text belongs to one fab (FR-015).

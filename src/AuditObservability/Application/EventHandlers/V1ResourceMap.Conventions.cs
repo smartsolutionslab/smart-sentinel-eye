@@ -71,7 +71,7 @@ public sealed partial class V1ResourceMap
             // Spec 005 (widened to a set by spec 150 / #2345): emitted from
             // SystemVariables but pivots on the overlay whose resolved text
             // changed, not on a variable.
-            Add<ResolvedOverlayTextChangedV2>(map, DomainResourceKind.Overlay, changed => changed.Overlay);
+            Add<ResolvedOverlayTextChangedV3>(map, DomainResourceKind.Overlay, changed => changed.Overlay);
 
             // AuditChunkArchivedV1 (spec 009 itself) pivots on the chunk id.
             Add<AuditChunkArchivedV1>(map, DomainResourceKind.Event, archived => archived.ChunkIdentifier);

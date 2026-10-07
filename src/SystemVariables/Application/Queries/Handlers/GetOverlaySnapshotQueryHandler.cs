@@ -54,8 +54,10 @@ public sealed class GetOverlaySnapshotQueryHandler(
             }
         }
 
-        IReadOnlyList<string> resolvedTexts = [.. labelTexts.Select(text => resolver.Resolve(text, snapshot))];
+        IReadOnlyList<ResolvedOverlayTextDto> texts =
+            [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
+                .Select(pair => new ResolvedOverlayTextDto(pair.Template, pair.Resolved))];
 
-        return Success(new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, resolvedTexts, version));
+        return Success(new ResolvedOverlaySnapshotDto(query.OverlayIdentifier, texts, version));
     }
 }
