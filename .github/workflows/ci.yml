@@ -1061,7 +1061,7 @@ jobs:
     name: render leg gate (composite + render, section IV) — report-only
     runs-on: ubuntu-latest
     needs: [e2e-shards]
-    if: always()
+    if: "!cancelled()"
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -1093,4 +1093,5 @@ jobs:
       # build no matter what shape the shard layout turns out to be.
       - name: Report the render leg across all 4 shards (report-only — cannot fail the build)
         if: always()
+        continue-on-error: true
         run: node scripts/render-leg-gate-report.mjs shards "${{ needs.e2e-shards.result }}"
