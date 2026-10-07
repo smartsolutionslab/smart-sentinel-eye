@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 
 /**
  * Spec 301 (#2720) US2, T015 — new hook, no implementation yet.
@@ -21,6 +21,18 @@ import { renderHook } from '@testing-library/react';
  * hook file to extend"), so the whole file fails to resolve the module
  * under today's code. Quoted verbatim in the PR, per the test-writer brief.
  * </p>
+ *
+ * <p>
+ * <b>Review S1 (#2720):</b> the final backoff attempt's exhaustion log now
+ * waits for that attempt's own `refetch()` promise to settle before
+ * deciding whether the miss is still outstanding (`useTemplateMissRefetch.ts`),
+ * rather than logging the instant the request is sent. Every `it` below is
+ * `async` and advances fake time with `vi.advanceTimersByTimeAsync` inside
+ * `act(...)` so that settlement is actually observed, mirroring how the
+ * real RTK Query `refetch()` promise resolves only once its answer has
+ * landed — a plain, synchronous `vi.advanceTimersByTime` cannot drain that
+ * microtask.
+ * </p>
  */
 
 const logResilienceEventMock = vi.fn();
@@ -35,7 +47,7 @@ interface Props {
   publicationKey: string | undefined;
   hasMiss: boolean;
   skip: boolean;
-  refetch: () => void;
+  refetch: () => unknown;
 }
 
 function renderMissRefetch(initial: Props) {
@@ -52,7 +64,7 @@ describe('useTemplateMissRefetch', () => {
     vi.useRealTimers();
   });
 
-  it('Refetches at 1 s, 2 s and 4 s while the miss persists, and not before', () => {
+  it('Refetches at 1 s, 2 s and 4 s while the miss persists, and not before', async () => {
     const refetch = vi.fn();
     renderMissRefetch({
       overlayIdentifier: 'ovl-1',
@@ -64,21 +76,21 @@ describe('useTemplateMissRefetch', () => {
 
     expect(refetch, 'no refetch at mount — the first attempt is scheduled, not immediate').not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(1_000);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(refetch).toHaveBeenCalledTimes(1);
 
-    vi.advanceTimersByTime(2_000);
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
     expect(refetch).toHaveBeenCalledTimes(2);
 
-    vi.advanceTimersByTime(4_000);
+    await act(() => vi.advanceTimersByTimeAsync(4_000));
     expect(refetch).toHaveBeenCalledTimes(3);
 
     // No fourth attempt — bounded at three.
-    vi.advanceTimersByTime(10_000);
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
     expect(refetch).toHaveBeenCalledTimes(3);
   });
 
-  it('Stops early once the miss clears, scheduling no further attempt', () => {
+  it('Stops early once the miss clears, scheduling no further attempt', async () => {
     const refetch = vi.fn();
     const { rerender } = renderMissRefetch({
       overlayIdentifier: 'ovl-1',
@@ -88,7 +100,7 @@ describe('useTemplateMissRefetch', () => {
       refetch,
     });
 
-    vi.advanceTimersByTime(1_000);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(refetch).toHaveBeenCalledTimes(1);
 
     // The snapshot arrived — the template is no longer missing.
@@ -100,12 +112,12 @@ describe('useTemplateMissRefetch', () => {
       refetch,
     });
 
-    vi.advanceTimersByTime(10_000);
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
     expect(refetch, 'the miss cleared, so the 2 s/4 s attempts must never fire').toHaveBeenCalledTimes(1);
     expect(logResilienceEventMock, 'a cleared miss is a success, not a resilience event').not.toHaveBeenCalled();
   });
 
-  it('Logs resolved-text-template-miss exactly once, after the third attempt, for one overlay', () => {
+  it('Logs resolved-text-template-miss exactly once, after the third attempt, for one overlay', async () => {
     const refetch = vi.fn();
     renderMissRefetch({
       overlayIdentifier: 'ovl-1',
@@ -115,18 +127,74 @@ describe('useTemplateMissRefetch', () => {
       refetch,
     });
 
-    vi.advanceTimersByTime(1_000 + 2_000 + 4_000);
+    await act(() => vi.advanceTimersByTimeAsync(1_000 + 2_000 + 4_000));
     expect(refetch).toHaveBeenCalledTimes(3);
 
     expect(logResilienceEventMock).toHaveBeenCalledTimes(1);
     expect(logResilienceEventMock).toHaveBeenCalledWith('hub', 'resolved-text-template-miss', { overlay: 'ovl-1' });
 
     // Does not keep firing every tick once exhausted.
-    vi.advanceTimersByTime(10_000);
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
     expect(logResilienceEventMock).toHaveBeenCalledTimes(1);
   });
 
-  it('Resets the backoff when the publication key changes', () => {
+  it('Does not log when the third refetch brings back the missing template (review S1)', async () => {
+    // The first two attempts settle immediately (their outcome doesn't
+    // matter here); the third's promise is held open under this test's own
+    // control, so the moment its *answer* actually lands can be placed
+    // precisely — strictly after the caller has already re-rendered with
+    // `hasMiss: false`, reflecting the same response. The old,
+    // pre-S1 implementation logged the instant `refetch()` was *called*,
+    // never waiting for this promise at all — this is exactly the gap it
+    // closes.
+    let settleThirdAttempt: (() => void) | undefined;
+    const refetch = vi.fn().mockImplementation(() => {
+      if (refetch.mock.calls.length === 3) {
+        return new Promise<void>((resolve) => {
+          settleThirdAttempt = resolve;
+        });
+      }
+      return undefined;
+    });
+    const { rerender } = renderMissRefetch({
+      overlayIdentifier: 'ovl-1',
+      publicationKey: 'Temperature: {{t}}',
+      hasMiss: true,
+      skip: false,
+      refetch,
+    });
+
+    await act(() => vi.advanceTimersByTimeAsync(1_000 + 2_000 + 4_000));
+    expect(refetch).toHaveBeenCalledTimes(3);
+    expect(logResilienceEventMock, 'the third attempt has not answered yet — nothing to log').not.toHaveBeenCalled();
+
+    // The response that the third refetch was waiting on arrives — the
+    // caller's own cache update clears the miss.
+    rerender({
+      overlayIdentifier: 'ovl-1',
+      publicationKey: 'Temperature: {{t}}',
+      hasMiss: false,
+      skip: false,
+      refetch,
+    });
+
+    // The third attempt's own promise finally settles — the resilience
+    // check that was waiting on it must see the already-updated `hasMiss`.
+    await act(async () => {
+      settleThirdAttempt?.();
+      await Promise.resolve();
+    });
+
+    expect(
+      logResilienceEventMock,
+      'the third refetch resolved the miss — this must not count as a resilience event',
+    ).not.toHaveBeenCalled();
+
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    expect(logResilienceEventMock, 'no delayed log either, once settled').not.toHaveBeenCalled();
+  });
+
+  it('Resets the backoff when the publication key changes', async () => {
     const refetch = vi.fn();
     const { rerender } = renderMissRefetch({
       overlayIdentifier: 'ovl-1',
@@ -136,7 +204,7 @@ describe('useTemplateMissRefetch', () => {
       refetch,
     });
 
-    vi.advanceTimersByTime(1_000 + 2_000 + 4_000);
+    await act(() => vi.advanceTimersByTimeAsync(1_000 + 2_000 + 4_000));
     expect(refetch).toHaveBeenCalledTimes(3);
     expect(logResilienceEventMock).toHaveBeenCalledTimes(1);
 
@@ -151,14 +219,14 @@ describe('useTemplateMissRefetch', () => {
 
     expect(refetch, 'no refetch synchronously on the key changing').toHaveBeenCalledTimes(3);
 
-    vi.advanceTimersByTime(1_000);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(refetch, 'the 1 s attempt runs again for the new episode').toHaveBeenCalledTimes(4);
 
-    vi.advanceTimersByTime(2_000 + 4_000);
+    await act(() => vi.advanceTimersByTimeAsync(2_000 + 4_000));
     expect(logResilienceEventMock, 'a second, independent miss episode logs again').toHaveBeenCalledTimes(2);
   });
 
-  it('Clears its timers on unmount', () => {
+  it('Clears its timers on unmount', async () => {
     const refetch = vi.fn();
     const { unmount } = renderMissRefetch({
       overlayIdentifier: 'ovl-1',
@@ -168,14 +236,14 @@ describe('useTemplateMissRefetch', () => {
       refetch,
     });
 
-    vi.advanceTimersByTime(500);
+    await act(() => vi.advanceTimersByTimeAsync(500));
     unmount();
-    vi.advanceTimersByTime(10_000);
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
 
     expect(refetch, 'no attempt fires after unmount').not.toHaveBeenCalled();
   });
 
-  it('Never calls refetch while the query is skipped, even while a miss is reported', () => {
+  it('Never calls refetch while the query is skipped, even while a miss is reported', async () => {
     const refetch = vi.fn();
     renderMissRefetch({
       overlayIdentifier: null,
@@ -185,7 +253,7 @@ describe('useTemplateMissRefetch', () => {
       refetch,
     });
 
-    vi.advanceTimersByTime(10_000);
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
 
     expect(
       refetch,
@@ -234,7 +302,7 @@ describe('useTemplateMissRefetch — a legitimate new publish mid-backoff (adver
     vi.useRealTimers();
   });
 
-  it('Starts one clean 1 s/2 s/4 s cycle for a new miss that arrives between two scheduled attempts of the old one', () => {
+  it('Starts one clean 1 s/2 s/4 s cycle for a new miss that arrives between two scheduled attempts of the old one', async () => {
     const refetch = vi.fn();
     const { rerender } = renderMissRefetch({
       overlayIdentifier: 'ovl-1',
@@ -245,13 +313,13 @@ describe('useTemplateMissRefetch — a legitimate new publish mid-backoff (adver
     });
 
     // The old episode's first attempt fires at 1 s.
-    vi.advanceTimersByTime(1_000);
+    await act(() => vi.advanceTimersByTimeAsync(1_000));
     expect(refetch).toHaveBeenCalledTimes(1);
 
     // At 1.5 s — strictly between the old episode's 1 s attempt and its 2 s
     // one — a new publish lands: the old miss clears AND a different
     // template is immediately missing too, in the same rerender.
-    vi.advanceTimersByTime(500);
+    await act(() => vi.advanceTimersByTimeAsync(500));
     rerender({
       overlayIdentifier: 'ovl-1',
       publicationKey: 'Pressure: {{p}}',
@@ -262,17 +330,17 @@ describe('useTemplateMissRefetch — a legitimate new publish mid-backoff (adver
 
     // The old episode's 2 s mark (now 0.5 s away) must not fire — it would
     // be a refetch for a miss that no longer exists under this key.
-    vi.advanceTimersByTime(500);
+    await act(() => vi.advanceTimersByTimeAsync(500));
     expect(refetch, "the old episode's stale 2 s attempt must not survive the key change").toHaveBeenCalledTimes(1);
 
     // The new episode's own 1 s attempt, timed from ITS OWN start (the
     // rerender above), not from the old episode's clock.
-    vi.advanceTimersByTime(500);
+    await act(() => vi.advanceTimersByTimeAsync(500));
     expect(refetch, "the new episode's first attempt, one full second after it started").toHaveBeenCalledTimes(2);
 
-    vi.advanceTimersByTime(2_000);
+    await act(() => vi.advanceTimersByTimeAsync(2_000));
     expect(refetch).toHaveBeenCalledTimes(3);
-    vi.advanceTimersByTime(4_000);
+    await act(() => vi.advanceTimersByTimeAsync(4_000));
     expect(refetch).toHaveBeenCalledTimes(4);
 
     // Exactly one miss log, for the new key's own exhausted cycle — not two,

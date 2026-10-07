@@ -61,12 +61,12 @@ describe('useLayoutLifecycle', () => {
     // (`resolvedTexts`). This test only proves the callback forwards
     // whatever object it is handed, so the shape itself is otherwise inert
     // here.
-    const message = {
+    const message: ResolvedOverlayTextChangedMessage = {
       overlay: 'ovl-1',
       fab: 'munich',
       texts: [{ template: 'Live {{value}}', resolved: 'Live value' }],
       version: 2,
-    } as unknown as ResolvedOverlayTextChangedMessage;
+    };
     capturedCallbacks?.onResolvedOverlayTextChanged?.(message);
 
     expect(second).toHaveBeenCalledWith(message);

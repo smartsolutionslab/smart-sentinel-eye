@@ -436,7 +436,13 @@ function Tile({
   // string (the wire-drift case, `element.text` absent/renamed) simply
   // misses rather than throwing, so this stays safe even when a Text
   // element's own `text` isn't the `string` its type claims.
-  const textsByTemplate = new Map(snapshot?.texts.map((entry) => [entry.template, entry.resolved]));
+  // Review S2 (#2720): `snapshot?.texts` rather than `snapshot?.texts!` —
+  // a not-yet-upgraded backend on the old wire shape can send a snapshot
+  // with no `texts` field at all during a rolling deploy, and `.map` on
+  // `undefined` would crash the wall into `KioskCrashRecovery`'s reload,
+  // which just re-fetches the same skewed snapshot (a crash loop). Treating
+  // a missing `texts` as empty degrades to a template miss instead.
+  const textsByTemplate = new Map(snapshot?.texts?.map((entry) => [entry.template, entry.resolved]));
 
   // Spec 301 (#2348, US1): geometry and text are paired into ONE unit before
   // the hold, rather than held separately (text only) and re-joined with
@@ -485,7 +491,10 @@ function Tile({
   // still loading, "no entry" is simply "not yet", not a miss to retry.
   const hasTemplateMiss =
     snapshot !== undefined &&
-    (textElements?.some((label) => typeof label.text === 'string' && !textsByTemplate.has(label.text)) ?? false);
+    (textElements?.some(
+      (label) => typeof label.text === 'string' && label.text.includes('{{') && !textsByTemplate.has(label.text),
+    ) ??
+      false);
   useTemplateMissRefetch({
     overlayIdentifier,
     publicationKey: publishedOverlay?.revisionNumber.toString(),
