@@ -145,11 +145,14 @@ public sealed class RotateWebhookClientCommandHandler(
         catch (KeycloakClientAlreadyExistsException)
         {
             // The clientId is already taken — by another fab's webhook client
-            // this fab-scoped lookup above never saw. Unlike
-            // RegisterDeviceCommandHandler/EnrollKioskCommandHandler, which
-            // name the clientId in their own 409 because no cross-fab leak is
-            // possible there, this refusal stays generic (see
-            // WebhookClientNameConflict).
+            // this fab-scoped lookup above never saw. This refusal stays
+            // generic (see WebhookClientNameConflict) to avoid naming the
+            // clientId in the message. That closes the message-text leak
+            // only: the 409-vs-200 status code itself is still a cross-fab
+            // existence oracle, and RegisterDeviceCommandHandler /
+            // EnrollKioskCommandHandler have the identical property via the
+            // same unscoped GetByClientIdAsync lookup — see the tracked
+            // follow-up on this handler's own namespace-collision oracle.
             return Failure(RotateWebhookClientFailures.WebhookClientNameConflict());
         }
         catch (Exception ex) when (ex is not OperationCanceledException

@@ -81,9 +81,12 @@ public abstract record RotateWebhookClientError(string Code, string Message, Htt
     /// already taken — by this caller's own fab, or by another fab's webhook
     /// client the caller's fab-scoped lookup above never saw. Deliberately
     /// generic, mirroring <see cref="SmartSentinelEye.ServiceDefaults.Persistence.UniqueConstraintExceptionHandler"/>:
-    /// naming the clientId here would tell a caller that another fab already
-    /// owns this integration name, turning the refusal into a cross-fab
-    /// existence oracle.
+    /// naming the clientId here would additionally tell the caller which fab
+    /// already owns this integration name. This closes that message-text
+    /// leak only — the 409-vs-200 status code distinction itself is still a
+    /// cross-fab existence oracle; closing it would need fab-qualifying the
+    /// Keycloak clientId namespace, which is out of scope here and tracked
+    /// in a separate follow-up.
     /// </summary>
     public sealed record WebhookClientNameConflict()
         : RotateWebhookClientError(
