@@ -189,8 +189,6 @@ describe('isNotFound', () => {
     expect(isNotFound(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(true);
   });
 
-  // FR-006: isForbidden must stay false for 404 so list pages — which never
-  // pass notFoundRevokes — keep ignoring it entirely.
   it('is false for every other status, including the ones 404 is routinely confused with', () => {
     expect(isNotFound(refusal(401, 'UNAUTHORIZED'))).toBe(false);
     expect(isNotFound(refusal(403, 'FORBIDDEN'))).toBe(false);
