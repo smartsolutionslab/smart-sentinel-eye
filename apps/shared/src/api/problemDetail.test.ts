@@ -3,6 +3,7 @@ import {
   CONFLICT_FALLBACK,
   isConflict,
   isForbidden,
+  isNotFound,
   isStaleConflict,
   isTerminalRefusal,
   problemCode,
@@ -171,6 +172,48 @@ describe('isForbidden', () => {
   it('is false when there is no error at all', () => {
     expect(isForbidden(null)).toBe(false);
     expect(isForbidden(undefined)).toBe(false);
+  });
+});
+
+/**
+ * Spec 313 (#2750) T001. `isNotFound` is the single place a 404 is
+ * recognised — read by `useRevocationFallback` only, and only once gated by
+ * the "a prior 200 for this identifier is cached" signal (FR-001/005). A
+ * page must not call it directly, same restriction as `isForbidden`.
+ * Mirrors `isForbidden`'s own shape: a plain `status` check, nothing
+ * richer, so RTK's string statuses (`FETCH_ERROR`, `PARSING_ERROR`) are
+ * never mistaken for it.
+ */
+describe('isNotFound', () => {
+  it('recognises a 404 refusal', () => {
+    expect(isNotFound(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(true);
+  });
+
+  // FR-006: isForbidden must stay false for 404 so list pages — which never
+  // pass notFoundRevokes — keep ignoring it entirely.
+  it('is false for every other status, including the ones 404 is routinely confused with', () => {
+    expect(isNotFound(refusal(401, 'UNAUTHORIZED'))).toBe(false);
+    expect(isNotFound(refusal(403, 'FORBIDDEN'))).toBe(false);
+    expect(isNotFound(refusal(409, 'LAYOUT_REVISION_STALE'))).toBe(false);
+    expect(isNotFound(refusal(503, 'SERVER_ERROR'))).toBe(false);
+    expect(isNotFound(refusal(400, 'BAD_REQUEST'))).toBe(false);
+  });
+
+  it('is false for an RTK Query string status, which can never equal 404', () => {
+    expect(isNotFound({ status: 'FETCH_ERROR' })).toBe(false);
+    expect(isNotFound({ status: 'PARSING_ERROR' })).toBe(false);
+  });
+
+  it('is false when there is no error at all', () => {
+    expect(isNotFound(null)).toBe(false);
+    expect(isNotFound(undefined)).toBe(false);
+  });
+
+  // The pairing FR-006 depends on: a 404 must never also read as forbidden,
+  // or isForbidden's callers (unaware of the new helper) would double-count.
+  it('isForbidden stays false for a 404 — the two predicates never agree', () => {
+    expect(isForbidden(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(false);
+    expect(isNotFound(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(true);
   });
 });
 
