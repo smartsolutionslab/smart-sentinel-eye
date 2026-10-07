@@ -104,10 +104,10 @@ export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed 
     // stalled ICE transport, or the media watchdog finding no frames) already
     // means this attempt did not work, so this unmounts on it rather than
     // riding the ladder or waiting out the outer 10 s timeout. `'error'` is
-    // not reachable — `useWhepSession`'s only transitions are `offline`,
-    // `reconnecting`, `live` and `connecting` — so that arm is dropped rather
-    // than kept as a false sense of coverage.
-    if (status === 'reconnecting' || status === 'offline') {
+    // reachable since spec 233 (#2355) — an authorization refusal lands there
+    // directly, without ever visiting `reconnecting` — so it fails fast here
+    // too, for the same reason.
+    if (status === 'reconnecting' || status === 'offline' || status === 'error') {
       settledRef.current = true;
       onFailed();
     }

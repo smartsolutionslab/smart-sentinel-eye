@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { RefObject } from 'react';
 import type { StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
-import { WhepClient } from '@smart-sentinel-eye/shared/streaming/WhepClient';
+import { WhepClient, WhepError } from '@smart-sentinel-eye/shared/streaming/WhepClient';
 import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/WhepClient';
 
 export type CameraViewerStatus = 'idle' | 'connecting' | 'live' | 'reconnecting' | 'error' | 'offline';
@@ -53,12 +53,25 @@ export interface WhepSessionResult {
 const RETRY_BASE_MS = 1_000;
 const RETRY_CAP_MS = 15_000;
 const DISCONNECT_GRACE_MS = 5_000;
+// FR-001/FR-005: shown verbatim, so it must never carry the server's raw
+// response body (MediaMTX's is JSON noise).
+const REFUSED_MESSAGE = 'The stream server refused this viewer. This tile will not retry on its own.';
 // Spec 002 FR-013 budgets click → first decoded frame at 3 s p95: a session
 // `connected` this long with no frame has already breached it on its own.
 const MEDIA_WATCHDOG_MS = 3_000;
 // 1/12 of the window. A timer rather than requestAnimationFrame, which stops in
 // a background tab and would let the watchdog demote a healthy backgrounded tile.
 const MEDIA_POLL_MS = 250;
+
+/**
+ * Whether a `connect()` rejection is an authorization refusal rather than a
+ * transient failure (FR-001). `'stream-unavailable'` is deliberately excluded
+ * here — it describes the path, not the viewer's credential, and stays on
+ * the retry ladder.
+ */
+function isRefusal(cause: unknown): cause is WhepError {
+  return cause instanceof WhepError && (cause.kind === 'unauthorized' || cause.kind === 'forbidden');
+}
 
 function jitteredRetryDelay(attempt: number): number {
   const base = Math.min(RETRY_BASE_MS * 2 ** attempt, RETRY_CAP_MS);
@@ -107,7 +120,10 @@ function framesProduced(videoEl: HTMLVideoElement): number {
  * POST succeeding, and never the transport state alone, which is a fact about a
  * socket that left Live standing over black (spec 094, #2111). Failed sessions,
  * and sessions that never produce a picture, are retried indefinitely with
- * jittered exponential backoff (FR-001…FR-005).
+ * jittered exponential backoff (FR-001…FR-005) — except an authorization
+ * refusal (`WhepError` of kind `'unauthorized'`/`'forbidden'`), which ends the
+ * session as a terminal `'error'` instead of re-entering the ladder (spec 233,
+ * FR-001).
  */
 export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   const { cameraIdentifier, whepUrl, streamState, streamError, getToken } = options;
@@ -346,6 +362,14 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
     transitionTo('connecting');
     client.connect(videoEl, controller.signal).catch((cause: unknown) => {
       if (disposed || controller.signal.aborted) return;
+      if (isRefusal(cause)) {
+        // FR-001/FR-003: terminal, not a retry — only an outside change (camera
+        // swap, whepUrl change, Offline→non-Offline, Degraded→Healthy, remount)
+        // leaves this state. No timer is armed here.
+        logResilienceEvent('stream', 'whep-refused', { cameraIdentifier, kind: cause.kind });
+        transitionTo('error', REFUSED_MESSAGE);
+        return;
+      }
       scheduleRetry(cause instanceof Error ? cause.message : String(cause));
     });
 
