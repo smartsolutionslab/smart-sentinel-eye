@@ -14,9 +14,19 @@ import { store } from '../../app/store.js';
  * (`useLabelDelay`, ADR-0129) re-joins a held text with a *current* element
  * by raw array index. A reorder of the element array during the hold window
  * mis-joins a caption's text onto the wrong geometry, because `elements` is
- * read fresh every render while `resolvedTexts` stays behind until the hold
+ * read fresh every render while the held text stays behind until the hold
  * elapses — two arrays, two different moments, joined positionally
  * (`LayoutGrid.tsx:471-494`).
+ * </p>
+ *
+ * <p>
+ * No overlay here carries a `{{placeholder}}`, so `hasPlaceholder` is false
+ * and every tile skips the snapshot query outright — this file never
+ * exercises the snapshot's shape (positional `resolvedTexts` pre-spec-301,
+ * template-keyed `texts` after #2720). Only the fallback path
+ * (`element.kind === 'Text' ? element.text : ''`) is reached, which is
+ * exactly the one US1 is about and is unaffected by US2's template-keyed
+ * lookup.
  * </p>
  *
  * <p>
@@ -309,7 +319,7 @@ describe('LayoutGrid Tile — the held set paired with a current element by inde
 
     // Still inside the hold window: neither geometry may show the OTHER
     // caption's text. On today's code, `elements` is read fresh (current)
-    // while `resolvedTexts` is still the pre-reorder array, joined by index —
+    // while the held text is still the pre-reorder value, joined by index —
     // so L1's geometry (0.1) shows L2's stale-by-index text and vice versa.
     expect(elementAt(0.1)?.text, "L1's own geometry, during the hold").toBe('L1');
     expect(elementAt(0.7)?.text, "L2's own geometry, during the hold").toBe('L2');

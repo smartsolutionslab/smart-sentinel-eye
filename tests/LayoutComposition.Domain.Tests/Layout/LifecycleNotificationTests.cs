@@ -122,21 +122,33 @@ public class LifecycleNotificationTests
     }
 
     /// <summary>
-    /// Spec 150 (#2345): the resolved-text push carries every label's
-    /// resolved text under one version bump, not a scalar.
+    /// Spec 301 (#2720) US2. Was
+    /// "ResolvedOverlayTextChangedNotification_carries_every_resolved_text",
+    /// asserting the old positional <c>ResolvedTexts : IReadOnlyList&lt;string&gt;</c>
+    /// (spec 150, #2345). The notification now carries template-keyed pairs —
+    /// <c>Texts : IReadOnlyList&lt;ResolvedOverlayText&gt;</c>, each a
+    /// <c>(Template, Resolved)</c> pair — so a consumer pairs by template,
+    /// never by position (spec.md FR-005). Rewritten, not construction-only:
+    /// this type does not exist on today's code, so this fact is red by
+    /// construction until T011 lands.
     /// </summary>
     [Fact]
-    public void ResolvedOverlayTextChangedNotification_carries_every_resolved_text()
+    public void ResolvedOverlayTextChangedNotification_carries_every_resolved_pair_by_template()
     {
         Guid overlay = Guid.CreateVersion7();
 
         ResolvedOverlayTextChangedNotification notification = new(
-            overlay, ["First", "Second"], 7, "munich");
+            overlay,
+            [new ResolvedOverlayText("A {{x}}", "First"), new ResolvedOverlayText("B {{x}}", "Second")],
+            7,
+            "munich");
 
         notification.Overlay.ShouldBe(overlay);
-        notification.ResolvedTexts.Count.ShouldBe(2);
-        notification.ResolvedTexts[0].ShouldBe("First");
-        notification.ResolvedTexts[1].ShouldBe("Second");
+        notification.Texts.Count.ShouldBe(2);
+        notification.Texts[0].Template.ShouldBe("A {{x}}");
+        notification.Texts[0].Resolved.ShouldBe("First");
+        notification.Texts[1].Template.ShouldBe("B {{x}}");
+        notification.Texts[1].Resolved.ShouldBe("Second");
         notification.Version.ShouldBe(7);
         notification.Fab.ShouldBe("munich");
     }

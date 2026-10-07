@@ -438,16 +438,20 @@ public class V1ResourceMapTests
             camera.ToString());
     }
 
-    // 16. SystemVariables.ResolvedOverlayTextChangedV2 -> overlay / Overlay (hand-tweak)
+    // 16. SystemVariables.ResolvedOverlayTextChangedV3 -> overlay / Overlay (hand-tweak)
+    // Spec 301 (#2720) US2: V2's positional ["ResolvedText-sentinel"] becomes
+    // one (template, resolved) pair under V3. Same case, not a new one
+    // (plan.md T012: "do not add a new case" — the resource kind and id are
+    // unedited).
     private static MappingCase ResolvedOverlayTextChangedCase()
     {
         Guid overlay = Guid.CreateVersion7();
         return new MappingCase(
-            typeof(ResolvedOverlayTextChangedV2),
+            typeof(ResolvedOverlayTextChangedV3),
             ResourceKind.Overlay,
-            () => new ResolvedOverlayTextChangedV2(
+            () => new ResolvedOverlayTextChangedV3(
                 overlay,
-                ["ResolvedText-sentinel"],
+                [new ResolvedOverlayTextV3("Template-sentinel", "ResolvedText-sentinel")],
                 7L,
                 TestMetadata),
             overlay.ToString());

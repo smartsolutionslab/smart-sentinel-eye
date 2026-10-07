@@ -60,7 +60,7 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.OverlayIdentifier.ShouldBe(overlay);
-        result.Value.ResolvedTexts.Single().ShouldBe("OEE: 82.5%");
+        result.Value.Texts.Single().Resolved.ShouldBe("OEE: 82.5%");
         result.Value.Version.ShouldBe(FakeOverlayTextVersions.Floor + 3);
     }
 
@@ -82,7 +82,7 @@ public class GetOverlaySnapshotQueryHandlerTests
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ResolvedTexts.Single().ShouldBe("{{shift}} - {{unknown}}");
+        result.Value.Texts.Single().Resolved.ShouldBe("{{shift}} - {{unknown}}");
     }
 
     // ---- spec 014 T037 (as amended by ADR-0115): the viewer's fab ----
@@ -108,10 +108,10 @@ public class GetOverlaySnapshotQueryHandlerTests
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> dresden = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
-        munich.Value.ResolvedTexts.Single().ShouldBe("OEE: 41%");
+        munich.Value.Texts.Single().Resolved.ShouldBe("OEE: 41%");
         // The assertion that matters: asserting munich alone would pass just as
         // well if resolution were still global.
-        dresden.Value.ResolvedTexts.Single().ShouldBe("OEE: 7%");
+        dresden.Value.Texts.Single().Resolved.ShouldBe("OEE: 7%");
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
-        result.Value.ResolvedTexts.Single().ShouldBe("OEE: {{oeeLine1}}%");
+        result.Value.Texts.Single().Resolved.ShouldBe("OEE: {{oeeLine1}}%");
     }
 
     // ---- #2426 (spec 202) Finding B / SC-7 -- version read before text resolved ----

@@ -73,10 +73,10 @@ public class VariableValueChangedPreCommitTests
                 RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
 
-        push.ResolvedTexts.Single().ShouldBe(
+        push.Texts.Single().Resolved.ShouldBe(
             "OEE: 82.5%",
             "the handler resolved the changed variable from storage, so running it "
             + "before the commit renders the value the write is replacing");
@@ -124,10 +124,10 @@ public class VariableValueChangedPreCommitTests
                 RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV2 push =
-            bus.Published.OfType<ResolvedOverlayTextChangedV2>().ShouldHaveSingleItem();
+        ResolvedOverlayTextChangedV3 push =
+            bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
 
-        push.ResolvedTexts.Single().ShouldBe("Nights — OEE 82.5%");
+        push.Texts.Single().Resolved.ShouldBe("Nights — OEE 82.5%");
     }
 
     private sealed class FixedClock : IClock

@@ -212,9 +212,13 @@ public class ReverseIndexSeederHostedServiceTests
     /// Spec 300 (#2349), ADR-0165, T014 — a <c>Box</c> element (no
     /// <c>"text"</c> at all, unlike every element before this spec) at
     /// ordinal 0 must not shift the <c>Text</c> element at ordinal 1 onto
-    /// the wrong index. <c>ResolvedTexts</c> is index-aligned with the
-    /// element array by contract, so the seeder fills the Box's slot with
-    /// <see cref="string.Empty"/> rather than skipping it.
+    /// the wrong index. <c>IReverseIndex.LookupLabelTexts</c>'s own
+    /// cached list stays index-aligned with the element array by contract —
+    /// unchanged by spec 301 (#2720) — so the seeder fills the Box's slot
+    /// with <see cref="string.Empty"/> rather than skipping it.
+    /// <c>ResolvedTextPairs</c> (spec 301 US2) is what later drops that
+    /// empty entry and keys the rest by template; this test is about the
+    /// reverse index's own cache shape, one layer below that.
     /// </summary>
     [Fact]
     public async Task A_box_then_text_payload_seeds_an_empty_string_then_the_text()
