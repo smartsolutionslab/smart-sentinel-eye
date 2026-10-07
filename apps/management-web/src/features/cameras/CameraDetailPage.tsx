@@ -57,7 +57,20 @@ export function CameraDetailPage() {
   // and the existing refresh-failure banner alone would keep it (and its
   // viewer and controls) visible indefinitely. `refused` masks `record`
   // below, so the status itself is never read here (FR-005).
-  const refused = useRevocationFallback(cameraIdentifier, { error, isFetching, requestId });
+  // Spec 313 (#2750): cameras are never deleted (no MapDelete, no repository
+  // removal — spec 032), and `currentData` is only ever this identifier's
+  // own cache entry, so a 404 while it still holds a record means the
+  // operator lost the fab (spec 029 FR-006 answers fab refusals 404), not
+  // that the camera stopped existing. Must be `currentData`, not `data` —
+  // `data` can still carry the previous identifier's record across a
+  // navigation, which would make a fresh identifier's first-load 404 a
+  // strike.
+  const refused = useRevocationFallback(cameraIdentifier, {
+    error,
+    isFetching,
+    requestId,
+    notFoundRevokes: currentData !== undefined,
+  });
 
   // `camera` (`data`) can still hold a *previously viewed* identifier's record
   // for a moment after the URL changes — including across a same-instance

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { isForbidden } from '../api/problemDetail.js';
+import { isForbidden, isNotFound } from '../api/problemDetail.js';
 
 /** Consecutive 403s to a subject's query before its refusal surface shows (spec 310 #2725). */
 export const REVOCATION_STRIKE_THRESHOLD = 3;
@@ -9,6 +9,12 @@ export interface RevocationQueryState {
   error: unknown;
   isFetching: boolean;
   requestId: string | undefined;
+  /**
+   * Opt-in (spec 313): true when this subject's cache entry already holds a
+   * successfully loaded record AND the resource is never deleted, so a 404 can
+   * only mean access was lost. Omit on list pages — a 404 there resets.
+   */
+  notFoundRevokes?: boolean;
 }
 
 interface RevocationState {
@@ -19,10 +25,11 @@ interface RevocationState {
 
 /**
  * True once {@link REVOCATION_STRIKE_THRESHOLD} consecutive settled responses
- * for `subject` were 403 (spec 310 #2725) — the signal a page masks its data
- * with to fall back to its existing no-data-plus-error render (FR-004). A
- * page never reads `error.status` itself; this hook is the only caller of
- * {@link isForbidden} (FR-005).
+ * for `subject` were a refusal (403, or 404 where `notFoundRevokes`) (spec
+ * 310 #2725, spec 313 #2750) — the signal a page masks its data with to fall
+ * back to its existing no-data-plus-error render (FR-004). A page never
+ * reads `error.status` itself; this hook is the only caller of
+ * {@link isForbidden} and {@link isNotFound} (FR-005).
  *
  * Counts one strike per settled (`!isFetching`), not-yet-counted `requestId`.
  * Any settled non-403 resets the count to zero, as does a change of
@@ -57,7 +64,8 @@ export function useRevocationFallback(subject: string, query: RevocationQuerySta
     next = {
       subject: next.subject,
       counted: query.requestId,
-      strikes: isForbidden(query.error) ? next.strikes + 1 : 0,
+      strikes:
+        isForbidden(query.error) || (query.notFoundRevokes === true && isNotFound(query.error)) ? next.strikes + 1 : 0,
     };
   }
 

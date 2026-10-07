@@ -55,6 +55,22 @@ export function isForbidden(error: unknown): boolean {
   );
 }
 
+/**
+ * True when the server answered 404 — a per-resource refusal (spec 029
+ * FR-006), as opposed to a scope-level one. A 404 by itself means nothing to
+ * the revocation fallback; it is read by `useRevocationFallback` only, and
+ * only once gated by a cached record for the subject (spec 313 FR-001/005).
+ *
+ * Same shape as {@link isForbidden}: a plain `status` check, nothing richer,
+ * so RTK's string statuses (`FETCH_ERROR`, `PARSING_ERROR`) are never
+ * mistaken for it.
+ */
+export function isNotFound(error: unknown): boolean {
+  return (
+    typeof error === 'object' && error !== null && 'status' in error && (error as { status: unknown }).status === 404
+  );
+}
+
 /** Fallback used when a 409 arrives without an RFC-7807 detail. */
 export const CONFLICT_FALLBACK =
   'Someone else changed this while you were working. Reload to see their version, then reapply your change.';
