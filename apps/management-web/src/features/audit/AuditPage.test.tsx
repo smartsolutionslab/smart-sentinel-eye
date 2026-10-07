@@ -282,6 +282,11 @@ describe('AuditPage — revocation fallback, three consecutive 403s (spec 310 #2
   function forbiddenRefresh(requestId: string) {
     return {
       data: { rows: [auditRow()], nextCursor: null } satisfies AuditPageData,
+      // A repeated failure of the SAME argument set keeps RTK Query's own
+      // cache entry's `data` (what `currentData` exposes) — only a successful
+      // response for a *different* arg set evicting it clears it, never a
+      // rejected refetch of the one that produced it.
+      currentData: { rows: [auditRow()], nextCursor: null } satisfies AuditPageData,
       isLoading: false,
       isFetching: false,
       error: { status: 403 },
@@ -337,5 +342,64 @@ describe('AuditPage — revocation fallback, three consecutive 403s (spec 310 #2
     const { container: firstLoadRefusal } = renderPage();
 
     expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+
+  /**
+   * Phase 6 finding S1. `AuditPage` passed `fetched` (`useSearchAuditQuery`'s
+   * raw `data`) straight through once `refused` was false, with no regard for
+   * `error`. RTK Query's `data` falls back to `lastResult?.data` whenever the
+   * *current* argument set's request has not succeeded — so once the operator
+   * applies a new filter, the fallback resets to `false` for the new subject
+   * (FR-003), and if the new argument set's first request then 403s, this bug
+   * rendered the OLD filter's rows instead of nothing. `currentData` is
+   * `undefined` here because the new argument set has never once succeeded.
+   */
+  it("Does not show a previous filter's stale rows when the new filter's own request is refused", async () => {
+    const user = userEvent.setup();
+    searchMock.mockReturnValue(forbiddenRefresh('audit-leak-r1'));
+    const { rerender } = renderPage();
+
+    searchMock.mockReturnValue(forbiddenRefresh('audit-leak-r2'));
+    rerender(
+      <Provider store={store}>
+        <AuditPage />
+      </Provider>,
+    );
+
+    searchMock.mockReturnValue(forbiddenRefresh('audit-leak-r3'));
+    rerender(
+      <Provider store={store}>
+        <AuditPage />
+      </Provider>,
+    );
+
+    expect(screen.queryByText('CameraRegisteredV1')).toBeNull();
+
+    // The operator applies a new filter **for real** — submitting the form,
+    // not a prop change, so `useRevocationFallback`'s own subject
+    // (`JSON.stringify(applied)`, keyed off this page's actual `applied`
+    // state) changes for real and resets its strike count (FR-003). The new
+    // argument set's first request 403s — `data` (fetched) still carries the
+    // OLD filter's row via RTK's `lastResult` fallback, but `currentData` is
+    // undefined because this new argument set has never succeeded.
+    searchMock.mockReturnValue({
+      data: { rows: [auditRow()], nextCursor: null } satisfies AuditPageData,
+      currentData: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId: 'audit-leak-new-filter-1',
+      refetch: vi.fn(),
+    });
+
+    await user.type(screen.getByLabelText('Event kind'), 'CameraRetiredV1');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+
+    await vi.waitFor(() =>
+      expect(searchMock).toHaveBeenLastCalledWith(expect.objectContaining({ eventKind: 'CameraRetiredV1' })),
+    );
+
+    expect(screen.queryByText('CameraRegisteredV1')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load the audit trail/i);
   });
 });

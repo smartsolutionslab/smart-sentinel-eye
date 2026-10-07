@@ -334,6 +334,11 @@ describe('CamerasPage — revocation fallback, three consecutive 403s (spec 310 
   function forbiddenRefresh(requestId: string) {
     return {
       data: populatedPage(),
+      // A repeated failure of the SAME argument set keeps RTK Query's own
+      // cache entry's `data` (what `currentData` exposes) — it is only ever
+      // cleared by a successful response for a *different* arg set evicting
+      // it, never by a rejected refetch of the one that produced it.
+      currentData: populatedPage(),
       isLoading: false,
       isFetching: false,
       error: { status: 403 },
@@ -396,5 +401,77 @@ describe('CamerasPage — revocation fallback, three consecutive 403s (spec 310 
     const { container: firstLoadRefusal } = render_page();
 
     expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+
+  /**
+   * Phase 6 finding S1. `CamerasPage` passed `fetched` (`useListCamerasQuery`'s
+   * raw `data`) straight through once `refused` was false, with no regard for
+   * `error`. RTK Query's own `data` falls back to `lastResult?.data` whenever
+   * the *current* argument set's request has not succeeded — so once the
+   * operator changes the filter, the fallback's strike count resets to zero
+   * for the new subject (FR-003), `refused` goes back to `false`, and if the
+   * new argument set's first request then 403s, this bug rendered the OLD
+   * argument set's rows (via RTK's carryover) instead of nothing: exactly the
+   * exposure this spec exists to close, reopened for any operator who changes
+   * a filter. `currentData` — this exact argument set's own successful result,
+   * never a stale carryover — is `undefined` here because the new argument set
+   * has never once succeeded.
+   */
+  it("Does not show a previous filter's stale rows when the new filter's own request is refused", async () => {
+    const user = userEvent.setup();
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-leak-r1'));
+    const { rerender } = render_page();
+
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-leak-r2'));
+    rerender(
+      <Provider store={store}>
+        <MemoryRouter>
+          <CamerasPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-leak-r3'));
+    rerender(
+      <Provider store={store}>
+        <MemoryRouter>
+          <CamerasPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    // Threshold tripped for the first filter — the existing fallback already
+    // covers this (asserted above); re-asserted here only as the premise for
+    // what follows.
+    expect(screen.queryByText('Line-1-Entrance')).toBeNull();
+
+    // The operator changes the filter **for real** — a UI interaction, not a
+    // prop change, so `useRevocationFallback`'s own subject (`JSON.stringify
+    // (listArgs)`, keyed off this page's actual `nameFilter` state) changes
+    // for real and resets its strike count (FR-003). The new argument set's
+    // first request 403s — `data` (fetched) still carries the OLD filter's
+    // rows via RTK's `lastResult` fallback, but `currentData` is undefined
+    // because this new argument set has never succeeded.
+    listCamerasMock.mockReturnValue({
+      data: populatedPage(),
+      currentData: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId: 'cameras-leak-new-filter-1',
+      refetch: vi.fn(),
+    });
+
+    const field = screen.getByLabelText(/find a camera/i);
+    await user.click(field);
+    await user.paste('furnace');
+
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furnace' })),
+    );
+
+    expect(screen.queryByText('Line-1-Entrance')).toBeNull();
+    expect(screen.queryByText('Line-2-East')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load cameras/i);
   });
 });
