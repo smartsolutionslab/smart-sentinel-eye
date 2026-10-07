@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { StreamState } from '@smart-sentinel-eye/shared/api/streams.api';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
@@ -132,7 +132,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   // at connect time, so the effect below doesn't tear down and renegotiate
   // the RTCPeerConnection on every render — only when the stream changes.
   const getTokenRef = useRef(getToken);
-  useEffect(() => {
+  useLayoutEffect(() => {
     getTokenRef.current = getToken;
   });
 
