@@ -24,9 +24,120 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
 
 jobs:
+  # A diff touching only specs/** (feature spec/plan/tasks/verification docs)
+  # needs no pipeline run at all. specs/ is confirmed, repo-wide, to be read
+  # by nothing at test or CI time -- not Architecture.Tests, not any frontend
+  # test, not any CI step (grepped for file-reads of "specs/" across tests/,
+  # apps/ and this workflow; none exist).
+  #
+  # Deliberately narrow, and NOT the same as "any docs change": CLAUDE.md,
+  # docs/adr/**, .specify/memory/constitution.md and .claude/** all turned
+  # out to be read directly by Architecture.Tests guards
+  # (AgentBriefClaimTests, OverlayFrameClaimTests, LatencyLegRecordTests,
+  # FoundingDecisionRecordTests) -- a blanket "docs" skip would have silently
+  # bypassed exactly the tests that exist to catch a bad edit to those files.
+  # They stay in the full-pipeline bucket along with everything else.
+  #
+  # A frontend-only or backend-only skip was evaluated and rejected: this
+  # repo has deliberate cross-side consistency guards in BOTH directions
+  # (Architecture.Tests scans apps/*/src broadly; apps/shared/src/api/
+  # overlays.schema.test.ts and apps/shared/src/ui/composites/
+  # textLegibility.test.ts read src/OverlayDesigner/Domain/Overlay/*.cs
+  # directly), so neither side is safely skippable on the other's diff alone
+  # without first splitting those guards into their own job -- not attempted
+  # here.
+  #
+  # This does NOT narrow the `pull_request` trigger above -- that stays
+  # unfiltered because a stacked PR's base is unreviewed code (ADR-0028) and
+  # must still get a CI run. This job only decides whether the OTHER jobs in
+  # that run execute, never whether the run happens.
+  changes:
+    name: changes — classify this diff
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Classify the diff
+        id: classify
+        run: |
+          # Every exit point writes its reason to both the log and the step
+          # summary (so the decision is readable from the Actions UI without
+          # digging into a log) -- the manual four-bucket merge read treats a
+          # skipped bucket as acceptable only when this job's own summary
+          # names a specs/-only diff with a successful result.
+          conclude() {
+            echo "$1"
+            echo "**changes:** $1" >> "$GITHUB_STEP_SUMMARY"
+          }
+
+          echo "docs_only=false" >> "$GITHUB_OUTPUT"
+
+          event_name="${{ github.event_name }}"
+
+          if [ "$event_name" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+          elif [ "$event_name" = "push" ]; then
+            base="${{ github.event.before }}"
+          else
+            base=""
+          fi
+
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            conclude "No usable base to diff against (event=$event_name, base='$base') -- running everything."
+            exit 0
+          fi
+
+          if ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            conclude "Base commit $base not reachable -- running everything."
+            exit 0
+          fi
+
+          # --no-renames: git's default rename detection collapses a move to
+          # just its destination path, so `git mv src/Foo.cs specs/Foo.cs`
+          # would print only `specs/Foo.cs` and get classified as docs-only --
+          # silently dropping the file from a tested location with no
+          # pipeline run. --no-renames prints both the old and new path as
+          # separate add/delete entries, so the source path still counts.
+          files="$(git diff --no-renames --name-only "$base" "${{ github.sha }}")" || {
+            conclude "git diff failed -- running everything."
+            exit 0
+          }
+
+          if [ -z "$files" ]; then
+            conclude "Empty diff against base -- running everything."
+            exit 0
+          fi
+
+          echo "Changed files (vs $base):"
+          echo "$files"
+
+          other=false
+          while IFS= read -r f; do
+            [ -z "$f" ] && continue
+            case "$f" in
+              specs/*) ;;
+              *) other=true ;;
+            esac
+          done <<< "$files"
+
+          if [ "$other" = "true" ]; then
+            conclude "A path outside specs/ changed -- running everything."
+            exit 0
+          fi
+
+          conclude "Every changed path is under specs/ -- docs-only, skipping the pipeline."
+          echo "docs_only=true" >> "$GITHUB_OUTPUT"
+
   backend:
     name: backend — build + unit tests + coverage gate
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.docs_only != 'true'
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -146,6 +257,8 @@ jobs:
   frontend:
     name: frontend — lint + typecheck + test
     runs-on: ubuntu-latest
+    needs: [changes]
+    if: needs.changes.outputs.docs_only != 'true'
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -550,8 +663,12 @@ jobs:
   integration:
     name: integration tests (Docker)
     runs-on: ubuntu-latest
-    needs: [backend, integration-shards, integration-shard-coverage]
-    if: always()
+    needs: [backend, integration-shards, integration-shard-coverage, changes]
+    # `always()` would otherwise read a legitimately-skipped `backend` (a
+    # docs-only diff) the same as a genuine failure below (`shards != success`
+    # would fire) -- gate on the same flag `backend` itself used, so a
+    # docs-only diff skips this whole job instead of failing it.
+    if: always() && needs.changes.outputs.docs_only != 'true'
     steps:
       # Phase 6 review S5: names the actual needs.*.result values so a reader
       # can tell "genuinely red" from "superseded" rather than both reading as
@@ -789,6 +906,10 @@ jobs:
   e2e-shard-coverage:
     name: e2e shard coverage guard
     runs-on: ubuntu-latest
+    needs: [changes]
+    # --list only, no build (see above) -- gated purely so a docs-only diff
+    # skips this too, not because it has a real dependency on changes.
+    if: needs.changes.outputs.docs_only != 'true'
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -871,8 +992,10 @@ jobs:
   e2e:
     name: e2e (Playwright, full stack)
     runs-on: ubuntu-latest
-    needs: [backend, frontend, e2e-shards, e2e-shard-coverage]
-    if: always()
+    needs: [backend, frontend, e2e-shards, e2e-shard-coverage, changes]
+    # Same reasoning as `integration` above: gate on the same flag so a
+    # docs-only diff skips this job instead of failing it via `always()`.
+    if: always() && needs.changes.outputs.docs_only != 'true'
     steps:
       # Phase 6 review S5 and #2521: same reasoning as `integration`'s
       # identical step. e2e-shards needs frontend as well as backend, so

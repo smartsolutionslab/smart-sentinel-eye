@@ -241,7 +241,14 @@ gh pr view <PR> --json headRefOid -q .headRefOid    # must equal the branch tip 
 ```
 
 Green means **every** check concluded successfully. Cancelled is not
-green. Skipped-but-required is not green.
+green. Skipped-but-required is not green — **with one named exception**:
+`backend`/`frontend`/`integration`/`e2e`/`e2e-shard-coverage` read
+`skipped` on a diff `changes` classified as specs/-only, and that is the
+intended behaviour, not a gap. Before trusting a skip, open the `changes`
+job's own step summary and confirm it actually reports a specs/-only
+diff with a successful result — a skip alongside anything else from
+`changes` (a failure, a cancellation, or a diff it couldn't read) is a
+real gap exactly as before this job existed.
 
 - **Green** → merge **immediately**, even mid-phase on another issue:
   `gh pr merge <PR> --rebase --admin --delete-branch`, then confirm the
