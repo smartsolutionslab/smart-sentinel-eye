@@ -1,6 +1,6 @@
 # ADR-0073: Integration Event Versioning — Explicit V&lt;N&gt; Suffix
 
-**Status:** Accepted
+**Status:** Accepted (note 2026-10-07)
 **Date:** 2026-05-25
 
 ## Context
@@ -36,6 +36,19 @@ the policy clear.
   removes emission; consumers remove their handlers).
 - **Additive non-breaking changes** (a new optional field with a safe
   default that consumers can ignore) do NOT bump the version.
+
+> **2026-10-07.** The deprecation window above assumes a consumer outside
+> this repo, which cannot be coordinated with directly. **A version whose
+> every consumer is in-repo may be cut and deleted in the same commit as
+> its successor — no dual-publish, no deprecation window.** This is not a
+> new policy; it records what this repo has already done three times
+> without an ADR: ADR-0112 §3 states it for multi-tile layouts ("V1 is
+> removed in the same feature… there is no dual-publish"), spec 150
+> FR-009 cut `ResolvedOverlayTextChangedV1`→`V2` this way, and spec
+> 300/ADR-0165:65 cut `OverlayRevisionPublishedV3` the same way. Spec
+> 301/#2720 relied on the same reasoning rather than this ADR's literal
+> text, which is the gap this note closes. The deprecation-window path
+> above remains the rule whenever any consumer is outside this repo.
 
 ## Consequences
 

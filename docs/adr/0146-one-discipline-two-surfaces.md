@@ -1,7 +1,8 @@
 # ADR-0146: One discipline, two surfaces
 
 **Status:** **Accepted** (amended 2026-10-04 — item 4: the triad's *text* role may adapt
-per theme; see [the amendment](#amendment-2026-10-04-the-triads-text-role-adapts-per-theme))
+per theme; see [the amendment](#amendment-2026-10-04-the-triads-text-role-adapts-per-theme);
+note 2026-10-07)
 **Date:** 2026-09-13
 **Amends:** —
 
@@ -196,6 +197,14 @@ stays fixed.
 
 Where the signal already clears 4.5:1 — dark and high-contrast — the text role
 **is** the signal. Only a theme that needs it gets a different stop.
+
+> **2026-10-07 (issue #2709, spec 308).** "Wherever the triad colours text" means
+> on a theme surface — the tint and the three grounds this section names. Text on
+> `--color-bg-video`, which is black in every theme, uses
+> `--color-accent-<role>-on-video` instead: declared once in `:root`, equal to the
+> signal, never redeclared by a theme, because the signal already clears 4.5:1
+> there in every theme. Decided on the issue by a human before the spec; recorded
+> here so this sentence is not contradicted by the token file.
 
 **Still not permitted:** a text role at a different hue; a theme dropping or
 renaming a triad role; a triad colour (signal or text) used for affordance or
