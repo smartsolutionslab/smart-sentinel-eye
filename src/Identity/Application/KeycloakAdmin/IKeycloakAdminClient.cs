@@ -23,9 +23,14 @@ public interface IKeycloakAdminClient
     /// <summary>
     /// Creates a Keycloak client + returns the just-minted
     /// client secret. Throws
-    /// <see cref="KeycloakClientAlreadyExistsException"/> when the
-    /// client already exists (the command handler maps that to a
-    /// typed error).
+    /// <see cref="KeycloakClientAlreadyExistsException"/> when a
+    /// client with the same <c>clientId</c> already exists and is not
+    /// eligible for replacement (the command handler maps that to a
+    /// typed error). The one exception is a client that is disabled and
+    /// stamped with the same <c>sse.kind</c> (and, where present,
+    /// <c>sse.fab</c>) as <paramref name="representation"/> — that is a
+    /// previously-disabled registration, and it is deleted and recreated
+    /// instead of refused (#2728).
     /// </summary>
     Task<KeycloakClientCredentials> CreateClientAsync(
         KeycloakClientRepresentation representation,
