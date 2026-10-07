@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { isForbidden, isNotFound } from '../api/problemDetail.js';
 
-/** Consecutive 403s to a subject's query before its refusal surface shows (spec 310 #2725). */
+/** Consecutive refusals (403, or a qualifying 404) to a subject's query before its refusal surface shows (spec 310 #2725, spec 313 #2750). */
 export const REVOCATION_STRIKE_THRESHOLD = 3;
 
 /** The slice of an RTK Query hook's result `useRevocationFallback` needs. */
@@ -32,7 +32,7 @@ interface RevocationState {
  * {@link isForbidden} and {@link isNotFound} (FR-005).
  *
  * Counts one strike per settled (`!isFetching`), not-yet-counted `requestId`.
- * Any settled non-403 resets the count to zero, as does a change of
+ * Any settled non-refusal resets the count to zero, as does a change of
  * `subject`. A `requestId` of `undefined` — every existing page test's mock
  * query result — never counts, so those tests render exactly as before.
  *
