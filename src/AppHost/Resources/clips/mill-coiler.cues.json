@@ -1,0 +1,8 @@
+{
+  "Clip": "mill-coiler.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    { "AtMs": 1500, "Class": "billet", "Confidence": 0.85, "Zone": "furnace-exit-conveyor", "Label": "WHITE-HOT BILLET EXITING FURNACE", "Box": { "X": 0.5, "Y": 0.46, "Width": 0.22, "Height": 0.15 } },
+    { "AtMs": 9500, "Class": "billet", "Confidence": 0.55, "Zone": "runout-table" }
+  ]
+}

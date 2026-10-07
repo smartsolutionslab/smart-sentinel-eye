@@ -1,0 +1,8 @@
+{
+  "Clip": "paper-after-drying.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    { "AtMs": 7000, "Class": "operator", "Confidence": 0.85, "Zone": "control-panel", "Label": "OPERATOR ADJUSTING DRYER SECTION CONTROLS", "Box": { "X": 0.67, "Y": 0.36, "Width": 0.25, "Height": 0.5 } },
+    { "AtMs": 12000, "Class": "operator", "Confidence": 0.6, "Zone": "control-panel" }
+  ]
+}

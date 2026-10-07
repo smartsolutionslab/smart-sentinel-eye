@@ -1,0 +1,8 @@
+{
+  "Clip": "paper-packaging.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    { "AtMs": 3500, "Class": "pallet", "Confidence": 0.85, "Zone": "packaging-conveyor", "Label": "WRAPPED PAPER PALLETS ON CONVEYOR", "Box": { "X": 0.594, "Y": 0.222, "Width": 0.352, "Height": 0.583 } },
+    { "AtMs": 7000, "Class": "operator", "Confidence": 0.6, "Zone": "strapping-station" }
+  ]
+}

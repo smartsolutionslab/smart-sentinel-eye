@@ -1,0 +1,8 @@
+{
+  "Clip": "mill-cooling.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    { "AtMs": 4500, "Class": "billet", "Confidence": 0.6, "Zone": "furnace-exit" },
+    { "AtMs": 13500, "Class": "steam", "Confidence": 0.78, "Zone": "descaling-cooling-bed", "Label": "COOLING SPRAY STEAM CLOUD", "Box": { "X": 0.3, "Y": 0.03, "Width": 0.55, "Height": 0.55 } }
+  ]
+}

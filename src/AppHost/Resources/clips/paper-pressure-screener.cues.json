@@ -1,0 +1,7 @@
+{
+  "Clip": "paper-pressure-screener.mp4",
+  "DurationMs": 17760,
+  "Cues": [
+    { "AtMs": 5500, "Class": "motor", "Confidence": 0.75, "Zone": "screening-room", "Label": "ABB MOTOR DRIVE - PRESSURE SCREEN BANK", "Box": { "X": 0.258, "Y": 0.25, "Width": 0.406, "Height": 0.556 } }
+  ]
+}
