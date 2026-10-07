@@ -142,6 +142,16 @@ public sealed class RotateWebhookClientCommandHandler(
                 await clients.SaveAsync(cancellationToken);
             }
         }
+        catch (KeycloakClientAlreadyExistsException)
+        {
+            // The clientId is already taken — by another fab's webhook client
+            // this fab-scoped lookup above never saw. Unlike
+            // RegisterDeviceCommandHandler/EnrollKioskCommandHandler, which
+            // name the clientId in their own 409 because no cross-fab leak is
+            // possible there, this refusal stays generic (see
+            // WebhookClientNameConflict).
+            return Failure(RotateWebhookClientFailures.WebhookClientNameConflict());
+        }
         catch (Exception ex) when (ex is not OperationCanceledException
                                    and not InvalidOperationException
                                    // A Layer-2 loser's DbUpdateConcurrencyException must propagate
