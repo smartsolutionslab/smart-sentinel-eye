@@ -58,14 +58,14 @@ namespace SmartSentinelEye.Architecture.Tests;
 ///
 /// <para>
 /// Red for real on widening (issue #2746, no synthetic fixture needed): the
-/// solid case catches <c>App.tsx</c>'s sign-in buttons
+/// solid case caught <c>App.tsx</c>'s sign-in buttons
 /// (<c>bg-accent-active</c>, ×2) and <c>PickerPage.tsx</c>'s card hover
-/// affordance (<c>hover:border-accent-active</c>, ×2) — both predate this
+/// affordance (<c>hover:border-accent-active</c>, ×2) — both predated this
 /// guard entirely (no prior check, translucent or solid, ever scanned them)
-/// and both are exactly ADR-0146's "triad colour used for affordance": the
+/// and both were exactly ADR-0146's "triad colour used for affordance": the
 /// ADR introduces a separate, non-status accent hue for interactive
-/// affordance precisely so the triad is never reached for by habit. Left
-/// unfixed here — that is phase 4b's job, not this guard's.
+/// affordance precisely so the triad is never reached for by habit. Fixed in
+/// the same change.
 /// </para>
 /// </summary>
 public class WallStatusChipTests
@@ -167,6 +167,8 @@ public class WallStatusChipTests
     [InlineData("bg-accent-fault-pressed")]
     [InlineData("border-accent-fault-border")]
     [InlineData("bg-accent-subtle")]
+    [InlineData("text-accent-active-text")]
+    [InlineData("bg-accent-warning-on-video")]
     public void Triad_affordance_pattern_does_not_match_the_derived_semantic_tokens(string candidate)
     {
         TriadColourAsAffordance.IsMatch(candidate).ShouldBeFalse();
