@@ -1,0 +1,7 @@
+{
+  "Clip": "electronics-smd-line.mp4",
+  "DurationMs": 16520,
+  "Cues": [
+    { "AtMs": 8500, "Class": "placement-head", "Confidence": 0.72, "Zone": "pick-and-place-head", "Label": "SIEMENS PLACEMENT HEAD IN MOTION", "Box": { "X": 0.34, "Y": 0.2, "Width": 0.35, "Height": 0.5 } }
+  ]
+}

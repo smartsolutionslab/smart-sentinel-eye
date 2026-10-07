@@ -1,0 +1,7 @@
+{
+  "Clip": "electronics-conveyor.mp4",
+  "DurationMs": 18040,
+  "Cues": [
+    { "AtMs": 9500, "Class": "lift-actuator", "Confidence": 0.62, "Zone": "vertical-lift-gantry", "Label": "VERTICAL LIFT GANTRY IN VIEW", "Box": { "X": 0.22, "Y": 0.0, "Width": 0.46, "Height": 0.8 } }
+  ]
+}

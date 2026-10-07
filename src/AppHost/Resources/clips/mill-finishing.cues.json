@@ -1,0 +1,8 @@
+{
+  "Clip": "mill-finishing.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    { "AtMs": 11500, "Class": "rolling-stand", "Confidence": 0.7, "Zone": "finishing-stand-line", "Label": "FINISHING MILL STAND ROW", "Box": { "X": 0.35, "Y": 0.0, "Width": 0.65, "Height": 0.39 } },
+    { "AtMs": 18500, "Class": "roller-table", "Confidence": 0.5, "Zone": "runout-table" }
+  ]
+}

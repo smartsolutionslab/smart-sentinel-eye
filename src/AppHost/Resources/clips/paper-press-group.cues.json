@@ -1,0 +1,8 @@
+{
+  "Clip": "paper-press-group.mp4",
+  "DurationMs": 20000,
+  "Cues": [
+    { "AtMs": 500, "Class": "press-frame", "Confidence": 0.8, "Zone": "press-group", "Label": "ESCHER WYSS PRESS SECTION FRAME", "Box": { "X": 0.0, "Y": 0.0, "Width": 0.85, "Height": 0.55 } },
+    { "AtMs": 18500, "Class": "broke-pulp", "Confidence": 0.68, "Zone": "press-section-floor" }
+  ]
+}
