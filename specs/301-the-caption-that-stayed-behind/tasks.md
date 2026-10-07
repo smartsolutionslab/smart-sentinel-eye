@@ -9,7 +9,8 @@
 - `—`: implementation or measurement.
 
 **Engineers:** `frontend-engineer` (T004–T006, T013–T015), `backend-engineer`
-(T008–T012). Tests go to `test-writer` first, per phase 4a (T002, T003, T007 and the `R`
+(T008–T012, T016). In PR-B both work the **same branch**, backend first, then frontend,
+because the contract cut and the kiosk type change land in one commit. Tests go to `test-writer` first, per phase 4a (T002, T003, T007 and the `R`
 halves). **No infra engineer is needed.**
 
 **PRs:**
@@ -22,8 +23,16 @@ US2 can be dropped without touching PR-A.
 **Precondition:** spec 300 (#2349) PR-A merged to `develop`. Re-check that the number `301`
 is still free, then cut the branch from `develop`, never from the #2349 branch.
 
-**Tracking:** one feature-level issue, #2348 itself, on Project #13. No per-task issues
-(the post-028 convention). Its body should be re-scoped (T000) before Phase 4.
+**Tracking:** one feature-level issue per PR on Project #13. No per-task issues (the
+post-028 convention). PR-A: #2348 (closed by PR #2717, US1 + US3). **PR-B: #2720**
+(T008–T017), one branch and one PR for backend and kiosk alike.
+
+**PR-B re-verification (2026-10-07, `develop` `0d1864f5`):** the plan holds in substance.
+Six clerical drifts were corrected in `plan.md` and below: the inline lookup is not a
+named `liveTextFor`; the audit mapping is a hand-tweak; T010's open question is answered;
+four construction-only test files were missing; stale V2 doc comments are listed; and the
+ADR-0073 citation for the same-commit cut was wrong (plan §"Why no ADR" item 3; human
+sign-off recorded on #2720; ADR-0073 text fix tracked as #2738).
 
 ---
 
@@ -74,9 +83,9 @@ commit** (each commit must build on its own). The `[P]` markers below are for pa
 |---|---|---|---|---|
 | **T008** | | US2 | **R** | `src/Shared.Contracts/SystemVariables/ResolvedOverlayTextChangedV3.cs` (`ResolvedOverlayTextChangedV3` + `ResolvedOverlayTextV3(Template, Resolved)`), with the doc comment carrying the pair-by-template rule. **Delete V2.** Paste the `grep -rn ResolvedOverlayTextChangedV2` output into the PR. Tests: the shape, and V2 absent. **Blocks T009–T012.** |
 | **T009** | [P] | US2 | **R** | SystemVariables: `ResolvedTextPairs` (skip `""`, drop duplicates by `Ordinal`, keep order) and its unit tests (plan §"Phase 4a, RED, US2"). `ResolvedOverlayTextDto`, and `ResolvedOverlaySnapshotDto.Texts`. Depends on T008. |
-| **T010** | | US2 | **R** | SystemVariables producers: `VariableValueChangedDomainEventHandler`, `VariableArchivedDomainEventHandler` and `GetOverlaySnapshotQueryHandler` call `ResolvedTextPairs`. **Check whether `SystemVariableValueRequestedV1Handler` emits resolved text, and record the finding.** Red tests: pairs emitted, one event per overlay. The #2426 version-before-text assertion is unedited. Depends on T009. |
+| **T010** | | US2 | **R** | SystemVariables producers: `VariableValueChangedDomainEventHandler` (`:85`), `VariableArchivedDomainEventHandler` (`:102`) and `GetOverlaySnapshotQueryHandler` call `ResolvedTextPairs`. Red tests: pairs emitted, one event per overlay. The #2426 version-before-text assertion is unedited. **`SystemVariableValueRequestedV1Handler` does not emit** (it dispatches `SetVariableValueCommand`, `:83-98`); its production change is the stale V2 comment at `:95` only, but `SystemVariableValueRequestedV1HandlerTests.cs:350-351` asserts on V2 and migrates to V3 (type/accessor only). Migrate `VariableValueChangedPreCommitTests.cs:76,127` the same way (construction/capture lines only, FR-008). Correct the stale V2 / index-alignment doc comments: `IOverlayTextVersions.cs:5`, `SystemVariablesInfrastructureModule.cs:31`, the `:17` crefs in both domain-event handlers, and `ReverseIndexSeederHostedServiceTests.cs:215` (comment only). Depends on T009. |
 | **T011** | [P] | US2 | **R** | LayoutComposition:<br>- `ResolvedOverlayTextChangedV3Handler` (destructure first);<br>- the `ResolvedOverlayTextChangedNotification` pairs plus the `ResolvedOverlayText` record;<br>- the hub message `Texts`;<br>- the broadcaster mapping and the module registration;<br>- correct the notification's stale "republished with new references" doc sentence.<br>**Confirm `PrimitiveBoundaryTests` excludes the notification records**, and record the finding. Do not suppress anything. Update `LifecycleNotificationTests`. Depends on T008. |
-| **T012** | [P] | US2 | **R** | AuditObservability: `IntegrationEventAuditHandler` V3 overload replacing V2, and a `V1ResourceMapTests` case proving V3's resource mapping. Depends on T008. |
+| **T012** | [P] | US2 | **R** | AuditObservability: `IntegrationEventAuditHandler` V3 overload replacing V2 (`:55`). The V2 mapping is a **hand-tweak**, registered explicitly at `V1ResourceMap.Conventions.cs:74`: edit that line to `Add<ResolvedOverlayTextChangedV3>(…)` directly. **Change the existing case 16** in `V1ResourceMapTests.cs:441-453` (`ResolvedOverlayTextChangedCase`) from V2 to V3 (type, and the constructor's text list becomes one `ResolvedOverlayTextV3` pair); **do not add a new case**. The expected `ResourceKind.Overlay` and resource id stay unedited. Depends on T008. |
 
 ---
 
@@ -85,15 +94,20 @@ commit** (each commit must build on its own). The `[P]` markers below are for pa
 | ID | P | Story | Colour | Task |
 |---|---|---|---|---|
 | **T013** | | US2 | **R** | **Premise test first.** Kiosk test: a tile holds the old revision's resolved texts, a reorder is published, and the snapshot is not refreshed. Each caption must show its own template's value. **Observe red on today's positional shape and quote it.** After T014, only the fake server's response builder changes shape, and the assertion is not edited. Can be written before T008 lands. If it arrives green on today's code, US2's premise is false: stop and report. |
-| **T014** | | US2 | **R** | `apps/shared` types (`systemVariables.api.ts` `texts`, `layoutHub.ts` `texts`), `useOverlayHubHandlers.ts` upsert shape, and the `LayoutGrid.tsx` `liveTextFor` template lookup with the positional `liveTexts` and `""` padding deleted (plan §"Frontend (US2)"). Plus the "new template shows its raw template, never a neighbour's value" red test. The hub-handler tests change **only** in message construction (FR-008). **Same commit as T008–T012's hub message change** (plan §"PR split"). Depends on T008, T013. |
-| **T015** | [P] | US2 | **R** | New `apps/kiosk-web/src/features/cell/useTemplateMissRefetch.ts` + `.test.ts` (fake timers): 1/2/4 s refetch, early stop, exactly one `resolved-text-template-miss`, reset on a new publication key, timers cleared on unmount. Wire it into `Tile` after T014. Hook and test files are disjoint, so they can be authored in parallel with T014. |
-| **T016** | | US2 | **C** | Integration tests whose payload accessor changes: `ResolvedTextReachesItsFabTests`, `VersionSurvivesARestartTests`, `OverlaySnapshotReadiness`(+`Tests`). Only the accessor changes. **The fab and version assertions are unedited.** Run green. |
+| **T014** | | US2 | **R** | `apps/shared` types (`systemVariables.api.ts` `texts`, `layoutHub.ts` `texts`, with their doc comments at `systemVariables.api.ts:77-83` and `layoutHub.ts:83-94` (names V2 at `:86`) rewritten to the pair-by-template rule), `useOverlayHubHandlers.ts` upsert shape (`:202`), and in `LayoutGrid.tsx` `Tile` replace the **inline positional lookup at `:446`** (inside the `liveElements` map; there is no named `liveTextFor` function) with the template lookup, deleting the positional read and `""` padding (plan §"Frontend (US2)"); update PR-A's "stays positional in US1" comment at `:432-444`. Plus the "new template shows its raw template, never a neighbour's value" red test. Construction-only test migrations (FR-008, no `expect` edited): the hub-handler tests in `CellPage.test.tsx`, `useLayoutLifecycle.test.tsx:63`, `systemVariables.api.test.ts:11`, and `LayoutGridLabelPairing.test.tsx` (fixtures + comment wording at `:17`, `:312` only; assertions byte-identical). **Same commit as T008–T012's hub message change** (plan §"PR split"). Depends on T008, T013. |
+| **T015** | [P] | US2 | **R** | New `apps/kiosk-web/src/features/cell/useTemplateMissRefetch.ts` + `.test.ts` (fake timers): 1/2/4 s refetch, early stop, exactly one `resolved-text-template-miss`, reset on a new publication key, timers cleared on unmount, no `refetch` while the query is skipped. Wire it into `Tile` after T014: **`Tile` does not yet take `refetch`** from `useGetOverlaySnapshotQuery` (`LayoutGrid.tsx:427-430` destructures only `data`), so add it there. Hook and test files are disjoint, so they can be authored in parallel with T014. |
+| **T016** | | US2 | **C** | Integration tests whose payload accessor changes: `ResolvedTextReachesItsFabTests`, `VersionSurvivesARestartTests`, `OverlaySnapshotReadiness`(+`Tests`). Only the accessor changes. **The fab and version assertions are unedited.** Capture them green on `develop` before T008 (pass counts in the PR), then green again after. |
 | **T017** | | US2 | — | **FR-011.** Quote `NFR_VariableResolutionLatencyTests`' median, **run twice**. Run the spec's independent procedure, steps 5–6 (`system-variables` stopped). Attach the pairing recorder's log, and the console's `resolved-text-template-miss` line. Depends on T010–T016. |
 
 **PR-B gate:**
 - T008/T013 red, then green;
-- the T010 and T011 findings recorded;
-- T016 assertions unedited;
+- the T011 `PrimitiveBoundaryTests` finding recorded (T010's is already answered);
+- T016 assertions unedited; every construction-only file in plan §"CHARACTERISATION"
+  shows no edited `expect`/`Should*` line;
+- `grep -rn "ResolvedOverlayTextChangedV2" src tests apps e2e` pasted into the PR: no type
+  reference left, and every remaining hit is a comment narrating history (e.g.
+  `VariableArchivedDomainEventHandlerTests.cs:45`, `VariableDefinedDomainEventHandlerTests.cs:73`)
+  rather than describing current behaviour;
 - T017 figures quoted;
 - **no OverlayDesigner `src/` diff, no `CameraViewer.tsx` diff, no `OverlayEditor*` diff.**
 
