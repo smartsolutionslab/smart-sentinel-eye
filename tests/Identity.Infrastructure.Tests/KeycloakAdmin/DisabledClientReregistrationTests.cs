@@ -36,13 +36,14 @@ public class DisabledClientReregistrationTests
     private const string FreshClientUuid = "22222222-2222-2222-2222-222222222222";
 
     /// <summary>
-    /// Today's bug, pinned: a clientId Keycloak still carries — disabled or not,
-    /// the existence probe applies no filter — is reported as already registered.
-    /// This passes against today's code; it is the confirmation the bug exists,
-    /// not the desired behaviour.
+    /// A disabled client that carries no <c>sse.kind</c> attribute is not the
+    /// replacement case this issue describes — none of our own registrations
+    /// leave a disabled client without one, so this is some other disabled
+    /// client Keycloak happens to carry under the same clientId — and the
+    /// probe must still refuse rather than delete it.
     /// </summary>
     [Fact]
-    public async Task A_disabled_clients_clientId_still_exists_in_keycloak_so_create_reports_a_conflict()
+    public async Task A_disabled_client_without_an_sse_kind_attribute_still_conflicts()
     {
         StubKeycloakHandler keycloak = new(DisabledClientStillPresentFlow);
 
@@ -51,8 +52,8 @@ public class DisabledClientReregistrationTests
 
         thrown.ClientId.ShouldBe(
             ClientId,
-            "the database side already released this clientId (DisabledAt is set), but Keycloak "
-            + "still carries a client under it, and that is what the probe collides on");
+            "the found client is disabled but carries no sse.kind stamp of our own, so it is not "
+            + "eligible for replacement and the probe must treat it as a genuine conflict");
     }
 
     /// <summary>
@@ -91,20 +92,22 @@ public class DisabledClientReregistrationTests
             Attributes: new Dictionary<string, string> { ["sse.kind"] = "device" });
 
     /// <summary>
-    /// Keycloak still holding the disabled client, answered to every probe —
-    /// enough to reach the throw and nothing past it.
+    /// Keycloak holding a disabled client under this clientId, but one with no
+    /// <c>sse.kind</c> attribute of our own — so the probe throws before it
+    /// ever attempts a delete, and nothing past the first request matters.
     /// </summary>
     private static string? DisabledClientStillPresentFlow(StubKeycloakHandler keycloak, RecordedRequest request) =>
         request switch
         {
             { Method: "GET", PathAndQuery: var path } when path.Contains("clientId=", StringComparison.Ordinal) =>
-                $$"""[{"id":"{{DisabledClientUuid}}","clientId":"{{ClientId}}"}]""",
+                $$"""[{"id":"{{DisabledClientUuid}}","clientId":"{{ClientId}}","enabled":false}]""",
             _ => null,
         };
 
     /// <summary>
     /// The full flow the fixed implementation needs: the first probe finds the
-    /// disabled client, a delete removes it, the create proceeds, and the second
+    /// disabled client stamped with the same <c>sse.kind</c> as the one being
+    /// (re-)created, a delete removes it, the create proceeds, and the second
     /// probe (after create) finds the freshly-minted one.
     /// </summary>
     private static string? DisabledClientIsReplacedFlow(StubKeycloakHandler keycloak, RecordedRequest request) =>
@@ -112,7 +115,7 @@ public class DisabledClientReregistrationTests
         {
             { Method: "GET", PathAndQuery: var path } when path.Contains("clientId=", StringComparison.Ordinal) =>
                 keycloak.CountOf("clientId=") == 1
-                    ? $$"""[{"id":"{{DisabledClientUuid}}","clientId":"{{ClientId}}"}]"""
+                    ? $$$"""[{"id":"{{{DisabledClientUuid}}}","clientId":"{{{ClientId}}}","enabled":false,"attributes":{"sse.kind":"device"}}]"""
                     : $$"""[{"id":"{{FreshClientUuid}}","clientId":"{{ClientId}}"}]""",
             { Method: "GET", PathAndQuery: var path } when path.EndsWith("/service-account-user", StringComparison.Ordinal) =>
                 """{"id":"33333333-3333-3333-3333-333333333333"}""",
