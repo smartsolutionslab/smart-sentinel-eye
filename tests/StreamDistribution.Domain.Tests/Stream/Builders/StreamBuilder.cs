@@ -10,44 +10,44 @@ namespace SmartSentinelEye.StreamDistribution.Domain.Tests.Stream.Builders;
 /// </summary>
 public sealed class StreamBuilder
 {
-    private FabIdentifier _fab = FabIdentifier.From("munich");
-    private CameraIdentifier _camera = CameraIdentifier.From(Guid.CreateVersion7());
-    private StreamSourceUrl _sourceUrl = StreamSourceUrl.From("rtsp://camera-sim:8554/default");
-    private OperatorIdentifier _provisionedBy = OperatorIdentifier.From(Guid.CreateVersion7());
-    private IClock _clock = new TestClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
+    private FabIdentifier fab = FabIdentifier.From("munich");
+    private CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+    private StreamSourceUrl sourceUrl = StreamSourceUrl.From("rtsp://camera-sim:8554/default");
+    private OperatorIdentifier provisionedBy = OperatorIdentifier.From(Guid.CreateVersion7());
+    private IClock clock = new TestClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
 
     public StreamBuilder WithFab(FabIdentifier fab)
     {
-        _fab = fab;
+        this.fab = fab;
         return this;
     }
 
     public StreamBuilder ForCamera(CameraIdentifier camera)
     {
-        _camera = camera;
+        this.camera = camera;
         return this;
     }
 
     public StreamBuilder WithSourceUrl(StreamSourceUrl sourceUrl)
     {
-        _sourceUrl = sourceUrl;
+        this.sourceUrl = sourceUrl;
         return this;
     }
 
     public StreamBuilder ProvisionedBy(OperatorIdentifier operatorIdentifier)
     {
-        _provisionedBy = operatorIdentifier;
+        provisionedBy = operatorIdentifier;
         return this;
     }
 
     public StreamBuilder At(DateTimeOffset moment)
     {
-        _clock = new TestClock(moment);
+        clock = new TestClock(moment);
         return this;
     }
 
     public Domain.Stream.Stream Build() =>
-        Domain.Stream.Stream.Provision(_fab, _camera, _sourceUrl, _provisionedBy, _clock);
+        Domain.Stream.Stream.Provision(fab, camera, sourceUrl, provisionedBy, clock);
 
     private sealed class TestClock(DateTimeOffset moment) : IClock
     {

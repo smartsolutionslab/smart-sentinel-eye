@@ -12,74 +12,74 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 /// </summary>
 public sealed class LayoutBuilder
 {
-    private FabIdentifier _fab = FabIdentifier.From("munich");
-    private LayoutName _name = LayoutName.From("Line-1-Entrance");
-    private CameraIdentifier _camera = CameraIdentifier.From(Guid.CreateVersion7());
-    private OperatorIdentifier _createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
-    private Option<OverlayIdentifier> _overlay = Option<OverlayIdentifier>.None;
-    private GridDimensions _grid = GridDimensions.Cell;
-    private IReadOnlyList<Tile> _tiles = null!;
-    private IClock _clock = new TestClock(
+    private FabIdentifier fab = FabIdentifier.From("munich");
+    private LayoutName name = LayoutName.From("Line-1-Entrance");
+    private CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+    private OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+    private Option<OverlayIdentifier> overlay = Option<OverlayIdentifier>.None;
+    private GridDimensions grid = GridDimensions.Cell;
+    private IReadOnlyList<Tile> tiles = null!;
+    private IClock clock = new TestClock(
         DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture));
 
     public LayoutBuilder WithFab(FabIdentifier fab)
     {
-        _fab = fab;
+        this.fab = fab;
         return this;
     }
 
     public LayoutBuilder Named(string name)
     {
-        _name = LayoutName.From(name);
+        this.name = LayoutName.From(name);
         return this;
     }
 
     public LayoutBuilder ForCamera(CameraIdentifier camera)
     {
-        _camera = camera;
+        this.camera = camera;
         return this;
     }
 
     public LayoutBuilder WithOverlay(OverlayIdentifier overlay)
     {
-        _overlay = Option<OverlayIdentifier>.Some(overlay);
+        this.overlay = Option<OverlayIdentifier>.Some(overlay);
         return this;
     }
 
     public LayoutBuilder CreatedBy(OperatorIdentifier createdBy)
     {
-        _createdBy = createdBy;
+        this.createdBy = createdBy;
         return this;
     }
 
     public LayoutBuilder WithGrid(GridDimensions grid)
     {
-        _grid = grid;
+        this.grid = grid;
         return this;
     }
 
     public LayoutBuilder WithTiles(IReadOnlyList<Tile> tiles)
     {
-        _tiles = tiles;
+        this.tiles = tiles;
         return this;
     }
 
     public LayoutBuilder At(DateTimeOffset moment)
     {
-        _clock = new TestClock(moment);
+        clock = new TestClock(moment);
         return this;
     }
 
     public Domain.Layout.Layout Build()
     {
-        IReadOnlyList<Tile> tiles = _tiles
-            ?? new[] { new Tile(_camera, _overlay, GridPosition.From(0, 0)) };
-        return Domain.Layout.Layout.CreateDraft(_fab, _name, _grid, tiles, _createdBy, _clock);
+        IReadOnlyList<Tile> resolvedTiles = tiles
+            ?? new[] { new Tile(camera, overlay, GridPosition.From(0, 0)) };
+        return Domain.Layout.Layout.CreateDraft(fab, name, grid, resolvedTiles, createdBy, clock);
     }
 
-    public IClock Clock => _clock;
+    public IClock Clock => clock;
 
-    public OperatorIdentifier Operator => _createdBy;
+    public OperatorIdentifier Operator => createdBy;
 
     public sealed class TestClock(DateTimeOffset moment) : IClock
     {

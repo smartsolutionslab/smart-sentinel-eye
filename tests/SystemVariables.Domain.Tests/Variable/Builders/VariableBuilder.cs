@@ -10,64 +10,64 @@ namespace SmartSentinelEye.SystemVariables.Domain.Tests.Variable.Builders;
 /// </summary>
 public sealed class VariableBuilder
 {
-    private FabIdentifier _fab = FabIdentifier.From("munich");
-    private VariableName _name = VariableName.From("oeeLine1");
-    private VariableType _type = VariableType.Number;
-    private VariableValue? _initialValue;
-    private BooleanLabels? _booleanLabels;
-    private OperatorIdentifier _definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
-    private IClock _clock = new TestClock(
+    private FabIdentifier fab = FabIdentifier.From("munich");
+    private VariableName name = VariableName.From("oeeLine1");
+    private VariableType type = VariableType.Number;
+    private VariableValue? initialValue;
+    private BooleanLabels? booleanLabels;
+    private OperatorIdentifier definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
+    private IClock clock = new TestClock(
         DateTimeOffset.Parse("2026-05-27T10:00:00Z", CultureInfo.InvariantCulture));
 
     public VariableBuilder WithFab(string fab)
     {
-        _fab = FabIdentifier.From(fab);
+        this.fab = FabIdentifier.From(fab);
         return this;
     }
 
     public VariableBuilder Named(string name)
     {
-        _name = VariableName.From(name);
+        this.name = VariableName.From(name);
         return this;
     }
 
     public VariableBuilder OfType(VariableType type)
     {
-        _type = type;
+        this.type = type;
         return this;
     }
 
     public VariableBuilder WithInitialValue(VariableValue value)
     {
-        _initialValue = value;
+        initialValue = value;
         return this;
     }
 
     public VariableBuilder WithBooleanLabels(BooleanLabels labels)
     {
-        _booleanLabels = labels;
+        booleanLabels = labels;
         return this;
     }
 
     public VariableBuilder DefinedBy(OperatorIdentifier definedBy)
     {
-        _definedBy = definedBy;
+        this.definedBy = definedBy;
         return this;
     }
 
     public VariableBuilder At(DateTimeOffset moment)
     {
-        _clock = new TestClock(moment);
+        clock = new TestClock(moment);
         return this;
     }
 
     public Domain.Variable.Variable Build() =>
         Domain.Variable.Variable.Define(
-            _fab, _name, _type, _initialValue, _booleanLabels, _definedBy, _clock);
+            fab, name, type, initialValue, booleanLabels, definedBy, clock);
 
-    public IClock Clock => _clock;
+    public IClock Clock => clock;
 
-    public OperatorIdentifier Operator => _definedBy;
+    public OperatorIdentifier Operator => definedBy;
 
     public sealed class TestClock(DateTimeOffset moment) : IClock
     {
