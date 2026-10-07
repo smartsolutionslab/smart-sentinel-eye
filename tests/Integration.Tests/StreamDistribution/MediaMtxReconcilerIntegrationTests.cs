@@ -103,6 +103,58 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         configured.ShouldContain(missingPath.Value);
     }
 
+    /// <summary>
+    /// #2742. <c>ProvisionStreamCommandHandlerTests
+    /// .Provision_for_a_retired_stream_does_not_re_register_its_path</c>
+    /// documents the invariant that re-registering a Retired stream's path
+    /// "would resurrect a path nobody wants reachable". The startup pass's
+    /// re-add half must honour the same rule as provisioning does, or every
+    /// MediaMTX restart undoes it for every retired camera in the DB.
+    /// </summary>
+    [Fact]
+    public async Task Reconciler_does_not_re_add_a_retired_stream_s_path()
+    {
+        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+
+        Guid liveCamera = Guid.CreateVersion7();
+        Guid retiredCamera = Guid.CreateVersion7();
+        MediaMtxPath livePath = MediaMtxPath.For(CameraIdentifier.From(liveCamera));
+        MediaMtxPath retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
+
+        // Neither path is configured in MediaMTX — the "MediaMTX restarted
+        // and lost its runtime config" case the re-add half exists for.
+        await using (StreamDistributionDbContext context =
+            await aspire.CreateStreamDistributionDbContextAsync())
+        {
+            Stream live = Stream.Provision(
+                FabIdentifier.From("munich"),
+                CameraIdentifier.From(liveCamera),
+                StreamSourceUrl.From("rtsp://10.0.9.10/h264"),
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                new TestClock(DateTimeOffset.UtcNow));
+
+            Stream retired = Stream.Provision(
+                FabIdentifier.From("munich"),
+                CameraIdentifier.From(retiredCamera),
+                StreamSourceUrl.From("rtsp://10.0.9.11/h264"),
+                OperatorIdentifier.From(Guid.CreateVersion7()),
+                new TestClock(DateTimeOffset.UtcNow));
+            retired.Retire(new TestClock(DateTimeOffset.UtcNow));
+
+            context.Streams.AddRange(live, retired);
+            await context.SaveChangesAsync();
+        }
+
+        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        await reconciler.ReconcileOnceAsync(CancellationToken.None);
+
+        IReadOnlyList<string> configured = await ListMediaMtxPathNamesAsync(mediaMtx);
+        configured.ShouldContain(livePath.Value);
+        configured.ShouldNotContain(
+            retiredPath.Value,
+            "re-registering a Retired stream's path would resurrect a path nobody wants reachable");
+    }
+
     private async Task<MediaMtxReconciler> BuildReconcilerAsync()
     {
         string? connection = await aspire.App
