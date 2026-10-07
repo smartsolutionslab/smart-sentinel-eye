@@ -41,24 +41,47 @@ public sealed class ProvisionStreamCommandHandler(
 
         if (existing.HasValue)
         {
+            Stream existingStream = existing.Value;
             logger.StreamAlreadyExists(camera);
-            return Success(existing.Value.Id);
+
+            if (existingStream.State == StreamState.Retired)
+            {
+                return Success(existingStream.Id);
+            }
+
+            // A redelivery onto an already-saved row must re-assert the path
+            // rather than short-circuit: after the reorder below, "row saved,
+            // path not added" is the new partial state a failed add leaves
+            // behind, and only a redelivery resolves it before the next
+            // restart (spec 309 FR-004).
+            return await RegisterPathAsync(existingStream, cancellationToken);
         }
 
+        // Saved first so a failed save cannot strand a live MediaMTX path with
+        // no row behind it, which the WHEP hook would admit for any fab
+        // (spec 309 FR-001). A failed add after the save is unfinished work
+        // the outbox redelivers, and the existing-row branch above finishes
+        // it.
         Stream stream = Stream.Provision(fab, camera, sourceUrl, provisionedBy, clock);
         streams.Add(stream);
+        await streams.SaveAsync(cancellationToken);
 
+        return await RegisterPathAsync(stream, cancellationToken);
+    }
+
+    private async Task<Result<StreamIdentifier, ProvisionStreamError>> RegisterPathAsync(
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            await rtsp.AddPathAsync(stream.Path, rtspSourceUrl, cancellationToken);
+            await rtsp.AddPathAsync(stream.Path, stream.SourceUrl.Value, cancellationToken);
         }
         catch (HttpRequestException ex)
         {
-            logger.PathRegistrationFailed(ex, camera);
+            logger.PathRegistrationFailed(ex, stream.Camera);
             return Failure(ProvisionStreamFailures.RtspGatewayUnavailable(ex.Message));
         }
-
-        await streams.SaveAsync(cancellationToken);
 
         logger.ProvisionedStream(stream.Id, stream.Camera, stream.Path);
 
