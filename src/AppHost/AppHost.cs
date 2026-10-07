@@ -649,35 +649,28 @@ var apiGateway = builder
     .WithReference(automation)
     .WithReference(identity);
 
-// HA (#1005): run >= 2 gateway replicas so the single REST front door is not a
-// single point of failure (ADR-0106). This is ADR-0153's recorded clause-2
-// exception to "one instance per service"; #2283 owns whether it stays two
-// replicas behind a shared rate-limiter store or returns to one.
-// AppHostReplicaCountTests pins both this exception and the one-instance rule
-// for every other service. Kept to one instance under the E2ETests=true
-// integration fixture (not the Playwright end-to-end job, which boots this
-// same run-mode shape) so the gateway routing/rate-limit integration tests
-// resolve a single endpoint.
-if (!isE2ETests)
-{
-    apiGateway.WithReplicas(2);
-}
+// One instance (#2283): ADR-0153 clause 1 pins api-gateway here like every
+// other service — its rate limiter is an in-memory FixedWindowRateLimiter,
+// per process, with no shared store behind it, so a second replica would
+// multiply every caller's budget rather than share it. The HA exception
+// clause 2 once allowed for this resource is not exercised; AppHostReplicaCountTests
+// pins one instance for every service, api-gateway included.
 
 // Spec 232 (#2221): a single four-tile live kiosk wall's own routine
 // telemetry — polling, latency and skew POSTs, none of it an operator write —
 // already spends ~246 gateway requests/min at rest, over the gateway's
-// 100/min-per-replica production default (src/ApiGateway/appsettings.json) by
-// itself, because no client sends X-Fab so every browser in a local or CI run
-// shares one source-IP partition. A local Playwright run at the default
-// worker count simulates several such walls concurrently (8 workers, some
-// specs holding two pages, ~12 four-tile walls), so the dev/e2e stack widens
-// its own budget to 6000/min per replica (plan.md §2's derivation) to cover
-// that concurrency without touching the production default or the partition
-// key. **Gated `isRunMode && !isE2ETests`**: the integration fixture
-// (E2ETests=true) must keep the 100/min production default —
-// GatewayRateLimitIntegrationTests exhausts exactly that window — while the
-// dev stack and CI's Playwright job boot the same run-mode shape
-// (AppHostE2ESwitchTests pins that CI passes no E2ETests).
+// 100/min production default (src/ApiGateway/appsettings.json) by itself,
+// because no client sends X-Fab so every browser in a local or CI run shares
+// one source-IP partition. A local Playwright run at the default worker
+// count simulates several such walls concurrently (8 workers, some specs
+// holding two pages, ~12 four-tile walls), so the dev/e2e stack widens its
+// own budget to 6000/min (plan.md §2's derivation) to cover that concurrency
+// without touching the production default or the partition key. **Gated
+// `isRunMode && !isE2ETests`**: the integration fixture (E2ETests=true) must
+// keep the 100/min production default — GatewayRateLimitIntegrationTests
+// exhausts exactly that window — while the dev stack and CI's Playwright job
+// boot the same run-mode shape (AppHostE2ESwitchTests pins that CI passes no
+// E2ETests).
 //
 // This is a dev/e2e-only mitigation, not a fix to the production concern:
 // whether 100/min-per-replica is itself too tight for a real fab's
