@@ -1295,14 +1295,14 @@ test('the span from a value being submitted to it being visible', async ({ page,
   const operatorContext = await context.browser()!.newContext({ baseURL: 'http://localhost:5173' });
   const operatorPage = await operatorContext.newPage();
   const measurements: SpanMeasurement[] = [];
-  let skewBefore: ClockSkewBound | null = null;
-  let skewAfter: ClockSkewBound | null = null;
+  let skewBefore: ClockSkewBound | null;
+  let skewAfter: ClockSkewBound | null;
   // Spec 225 US1 — the cadence this run's overlay_draw figure is read against
   // (ADR-0123 consequence 3). Two readings, not one: `measureFrameInterval`
   // never runs during the timed loop (NFR-002), so a mid-test cadence drop
   // would only ever show up as a gap between these two.
-  let frameIntervalBeforeMilliseconds: number | null = null;
-  let frameIntervalAfterMilliseconds: number | null = null;
+  let frameIntervalBeforeMilliseconds: number | null;
+  let frameIntervalAfterMilliseconds: number | null;
 
   // The head overshoot, bounded rather than described (spec 108 FR-003): the
   // submit's own round trip, taken from the request's resource timing so it is

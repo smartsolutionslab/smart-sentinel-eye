@@ -143,7 +143,7 @@ test.describe('A wall display may only show a wall (spec 052 US3)', () => {
           headers: { Authorization: `Bearer ${t}` },
         });
         const text = await response.text();
-        let count = 0;
+        let count: number;
         try {
           count = (JSON.parse(text) as { items?: unknown[] }).items?.length ?? 0;
         } catch {

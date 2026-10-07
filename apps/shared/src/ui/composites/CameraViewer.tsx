@@ -389,7 +389,7 @@ export function CameraViewer({
     // carry on showing video (FR-013). Mapped to 'refused', one frame out: the
     // engine refused, and it is still reported below, exactly as today's
     // `applied = false` was.
-    let outcome: PlayoutTargetOutcome = 'not-connected';
+    let outcome: PlayoutTargetOutcome;
     try {
       outcome = setPlayoutTarget(playoutTargetMilliseconds);
     } catch {
