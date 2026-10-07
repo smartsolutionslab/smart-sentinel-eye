@@ -54,12 +54,18 @@ public sealed class HttpKeycloakAdminClient(
 
         string realm = options.Value.Realm;
 
-        // Existence probe — Keycloak's create endpoint returns 409
-        // on duplicate, but we want a typed exception either way.
-        string? existing = await TryGetClientUuidAsync(realm, representation.ClientId, cancellationToken);
-        if (existing is not null)
+        // Existence probe — Keycloak's create endpoint returns 409 on
+        // duplicate, but we want a typed exception either way. DisableClientAsync
+        // never deletes the Keycloak-side client, only flips `enabled`, so a
+        // previously disabled device's clientId is still here on
+        // re-registration; delete it and create fresh rather than refusing
+        // forever (#2728).
+        string? conflictingClientUuid = await TryGetClientUuidAsync(
+            realm, representation.ClientId, cancellationToken);
+        if (conflictingClientUuid is not null)
         {
-            throw new KeycloakClientAlreadyExistsException(representation.ClientId);
+            await TryDeleteClientAsync(
+                realm, representation.ClientId, conflictingClientUuid, cancellationToken);
         }
 
         using HttpRequestMessage create = new(HttpMethod.Post, $"admin/realms/{realm}/clients")
@@ -76,6 +82,15 @@ public sealed class HttpKeycloakAdminClient(
         string? clientUuid = await TryGetClientUuidAsync(realm, representation.ClientId, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Keycloak accepted POST /clients but no client with clientId='{representation.ClientId}' is visible.");
+        if (clientUuid == conflictingClientUuid)
+        {
+            // TryDeleteClientAsync is best-effort and swallows delivery failures
+            // (it exists to compensate without masking the caller's real error).
+            // If Keycloak still reports the same uuid under this clientId after
+            // create ran, the delete above did not actually take — this is a
+            // genuine conflict, not a client we are free to reuse.
+            throw new KeycloakClientAlreadyExistsException(representation.ClientId);
+        }
 
         try
         {
