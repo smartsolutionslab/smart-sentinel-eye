@@ -155,9 +155,17 @@ describe('CameraDetailPage against the real store and a stubbed network (spec 31
     expect(screen.getByRole('alert')).toHaveTextContent(/could not refresh/i);
 
     // Strike 3 — the threshold. The record must leave the screen now, not
-    // merely show another banner.
+    // merely show another banner. Same reasoning as strike 2's wait above:
+    // `callCount === 4` alone is true the instant the fourth fetch is
+    // *dispatched*, not once RTK Query has processed the response and the
+    // strike is actually counted — a suspected contributor to this test's
+    // CI-only flake (#2762; not reproduced in 25/25 local runs in isolation,
+    // so this closes a real gap without being confirmed as the sole cause).
     await user.click(screen.getByRole('button', { name: /retry/i }));
-    await waitFor(() => expect(callCount).toBe(4));
+    await waitFor(() => {
+      expect(callCount).toBe(4);
+      expect(isCameraQueryPending(store)).toBe(false);
+    });
 
     expect(await screen.findByRole('heading', { name: /no such camera/i })).toBeInTheDocument();
     expect(screen.queryByText('Line-1-Entrance')).toBeNull();
