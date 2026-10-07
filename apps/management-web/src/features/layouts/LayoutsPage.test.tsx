@@ -1091,3 +1091,80 @@ describe('LayoutsPage — More actions trigger keeps focus while unavailable (sp
     expect(revertMock).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Spec 310 (#2725) T004, plan.md §5 row 4. Three consecutive 403 refreshes of
+ * the layouts list must drop the stale rows — the page renders exactly as a
+ * first-load refusal does (FR-004). RED today: `LayoutsPage.tsx` wires no
+ * revocation fallback, so `data` keeps the last successful page regardless
+ * of how many 403s accumulate.
+ */
+describe('LayoutsPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
+  beforeEach(() => {
+    listLayoutsMock.mockReset();
+    // Independent of the mutation describes above — reset explicitly rather
+    // than rely on execution order, since a stray `error` here would show
+    // the mutation FaultNotice and confuse this describe's own assertions.
+    publishState = { isLoading: false };
+  });
+
+  function forbiddenRefresh(requestId: string) {
+    return {
+      data: response([chain()]),
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId,
+      refetch: vi.fn(),
+    };
+  }
+
+  it('Keeps the stale rows after only two consecutive 403s', () => {
+    listLayoutsMock.mockReturnValue(forbiddenRefresh('layouts-r1'));
+    const { rerender } = renderPage();
+
+    listLayoutsMock.mockReturnValue(forbiddenRefresh('layouts-r2'));
+    rerender(
+      <Provider store={store}>
+        <LayoutsPage />
+      </Provider>,
+    );
+
+    expect(screen.getByText('Line-1')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load layouts/i);
+  });
+
+  it('Shows no stale row and the existing failure banner, exactly as a first-load refusal, after a third consecutive 403', () => {
+    listLayoutsMock.mockReturnValue(forbiddenRefresh('layouts-r1'));
+    const { rerender, container } = renderPage();
+
+    listLayoutsMock.mockReturnValue(forbiddenRefresh('layouts-r2'));
+    rerender(
+      <Provider store={store}>
+        <LayoutsPage />
+      </Provider>,
+    );
+
+    listLayoutsMock.mockReturnValue(forbiddenRefresh('layouts-r3'));
+    rerender(
+      <Provider store={store}>
+        <LayoutsPage />
+      </Provider>,
+    );
+
+    expect(screen.queryByText('Line-1')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load layouts/i);
+
+    // FR-004: byte-for-byte the same render as a first-load failure.
+    listLayoutsMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 500 },
+      refetch: vi.fn(),
+    });
+    const { container: firstLoadRefusal } = renderPage();
+
+    expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+});

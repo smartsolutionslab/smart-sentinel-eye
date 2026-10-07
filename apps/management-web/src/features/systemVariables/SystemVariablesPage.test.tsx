@@ -516,3 +516,80 @@ describe('SystemVariablesPage — Archive keeps focus on the opener while archiv
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });
+
+/**
+ * Spec 310 (#2725) T004, plan.md §5 row 4. Three consecutive 403 refreshes of
+ * the variables list must drop the stale rows — the page renders exactly as
+ * a first-load refusal does (FR-004). RED today: `SystemVariablesPage.tsx`
+ * wires no revocation fallback, so `data` keeps the last successful page
+ * regardless of how many 403s accumulate.
+ */
+describe('SystemVariablesPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
+  beforeEach(() => {
+    listMock.mockReset();
+    // Independent of the mutation describes above — reset explicitly rather
+    // than rely on execution order.
+    setValueState = { isLoading: false };
+    archiveMutationState = { isLoading: false };
+  });
+
+  function forbiddenRefresh(requestId: string) {
+    return {
+      data: [variable()],
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId,
+      refetch: vi.fn(),
+    };
+  }
+
+  it('Keeps the stale rows after only two consecutive 403s', () => {
+    listMock.mockReturnValue(forbiddenRefresh('variables-r1'));
+    const { rerender } = renderPage();
+
+    listMock.mockReturnValue(forbiddenRefresh('variables-r2'));
+    rerender(
+      <Provider store={store}>
+        <SystemVariablesPage />
+      </Provider>,
+    );
+
+    expect(screen.getByText('oeeLine1')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load variables/i);
+  });
+
+  it('Shows no stale row and the existing failure banner, exactly as a first-load refusal, after a third consecutive 403', () => {
+    listMock.mockReturnValue(forbiddenRefresh('variables-r1'));
+    const { rerender, container } = renderPage();
+
+    listMock.mockReturnValue(forbiddenRefresh('variables-r2'));
+    rerender(
+      <Provider store={store}>
+        <SystemVariablesPage />
+      </Provider>,
+    );
+
+    listMock.mockReturnValue(forbiddenRefresh('variables-r3'));
+    rerender(
+      <Provider store={store}>
+        <SystemVariablesPage />
+      </Provider>,
+    );
+
+    expect(screen.queryByText('oeeLine1')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load variables/i);
+
+    // FR-004: byte-for-byte the same render as a first-load failure.
+    listMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 500 },
+      refetch: vi.fn(),
+    });
+    const { container: firstLoadRefusal } = renderPage();
+
+    expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+});

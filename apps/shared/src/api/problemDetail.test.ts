@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CONFLICT_FALLBACK,
   isConflict,
+  isForbidden,
   isStaleConflict,
   isTerminalRefusal,
   problemCode,
@@ -136,6 +137,40 @@ describe('isTerminalRefusal', () => {
   it('is false for a stale version and for a plain not-found', () => {
     expect(isTerminalRefusal(refusal(412, 'CAMERA_VERSION_STALE'))).toBe(false);
     expect(isTerminalRefusal(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(false);
+  });
+});
+
+/**
+ * Spec 310 (#2725) T001. `isForbidden` is the single place a 403 is
+ * recognised — `useRevocationFallback` reads it so no page component ever
+ * inspects `error.status` itself (FR-005). Mirrors `isConflict`'s own shape:
+ * a plain `status` check, nothing richer, so RTK's string statuses
+ * (`FETCH_ERROR`, `PARSING_ERROR`) are never mistaken for it.
+ */
+describe('isForbidden', () => {
+  it('recognises a 403 refusal', () => {
+    expect(isForbidden(refusal(403, 'FORBIDDEN'))).toBe(true);
+  });
+
+  // 401 matters here specifically: the acceptance scenario says a 401 "counts
+  // as a non-403 response" (spec 310 §2), which is only true if isForbidden
+  // itself never answers true for it.
+  it('is false for every other status, including the ones 403 is routinely confused with', () => {
+    expect(isForbidden(refusal(401, 'UNAUTHORIZED'))).toBe(false);
+    expect(isForbidden(refusal(404, 'CAMERA_NOT_FOUND'))).toBe(false);
+    expect(isForbidden(refusal(409, 'LAYOUT_REVISION_STALE'))).toBe(false);
+    expect(isForbidden(refusal(503, 'SERVER_ERROR'))).toBe(false);
+    expect(isForbidden(refusal(400, 'BAD_REQUEST'))).toBe(false);
+  });
+
+  it('is false for an RTK Query string status, which can never equal 403', () => {
+    expect(isForbidden({ status: 'FETCH_ERROR' })).toBe(false);
+    expect(isForbidden({ status: 'PARSING_ERROR' })).toBe(false);
+  });
+
+  it('is false when there is no error at all', () => {
+    expect(isForbidden(null)).toBe(false);
+    expect(isForbidden(undefined)).toBe(false);
   });
 });
 

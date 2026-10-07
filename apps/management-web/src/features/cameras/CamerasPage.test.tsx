@@ -315,3 +315,86 @@ describe('CamerasPage — Previous and Next keep focus while unavailable (spec 2
     expect(lastCall?.[0]).toMatchObject({ offset: 0 });
   });
 });
+
+/**
+ * Spec 310 (#2725) T004, plan.md §5 row 4. Three consecutive 403 refreshes of
+ * the same list query must drop the stale rows — the page renders exactly as
+ * a first-load refusal does (FR-004), not merely "fewer rows than before".
+ *
+ * RED today: `CamerasPage.tsx` wires no revocation fallback, so `data` keeps
+ * the last successful page regardless of how many 403s accumulate — the
+ * stale rows stay on screen beside the "Could not load cameras." banner
+ * after the third one, instead of disappearing with it.
+ */
+describe('CamerasPage — revocation fallback, three consecutive 403s (spec 310 #2725)', () => {
+  beforeEach(() => {
+    listCamerasMock.mockReset();
+  });
+
+  function forbiddenRefresh(requestId: string) {
+    return {
+      data: populatedPage(),
+      isLoading: false,
+      isFetching: false,
+      error: { status: 403 },
+      requestId,
+      refetch: vi.fn(),
+    };
+  }
+
+  it('Keeps the stale rows after only two consecutive 403s', () => {
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-r1'));
+    const { rerender } = render_page();
+
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-r2'));
+    rerender(
+      <Provider store={store}>
+        <MemoryRouter>
+          <CamerasPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.getByText('Line-1-Entrance')).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load cameras/i);
+  });
+
+  it('Shows no stale row and the existing failure banner, exactly as a first-load refusal, after a third consecutive 403', () => {
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-r1'));
+    const { rerender, container } = render_page();
+
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-r2'));
+    rerender(
+      <Provider store={store}>
+        <MemoryRouter>
+          <CamerasPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    listCamerasMock.mockReturnValue(forbiddenRefresh('cameras-r3'));
+    rerender(
+      <Provider store={store}>
+        <MemoryRouter>
+          <CamerasPage />
+        </MemoryRouter>
+      </Provider>,
+    );
+
+    expect(screen.queryByText('Line-1-Entrance')).toBeNull();
+    expect(screen.queryByText('Line-2-East')).toBeNull();
+    expect(screen.getByRole('alert')).toHaveTextContent(/could not load cameras/i);
+
+    // FR-004: byte-for-byte the same render as a first-load failure.
+    listCamerasMock.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      isFetching: false,
+      error: { status: 500 },
+      refetch: vi.fn(),
+    });
+    const { container: firstLoadRefusal } = render_page();
+
+    expect(container.innerHTML).toBe(firstLoadRefusal.innerHTML);
+  });
+});
