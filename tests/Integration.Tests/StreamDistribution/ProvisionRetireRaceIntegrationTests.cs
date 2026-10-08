@@ -36,11 +36,6 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 /// report, so its report changes no column and issues no <c>UPDATE</c>.
 /// </para>
 ///
-/// <para>
-/// <see cref="IStreamRepository.IsUnchangedSinceLoadAsync"/> and
-/// <see cref="IStreamRepository.ReadCommittedStateAsync"/> do not exist yet
-/// (spec 318 §3); this class fails to compile until phase 4b adds them.
-/// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
 public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncLifetime
@@ -417,7 +412,13 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
     /// Stands in for the outbox commit, as <c>EventRepositoryOutboxTests</c>
     /// does: <c>OutboxTransactionalCommit</c> commits its own transaction at
     /// <c>SaveAsync</c> too, so a plain <c>SaveChangesAsync</c> has the same
-    /// commit point the race depends on.
+    /// commit point the race depends on <b>on first delivery</b>. On the
+    /// redelivery branch this is not the whole shape: Wolverine's own
+    /// transaction is still open while the version-check <c>UPDATE</c> runs,
+    /// so a match holds the row lock until the handler returns, which these
+    /// tests never model (none opens a surrounding transaction). Correctness
+    /// under that real shape was verified separately, not by this fixture —
+    /// see the PR for the run.
     /// </summary>
     private sealed class SaveChangesCommit(StreamDistributionDbContext dbContext) : ITransactionalCommit
     {
