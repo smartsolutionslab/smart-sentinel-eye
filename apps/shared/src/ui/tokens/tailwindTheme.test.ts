@@ -24,6 +24,11 @@ import { tailwindTheme } from './tailwindTheme.js';
  * theme-invariant `--color-bg-video` ground (spec 308 §2-3). The `toEqual`
  * below gains those two entries — the declared assertion edit spec 308's
  * tasks.md calls out; the three existing entries stay byte-identical.
+ *
+ * Spec 319 (issue #2734) adds `extend.textColor.fg['muted-on-video']` — the
+ * neutral counterpart of the `-on-video` accent keys above, for
+ * `ViewerOverlay`'s neutral label and hint line. `extend.textColor.accent`
+ * and `extend.colors` are unchanged.
  */
 describe('tailwindTheme', () => {
   it('maps each triad role under extend.textColor.accent to its -text var', () => {
@@ -51,5 +56,13 @@ describe('tailwindTheme', () => {
     const accentTextColors = tailwindTheme.extend.textColor.accent as Record<string, string>;
     expect(accentTextColors['warning-on-video']).toBe('var(--color-accent-warning-on-video)');
     expect(accentTextColors['fault-on-video']).toBe('var(--color-accent-fault-on-video)');
+  });
+
+  it('maps the neutral on-video role under extend.textColor.fg to its var', () => {
+    // Same cast trick as the on-video `it` above, for the same reason: until
+    // `textColor.fg` exists, a literal index is TS7053 — a compile error, not
+    // the red this test must show.
+    const textColors = tailwindTheme.extend.textColor as Record<string, Record<string, string> | undefined>;
+    expect(textColors.fg?.['muted-on-video']).toBe('var(--color-fg-muted-on-video)');
   });
 });
