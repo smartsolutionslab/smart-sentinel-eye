@@ -1,10 +1,11 @@
 # ADR-0107: Operator UI as micro-frontends
 
-**Status:** Proposed
+**Status:** Accepted
 **Date:** 2026-06-01
 **Supersedes:** —
 **Superseded by:** —
 **Amends:** ADR-0074 (two React apps)
+**Extended by:** ADR-0168 (resolves the composition-mechanism question below in favour of Vite Module Federation, decided directly rather than via the spike this ADR called for; adds a claims-driven navigation requirement)
 **Relates to:** ADR-0075 (Redux Toolkit + RTK Query), ADR-0077/0078 (Radix + Tailwind design system), ADR-0080 (browser auth), ADR-0106 (API gateway)
 
 ## Context
