@@ -2860,6 +2860,106 @@ describe('CellPage', () => {
     });
 
     /**
+     * Issue #2714, new behaviour, RED (ADR-0139) — `renderElementsKey` is
+     * built from `kind|color|text` alone, so a republish that only moves or
+     * resizes an element (nothing but geometry changes) leaves the key
+     * byte-identical and `measureOverlayDraw` never re-fires, even though
+     * what's painted changed. Mirrors the colour-only sibling test above,
+     * including its equal-re-render half, so a fix that overcorrects into
+     * firing on every no-op re-render is caught too.
+     */
+    it('Fires the draw measurement once for a move-only republish, and not for an equal re-render', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-draw-move', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlayWithLabels(['Station A']));
+
+      renderPage();
+      const callsAfterMount = measureOverlayDrawMock.mock.calls.length;
+      expect(callsAfterMount, 'at least the initial paint is measured').toBeGreaterThan(0);
+
+      // An equal re-render: nothing about kind/color/text/geometry changed.
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+      expect(
+        measureOverlayDrawMock.mock.calls.length,
+        'two state-change re-renders changed nothing about the element set',
+      ).toBe(callsAfterMount);
+
+      // A move-only republish: kind/color/text are unchanged, only the
+      // normalized position differs.
+      const moved = publishedOverlayWithLabels(['Station A']);
+      moved.data.revisions[0]!.elements[0]!.normalizedX = 0.4;
+      moved.data.revisions[0]!.elements[0]!.normalizedY = 0.4;
+      getOverlayMock.mockReturnValue(moved);
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+
+      expect(measureOverlayDrawMock.mock.calls.length, 'exactly one more measurement for the move-only change').toBe(
+        callsAfterMount + 1,
+      );
+    });
+
+    /**
+     * Issue #2714, new behaviour, RED (ADR-0139) — same gap as the move-only
+     * test above, but for `fontSizePx`: a republish that only changes a
+     * label's font size changes what's painted (the text renders larger or
+     * smaller) but `renderElementsKey` has no `fontSizePx` component at all,
+     * so the key is byte-identical and the measurement never re-fires.
+     */
+    it('Fires the draw measurement once for a font-size-only republish, and not for an equal re-render', () => {
+      mockLayout(
+        publishedRevision(1, 1, [
+          tile({ cameraIdentifier: 'cam-a', overlayIdentifier: 'ovl-draw-font-size', row: 0, col: 0 }),
+        ]),
+      );
+      getOverlayMock.mockReturnValue(publishedOverlayWithLabels(['Station A']));
+
+      renderPage();
+      const callsAfterMount = measureOverlayDrawMock.mock.calls.length;
+      expect(callsAfterMount, 'at least the initial paint is measured').toBeGreaterThan(0);
+
+      // An equal re-render: nothing about kind/color/text/fontSizePx changed.
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+      expect(
+        measureOverlayDrawMock.mock.calls.length,
+        'two state-change re-renders changed nothing about the element set',
+      ).toBe(callsAfterMount);
+
+      // A font-size-only republish: kind/color/text are unchanged, only the
+      // rendered font size differs.
+      const resized = publishedOverlayWithLabels(['Station A']);
+      resized.data.revisions[0]!.elements[0]!.fontSizePx = 72;
+      getOverlayMock.mockReturnValue(resized);
+      act(() => {
+        capturedCallbacks?.onStateChange?.('degraded');
+      });
+      act(() => {
+        capturedCallbacks?.onStateChange?.('connected');
+      });
+
+      expect(
+        measureOverlayDrawMock.mock.calls.length,
+        'exactly one more measurement for the font-size-only change',
+      ).toBe(callsAfterMount + 1);
+    });
+
+    /**
      * Phase-6 regression (#2345 v2 revision). The multi-label rewrite of
      * `hasPlaceholder` dropped the `publishedOverlay?.text?.includes` guard's
      * second `?.` — the one defending against spec 141 site 3's wire-drift

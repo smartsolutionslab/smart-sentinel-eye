@@ -563,12 +563,18 @@ function Tile({
   // never on the array itself (spec 150) — an array dependency is a new
   // reference on every render and floods the instrument with no-op samples,
   // the exact defect #1888/#1889 fixed and ADR-0123 forbids reintroducing.
-  // Spec 300 (#2349, ADR-0165) FR-018: `kind|color|text` per element, not
-  // text alone — a colour-only republish must re-measure `overlay_draw`,
-  // and an unchanged re-render must not (#1888/#1889).
-  const renderElementsKey = renderElements
-    ?.map((element) => `${element.kind}|${element.color}|${element.kind === 'Text' ? element.text : ''}`)
-    .join('\u0000');
+  // Must re-measure on a change to any painted field, not text alone, and
+  // not re-measure on an equal re-render (#1888/#1889, #2714) — FR-018
+  // (spec 300) covers kind/colour/text; geometry and fontSizePx are this
+  // key's own extension of that requirement, not something FR-018 states.
+  // Shares `paintedElementsKey` with `liveElementsKey` above so the two keys
+  // cannot drift apart again, which is exactly how #2714 happened. When
+  // `renderElements` is the same reference as `stableLiveElements` (the
+  // common case: not mid-hold, overlay available), its key is already
+  // `liveElementsKey` by construction — reuse it instead of re-walking the
+  // same elements a second time.
+  const renderElementsKey =
+    renderElements === stableLiveElements ? liveElementsKey : paintedElementsKey(renderElements);
   useEffect(() => {
     if (renderElementsKey === undefined) {
       return;
