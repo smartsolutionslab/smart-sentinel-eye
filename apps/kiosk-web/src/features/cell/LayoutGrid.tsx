@@ -347,6 +347,25 @@ function useStableByKey<T>(value: T, key: string | undefined): T {
 }
 
 /**
+ * A stable scalar over every PAINTED field of every element — kind, colour,
+ * all four geometry fields, and (Text only) fontSizePx and text. A field
+ * missing here makes a change to that field invisible to whichever key
+ * consumes it. Shared by both keys so there is exactly one definition of
+ * "every painted field" rather than two copies that can drift apart again.
+ * `\u0000` cannot appear in an operator-authored label or a hex colour, so
+ * this stays a lossless join for the purpose of detecting "did anything in
+ * the set actually change".
+ */
+function paintedElementsKey(elements: readonly CameraViewerOverlay[] | undefined): string | undefined {
+  return elements
+    ?.map(
+      (element) =>
+        `${element.kind}|${element.color}|${element.normalizedX}|${element.normalizedY}|${element.normalizedWidth}|${element.normalizedHeight}|${element.kind === 'Text' ? element.fontSizePx : ''}|${element.kind === 'Text' ? element.text : ''}`,
+    )
+    .join('\u0000');
+}
+
+/**
  * One populated grid cell. Owns its overlay fetch + resolved-text snapshot
  * so each tile resolves its own label independently (per-tile binding,
  * FR-011). The bound overlay's geometry comes from OverlayDesigner; the live
@@ -502,19 +521,7 @@ function Tile({
     skip: snapshotSkipped,
     refetch: refetchSnapshot,
   });
-  // A stable scalar over every PAINTED field of every element — kind,
-  // colour, all four geometry fields, and (Text only) fontSizePx and text.
-  // A field missing here makes a change to that field paint unheld, which
-  // reintroduces the mis-join for exactly that field (plan "The key covers
-  // every painted field"). `\u0000` cannot appear in an operator-authored
-  // label or a hex colour, so this stays a lossless join for the purpose of
-  // detecting "did anything in the set actually change".
-  const liveElementsKey = liveElements
-    ?.map(
-      (element) =>
-        `${element.kind}|${element.color}|${element.normalizedX}|${element.normalizedY}|${element.normalizedWidth}|${element.normalizedHeight}|${element.kind === 'Text' ? element.fontSizePx : ''}|${element.kind === 'Text' ? element.text : ''}`,
-    )
-    .join('\u0000');
+  const liveElementsKey = paintedElementsKey(liveElements);
   // The set is resolved and versioned atomically (FR-011), so a shared
   // reference — stable across renders that rebuild an equal array — is the
   // consistent reading: `liveElements` above is a fresh array every render,
