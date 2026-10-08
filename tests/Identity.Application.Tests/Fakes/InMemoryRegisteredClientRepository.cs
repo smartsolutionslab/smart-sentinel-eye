@@ -17,6 +17,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     private readonly List<RegisteredClientAggregate> clients = [];
     private readonly HashSet<Guid> persisted = [];
     private int saveCalls;
+    private int getWithinFabCalls;
 
     public IReadOnlyList<RegisteredClientAggregate> Clients => clients;
 
@@ -39,6 +40,31 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     /// <see cref="FailNextSaveWith"/>.
     /// </summary>
     public Exception? FailSecondSaveWith { get; set; }
+
+    /// <summary>
+    /// Set once a <see cref="SaveAsync"/> call has thrown via
+    /// <see cref="FailNextSaveWith"/> or <see cref="FailSecondSaveWith"/> and
+    /// never cleared again by this fake — standing in for EF's own behaviour:
+    /// a failed <c>SaveChanges</c> leaves its entity tracked as
+    /// <c>Modified</c> with its stale, pre-conflict values, so the identical
+    /// failing UPDATE replays on the next <c>SaveChanges</c> against that
+    /// same <c>DbContext</c> (#2628 BL1). <see cref="RepositoryBackedTransactionalCommit"/>
+    /// reads this to decide whether its own <c>CommitAsync</c> should re-throw.
+    /// </summary>
+    public bool HasUnresolvedConcurrencyFailure { get; private set; }
+
+    /// <summary>
+    /// One-shot: fires on the <b>second</b> <see cref="GetWithinFabAsync"/>
+    /// call specifically, mirroring <see cref="FailSecondSaveWith"/>'s shape.
+    /// Disables the matching row in place before the lookup runs, standing in
+    /// for the asynchronous <c>WebhookIntegrationRevokedV1</c> handler's own
+    /// disable landing between the create branch's commit (whose own
+    /// pre-create lookup is the first call) and this race check's inner
+    /// lookup (the second) — which then finds nothing, exactly as
+    /// production's <c>DisabledAt == null</c> filter would once that handler
+    /// has actually run (#2628 SF1).
+    /// </summary>
+    public IClock? DisableRowOnSecondGetWithinFab { get; set; }
 
     /// <summary>
     /// Places a client that already exists in the database, at
@@ -84,6 +110,13 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         Ensure.That(clientId).IsNotNull();
         Ensure.That(fab).IsNotNull();
 
+        getWithinFabCalls++;
+        if (getWithinFabCalls == 2 && DisableRowOnSecondGetWithinFab is { } clock)
+        {
+            DisableRowOnSecondGetWithinFab = null;
+            clients.SingleOrDefault(c => c.ClientId == clientId && c.Fab == fab)?.Disable(clock);
+        }
+
         // Fab is part of the match, not a filter applied afterwards — mirrors
         // the production predicate (spec 180 US1). Disabled rows are excluded,
         // matching GetByClientIdAsync.
@@ -107,6 +140,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         {
             Exception toThrow = FailSecondSaveWith;
             FailSecondSaveWith = null;
+            HasUnresolvedConcurrencyFailure = true;
             throw toThrow;
         }
 
@@ -114,6 +148,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         {
             Exception toThrow = FailNextSaveWith;
             FailNextSaveWith = null;
+            HasUnresolvedConcurrencyFailure = true;
             throw toThrow;
         }
 

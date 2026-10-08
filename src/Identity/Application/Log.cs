@@ -54,8 +54,8 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client disable failed for integration '{Name}': {Code} {Message}.")]
     public static partial void WebhookClientDisableFailed(this ILogger logger, string name, string code, string message);
 
-    // Spec 318 (#2628). Information, not Warning: a caller rotating a
-    // revoked integration is an expected refusal, not something broken.
+    // Information, not Warning: a caller rotating a revoked integration is
+    // an expected refusal, not something broken.
     [LoggerMessage(Level = LogLevel.Information, Message = "Refused rotation of revoked webhook integration '{IntegrationName}' in fab {Fab}.")]
     public static partial void RefusedRotationOfRevokedIntegration(this ILogger logger, string integrationName, FabIdentifier fab);
 
@@ -64,20 +64,22 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Refused rotation of webhook integration '{IntegrationName}' in fab {Fab}: its revocation status could not be confirmed.")]
     public static partial void RefusedRotationStatusUnavailable(this ILogger logger, string integrationName, FabIdentifier fab);
 
-    // Spec 318 (#2628), the create-branch TOCTOU re-check: the row committed
-    // before a racing revoke was seen, so the just-created client is disabled
-    // in place of the async disable that found no row yet.
-    [LoggerMessage(Level = LogLevel.Information, Message = "Disabled webhook client '{ClientId}' for integration '{IntegrationName}' immediately after creating it: a revoke landed while it was being created.")]
+    // The create-branch TOCTOU re-check: the row committed before a racing
+    // revoke or an unconfirmable status was seen, so the just-created client
+    // is disabled in place of the async disable that found no row yet.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Disabled webhook client '{ClientId}' for integration '{IntegrationName}' immediately after creating it: its revocation status changed while it was being created.")]
     public static partial void DisabledClientCreatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was created while a revoke was landing, and could not be disabled afterwards. It may still be enabled; the next rotation attempt or manual intervention is needed.")]
     public static partial void CouldNotDisableClientCreatedDuringRevokeRace(this ILogger logger, Exception exception, string integrationName, ClientId clientId);
 
-    // Spec 318 (#2628), the race-path disable's own save losing Layer-2 to the
-    // asynchronous WebhookIntegrationRevokedV1 handler's DisableWebhookClientCommand:
-    // both call the same handler, and whichever's save commits first wins. The
-    // client is disabled either way, so this records which path got there
-    // first rather than reporting a failure.
-    [LoggerMessage(Level = LogLevel.Information, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was already disabled by the asynchronous WebhookIntegrationRevokedV1 handler before this create-branch race check's own save could land.")]
+    // The race-path disable's own save losing Layer-2 to the asynchronous
+    // WebhookIntegrationRevokedV1 handler's DisableWebhookClientCommand: both
+    // call the same handler, and whichever's save commits first wins. The
+    // same is true when that handler's own fab-scoped lookup finds the row
+    // already gone (its Disabled filter excludes it) rather than hitting a
+    // save conflict directly. Either way the client is disabled, so this
+    // records which path got there first rather than reporting a failure.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was already disabled by the asynchronous WebhookIntegrationRevokedV1 handler before this create-branch race check's own disable could land.")]
     public static partial void AlreadyDisabledConcurrentlyDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
 }

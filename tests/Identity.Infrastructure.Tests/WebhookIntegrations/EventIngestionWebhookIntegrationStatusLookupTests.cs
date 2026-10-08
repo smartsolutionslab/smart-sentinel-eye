@@ -165,11 +165,11 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
     }
 
-    // Concrete, not IWebhookIntegrationStatusLookup (issue B1/#2628): every
-    // caller here only calls GetStatusAsync, which the sealed class exposes
-    // publicly too, and the narrower return type is what CA1859 asks for
-    // (mirrors tests/ScenarioSimulator.Tests/AutomationRulesClientTests.cs
-    // SeedAsync) rather than a solution-wide suppression.
+    // Concrete, not IWebhookIntegrationStatusLookup: every caller here only
+    // calls GetStatusAsync, which the sealed class exposes publicly too, and
+    // the narrower return type is what CA1859 asks for (mirrors
+    // tests/ScenarioSimulator.Tests/AutomationRulesClientTests.cs SeedAsync)
+    // rather than a solution-wide suppression.
     private static EventIngestionWebhookIntegrationStatusLookup Lookup(HttpMessageHandler handler) =>
         new(
             new HttpClient(handler) { BaseAddress = new Uri("http://event-ingestion") },
