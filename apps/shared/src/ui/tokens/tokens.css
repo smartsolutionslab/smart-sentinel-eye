@@ -150,6 +150,13 @@
      to the ADR itself. */
   --color-accent-warning-on-video: var(--color-accent-warning);
   --color-accent-fault-on-video: var(--color-accent-fault);
+  /* On-video neutral text (#2734): the same black --color-bg-video ground as
+     the two roles above, but a neutral has no pinned signal to fall back
+     on. It follows each theme's own --color-fg-muted — dark and
+     high-contrast already clear 4.5:1 on black — and only `light`, whose
+     surface muted is chosen for light surfaces (4.14:1 on video),
+     redeclares it, to dark's stop. */
+  --color-fg-muted-on-video: var(--color-fg-muted);
 
   /* Interaction-state roles (spec 268, issue #2336, ADR-0146 item 5; ADR-0148
      decision 2 — derived, not chosen; plan.md §2). */
@@ -314,6 +321,7 @@
   --color-scrim: color-mix(in oklab, var(--gray-950) 40%, transparent);
   --color-fg-primary: var(--gray-900);
   --color-fg-muted: var(--gray-600);
+  --color-fg-muted-on-video: var(--gray-500);
   --color-fg-disabled: var(--gray-500);
   --color-fg-on-accent: var(--white);
   --color-border-subtle: var(--gray-200);
