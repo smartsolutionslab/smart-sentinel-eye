@@ -51,6 +51,14 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
         using CancellationTokenSource cts = new(TimeSpan.FromMinutes(2));
         await aspire.App.ResourceNotifications
             .WaitForResourceAsync("identity", KnownResourceStates.Running, cts.Token);
+
+        // Running only means the process launched, not that Kestrel is bound (AspireFixture.cs).
+        // A fact run alone would otherwise send its single-attempt CreateAsync POST (ADR-0143: not
+        // retried) to an Identity that has served nothing, paying first-request costs — listener
+        // readiness, OIDC/JWKS fetch, policy evaluation, EF model build — inside the one 10 s
+        // attempt. Warm those with a GET, which the resilience handler may retry (ADR-0142/0143).
+        using HttpClient identity = await aspire.CreateAdminClientAsync("identity", cts.Token);
+        await ListWebhooksAsync(identity);
     }
 
     public Task DisposeAsync() => Task.CompletedTask;
