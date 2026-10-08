@@ -73,4 +73,17 @@ public sealed class SourceMode : AggregateRoot<SourceModeIdentifier>
 
         Raise(new SourceModeChangedDomainEvent(Id, Fab, Source, previousMode, mode, now, changedBy));
     }
+
+    /// <summary>
+    /// Returns this pair to undeclared (spec 317, #2325, FR-013, US4). Raises
+    /// <see cref="SourceModeUndeclaredDomainEvent"/> naming the mode it was
+    /// declared at; changes no state itself — the handler removes the row.
+    /// </summary>
+    public void Undeclare(OperatorIdentifier undeclaredBy, IClock clock)
+    {
+        Ensure.That(clock).IsNotNull();
+
+        DateTimeOffset now = clock.UtcNow;
+        Raise(new SourceModeUndeclaredDomainEvent(Id, Fab, Source, Mode, now, undeclaredBy));
+    }
 }

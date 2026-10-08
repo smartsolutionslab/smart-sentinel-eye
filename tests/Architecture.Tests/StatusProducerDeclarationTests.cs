@@ -103,9 +103,11 @@ public class StatusProducerDeclarationTests
     /// Spec 270 (ADR-0160) added <c>src/Identity/Api/RevocationEndpoints.cs</c>'s
     /// one route handler (<c>GET /registered-clients/revoked</c>): 65 -&gt; 66.
     /// Spec 269 added EventSourcesEndpoints.cs's three, independently, from the
-    /// same 65 baseline: 66 -&gt; 69.
+    /// same 65 baseline: 66 -&gt; 69. Spec 317 (#2325) added
+    /// DELETE /event-sources/{source} to the existing EventSourcesEndpoints.cs:
+    /// 69 -&gt; 70.
     /// </summary>
-    private const int RouteHandlerMappingCount = 69;
+    private const int RouteHandlerMappingCount = 70;
 
     /// <summary>
     /// Every file under <c>src/*/Api</c> whose name ends <c>Endpoints.cs</c>.

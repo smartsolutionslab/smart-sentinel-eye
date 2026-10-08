@@ -174,9 +174,10 @@ public class PreconditionDeclarationTests
     /// <see cref="PreconditionFileCount"/> files. Pinned, not merely compared —
     /// see the class doc. Spec 258 US1 added two (PUT /walls/{id}/scenes,
     /// POST /walls/{id}/switch): 18 -&gt; 20. Spec 269 added one
-    /// (PUT /event-sources/{source}/mode): 20 -&gt; 21.
+    /// (PUT /event-sources/{source}/mode): 20 -&gt; 21. Spec 317 (#2325) added
+    /// one more (DELETE /event-sources/{source}): 21 -&gt; 22.
     /// </summary>
-    private const int PreconditionEndpointCount = 21;
+    private const int PreconditionEndpointCount = 22;
 
     /// <summary>
     /// Spec 258 US1 added WallEndpoints.cs as a ninth file: 8 -&gt; 9. Spec 269

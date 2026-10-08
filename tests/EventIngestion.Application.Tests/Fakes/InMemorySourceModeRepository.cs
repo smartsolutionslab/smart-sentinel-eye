@@ -50,6 +50,14 @@ public sealed class InMemorySourceModeRepository : ISourceModeRepository
         sourceModes.Add(sourceMode);
     }
 
+    /// <summary>T016 (spec 317, #2325) — FR-013: undeclared means no row (spec 269 FR-003).</summary>
+    public void Remove(SourceMode sourceMode)
+    {
+        Ensure.That(sourceMode).IsNotNull();
+        sourceModes.Remove(sourceMode);
+        persisted.Remove(sourceMode.Id.Value);
+    }
+
     public Task SaveAsync(CancellationToken cancellationToken)
     {
         foreach (SourceMode sourceMode in sourceModes)

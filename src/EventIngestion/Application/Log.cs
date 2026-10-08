@@ -93,4 +93,9 @@ internal static partial class Log
         Message = "Refused {Identifier} for fab {Fab}: event type '{Kind}' is not registered and source {Source} is strict.")]
     public static partial void UnregisteredEventTypeRefused(
         this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Source source, Kind kind);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Undeclared source mode for {Source} in fab {Fab} ({Identifier}).")]
+    public static partial void SourceModeUndeclared(
+        this ILogger logger, FabIdentifier fab, Source source, SourceModeIdentifier identifier);
 }

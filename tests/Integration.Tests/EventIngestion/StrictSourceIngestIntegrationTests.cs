@@ -25,12 +25,14 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// posts unregistered kinds to <c>/events/manual</c> as <c>op-berlin</c>. That
 /// is safe here only because every integration test class shares one
 /// <c>AspireCollection</c> and therefore runs serially against the one
-/// Aspire stack: each test below unconditionally restores <c>discovery</c> in
-/// <c>finally</c> before it finishes, so no other test — including that
-/// one — ever observes <c>berlin</c> + <c>manual</c> left strict. A test that
-/// died before reaching its <c>finally</c> (a process kill, not an assertion
-/// failure) is the one thing this does not protect against; spec.md §6 step
-/// 13 is the same trade for the manual verification run.
+/// Aspire stack: each test below unconditionally undeclares the pair it
+/// touched in <c>finally</c> before it finishes (spec 317 FR-015 — restoring
+/// to <c>discovery</c> would now leave it quarantining), so no other test —
+/// including that one — ever observes <c>berlin</c> + <c>manual</c> left
+/// strict or declared discovery. A test that died before reaching its
+/// <c>finally</c> (a process kill, not an assertion failure) is the one
+/// thing this does not protect against; spec.md §6 step 13 is the same trade
+/// for the manual verification run.
 /// </para>
 ///
 /// <para>
@@ -64,7 +66,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await RestoreDiscoveryAsync(berlin, "manual");
+            await UndeclareAsync(berlin, "manual");
         }
     }
 
@@ -86,7 +88,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await RestoreDiscoveryAsync(berlin, "manual");
+            await UndeclareAsync(berlin, "manual");
         }
     }
 
@@ -115,7 +117,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await RestoreDiscoveryAsync(berlin, "inference");
+            await UndeclareAsync(berlin, "inference");
         }
     }
 
@@ -139,7 +141,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await RestoreDiscoveryAsync(berlin, "inference");
+            await UndeclareAsync(berlin, "inference");
         }
     }
 
@@ -160,7 +162,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await RestoreDiscoveryAsync(berlin, "manual");
+            await UndeclareAsync(berlin, "manual");
         }
     }
 
