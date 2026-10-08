@@ -34,23 +34,24 @@ public sealed class KioskPrivilegeSweepHostedService(
     TimeProvider timeProvider,
     ILogger<KioskPrivilegeSweepHostedService> logger) : IHostedService
 {
-    // Spec 317 (#2170): below the resilience pipeline's ~30 s total attempt
-    // timeout, so this bound — not Polly — is what ends an outage against a
-    // Keycloak that never answers (measured 30154 ms, spec 092 §5); roughly
-    // 10x the measured 519 ms healthy pass against the assumed kiosk count.
+    // Spec 317 (#2170): below the resilience pipeline's 10 s per-attempt
+    // timeout (and so also its 30 s total), so this bound — not Polly — is
+    // what ends an outage against a Keycloak that never answers (measured
+    // 30154 ms, spec 092 §5); roughly 10x the measured 519 ms healthy pass
+    // against the assumed kiosk count.
     private static readonly TimeSpan Bound = TimeSpan.FromSeconds(5);
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        using CancellationTokenSource bound = new(Bound, timeProvider);
+        using CancellationTokenSource boundSource = new(Bound, timeProvider);
         using CancellationTokenSource linked =
-            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, bound.Token);
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, boundSource.Token);
 
         try
         {
             await SweepOnceAsync(linked.Token);
         }
-        catch (OperationCanceledException) when (bound.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (boundSource.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             // The bound surfaces as an OperationCanceledException just like
             // host shutdown does — HttpClient throws TaskCanceledException and

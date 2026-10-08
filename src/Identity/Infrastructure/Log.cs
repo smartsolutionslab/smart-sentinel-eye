@@ -65,11 +65,10 @@ internal static partial class Log
     public static partial void KioskPrivilegeSweepFailed(this ILogger logger, Exception exception);
 
     // Spec 317 (#2170). Distinct from the arm above: that one is an unexpected
-    // fault, this one is the sweep's own bound (below the resilience pipeline's
-    // ~30 s total budget) ending a pass that never came back. Same Warning
-    // level and the same "enrolled kiosks may still hold inherited realm
-    // privileges" consequence — an operator reading a slow Identity boot looks
-    // for this line.
+    // fault, this one is the sweep's own bound (KioskPrivilegeSweepHostedService.Bound)
+    // ending a pass that never came back. Same Warning level and the same
+    // "enrolled kiosks may still hold inherited realm privileges" consequence
+    // — an operator reading a slow Identity boot looks for this line.
     [LoggerMessage(Level = LogLevel.Warning, Message = "The kiosk privilege startup sweep did not finish within {Bound} and was abandoned so Identity's start is not held; enrolled kiosks may still hold inherited realm privileges until the next start.")]
     public static partial void KioskPrivilegeSweepTimedOut(this ILogger logger, TimeSpan bound);
 
