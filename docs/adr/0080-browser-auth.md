@@ -16,17 +16,24 @@ standard auth code with PKCE; **kiosk app** uses device-bound
 **`react-oidc-context`** (which wraps `oidc-client-ts`) for the
 **management app**:
 
+> **Corrected 2026-10-08.** This sketch named a client (`smart-sentinel-eye-management`)
+> and a scope (`sse.management`) that never existed in the realm — both predate
+> spec 200/#2279, which repointed the console at `management-web`'s own
+> default-granted scopes. Corrected to match `apps/management-web/src/app/auth.ts`
+> as actually built.
+
 ```typescript
-// apps/management-web/src/main.tsx
-<AuthProvider
-  authority="https://keycloak.fab.local/realms/sse"
-  client_id="smart-sentinel-eye-management"
-  redirect_uri={window.location.origin + '/auth/callback'}
-  scope="openid profile sse.management"
-  automaticSilentRenew
->
-  <App />
-</AuthProvider>
+// apps/management-web/src/app/auth.ts
+export const oidcConfig: AuthProviderProps = {
+  authority: `${KEYCLOAK_BASE_URL}/realms/smart-sentinel-eye`,
+  client_id: 'management-web',
+  redirect_uri: `${window.location.origin}/`,
+  // `openid` alone: the 21 granular sse.* scopes and sse-groups are DEFAULT
+  // client scopes of `management-web`, applied whether or not asked for.
+  // Naming a scope this client does not hold fails sign-in outright.
+  scope: 'openid',
+  onSigninCallback: (user) => { /* restores the deep link, spec 011 FR-013 */ },
+};
 ```
 
 - Hooks: `useAuth()` returns `{ user, isAuthenticated, signinRedirect,
