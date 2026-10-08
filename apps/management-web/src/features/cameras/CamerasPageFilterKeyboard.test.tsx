@@ -97,7 +97,12 @@ describe('CamerasPage — the filter without a pointer', () => {
 
     await user.keyboard('furn');
 
-    await vi.waitFor(() => expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' })));
+    // Spec 317 (#2751): CamerasPage now passes `{ refetchOnFocus: true }` as
+    // a second argument on every call — `expect.anything()` tolerates it
+    // without this test caring what it is.
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' }), expect.anything()),
+    );
   });
 
   /**

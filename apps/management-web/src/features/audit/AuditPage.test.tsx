@@ -92,7 +92,13 @@ describe('AuditPage', () => {
     await user.type(screen.getByLabelText('Event kind'), 'CameraRegisteredV1');
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
-    expect(searchMock).toHaveBeenLastCalledWith(expect.objectContaining({ eventKind: 'CameraRegisteredV1' }));
+    // Spec 317 (#2751): AuditPage now passes `{ refetchOnFocus: true }` as a
+    // second argument on every call — `expect.anything()` tolerates it
+    // without this test caring what it is.
+    expect(searchMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ eventKind: 'CameraRegisteredV1' }),
+      expect.anything(),
+    );
   });
 
   it('Expands a row to show its JSON payload', async () => {
@@ -128,8 +134,10 @@ describe('AuditPage', () => {
     fireEvent.change(screen.getByLabelText(/^Since/i), { target: { value: '2026-09-17T08:00' } });
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
     expect(searchMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ since: new Date('2026-09-17T08:00').toISOString() }),
+      expect.anything(),
     );
   });
 
@@ -142,7 +150,11 @@ describe('AuditPage', () => {
     fireEvent.change(screen.getByLabelText(/^Since/i), { target: { value: '2026-09-17T08:00' } });
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
-    expect(searchMock).toHaveBeenLastCalledWith(expect.objectContaining({ since: '2026-09-17T06:00:00.000Z' }));
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
+    expect(searchMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ since: '2026-09-17T06:00:00.000Z' }),
+      expect.anything(),
+    );
   });
 
   it('A Since filter typed west of UTC is sent as the instant it means', async () => {
@@ -154,7 +166,11 @@ describe('AuditPage', () => {
     fireEvent.change(screen.getByLabelText(/^Since/i), { target: { value: '2026-09-17T08:00' } });
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
-    expect(searchMock).toHaveBeenLastCalledWith(expect.objectContaining({ since: '2026-09-17T12:00:00.000Z' }));
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
+    expect(searchMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({ since: '2026-09-17T12:00:00.000Z' }),
+      expect.anything(),
+    );
   });
 
   it('Both bounds are converted', async () => {
@@ -214,8 +230,10 @@ describe('AuditPage', () => {
     await user.type(screen.getByLabelText('Actor'), 'admin@munich.test');
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
     expect(searchMock).toHaveBeenLastCalledWith(
       expect.objectContaining({ eventKind: 'CameraRegisteredV1', actorUsername: 'admin@munich.test' }),
+      expect.anything(),
     );
   });
 
@@ -395,8 +413,12 @@ describe('AuditPage — revocation fallback, three consecutive 403s (spec 310 #2
     await user.type(screen.getByLabelText('Event kind'), 'CameraRetiredV1');
     await user.click(screen.getByRole('button', { name: 'Search' }));
 
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
     await vi.waitFor(() =>
-      expect(searchMock).toHaveBeenLastCalledWith(expect.objectContaining({ eventKind: 'CameraRetiredV1' })),
+      expect(searchMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ eventKind: 'CameraRetiredV1' }),
+        expect.anything(),
+      ),
     );
 
     expect(screen.queryByText('CameraRegisteredV1')).toBeNull();

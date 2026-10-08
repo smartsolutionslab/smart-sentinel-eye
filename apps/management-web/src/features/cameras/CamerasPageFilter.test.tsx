@@ -82,7 +82,12 @@ describe('CamerasPage — finding a camera by name', () => {
     await user.click(field);
     await user.paste('furn');
 
-    await vi.waitFor(() => expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' })));
+    // Spec 317 (#2751): CamerasPage now passes `{ refetchOnFocus: true }` as
+    // a second argument on every call — `expect.anything()` tolerates it
+    // without this test caring what it is.
+    await vi.waitFor(() =>
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furn' }), expect.anything()),
+    );
   });
 
   it('Sends no fragment at all when the box is cleared', async () => {
@@ -95,8 +100,9 @@ describe('CamerasPage — finding a camera by name', () => {
     await user.paste('furn');
     await user.clear(field);
 
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
     await vi.waitFor(() =>
-      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: undefined })),
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: undefined }), expect.anything()),
     );
   });
 
@@ -111,14 +117,19 @@ describe('CamerasPage — finding a camera by name', () => {
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /next/i }));
-    expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 50 }));
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
+    expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 50 }), expect.anything());
 
     const field = screen.getByLabelText(/find a camera/i);
     await user.click(field);
     await user.paste('furn');
 
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenLastCalledWith` above.
     await vi.waitFor(() =>
-      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0, name: 'furn' })),
+      expect(listCamerasMock).toHaveBeenLastCalledWith(
+        expect.objectContaining({ offset: 0, name: 'furn' }),
+        expect.anything(),
+      ),
     );
   });
 

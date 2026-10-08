@@ -93,10 +93,12 @@ function renderDetailPage(store: ReturnType<typeof createStore>, identifier: str
  * against a hand-built double of its internals.
  *
  * **How the first of the three 403s happens without a button.**
- * `CameraDetailPage` polls nothing and never calls `setupListeners` (spec.md
- * §1.2, item 2), so nothing refetches on its own once the first load has
- * succeeded — and the Retry banner that exposes the only refetch affordance
- * exists only once `error` is already set, which it is not yet. The first
+ * `CameraDetailPage` polls nothing, and this test's own store installs no
+ * focus listeners (spec 317/#2751 made the app call `setupListeners`, but
+ * only from `main.tsx` — this store never does), so nothing refetches on
+ * its own once the first load has succeeded — and the Retry banner that
+ * exposes the only refetch affordance exists only once `error` is already
+ * set, which it is not yet. The first
  * refusal is produced the same way a real mid-session revocation becomes
  * visible without a manual reload: by invalidating the `Camera` tag while
  * this page is the query's only active subscriber. RTK Query's own

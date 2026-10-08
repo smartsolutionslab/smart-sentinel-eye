@@ -79,7 +79,17 @@ export function AuditPage() {
   const [applied, setApplied] = useState<SearchAuditInput>({ pageSize: PAGE_SIZE });
   const [selected, setSelected] = useState<AuditRow | null>(null);
 
-  const { data: fetched, currentData, isLoading, isFetching, error, refetch, requestId } = useSearchAuditQuery(applied);
+  // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
+  // never refetches on its own.
+  const {
+    data: fetched,
+    currentData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+    requestId,
+  } = useSearchAuditQuery(applied, { refetchOnFocus: true });
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this applied query
   // take the stale rows off screen, leaving only the existing failure banner.

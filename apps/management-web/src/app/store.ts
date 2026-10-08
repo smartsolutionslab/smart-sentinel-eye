@@ -1,4 +1,5 @@
 import { configureStore, createListenerMiddleware, type Dispatch } from '@reduxjs/toolkit';
+import { setupListeners } from '@reduxjs/toolkit/query';
 import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -62,4 +63,16 @@ export function resetApiCaches(dispatch: Dispatch): void {
   for (const slice of apiSlices) {
     dispatch(slice.util.resetApiState());
   }
+}
+
+/**
+ * Spec 317 (#2751): installs RTK Query's `focus`/`visibilitychange`
+ * listeners against this app's store, so a subscription's `refetchOnFocus`
+ * is not inert. Deliberately NOT called at module load — ~30 test files
+ * import this module for the real `store`, and `setupListeners` would
+ * attach `window` listeners in every one of them. `main.tsx` calls this
+ * once, before rendering. Returns the unsubscribe function.
+ */
+export function listenForWindowFocus(): () => void {
+  return setupListeners(store.dispatch);
 }
