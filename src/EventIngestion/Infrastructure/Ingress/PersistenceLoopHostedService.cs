@@ -332,6 +332,14 @@ public sealed class PersistenceLoopHostedService(
     /// <summary>
     /// Records a delivery nothing will ever store, so it is never merely gone
     /// (FR-008). Returns whether it is now on the record.
+    ///
+    /// <para>
+    /// Reason is always <see cref="DeadLetterReason.Refused"/> here — a
+    /// declared discovery pair's hold is written by the handler itself in the
+    /// same commit as the batch (spec 317, #2325, plan.md §7); this path only
+    /// ever sees a strict refusal or a future-skew rejection, both reached
+    /// after the envelope parsed, so the kind is always known.
+    /// </para>
     /// </summary>
     private async Task<bool> RecordRejectionAsync(
         IngestDelivery delivery, RejectionReason reason, CancellationToken cancellationToken)
@@ -345,10 +353,12 @@ public sealed class PersistenceLoopHostedService(
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
 
             deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
-                DeliveryTopic.From($"event/{envelope.Fab.Value}/{envelope.Source.Value}/{envelope.Device.Value}"),
+                DeliveryTopic.ForEnvelope(envelope.Fab, envelope.Source, envelope.Device),
                 envelope.Fab,
                 RawPayload.From(envelope.Payload.Value),
                 reason,
+                DeadLetterReason.Refused,
+                envelope.Kind,
                 clock));
             await deadLetters.SaveAsync(cancellationToken);
 
@@ -434,11 +444,14 @@ public sealed class PersistenceLoopHostedService(
             logger.IngestFailed(envelope.Identifier, envelope.Source, envelope.Device, result.Error.Code);
 
             // Already ingested means it IS stored — the redelivery is the
-            // idempotency rule working. Anything else is a rule that refused
-            // the envelope and will refuse it identically next time, so it is
-            // recorded — with the reason already in hand — rather than
-            // acknowledged into silence.
-            return result.Error is IngestEventError.EventAlreadyIngested
+            // idempotency rule working. A hold is also on the record already:
+            // the handler itself wrote the one dead letter, in the same
+            // commit, before returning this failure (spec 317, #2325,
+            // plan.md §7) — a second write here would duplicate it. Anything
+            // else is a rule that refused the envelope and will refuse it
+            // identically next time, so it is recorded — with the reason
+            // already in hand — rather than acknowledged into silence.
+            return result.Error is IngestEventError.EventAlreadyIngested or IngestEventError.EventTypeHeld
                 ? Ending.Stored
                 : Ending.Rejected(Because(result.Error));
         }

@@ -13,16 +13,16 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 /// </summary>
 public sealed class EventTypeAdmissionSource(EventIngestionDbContext dbContext) : IEventTypeAdmissionSource
 {
-    public async Task<IReadOnlySet<(FabIdentifier Fab, Source Source)>> StrictSourcesAsync(
+    public async Task<IReadOnlyDictionary<(FabIdentifier Fab, Source Source), EventTypeMode>> DeclaredSourceModesAsync(
         IReadOnlyCollection<FabIdentifier> fabs, CancellationToken cancellationToken)
     {
-        var strict = await dbContext.SourceModes
+        var declared = await dbContext.SourceModes
             .AsNoTracking()
-            .Where(sourceMode => fabs.Contains(sourceMode.Fab) && sourceMode.Mode == EventTypeMode.Strict)
-            .Select(sourceMode => new { sourceMode.Fab, sourceMode.Source })
+            .Where(sourceMode => fabs.Contains(sourceMode.Fab))
+            .Select(sourceMode => new { sourceMode.Fab, sourceMode.Source, sourceMode.Mode })
             .ToListAsync(cancellationToken);
 
-        return strict.Select(row => (row.Fab, row.Source)).ToHashSet();
+        return declared.ToDictionary(row => (row.Fab, row.Source), row => row.Mode);
     }
 
     public async Task<IReadOnlySet<Kind>> RegisteredKindsAsync(

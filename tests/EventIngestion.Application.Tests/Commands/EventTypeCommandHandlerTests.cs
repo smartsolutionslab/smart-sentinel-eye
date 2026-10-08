@@ -39,7 +39,8 @@ public class EventTypeCommandHandlerTests
     {
         InMemoryRegisteredEventTypeRepository repo = new();
         RegisterEventTypeCommandHandler handler = new(
-            repo, new FakeClock(Now), NullLogger<RegisterEventTypeCommandHandler>.Instance);
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
+            NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
@@ -58,7 +59,8 @@ public class EventTypeCommandHandlerTests
         repo.Add(seeded);
 
         RegisterEventTypeCommandHandler handler = new(
-            repo, new FakeClock(Now), NullLogger<RegisterEventTypeCommandHandler>.Instance);
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
+            NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
@@ -77,7 +79,8 @@ public class EventTypeCommandHandlerTests
         repo.Add(seeded);
 
         RegisterEventTypeCommandHandler handler = new(
-            repo, new FakeClock(Now), NullLogger<RegisterEventTypeCommandHandler>.Instance);
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
+            NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
@@ -98,7 +101,8 @@ public class EventTypeCommandHandlerTests
         repo.Add(seeded);
 
         RegisterEventTypeCommandHandler handler = new(
-            repo, new FakeClock(Now.AddHours(2)), NullLogger<RegisterEventTypeCommandHandler>.Instance);
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now.AddHours(2)),
+            NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
         Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),

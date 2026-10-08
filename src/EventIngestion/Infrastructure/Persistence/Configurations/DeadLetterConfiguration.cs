@@ -54,6 +54,31 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .HasConversion(v => v.Value, value => RejectedAt.From(value))
             .IsRequired();
 
+        // Spec 317 (#2325), FR-001. Required — every row has a reason, back-filled
+        // by the migration for rows captured before this spec.
+        builder.Property(deadLetter => deadLetter.Reason)
+            .HasColumnName("reason")
+            .HasConversion(reason => reason.Value, value => DeadLetterReason.From(value))
+            .IsRequired();
+
+        // Nullable (FR-002): a parse failure never reached a parsed envelope, so
+        // it has no kind. `kind!` is safe for the same reason `fab!` is above —
+        // EF never invokes the converter for a null value.
+        builder.Property(deadLetter => deadLetter.Kind)
+            .HasColumnName("kind")
+            .HasMaxLength(Kind.MaximumLength)
+            .HasConversion(kind => kind!.Value, value => Kind.From(value))
+            .IsRequired(false);
+
+        // Spec 317 FR-003. Defaults to 'Held' at the database level too, so a
+        // row inserted outside this mapping (the migration's back-fill) still
+        // satisfies the column's NOT NULL.
+        builder.Property(deadLetter => deadLetter.State)
+            .HasColumnName("state")
+            .HasConversion(state => state.Value, value => HoldState.From(value))
+            .HasDefaultValue(HoldState.Held)
+            .IsRequired();
+
         builder.Property(deadLetter => deadLetter.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
@@ -68,6 +93,13 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
         // separately are the honest shape.
         builder.HasIndex(deadLetter => deadLetter.Fab)
             .HasDatabaseName("ix_dead_letters_fab");
+
+        // Spec 317 FR-004. Serves the quarantine listing (?reason=&state=) and
+        // FR-007's promotion UPDATE's WHERE clause. ix_dead_letters_fab stays —
+        // it is a prefix of this one, and dropping it is a separate, measured
+        // clean-up (plan.md §4).
+        builder.HasIndex(deadLetter => new { deadLetter.Fab, deadLetter.Reason, deadLetter.State })
+            .HasDatabaseName("ix_dead_letters_fab_reason_state");
 
         builder.Ignore(deadLetter => deadLetter.PendingEvents);
     }

@@ -29,7 +29,7 @@ public class IngestEventCommandHandlerTests
             Payload.From("{\"cycleId\":\"abc\"}"));
 
     private static IngestEventCommandHandler Handler(InMemoryEventRepository repository) =>
-        new(repository, new FakeClock(Now),
+        new(repository, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
@@ -38,7 +38,7 @@ public class IngestEventCommandHandlerTests
     {
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
-            repo, new FakeClock(Now),
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
@@ -57,7 +57,7 @@ public class IngestEventCommandHandlerTests
         EventIdentifier identifier = EventIdentifier.New();
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
-            repo, new FakeClock(Now),
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
@@ -78,7 +78,7 @@ public class IngestEventCommandHandlerTests
     {
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
-            repo, new FakeClock(Now),
+            repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 

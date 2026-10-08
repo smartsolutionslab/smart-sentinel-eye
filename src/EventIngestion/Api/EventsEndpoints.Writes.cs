@@ -420,9 +420,14 @@ public static partial class EventsEndpoints
             Result<EventIdentifier, IngestEventError> result =
                 await handler.HandleAsync(new IngestEventCommand(envelope), cancellationToken);
 
+            // Spec 317 (#2325), A2: a held event is a 2xx — accepted, not an
+            // error — so it takes the same "answered without a Location"
+            // branch as a problem rather than ToProblem()'s ProblemDetails
+            // body, which exists for actual failures.
             return result.Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
-                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem()));
+                onFailure: error => Result<Guid, IResult>.Failure(
+                    error is IngestEventError.EventTypeHeld ? Results.Accepted() : error.ToProblem()));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

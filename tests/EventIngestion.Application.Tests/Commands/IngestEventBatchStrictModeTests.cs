@@ -39,7 +39,7 @@ public class IngestEventBatchStrictModeTests
 
     private static IngestEventBatchCommandHandler Handler(
         InMemoryEventRepository repository, InMemoryEventTypeAdmissionSource source) =>
-        new(repository, new FakeClock(Now), new EventTypeAdmission(source),
+        new(repository, new InMemoryDeadLetterRepository(), new FakeClock(Now), new EventTypeAdmission(source),
             NullLogger<IngestEventBatchCommandHandler>.Instance);
 
     /// <summary>Undocumented-green — see this class's remarks.</summary>
@@ -88,7 +88,7 @@ public class IngestEventBatchStrictModeTests
 
         await Handler(repo, source).HandleAsync(new IngestEventBatchCommand(envelopes), CancellationToken.None);
 
-        source.StrictSourcesCalls.ShouldBe(1);
+        source.DeclaredSourceModesCalls.ShouldBe(1);
         source.RegisteredKindsCalls.ShouldBe(1, "one call for the one strict fab in this batch, not per envelope");
     }
 }

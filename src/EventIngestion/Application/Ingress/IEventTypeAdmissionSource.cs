@@ -1,4 +1,5 @@
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 
 namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 
@@ -14,11 +15,12 @@ namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 public interface IEventTypeAdmissionSource
 {
     /// <summary>
-    /// The <c>(fab, source)</c> pairs among <paramref name="fabs"/> that are
-    /// declared strict. An absent pair is discovery (spec.md FR-003) and is
-    /// never returned here.
+    /// Every <c>(fab, source)</c> pair among <paramref name="fabs"/> that has
+    /// a declared mode (strict or discovery), with that mode. An absent pair
+    /// is undeclared and never returned here — undeclared always admits
+    /// (spec 317, #2325, Q1 option A).
     /// </summary>
-    Task<IReadOnlySet<(FabIdentifier Fab, Source Source)>> StrictSourcesAsync(
+    Task<IReadOnlyDictionary<(FabIdentifier Fab, Source Source), EventTypeMode>> DeclaredSourceModesAsync(
         IReadOnlyCollection<FabIdentifier> fabs, CancellationToken cancellationToken);
 
     /// <summary>

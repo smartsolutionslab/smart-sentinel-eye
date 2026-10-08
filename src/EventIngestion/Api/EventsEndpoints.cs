@@ -34,9 +34,11 @@ public static partial class EventsEndpoints
                 "Ingest an event into the resolved fab. Omit fabId when you belong to exactly one; "
                 + "name it when you belong to several (ADR-0114). The fab is never taken from the "
                 + "request unchecked (spec 018 FR-006). Stores the event before answering, so a 201 "
-                + "means it is readable at the Location (spec 020 FR-001). "
-                + "Required scope: sse.events.write")
+                + "means it is readable at the Location (spec 020 FR-001). A declared discovery "
+                + "source's unregistered kind answers 202 and is held for review, not stored (spec "
+                + "317, #2325). Required scope: sse.events.write")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -69,8 +71,10 @@ public static partial class EventsEndpoints
                 + "integration is rotated, a Keycloak JWT that must carry sse.events.write, an azp "
                 + "matching the integration's client and the group /fabs/{fabId}. In both modes the "
                 + "delivery's fabId must be the integration's own, and every refusal collapses to one "
-                + "401 so the answer never reveals which integrations exist.")
+                + "401 so the answer never reveals which integrations exist. A declared discovery "
+                + "source's unregistered kind answers 202 and is held for review (spec 317, #2325).")
             .Produces<Guid>(StatusCodes.Status201Created)
+            .Produces(StatusCodes.Status202Accepted)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
@@ -100,8 +104,10 @@ public static partial class EventsEndpoints
         reads.MapGet("/dead-letters", ListDeadLetters)
             .WithName("ListDeadLetters")
             .WithSummary(
-                "List rejected deliveries from the fabs you hold. A delivery whose plant could "
+                "List rejected or held deliveries from the fabs you hold. A delivery whose plant could "
                 + "not be established from its address is returned to nobody (spec 018 FR-011). "
+                + "Optional ?reason= (ParseFailure | Refused | UnknownEventType) and ?state= "
+                + "(Held | Promoted) narrow the listing (spec 317, #2325, FR-008). "
                 + "Required scope: sse.events.read")
             .Produces<IReadOnlyList<DeadLetterDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)

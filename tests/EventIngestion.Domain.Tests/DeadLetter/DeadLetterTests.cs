@@ -18,6 +18,8 @@ public class DeadLetterTests
             FabIdentifier.From("munich"),
             RawPayload.From("<not-json>"),
             RejectionReason.From("payload parse failed"),
+            DeadLetterReason.ParseFailure,
+            null,
             new FakeClock(Now));
 
         deadLetter.Topic.Value.ShouldBe("fab/munich/plc/station-4");
@@ -40,6 +42,8 @@ public class DeadLetterTests
             FabIdentifier.From("dresden"),
             RawPayload.From("<not-json>"),
             RejectionReason.From("payload parse failed"),
+            DeadLetterReason.ParseFailure,
+            null,
             new FakeClock(Now));
 
         deadLetter.Fab.ShouldBe(FabIdentifier.From("dresden"));
@@ -58,6 +62,8 @@ public class DeadLetterTests
             null,
             RawPayload.From("<not-json>"),
             RejectionReason.From("envelope parse failed"),
+            DeadLetterReason.ParseFailure,
+            null,
             new FakeClock(Now));
 
         deadLetter.Fab.ShouldBeNull();
@@ -69,10 +75,135 @@ public class DeadLetterTests
         FakeClock clock = new(Now);
         FabIdentifier fab = FabIdentifier.From("munich");
         Action emptyTopic = () =>
-            Domain.DeadLetter.DeadLetter.Capture(DeliveryTopic.From(""), fab, RawPayload.From("raw"), RejectionReason.From("err"), clock);
+            Domain.DeadLetter.DeadLetter.Capture(
+                DeliveryTopic.From(""), fab, RawPayload.From("raw"), RejectionReason.From("err"),
+                DeadLetterReason.ParseFailure, null, clock);
         Action emptyError = () =>
-            Domain.DeadLetter.DeadLetter.Capture(DeliveryTopic.From("fab/m/plc/x"), fab, RawPayload.From("raw"), RejectionReason.From(""), clock);
+            Domain.DeadLetter.DeadLetter.Capture(
+                DeliveryTopic.From("fab/m/plc/x"), fab, RawPayload.From("raw"), RejectionReason.From(""),
+                DeadLetterReason.ParseFailure, null, clock);
         emptyTopic.ShouldThrow<ArgumentException>();
         emptyError.ShouldThrow<ArgumentException>();
+    }
+
+    /// <summary>FR-003: every captured row starts Held, whatever its reason.</summary>
+    [Fact]
+    public void Capture_sets_the_hold_state_to_Held()
+    {
+        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("fab/munich/plc/station-4"),
+            FabIdentifier.From("munich"),
+            RawPayload.From("<not-json>"),
+            RejectionReason.From("payload parse failed"),
+            DeadLetterReason.ParseFailure,
+            null,
+            new FakeClock(Now));
+
+        deadLetter.State.ShouldBe(HoldState.Held);
+    }
+
+    /// <summary>FR-001: the reason code travels with the row independently of the free-text error.</summary>
+    [Fact]
+    public void Capture_records_the_reason_it_is_given()
+    {
+        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("event/munich/manual/station-4"),
+            FabIdentifier.From("munich"),
+            RawPayload.From("{}"),
+            RejectionReason.From("EVENT_TYPE_NOT_REGISTERED: probe"),
+            DeadLetterReason.Refused,
+            Kind.From("NobodyDeclaredThis"),
+            new FakeClock(Now));
+
+        deadLetter.Reason.ShouldBe(DeadLetterReason.Refused);
+    }
+
+    /// <summary>FR-002: set for a Refused or UnknownEventType row, where the envelope parsed.</summary>
+    [Fact]
+    public void Capture_records_the_kind_when_one_is_given()
+    {
+        Kind kind = Kind.From("NobodyDeclaredThis");
+
+        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("event/munich/manual/station-4"),
+            FabIdentifier.From("munich"),
+            RawPayload.From("{}"),
+            RejectionReason.From("EVENT_TYPE_HELD: probe"),
+            DeadLetterReason.UnknownEventType,
+            kind,
+            new FakeClock(Now));
+
+        deadLetter.Kind.ShouldBe(kind);
+    }
+
+    /// <summary>FR-002: a parse failure never reaches a parsed envelope, so it has no kind.</summary>
+    [Fact]
+    public void Capture_leaves_the_kind_unset_when_none_is_given()
+    {
+        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("fab/munich/plc/station-4"),
+            FabIdentifier.From("munich"),
+            RawPayload.From("<not-json>"),
+            RejectionReason.From("payload parse failed"),
+            DeadLetterReason.ParseFailure,
+            null,
+            new FakeClock(Now));
+
+        deadLetter.Kind.ShouldBeNull();
+    }
+
+    /// <summary>
+    /// FR-002's invariant: <c>UnknownEventType ⇒ kind is not null</c>. A hold
+    /// with no fab has nothing to key a promotion on, either.
+    /// </summary>
+    [Fact]
+    public void Capture_refuses_UnknownEventType_without_a_fab()
+    {
+        Action act = () => Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("event/munich/manual/station-4"),
+            null,
+            RawPayload.From("{}"),
+            RejectionReason.From("EVENT_TYPE_HELD: probe"),
+            DeadLetterReason.UnknownEventType,
+            Kind.From("NobodyDeclaredThis"),
+            new FakeClock(Now));
+
+        act.ShouldThrow<ArgumentException>();
+    }
+
+    /// <summary>FR-002's invariant, the other half: no kind, no hold.</summary>
+    [Fact]
+    public void Capture_refuses_UnknownEventType_without_a_kind()
+    {
+        Action act = () => Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("event/munich/manual/station-4"),
+            FabIdentifier.From("munich"),
+            RawPayload.From("{}"),
+            RejectionReason.From("EVENT_TYPE_HELD: probe"),
+            DeadLetterReason.UnknownEventType,
+            null,
+            new FakeClock(Now));
+
+        act.ShouldThrow<ArgumentException>();
+    }
+
+    [Fact]
+    public void Capture_accepts_UnknownEventType_with_both_fab_and_kind()
+    {
+        Kind kind = Kind.From("NobodyDeclaredThis");
+        FabIdentifier fab = FabIdentifier.From("munich");
+
+        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+            DeliveryTopic.From("event/munich/manual/station-4"),
+            fab,
+            RawPayload.From("{}"),
+            RejectionReason.From("EVENT_TYPE_HELD: probe"),
+            DeadLetterReason.UnknownEventType,
+            kind,
+            new FakeClock(Now));
+
+        deadLetter.Reason.ShouldBe(DeadLetterReason.UnknownEventType);
+        deadLetter.Fab.ShouldBe(fab);
+        deadLetter.Kind.ShouldBe(kind);
     }
 }

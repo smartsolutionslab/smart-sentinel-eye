@@ -146,7 +146,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     }
 
     [Fact]
-    public async Task Switching_back_to_discovery_admits_the_unknown_again()
+    public async Task Switching_back_to_discovery_holds_the_unknown_kind_for_review()
     {
         using HttpClient berlin = await BerlinClientAsync();
         try
@@ -156,9 +156,19 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
             stillRefused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(stillRefused));
 
             await SetAsync(berlin, "manual", "discovery");
-            HttpResponseMessage nowAdmitted = await IngestManualAsync(berlin, UniqueKind());
+            string kind = UniqueKind();
+            HttpResponseMessage held = await IngestManualAsync(berlin, kind);
 
-            nowAdmitted.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(nowAdmitted));
+            held.StatusCode.ShouldBe(
+                HttpStatusCode.Accepted,
+                await Diagnose(held) + Environment.NewLine
+                + "spec 317 (#2325), Q1 option A: a DECLARED discovery pair now holds an unregistered "
+                + "kind rather than admitting it — this test inverts what it pinned before that spec, "
+                + "named in plan.md §9's sanctioned-edit table.");
+            (await CountStoredAsync(berlin, kind)).ShouldBe(0, "a held event must not be stored");
+
+            bool wasHeld = await WaitForHeldAsync(berlin, kind, TimeSpan.FromMinutes(2));
+            wasHeld.ShouldBeTrue($"no dead letter with reason UnknownEventType and kind '{kind}' was found");
         }
         finally
         {
@@ -215,6 +225,35 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     /// <c>DeadLetterReasonIntegrationTests</c>: the kind is the only thing in
     /// it that identifies this test's own delivery.
     /// </summary>
+    /// <summary>
+    /// T011 (spec 317, #2325) — FR-008. Whether a row with reason
+    /// <c>UnknownEventType</c> and this exact kind appears, matched by the
+    /// new <c>kind</c> field rather than by scanning <c>rawPayload</c>
+    /// (<see cref="WaitForDeadLetterReasonAsync"/>'s approach), now that the
+    /// row carries one.
+    /// </summary>
+    private async Task<bool> WaitForHeldAsync(HttpClient client, string kind, TimeSpan timeout)
+    {
+        DateTime deadline = DateTime.UtcNow + timeout;
+        while (true)
+        {
+            HttpResponseMessage listed = await client.GetAsync("/events/dead-letters?reason=UnknownEventType&limit=1000");
+            listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
+            JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+            if (rows.EnumerateArray().Any(row => row.GetProperty("kind").GetString() == kind))
+            {
+                return true;
+            }
+
+            if (DateTime.UtcNow >= deadline)
+            {
+                return false;
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
+
     private async Task<string> WaitForDeadLetterReasonAsync(HttpClient client, string kind, TimeSpan timeout)
     {
         DateTime deadline = DateTime.UtcNow + timeout;
