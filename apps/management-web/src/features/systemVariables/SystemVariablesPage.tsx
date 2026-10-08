@@ -50,7 +50,9 @@ export function SystemVariablesPage() {
     error,
     refetch,
     requestId,
-  } = useListVariablesQuery(variablesArgs);
+    // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
+    // never refetches on its own.
+  } = useListVariablesQuery(variablesArgs, { refetchOnFocus: true });
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
   // take the stale rows off screen, leaving only the existing failure banner.

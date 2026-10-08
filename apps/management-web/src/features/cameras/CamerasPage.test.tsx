@@ -466,8 +466,11 @@ describe('CamerasPage — revocation fallback, three consecutive 403s (spec 310 
     await user.click(field);
     await user.paste('furnace');
 
+    // Spec 317 (#2751): CamerasPage now passes `{ refetchOnFocus: true }` as
+    // a second argument on every call — `expect.anything()` tolerates it
+    // without this test caring what it is.
     await vi.waitFor(() =>
-      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furnace' })),
+      expect(listCamerasMock).toHaveBeenLastCalledWith(expect.objectContaining({ name: 'furnace' }), expect.anything()),
     );
 
     expect(screen.queryByText('Line-1-Entrance')).toBeNull();

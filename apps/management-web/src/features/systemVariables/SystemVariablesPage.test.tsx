@@ -394,7 +394,10 @@ describe('SystemVariablesPage — the state filter is asked of the server', () =
   it('Asks for the Defined state, which excludes archived variables', () => {
     renderPage();
 
-    expect(listMock).toHaveBeenCalledWith({ state: 'Defined' });
+    // Spec 317 (#2751): SystemVariablesPage now passes
+    // `{ refetchOnFocus: true }` as a second argument on every call —
+    // `expect.anything()` tolerates it without this test caring what it is.
+    expect(listMock).toHaveBeenCalledWith({ state: 'Defined' }, expect.anything());
   });
 
   it('Asks for archived variables only when the Archived tab is chosen', async () => {
@@ -403,7 +406,8 @@ describe('SystemVariablesPage — the state filter is asked of the server', () =
 
     await user.click(screen.getByRole('button', { name: /^archived$/i }));
 
-    expect(listMock).toHaveBeenLastCalledWith({ state: 'Archived' });
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenCalledWith` above.
+    expect(listMock).toHaveBeenLastCalledWith({ state: 'Archived' }, expect.anything());
   });
 
   it('Widens the listing rather than filtering one when All is chosen', async () => {
@@ -412,7 +416,8 @@ describe('SystemVariablesPage — the state filter is asked of the server', () =
 
     await user.click(screen.getByRole('button', { name: /^all$/i }));
 
-    expect(listMock).toHaveBeenLastCalledWith({ includeArchived: true });
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenCalledWith` above.
+    expect(listMock).toHaveBeenLastCalledWith({ includeArchived: true }, expect.anything());
   });
 });
 
@@ -650,7 +655,10 @@ describe('SystemVariablesPage — revocation fallback, three consecutive 403s (s
 
     await user.click(screen.getByRole('button', { name: 'Archived' }));
 
-    await vi.waitFor(() => expect(listMock).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'Archived' })));
+    // Spec 317 (#2751): see the comment on the first `toHaveBeenCalledWith` above.
+    await vi.waitFor(() =>
+      expect(listMock).toHaveBeenLastCalledWith(expect.objectContaining({ state: 'Archived' }), expect.anything()),
+    );
 
     expect(screen.queryByText('oeeLine1')).toBeNull();
     expect(screen.getByRole('alert')).toHaveTextContent(/could not load variables/i);

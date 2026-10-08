@@ -50,7 +50,11 @@ export function CameraDetailPage() {
     error,
     refetch,
     requestId,
-  } = useGetCameraQuery({ cameraIdentifier });
+    // Spec 317 (#2751), D2: suspended while a dialog holds this record's
+    // `version` live (`If-Match`, ADR-0113) behind a modal — a focus
+    // refresh must not advance it silently under an edit the operator has
+    // not seen.
+  } = useGetCameraQuery({ cameraIdentifier }, { refetchOnFocus: !(editing || renaming || retiring) });
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this identifier take
   // the record off screen — the operator's access was revoked mid-session,
