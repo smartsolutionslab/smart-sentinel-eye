@@ -1,3 +1,4 @@
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
@@ -27,5 +28,20 @@ public sealed record DeliveryTopic : StringValueObject
             .HasMaxLength(MaximumLength);
 
         return new DeliveryTopic(value);
+    }
+
+    /// <summary>
+    /// Composes the envelope-level topic grammar (<c>event/{fab}/{source}/{device}</c>),
+    /// shared by both ingest handlers and the persistence loop's refusal path
+    /// (spec 317, #2325, plan.md §6.3) rather than interpolated separately in
+    /// three places.
+    /// </summary>
+    public static DeliveryTopic ForEnvelope(FabIdentifier fab, Source source, DeviceIdentifier device)
+    {
+        Ensure.That(fab).IsNotNull();
+        Ensure.That(source).IsNotNull();
+        Ensure.That(device).IsNotNull();
+
+        return From($"event/{fab.Value}/{source.Value}/{device.Value}");
     }
 }

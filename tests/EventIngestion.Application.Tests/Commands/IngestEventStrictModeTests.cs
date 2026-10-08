@@ -45,7 +45,7 @@ public class IngestEventStrictModeTests
 
     private static IngestEventCommandHandler Handler(
         InMemoryEventRepository repository, InMemoryEventTypeAdmissionSource source) =>
-        new(repository, new FakeClock(Now), new EventTypeAdmission(source),
+        new(repository, new InMemoryDeadLetterRepository(), new FakeClock(Now), new EventTypeAdmission(source),
             NullLogger<IngestEventCommandHandler>.Instance);
 
     [Fact]

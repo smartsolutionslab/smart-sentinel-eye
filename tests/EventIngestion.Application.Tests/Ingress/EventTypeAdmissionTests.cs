@@ -8,27 +8,16 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Ingress;
 
 /// <summary>
-/// Phase 4a (spec 269 T003c). Exercises <see cref="EventTypeAdmission"/>
-/// against the signature T002 introduced with its behaviour withheld —
-/// <c>AssessAsync</c> always answers <see cref="EventTypeVerdicts.AdmitAll"/>
-/// without calling <see cref="IEventTypeAdmissionSource"/> at all.
+/// Phase 4a (spec 269 T003c), extended by T006 (spec 317, #2325).
 ///
 /// <para>
-/// Not every case here is red on arrival. <see cref="An_undeclared_source_admits_an_unregistered_kind"/>
-/// and <see cref="A_discovery_source_admits_an_unregistered_kind"/> are
-/// tasks.md's own documented green cases (T003c.1–2) — they are also the
-/// characterisation cases (spec.md's default scenario). <b>Undocumented by
-/// tasks.md, but also green on arrival</b>, because
-/// <c>EventTypeVerdicts.Refuses</c> always answers <c>false</c>: every case
-/// that asserts <c>ShouldBeFalse()</c> passes regardless of what is
-/// declared — <see cref="A_strict_source_admits_a_registered_kind"/>,
-/// <see cref="Strict_on_one_source_leaves_the_fabs_other_sources_open"/>,
-/// <see cref="Strict_in_one_fab_leaves_the_same_source_in_another_fab_open"/>
-/// and <see cref="An_empty_batch_queries_nothing"/> (the last because T002's
-/// stub never calls the source regardless of input, empty or not — not
-/// because the empty-input short-circuit of plan.md §6.1 step 1 exists yet).
-/// Only the cases that assert <c>ShouldBeTrue()</c> or a call count are
-/// genuinely red. See the phase 4a report for the full, verified list.
+/// <b><see cref="A_discovery_source_holds_an_unregistered_kind"/> is an
+/// inversion, named in plan.md §9's sanctioned-edit table.</b> It replaces
+/// <c>A_discovery_source_admits_an_unregistered_kind</c>, whose own doc
+/// comment recorded that a declared-discovery pair was "indistinguishable
+/// from an absent one at this collaborator's read port" — the user's Q1
+/// decision (spec 317 §0.2) makes that no longer true: an undeclared pair
+/// still admits, but a <em>declared</em> discovery pair now holds.
 /// </para>
 /// </summary>
 public class EventTypeAdmissionTests
@@ -46,7 +35,7 @@ public class EventTypeAdmissionTests
             OccurredAt.From(Now),
             Payload.From("{}"));
 
-    /// <summary>Green on arrival (spec 269 tasks.md T003c.1) — this is the characterisation case.</summary>
+    /// <summary>Unchanged characterisation (Q1, option A): the undeclared default stays open.</summary>
     [Fact]
     public async Task An_undeclared_source_admits_an_unregistered_kind()
     {
@@ -57,24 +46,65 @@ public class EventTypeAdmissionTests
         EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Refuses(envelope).ShouldBeFalse();
+        verdicts.Holds(envelope).ShouldBeFalse();
     }
 
     /// <summary>
-    /// Green on arrival (spec 269 tasks.md T003c.2). An explicit discovery
-    /// declaration is indistinguishable from an absent one at this
-    /// collaborator's read port — <c>StrictSourcesAsync</c> only ever names
-    /// strict pairs (spec.md's "discovery declared explicitly" scenario).
+    /// T006 (spec 317, #2325) — FR-005. Inverts
+    /// <c>A_discovery_source_admits_an_unregistered_kind</c> (plan.md §9):
+    /// under the new quarantine behaviour a <em>declared</em> discovery pair
+    /// holds an unregistered kind rather than admitting it.
     /// </summary>
     [Fact]
-    public async Task A_discovery_source_admits_an_unregistered_kind()
+    public async Task A_discovery_source_holds_an_unregistered_kind()
     {
+        FabIdentifier berlin = FabIdentifier.From("berlin");
         InMemoryEventTypeAdmissionSource source = new();
+        source.DeclareDiscovery(berlin, Source.Manual);
         EventTypeAdmission admission = new(source);
         EventEnvelope envelope = BuildEnvelope(fab: "berlin", kind: "NobodyDeclaredThis");
 
         EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
+        verdicts.Holds(envelope).ShouldBeTrue();
+        verdicts.Refuses(envelope).ShouldBeFalse("a hold is not a refusal — the two are distinct outcomes");
+    }
+
+    /// <summary>T006 — a declared discovery pair does not hold a kind that is registered.</summary>
+    [Fact]
+    public async Task A_discovery_source_admits_a_registered_kind()
+    {
+        FabIdentifier berlin = FabIdentifier.From("berlin");
+        InMemoryEventTypeAdmissionSource source = new();
+        source.DeclareDiscovery(berlin, Source.Manual);
+        source.Register(RegisteredEventType.Register(
+            berlin, Kind.From("PlcCycleStart"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now)));
+        EventTypeAdmission admission = new(source);
+        EventEnvelope envelope = BuildEnvelope(fab: "berlin", kind: "PlcCycleStart");
+
+        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+
+        verdicts.Holds(envelope).ShouldBeFalse();
         verdicts.Refuses(envelope).ShouldBeFalse();
+    }
+
+    /// <summary>T006 — a retired kind is held under discovery, same as an unregistered one.</summary>
+    [Fact]
+    public async Task A_retired_kind_is_held_under_discovery()
+    {
+        FabIdentifier berlin = FabIdentifier.From("berlin");
+        RegisteredEventType retired = RegisteredEventType.Register(
+            berlin, Kind.From("WasOnceRegistered"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
+        retired.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
+        InMemoryEventTypeAdmissionSource source = new();
+        source.DeclareDiscovery(berlin, Source.Manual);
+        source.Register(retired);
+        EventTypeAdmission admission = new(source);
+        EventEnvelope envelope = BuildEnvelope(fab: "berlin", kind: "WasOnceRegistered");
+
+        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+
+        verdicts.Holds(envelope).ShouldBeTrue();
     }
 
     [Fact]
@@ -89,6 +119,21 @@ public class EventTypeAdmissionTests
         EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Refuses(envelope).ShouldBeTrue();
+    }
+
+    /// <summary>T006 — strict and discovery are distinct outcomes: a refusal is never also a hold.</summary>
+    [Fact]
+    public async Task A_strict_source_does_not_hold_the_kind_it_refuses()
+    {
+        FabIdentifier dresden = FabIdentifier.From("dresden");
+        InMemoryEventTypeAdmissionSource source = new();
+        source.DeclareStrict(dresden, Source.Manual);
+        EventTypeAdmission admission = new(source);
+        EventEnvelope envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "NobodyDeclaredThis");
+
+        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+
+        verdicts.Holds(envelope).ShouldBeFalse();
     }
 
     [Fact]
@@ -161,8 +206,8 @@ public class EventTypeAdmissionTests
 
         await admission.AssessAsync(envelopes, CancellationToken.None);
 
-        source.StrictSourcesCalls.ShouldBe(1);
-        source.RegisteredKindsCalls.ShouldBe(0, "no strict pairs are present, so no registry lookup is owed");
+        source.DeclaredSourceModesCalls.ShouldBe(1);
+        source.RegisteredKindsCalls.ShouldBe(0, "no declared pairs are present, so no registry lookup is owed");
     }
 
     [Fact]
@@ -185,7 +230,22 @@ public class EventTypeAdmissionTests
         await admission.AssessAsync(envelopes, CancellationToken.None);
 
         source.RegisteredKindsCalls.ShouldBe(
-            2, "one call per strict fab in the batch, not per envelope and not per distinct kind");
+            2, "one call per declared fab in the batch, not per envelope and not per distinct kind");
+    }
+
+    /// <summary>T006 — a declared discovery fab costs a registry query too, same as strict.</summary>
+    [Fact]
+    public async Task A_batch_costs_one_registry_query_per_discovery_fab_not_per_envelope()
+    {
+        FabIdentifier berlin = FabIdentifier.From("berlin");
+        InMemoryEventTypeAdmissionSource source = new();
+        source.DeclareDiscovery(berlin, Source.Manual);
+        EventTypeAdmission admission = new(source);
+        EventEnvelope[] envelopes = [.. Enumerable.Range(0, 20).Select(i => BuildEnvelope(fab: "berlin", kind: $"Kind{i % 3}"))];
+
+        await admission.AssessAsync(envelopes, CancellationToken.None);
+
+        source.RegisteredKindsCalls.ShouldBe(1, "one call for the one declared fab in this batch, not per envelope");
     }
 
     /// <summary>
@@ -200,7 +260,7 @@ public class EventTypeAdmissionTests
 
         EventTypeVerdicts verdicts = await admission.AssessAsync([], CancellationToken.None);
 
-        source.StrictSourcesCalls.ShouldBe(0);
+        source.DeclaredSourceModesCalls.ShouldBe(0);
         source.RegisteredKindsCalls.ShouldBe(0);
         verdicts.ShouldBeSameAs(EventTypeVerdicts.AdmitAll);
     }

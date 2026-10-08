@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
+using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -29,4 +31,25 @@ public sealed class DeadLetterRepository(
 
     public Task SaveAsync(CancellationToken cancellationToken) =>
         commit.CommitAsync(cancellationToken);
+
+    /// <summary>
+    /// Promotes every <see cref="HoldState.Held"/>,
+    /// <see cref="DeadLetterReason.UnknownEventType"/> row for
+    /// <paramref name="fab"/> and <paramref name="kind"/> as one set-based
+    /// <c>UPDATE</c> (spec 317, #2325, FR-007, A7) — never by loading rows:
+    /// a chatty source can hold millions of rows for one kind in an hour.
+    /// The predicate's <c>reason</c> and <c>state</c> terms are the
+    /// invariant (plan.md §3.3): a <c>Refused</c> row for the same
+    /// <c>(fab, kind)</c>, or a row already <c>Promoted</c>, is untouched.
+    /// </summary>
+    public Task<int> PromoteHeldAsync(FabIdentifier fab, Kind kind, CancellationToken cancellationToken) =>
+        dbContext.DeadLetters
+            .Where(deadLetter =>
+                deadLetter.Fab == fab
+                && deadLetter.Kind == kind
+                && deadLetter.Reason == DeadLetterReason.UnknownEventType
+                && deadLetter.State == HoldState.Held)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(deadLetter => deadLetter.State, HoldState.Promoted),
+                cancellationToken);
 }

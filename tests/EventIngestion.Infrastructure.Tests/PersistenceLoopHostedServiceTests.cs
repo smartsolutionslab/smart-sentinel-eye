@@ -7,6 +7,7 @@ using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 using SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 using SmartSentinelEye.EventIngestion.Infrastructure.Tests.Fakes;
 using SmartSentinelEye.Shared.Kernel;
@@ -414,6 +415,49 @@ public class PersistenceLoopHostedServiceTests
         next.Stored.ShouldBe(1, "the loop stopped at the first failed acknowledgement");
     }
 
+    /// <summary>
+    /// T009 (spec 317, #2325) — plan.md §6.3/§7. A declared-discovery pair's
+    /// held envelope ends <c>Stored</c> on the slow path, same as
+    /// <c>EventAlreadyIngested</c> (plan.md §7: <c>StoreOneAsync</c>'s
+    /// ternary becomes <c>EventAlreadyIngested or EventTypeHeld</c>), and must
+    /// not be dead-lettered a second time by <c>RecordRejectionAsync</c> — the
+    /// handler itself already wrote the one hold row.
+    /// </summary>
+    [Fact]
+    public async Task A_held_envelope_on_the_slow_path_ends_stored_and_writes_no_second_dead_letter()
+    {
+        RecordingCompletion completion = new();
+        Harness harness = new(Delivery("held", completion)) { DeclareDiscoveryForMunichPlc = true };
+
+        await harness.RunUntilAsync(() => completion.Stored == 1, TimeSpan.FromSeconds(10));
+
+        completion.Stored.ShouldBe(1);
+        completion.Abandoned.ShouldBe(0);
+        DeadLetter held = harness.DeadLetters.ShouldHaveSingleItem(
+            "the handler's own hold write, and no second row from RecordRejectionAsync");
+        held.Reason.ShouldBe(DeadLetterReason.UnknownEventType);
+        held.Kind.ShouldBe(Kind.From("PlcCycleStart"));
+    }
+
+    /// <summary>
+    /// T009 — a strict refusal on the slow path still dead-letters, now
+    /// carrying the typed reason code and the envelope's kind (plan.md §7).
+    /// </summary>
+    [Fact]
+    public async Task A_refusal_on_the_slow_path_dead_letters_with_reason_Refused_and_the_envelopes_kind()
+    {
+        RecordingCompletion completion = new();
+        Harness harness = new(Delivery("refused", completion)) { DeclareStrictForMunichPlc = true };
+
+        await harness.RunUntilAsync(() => harness.DeadLetters.Count == 1, TimeSpan.FromSeconds(10));
+
+        completion.Stored.ShouldBe(0);
+        completion.Abandoned.ShouldBe(1);
+        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        deadLetter.Reason.ShouldBe(DeadLetterReason.Refused);
+        deadLetter.Kind.ShouldBe(Kind.From("PlcCycleStart"));
+    }
+
     private static IngestDelivery Skewed(IIngestCompletion completion) =>
         new(
             new EventEnvelope(
@@ -455,6 +499,12 @@ public class PersistenceLoopHostedServiceTests
         /// <summary>Retry window, when the default would let abandonment do the unblocking.</summary>
         public TimeSpan? Window { get; init; }
 
+        /// <summary>T009 — declares (munich, plc) discovery for this run, instead of admitting all.</summary>
+        public bool DeclareDiscoveryForMunichPlc { get; init; }
+
+        /// <summary>T009 — declares (munich, plc) strict for this run, instead of admitting all.</summary>
+        public bool DeclareStrictForMunichPlc { get; init; }
+
         public int Attempts => repository.Attempts;
 
         public IReadOnlyList<DeadLetter> DeadLetters => deadLetters.Captured;
@@ -492,7 +542,20 @@ public class PersistenceLoopHostedServiceTests
             services.AddSingleton<IDeadLetterRepository>(deadLetters);
             services.AddSingleton<IClock>(new FixedClock());
             services.AddLogging();
-            services.AddScoped<IEventTypeAdmissionSource, AdmitAllEventTypeAdmissionSource>();
+            if (DeclareDiscoveryForMunichPlc)
+            {
+                services.AddSingleton<IEventTypeAdmissionSource>(
+                    new FixedModeEventTypeAdmissionSource(EventTypeMode.Discovery));
+            }
+            else if (DeclareStrictForMunichPlc)
+            {
+                services.AddSingleton<IEventTypeAdmissionSource>(
+                    new FixedModeEventTypeAdmissionSource(EventTypeMode.Strict));
+            }
+            else
+            {
+                services.AddScoped<IEventTypeAdmissionSource, AdmitAllEventTypeAdmissionSource>();
+            }
             services.AddScoped<EventTypeAdmission>();
             services.AddScoped<IngestEventCommandHandler>();
             services.AddScoped<IngestEventBatchCommandHandler>();
@@ -621,6 +684,32 @@ public class PersistenceLoopHostedServiceTests
         public void Add(DeadLetter deadLetter) => captured.Add(deadLetter);
 
         public Task SaveAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+        public Task<int> PromoteHeldAsync(FabIdentifier fab, Kind kind, CancellationToken cancellationToken) =>
+            Task.FromResult(0);
+    }
+
+    /// <summary>
+    /// T009 — declares <c>(munich, plc)</c> at a single fixed mode (or
+    /// nothing declared at all for every other pair), so a test can force a
+    /// hold or a refusal on the slow path without the full
+    /// <c>InMemoryEventTypeAdmissionSource</c> fake Application.Tests owns
+    /// (this project has no reference to it).
+    /// </summary>
+    private sealed class FixedModeEventTypeAdmissionSource(EventTypeMode mode) : IEventTypeAdmissionSource
+    {
+        private static readonly FabIdentifier Munich = FabIdentifier.From("munich");
+
+        public Task<IReadOnlyDictionary<(FabIdentifier Fab, Source Source), EventTypeMode>> DeclaredSourceModesAsync(
+            IReadOnlyCollection<FabIdentifier> fabs, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyDictionary<(FabIdentifier Fab, Source Source), EventTypeMode>>(
+                fabs.Contains(Munich)
+                    ? new Dictionary<(FabIdentifier, Source), EventTypeMode> { [(Munich, Source.Plc)] = mode }
+                    : []);
+
+        public Task<IReadOnlySet<Kind>> RegisteredKindsAsync(
+            FabIdentifier fab, IReadOnlyCollection<Kind> kinds, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlySet<Kind>>(new HashSet<Kind>());
     }
 
     private sealed class RecordingCompletion : IIngestCompletion

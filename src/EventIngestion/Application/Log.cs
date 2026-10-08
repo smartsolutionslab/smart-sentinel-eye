@@ -95,6 +95,15 @@ internal static partial class Log
         this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Source source, Kind kind);
 
     [LoggerMessage(Level = LogLevel.Information,
+        Message = "Held {Identifier} for fab {Fab}: event type '{Kind}' is not registered and source {Source} is discovery.")]
+    public static partial void UnregisteredEventTypeHeld(
+        this ILogger logger, EventIdentifier identifier, FabIdentifier fab, Source source, Kind kind);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Promoted {Count} held row(s) for event type '{Kind}' in fab {Fab}.")]
+    public static partial void HeldRowsPromoted(this ILogger logger, FabIdentifier fab, Kind kind, int count);
+
+    [LoggerMessage(Level = LogLevel.Information,
         Message = "Undeclared source mode for {Source} in fab {Fab} ({Identifier}).")]
     public static partial void SourceModeUndeclared(
         this ILogger logger, FabIdentifier fab, Source source, SourceModeIdentifier identifier);

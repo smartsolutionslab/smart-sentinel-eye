@@ -144,7 +144,8 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     {
         await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
         database.DeadLetters.Add(DeadLetterAggregate.Capture(
-            DeliveryTopic.From(topic), fab, RawPayload.From(rawPayload), RejectionReason.From("spec 018 T024 seed"), new SystemClock()));
+            DeliveryTopic.From(topic), fab, RawPayload.From(rawPayload), RejectionReason.From("spec 018 T024 seed"),
+            DeadLetterReason.ParseFailure, null, new SystemClock()));
         await database.SaveChangesAsync();
     }
 

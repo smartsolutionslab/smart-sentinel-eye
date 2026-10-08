@@ -1,4 +1,5 @@
 using SmartSentinelEye.EventIngestion.Domain.Event;
+using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 
 namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 
@@ -15,11 +16,13 @@ public sealed class EventTypeAdmission(IEventTypeAdmissionSource source)
     /// Assesses a batch of envelopes at a bounded number of queries — never
     /// one per event (spec.md FR-006, plan.md §6.1):
     /// 1. An empty input returns <see cref="EventTypeVerdicts.AdmitAll"/>.
-    /// 2. One <see cref="IEventTypeAdmissionSource.StrictSourcesAsync"/> call
-    ///    for the batch's distinct fabs. An empty result also returns
-    ///    <see cref="EventTypeVerdicts.AdmitAll"/> — the default case.
+    /// 2. One <see cref="IEventTypeAdmissionSource.DeclaredSourceModesAsync"/>
+    ///    call for the batch's distinct fabs. An empty result also returns
+    ///    <see cref="EventTypeVerdicts.AdmitAll"/> — the default case (every
+    ///    undeclared pair admits, Q1 option A).
     /// 3. One <see cref="IEventTypeAdmissionSource.RegisteredKindsAsync"/>
-    ///    call per strict fab present in the batch, not per envelope.
+    ///    call per fab present in the batch with any declared pair — strict
+    ///    or discovery — not per envelope.
     /// </summary>
     public async Task<EventTypeVerdicts> AssessAsync(
         IReadOnlyCollection<EventEnvelope> envelopes, CancellationToken cancellationToken)
@@ -30,23 +33,23 @@ public sealed class EventTypeAdmission(IEventTypeAdmissionSource source)
         }
 
         FabIdentifier[] fabs = [.. envelopes.Select(envelope => envelope.Fab).Distinct()];
-        IReadOnlySet<(FabIdentifier Fab, Source Source)> strictSources =
-            await source.StrictSourcesAsync(fabs, cancellationToken);
+        IReadOnlyDictionary<(FabIdentifier Fab, Source Source), EventTypeMode> declaredModes =
+            await source.DeclaredSourceModesAsync(fabs, cancellationToken);
 
-        if (strictSources.Count == 0)
+        if (declaredModes.Count == 0)
         {
             return EventTypeVerdicts.AdmitAll;
         }
 
         Dictionary<FabIdentifier, IReadOnlySet<Kind>> registeredKindsByFab = [];
         foreach (IGrouping<FabIdentifier, EventEnvelope> group in envelopes
-            .Where(envelope => strictSources.Contains((envelope.Fab, envelope.Source)))
+            .Where(envelope => declaredModes.ContainsKey((envelope.Fab, envelope.Source)))
             .GroupBy(envelope => envelope.Fab))
         {
             Kind[] kinds = [.. group.Select(envelope => envelope.Kind).Distinct()];
             registeredKindsByFab[group.Key] = await source.RegisteredKindsAsync(group.Key, kinds, cancellationToken);
         }
 
-        return EventTypeVerdicts.For(strictSources, registeredKindsByFab);
+        return EventTypeVerdicts.For(declaredModes, registeredKindsByFab);
     }
 }

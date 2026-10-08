@@ -46,13 +46,31 @@ public class DtoSmokeTests
     public void DeadLetterDto_round_trips_every_field()
     {
         Guid id = Guid.CreateVersion7();
-        DeadLetterDto dto = new(id, "fab/m/plc/x", "raw", "err", DateTimeOffset.UnixEpoch);
+        DeadLetterDto dto = new(
+            id, "fab/m/plc/x", "raw", "err", DateTimeOffset.UnixEpoch,
+            "munich", "ParseFailure", null, "Held");
 
         dto.DeadLetterIdentifier.ShouldBe(id);
         dto.Topic.ShouldBe("fab/m/plc/x");
         dto.RawPayload.ShouldBe("raw");
         dto.Error.ShouldBe("err");
         dto.RejectedAt.ShouldBe(DateTimeOffset.UnixEpoch);
+        dto.Fab.ShouldBe("munich");
+        dto.Reason.ShouldBe("ParseFailure");
+        dto.Kind.ShouldBeNull();
+        dto.State.ShouldBe("Held");
+    }
+
+    /// <summary>T002 (spec 317, #2325) — FR-002/FR-008: a held row's kind is set.</summary>
+    [Fact]
+    public void DeadLetterDto_carries_a_kind_for_an_unknown_event_type_row()
+    {
+        DeadLetterDto dto = new(
+            Guid.CreateVersion7(), "event/berlin/manual/station-1", "{}", "EVENT_TYPE_HELD: probe",
+            DateTimeOffset.UnixEpoch, "berlin", "UnknownEventType", "NobodyDeclaredThis", "Held");
+
+        dto.Kind.ShouldBe("NobodyDeclaredThis");
+        dto.Reason.ShouldBe("UnknownEventType");
     }
 
     [Fact]

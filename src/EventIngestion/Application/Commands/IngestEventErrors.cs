@@ -41,6 +41,21 @@ public abstract record IngestEventError(string Code, string Message, HttpStatusC
             "EVENT_TYPE_NOT_REGISTERED",
             $"Event type '{Kind}' is not registered for fab '{Fab}', and source '{Source}' is strict.",
             HttpStatusCode.BadRequest);
+
+    /// <summary>
+    /// The source is declared <c>discovery</c> and <c>Kind</c> has no
+    /// <c>Registered</c> entry for this fab (spec 317, #2325, FR-005). Held in
+    /// <c>dead_letters</c> rather than stored or fanned out (decision 018:
+    /// quarantined events are audit-only); answers <c>202 Accepted</c>
+    /// (A2) — a 2xx so a webhook sender does not retry, not <c>201</c>
+    /// because no resource exists at <c>/events/{id}</c>.
+    /// </summary>
+    public sealed record EventTypeHeld(string Fab, string Source, string Kind)
+        : IngestEventError(
+            "EVENT_TYPE_HELD",
+            $"Event type '{Kind}' is not registered for fab '{Fab}'; source '{Source}' is discovery, "
+                + "so the event is held for review rather than stored.",
+            HttpStatusCode.Accepted);
 }
 
 /// <summary>
@@ -59,4 +74,7 @@ public static class IngestEventFailures
 
     public static IngestEventError EventTypeNotRegistered(string fab, string source, string kind) =>
         new IngestEventError.EventTypeNotRegistered(fab, source, kind);
+
+    public static IngestEventError EventTypeHeld(string fab, string source, string kind) =>
+        new IngestEventError.EventTypeHeld(fab, source, kind);
 }

@@ -43,7 +43,9 @@ public static class EventTypesEndpoints
                 "Declare an event type the resolved fab expects. Omit fabId when you belong to "
                 + "exactly one; name it when you belong to several (ADR-0114). Honours Idempotency-Key "
                 + "(ADR-0142). A distinct write scope from event ingest, so an event source cannot "
-                + "declare which event types are legitimate (FR-010). Required scope: sse.events.types.write")
+                + "declare which event types are legitimate (FR-010). Also promotes that fab's held "
+                + "rows of this kind from a declared discovery pair's quarantine (spec 317, #2325). "
+                + "Required scope: sse.events.types.write")
             .Produces<Guid>(StatusCodes.Status201Created)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)

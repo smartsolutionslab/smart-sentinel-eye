@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
@@ -127,9 +128,30 @@ public static partial class EventsEndpoints
         // production data was readable by any operator of any other.
         [FromQuery] string? fabId,
         [FromQuery] int? limit,
+        // Spec 317 (#2325), FR-008: narrow by reason and/or hold state.
+        [FromQuery] string? reason,
+        [FromQuery] string? state,
         [FromServices] ListDeadLettersQueryHandler handler,
         CancellationToken cancellationToken)
     {
+        Option<DeadLetterReason> reasonFilter;
+        Option<HoldState> stateFilter;
+        try
+        {
+            reasonFilter = string.IsNullOrEmpty(reason)
+                ? Option<DeadLetterReason>.None
+                : Option<DeadLetterReason>.Some(DeadLetterReason.From(reason));
+            stateFilter = string.IsNullOrEmpty(state)
+                ? Option<HoldState>.None
+                : Option<HoldState>.Some(HoldState.From(state));
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "DEAD_LETTER_INVALID_FILTER", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
         Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
@@ -141,7 +163,7 @@ public static partial class EventsEndpoints
 
         Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
             await handler.HandleAsync(
-                new ListDeadLettersQuery(fabs, limit ?? 100), cancellationToken);
+                new ListDeadLettersQuery(fabs, limit ?? 100, reasonFilter, stateFilter), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: Results.Ok,

@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
+using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Shared.Kernel;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
@@ -24,9 +25,18 @@ namespace SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 /// where FR-009 is kept. Salvaging the batch here would mean guessing which row
 /// Postgres objected to.
 /// </para>
+///
+/// <para>
+/// Since spec 317 (#2325) a held envelope — a declared discovery pair's
+/// unregistered kind — is captured via <see cref="deadLetters"/> in the same
+/// commit as the batch's stored events, and is <b>not</b> reported in
+/// <see cref="IngestEventBatchResult.Refused"/>: it is on the record, just not
+/// as an event (decision 018, plan.md §6.3).
+/// </para>
 /// </summary>
 public sealed class IngestEventBatchCommandHandler(
     IEventRepository events,
+    IDeadLetterRepository deadLetters,
     IClock clock,
     EventTypeAdmission admission,
     ILogger<IngestEventBatchCommandHandler> logger)
@@ -62,8 +72,8 @@ public sealed class IngestEventBatchCommandHandler(
             [.. envelopes.Select(envelope => (envelope.Fab, envelope.Identifier))],
             cancellationToken);
 
-        // Spec 269 FR-006: one assessment for the whole batch, before the
-        // build loop — never one query per event.
+        // Spec 269 FR-006 / spec 317 FR-006: one assessment for the whole
+        // batch, before the build loop — never one query per event.
         EventTypeVerdicts verdicts = await admission.AssessAsync(envelopes, cancellationToken);
 
         // Seeded with what is already stored, then grown as the batch is built,
@@ -76,6 +86,10 @@ public sealed class IngestEventBatchCommandHandler(
         Dictionary<Source, long> storedBySource = [];
         List<RefusedEnvelope> refused = StoreOrRefuse(envelopes, verdicts, seen, storedBySource);
 
+        // Events and held rows commit together — one SaveAsync, so a held
+        // envelope is on the record in the same transaction as the batch's
+        // stored events (spec 317 plan.md §6.3). Both repositories resolve the
+        // same scoped DbContext, so this one call flushes both.
         await events.SaveAsync(cancellationToken);
 
         RecordVolume(storedBySource);
@@ -85,7 +99,8 @@ public sealed class IngestEventBatchCommandHandler(
     /// <summary>
     /// One pass over the batch: skips what <paramref name="seen"/> already
     /// names, adds what builds to <see cref="events"/> and tallies it by
-    /// source, and collects the rest as refusals.
+    /// source, captures what a declared discovery pair holds to
+    /// <see cref="deadLetters"/>, and collects the rest as refusals.
     /// </summary>
     private List<RefusedEnvelope> StoreOrRefuse(
         IReadOnlyList<EventEnvelope> envelopes,
@@ -104,18 +119,48 @@ public sealed class IngestEventBatchCommandHandler(
             }
 
             Result<EventAggregate, IngestEventError> built = Build(envelope, verdicts);
-            if (built.IsSuccess)
-            {
-                events.Add(built.Value);
-                storedBySource[envelope.Source] = storedBySource.GetValueOrDefault(envelope.Source) + 1;
-            }
-            else
+            if (!built.IsSuccess)
             {
                 refused.Add(new RefusedEnvelope(envelope, built.Error));
+                continue;
             }
+
+            // Spec 317 FR-005: future skew and a strict refusal (both inside
+            // Build, above) outrank a hold — checked only once the envelope
+            // has otherwise built cleanly.
+            if (verdicts.Holds(envelope))
+            {
+                Hold(envelope);
+                continue;
+            }
+
+            events.Add(built.Value);
+            storedBySource[envelope.Source] = storedBySource.GetValueOrDefault(envelope.Source) + 1;
         }
 
         return refused;
+    }
+
+    /// <summary>
+    /// Captures a held envelope (spec 317, #2325, FR-005) — audit-only, never
+    /// stored as an event and never counted in <see cref="RefusedEnvelope"/>
+    /// (decision 018).
+    /// </summary>
+    private void Hold(EventEnvelope envelope)
+    {
+        logger.UnregisteredEventTypeHeld(envelope.Identifier, envelope.Fab, envelope.Source, envelope.Kind);
+
+        IngestEventError.EventTypeHeld error = new(
+            envelope.Fab.Value, envelope.Source.Value, envelope.Kind.Value);
+
+        deadLetters.Add(DeadLetter.Capture(
+            DeliveryTopic.ForEnvelope(envelope.Fab, envelope.Source, envelope.Device),
+            envelope.Fab,
+            RawPayload.From(envelope.Payload.Value),
+            RejectionReason.From($"{error.Code}: {error.Message}"),
+            DeadLetterReason.UnknownEventType,
+            envelope.Kind,
+            clock));
     }
 
     /// <summary>
@@ -148,12 +193,9 @@ public sealed class IngestEventBatchCommandHandler(
     /// Builds the aggregate, or the reason it cannot be built. Two rules can
     /// fail it: the future-skew rule (spec 006 FR-014) and, since spec 269, a
     /// strict source's admission verdict — future skew outranks the verdict
-    /// (FR-007), the same precedence as the single-event handler. Either way it
-    /// fails the same way every time — so the envelope is left out of the
-    /// insert here rather than failing the batch and sending the other 199 down
-    /// the slow path once per retry, for ever. The reason is built once and
-    /// carried out rather than constructed to log its code and thrown away
-    /// (spec 213, issue #2428).
+    /// (FR-007), the same precedence as the single-event handler. The
+    /// caller checks a hold only once this succeeds, so future skew and a
+    /// strict refusal both outrank a hold too (spec 317 FR-005).
     /// </summary>
     private Result<EventAggregate, IngestEventError> Build(EventEnvelope envelope, EventTypeVerdicts verdicts)
     {
