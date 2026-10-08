@@ -71,12 +71,22 @@ after(() => {
   }
 });
 
+// GITHUB_STEP_SUMMARY deleted from the child's env (mirrors
+// render-leg-summary.test.mjs's own `runScript` helper, `withSummaryFile:
+// false` mode): every assertion below reads `result.stdout`, but
+// `writeSummary` only writes there when this var is unset. Not deleting it
+// passed locally and failed in CI, where the OUTER job -- this very test
+// process -- already has it set, and `spawnSync` inherits `process.env` by
+// default.
 function runReport(shardsDirectory, upstreamResult) {
+  const environment = { ...process.env };
+  delete environment.GITHUB_STEP_SUMMARY;
+
   const args = [script, shardsDirectory];
   if (upstreamResult !== undefined) {
     args.push(upstreamResult);
   }
-  return spawnSync('node', args, { cwd: repositoryRoot, encoding: 'utf8' });
+  return spawnSync('node', args, { cwd: repositoryRoot, encoding: 'utf8', env: environment });
 }
 
 function describeFailure(result) {
