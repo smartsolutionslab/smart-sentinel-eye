@@ -32,7 +32,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
 
     /// <summary>
     /// Fires on the <b>second</b> <see cref="SaveAsync"/> call specifically,
-    /// independent of <see cref="FailNextSaveWith"/> — #2628's race-path test
+    /// independent of <see cref="FailNextSaveWith"/> — the race-path test
     /// needs the create branch's own commit (the first save) to succeed and
     /// only the post-commit disable's save (the second) to throw, simulating
     /// the async <c>WebhookIntegrationRevokedV1</c> disable landing
@@ -48,7 +48,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     /// a failed <c>SaveChanges</c> leaves its entity tracked as
     /// <c>Modified</c> with its stale, pre-conflict values, so the identical
     /// failing UPDATE replays on the next <c>SaveChanges</c> against that
-    /// same <c>DbContext</c> (#2628 BL1). <see cref="RepositoryBackedTransactionalCommit"/>
+    /// same <c>DbContext</c>. <see cref="RepositoryBackedTransactionalCommit"/>
     /// reads this to decide whether its own <c>CommitAsync</c> should re-throw.
     /// </summary>
     public bool HasUnresolvedConcurrencyFailure { get; private set; }
@@ -62,7 +62,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     /// pre-create lookup is the first call) and this race check's inner
     /// lookup (the second) — which then finds nothing, exactly as
     /// production's <c>DisabledAt == null</c> filter would once that handler
-    /// has actually run (#2628 SF1).
+    /// has actually run.
     /// </summary>
     public IClock? DisableRowOnSecondGetWithinFab { get; set; }
 
