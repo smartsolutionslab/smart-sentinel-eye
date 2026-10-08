@@ -155,4 +155,33 @@ public class SourceModeTests
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new FakeClock(Now)));
     }
+
+    /// <summary>
+    /// T016 (spec 317, #2325) — FR-013/US4. <c>Undeclare</c> raises
+    /// <c>SourceModeUndeclaredDomainEvent</c> naming the fab, source, the mode
+    /// it was declared at, the actor and the moment — unconsumed, like its
+    /// siblings (ADR-0040, spec.md §0.3 item 2).
+    /// </summary>
+    [Fact]
+    public void Undeclare_raises_a_SourceModeUndeclaredDomainEvent_naming_fab_source_and_prior_mode()
+    {
+        OperatorIdentifier undeclaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+            .WithFab("berlin")
+            .WithSource(Source.Manual)
+            .WithMode(Domain.SourceMode.EventTypeMode.Discovery)
+            .Build();
+        sourceMode.ClearPendingEvents();
+
+        sourceMode.Undeclare(undeclaredBy, new FakeClock(Now.AddHours(1)));
+
+        Domain.SourceMode.Events.SourceModeUndeclaredDomainEvent raised = sourceMode.PendingEvents
+            .OfType<Domain.SourceMode.Events.SourceModeUndeclaredDomainEvent>()
+            .ShouldHaveSingleItem();
+        raised.Fab.ShouldBe(FabIdentifier.From("berlin"));
+        raised.Source.ShouldBe(Source.Manual);
+        raised.Mode.ShouldBe(Domain.SourceMode.EventTypeMode.Discovery);
+        raised.UndeclaredBy.ShouldBe(undeclaredBy);
+        raised.UndeclaredAt.ShouldBe(Now.AddHours(1));
+    }
 }

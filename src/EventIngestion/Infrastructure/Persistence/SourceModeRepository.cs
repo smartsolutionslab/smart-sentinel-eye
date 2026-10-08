@@ -30,8 +30,20 @@ public sealed class SourceModeRepository(
         dbContext.SourceModes.Add(sourceMode);
     }
 
+    /// <summary>Spec 317, #2325, FR-013: undeclared means no row.</summary>
+    public void Remove(SourceMode sourceMode)
+    {
+        Ensure.That(sourceMode).IsNotNull();
+        dbContext.SourceModes.Remove(sourceMode);
+    }
+
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
+        // Entries<SourceMode>() over the change tracker, not a list collected
+        // before the removal above: a removed entity is still tracked (state
+        // Deleted) and still carries PendingEvents, so its
+        // SourceModeUndeclaredDomainEvent is dispatched the same way a
+        // Declare's or Change's is.
         SourceMode[] tracked = dbContext.ChangeTracker
             .Entries<SourceMode>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)

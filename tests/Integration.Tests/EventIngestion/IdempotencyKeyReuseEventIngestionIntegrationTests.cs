@@ -64,8 +64,8 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
         }
         finally
         {
-            await RestoreDiscoveryAsync(berlin, "plc");
-            await RestoreDiscoveryAsync(berlin, "webhook");
+            await UndeclareAsync(berlin, "plc");
+            await UndeclareAsync(berlin, "webhook");
         }
     }
 

@@ -197,8 +197,77 @@ public class EventSourceModeIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            await RestoreDiscoveryAsync(dresden, "webhook");
+            await UndeclareAsync(dresden, "webhook");
         }
+    }
+
+    // --- T018 (spec 317, #2325) — DELETE /event-sources/{source}, US4/FR-013 ---
+
+    [Fact]
+    public async Task Undeclaring_a_declared_pair_returns_it_to_open_with_204()
+    {
+        using HttpClient hamburg = await ClientFor(HamburgOperator);
+        await SetAsync(hamburg, "plc", "discovery");
+        JsonElement rows = await ListRowsAsync(hamburg, "reading hamburg/plc's current version");
+        int version = (RowFor(rows, "plc")
+            ?? throw new InvalidOperationException("hamburg/plc must exist after SetAsync"))
+            .GetProperty("version").GetInt32();
+
+        HttpResponseMessage deleted = await DeleteAsync(hamburg, "plc", version);
+
+        deleted.StatusCode.ShouldBe(HttpStatusCode.NoContent, await Diagnose(deleted));
+        JsonElement after = await ListRowsAsync(hamburg, "listing after undeclaring hamburg/plc");
+        RowFor(after, "plc").ShouldBeNull("an undeclared pair must not be listed (spec 269 FR-003)");
+    }
+
+    [Fact]
+    public async Task Undeclaring_without_If_Match_is_refused_with_428()
+    {
+        using HttpClient hamburg = await ClientFor(HamburgOperator);
+        await SetAsync(hamburg, "manual", "discovery");
+
+        HttpResponseMessage refused = await DeleteAsync(hamburg, "manual", expectedVersion: null);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired, await Diagnose(refused));
+    }
+
+    [Fact]
+    public async Task Undeclaring_with_a_stale_If_Match_is_refused_with_409()
+    {
+        using HttpClient hamburg = await ClientFor(HamburgOperator);
+        await SetAsync(hamburg, "inference", "discovery");
+        JsonElement rows = await ListRowsAsync(hamburg, "reading hamburg/inference's current version");
+        int currentVersion = (RowFor(rows, "inference")
+            ?? throw new InvalidOperationException("hamburg/inference must exist after SetAsync"))
+            .GetProperty("version").GetInt32();
+
+        HttpResponseMessage refused = await DeleteAsync(hamburg, "inference", currentVersion + 99);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await Diagnose(refused));
+        (await TitleOfAsync(refused)).ShouldBe("SOURCE_MODE_STALE");
+    }
+
+    /// <summary>Reserved pair: never declared by any test in this file.</summary>
+    [Fact]
+    public async Task Undeclaring_an_undeclared_pair_is_404()
+    {
+        using HttpClient munich = await ClientFor(MunichOperator);
+
+        HttpResponseMessage refused = await DeleteAsync(munich, "inference", expectedVersion: 0);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.NotFound, await Diagnose(refused));
+        (await TitleOfAsync(refused)).ShouldBe("SOURCE_MODE_NOT_DECLARED");
+    }
+
+    [Fact]
+    public async Task Undeclaring_an_invalid_source_is_refused_with_400()
+    {
+        using HttpClient hamburg = await ClientFor(HamburgOperator);
+
+        HttpResponseMessage refused = await DeleteAsync(hamburg, "not-a-source", expectedVersion: 0);
+
+        refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(refused));
+        (await TitleOfAsync(refused)).ShouldBe("SOURCE_MODE_INVALID_INPUT");
     }
 
     private Task<HttpClient> ClientFor(string username) =>

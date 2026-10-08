@@ -179,4 +179,78 @@ public class SourceModeCommandHandlerTests
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<ChangeSourceModeError.SourceModeNotDeclared>();
     }
+
+    // --- T016 (spec 317, #2325) — Undeclare, FR-013/US4 ---
+
+    [Fact]
+    public async Task Undeclaring_a_declared_pair_removes_it()
+    {
+        InMemorySourceModeRepository repo = new();
+        SourceMode seeded = SourceMode.Declare(
+            Dresden, Source.Manual, EventTypeMode.Discovery, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
+        repo.Seed(seeded);
+
+        UndeclareSourceModeCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
+
+        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+            new UndeclareSourceModeCommand(Dresden, Source.Manual, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        repo.SourceModes.ShouldBeEmpty("undeclared means no row (spec 269 FR-003)");
+    }
+
+    [Fact]
+    public async Task Undeclaring_an_undeclared_pair_is_not_found()
+    {
+        InMemorySourceModeRepository repo = new();
+
+        UndeclareSourceModeCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
+
+        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+            new UndeclareSourceModeCommand(Dresden, Source.Manual, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<UndeclareSourceModeError.SourceModeNotDeclared>();
+    }
+
+    [Fact]
+    public async Task Undeclaring_with_a_stale_expected_version_is_refused()
+    {
+        InMemorySourceModeRepository repo = new();
+        SourceMode seeded = SourceMode.Declare(
+            Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
+        repo.Seed(seeded, version: 3);
+
+        UndeclareSourceModeCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
+
+        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+            new UndeclareSourceModeCommand(Dresden, Source.Manual, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<UndeclareSourceModeError.SourceModeStale>();
+        repo.SourceModes.ShouldHaveSingleItem("a refused undeclare removed it anyway");
+    }
+
+    /// <summary>plan.md §6.4-shaped ordering, mirrored for Undeclare: the lookup runs before the version gate.</summary>
+    [Fact]
+    public async Task Undeclaring_the_version_gate_runs_after_the_lookup()
+    {
+        InMemorySourceModeRepository repo = new();
+
+        UndeclareSourceModeCommandHandler handler = new(
+            repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
+
+        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+            new UndeclareSourceModeCommand(Dresden, Source.Manual, 99, OperatorIdentifier.From(Guid.CreateVersion7())),
+            CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        result.Error.ShouldBeOfType<UndeclareSourceModeError.SourceModeNotDeclared>();
+    }
 }

@@ -136,6 +136,14 @@ public static class EventIngestionInfrastructureModule
                 Result<SourceModeIdentifier, ChangeSourceModeError>>,
             ChangeSourceModeCommandHandler>();
 
+        // Spec 317 (#2325), FR-013/US4: the way back to undeclared.
+        builder.Services.AddScoped<UndeclareSourceModeCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<
+                UndeclareSourceModeCommand,
+                Result<SourceModeIdentifier, UndeclareSourceModeError>>,
+            UndeclareSourceModeCommandHandler>();
+
         // Query handlers.
         builder.Services.AddScoped<GetEventQueryHandler>();
         builder.Services.AddScoped<ListEventsQueryHandler>();

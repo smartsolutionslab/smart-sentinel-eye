@@ -66,6 +66,24 @@ internal static class EventSourceModeApi
         return client.SendAsync(request);
     }
 
+    /// <summary>
+    /// T017 (spec 317, #2325) — FR-013. <paramref name="expectedVersion"/> of
+    /// <c>null</c> sends no <c>If-Match</c> at all — the 428 case, mirroring
+    /// <see cref="ChangeAsync"/>.
+    /// </summary>
+    internal static Task<HttpResponseMessage> DeleteAsync(
+        HttpClient client, string source, int? expectedVersion, string? fabId = null)
+    {
+        HttpRequestMessage request = new(
+            HttpMethod.Delete, $"/event-sources/{source}{(fabId is null ? string.Empty : $"?fabId={fabId}")}");
+        if (expectedVersion is { } version)
+        {
+            request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
+        }
+
+        return client.SendAsync(request);
+    }
+
     internal static Task<HttpResponseMessage> ListAsync(HttpClient client, string? fabId = null) =>
         client.GetAsync(Route(fabId));
 
@@ -124,7 +142,28 @@ internal static class EventSourceModeApi
         }
     }
 
-    internal static Task RestoreDiscoveryAsync(HttpClient client, string source) => SetAsync(client, source, "discovery");
+    /// <summary>
+    /// T018 (spec 317, #2325), FR-015. Replaces <c>RestoreDiscoveryAsync</c>:
+    /// under quarantine, declaring <c>discovery</c> is no longer a no-op, so
+    /// test cleanup must return a pair to undeclared, not to discovery
+    /// (§0.3). A no-op when the pair is already undeclared, so it is safe to
+    /// call from any test's cleanup regardless of whether the arrange step
+    /// actually got as far as declaring anything.
+    /// </summary>
+    internal static async Task UndeclareAsync(HttpClient client, string source)
+    {
+        JsonElement rows = await ListRowsAsync(client, $"reading current modes before undeclaring '{source}'");
+        JsonElement? existing = RowFor(rows, source);
+        if (existing is not { } row)
+        {
+            return; // already undeclared
+        }
+
+        int version = row.GetProperty("version").GetInt32();
+        HttpResponseMessage deleted = await DeleteAsync(client, source, version);
+        deleted.StatusCode.ShouldBe(
+            HttpStatusCode.NoContent, $"undeclaring '{source}': {await deleted.Content.ReadAsStringAsync()}");
+    }
 
     private static string Route(string? fabId) =>
         fabId is null ? "/event-sources" : $"/event-sources?fabId={fabId}";

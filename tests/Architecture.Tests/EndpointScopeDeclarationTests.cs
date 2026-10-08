@@ -356,11 +356,14 @@ public class EndpointScopeDeclarationTests
     /// handler (<c>GET /registered-clients/revoked</c>): 14 -&gt; 15 files,
     /// 65 -&gt; 66 mappings. Spec 269 added <c>EventSourcesEndpoints.cs</c> with
     /// three route handlers, independently, from the same 14/65 baseline:
-    /// 15 -&gt; 16 files, 66 -&gt; 69 mappings.
+    /// 15 -&gt; 16 files, 66 -&gt; 69 mappings. Spec 317 (#2325) added
+    /// <c>DELETE /event-sources/{source}</c> to the existing
+    /// <c>EventSourcesEndpoints.cs</c>: file count unchanged, 69 -&gt; 70
+    /// mappings.
     /// </summary>
     private const int EndpointFileCount = 16;
 
-    private const int RouteHandlerMappingCount = 69;
+    private const int RouteHandlerMappingCount = 70;
 
     /// <summary>
     /// The routes that enforce no scope at all, each against the open issue that

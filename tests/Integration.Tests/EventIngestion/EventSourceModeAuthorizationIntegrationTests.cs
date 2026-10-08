@@ -59,6 +59,36 @@ public class EventSourceModeAuthorizationIntegrationTests(AspireFixture aspire)
         }
     }
 
+    /// <summary>
+    /// T018 (spec 317, #2325) — FR-013. The same defect FR-013's own
+    /// reasoning names, with the sign reversed again: an event source must
+    /// not be able to walk its own policing back to undeclared any more than
+    /// it can declare or change it.
+    /// </summary>
+    [Fact]
+    public async Task An_event_source_token_cannot_undeclare_a_source_mode()
+    {
+        string clientId = $"event-source-undeclare-probe-{Guid.CreateVersion7():N}";
+        await PlantEventSourceClientAsync(clientId);
+
+        try
+        {
+            using HttpClient source = await EventSourceClientAsync(clientId);
+
+            HttpResponseMessage refused = await DeleteAsync(source, "plc", expectedVersion: null);
+
+            refused.StatusCode.ShouldBe(
+                HttpStatusCode.Forbidden,
+                await Diagnose(refused) + Environment.NewLine
+                + "403 before 428: the scope is enforced by the authorization middleware, not by a "
+                + "branch inside the handler that a missing header returns ahead of");
+        }
+        finally
+        {
+            await realm.DeleteAsync(clientId, CancellationToken.None);
+        }
+    }
+
     private async Task PlantEventSourceClientAsync(string clientId)
     {
         using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);

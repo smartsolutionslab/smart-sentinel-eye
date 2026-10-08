@@ -221,9 +221,12 @@ public class ConcurrencyConflictDeclarationTests
     /// mappings, 12 -&gt; 13 files. Spec 269 added two (POST /event-sources,
     /// PUT /event-sources/{source}/mode) in a new file, EventSourcesEndpoints.cs:
     /// 38 -&gt; 40 mappings, 13 -&gt; 14 files. The context count is unchanged —
-    /// EventIngestion already contributed mutating mappings.
+    /// EventIngestion already contributed mutating mappings. Spec 317 (#2325)
+    /// added DELETE /event-sources/{source} to the existing
+    /// EventSourcesEndpoints.cs: 40 -&gt; 41 mappings, file and context counts
+    /// unchanged.
     /// </summary>
-    private const int MutatingMappingCount = 40;
+    private const int MutatingMappingCount = 41;
 
     private const int MutatingMappingFileCount = 14;
 
@@ -351,6 +354,10 @@ public class ConcurrencyConflictDeclarationTests
             "EventIngestion PUT /event-sources/{source}/mode",
             "refusal (ChangeSourceModeError.SourceModeStale); lost update (SourceMode.Version "
             + "concurrency token)"),
+        new(
+            "EventIngestion DELETE /event-sources/{source}",
+            "refusal (UndeclareSourceModeError.SourceModeStale); lost update (SourceMode.Version "
+            + "concurrency token) — spec 317, #2325"),
         new(
             "Identity POST /devices/register",
             "refusal (RegisterDeviceErrors); unique race (ux_registered_clients_clientid_active); "

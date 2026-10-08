@@ -19,9 +19,11 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.EventIngestion.Api;
 
 /// <summary>
-/// Declares, changes and lists the per-<c>(fab, Source)</c> event-type
-/// admission policy (spec 269, decision 018). An undeclared pair is
-/// discovery; nothing here quarantines an unknown event (that is #2325).
+/// Declares, changes, lists and undeclares the per-<c>(fab, Source)</c>
+/// event-type admission policy (spec 269, decision 018). Since spec 317
+/// (#2325): an undeclared pair is open (an unregistered kind is stored and
+/// fanned out as always); a declared <c>discovery</c> pair holds one in
+/// <c>dead_letters</c> for review; a declared <c>strict</c> pair refuses it.
 /// </summary>
 public static class EventSourcesEndpoints
 {
@@ -62,8 +64,10 @@ public static class EventSourcesEndpoints
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Events.Read)
             .WithSummary(
-                "List the declared source modes of the fabs you hold. An undeclared source is "
-                + "discovery and is not listed. Required scope: sse.events.read")
+                "List the declared source modes of the fabs you hold. An undeclared source is open: "
+                + "unknown kinds are stored as they always were. A declared discovery source holds "
+                + "them; a declared strict source refuses them. An undeclared source is not listed. "
+                + "Required scope: sse.events.read")
             .Produces<IReadOnlyList<SourceModeDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
@@ -75,6 +79,21 @@ public static class EventSourcesEndpoints
                 "Change a declared source's mode in the resolved fab. Requires If-Match with the "
                 + "version from GET /event-sources. Required scope: sse.events.types.write")
             .Produces<Guid>(StatusCodes.Status200OK)
+            .ProducesProblem(StatusCodes.Status401Unauthorized)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status403Forbidden)
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+
+        group.MapDelete("/{source}", Undeclare)
+            .RequireAuthorization(Scope.Sse.Events.TypesWrite)
+            .WithSummary(
+                "Return a declared source to undeclared in the resolved fab (spec 317, #2325) — the way "
+                + "back from strict or discovery. Requires If-Match with the version from "
+                + "GET /event-sources. Reuses the event-type write scope, so an event source cannot "
+                + "undeclare its own policing. Required scope: sse.events.types.write")
+            .Produces(StatusCodes.Status204NoContent)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -239,6 +258,57 @@ public static class EventSourcesEndpoints
 
         return result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
+            onFailure: error => error.ToProblem());
+    }
+
+    /// <summary>
+    /// Returns a declared pair to undeclared (spec 317, #2325, FR-013, US4) —
+    /// mirrors <see cref="Change"/> line for line: <c>If-Match</c> read and
+    /// <c>428</c> answered before any lookup (FR-011's reasoning extends
+    /// here), then <see cref="Source.From"/>, then the fab, then the handler.
+    /// </summary>
+    private static async Task<IResult> Undeclare(
+        string source,
+        HttpRequest request,
+        [FromServices] IFabAuthorizationGuard fabGuard,
+        ClaimsPrincipal user,
+        [FromQuery] string? fabId,
+        [FromServices] UndeclareSourceModeCommandHandler handler,
+        CancellationToken cancellationToken)
+    {
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        {
+            return precondition;
+        }
+
+        Source parsedSource;
+        try
+        {
+            parsedSource = Source.From(source);
+        }
+        catch (ArgumentException ex)
+        {
+            return Results.Problem(
+                title: "SOURCE_MODE_INVALID_INPUT", detail: ex.Message,
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        Result<FabIdentifier, IResult> fabResolution =
+            await EventIngestionFabResolution.ResolveWriteFabAsync(
+                user, fabId ?? string.Empty, fabGuard, cancellationToken);
+        if (fabResolution.IsFailure)
+        {
+            return fabResolution.Error;
+        }
+
+        OperatorIdentifier undeclaredBy = user.ToOperatorIdentifier();
+
+        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+            new UndeclareSourceModeCommand(fabResolution.Value, parsedSource, expectedVersion, undeclaredBy),
+            cancellationToken);
+
+        return result.Match<IResult>(
+            onSuccess: _ => Results.NoContent(),
             onFailure: error => error.ToProblem());
     }
 }

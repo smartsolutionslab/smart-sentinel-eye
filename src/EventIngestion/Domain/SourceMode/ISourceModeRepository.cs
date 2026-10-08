@@ -15,5 +15,12 @@ public interface ISourceModeRepository
 
     void Add(SourceMode sourceMode);
 
+    /// <summary>
+    /// Deletes the row (spec 317, #2325, FR-013). Undeclared means no row
+    /// (spec 269 FR-003), so unlike every other aggregate in this solution
+    /// there is no soft-delete state to flip.
+    /// </summary>
+    void Remove(SourceMode sourceMode);
+
     Task SaveAsync(CancellationToken cancellationToken);
 }
