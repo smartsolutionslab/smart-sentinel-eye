@@ -731,7 +731,7 @@ public class RotateWebhookClientCommandHandlerTests
     }
 
     /// <summary>
-    /// Phase 6 should-fix S3 (#2628): today <c>DisableIfRevokedSinceCommitAsync</c>
+    /// Today <c>DisableIfRevokedSinceCommitAsync</c>
     /// only acts on a post-commit <c>Revoked</c> answer and does nothing for
     /// <c>Unverifiable</c>, silently leaving the just-created client enabled
     /// when EventIngestion's state cannot be confirmed. The pre-flight check a
@@ -770,7 +770,7 @@ public class RotateWebhookClientCommandHandlerTests
     }
 
     /// <summary>
-    /// Phase 6 should-fix S1 (#2628), the real bug: the async
+    /// The real bug: the async
     /// <c>WebhookIntegrationRevokedV1</c> disable handler can land concurrently
     /// with this same race window, disabling the row and bumping its version
     /// before <c>DisableIfRevokedSinceCommitAsync</c>'s own
@@ -792,7 +792,7 @@ public class RotateWebhookClientCommandHandlerTests
     /// </para>
     ///
     /// <para>
-    /// A second review round found the first version of this test green for
+    /// The first version of this test was green for
     /// the wrong reason: it wired <see cref="NoOpTransactionalCommit"/>, which
     /// has no relationship to <paramref name="repo"/> and so cannot see that
     /// the outer <c>HandleAsync</c> still unconditionally calls
@@ -834,7 +834,7 @@ public class RotateWebhookClientCommandHandlerTests
     }
 
     /// <summary>
-    /// Phase 6 should-fix SF1 (#2628): the asynchronous
+    /// The asynchronous
     /// <c>WebhookIntegrationRevokedV1</c> disable can also beat this re-check
     /// to the punch without a save conflict at all — its own save commits
     /// first, and <c>DisableWebhookClientCommandHandler</c>'s fab-scoped

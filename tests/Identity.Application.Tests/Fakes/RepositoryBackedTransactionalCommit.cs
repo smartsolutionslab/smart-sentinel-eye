@@ -18,7 +18,7 @@ namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 /// <see cref="InMemoryRegisteredClientRepository.HasUnresolvedConcurrencyFailure"/>
 /// is set, every <see cref="CommitAsync"/> call re-throws, the same way
 /// <c>OutboxTransactionalCommit</c>'s underlying <c>SaveChangesAndFlushMessagesAsync</c>
-/// would in production (#2628 BL1).
+/// would in production.
 /// </para>
 /// </summary>
 public sealed class RepositoryBackedTransactionalCommit(InMemoryRegisteredClientRepository repository)
