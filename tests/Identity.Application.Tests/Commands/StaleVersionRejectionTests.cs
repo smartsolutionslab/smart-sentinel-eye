@@ -179,7 +179,11 @@ public class StaleVersionRejectionTests
     private static RotateWebhookClientCommandHandler Rotator(
         InMemoryRegisteredClientRepository clients, FakeKeycloakAdminClient keycloak, FakeEventBus bus) =>
         new(clients, keycloak, new FakeWebhookIntegrationStatusLookup(), bus, new NoOpTransactionalCommit(),
-            new FakeClock(Now), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            new FakeClock(Now),
+            new DisableWebhookClientCommandHandler(
+                new InMemoryRegisteredClientRepository(), new FakeKeycloakAdminClient(),
+                new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
     /// <summary>
     /// Drives a real first-time rotation so the Keycloak fake holds a genuine

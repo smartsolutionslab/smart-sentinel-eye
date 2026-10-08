@@ -54,6 +54,15 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     public int CallCount { get; private set; }
 
     /// <summary>
+    /// Scoped to <see cref="DisableClientAsync"/> alone, unlike
+    /// <see cref="FailNextCall"/> which the next call to <b>any</b> method
+    /// consumes — #2628's race-path tests need <see cref="CreateClientAsync"/>
+    /// to succeed and only the later, best-effort disable to fail. One-shot,
+    /// same as <see cref="FailNextCall"/>.
+    /// </summary>
+    public Exception? FailNextDisableWith { get; set; }
+
+    /// <summary>
     /// Every representation handed to <see cref="CreateClientAsync"/>, in order.
     ///
     /// <para>
@@ -149,6 +158,12 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     public Task DisableClientAsync(string clientId, CancellationToken cancellationToken)
     {
         CallCount++;
+        if (FailNextDisableWith is not null)
+        {
+            Exception toThrow = FailNextDisableWith;
+            FailNextDisableWith = null;
+            throw toThrow;
+        }
         if (FailNextCall is not null)
         {
             ThrowAndClear();

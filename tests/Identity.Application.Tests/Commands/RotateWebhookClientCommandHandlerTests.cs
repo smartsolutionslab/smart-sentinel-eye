@@ -41,6 +41,23 @@ public class RotateWebhookClientCommandHandlerTests
     private static RotateWebhookClientError ExpectedCrossFabRefusal() =>
         RotateWebhookClientFailures.WebhookClientNotFound("webhook-dresden-line-3", 7);
 
+    // Spec 318 (#2628) S4: RotateWebhookClientCommandHandler now calls
+    // DisableWebhookClientCommand's own handler for its race-path disable
+    // instead of duplicating its steps inline. None of the tests below this
+    // helper exercises that race path (status stays Active throughout, or the
+    // handler never reaches the create branch), so a throwaway, independent
+    // instance is correct here — it is never touched. The handful of tests
+    // that DO exercise the race path wire the real repo/keycloak instead, so
+    // the disable actually lands on the aggregate under test.
+    private static DisableWebhookClientCommandHandler NoOpDisableWebhookClient() =>
+        new(
+            new InMemoryRegisteredClientRepository(), new FakeKeycloakAdminClient(),
+            new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance);
+
+    private static DisableWebhookClientCommandHandler DisableWebhookClientUsing(
+        InMemoryRegisteredClientRepository repo, FakeKeycloakAdminClient keycloak) =>
+        new(repo, keycloak, new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance);
+
     [Fact]
     public async Task First_rotation_creates_the_Keycloak_client_and_publishes_WebhookIntegrationRotatedV1()
     {
@@ -50,7 +67,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -75,7 +92,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -103,7 +120,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // "Has Spaces" yields clientId "webhook-Has Spaces" which
         // fails the ClientId grammar.
@@ -122,7 +139,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -166,7 +183,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), new FakeEventBus(),
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         RotateWebhookClientCommand command = new(
             "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -226,7 +243,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(CrossFabAttackCommand(), CancellationToken.None);
@@ -271,7 +288,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, new FakeKeycloakAdminClient(), new FakeWebhookIntegrationStatusLookup(),
             new FakeEventBus(), new NoOpTransactionalCommit(),
-            new FakeClock(Now), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            new FakeClock(Now), NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(CrossFabAttackCommand(), CancellationToken.None);
@@ -348,7 +365,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // munich's own fab-scoped lookup finds nothing under "webhook-shared",
         // so this reads as the create intent (If-None-Match: *) to the handler.
@@ -398,7 +415,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -435,7 +452,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, new FakeEventBus(), new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
             new RotateWebhookClientCommand(
@@ -472,7 +489,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, new FakeKeycloakAdminClient(), status, new FakeEventBus(),
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
             new RotateWebhookClientCommand(
@@ -506,7 +523,7 @@ public class RotateWebhookClientCommandHandlerTests
         RotateWebhookClientCommandHandler handler = new(
             repo, new FakeKeycloakAdminClient(), status, new FakeEventBus(),
             new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None); // create intent
@@ -525,7 +542,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Unverifiable };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -547,7 +564,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.NotRegistered };
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
@@ -567,7 +584,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler
             .HandleAsync(HappyCommand("Has Spaces"), CancellationToken.None);
@@ -595,7 +612,7 @@ public class RotateWebhookClientCommandHandlerTests
         FakeWebhookIntegrationStatusLookup status = new();
         RotateWebhookClientCommandHandler handler = new(
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
-            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+            NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         await handler.HandleAsync(HappyCommand("qa"), CancellationToken.None);
 
@@ -623,5 +640,175 @@ public class RotateWebhookClientCommandHandlerTests
 
         error.Code.ShouldBe("WEBHOOK_INTEGRATION_STATUS_UNAVAILABLE");
         error.Status.ShouldBe(HttpStatusCode.BadGateway);
+    }
+
+    // Phase 6 found the TOCTOU re-check's own behaviour was never actually
+    // exercised: the old fake's single fixed Status could not express "the
+    // pre-flight check passes, the post-commit re-check finds the race",
+    // which is the entire point of DisableIfRevokedSinceCommitAsync (#2628).
+    // FakeWebhookIntegrationStatusLookup.EnqueueStatuses now can.
+
+    /// <summary>
+    /// The documented happy path for the race itself: the create commits
+    /// while the integration is still Active, a revoke lands before the
+    /// post-commit re-check runs, and the handler disables the client it just
+    /// minted rather than leaving a revoked integration's credential live.
+    /// The create genuinely succeeded, so the caller still gets its secret
+    /// back (200) — matching spec 264's existing async-disable precedent,
+    /// where a disable racing a live request never turns that request's own
+    /// answer into a failure.
+    /// </summary>
+    [Fact]
+    public async Task A_revoke_landing_during_the_create_disables_the_just_created_client_and_still_returns_success()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), logger);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            $"the create itself committed before the revoke landed, so it must still be reported "
+            + $"as success; got {(result.IsFailure ? result.Error.ToString() : string.Empty)}");
+        result.Value.ClientSecret.ShouldBe("secret-webhook-qa");
+        keycloak.Disabled.ShouldContain(
+            "webhook-qa",
+            "the race-created Keycloak client must be disabled once the post-commit re-check sees "
+            + "Revoked");
+        RegisteredClient stored = repo.Clients.ShouldHaveSingleItem();
+        stored.DisabledAt.ShouldNotBeNull(
+            "the local row must be marked disabled too, not just the Keycloak client");
+        logger.Named("DisabledClientCreatedDuringRevokeRace").ShouldHaveSingleItem(
+            "the race-disable marker log must fire so an operator can tell this happened");
+    }
+
+    /// <summary>
+    /// The disable itself is documented as best-effort: a failure to disable
+    /// must not be surfaced to the caller, because the create genuinely
+    /// succeeded. This pins that the handler still returns Success and logs a
+    /// warning instead of letting the disable's own exception propagate.
+    /// </summary>
+    [Fact]
+    public async Task When_the_race_disable_itself_fails_the_create_still_returns_success_and_a_warning_is_logged()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), logger);
+
+        // The create's own CreateClientAsync must still succeed; only the
+        // later, best-effort DisableClientAsync call fails.
+        keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            $"a failed best-effort disable must not turn a committed create into a failure; got "
+            + $"{(result.IsFailure ? result.Error.ToString() : string.Empty)}");
+        result.Value.ClientSecret.ShouldBe("secret-webhook-qa");
+        logger.Named("CouldNotDisableClientCreatedDuringRevokeRace").ShouldHaveSingleItem(
+            "a failed race-disable must be logged so the still-enabled client is not silently lost "
+            + "sight of");
+    }
+
+    /// <summary>
+    /// Phase 6 should-fix S3 (#2628): today <c>DisableIfRevokedSinceCommitAsync</c>
+    /// only acts on a post-commit <c>Revoked</c> answer and does nothing for
+    /// <c>Unverifiable</c>, silently leaving the just-created client enabled
+    /// when EventIngestion's state cannot be confirmed. The pre-flight check a
+    /// few lines above already treats Unverifiable exactly like Revoked
+    /// (fail-closed); the post-commit re-check must match it for the same
+    /// reason — an integration this handler cannot confirm the health of is
+    /// not one it should leave a live credential attached to. Red today: the
+    /// current code returns early without disabling.
+    /// </summary>
+    [Fact]
+    public async Task An_unverifiable_status_after_commit_disables_the_just_created_client_like_a_revoke()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Unverifiable);
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            $"the create itself committed, so it must still be reported as success; got "
+            + $"{(result.IsFailure ? result.Error.ToString() : string.Empty)}");
+        keycloak.Disabled.ShouldContain(
+            "webhook-qa",
+            "an Unverifiable answer after commit must disable the just-created client exactly as a "
+            + "Revoked answer does — the fail-closed philosophy applies to both");
+        RegisteredClient stored = repo.Clients.ShouldHaveSingleItem();
+        stored.DisabledAt.ShouldNotBeNull(
+            "the local row must be marked disabled, not left enabled because the status could not "
+            + "be confirmed");
+    }
+
+    /// <summary>
+    /// Phase 6 should-fix S1 (#2628), the real bug: the async
+    /// <c>WebhookIntegrationRevokedV1</c> disable handler can land concurrently
+    /// with this same race window, disabling the row and bumping its version
+    /// before <c>DisableIfRevokedSinceCommitAsync</c>'s own
+    /// <c>aggregate.Disable(clock); SaveAsync</c> runs — so this save loses
+    /// the identical Layer-2 race
+    /// <c>A_rotation_that_loses_the_database_race_lets_the_concurrency_exception_reach_the_middleware</c>
+    /// pins for the rotate branch's own save.
+    ///
+    /// <para>
+    /// Today's exception filter
+    /// (<c>when (ex is not OperationCanceledException and not DbUpdateConcurrencyException)</c>)
+    /// does not catch <see cref="DbUpdateConcurrencyException"/> here either,
+    /// so it propagates all the way to the caller — turning a create that
+    /// genuinely committed into a 409, and losing the only copy of the
+    /// secret. The correct behaviour: this is "already disabled concurrently"
+    /// by the async handler, not a conflict the caller caused, so it must be
+    /// caught, logged, and still answer Success. Red today: the exception
+    /// propagates past the handler uncaught.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task A_concurrent_async_disable_during_the_race_check_is_treated_as_already_disabled_not_a_409()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        repo.FailSecondSaveWith = new DbUpdateConcurrencyException(
+            "The async WebhookIntegrationRevokedV1 disable handler already disabled this row and "
+            + "bumped its version first.");
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), logger);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            $"a concurrency loss on the best-effort race-disable's own save means the async handler "
+            + $"already disabled this row — that is not a failure of this create, which genuinely "
+            + $"committed, and must not cost the caller its secret; got "
+            + $"{(result.IsFailure ? result.Error.ToString() : string.Empty)}");
+        result.Value.ClientSecret.ShouldBe("secret-webhook-qa");
     }
 }

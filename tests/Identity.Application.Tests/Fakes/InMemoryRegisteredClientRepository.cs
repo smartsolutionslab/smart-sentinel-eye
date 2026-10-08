@@ -16,6 +16,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
 {
     private readonly List<RegisteredClientAggregate> clients = [];
     private readonly HashSet<Guid> persisted = [];
+    private int saveCalls;
 
     public IReadOnlyList<RegisteredClientAggregate> Clients => clients;
 
@@ -27,6 +28,17 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     /// second real caller racing it.
     /// </summary>
     public Exception? FailNextSaveWith { get; set; }
+
+    /// <summary>
+    /// Fires on the <b>second</b> <see cref="SaveAsync"/> call specifically,
+    /// independent of <see cref="FailNextSaveWith"/> — #2628's race-path test
+    /// needs the create branch's own commit (the first save) to succeed and
+    /// only the post-commit disable's save (the second) to throw, simulating
+    /// the async <c>WebhookIntegrationRevokedV1</c> disable landing
+    /// concurrently and bumping the row's version first. One-shot, same as
+    /// <see cref="FailNextSaveWith"/>.
+    /// </summary>
+    public Exception? FailSecondSaveWith { get; set; }
 
     /// <summary>
     /// Places a client that already exists in the database, at
@@ -90,6 +102,14 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
+        saveCalls++;
+        if (saveCalls == 2 && FailSecondSaveWith is not null)
+        {
+            Exception toThrow = FailSecondSaveWith;
+            FailSecondSaveWith = null;
+            throw toThrow;
+        }
+
         if (FailNextSaveWith is not null)
         {
             Exception toThrow = FailNextSaveWith;
