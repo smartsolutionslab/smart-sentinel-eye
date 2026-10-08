@@ -1,4 +1,4 @@
-import { useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { camerasApi, useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
@@ -65,12 +65,14 @@ export function CameraDetailPage() {
   // `data` can still carry the previous identifier's record across a
   // navigation, which would make a fresh identifier's first-load 404 a
   // strike.
-  const refused = useRevocationFallback(cameraIdentifier, {
-    error,
-    isFetching,
-    requestId,
-    notFoundRevokes: currentData !== undefined,
-  });
+  const refused = useRevocationFallback(
+    cameraIdentifier,
+    { error, isFetching, requestId, notFoundRevokes: currentData !== undefined },
+    {
+      endpoint: camerasApi.endpoints.getCamera,
+      args: { cameraIdentifier },
+    },
+  );
 
   // `camera` (`data`) can still hold a *previously viewed* identifier's record
   // for a moment after the URL changes — including across a same-instance

@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { renderHook } from '@testing-library/react';
+import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
+import type { ReactElement, ReactNode } from 'react';
+import { Provider } from 'react-redux';
 import { describe, expect, it } from 'vitest';
-import { useRevocationFallback, type RevocationQueryState } from './useRevocationFallback.js';
+import { useRevocationFallback, type RevocationQueryState, type RevocationSource } from './useRevocationFallback.js';
 
 /**
  * Spec 313 (#2750) T002 — the hook's new `notFoundRevokes` field in
@@ -9,6 +12,13 @@ import { useRevocationFallback, type RevocationQueryState } from './useRevocatio
  * strikes when the caller opts in by passing `notFoundRevokes: true`; a
  * caller that omits it, or passes `false`, must behave exactly as spec 310
  * — a 404 resets the count, same as any other non-403 settled response.
+ *
+ * Spec 314 (#2762) harness-only update: the hook now needs a Provider (it
+ * dispatches via `useDispatch`) and a listener middleware in the store (it
+ * throws without one). Every case here drives the hook purely through its
+ * render-path argument, exactly as before, so the source passed is inert —
+ * nothing is ever dispatched against this store, so it never contributes a
+ * settlement of its own. No assertion or case below is changed.
  */
 
 function settled(status: number, requestId: string, notFoundRevokes?: boolean): RevocationQueryState {
@@ -19,9 +29,33 @@ function ok(requestId: string): RevocationQueryState {
   return { error: undefined, isFetching: false, requestId };
 }
 
+/** Never matches — this suite drives the hook only through its render-path argument (spec 314). */
+const inertSource: RevocationSource<undefined> = {
+  endpoint: {
+    select: () => () => ({ requestId: undefined, error: undefined }),
+    matchFulfilled: (_action: unknown): _action is never => false,
+    matchRejected: (_action: unknown): _action is never => false,
+  },
+  args: undefined,
+};
+
+function createTestStore() {
+  const listenerMiddleware = createListenerMiddleware();
+  return configureStore({
+    reducer: { _unused: (state: number = 0) => state },
+    middleware: (getDefaultMiddleware) => getDefaultMiddleware().prepend(listenerMiddleware.middleware),
+  });
+}
+
+/** A fresh store per render — each `renderFallback` call is fully isolated, as before. */
+function ProviderWrapper({ children }: { children: ReactNode }): ReactElement {
+  return <Provider store={createTestStore()}>{children}</Provider>;
+}
+
 function renderFallback(subject: string, query: RevocationQueryState) {
-  return renderHook(({ subject: s, query: q }) => useRevocationFallback(s, q), {
+  return renderHook(({ subject: s, query: q }) => useRevocationFallback(s, q, inertSource), {
     initialProps: { subject, query },
+    wrapper: ProviderWrapper,
   });
 }
 

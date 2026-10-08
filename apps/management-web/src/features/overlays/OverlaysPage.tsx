@@ -1,4 +1,5 @@
 import {
+  overlaysApi,
   useArchiveOverlayRevisionMutation,
   useBranchDraftOverlayRevisionMutation,
   useListOverlaysQuery,
@@ -56,7 +57,14 @@ export function OverlaysPage() {
 
   // Spec 310 (#2725). Three consecutive 403 refreshes take the stale rows off
   // screen, leaving only the existing failure banner.
-  const refused = useRevocationFallback('overlays', { error, isFetching, requestId });
+  const refused = useRevocationFallback(
+    'overlays',
+    { error, isFetching, requestId },
+    {
+      endpoint: overlaysApi.endpoints.listOverlays,
+      args: undefined,
+    },
+  );
   const data = refused ? undefined : fetched;
 
   const [publishRevision, publishState] = usePublishOverlayRevisionMutation();
