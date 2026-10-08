@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Identity.Domain.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Infrastructure;
 
@@ -86,4 +87,9 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Identity migrations applied.")]
     public static partial void MigrationsApplied(this ILogger logger);
+
+    // Spec 318 (#2628). The handler's own Warning needs no detail because this
+    // one names the reason (plan §4).
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not confirm EventIngestion's webhook integration status for '{IntegrationName}' in fab {Fab}: {Reason}.")]
+    public static partial void WebhookIntegrationStatusUnverifiable(this ILogger logger, string integrationName, FabIdentifier fab, string reason);
 }

@@ -373,8 +373,8 @@ public class ConcurrencyConflictDeclarationTests
             + "this route's 409"),
         new(
             "Identity POST /webhook-integrations/{name}/rotate",
-            "refusal (RotateWebhookClientCommand's stale check); lost update on the branch that rotates "
-            + "an existing client; idempotency"),
+            "refusal (RotateWebhookClientCommand's stale check); refusal (WebhookIntegrationRevoked); "
+            + "lost update on the branch that rotates an existing client; idempotency"),
         new(
             "LayoutComposition POST /layouts/",
             "refusal (CreateLayoutDraftErrors.NameAlreadyTaken); idempotency. NOT a unique race: "

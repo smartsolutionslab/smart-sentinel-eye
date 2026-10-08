@@ -191,7 +191,8 @@ public class RuntimeClientAudienceTests
         InMemoryRegisteredClientRepository clients = new();
         FakeKeycloakAdminClient keycloak = new();
         RotateWebhookClientCommandHandler handler = new(
-            clients, keycloak, new FakeEventBus(), new NoOpTransactionalCommit(),
+            clients, keycloak, new FakeWebhookIntegrationStatusLookup(), new FakeEventBus(),
+            new NoOpTransactionalCommit(),
             new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 

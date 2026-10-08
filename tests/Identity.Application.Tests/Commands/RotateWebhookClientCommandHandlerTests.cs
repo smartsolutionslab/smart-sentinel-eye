@@ -7,6 +7,7 @@ using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
+using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.Kernel;
@@ -47,7 +48,8 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new();
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
@@ -71,7 +73,8 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new();
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> first =
@@ -98,7 +101,8 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new();
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // "Has Spaces" yields clientId "webhook-Has Spaces" which
@@ -116,7 +120,8 @@ public class RotateWebhookClientCommandHandlerTests
         FakeKeycloakAdminClient keycloak = new() { FailNextCall = "Keycloak 500" };
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
@@ -159,7 +164,8 @@ public class RotateWebhookClientCommandHandlerTests
 
         FakeKeycloakAdminClient keycloak = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, new FakeEventBus(), new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), new FakeEventBus(),
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         RotateWebhookClientCommand command = new(
@@ -218,7 +224,8 @@ public class RotateWebhookClientCommandHandlerTests
 
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
@@ -262,7 +269,8 @@ public class RotateWebhookClientCommandHandlerTests
     {
         InMemoryRegisteredClientRepository repo = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, new FakeKeycloakAdminClient(), new FakeEventBus(), new NoOpTransactionalCommit(),
+            repo, new FakeKeycloakAdminClient(), new FakeWebhookIntegrationStatusLookup(),
+            new FakeEventBus(), new NoOpTransactionalCommit(),
             new FakeClock(Now), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
@@ -338,7 +346,8 @@ public class RotateWebhookClientCommandHandlerTests
 
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, new FakeWebhookIntegrationStatusLookup(), bus,
+            new NoOpTransactionalCommit(), new FakeClock(Now),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         // munich's own fab-scoped lookup finds nothing under "webhook-shared",
@@ -373,5 +382,246 @@ public class RotateWebhookClientCommandHandlerTests
         keycloak.CurrentSecrets["webhook-shared"].ShouldBe(
             dresdenSecretBeforeAttempt,
             "Dresden's live secret must be unchanged by munich's refused collision attempt");
+    }
+
+    // Spec 318 (#2628). The handler must ask IWebhookIntegrationStatusLookup
+    // before doing anything else, and must refuse a Revoked or Unverifiable
+    // answer regardless of which Layer-1 branch the caller's precondition
+    // would otherwise have taken (plan §4).
+
+    [Fact]
+    public async Task A_revoked_integration_is_refused_on_a_create_intent_and_nothing_is_minted()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>();
+        keycloak.Created.ShouldBeEmpty(
+            "a revoked integration must never have a Keycloak client minted for it");
+        repo.Clients.ShouldBeEmpty(
+            "a revoked integration must never gain a registered_clients row");
+        bus.Published.ShouldBeEmpty(
+            "no WebhookIntegrationRotatedV1 may be published for a rotation that never happened");
+    }
+
+    /// <summary>
+    /// Spec 318 §1's third mode: the asynchronous spec-264 disable has not
+    /// landed yet, so the local row is still enabled at version V. A rotate
+    /// intent (If-Match: V) must still be refused — the check runs before
+    /// the rotate branch's <c>aggregate.Rotate(clock)</c> + <c>SaveAsync</c>,
+    /// so neither the secret nor the row's version/LastRotatedAt moves.
+    /// </summary>
+    [Fact]
+    public async Task A_revoked_integration_is_refused_on_a_rotate_intent_and_the_existing_row_is_untouched()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        RegisteredClient client = RegisteredClient.Register(
+            ClientId.From("webhook-qa"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Seed(client, version: 3);
+
+        FakeKeycloakAdminClient keycloak = new();
+        FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, new FakeEventBus(), new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
+            new RotateWebhookClientCommand(
+                "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
+                Option<int>.Some(3)),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>();
+        keycloak.CallCount.ShouldBe(
+            0, "a revoked integration must not have RotateClientSecretAsync called for it");
+        RegisteredClient stored = repo.Clients.ShouldHaveSingleItem();
+        stored.Version.Value.ShouldBe(3, "the version must not move for a refused rotation");
+        stored.LastRotatedAt.ShouldBeNull("LastRotatedAt must not move for a refused rotation");
+    }
+
+    /// <summary>
+    /// The ordering spec §2's "conflict" scenario pins: the revoked check
+    /// precedes ADR-0113 Layer 1, so a stale If-Match version answers Revoked,
+    /// never WebhookClientStale.
+    /// </summary>
+    [Fact]
+    public async Task A_revoked_integration_with_a_stale_version_answers_revoked_not_stale()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        RegisteredClient client = RegisteredClient.Register(
+            ClientId.From("webhook-qa"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Seed(client, version: 5);
+
+        FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
+        RotateWebhookClientCommandHandler handler = new(
+            repo, new FakeKeycloakAdminClient(), status, new FakeEventBus(),
+            new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
+            new RotateWebhookClientCommand(
+                "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
+                Option<int>.Some(3)), // stale: the row is really at 5
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>(
+            $"got {result.Error}; a stale version on a revoked integration must still answer "
+            + "revoked, not WebhookClientStale");
+    }
+
+    /// <summary>
+    /// The same ordering, the other branch: a create intent (None) against a
+    /// row that already exists must still answer Revoked, never
+    /// WebhookClientAlreadyExists.
+    /// </summary>
+    [Fact]
+    public async Task A_revoked_integration_with_a_create_intent_against_an_existing_row_answers_revoked_not_already_exists()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        RegisteredClient client = RegisteredClient.Register(
+            ClientId.From("webhook-qa"),
+            ClientKind.WebhookIntegration,
+            FabIdentifier.From("munich"),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new FakeClock(Now));
+        repo.Seed(client, version: 1);
+
+        FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Revoked };
+        RotateWebhookClientCommandHandler handler = new(
+            repo, new FakeKeycloakAdminClient(), status, new FakeEventBus(),
+            new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None); // create intent
+
+        result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>(
+            $"got {result.Error}; a create intent against a revoked integration's existing row must "
+            + "still answer revoked, not WebhookClientAlreadyExists");
+    }
+
+    [Fact]
+    public async Task An_unverifiable_integration_status_refuses_the_rotation_and_nothing_is_minted()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.Unverifiable };
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationStatusUnavailable>();
+        keycloak.Created.ShouldBeEmpty(
+            "the rotation must fail closed when EventIngestion's state cannot be confirmed");
+        repo.Clients.ShouldBeEmpty();
+        bus.Published.ShouldBeEmpty();
+    }
+
+    /// <summary>Spec §3 "Not registered" — unchanged for this spec (tracked as a follow-up).</summary>
+    [Fact]
+    public async Task A_not_registered_integration_status_still_allows_the_first_rotation_to_succeed()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new() { Status = WebhookIntegrationStatus.NotRegistered };
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            $"a name EventIngestion has never registered in this fab must rotate exactly as today; "
+            + $"got {(result.IsFailure ? result.Error.ToString() : string.Empty)}");
+        repo.Clients.ShouldHaveSingleItem();
+    }
+
+    [Fact]
+    public async Task An_invalid_integration_name_is_refused_before_the_status_lookup_is_called()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler
+            .HandleAsync(HappyCommand("Has Spaces"), CancellationToken.None);
+
+        result.Error.ShouldBeOfType<RotateWebhookClientError.InvalidIntegrationName>();
+        status.Calls.ShouldBeEmpty(
+            "a 400 must not cost an outbound call to EventIngestion (spec 318 §2)");
+    }
+
+    /// <summary>
+    /// Spec 318 (#2628), today's create-branch TOCTOU scope expansion: a
+    /// successful create asks the lookup <b>twice</b> with the same fab and
+    /// name — once before either branch runs, and once more after the new
+    /// row's own commit (<c>DisableIfRevokedSinceCommitAsync</c>) — rather
+    /// than once. Both calls must still carry the command's own fab and
+    /// integration name; this is not a relaxation of what the fact checks,
+    /// only of how many times it expects to see it checked.
+    /// </summary>
+    [Fact]
+    public async Task The_status_lookup_is_called_twice_with_the_commands_fab_and_integration_name()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            NullLogger<RotateWebhookClientCommandHandler>.Instance);
+
+        await handler.HandleAsync(HappyCommand("qa"), CancellationToken.None);
+
+        status.Calls.Count.ShouldBe(
+            2, "the create branch asks once before either branch runs and once more after its own "
+            + "commit, to close the TOCTOU race (spec 318 scope expansion, #2628)");
+        status.Calls.ShouldAllBe(call =>
+            call.Fab == FabIdentifier.From("munich") && call.IntegrationName == "qa");
+    }
+
+    [Fact]
+    public void The_revoked_error_is_a_409_naming_the_integration()
+    {
+        ApiError error = new RotateWebhookClientError.WebhookIntegrationRevoked("qa");
+
+        error.Code.ShouldBe("WEBHOOK_INTEGRATION_REVOKED");
+        error.Status.ShouldBe(HttpStatusCode.Conflict);
+        error.Message.ShouldContain("qa");
+    }
+
+    [Fact]
+    public void The_status_unavailable_error_is_a_502_with_fixed_text()
+    {
+        ApiError error = new RotateWebhookClientError.WebhookIntegrationStatusUnavailable();
+
+        error.Code.ShouldBe("WEBHOOK_INTEGRATION_STATUS_UNAVAILABLE");
+        error.Status.ShouldBe(HttpStatusCode.BadGateway);
     }
 }

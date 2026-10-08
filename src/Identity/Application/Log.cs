@@ -53,4 +53,23 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client disable failed for integration '{Name}': {Code} {Message}.")]
     public static partial void WebhookClientDisableFailed(this ILogger logger, string name, string code, string message);
+
+    // Spec 318 (#2628). Information, not Warning: a caller rotating a
+    // revoked integration is an expected refusal, not something broken.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Refused rotation of revoked webhook integration '{IntegrationName}' in fab {Fab}.")]
+    public static partial void RefusedRotationOfRevokedIntegration(this ILogger logger, string integrationName, FabIdentifier fab);
+
+    // The Infrastructure adapter logs its own Warning naming the reason, so
+    // this one needs no detail.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Refused rotation of webhook integration '{IntegrationName}' in fab {Fab}: its revocation status could not be confirmed.")]
+    public static partial void RefusedRotationStatusUnavailable(this ILogger logger, string integrationName, FabIdentifier fab);
+
+    // Spec 318 (#2628), the create-branch TOCTOU re-check: the row committed
+    // before a racing revoke was seen, so the just-created client is disabled
+    // in place of the async disable that found no row yet.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Disabled webhook client '{ClientId}' for integration '{IntegrationName}' immediately after creating it: a revoke landed while it was being created.")]
+    public static partial void DisabledClientCreatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was created while a revoke was landing, and could not be disabled afterwards. It may still be enabled; the next rotation attempt or manual intervention is needed.")]
+    public static partial void CouldNotDisableClientCreatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId, Exception exception);
 }

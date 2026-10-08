@@ -94,6 +94,35 @@ public abstract record RotateWebhookClientError(string Code, string Message, Htt
             "Something with that name or key already exists. Choose a different one — "
             + "retrying this request unchanged will be refused again.",
             HttpStatusCode.Conflict);
+
+    /// <summary>
+    /// EventIngestion reports this integration revoked (spec 318, issue
+    /// #2628). Checked before the local lookup and both Layer-1 branches, so
+    /// a revoked integration is refused whichever precondition the caller
+    /// sent, and the rotate branch's secret roll can never run for it.
+    /// </summary>
+    public sealed record WebhookIntegrationRevoked(string IntegrationName)
+        : RotateWebhookClientError(
+            "WEBHOOK_INTEGRATION_REVOKED",
+            $"Webhook integration '{IntegrationName}' has been revoked and cannot be rotated. "
+            + "Register a new integration under a different name.",
+            HttpStatusCode.Conflict);
+
+    /// <summary>
+    /// EventIngestion's revocation state could not be confirmed — unreachable,
+    /// a non-2xx answer, a resilience timeout, or a malformed body (spec 318
+    /// §4). Failing closed: a rotation this context cannot verify as safe is
+    /// refused rather than allowed, mirroring <see cref="KeycloakUnavailable"/>
+    /// for the handler's other upstream dependency. The message is fixed text
+    /// rather than an echoed exception, because the reason is logged and an
+    /// upstream's error text has no business in this response.
+    /// </summary>
+    public sealed record WebhookIntegrationStatusUnavailable()
+        : RotateWebhookClientError(
+            "WEBHOOK_INTEGRATION_STATUS_UNAVAILABLE",
+            "Could not confirm with EventIngestion that this webhook integration is not revoked, "
+            + "so it was not rotated. The current credential still works; retry later.",
+            HttpStatusCode.BadGateway);
 }
 
 /// <summary>
@@ -121,4 +150,10 @@ public static class RotateWebhookClientFailures
 
     public static RotateWebhookClientError WebhookClientNameConflict() =>
         new RotateWebhookClientError.WebhookClientNameConflict();
+
+    public static RotateWebhookClientError WebhookIntegrationRevoked(string integrationName) =>
+        new RotateWebhookClientError.WebhookIntegrationRevoked(integrationName);
+
+    public static RotateWebhookClientError WebhookIntegrationStatusUnavailable() =>
+        new RotateWebhookClientError.WebhookIntegrationStatusUnavailable();
 }
