@@ -46,7 +46,12 @@ public sealed class ProvisionStreamCommandHandler(
 
             if (existingStream.State == StreamState.Retired)
             {
-                return Success(existingStream.Id);
+                // Symmetric with the race this handler now has to survive: a
+                // redelivery for an already-retired row finishes the teardown
+                // a failed (or crashed) compensation left behind, rather than
+                // leaving a leftover MediaMTX path for a restart to find
+                // (spec 318 US2).
+                return await RemoveLeftoverPathAsync(existingStream, cancellationToken);
             }
 
             // A redelivery onto an already-saved row must re-assert the path
@@ -119,6 +124,23 @@ public sealed class ProvisionStreamCommandHandler(
         }
 
         logger.ProvisionYieldedToRetirement(stream.Id, stream.Camera, stream.Path);
+
+        return Success(stream.Id);
+    }
+
+    private async Task<Result<StreamIdentifier, ProvisionStreamError>> RemoveLeftoverPathAsync(
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await rtsp.RemovePathAsync(stream.Path, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.ProvisionCompensationFailed(ex, stream.Camera);
+            return Failure(ProvisionStreamFailures.RtspGatewayUnavailable(ex.Message));
+        }
 
         return Success(stream.Id);
     }
