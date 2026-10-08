@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
@@ -60,4 +61,25 @@ public sealed class StreamRepository(
 
         await commit.CommitAsync(cancellationToken);
     }
+
+    public async Task<bool> IsUnchangedSinceLoadAsync(Domain.Stream.Stream stream, CancellationToken cancellationToken)
+    {
+        Ensure.That(stream).IsNotNull();
+
+        StreamIdentifier identifier = stream.Id;
+        AggregateVersion loaded = stream.Version;
+
+        int matched = await dbContext.Streams
+            .Where(candidate => candidate.Id == identifier && candidate.Version == loaded)
+            .ExecuteUpdateAsync(set => set.SetProperty(candidate => candidate.Version, candidate => candidate.Version), cancellationToken);
+
+        return matched == 1;
+    }
+
+    public Task<StreamState> ReadCommittedStateAsync(StreamIdentifier stream, CancellationToken cancellationToken) =>
+        dbContext.Streams
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == stream)
+            .Select(candidate => candidate.State)
+            .SingleAsync(cancellationToken);
 }
