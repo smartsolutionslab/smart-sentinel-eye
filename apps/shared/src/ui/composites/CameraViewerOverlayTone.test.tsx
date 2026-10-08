@@ -8,9 +8,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * `-warning`, meaningful "on a theme surface") to the new on-video role
  * (`text-accent-fault-on-video` / `-warning-on-video`) — the ground this
  * overlay paints on, `--color-bg-video`, never changes per theme (spec §1),
- * so the per-theme `-text` role spec 299 added is the wrong fit here. The
- * neutral tone (`text-fg-muted`) is untouched: a neutral on-video role is a
- * separate decision (spec §3.2, T030 follow-up).
+ * so the per-theme `-text` role spec 299 added is the wrong fit here.
+ *
+ * Spec 319 (issue #2734): the neutral tone's own `text-fg-muted` also fails
+ * 4.5:1 on video in light theme, the same ground problem spec 308 fixed for
+ * the triad. `--color-fg-muted-on-video` / `text-fg-muted-on-video` is its
+ * neutral counterpart — applied to both the neutral label (the connecting
+ * case below, moved off spec 308's "untouched" assertion) and the hint line
+ * (new `it`).
  *
  * Reuses `CameraViewer.test.tsx`'s harness shape (its WHEP/stream-health
  * doubles and `setHealth`), copied rather than imported — that file's
@@ -185,15 +190,27 @@ describe('CameraViewer ViewerOverlay on-video tone', () => {
     expect(classes).not.toContain('text-accent-fault');
   });
 
-  it('Keeps text-fg-muted, with no -on-video class, while connecting', async () => {
+  it('Carries text-fg-muted-on-video, not text-fg-muted, while connecting', async () => {
     setHealth('Healthy');
     renderViewer();
     await flushMicrotasks();
 
     const label = screen.getByText('Connecting…');
     const classes = label.className.split(' ');
-    expect(classes).toContain('text-fg-muted');
+    expect(classes).toContain('text-fg-muted-on-video');
+    expect(classes).not.toContain('text-fg-muted');
     expect(classes).not.toContain('text-accent-warning-on-video');
     expect(classes).not.toContain('text-accent-fault-on-video');
+  });
+
+  it('Paints the hint line with text-fg-muted-on-video, not text-fg-muted', async () => {
+    setHealth('Offline', 'Source powered down.');
+    renderViewer();
+    await flushMicrotasks();
+
+    const hint = screen.getByText('Source powered down.');
+    const classes = hint.className.split(' ');
+    expect(classes).toContain('text-fg-muted-on-video');
+    expect(classes).not.toContain('text-fg-muted');
   });
 });

@@ -64,6 +64,20 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <see cref="A_triad_label_is_legible_on_video"/> — neither role is declared
 /// yet.
 /// </para>
+///
+/// <para>
+/// <b>Spec 319 (issue #2734):</b> <c>ViewerOverlay</c>'s neutral label and its
+/// hint line also paint on <c>--color-bg-video</c>, using <c>text-fg-muted</c>
+/// — the role chosen for light's theme surfaces, which clears only 4.14:1 on
+/// video (4.02:1 with the scrim). A new role, <c>--color-fg-muted-on-video</c>,
+/// is <b>not</b> pinned to the signal the way spec 308's triad roles are (a
+/// neutral has no signal); it cites <c>--color-fg-muted</c> in <c>:root</c>
+/// so dark and high-contrast keep their own muted exactly, and only
+/// <c>light</c> redeclares it, to <c>--gray-500</c>. Red on develop:
+/// <see cref="The_neutral_on_video_role_is_the_muted_role_except_in_light"/>
+/// and <see cref="The_neutral_label_is_legible_on_video"/> — the role is not
+/// declared yet.
+/// </para>
 /// </summary>
 public class StatusTintTests
 {
@@ -477,6 +491,112 @@ public class StatusTintTests
             {
                 problems.Add(
                     $"[{themeName}] --color-fg-muted on --color-bg-raised is {ratio:F2}:1, below the "
+                    + $"{MinimumTextContrast}:1 WCAG 1.4.3 threshold.");
+            }
+        }
+
+        problems.ShouldBeEmpty(string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>
+    /// New fact (spec 319 plan.md §5.1, issue #2734). <c>--color-fg-muted-on-
+    /// video</c> must be declared in <c>:root</c> with the value exactly
+    /// <c>var(--color-fg-muted)</c> — citing the neutral role, not a
+    /// primitive, so dark and high-contrast keep whichever muted their own
+    /// theme already picked (FR-001) — and every declaration outside
+    /// <c>:root</c> must be in a selector for which <see cref="IsLightTheme"/>
+    /// is true, at most one such declaration (FR-002): only light's surface
+    /// muted fails on video, so only light may move this role.
+    /// Deliberately does not assert light's literal value — the next fact
+    /// bounds light by outcome (contrast), so asserting the value here would
+    /// make this test check its own input. Red on develop: the role is not
+    /// declared anywhere.
+    /// </summary>
+    [Fact]
+    public void The_neutral_on_video_role_is_the_muted_role_except_in_light()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+
+        const string onVideoName = "--color-fg-muted-on-video";
+        const string expectedRootValue = "var(--color-fg-muted)";
+
+        List<string> problems = [];
+
+        Declaration[] rootDeclarations = [.. declarations.Where(d => d.Name == onVideoName && IsRootSelector(d.Selector))];
+
+        if (rootDeclarations.Length == 0)
+        {
+            problems.Add($"{onVideoName} is not declared in :root (#2734).");
+        }
+        else if (rootDeclarations[0].Value != expectedRootValue)
+        {
+            problems.Add(
+                $"{onVideoName} is declared as '{rootDeclarations[0].Value}' in :root, expected "
+                + $"'{expectedRootValue}' — dark and high-contrast must keep their own muted (#2734).");
+        }
+
+        Declaration[] outsideRoot = [.. declarations.Where(d => d.Name == onVideoName && !IsRootSelector(d.Selector))];
+        Declaration[] outsideLight = [.. outsideRoot.Where(d => !IsLightTheme(d.Selector))];
+
+        if (outsideLight.Length > 0)
+        {
+            problems.Add(
+                $"{onVideoName} is redeclared outside :root and outside light: "
+                + string.Join(", ", outsideLight.Select(d => d.Selector))
+                + " — only light's surface muted fails on video (#2734).");
+        }
+        else if (outsideRoot.Length > 1)
+        {
+            problems.Add(
+                $"{onVideoName} is redeclared more than once outside :root: "
+                + string.Join(", ", outsideRoot.Select(d => d.Selector)) + " (#2734).");
+        }
+
+        problems.ShouldBeEmpty(
+            $"{tokenFile.Name}'s neutral on-video role is not pinned to the muted role except in light:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    /// <summary>
+    /// New fact (spec 319 plan.md §5.1, issue #2734). <c>--color-fg-muted-on-
+    /// video</c> on <c>--color-bg-video</c> clears 4.5:1 (WCAG 1.4.3) in every
+    /// theme (FR-003) — mirrors <see cref="A_triad_label_is_legible_on_video"/>
+    /// line for line. Red on develop: the role is not declared, so it does not
+    /// resolve in any theme.
+    /// </summary>
+    [Fact]
+    public void The_neutral_label_is_legible_on_video()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        FileInfo tokenFile = TokenFile(root);
+        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        Dictionary<string, string> rootMap = RootMap(declarations);
+        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+
+        List<string> problems = [];
+
+        foreach ((string themeName, Dictionary<string, string> map) in new[]
+                 {
+                     ("dark", rootMap),
+                     ("light", lightMap),
+                     ("high-contrast", highContrastMap),
+                 })
+        {
+            (double ratio, string? error) = TryContrastRatio("--color-fg-muted-on-video", "--color-bg-video", map);
+            if (error is not null)
+            {
+                problems.Add($"[{themeName}] {error}");
+                continue;
+            }
+
+            if (ratio < MinimumTextContrast)
+            {
+                problems.Add(
+                    $"[{themeName}] --color-fg-muted-on-video on --color-bg-video is {ratio:F2}:1, below the "
                     + $"{MinimumTextContrast}:1 WCAG 1.4.3 threshold.");
             }
         }
