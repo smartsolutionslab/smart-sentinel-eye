@@ -83,7 +83,42 @@ public sealed class ProvisionStreamCommandHandler(
             return Failure(ProvisionStreamFailures.RtspGatewayUnavailable(ex.Message));
         }
 
+        // Checked only after the add: a match then proves that any retire's
+        // removal of this path commits after the add, never before it — the
+        // removal wins either way (spec 318 §1.3).
+        if (!await streams.IsUnchangedSinceLoadAsync(stream, cancellationToken))
+        {
+            StreamState committed = await streams.ReadCommittedStateAsync(stream.Id, cancellationToken);
+
+            if (committed == StreamState.Retired)
+            {
+                return await YieldToRetirementAsync(stream, cancellationToken);
+            }
+
+            // Moved by a health report or a re-point, not a retirement: the
+            // path is still wanted (spec 318 §9 A3).
+        }
+
         logger.ProvisionedStream(stream.Id, stream.Camera, stream.Path);
+
+        return Success(stream.Id);
+    }
+
+    private async Task<Result<StreamIdentifier, ProvisionStreamError>> YieldToRetirementAsync(
+        Stream stream,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await rtsp.RemovePathAsync(stream.Path, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            logger.ProvisionCompensationFailed(ex, stream.Camera);
+            return Failure(ProvisionStreamFailures.RtspGatewayUnavailable(ex.Message));
+        }
+
+        logger.ProvisionYieldedToRetirement(stream.Id, stream.Camera, stream.Path);
 
         return Success(stream.Id);
     }

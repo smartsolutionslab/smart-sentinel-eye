@@ -67,4 +67,10 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Refused a WHEP open on path {Path}: subject {Subject} does not hold stream fab {StreamFab}. The only refusal in this handler that signals attempted cross-fab access rather than a merely-unscoped or malformed caller.")]
     public static partial void RefusedWhepFab(this ILogger logger, string subject, MediaMtxPath path, FabIdentifier? streamFab);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Stream {Stream} for camera {Camera} was retired while its path was being registered; removed path {Path} again.")]
+    public static partial void ProvisionYieldedToRetirement(this ILogger logger, StreamIdentifier stream, CameraIdentifier camera, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX path removal failed for retired camera {Camera} during provisioning; a redelivery will retry it.")]
+    public static partial void ProvisionCompensationFailed(this ILogger logger, Exception exception, CameraIdentifier camera);
 }
