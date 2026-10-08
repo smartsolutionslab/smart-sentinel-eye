@@ -13,9 +13,14 @@ import { useRevocationFallback, type RevocationQueryState } from '../hooks/useRe
  * replaces the real `requestAnimationFrame` timing that made the original
  * defect hard to reproduce (spec §0, FR-008).
  *
- * `useRevocationFallbackCoalesced.test.tsx` is the only consumer today,
- * exercising the hook's three-argument signature (plan.md §1.2) against the
- * listener path phase 4b added.
+ * `useRevocationFallbackCoalesced.test.tsx` is the only consumer of `Probe`.
+ *
+ * Spec 317 (#2751) T003 adds `Subscribe` + `queryFnCallCount` — additive,
+ * existing exports unchanged. `Probe` reads the cache via `useQueryState`,
+ * which does not itself subscribe, so it is invisible to RTK Query's focus
+ * refetch (`windowEventHandling.ts` only refetches cache entries that have a
+ * subscription). `Subscribe` creates a real one, with the same `refetchOnFocus`
+ * option a page's own query hook would pass.
  */
 
 /** The scripted query's args — one cache key per "subject" under test. */
@@ -28,12 +33,17 @@ export type ScriptedOutcome = 'ok' | 403 | 404 | 503;
 
 function buildApi() {
   const responses: ScriptedOutcome[] = [];
+  // Spec 317 (#2751) T003: counts every `queryFn` invocation — the dedup
+  // case (a focus+visibility pair) asserts on this directly, at the
+  // boundary RTK Query itself calls, rather than inferring it from a render.
+  const queryFnCalls = { current: 0 };
   const api = createApi({
     reducerPath: 'revocationHarness',
     baseQuery: fakeBaseQuery<{ status: number }>(),
     endpoints: (builder) => ({
       getThing: builder.query<{ outcome: 'ok' }, ScriptedArgs>({
         queryFn: () => {
+          queryFnCalls.current += 1;
           const next = responses.shift();
           if (next === undefined) {
             throw new Error('revocationHarness: scripted response queue is empty — push one before dispatching');
@@ -43,7 +53,7 @@ function buildApi() {
       }),
     }),
   });
-  return { api, responses };
+  return { api, responses, queryFnCalls };
 }
 
 /** One rendered observation of the scripted query's cache entry. */
@@ -70,6 +80,38 @@ export interface RevocationHarness {
     settled: Promise<unknown>;
   };
   Probe: (props: { subject: string; args: ScriptedArgs; notFoundRevokes?: boolean }) => null;
+  /**
+   * Spec 317 (#2751) T003. Holds a REAL subscription to `args` — unlike
+   * `Probe`'s `useQueryState` — so RTK Query's `windowEventHandling` sees it
+   * and, with `refetchOnFocus: true`, refetches it on a focus/visibility
+   * signal. Mirrors what a page's own `useXQuery(args, { refetchOnFocus })`
+   * call does; `Probe` stays the thing that observes the hook's result.
+   */
+  Subscribe: (props: { args: ScriptedArgs; refetchOnFocus?: boolean }) => null;
+  /** How many times the scripted endpoint's `queryFn` has run so far. */
+  queryFnCallCount: () => number;
+  /**
+   * Awaits every query thunk RTK Query currently has running (ADR-0150 — a
+   * store condition, not a timer), for a settlement this harness did not
+   * hand back a promise for itself — a focus/visibility-triggered refetch,
+   * dispatched by RTK Query's own middleware rather than by `request()`.
+   * Wrapped in Testing Library's `act()`, which also renders any state this
+   * settlement caused — use `settleBare` instead to await a settlement
+   * while keeping the autobatch notification held (see its own comment).
+   */
+  settle: () => Promise<void>;
+  /**
+   * The same wait as `settle`, WITHOUT the `act()` wrapper. `act()` itself —
+   * independent of this harness's held `queueNotification` — forces React to
+   * re-check `useSyncExternalStore`'s snapshot on every call, so an `act()`
+   * anywhere between two held settlements renders the first one early
+   * (proved by running both ways: identical `queryFnCallCount` progression,
+   * but `renderLog` grows immediately with `settle`, only on `flush()` with
+   * `settleBare`). Use this to await a focus-triggered settlement while a
+   * "coalesced" scenario still needs the notification held across more than
+   * one of them.
+   */
+  settleBare: () => Promise<void>;
 }
 
 function buildHarnessStore(api: ReturnType<typeof buildApi>['api'], withListenerMiddleware: boolean) {
@@ -113,7 +155,7 @@ function buildHarnessStore(api: ReturnType<typeof buildApi>['api'], withListener
  * listener middleware" case from spec.md's bad-request scenario.
  */
 export function createRevocationHarness(options: { withListenerMiddleware?: boolean } = {}): RevocationHarness {
-  const { api, responses } = buildApi();
+  const { api, responses, queryFnCalls } = buildApi();
   const { store, flush } = buildHarnessStore(api, options.withListenerMiddleware !== false);
   const renderLog: RenderLogEntry[] = [];
   const refusedByRenderRef = { current: false };
@@ -165,7 +207,40 @@ export function createRevocationHarness(options: { withListenerMiddleware?: bool
     return null;
   }
 
-  return { store, responses, renderLog, refusedByRenderRef, flush, request, Probe };
+  function Subscribe({ args, refetchOnFocus }: { args: ScriptedArgs; refetchOnFocus?: boolean }): null {
+    api.endpoints.getThing.useQuery(args, refetchOnFocus === undefined ? undefined : { refetchOnFocus });
+    return null;
+  }
+
+  function queryFnCallCount(): number {
+    return queryFnCalls.current;
+  }
+
+  async function settle(): Promise<void> {
+    await act(async () => {
+      const running = store.dispatch(api.util.getRunningQueriesThunk());
+      await Promise.all(running);
+    });
+  }
+
+  async function settleBare(): Promise<void> {
+    const running = store.dispatch(api.util.getRunningQueriesThunk());
+    await Promise.all(running);
+  }
+
+  return {
+    store,
+    responses,
+    renderLog,
+    refusedByRenderRef,
+    flush,
+    request,
+    Probe,
+    Subscribe,
+    queryFnCallCount,
+    settle,
+    settleBare,
+  };
 }
 
 export function HarnessProvider({
