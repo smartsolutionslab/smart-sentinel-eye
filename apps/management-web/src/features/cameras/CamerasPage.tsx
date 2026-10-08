@@ -55,6 +55,8 @@ export function CamerasPage() {
     limit: PAGE_SIZE,
     name: fragment === '' ? undefined : fragment,
   };
+  // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
+  // never refetches on its own.
   const {
     data: fetched,
     currentData,
@@ -63,8 +65,6 @@ export function CamerasPage() {
     error,
     refetch,
     requestId,
-    // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
-    // never refetches on its own.
   } = useListCamerasQuery(listArgs, { refetchOnFocus: true });
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set

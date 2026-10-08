@@ -42,6 +42,8 @@ export function SystemVariablesPage() {
   // pulling every row to the browser to do it, which against 1618 of them is
   // its own problem.
   const variablesArgs = filter === 'All' ? { includeArchived: true } : { state: filter };
+  // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
+  // never refetches on its own.
   const {
     data: fetched,
     currentData,
@@ -50,8 +52,6 @@ export function SystemVariablesPage() {
     error,
     refetch,
     requestId,
-    // Spec 317 (#2751): strikes need a refresh, and a passive tab otherwise
-    // never refetches on its own.
   } = useListVariablesQuery(variablesArgs, { refetchOnFocus: true });
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
