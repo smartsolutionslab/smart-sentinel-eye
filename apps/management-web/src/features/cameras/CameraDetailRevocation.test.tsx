@@ -1,4 +1,4 @@
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
@@ -63,9 +63,12 @@ function isCameraQueryPending(store: ReturnType<typeof createStore>): boolean {
 }
 
 function createStore() {
+  // Spec 314 (#2762): useRevocationFallback now observes settlements via a
+  // dispatched listener and throws without this middleware in the store.
+  const listenerMiddleware = createListenerMiddleware();
   return configureStore({
     reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().concat(camerasApi.middleware),
+    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware),
   });
 }
 

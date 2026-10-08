@@ -1,4 +1,4 @@
-import { configureStore } from '@reduxjs/toolkit';
+import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
@@ -75,9 +75,12 @@ function jsonResponse(body: unknown, status = 200): Response {
 }
 
 function createStore() {
+  // Spec 314 (#2762): useRevocationFallback now observes settlements via a
+  // dispatched listener and throws without this middleware in the store.
+  const listenerMiddleware = createListenerMiddleware();
   return configureStore({
     reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().concat(camerasApi.middleware),
+    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware),
   });
 }
 
