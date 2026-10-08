@@ -199,3 +199,55 @@ concurrent Aspire stack. Per plan.md §4, this makes the change's demonstrated e
 cannot show *more* passing than this already-green baseline, so the comparison that matters is
 whether any run, pre- or post-change, ever produces the `TimeoutRejectedException` the issue
 describes).
+
+### T003 — post-change, after commit `98962a58` (2026-10-08)
+
+**Whole-class run (`--filter FullyQualifiedName~RegisteredClientConcurrencyIntegrationTests`),
+fresh cold boot — 8/8, unmodified assertions:**
+
+```
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.Disabling_a_device_needs_no_precondition [3 s]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.A_created_client_is_listed_with_the_version_its_next_rotation_needs [1 s]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.A_rotation_that_loses_the_database_race_at_layer_2_is_told_it_conflicted_not_that_keycloak_is_down [2 s]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.A_rotation_superseded_by_another_admin_leaves_the_live_secret_working [1 s]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.Each_rotation_returns_the_version_the_next_one_must_send [1 s]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.Rotating_a_client_that_does_not_exist_creates_nothing [52 ms]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.Re_creating_an_existing_client_does_not_roll_its_secret [911 ms]
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.A_rotation_without_a_precondition_is_refused_with_428 [21 ms]
+
+Test Run Successful.
+Total tests: 8
+     Passed: 8
+ Total time: 3,2800 Minutes
+```
+
+**`A_rotation_that_loses_the_database_race_at_layer_2_is_told_it_conflicted_not_that_keycloak_is_down`
+alone, three fresh cold boots post-change — did not reproduce on any attempt:**
+
+```
+Attempt 1: Passed ... [3 s]  Total tests: 1  Passed: 1  Total time: 3,3038 Minutes
+Attempt 2: Passed ... [4 s]  Total tests: 1  Passed: 1  Total time: 3,1836 Minutes
+Attempt 3: Passed ... [3 s]  Total tests: 1  Passed: 1  Total time: 2,8300 Minutes
+```
+
+Attempt 2's log contains several `Polly.Timeout.TimeoutRejectedException` lines; all trace to
+*other* resources' own background polling during stack boot (`overlay-designer`'s
+`/registered-clients/revoked` poll, camera-catalog/event-ingestion boot retries), confirmed by
+grepping their resource context — none originate from this fact's `CreateAsync` or the new
+warm-up GET, and the fact itself passed in 4 s.
+
+**`A_created_client_is_listed_with_the_version_its_next_rotation_needs`, alone, once, post-change:**
+
+```
+Passed SmartSentinelEye.Integration.Tests.Identity.RegisteredClientConcurrencyIntegrationTests.A_created_client_is_listed_with_the_version_its_next_rotation_needs [3 s]
+Total tests: 1  Passed: 1  Total time: 2,7691 Minutes
+```
+
+**Conclusion (T003/T004):** no `TimeoutRejectedException` attributable to this class's `CreateAsync`
+or the warm-up GET, before or after the change — the race never reproduced on this quiet machine,
+pre- or post-fix. Per §4, this stays a **preventive fix with an undemonstrated direct effect**: the
+evidence rules out a regression (8/8 unmodified, 4/4 isolated runs green across both baselines) and
+confirms the warm-up itself is inert, but it cannot show the fix stopping a failure nobody
+reproduced. No post-change run exceeded the attempt timeout, so T004's residual-risk gate (§4) was
+never triggered — if it ever is, the fix is wrong for that case and the answer is a product finding,
+not a raised timeout or a retryable POST.
