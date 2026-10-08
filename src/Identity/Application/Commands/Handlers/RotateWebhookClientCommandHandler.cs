@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
@@ -198,11 +199,16 @@ public sealed class RotateWebhookClientCommandHandler(
         bool disabledDuringRace = isCreate
             && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName, cancellationToken);
 
-        // Spec 318 (#2628) S2: a client this same call just disabled must not
-        // also be announced as rotated — that pairs a "rotated" event with a
-        // client already turned off, which is incoherent audit state. The
-        // create itself still succeeded, so the 200 response below is
-        // unaffected.
+        // A client this same call just disabled must not also be announced as
+        // rotated — pairing a "rotated" event with a client already turned
+        // off is incoherent audit state. It also means there is nothing left
+        // to flush: the race-disable's own SaveAsync already committed on its
+        // successful path, and the caught-concurrency path never committed at
+        // all. Calling CommitAsync here regardless would, in production, run
+        // on the SAME DbContext that call just failed on — replaying the
+        // identical failing UPDATE for the entity it caught the exception
+        // for, this time surfacing uncaught as a 409. The create itself still
+        // succeeded, so the 200 response below is unaffected either way.
         if (!disabledDuringRace)
         {
             // Tell EventIngestion to flip the integration's
@@ -212,14 +218,15 @@ public sealed class RotateWebhookClientCommandHandler(
                     integrationName, clientId.Value, clock.UtcNow,
                     Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
                 cancellationToken);
-        }
 
-        // Spec 021. The publish happens after the save, so the message was
-        // captured into the outbox with nothing left to release it. Reordering
-        // is not available: the announcement carries a client id that only
-        // exists once Keycloak has answered, and the save-then-Keycloak order
-        // above is load-bearing for its own reasons. So the flush is explicit.
-        await commit.CommitAsync(cancellationToken);
+            // Spec 021. The publish happens after the save, so the message
+            // was captured into the outbox with nothing left to release it.
+            // Reordering is not available: the announcement carries a client
+            // id that only exists once Keycloak has answered, and the
+            // save-then-Keycloak order above is load-bearing for its own
+            // reasons. So the flush is explicit.
+            await commit.CommitAsync(cancellationToken);
+        }
 
         logger.RotatedWebhookIntegration(integrationName, clientId);
 
@@ -238,7 +245,7 @@ public sealed class RotateWebhookClientCommandHandler(
     }
 
     /// <summary>
-    /// Spec 318 (#2628) create-branch TOCTOU: a revoke can land in the window
+    /// Create-branch TOCTOU: a revoke can land in the window
     /// between the pre-flight status read above and this branch's own
     /// <c>SaveAsync</c> committing the new row. EventIngestion's
     /// <c>WebhookIntegrationRevokedV1</c> disable (spec 264) has no row to
@@ -268,7 +275,7 @@ public sealed class RotateWebhookClientCommandHandler(
     /// <returns>
     /// <see langword="true"/> if the client ended up disabled — by this call or
     /// by the concurrent async handler — so the caller can skip announcing the
-    /// rotation for a client that is no longer enabled (S2).
+    /// rotation for a client that is no longer enabled.
     /// </returns>
     private async Task<bool> DisableIfRevokedSinceCommitAsync(
         ClientId clientId,
@@ -289,8 +296,19 @@ public sealed class RotateWebhookClientCommandHandler(
             result = await disableWebhookClient.HandleAsync(
                 new DisableWebhookClientCommand(clientId, fab), cancellationToken);
         }
-        catch (DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException ex)
         {
+            // The entity this save attempted stays tracked as Modified with
+            // its stale, pre-conflict Version — EF does not discard it on
+            // failure. Nothing here calls SaveChanges on this context again
+            // (the caller skips its own final commit for exactly this
+            // reason), but detaching anyway means a later save on this scope
+            // cannot replay the identical failing UPDATE by accident.
+            foreach (EntityEntry entry in ex.Entries)
+            {
+                entry.State = EntityState.Detached;
+            }
+
             logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
             return true;
         }
@@ -302,6 +320,20 @@ public sealed class RotateWebhookClientCommandHandler(
 
         if (result.IsFailure)
         {
+            // The asynchronous WebhookIntegrationRevokedV1 handler can beat
+            // this re-check to the disable outright: its own save commits
+            // first, and the fab-scoped lookup this inner handler re-runs
+            // filters out Disabled rows at the database level, so it finds
+            // nothing rather than a conflict. Mirrors
+            // WebhookIntegrationRevokedIntegrationEventHandler's own
+            // NotFound handling for the identical reason — the client is
+            // disabled either way.
+            if (result.Error is DisableWebhookClientError.WebhookClientNotFound)
+            {
+                logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
+                return true;
+            }
+
             logger.CouldNotDisableClientCreatedDuringRevokeRace(
                 new InvalidOperationException(
                     $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}"),

@@ -9,11 +9,10 @@ namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 /// existing construction site of <c>RotateWebhookClientCommandHandler</c>
 /// keeps rotating exactly as it does today unless a test sets
 /// <see cref="Status"/> explicitly.
-/// </summary>
 ///
 /// <para>
-/// #2628: the create branch's own TOCTOU fix calls this lookup <b>twice</b> —
-/// once pre-flight, once after its own commit — and a single fixed
+/// The create branch's own TOCTOU fix calls this lookup <b>twice</b> — once
+/// pre-flight, once after its own commit — and a single fixed
 /// <see cref="Status"/> cannot express "first call Active, second call
 /// Revoked", so none of that race path was actually exercised at the unit
 /// level. <see cref="EnqueueStatuses"/> lets a test queue one answer per
@@ -21,6 +20,7 @@ namespace SmartSentinelEye.Identity.Application.Tests.Fakes;
 /// dequeued value (falling back to <see cref="Status"/> if nothing was ever
 /// queued, so every pre-existing single-status test is unaffected).
 /// </para>
+/// </summary>
 public sealed class FakeWebhookIntegrationStatusLookup : IWebhookIntegrationStatusLookup
 {
     private readonly Queue<WebhookIntegrationStatus> queued = [];

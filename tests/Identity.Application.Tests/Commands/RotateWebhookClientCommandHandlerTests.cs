@@ -687,6 +687,9 @@ public class RotateWebhookClientCommandHandlerTests
             "the local row must be marked disabled too, not just the Keycloak client");
         logger.Named("DisabledClientCreatedDuringRevokeRace").ShouldHaveSingleItem(
             "the race-disable marker log must fire so an operator can tell this happened");
+        bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty(
+            "a client this same call just disabled must not also be announced as rotated — that "
+            + "pairs a rotated event with a client already turned off");
     }
 
     /// <summary>
@@ -722,6 +725,9 @@ public class RotateWebhookClientCommandHandlerTests
         logger.Named("CouldNotDisableClientCreatedDuringRevokeRace").ShouldHaveSingleItem(
             "a failed race-disable must be logged so the still-enabled client is not silently lost "
             + "sight of");
+        bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem(
+            "a race-disable that genuinely failed leaves the client enabled, so the rotation must "
+            + "still be announced");
     }
 
     /// <summary>
@@ -784,6 +790,19 @@ public class RotateWebhookClientCommandHandlerTests
     /// caught, logged, and still answer Success. Red today: the exception
     /// propagates past the handler uncaught.
     /// </para>
+    ///
+    /// <para>
+    /// A second review round found the first version of this test green for
+    /// the wrong reason: it wired <see cref="NoOpTransactionalCommit"/>, which
+    /// has no relationship to <paramref name="repo"/> and so cannot see that
+    /// the outer <c>HandleAsync</c> still unconditionally calls
+    /// <c>commit.CommitAsync</c> after the inner save's concurrency exception
+    /// is caught — in production that is the SAME <c>DbContext</c> the failed
+    /// save left a stale, Modified entity tracked on, and the second commit
+    /// replays the identical failing UPDATE uncaught. This version wires
+    /// <see cref="RepositoryBackedTransactionalCommit"/> instead, which can
+    /// see exactly that.
+    /// </para>
     /// </summary>
     [Fact]
     public async Task A_concurrent_async_disable_during_the_race_check_is_treated_as_already_disabled_not_a_409()
@@ -798,7 +817,7 @@ public class RotateWebhookClientCommandHandlerTests
         status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
         CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
         RotateWebhookClientCommandHandler handler = new(
-            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            repo, keycloak, status, bus, new RepositoryBackedTransactionalCommit(repo), new FakeClock(Now),
             DisableWebhookClientUsing(repo, keycloak), logger);
 
         Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
@@ -810,5 +829,49 @@ public class RotateWebhookClientCommandHandlerTests
             + $"committed, and must not cost the caller its secret; got "
             + $"{(result.IsFailure ? result.Error.ToString() : string.Empty)}");
         result.Value.ClientSecret.ShouldBe("secret-webhook-qa");
+        bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty(
+            "a client the async handler already disabled must not also be announced as rotated");
+    }
+
+    /// <summary>
+    /// Phase 6 should-fix SF1 (#2628): the asynchronous
+    /// <c>WebhookIntegrationRevokedV1</c> disable can also beat this re-check
+    /// to the punch without a save conflict at all — its own save commits
+    /// first, and <c>DisableWebhookClientCommandHandler</c>'s fab-scoped
+    /// lookup excludes Disabled rows at the database level, so it finds
+    /// nothing and returns <c>WebhookClientNotFound</c> rather than throwing.
+    /// Before this fix, any failure from that inner call — including
+    /// <c>WebhookClientNotFound</c> — was treated as "could not disable",
+    /// which both logs a false "manual intervention needed" warning and (via
+    /// S2's gating) publishes <see cref="WebhookIntegrationRotatedV1"/> for a
+    /// client that is already disabled: a false alarm plus the exact
+    /// incoherent audit state S2 was meant to prevent.
+    /// </summary>
+    [Fact]
+    public async Task A_WebhookClientNotFound_from_the_inner_disable_is_treated_as_already_disabled_not_a_failure()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        repo.DisableRowOnSecondGetWithinFab = new FakeClock(Now);
+        FakeKeycloakAdminClient keycloak = new();
+        FakeEventBus bus = new();
+        FakeWebhookIntegrationStatusLookup status = new();
+        status.EnqueueStatuses(WebhookIntegrationStatus.Active, WebhookIntegrationStatus.Revoked);
+        CapturingLogger<RotateWebhookClientCommandHandler> logger = new();
+        RotateWebhookClientCommandHandler handler = new(
+            repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
+            DisableWebhookClientUsing(repo, keycloak), logger);
+
+        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+            await handler.HandleAsync(HappyCommand(), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue(
+            $"the async handler already disabled this row before the inner lookup ran — that is not "
+            + $"a failure of this create, which genuinely committed; got "
+            + $"{(result.IsFailure ? result.Error.ToString() : string.Empty)}");
+        bus.Published.OfType<WebhookIntegrationRotatedV1>().ShouldBeEmpty(
+            "a client the async handler already disabled must not also be announced as rotated");
+        logger.Named("AlreadyDisabledConcurrentlyDuringRevokeRace").ShouldHaveSingleItem(
+            "a WebhookClientNotFound from the inner disable must be read as 'already disabled', not "
+            + "logged as a could-not-disable failure");
     }
 }
