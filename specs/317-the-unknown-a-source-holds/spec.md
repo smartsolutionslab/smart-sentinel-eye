@@ -220,7 +220,8 @@ Reasons, in order of weight:
   *"quarantined events are audit-only"*) — on all three ingest paths.
 - `GET /events/dead-letters` filters by reason and state and returns the new fields.
 - **Registering a kind promotes its held rows** for that fab:
-  `Held → Promoted`, in the same transaction as the registration (FR-007).
+  `Held → Promoted`, by one set-based update after the registration commits,
+  convergent on retry (FR-007, A7).
 - `DELETE /event-sources/{source}` returns a pair to undeclared (FR-013), and the
   migration returns every existing `discovery` row to undeclared (FR-014) — §0.3.
 
@@ -466,7 +467,15 @@ source must not be able to promote its own unknown type into the registry.*
 Given rows are held for (berlin, "X") and an operator registers "X"
 And a second operator registers "X" in "berlin" concurrently
 Then exactly one registration answers 201 and the other 409
-And the held rows end "Promoted" exactly once (no row left "Held")
+And no row for (berlin, "X") is left "Held"
+```
+
+```gherkin
+Given "X" is registered for "berlin" and one row for (berlin, "X") is still "Held"
+    (held by a batch assessed just before the registration committed)
+When an operator POSTs /event-types { "kind": "X" } in "berlin"
+Then the response is 409 EVENT_TYPE_ALREADY_REGISTERED
+And that row is now "Promoted"
 ```
 
 ---
@@ -488,11 +497,14 @@ envelope is parsed). Invariant: `UnknownEventType ⇒ kind is not null`.
 
 **FR-003 — A hold state.** VO `HoldState`: `Held`, `Promoted`. Column `state`
 `text NOT NULL DEFAULT 'Held'`. Every new row is `Held`. **The only transition is
-`Held → Promoted`, and only for a `UnknownEventType` row**; `DeadLetter.Promote`
-on any other reason is an invariant violation (throws — it is a programming error,
-not an operator-reachable one, because FR-007 selects by reason). Promoting a row
-already `Promoted` is a no-op. A `DeadLetterPromotedDomainEvent` is **not**
-raised (ADR-0036: nothing consumes one; FR-007 updates rows in bulk).
+`Held → Promoted`, and only for an `UnknownEventType` row.** It is performed by
+FR-007's set-based update, whose `WHERE` clause carries the invariant (`reason =
+'UnknownEventType' AND state = 'Held'`), so a row already `Promoted` is untouched
+and no other reason can ever be promoted. There is deliberately **no**
+`DeadLetter.Promote` method: no code path would load a row to call it (A7), and an
+uncalled domain method is speculative (ADR-0036). `DeadLetter.Capture` sets
+`Held`; the domain test pins that, and an integration test pins the update's
+predicate. No domain event is raised (nothing would consume it).
 
 **FR-004 — Migration back-fills existing rows** (ADR-0067). `topic LIKE 'event/%'`
 → `Refused`; everything else → `ParseFailure`. `state` → `Held`. `kind` left null
@@ -532,16 +544,20 @@ a strict **or** discovery pair present in the batch — never per envelope. With
 declaration among the batch's fabs, the cost is exactly spec 269's default: one
 query, no registry lookup.
 
-**FR-007 — Registering a kind promotes its held rows, in the same transaction.**
-`RegisterEventTypeCommandHandler`, after a successful register, sets
-`state = 'Promoted'` on every `dead_letters` row with that `fab`, that `kind`,
-`reason = 'UnknownEventType'`, `state = 'Held'`, then saves once — the
-registration and the promotion commit together or not at all. Same
-`EventIngestionDbContext`, so no outbox or cross-aggregate event is needed. The
-`POST /event-types` contract (request, `201`, body, `Idempotency-Key`, scope)
-is **unchanged**; promotion is what registering *means* once quarantine exists
-(A1). A replayed `Idempotency-Key` promotes nothing new (the replay does not
-re-run the handler).
+**FR-007 — Registering a kind promotes its held rows, convergently.**
+`RegisterEventTypeCommandHandler`, after the registration commits, sets
+`state = 'Promoted'` (and bumps `version`) on every `dead_letters` row with that
+`fab`, that `kind`, `reason = 'UnknownEventType'`, `state = 'Held'`, as **one
+set-based `UPDATE`** — never by loading rows, because a chatty source can hold
+millions of rows for one kind in an hour (A7). **The `409
+EVENT_TYPE_ALREADY_REGISTERED` path runs the same promotion** before answering, so
+promotion converges: a registration whose promotion step failed, or a row held by
+a batch that was assessed just before the registration committed, is promoted by
+the next attempt to register the kind (the follow-on UI's "promote" on an already
+registered kind). The `POST /event-types` contract (request, `201`/`409`, body,
+`Idempotency-Key`, scope) is **unchanged**; promotion is what registering *means*
+once quarantine exists (A1). A replayed `Idempotency-Key` does not re-run the
+handler and promotes nothing.
 
 **FR-008 — The listing filters and reports the new fields.**
 `GET /events/dead-letters` gains optional `?reason=` (`ParseFailure` | `Refused`
@@ -697,6 +713,15 @@ closed state VOs); `Result<T, Error>` + `ApiError`; minimal APIs; EF migration v
 - **A6 — No promoted-at / promoted-by.** Matches spec 143 A3 (no retired-at);
   the registry row's `registeredAt` / `registeredBy` already records who promoted
   and when.
+- **A7 — Promotion is a set-based update after the registration commits, not one
+  transaction with it.** One transaction would need either loading every held row
+  as a tracked aggregate (unbounded: an unknown kind at 1 000 events/s holds 3.6 M
+  rows an hour) or an explicit transaction around `SaveChanges` plus
+  `ExecuteUpdate`, a pattern used nowhere in `src/` and awkward under the retrying
+  execution strategy Aspire's Npgsql enrichment configures. Convergence (FR-007's
+  409 path) closes the gap the lost atomicity opens, and also closes the batch race
+  atomicity would not have closed. `ExecuteUpdateAsync` is itself new to `src/`;
+  it is standard EF Core and is the smallest correct tool here.
 
 ---
 
