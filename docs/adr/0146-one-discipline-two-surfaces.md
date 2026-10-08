@@ -2,7 +2,8 @@
 
 **Status:** **Accepted** (amended 2026-10-04 — item 4: the triad's *text* role may adapt
 per theme; see [the amendment](#amendment-2026-10-04-the-triads-text-role-adapts-per-theme);
-note 2026-10-07)
+note 2026-10-07; corrected 2026-10-08 — see
+[the correction](#correction-2026-10-08-the-wall-caps-at-four-tiles-not-250))
 **Date:** 2026-09-13
 **Amends:** —
 
@@ -17,15 +18,19 @@ it.
 
 Apple's design language was built for a consumer device held at arm's length, in
 a lit room, by a person giving it their full attention. `apps/management-web`
-matches that description. `apps/kiosk-web` does not: it is a wall of up to 250
-tiles (constitution §Non-Functional Requirements → Scale, "250 concurrent
-cameras per fab"), read across a control room, running unattended for years.
-There, three of Apple's signature moves are actively harmful:
+matches that description. `apps/kiosk-web` does not: it is a wall of **at most
+four tiles** (ADR-0112, `GridDimensions.MaxTiles = 4` — "a real NFR ceiling, not
+config"), drawn from a fab of up to 250 concurrent cameras (constitution
+§Non-Functional Requirements → Scale), read across a control room, running
+unattended for years. There, three of Apple's signature moves are actively
+harmful:
 
 - **Translucency.** `backdrop-filter` forces a compositing layer and a blur pass
   per element. Constitution §IV gives composite-and-render **50 ms**, shared
-  across every tile on the wall. A blur that costs 0.2 ms per tile costs the
-  whole budget at 250.
+  across every tile on the wall — and ADR-0123 measures that leg at **p50
+  54.2 ms on a real wall, already over budget with no translucency or ambient
+  motion at all** (p95 79.2, max 164.6; #1891). There is no headroom for a
+  compositing layer and a blur pass per tile, whatever the tile count.
 - **Ambient motion.** An operator scans the wall for a fault. Anything that moves
   and is not a fault competes for the eye that is looking for one.
 - **Large static bright chrome.** These panels never sleep. Chrome that holds the
@@ -113,7 +118,8 @@ ADR-0148 defines. Its job is interactive affordance and selection, nothing else.
 
 **The wall's section of this ADR is mostly prohibitions, and that is deliberate.**
 The honest risk in this programme is not that it looks bad; it is that it looks
-beautiful on a developer's Mac and costs a fab frames across 250 tiles. Issue
+beautiful on a developer's Mac while spending a composite-and-render budget
+that is already exceeded (ADR-0123's p50 54.2 ms against §IV's 50 ms). Issue
 #2337 files the CI render-budget gate that makes that failure visible, and it is
 scheduled _before_ the redesign rather than after.
 
@@ -228,3 +234,47 @@ brand. Every other sentence of item 4 stands.
 - **High-contrast and dark render exactly as before.** The text role resolves to
   the same signal value there; the only rendered change is in `light`, which no
   shipped page sets today.
+
+## Correction (2026-10-08): the wall caps at four tiles, not 250
+
+Issue #2363.
+
+### What was wrong
+
+This ADR stated in three places that the wall carries up to 250 tiles. It does
+not. A wall caps at **four tiles** — `GridDimensions.MaxTiles = 4`, `MaxCells =
+4` (2×2), enforced at `Layout.cs:78` and fixed by **ADR-0112**, which calls it
+"a real NFR ceiling, not config". The 250 figure is the constitution's **250
+concurrent cameras per fab** (§Non-Functional Requirements → Scale) — a fab has
+up to 250 cameras; a wall shows at most four of them at once. The original text
+conflated the two.
+
+The error also reached the translucency argument's arithmetic (0.2 ms per tile
+times 250 is the whole 50 ms budget; times four it is 0.8 ms, not a binding
+constraint) and the closing rationale ("costs a fab frames across 250 tiles").
+
+### Why the prohibitions hold anyway, on better evidence
+
+The cheap fix would be to replace "250" with "4" and leave the reasoning
+standing — but that would leave the translucency prohibition justified by
+arithmetic that no longer binds at the real tile count. The prohibitions hold
+for a reason this ADR did not originally use: **the composite-and-render leg is
+already over budget.** ADR-0123 measures a real wall at p50 **54.2 ms** against
+§IV's 50 ms budget (p95 79.2, max 164.6; #1891) — breaching today, with no
+translucency and no ambient motion at all. There is no headroom to spend,
+whatever the per-tile multiplier.
+
+The other two prohibitions were never tile-count arguments. Ambient motion
+competes with the operator's eye scanning for a fault, true at four tiles or at
+four hundred. The unattended-for-years framing is about burn-in and drift, not
+throughput. Neither needed correcting.
+
+### What changed
+
+The premise, the translucency arithmetic, and the closing rationale above are
+corrected in place to cite ADR-0112's four-tile ceiling and ADR-0123's measured
+breach, rather than the 250-camera figure. No prohibition changes; only the
+reasoning that supports them.
+
+Corrected already, before this ADR, on issues #2337 and #2353, and in spec
+150's working notes.
