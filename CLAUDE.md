@@ -69,6 +69,16 @@ stack: rebase-merge lands them individually on `develop`, so a commit
 that only compiles with its successor breaks `git bisect` forever.
 Verify per commit, not per branch.
 
+**"Builds" is not "passes."** A phase-4a red/green pair (ADR-0139/
+ADR-0144) both compile individually, but the commit carrying the red
+test leaves the suite it belongs to failing until its very next commit
+lands the fix. `git bisect` crossing that range gets a `bad` verdict
+there for a reason unrelated to whatever is actually being hunted —
+found concretely at `a7a2f00f` (spec 085, #2113). Accepted, not closed
+(ADR-0087's own Consequences section records why); a bisect landing
+inside such a pair should re-run from one commit over, not trust the
+verdict at the pair itself.
+
 ## Workflow — guided phased process (ADR-0037)
 
 Seven phases, each with an artifact and an **explicit gate**. **Do not
