@@ -54,6 +54,17 @@ up" arm can take, and adds a distinct line for it so the three outcomes stay dis
 | Refusing fast (host up, Keycloak down) | ≈ 14 s+ (four attempts across ~2 + 4 + 8 s jittered back-off) — reasoned, not measured | ≈ 5 s, ends in the sweep's own bound, mid back-off |
 | Shutdown requested during start | `OperationCanceledException` propagates (host is stopping) | **unchanged** — the bound must not swallow it |
 
+**Found at phase 6 review, recorded rather than silently accepted**: in the "refusing fast" row,
+`KioskPrivilegeSweepTimedOut` carries no exception — unlike `KioskPrivilegeSweepFailed`, which does.
+When the bound fires mid back-off, the operator's Warning line no longer names the underlying
+`HttpRequestException` the way the pre-existing failed-pass line does. The resilience pipeline's own
+per-attempt telemetry (`AddStandardResilienceHandler`) may still log each failed attempt separately
+with its exception, which would make this harmless — but that is **not verified against this
+pipeline's actual telemetry configuration**, only assumed. Worth a quick check against a stopped
+Keycloak before relying on it; not a blocker for this PR, since the only behaviour this spec commits
+to is "a slow boot names its cause" at the `KioskPrivilegeSweepTimedOut`/`KioskPrivilegeSweepFailed`
+level, which still holds (the bound itself is always named, even without the exception).
+
 ## 2. User story
 
 **US1 (P1) — A Keycloak outage costs Identity's boot a bounded few seconds, and says so.** As an
