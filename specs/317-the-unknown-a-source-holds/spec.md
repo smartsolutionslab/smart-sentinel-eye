@@ -585,7 +585,7 @@ both halves become false at merge. **This PR does not make the edit.** ADR-0144
 forbids the autonomous lane amending the constitution, and the user's Q1 decision
 — relayed through the coordinator, which is not itself consent — decided the
 admission predicate, not this text. The drafted replacement is in `plan.md` §10;
-the lane files it as a `documentation` issue for a human to apply (task T016).
+the lane files it as a `documentation` issue for a human to apply (task T021).
 Spec 269's FR-003 wording is left as a historical record; this spec supersedes it
 for undeclared-vs-discovery and says so (§0.2).
 
@@ -772,7 +772,7 @@ two consequences this spec handles because of it.
 - [ ] A1 accepted: promotion is plain registration, no endpoint variant.
 - [ ] A2 accepted: `202 Accepted` for a held HTTP event.
 - [ ] FR-012: the constitution §VIII correction is **filed for a human, not made
-      in this PR** (T016); drafted text in `plan.md` §10.
+      in this PR** (T021); drafted text in `plan.md` §10.
 - [ ] §7 accepted: §IV engaged; phase 5 owes a direct measurement.
 - [ ] Phase 4a colour: **RED** (behaviour-changing — a new outcome on every ingest
       path, a new listing filter, a new effect of registration, a new endpoint).
