@@ -66,6 +66,8 @@ export const tailwindTheme = {
     // keep resolving through `colors.accent` to the signal vars, unchanged.
     // The `-on-video` keys (#2709) exist so text on the theme-invariant video
     // ground keeps the signal, instead of the per-theme `-text` roles above.
+    // `fg.muted-on-video` (#2734) is the neutral counterpart of those accent
+    // keys; every other `text-fg-*` keeps resolving through `colors.fg`.
     textColor: {
       accent: {
         active: 'var(--color-accent-active-text)',
@@ -73,6 +75,9 @@ export const tailwindTheme = {
         fault: 'var(--color-accent-fault-text)',
         'warning-on-video': 'var(--color-accent-warning-on-video)',
         'fault-on-video': 'var(--color-accent-fault-on-video)',
+      },
+      fg: {
+        'muted-on-video': 'var(--color-fg-muted-on-video)',
       },
     },
     spacing: {

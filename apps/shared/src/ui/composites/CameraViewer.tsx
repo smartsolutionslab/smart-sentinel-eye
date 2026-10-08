@@ -550,7 +550,7 @@ function ViewerOverlay({
       ? 'text-accent-fault-on-video'
       : status === 'reconnecting'
         ? 'text-accent-warning-on-video'
-        : 'text-fg-muted';
+        : 'text-fg-muted-on-video';
 
   const hint = hintFor(message, queryError);
 
@@ -563,7 +563,7 @@ function ViewerOverlay({
       className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-scrim text-center text-sm"
     >
       <span className={clsx('font-medium', tone)}>{label}</span>
-      {hint !== null && <span className="px-4 text-xs text-fg-muted">{hint}</span>}
+      {hint !== null && <span className="px-4 text-xs text-fg-muted-on-video">{hint}</span>}
     </div>
   );
 }
