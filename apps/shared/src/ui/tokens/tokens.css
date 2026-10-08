@@ -154,7 +154,7 @@
      the two roles above, but a neutral has no pinned signal to fall back
      on. It follows each theme's own --color-fg-muted — dark and
      high-contrast already clear 4.5:1 on black — and only `light`, whose
-     surface muted is chosen for light surfaces (4.14:1 on video),
+     surface muted is chosen for light surfaces (4.15:1 on video),
      redeclares it, to dark's stop. */
   --color-fg-muted-on-video: var(--color-fg-muted);
 
@@ -321,6 +321,7 @@
   --color-scrim: color-mix(in oklab, var(--gray-950) 40%, transparent);
   --color-fg-primary: var(--gray-900);
   --color-fg-muted: var(--gray-600);
+  /* #2734: see :root — --gray-600 clears only 4.15:1 on video, below 4.5:1 */
   --color-fg-muted-on-video: var(--gray-500);
   --color-fg-disabled: var(--gray-500);
   --color-fg-on-accent: var(--white);

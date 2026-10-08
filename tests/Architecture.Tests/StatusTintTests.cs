@@ -68,7 +68,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// <para>
 /// <b>Spec 319 (issue #2734):</b> <c>ViewerOverlay</c>'s neutral label and its
 /// hint line also paint on <c>--color-bg-video</c>, using <c>text-fg-muted</c>
-/// — the role chosen for light's theme surfaces, which clears only 4.14:1 on
+/// — the role chosen for light's theme surfaces, which clears only 4.15:1 on
 /// video (4.02:1 with the scrim). A new role, <c>--color-fg-muted-on-video</c>,
 /// is <b>not</b> pinned to the signal the way spec 308's triad roles are (a
 /// neutral has no signal); it cites <c>--color-fg-muted</c> in <c>:root</c>
