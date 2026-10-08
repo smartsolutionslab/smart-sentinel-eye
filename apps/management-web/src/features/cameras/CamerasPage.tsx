@@ -1,4 +1,5 @@
 import {
+  camerasApi,
   useListCamerasQuery,
   type CameraSortField,
   type CameraSortOrder,
@@ -67,7 +68,14 @@ export function CamerasPage() {
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
   // take the stale rows off screen, leaving only the existing failure banner
   // — the same render a first-load refusal produces.
-  const refused = useRevocationFallback(JSON.stringify(listArgs), { error, isFetching, requestId });
+  const refused = useRevocationFallback(
+    JSON.stringify(listArgs),
+    { error, isFetching, requestId },
+    {
+      endpoint: camerasApi.endpoints.listCameras,
+      args: listArgs,
+    },
+  );
 
   // `fetched` (`data`) can still hold a *previous* argument set's rows for a
   // moment after the filter changes — RTK Query's `lastResult` fallback

@@ -1,4 +1,5 @@
 import {
+  layoutsApi,
   useArchiveRevisionMutation,
   useBranchDraftRevisionMutation,
   useListLayoutsQuery,
@@ -58,7 +59,14 @@ export function LayoutsPage() {
 
   // Spec 310 (#2725). Three consecutive 403 refreshes take the stale rows off
   // screen, leaving only the existing failure banner.
-  const refused = useRevocationFallback('layouts', { error, isFetching, requestId });
+  const refused = useRevocationFallback(
+    'layouts',
+    { error, isFetching, requestId },
+    {
+      endpoint: layoutsApi.endpoints.listLayouts,
+      args: undefined,
+    },
+  );
   const data = refused ? undefined : fetched;
 
   const [publishRevision, publishState] = usePublishRevisionMutation();

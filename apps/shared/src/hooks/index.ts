@@ -4,4 +4,5 @@ export {
   useRevocationFallback,
   REVOCATION_STRIKE_THRESHOLD,
   type RevocationQueryState,
+  type RevocationSource,
 } from './useRevocationFallback.js';

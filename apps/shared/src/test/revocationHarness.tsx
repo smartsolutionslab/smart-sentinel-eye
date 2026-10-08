@@ -13,11 +13,9 @@ import { useRevocationFallback, type RevocationQueryState } from '../hooks/useRe
  * replaces the real `requestAnimationFrame` timing that made the original
  * defect hard to reproduce (spec §0, FR-008).
  *
- * `useRevocationFallbackCoalesced.test.tsx` is the only consumer today. It
- * exercises the hook's eventual three-argument signature (plan.md §1.2); the
- * current two-argument `useRevocationFallback` ignores the extra argument at
- * runtime, so these tests run — and fail on their outcome assertions, which
- * is the point before phase 4b lands the listener path.
+ * `useRevocationFallbackCoalesced.test.tsx` is the only consumer today,
+ * exercising the hook's three-argument signature (plan.md §1.2) against the
+ * listener path phase 4b added.
  */
 
 /** The scripted query's args — one cache key per "subject" under test. */
@@ -26,7 +24,7 @@ export interface ScriptedArgs {
 }
 
 /** What the next dispatched request for this harness should answer. */
-export type ScriptedOutcome = 'ok' | 403 | 503;
+export type ScriptedOutcome = 'ok' | 403 | 404 | 503;
 
 function buildApi() {
   const responses: ScriptedOutcome[] = [];
@@ -71,7 +69,7 @@ export interface RevocationHarness {
     requestId: string;
     settled: Promise<unknown>;
   };
-  Probe: (props: { subject: string; args: ScriptedArgs }) => null;
+  Probe: (props: { subject: string; args: ScriptedArgs; notFoundRevokes?: boolean }) => null;
 }
 
 function buildHarnessStore(api: ReturnType<typeof buildApi>['api'], withListenerMiddleware: boolean) {
@@ -132,12 +130,22 @@ export function createRevocationHarness(options: { withListenerMiddleware?: bool
     return { requestId: thunkResult.requestId, settled: thunkResult };
   }
 
-  function Probe({ subject, args }: { subject: string; args: ScriptedArgs }): null {
+  function Probe({
+    subject,
+    args,
+    notFoundRevokes,
+  }: {
+    subject: string;
+    args: ScriptedArgs;
+    /** Spec 313 (#2750): opts a 404 settlement into counting, same as the real pages' field. */
+    notFoundRevokes?: boolean;
+  }): null {
     const query = api.endpoints.getThing.useQueryState(args);
     const queryState: RevocationQueryState = {
       error: query.error,
       isFetching: query.isFetching,
       requestId: query.requestId,
+      notFoundRevokes,
     };
     // The third argument is the hook's eventual `source` parameter
     // (plan.md §1.2, not yet added — T006). Today's two-argument hook

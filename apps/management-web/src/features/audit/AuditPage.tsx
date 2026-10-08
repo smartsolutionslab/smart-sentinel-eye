@@ -1,5 +1,10 @@
 import { useMemo, useState, type FormEvent } from 'react';
-import { useSearchAuditQuery, type AuditRow, type SearchAuditInput } from '@smart-sentinel-eye/shared/api/audit.api';
+import {
+  auditApi,
+  useSearchAuditQuery,
+  type AuditRow,
+  type SearchAuditInput,
+} from '@smart-sentinel-eye/shared/api/audit.api';
 import { DataTable, type DataTableColumn } from '@smart-sentinel-eye/shared/ui/composites/DataTable';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
@@ -78,7 +83,14 @@ export function AuditPage() {
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this applied query
   // take the stale rows off screen, leaving only the existing failure banner.
-  const refused = useRevocationFallback(JSON.stringify(applied), { error, isFetching, requestId });
+  const refused = useRevocationFallback(
+    JSON.stringify(applied),
+    { error, isFetching, requestId },
+    {
+      endpoint: auditApi.endpoints.searchAudit,
+      args: applied,
+    },
+  );
 
   // `fetched` (`data`) can still hold a *previous* applied query's rows for a
   // moment after the filter changes — RTK Query's `lastResult` fallback

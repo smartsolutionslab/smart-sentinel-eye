@@ -1,4 +1,5 @@
 import {
+  systemVariablesApi,
   useArchiveVariableMutation,
   useListVariablesQuery,
   useSetVariableValueMutation,
@@ -53,7 +54,14 @@ export function SystemVariablesPage() {
 
   // Spec 310 (#2725). Three consecutive 403 refreshes of this argument set
   // take the stale rows off screen, leaving only the existing failure banner.
-  const refused = useRevocationFallback(JSON.stringify(variablesArgs), { error, isFetching, requestId });
+  const refused = useRevocationFallback(
+    JSON.stringify(variablesArgs),
+    { error, isFetching, requestId },
+    {
+      endpoint: systemVariablesApi.endpoints.listVariables,
+      args: variablesArgs,
+    },
+  );
 
   // `fetched` (`data`) can still hold a *previous* argument set's rows for a
   // moment after the filter changes — RTK Query's `lastResult` fallback

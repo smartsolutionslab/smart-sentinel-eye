@@ -123,6 +123,53 @@ describe('useRevocationFallback — settlements coalesced by autobatch (spec 314
     expect(harness.refusedByRenderRef.current).toBe(true);
   });
 
+  it('a qualifying 404 whose notification is coalesced with the next request still counts', async () => {
+    const harness = createRevocationHarness();
+    const args = subjectArgs('camera-x');
+    // Starts false and flips to true on the same subject — exactly how
+    // CameraDetailPage behaves (the flag tracks `currentData !== undefined`,
+    // which is false until the first 200). The listener subscribes once per
+    // `[dispatch, source.endpoint, subject]` (unchanged across this
+    // rerender), so this is the one scenario that actually distinguishes
+    // "reads the ref's current value" from "closed over the value at
+    // subscribe time" — the latter would still show `false` here.
+    const { rerender } = render(
+      <HarnessProvider harness={harness}>
+        <harness.Probe subject="camera-x" args={args} notFoundRevokes={false} />
+      </HarnessProvider>,
+    );
+
+    const load = harness.request('ok', args);
+    await load.settled;
+    harness.flush();
+
+    rerender(
+      <HarnessProvider harness={harness}>
+        <harness.Probe subject="camera-x" args={args} notFoundRevokes={true} />
+      </HarnessProvider>,
+    );
+
+    const r1 = harness.request(404, args, { forceRefetch: true });
+    await r1.settled;
+    harness.flush(); // r1 rendered settled
+
+    const r2 = harness.request(404, args, { forceRefetch: true });
+    await r2.settled; // r2 settles in the store — notification still held
+    const r3 = harness.request(404, args, { forceRefetch: true }); // r3 starts before release
+    harness.flush(); // releases the held notification — renders r3 pending
+
+    // Precondition: r2's settled state was never rendered (must pass today).
+    expect(harness.renderLog.some((entry) => entry.requestId === r2.requestId && !entry.isFetching)).toBe(false);
+
+    await r3.settled;
+    harness.flush();
+
+    // Outcome: three settled, qualifying 404s for one subject must refuse
+    // (spec 313) — proves the listener path applies `notFoundRevokes`
+    // through `applySettlement`, not just the render path #2750 tested.
+    expect(harness.refusedByRenderRef.current).toBe(true);
+  });
+
   it('without the listener middleware in the store, rendering throws naming the missing middleware', () => {
     const harness = createRevocationHarness({ withListenerMiddleware: false });
     const args = subjectArgs('camera-x');

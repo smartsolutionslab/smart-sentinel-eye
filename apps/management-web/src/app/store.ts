@@ -1,4 +1,4 @@
-import { configureStore, type Dispatch } from '@reduxjs/toolkit';
+import { configureStore, createListenerMiddleware, type Dispatch } from '@reduxjs/toolkit';
 import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -23,6 +23,14 @@ export const apiSlices = [
   wallsApi,
 ];
 
+// Spec 314 (#2762): useRevocationFallback dispatches its own `addListener`
+// from a `useEffect` to observe RTK Query settlements at dispatch time —
+// autobatch can otherwise coalesce a settlement's render notification with
+// the next action and drop a strike (or a reset). Prepended ahead of the
+// api slices' middleware so the listener sees `addListener`'s own action
+// before the serializability check inspects its function-valued payload.
+const listenerMiddleware = createListenerMiddleware();
+
 // Single Redux store per app (ADR-0075). RTK Query slices added per feature.
 export const store = configureStore({
   reducer: {
@@ -35,7 +43,10 @@ export const store = configureStore({
     [auditApi.reducerPath]: auditApi.reducer,
     [wallsApi.reducerPath]: wallsApi.reducer,
   },
-  middleware: (getDefault) => getDefault().concat(apiSlices.map((slice) => slice.middleware)),
+  middleware: (getDefault) =>
+    getDefault()
+      .prepend(listenerMiddleware.middleware)
+      .concat(apiSlices.map((slice) => slice.middleware)),
 });
 
 export type RootState = ReturnType<typeof store.getState>;
