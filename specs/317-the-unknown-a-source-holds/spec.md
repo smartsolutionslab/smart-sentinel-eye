@@ -7,8 +7,9 @@ can be promoted into the registry"* (follow-ups 2 and 3 of
 mode, #2324, PR #2706 merged)
 **Branch:** `feat/2325-quarantine-unknown-event-types`
 **Phase:** 1 (Specify) · **Drafted:** 2026-10-08 · **Tree read at:** `ba37ca5a`
-**Lane:** autonomous (ADR-0144, `agent:ready`) — **halted at the phase-1 gate by
-§11 Q1.** Plan and tasks are not written until Q1 is answered (§12).
+**Lane:** autonomous (ADR-0144, `agent:ready`). Halted at the phase-1 gate by
+§11 Q1 on 2026-10-08; **Q1 answered by the user the same day (option A)**, recorded
+on #2325. `plan.md` and `tasks.md` follow.
 **Feature bucket:** spec `specs/006-event-ingestion/`
 **ADRs:** ADR-0000 decision **018** (this is its last third: *"`discovery` flag
 (accepts unknown, quarantines them in an inspector UI for promotion to the
@@ -45,7 +46,18 @@ This spec implements that and does not reopen it. The existing row is
 `dead_letters`). No new aggregate, no new table. FR-001–FR-003 say exactly which
 columns.
 
-### 0.2 What happens to the *default* population — **not decided, and not this lane's to decide**
+### 0.2 What happens to the *default* population — **decided by the user: option A**
+
+> Decision (user, 2026-10-08, relayed and recorded on #2325): option A — only
+> sources that explicitly declared `discovery` mode quarantine. Undeclared sources
+> keep today's open behaviour (events flow through as normal); "undeclared"
+> becomes a distinct third state, separate from both strict and declared-discovery.
+> It overturns spec 269's accepted wording and constitution §VIII's current text
+> for undeclared sources specifically — recorded as a documented note needed, not
+> a weakening.
+
+The analysis that put the question to the user is kept below, because it is why
+the three-state model exists.
 
 Spec 269 made **an undeclared `(fab, Source)` behave as `discovery`** (its FR-003,
 A3), and its gate accepted that. Spec 269 A3 then left this spec a warning,
@@ -76,12 +88,39 @@ The facts that make this a human call rather than a design detail:
 
 Either branch overrides something a human signed off, or breaks production. The
 autonomous lane may do neither (ADR-0144: it implements decisions, it does not
-make them). §11 Q1 states the options and a recommendation.
+make them). §11 Q1 states the options; the user chose A.
 
-**Everything else in this spec is independent of Q1**: the columns, the reason
-codes, the state transition, the listing filter and promotion are identical under
-every option. Q1 changes one predicate (which pairs quarantine) and, under option
-C only, whether a quarantined event is also stored.
+### 0.3 Two consequences of option A, decided here as design inside it
+
+The three states after this spec:
+
+| State | How it arises | Unregistered kind |
+|---|---|---|
+| **Undeclared** ("open") | no `source_modes` row | stored and fanned out, as today |
+| **`discovery`** | declared | **held** (this spec) |
+| **`strict`** | declared | refused (spec 269) |
+
+Option A was chosen so that nothing changes on merge. Two things in the tree
+would still change behaviour on merge, or trap an operator, unless handled:
+
+1. **Existing `discovery` rows.** Before this spec, declaring `discovery` was
+   behaviourally identical to declaring nothing. Rows already declared
+   `discovery` — by an operator in any deployment, and by spec 269's own
+   integration tests, which "restore" every pair they touch to `discovery` in a
+   `finally` (`EventSourceModeApi.RestoreDiscoveryAsync`, used by
+   `StrictSourceIngestIntegrationTests`, `IdempotencyKeyReuseEventIngestionIntegrationTests`
+   and `EventSourceModeIntegrationTests`, across the berlin, hamburg and dresden
+   personas) — would silently start holding events. **FR-014: the migration deletes
+   every `discovery` row**, returning each such pair to undeclared, which is
+   exactly the behaviour it had. A `strict` row is untouched.
+2. **A one-way door.** With no way back to undeclared, an operator who tries
+   `discovery` can never return a source to open; and the shared integration
+   stack would accumulate held-forever pairs. **FR-013: `DELETE
+   /event-sources/{source}` undeclares a pair** (US4), and spec 269's test helper
+   restores to undeclared instead of to `discovery`.
+
+Both are flagged at the gate (§12); both follow from the user's "undeclared keeps
+today's open behaviour" rather than adding to it.
 
 ---
 
@@ -117,6 +156,16 @@ C only, whether a quarantined event is also stored.
   pair with an unregistered kind. **A discovery pair — declared or not — is stored
   and fanned out exactly as before spec 269.** Nothing reaches `dead_letters` for
   being unknown. The premise of #2325 holds.
+- **Two existing tests pin declared-discovery as open, and must invert under
+  option A** — the behaviour they pin is the one the user changed:
+  `EventTypeAdmissionTests.A_discovery_source_admits_an_unregistered_kind` (whose
+  own doc comment says explicit discovery is *"indistinguishable from an absent
+  one at this collaborator's read port"*) and the "discovery declared explicitly"
+  case in `StrictSourceIngestIntegrationTests` (`SetAsync(berlin, "manual",
+  "discovery")`, line 156). These are named so phase 4 edits them on purpose and
+  phase 6 does not read the edit as a weakened gate.
+- **There is no way to undeclare a pair.** `/event-sources` has `POST`, `PUT
+  …/mode` and `GET`; no `DELETE`. `SourceMode` has `Declare` and `Change`.
 - **`management-web` has no Event Ingestion feature at all.** `src/features/` is
   `audit`, `cameras`, `layouts`, `overlays`, `rules`, `systemVariables`, `walls`;
   a grep for `event-types`, `dead-letters`, `event-sources` across
@@ -165,13 +214,15 @@ Reasons, in order of weight:
 
 - `dead_letters` rows carry a machine-readable **reason code**, the **kind** where
   one exists, and a **hold state**.
-- Under discovery (the population Q1 decides), an event whose kind is not
+- Under a **declared** `discovery` pair (Q1, option A), an event whose kind is not
   registered for its fab is **held** — written to `dead_letters` with reason
   `UnknownEventType`, **not stored as an event, not fanned out** (decision 018:
   *"quarantined events are audit-only"*) — on all three ingest paths.
 - `GET /events/dead-letters` filters by reason and state and returns the new fields.
 - **Registering a kind promotes its held rows** for that fab:
   `Held → Promoted`, in the same transaction as the registration (FR-007).
+- `DELETE /event-sources/{source}` returns a pair to undeclared (FR-013), and the
+  migration returns every existing `discovery` row to undeclared (FR-014) — §0.3.
 
 ### 2.3 What does not ship
 
@@ -219,12 +270,36 @@ registering the kind, which still admits future events — the only thing lost i
 the `Promoted` marker on past rows. If the PR outgrows review, FR-007's state
 update is what leaves; FR-006's admission change cannot.*
 
+### US4 (P2) — A declared source can be returned to undeclared
+
+**As** the same engineer, having put a source in discovery to see what it sends,
+**I want** to return it to undeclared,
+**so that** trying quarantine is not a one-way door away from today's behaviour
+(§0.3 item 2).
+
+**Independent test:** §6 step 13. *P2 for the same reason as spec 269's US2: a
+switch with no off position is a defect. Without it the shared integration stack
+accumulates held-forever pairs, so it cannot leave this PR.*
+
 ---
 
 ## 4. Acceptance scenarios
 
-Fab/source names are illustrative; "a discovery pair" means whichever pairs Q1
-decides quarantine (§11).
+Fab/source names are illustrative; "a discovery pair" means a pair **declared**
+`discovery` through `/event-sources` (Q1, option A).
+
+### The default — an undeclared pair is unchanged (characterisation)
+
+```gherkin
+Given no mode is declared for (dresden, manual)
+And "SomethingNobodyDeclared" is not registered for "dresden"
+When an event with that kind is POSTed to /events/manual in "dresden"
+Then the response is 201 Created and it is stored and fanned out as before
+And no dead letter is written
+```
+
+*Asserted, not merely stated: this is the guard that catches option B arriving by
+accident.*
 
 ### Happy path — HTTP, an unknown kind is held
 
@@ -304,7 +379,6 @@ Then it is stored and fanned out
 
 ```gherkin
 Given an event was stored while its kind was unknown and its pair was undeclared
-    (before this spec, or under an "open" default per Q1)
 When the same eventId is delivered again under a discovery pair
 Then the answer is EVENT_ALREADY_INGESTED, and nothing is held
 ```
@@ -317,6 +391,45 @@ Then the response is 400 EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE and nothing is held
 
 *Order on every path: redelivery, future skew, strict refusal, discovery hold
 (FR-005).*
+
+### Undeclaring a pair (US4)
+
+```gherkin
+Given (berlin, manual) is declared discovery at version 0
+When an operator holding "berlin" sends DELETE /event-sources/manual with If-Match: 0
+Then the response is 204 No Content
+And GET /event-sources does not list (berlin, manual)
+And an unregistered kind POSTed to /events/manual in "berlin" answers 201 and is stored
+
+Given (berlin, manual) is declared
+When DELETE /event-sources/manual is sent with no If-Match
+Then the response is 428 and the declaration is unchanged
+
+Given (berlin, manual) is declared at version 1
+When DELETE /event-sources/manual is sent with If-Match: 0
+Then the response is 409 SOURCE_MODE_STALE
+
+Given (berlin, plc) has never been declared
+When DELETE /event-sources/plc is sent with If-Match: 0
+Then the response is 404 SOURCE_MODE_NOT_DECLARED
+
+When DELETE /event-sources/not-a-source is sent with If-Match: 0
+Then the response is 400 SOURCE_MODE_INVALID_INPUT
+
+Given a caller holding sse.events.write but not sse.events.types.write
+When they send DELETE /event-sources/manual
+Then the response is 403 and the declaration is unchanged
+```
+
+### Upgrade — existing `discovery` declarations return to undeclared (FR-014)
+
+```gherkin
+Given before the migration (berlin, manual) is declared discovery
+And (berlin, plc) is declared strict
+When the migration runs
+Then (berlin, manual) has no declaration and behaves as undeclared
+And (berlin, plc) is still strict, at its prior version
+```
 
 ### Bad request — the listing filter
 
@@ -388,29 +501,36 @@ worth it for audit rows — A4). One composite index
 `ix_dead_letters_fab_reason_state` on `(fab, reason, state)` for the quarantine
 listing and FR-007's update.
 
-**FR-005 — Discovery holds an unregistered kind, on all three ingest paths.**
-`EventTypeVerdicts` gains a third outcome: **Admit / Refuse / Hold**. `Hold` is
-returned for a discovery pair (per Q1) whose kind is not registered for its fab.
+**FR-005 — A declared `discovery` pair holds an unregistered kind, on all three
+ingest paths.** `EventTypeVerdicts` gains a third outcome: **Admit / Refuse /
+Hold**. `Hold` is returned for a pair **declared** `discovery` whose kind is not
+registered for its fab. An undeclared pair is always admitted (Q1, option A).
 Precedence, identical on all paths: redelivery (`ExistsAsync`), future skew,
 strict refusal, discovery hold.
-- **HTTP** (`IngestEventCommandHandler`): a held event is written as a
-  `DeadLetter` (reason `UnknownEventType`, topic `event/{fab}/{source}/{device}`
-  — the persistence loop's existing synthesised shape, so one topic grammar
-  covers every envelope-level row) and **the endpoint answers `202 Accepted`**
-  with no `Location` (A2). No `Event` row.
-- **MQTT fast path** (`IngestEventBatchCommandHandler`): a held envelope is
-  returned in a new `Held` collection on `IngestEventBatchResult` (beside
-  `Refused`); the persistence loop captures each with reason `UnknownEventType`
-  and acknowledges the delivery.
-- **MQTT slow path** (`PersistenceLoopHostedService.StoreOneAsync`): the single
-  handler's hold outcome is recorded the same way.
 
-**FR-006 — The admission check costs a bounded number of queries.** Extends spec
-269 FR-006: one `StrictSourcesAsync`-shaped lookup now returns every
-*declared* pair's mode, and `RegisteredKindsAsync` runs once per fab that has a
-strict **or** quarantining pair in the batch — never per envelope. Under Q1
-option B (default quarantines) this is one extra query for **every** batch in
-**every** fab (§7).
+**The handler that decides the hold writes it**, in the same `SaveAsync` as
+anything else it stores, as a `DeadLetter` with reason `UnknownEventType`, the
+envelope's kind, and topic `event/{fab}/{source}/{device}` (the persistence loop's
+existing synthesised shape, so one topic grammar covers every envelope-level row).
+No `Event` row, no outbox message.
+- **HTTP** (`IngestEventCommandHandler`): after writing, returns the new
+  `IngestEventError.EventTypeHeld` (`EVENT_TYPE_HELD`, status `202`), which the
+  write endpoints map to **`202 Accepted`** with no `Location` (A2). Precedent for
+  a 2xx carried as an `IngestEventError`: `EventAlreadyIngested` (200).
+- **MQTT fast path** (`IngestEventBatchCommandHandler`): held envelopes are
+  written in the batch's single commit and are **not** put in `Refused`, so the
+  persistence loop acknowledges them like stored ones. A batch that fails falls
+  back to singles with nothing committed, as today.
+- **MQTT slow path** (`PersistenceLoopHostedService.StoreOneAsync`): treats
+  `EventTypeHeld` like `EventAlreadyIngested` — the delivery ends `Stored` (it is
+  on the record) and is not dead-lettered a second time.
+
+**FR-006 — The admission check costs the same bounded number of queries as spec
+269.** The one declared-pairs lookup now returns every declared pair with its mode
+(still one query per batch), and `RegisteredKindsAsync` runs once per fab that has
+a strict **or** discovery pair present in the batch — never per envelope. With no
+declaration among the batch's fabs, the cost is exactly spec 269's default: one
+query, no registry lookup.
 
 **FR-007 — Registering a kind promotes its held rows, in the same transaction.**
 `RegisterEventTypeCommandHandler`, after a successful register, sets
@@ -441,13 +561,42 @@ no `FabEventIngestedV1`. Promotion does not change that for rows already held (A
 **FR-011 — No integration event, no `Shared.Contracts` change.** As spec 143
 FR-012 / spec 269 FR-014.
 
-**FR-012 — Constitution §VIII's first bullet is corrected** to describe what now
-exists: the *"There is still no promotion path (issue 2325), so an unknown type
-under `discovery` is ingested like any other"* sentence becomes a description of
-the hold and the promotion, with the Q1 outcome stated. A factual status
-correction, same class as spec 143 FR-014 / spec 269 FR-016. **The lane may not
-make this edit** (ADR-0144); if Q1 is answered by a human, the same answer
-authorises it, otherwise drop FR-012 and file it.
+**FR-012 — Constitution §VIII's first bullet must be corrected** to describe what
+now exists: undeclared pairs open, declared `discovery` holding, registration
+promoting. Today it says *"an undeclared or explicitly `discovery` pair defaults
+to today's open behaviour … There is still no promotion path (issue 2325)"*, and
+both halves become false at merge. **This PR does not make the edit.** ADR-0144
+forbids the autonomous lane amending the constitution, and the user's Q1 decision
+— relayed through the coordinator, which is not itself consent — decided the
+admission predicate, not this text. The drafted replacement is in `plan.md` §10;
+the lane files it as a `documentation` issue for a human to apply (task T016).
+Spec 269's FR-003 wording is left as a historical record; this spec supersedes it
+for undeclared-vs-discovery and says so (§0.2).
+
+**FR-013 — `DELETE /event-sources/{source}` undeclares a pair** (US4). Resolves
+the fab with `ResolveWriteFabAsync`; `If-Match` required, read and `428` answered
+before any lookup (spec 143 FR-006, spec 269 FR-011); `404
+SOURCE_MODE_NOT_DECLARED`; `409 SOURCE_MODE_STALE`; `400
+SOURCE_MODE_INVALID_INPUT` for a bad `{source}`; `204 No Content` on success. The
+row is **deleted** — undeclared means no row (spec 269 FR-003) — after
+`SourceMode.Undeclare` raises `SourceModeUndeclaredDomainEvent` (unconsumed, as
+its siblings are; ADR-0040). Scope `sse.events.types.write` (spec 269 FR-013).
+`DELETE` is idempotent in RFC 9110's sense, so ADR-0143's default retries it; a
+retried delete answers 404, which is truthful.
+
+**FR-014 — The migration returns every `discovery` declaration to undeclared.**
+`DELETE FROM source_modes WHERE mode = 'discovery'` (§0.3 item 1). Before this
+spec the two were behaviourally identical, so the deletion preserves every
+deployment's behaviour exactly; leaving the rows would silently start holding
+events in every fab an operator or a test had touched. The down-migration cannot
+restore the rows and drops only the new columns.
+
+**FR-015 — Spec 269's integration-test cleanup restores to undeclared.**
+`EventSourceModeApi.RestoreDiscoveryAsync` becomes an undeclare (`DELETE`), and
+its call sites follow. Without it, every test that "restores" a berlin, hamburg or
+dresden pair leaves it holding, and any later test in the shared stack that
+ingests an unregistered kind through that pair — every kind is unregistered by
+default — gets a 202 instead of a 201.
 
 ---
 
@@ -458,9 +607,9 @@ Stop any running AppHost first. One stack per machine.
 1. `dotnet run --project src/AppHost`; wait for `event-ingestion` healthy.
 2. Mint a token for `op-berlin@berlin.test` / `Operator1234` from **Aspire's
    proxied Keycloak endpoint**.
-3. Make `(berlin, manual)` and `(berlin, inference)` discovery pairs per Q1
-   (under option A: `POST /event-sources {"source":"manual","mode":"discovery"}`,
-   and the same for `inference`; under option B: nothing to do).
+3. Declare `(berlin, manual)` and `(berlin, inference)` discovery:
+   `POST /event-sources {"source":"manual","mode":"discovery"}`, and the same for
+   `inference` (if either is already declared, `PUT …/mode` instead).
 4. `POST /event-types {"kind":"PlcCycleStart"}` → **201**.
 5. `POST /events/manual` kind `PlcCycleStart` → **201**, listed by `GET /events`.
 6. `POST /events/manual` kind `Held<run-id>` → **202**. `GET /events?kind=…` →
@@ -470,18 +619,21 @@ Stop any running AppHost first. One stack per machine.
    **not** under `?reason=UnknownEventType`.
 7. **The MQTT step.** Publish kind `Held<run-id>` on `fab/berlin/inference/e2e-1`.
    Expect a second held row for the same kind, absent from `GET /events`.
-8. **The default step** (what Q1 decided, asserted): ingest kind
-   `Open<run-id>` through an **undeclared** pair (e.g. `webhook`). Under option A
-   expect **201** and no dead letter; under option B expect **202** and a held row.
+8. **The default step** (Q1, asserted): as `op-dresden`, with `(dresden, manual)`
+   undeclared, `POST /events/manual` kind `Open<run-id>`. Expect **201**, listed by
+   `GET /events`, and no dead letter.
 9. `POST /event-types {"kind":"Held<run-id>"}` → **201**.
 10. `GET /events/dead-letters?reason=UnknownEventType` → both rows `Promoted`;
     `?state=Held` returns neither.
 11. `POST /events/manual` kind `Held<run-id>` → **201**, listed by `GET /events`.
 12. **Restart** `event-ingestion` (`WaitOnResourceUnavailable` if scripted);
     re-run step 10 with a fresh token — still `Promoted`.
-13. **Clean up**: retire `Held<run-id>` and `PlcCycleStart`; `PUT` any pair
-    declared in step 3 back to its prior mode. The dev database is persistent, and
-    a leftover discovery pair holds every later test's unregistered kind.
+13. **The undeclare step (US4) and clean-up.** `DELETE /event-sources/manual` with
+    no `If-Match` → **428**; with the version from `GET /event-sources` → **204**.
+    `POST /events/manual` kind `Open<run-id>-2` → **201**: the pair is open again.
+    Undeclare `inference` the same way; retire `Held<run-id>` and `PlcCycleStart`.
+    The dev database is persistent, and a leftover discovery pair holds every later
+    test's unregistered kind.
 
 **If step 7 stores the event**, the batch path was not wired — the HTTP steps go
 through the single handler and cannot detect that.
@@ -492,15 +644,14 @@ through the single handler and cannot detect that.
 
 Both ingest handlers sit inside this leg (spec 103 §6). This spec adds:
 
-| Path | Option A (declared discovery only) | Option B (default quarantines) |
-|---|---|---|
-| Any pair, admitted kind | +1 `RegisteredKindsAsync` per fab with a declared discovery pair in the batch; **0** otherwise | **+1 per fab per batch, always** |
-| Held kind | the event write is replaced by a dead-letter write — the event never reaches the overlay, so it leaves the leg | same |
+| Path | Cost over spec 269 |
+|---|---|
+| Batch with no declared pair among its fabs (the default) | **none** — one declared-pairs query, as today |
+| Batch with a declared discovery pair | +1 `RegisteredKindsAsync` per such fab (spec 269 already pays this for strict) |
+| Held kind | the event insert is replaced by a dead-letter insert in the same commit; the event never reaches the overlay, so it leaves the leg |
 
-Under option A the default population pays **nothing** beyond spec 269. Under B
-every batch pays a registry query — the cost spec 143 §7 warned about, and the
-case for the `RuleCacheSeederHostedService`-style projection spec 269 §7 held in
-reserve.
+Option A is why the default population pays nothing: option B would have put a
+registry query on every batch in every fab.
 
 As in spec 269 §7, the admission lookup runs **before** `IngestedAt` is stamped,
 so the leg histogram cannot see it. **Phase 5 owes a direct measurement**:
@@ -563,33 +714,43 @@ closed state VOs); `Result<T, Error>` + `ApiError`; minimal APIs; EF migration v
 
 ## 11. `[NEEDS CLARIFICATION]`
 
-### Q1 — Does quarantine apply to the undeclared default? **[NEEDS CLARIFICATION]**
+**None.** Q1 was the one item, and the user answered it on 2026-10-08: **option
+A**. The options as they were put, kept for the record:
+
+### Q1 — Does quarantine apply to the undeclared default? **Resolved: A**
 
 | Option | What happens on merge | Cost |
 |---|---|---|
-| **A (recommended) — declared `discovery` only.** Undeclared pairs keep today's open behaviour; an operator opts a source into quarantine by declaring it `discovery`. | Nothing changes for any deployment until an operator declares a pair. | Undeclared becomes a third, implicit state ("open"). Spec 269 FR-003's wording, the `GET /event-sources` summary and constitution §VIII's sentence change. Arguably a reading of decision 018 ("each source has a strict **or** discovery flag") that leaves room for "not yet enrolled"; a human may judge it needs an ADR note. |
+| **A (chosen) — declared `discovery` only.** Undeclared pairs keep today's open behaviour; an operator opts a source into quarantine by declaring it `discovery`. | Nothing changes for any deployment until an operator declares a pair. | Undeclared becomes a third, implicit state ("open"). Spec 269 FR-003's wording, the `GET /event-sources` summary and constitution §VIII's sentence change. Arguably a reading of decision 018 ("each source has a strict **or** discovery flag") that leaves room for "not yet enrolled"; a human may judge it needs an ADR note. |
 | **B — the default quarantines too** (literal spec 269 FR-003). | **Every event of every kind in every deployment is held** — rules and overlays stop receiving events — until each fab registers every kind it uses. | An outage on upgrade. Plus a registry query on every batch (§7). |
 | **B′ — B, plus the migration seeds each fab's registry** from the distinct `(fab, kind)` already in `events`. | Kinds seen before are admitted; genuinely new kinds are held. | Faithful to 018, but a rare kind outside retention (a monthly alarm) is silently diverted to an audit table in a 24/7 safety system; and seeding writes registry rows nobody declared. |
 | **C — discovery stores *and* holds** (fan-out continues, a held row is also written for review). | No outage. | Contradicts decision 018's *"quarantined events are audit-only"* — **needs an ADR**, which this lane may not write. |
 
-**Recommendation: A.** It is the only option that neither breaks every
-installation nor contradicts decision 018's text, and it makes the default
-population pay nothing on the hot path. It does overturn spec 269's accepted
-"undeclared = discovery" wording, which is why a human must choose it.
+**Recommendation was A, and A was chosen.** It is the only option that neither
+breaks every installation nor contradicts decision 018's text, and it makes the
+default population pay nothing on the hot path. It overturns spec 269's accepted
+"undeclared = discovery" wording, which is why a human chose it; §0.3 records the
+two consequences this spec handles because of it.
 
 ---
 
 ## 12. Gate — phase 1
 
-- [ ] **Q1 answered** (A / B / B′ / C). Until then: no `plan.md`, no `tasks.md`.
+- [x] **Q1 answered: option A** (user, 2026-10-08, recorded on #2325).
+- [ ] §0.3 accepted: FR-014 deletes existing `discovery` rows on migration, and
+      FR-013 adds `DELETE /event-sources/{source}` so undeclared is reachable again.
+- [ ] §1's two inverting tests seen: `A_discovery_source_admits_an_unregistered_kind`
+      and the explicit-discovery case in `StrictSourceIngestIntegrationTests`
+      change their assertion on purpose.
 - [ ] §2.1 split accepted: this issue is backend-only; the inspector UI is #2780,
       blocked on this one and on spec 316.
 - [ ] A1 accepted: promotion is plain registration, no endpoint variant.
 - [ ] A2 accepted: `202 Accepted` for a held HTTP event.
-- [ ] FR-012 (constitution §VIII correction) authorised by the Q1 answer, or
-      dropped and filed.
+- [ ] FR-012: the constitution §VIII correction is **filed for a human, not made
+      in this PR** (T016); drafted text in `plan.md` §10.
 - [ ] §7 accepted: §IV engaged; phase 5 owes a direct measurement.
 - [ ] Phase 4a colour: **RED** (behaviour-changing — a new outcome on every ingest
-      path, a new listing filter, a new effect of registration). Under option A
-      the existing ingest suite is also the characterisation net for the
-      undeclared population, which must stay green **unmodified**.
+      path, a new listing filter, a new effect of registration, a new endpoint).
+      The existing ingest suite is also the characterisation net for the
+      undeclared population and must stay green **unmodified**, apart from the two
+      named inversions and FR-015's cleanup helper.
