@@ -71,5 +71,13 @@ internal static partial class Log
     public static partial void DisabledClientCreatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was created while a revoke was landing, and could not be disabled afterwards. It may still be enabled; the next rotation attempt or manual intervention is needed.")]
-    public static partial void CouldNotDisableClientCreatedDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId, Exception exception);
+    public static partial void CouldNotDisableClientCreatedDuringRevokeRace(this ILogger logger, Exception exception, string integrationName, ClientId clientId);
+
+    // Spec 318 (#2628), the race-path disable's own save losing Layer-2 to the
+    // asynchronous WebhookIntegrationRevokedV1 handler's DisableWebhookClientCommand:
+    // both call the same handler, and whichever's save commits first wins. The
+    // client is disabled either way, so this records which path got there
+    // first rather than reporting a failure.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Webhook client '{ClientId}' for integration '{IntegrationName}' was already disabled by the asynchronous WebhookIntegrationRevokedV1 handler before this create-branch race check's own save could land.")]
+    public static partial void AlreadyDisabledConcurrentlyDuringRevokeRace(this ILogger logger, string integrationName, ClientId clientId);
 }

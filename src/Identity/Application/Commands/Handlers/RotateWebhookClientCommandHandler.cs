@@ -41,6 +41,7 @@ public sealed class RotateWebhookClientCommandHandler(
     IEventBus events,
     ITransactionalCommit commit,
     IClock clock,
+    ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>> disableWebhookClient,
     ILogger<RotateWebhookClientCommandHandler> logger)
     : ICommandHandler<RotateWebhookClientCommand, Result<WebhookClientCredentialsDto, RotateWebhookClientError>>
 {
@@ -194,18 +195,24 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
 
-        if (isCreate)
-        {
-            await DisableIfRevokedSinceCommitAsync(aggregate, clientId, fab, integrationName, cancellationToken);
-        }
+        bool disabledDuringRace = isCreate
+            && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName, cancellationToken);
 
-        // Tell EventIngestion to flip the integration's
-        // bearer-validation path from hash-compare to JWT-validate.
-        await events.PublishAsync(
-            new WebhookIntegrationRotatedV1(
-                integrationName, clientId.Value, clock.UtcNow,
-                Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
-            cancellationToken);
+        // Spec 318 (#2628) S2: a client this same call just disabled must not
+        // also be announced as rotated — that pairs a "rotated" event with a
+        // client already turned off, which is incoherent audit state. The
+        // create itself still succeeded, so the 200 response below is
+        // unaffected.
+        if (!disabledDuringRace)
+        {
+            // Tell EventIngestion to flip the integration's
+            // bearer-validation path from hash-compare to JWT-validate.
+            await events.PublishAsync(
+                new WebhookIntegrationRotatedV1(
+                    integrationName, clientId.Value, clock.UtcNow,
+                    Metadata: new EventMetadata(Guid.CreateVersion7(), clock.UtcNow, fab.Value, rotatedBy.Value)),
+                cancellationToken);
+        }
 
         // Spec 021. The publish happens after the save, so the message was
         // captured into the outbox with nothing left to release it. Reordering
@@ -236,20 +243,34 @@ public sealed class RotateWebhookClientCommandHandler(
     /// <c>SaveAsync</c> committing the new row. EventIngestion's
     /// <c>WebhookIntegrationRevokedV1</c> disable (spec 264) has no row to
     /// disable yet at that moment, so it is dropped, and without this the
-    /// client would stay live and enabled indefinitely.
+    /// client would stay live and enabled indefinitely. <c>Unverifiable</c> is
+    /// treated the same as <c>Revoked</c> here, matching the pre-flight check's
+    /// own fail-closed philosophy a few lines above: a status this handler
+    /// cannot confirm is not one it leaves a live credential attached to.
     ///
     /// <para>
     /// A second read-after-write check, not a distributed lock: the create has
-    /// already committed, so a <c>Revoked</c> answer here reuses the exact
-    /// disable mechanics <c>DisableWebhookClientCommandHandler</c> runs for
-    /// the asynchronous path — Keycloak first, then the aggregate, then the
-    /// save — rather than a parallel mechanism. Best-effort: a failure to
+    /// already committed, so a positive answer here calls
+    /// <c>DisableWebhookClientCommand</c>'s own handler directly rather than a
+    /// duplicated inline copy of its Keycloak-then-aggregate-then-save steps —
+    /// the two paths share one implementation and cannot drift apart. That
+    /// call is synchronous inside this request, not a Wolverine-redelivered
+    /// message, so it does not inherit the async disable's own retry-on-
+    /// redelivery; it is still best-effort, same as before. A failure to
     /// disable is logged, not surfaced, because the create itself genuinely
-    /// succeeded and must not be reported as a failure on that account.
+    /// succeeded and must not be reported as a failure on that account. A
+    /// <see cref="DbUpdateConcurrencyException"/> from the inner handler's own
+    /// save means the asynchronous <c>WebhookIntegrationRevokedV1</c> handler
+    /// won this exact race first — the row is disabled either way, so that is
+    /// logged as "already disabled concurrently", not retried as a conflict.
     /// </para>
     /// </summary>
-    private async Task DisableIfRevokedSinceCommitAsync(
-        RegisteredClientAggregate aggregate,
+    /// <returns>
+    /// <see langword="true"/> if the client ended up disabled — by this call or
+    /// by the concurrent async handler — so the caller can skip announcing the
+    /// rotation for a client that is no longer enabled (S2).
+    /// </returns>
+    private async Task<bool> DisableIfRevokedSinceCommitAsync(
         ClientId clientId,
         FabIdentifier fab,
         string integrationName,
@@ -257,21 +278,38 @@ public sealed class RotateWebhookClientCommandHandler(
     {
         WebhookIntegrationStatus postCommitStatus = await integrationStatus
             .GetStatusAsync(fab, integrationName, cancellationToken);
-        if (postCommitStatus != WebhookIntegrationStatus.Revoked)
+        if (postCommitStatus is not (WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable))
         {
-            return;
+            return false;
         }
 
+        Result<RegisteredClientIdentifier, DisableWebhookClientError> result;
         try
         {
-            await keycloak.DisableClientAsync(clientId.Value, cancellationToken);
-            aggregate.Disable(clock);
-            await clients.SaveAsync(cancellationToken);
-            logger.DisabledClientCreatedDuringRevokeRace(integrationName, clientId);
+            result = await disableWebhookClient.HandleAsync(
+                new DisableWebhookClientCommand(clientId, fab), cancellationToken);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException and not DbUpdateConcurrencyException)
+        catch (DbUpdateConcurrencyException)
         {
-            logger.CouldNotDisableClientCreatedDuringRevokeRace(integrationName, clientId, ex);
+            logger.AlreadyDisabledConcurrentlyDuringRevokeRace(integrationName, clientId);
+            return true;
         }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.CouldNotDisableClientCreatedDuringRevokeRace(ex, integrationName, clientId);
+            return false;
+        }
+
+        if (result.IsFailure)
+        {
+            logger.CouldNotDisableClientCreatedDuringRevokeRace(
+                new InvalidOperationException(
+                    $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}"),
+                integrationName, clientId);
+            return false;
+        }
+
+        logger.DisabledClientCreatedDuringRevokeRace(integrationName, clientId);
+        return true;
     }
 }

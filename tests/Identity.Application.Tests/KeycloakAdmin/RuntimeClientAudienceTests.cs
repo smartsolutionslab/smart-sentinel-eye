@@ -194,6 +194,9 @@ public class RuntimeClientAudienceTests
             clients, keycloak, new FakeWebhookIntegrationStatusLookup(), new FakeEventBus(),
             new NoOpTransactionalCommit(),
             new FakeClock(Now),
+            new DisableWebhookClientCommandHandler(
+                new InMemoryRegisteredClientRepository(), new FakeKeycloakAdminClient(),
+                new FakeClock(Now), NullLogger<DisableWebhookClientCommandHandler>.Instance),
             NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
         await handler.HandleAsync(
