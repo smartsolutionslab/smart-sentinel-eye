@@ -150,6 +150,13 @@ dotnet_diagnostic.S107.severity = none
 dotnet_diagnostic.S1541.severity = none
 dotnet_diagnostic.S134.severity = none
 
+# Spec 318 (#2628): a test helper that builds a sealed adapter behind its own
+# interface (EventIngestionWebhookIntegrationStatusLookupTests.Lookup) trips
+# CA1859's devirtualization suggestion. The suggestion is sound for production
+# call sites; for a test helper whose whole point is to hand back the
+# abstraction under test, narrowing the return type would defeat it.
+dotnet_diagnostic.CA1859.severity = none
+
 [**/Migrations/*.cs]
 # EF Core generates these files. Don't fight the generator.
 generated_code = true

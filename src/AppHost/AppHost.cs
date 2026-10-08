@@ -514,6 +514,14 @@ var identity = builder
     .WithReference(identityDb)
     .WithReference(rabbitmq)
     .WithReference(keycloak)
+    // Spec 318 (#2628): rotating a webhook client asks EventIngestion whether
+    // the integration is revoked. Reference, not WaitFor — an EventIngestion
+    // outage must stop rotation only, not Identity's own boot, its
+    // token-adjacent endpoints, revocation-list serving (ADR-0160), or
+    // kiosk/device flows. EventIngestion already references identity below
+    // (ADR-0160), so this makes the reference mutual; Aspire accepted the
+    // cycle on boot.
+    .WithReference(eventIngestion)
     .WithEnvironment("Keycloak__AdminClientSecret", identityAdminClientSecret)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak);

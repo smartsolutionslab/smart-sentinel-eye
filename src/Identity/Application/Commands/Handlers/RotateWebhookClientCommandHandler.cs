@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
+using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.Identity;
@@ -23,10 +24,20 @@ namespace SmartSentinelEye.Identity.Application.Commands.Handlers;
 /// <see cref="WebhookIntegrationRotatedV1"/> is published so
 /// EventIngestion flips the bearer-validation path.
 /// </para>
+///
+/// <para>
+/// Spec 318 (#2628): before either branch runs, <see cref="integrationStatus"/>
+/// is asked whether EventIngestion considers this integration revoked, and a
+/// <c>Revoked</c> or <c>Unverifiable</c> answer refuses the rotation outright.
+/// On the create branch specifically, a second read-after-write check follows
+/// the new row's own commit, closing the race where a revoke lands in the
+/// window the first check cannot see (plan §4, create-branch TOCTOU).
+/// </para>
 /// </summary>
 public sealed class RotateWebhookClientCommandHandler(
     IRegisteredClientRepository clients,
     IKeycloakAdminClient keycloak,
+    IWebhookIntegrationStatusLookup integrationStatus,
     IEventBus events,
     ITransactionalCommit commit,
     IClock clock,
@@ -50,11 +61,28 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(RotateWebhookClientFailures.InvalidIntegrationName(ex.Message));
         }
 
+        // Before anything else, including the local lookup and both Layer-1
+        // branches below: a revoked (or unverifiable) integration is refused
+        // whichever precondition the caller sent, so the rotate branch's
+        // aggregate.Rotate(clock) + SaveAsync can never run for it (plan §4).
+        WebhookIntegrationStatus status = await integrationStatus
+            .GetStatusAsync(fab, integrationName, cancellationToken);
+        switch (status)
+        {
+            case WebhookIntegrationStatus.Revoked:
+                logger.RefusedRotationOfRevokedIntegration(integrationName, fab);
+                return Failure(RotateWebhookClientFailures.WebhookIntegrationRevoked(integrationName));
+            case WebhookIntegrationStatus.Unverifiable:
+                logger.RefusedRotationStatusUnavailable(integrationName, fab);
+                return Failure(RotateWebhookClientFailures.WebhookIntegrationStatusUnavailable());
+        }
+
         // Scoped to fab: an unscoped lookup lets a caller who names their own
         // fab (not the client's) resolve and rotate a client registered in a
         // fab they hold no access to — AS-4, spec 182.
         Option<RegisteredClientAggregate> existing = await clients
             .GetWithinFabAsync(fab, clientId, cancellationToken);
+        bool isCreate = !existing.HasValue;
 
         // ADR-0113 Layer 1. The caller says which branch it intends, and a
         // mismatch is refused rather than quietly resolved the other way:
@@ -166,6 +194,11 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
 
+        if (isCreate)
+        {
+            await DisableIfRevokedSinceCommitAsync(aggregate, clientId, fab, integrationName, cancellationToken);
+        }
+
         // Tell EventIngestion to flip the integration's
         // bearer-validation path from hash-compare to JWT-validate.
         await events.PublishAsync(
@@ -195,5 +228,50 @@ public sealed class RotateWebhookClientCommandHandler(
                 integrationName,
                 fab.Value,
                 clientSecret));
+    }
+
+    /// <summary>
+    /// Spec 318 (#2628) create-branch TOCTOU: a revoke can land in the window
+    /// between the pre-flight status read above and this branch's own
+    /// <c>SaveAsync</c> committing the new row. EventIngestion's
+    /// <c>WebhookIntegrationRevokedV1</c> disable (spec 264) has no row to
+    /// disable yet at that moment, so it is dropped, and without this the
+    /// client would stay live and enabled indefinitely.
+    ///
+    /// <para>
+    /// A second read-after-write check, not a distributed lock: the create has
+    /// already committed, so a <c>Revoked</c> answer here reuses the exact
+    /// disable mechanics <c>DisableWebhookClientCommandHandler</c> runs for
+    /// the asynchronous path — Keycloak first, then the aggregate, then the
+    /// save — rather than a parallel mechanism. Best-effort: a failure to
+    /// disable is logged, not surfaced, because the create itself genuinely
+    /// succeeded and must not be reported as a failure on that account.
+    /// </para>
+    /// </summary>
+    private async Task DisableIfRevokedSinceCommitAsync(
+        RegisteredClientAggregate aggregate,
+        ClientId clientId,
+        FabIdentifier fab,
+        string integrationName,
+        CancellationToken cancellationToken)
+    {
+        WebhookIntegrationStatus postCommitStatus = await integrationStatus
+            .GetStatusAsync(fab, integrationName, cancellationToken);
+        if (postCommitStatus != WebhookIntegrationStatus.Revoked)
+        {
+            return;
+        }
+
+        try
+        {
+            await keycloak.DisableClientAsync(clientId.Value, cancellationToken);
+            aggregate.Disable(clock);
+            await clients.SaveAsync(cancellationToken);
+            logger.DisabledClientCreatedDuringRevokeRace(integrationName, clientId);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not DbUpdateConcurrencyException)
+        {
+            logger.CouldNotDisableClientCreatedDuringRevokeRace(integrationName, clientId, ex);
+        }
     }
 }

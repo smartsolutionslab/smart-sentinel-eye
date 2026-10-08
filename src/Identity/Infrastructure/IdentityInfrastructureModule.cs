@@ -11,9 +11,11 @@ using SmartSentinelEye.Identity.Application.Queries;
 using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
+using SmartSentinelEye.Identity.Application.WebhookIntegrations;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Persistence;
 using SmartSentinelEye.Identity.Infrastructure.Revocation;
+using SmartSentinelEye.Identity.Infrastructure.WebhookIntegrations;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
@@ -50,6 +52,27 @@ public static class IdentityInfrastructureModule
         builder.Services.AddSingleton(TimeProvider.System);
 
         builder.AddKeycloakAdminClient();
+
+        // Spec 318 (#2628): rotating a webhook client asks EventIngestion
+        // whether the integration is revoked, over its already-published HTTP
+        // API — the first synchronous cross-context call this context makes
+        // (plan.md §III bounded exception, spec 017's precedent). Write path
+        // only, carrying the caller's own token (plan §3), so an
+        // EventIngestion outage stops rotation and nothing else.
+        //
+        // Registered by resource name so Aspire service discovery rewrites
+        // "http://event-ingestion" — scheme included — to whatever that
+        // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
+        // literal; neither applies, because it is a logical name rather than
+        // an address.
+        builder.Services.AddHttpContextAccessor();
+        builder.Services.AddTransient<CallerTokenForwardingHandler>();
+        builder.Services.AddHttpClient<IWebhookIntegrationStatusLookup, EventIngestionWebhookIntegrationStatusLookup>(client =>
+        {
+#pragma warning disable S1075, S5332
+            client.BaseAddress = new Uri("http://event-ingestion");
+#pragma warning restore S1075, S5332
+        }).AddHttpMessageHandler<CallerTokenForwardingHandler>();
 
         // Spec 092 / ADR-0134 Decision 1, which names a startup sweep and had
         // nothing behind it. Scoped, because the pass takes the scoped
