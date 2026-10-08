@@ -42,7 +42,7 @@ public sealed class EventIngestionWebhookIntegrationStatusLookup(
             if (!response.IsSuccessStatusCode)
             {
                 logger.WebhookIntegrationStatusUnverifiable(
-                    integrationName, fab, $"HTTP {(int)response.StatusCode}");
+                    integrationName, fab, $"HTTP {(int)response.StatusCode}", exception: null);
                 return WebhookIntegrationStatus.Unverifiable;
             }
 
@@ -58,7 +58,7 @@ public sealed class EventIngestionWebhookIntegrationStatusLookup(
             // Covers HttpRequestException (unreachable), a resilience-policy
             // TaskCanceledException that is not the caller's own cancellation,
             // and every JSON-shape failure ParseStatus can raise.
-            logger.WebhookIntegrationStatusUnverifiable(integrationName, fab, ex.GetType().Name);
+            logger.WebhookIntegrationStatusUnverifiable(integrationName, fab, ex.GetType().Name, ex);
             return WebhookIntegrationStatus.Unverifiable;
         }
     }

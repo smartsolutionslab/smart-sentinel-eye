@@ -89,7 +89,12 @@ internal static partial class Log
     public static partial void MigrationsApplied(this ILogger logger);
 
     // Spec 318 (#2628). The handler's own Warning needs no detail because this
-    // one names the reason (plan §4).
+    // one names the reason (plan §4). A non-2xx answer carries no exception at
+    // all, so that call site hands in null. The general catch, covering a
+    // transport failure, a resilience timeout or a malformed body, now hands
+    // in its own caught exception rather than reducing it to
+    // ex.GetType().Name, so the socket error or missing field survives into
+    // the log record.
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not confirm EventIngestion's webhook integration status for '{IntegrationName}' in fab {Fab}: {Reason}.")]
-    public static partial void WebhookIntegrationStatusUnverifiable(this ILogger logger, string integrationName, FabIdentifier fab, string reason);
+    public static partial void WebhookIntegrationStatusUnverifiable(this ILogger logger, string integrationName, FabIdentifier fab, string reason, Exception? exception);
 }
