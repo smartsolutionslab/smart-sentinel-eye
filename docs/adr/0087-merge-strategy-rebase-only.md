@@ -28,7 +28,8 @@ Implications for the developer workflow:
 - **Conventional Commits per commit** — each commit is independently
   visible on `develop`, so each commit message must conform to ADR-
   0030.
-- **`git bisect` works on every commit**.
+- **`git bisect` works on every commit** — with one documented exception,
+  below.
 
 ## Consequences
 
@@ -39,6 +40,18 @@ Implications for the developer workflow:
   branch. Hands the squash-cleanup responsibility to the author.
 - **Negative:** large PRs produce more commits on the trunk than
   the squash model. Acceptable when each commit is meaningful.
+- **Negative, accepted (2026-10-08, #2178):** a phase-4a red/green pair
+  (ADR-0139/ADR-0144 — the failing test lands, then its fix lands as the
+  next commit) is a commit on `develop` at which the test suite the pair
+  belongs to fails, even though that commit **compiles**. `git bisect`
+  crossing that range gets a `bad` verdict there for a reason unrelated to
+  whatever bug is actually being hunted. Found concretely at `a7a2f00f`
+  (spec 085, #2113). **Accepted rather than closed**: the alternative —
+  requiring the red test and its fix to land as one commit — would weaken
+  ADR-0139's evidence trail to just the PR body, and reordering
+  declarations-before-guard only inverts which half of the pair is red.
+  A bisect that lands inside such a range should re-run from one commit
+  earlier or later, not trust the verdict at the pair itself.
 
 ## Alternatives Considered
 
