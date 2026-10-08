@@ -9,14 +9,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Spec 318 §6.1. <see cref="IsUnchangedSinceLoadAsync"/> and
-/// <see cref="ReadCommittedStateAsync"/> are declared as plain public methods
-/// before <c>IStreamRepository</c> carries them, so this class compiles
-/// today and starts satisfying the interface the moment phase 4b adds the
-/// two members with these exact signatures (spec 318 §3) — no edit needed
-/// here.
-/// </para>
-/// <para>
+/// Spec 318 §6.1.
 /// <c>committedVersions</c>/<c>loadedVersions</c> model the version token a
 /// real <c>UPDATE ... WHERE version = @loaded</c> would check, without a
 /// database: every <c>Get*Async</c> hit records what this unit of work

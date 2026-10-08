@@ -23,7 +23,9 @@ public interface IStreamRepository
     /// Reports whether the stream's row still carries the version this unit of work loaded or
     /// inserted, without changing it. A conditional no-op UPDATE: it waits on the row lock of any
     /// uncommitted writer and re-evaluates after that writer commits. Writes nothing, so it can
-    /// never make a concurrent writer lose (spec 318 §1.3).
+    /// never make a concurrent writer lose (spec 318 §1.3). On a match it takes the row lock via
+    /// the UPDATE, held to the end of any open transaction; under READ COMMITTED, a concurrent
+    /// writer waiting on that lock re-checks and commits only once this transaction ends.
     /// </summary>
     Task<bool> IsUnchangedSinceLoadAsync(Stream stream, CancellationToken cancellationToken);
 

@@ -310,7 +310,8 @@ public class ProvisionStreamCommandHandlerTests
     /// also moves for a health report, which is not a retirement. Must stay
     /// green before and after the fix — the counterfactual that turns it red
     /// is "compensate on any mismatch" rather than only on a committed
-    /// <c>Retired</c> read (plan §6.3, applied in T022).
+    /// <c>Retired</c> read. This is the only committed test that catches that
+    /// mutation; see the PR's counterfactual table for the run that proved it.
     /// </summary>
     [Fact]
     public async Task A_health_report_during_path_registration_does_not_remove_the_path()

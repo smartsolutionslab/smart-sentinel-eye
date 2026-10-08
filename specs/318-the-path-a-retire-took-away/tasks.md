@@ -38,21 +38,21 @@ fan-out except T001.
 
 ### Phase 4a — tests first. T010, T011, T012 run in parallel; T013 by whichever finishes last.
 
-- [ ] **T010** [P] [US1] **test-writer** —
+- [x] **T010** [P] [US1] **test-writer** —
   `tests/StreamDistribution.Application.Tests/Fakes/InMemoryStreamRepository.cs` (versioned fake +
   the two plan §3 members as plain methods, plan §6.1) and
   `tests/StreamDistribution.Application.Tests/Commands/ProvisionStreamCommandHandlerTests.cs`:
   facts **A1–A5** (plan §6.1). No existing fact edited.
-- [ ] **T011** [P] [US1] **test-writer** —
+- [x] **T011** [P] [US1] **test-writer** —
   `tests/Integration.Tests/StreamDistribution/StreamRepositoryVersionAssertionIntegrationTests.cs`
   (new): **IT-1, IT-2** (plan §6.2).
-- [ ] **T012** [P] [US1] **test-adversary** —
+- [x] **T012** [P] [US1] **test-adversary** —
   `tests/Integration.Tests/StreamDistribution/ProvisionRetireRaceIntegrationTests.cs` (new):
   **IT-3–IT-6** (plan §6.3) plus one adversarial angle of its own, or a written reason it is not
   feasible.
-- [ ] **T013** [P] [US1] `tests/Integration.Tests/ci-shards/shard-2.filter`: entries for T011's and
+- [x] **T013** [P] [US1] `tests/Integration.Tests/ci-shards/shard-2.filter`: entries for T011's and
   T012's classes (plan §6.5).
-- [ ] **T014** [US1] Run on the unmodified `src/` tree:
+- [x] **T014** [US1] Run on the unmodified `src/` tree:
   `dotnet test tests/StreamDistribution.Application.Tests` and the Integration.Tests filter
   `StreamRepositoryVersionAssertionIntegrationTests|ProvisionRetireRaceIntegrationTests|ProvisionStreamIntegrationTests|RetireStreamIntegrationTests|MediaMtxReconcilerIntegrationTests|StreamHealthTransitionTests`.
   Return **verbatim** output. Expected:
@@ -66,14 +66,14 @@ fan-out except T001.
 
 ### Phase 4b — implementation (backend-engineer; **may not edit tests**). Depends on T014.
 
-- [ ] **T020** [US1] `src/StreamDistribution/Domain/Stream/IStreamRepository.cs` +
+- [x] **T020** [US1] `src/StreamDistribution/Domain/Stream/IStreamRepository.cs` +
   `src/StreamDistribution/Infrastructure/Persistence/StreamRepository.cs`: the two members, exact
   plan §3 signatures and §3.1 bodies. Record whether `ExecuteUpdateAsync` translated or the
   `ExecuteSqlInterpolatedAsync` fallback was needed (spec §9 A2).
-- [ ] **T021** [US1] `ProvisionStreamCommandHandler.RegisterPathAsync` per plan §4.1;
+- [x] **T021** [US1] `ProvisionStreamCommandHandler.RegisterPathAsync` per plan §4.1;
   `src/StreamDistribution/Application/Log.cs` per plan §5. Depends on T020 (same commit, plan §7
   commit 2).
-- [ ] **T022** [US1] Re-run T014's commands: all green, tests unmodified.
+- [x] **T022** [US1] Re-run T014's commands: all green, tests unmodified.
   **test-adversary** then applies each plan §6.3 counterfactual (tracked bumping save; `AsNoTracking`
   read; decision on `stream.State`) plus "compensate on any mismatch" against A3, observes each red,
   reverts, and returns the verbatim red lines. `dotnet format --verify-no-changes`; Release build
@@ -84,17 +84,17 @@ fan-out except T001.
 Separable commit (plan §7 commit 3). Runs after US1's T022 because both touch
 `ProvisionStreamCommandHandler.cs`.
 
-- [ ] **T030** [US2] **test-writer** — `ProvisionStreamCommandHandlerTests.cs`: facts **B1, B2**
+- [x] **T030** [US2] **test-writer** — `ProvisionStreamCommandHandlerTests.cs`: facts **B1, B2**
   (plan §6.1). Run; return verbatim output. Expected red: B1 (no removal), B2 (`Success`).
   `Provision_for_a_retired_stream_does_not_re_register_its_path` must stay green.
-- [ ] **T031** [US2] **backend-engineer** — `Retired` branch per plan §4.2. Depends on T030.
-- [ ] **T032** [US2] Re-run T014's commands + B1/B2: all green, unmodified.
+- [x] **T031** [US2] **backend-engineer** — `Retired` branch per plan §4.2. Depends on T030.
+- [x] **T032** [US2] Re-run T014's commands + B1/B2: all green, unmodified.
 
 ## Phase 5–7 (orchestrator)
 
 - [ ] **T040** `/verify` per spec §7 (incl. the US2 planted-path step); verification note on the
   PR. Latency: N/A.
-- [ ] **T041** Phase 6: `backend-reviewer` (explicitly asked to judge spec §5's flag) +
+- [x] **T041** Phase 6: `backend-reviewer` (explicitly asked to judge spec §5's flag) +
   `security-reviewer` (a retired camera's video reachability). Findings resolved or accepted in
   writing.
 - [ ] **T042** PR to `develop` (`--base develop`), `Closes #2743`; body quotes T014's red output and
