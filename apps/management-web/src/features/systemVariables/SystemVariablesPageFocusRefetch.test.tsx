@@ -142,12 +142,18 @@ describe('SystemVariablesPage refetches on window focus (spec 317, #2751)', () =
       await settleRunningQueries(store, systemVariablesApi);
     }
 
+    // All 5 scripted outcomes must actually have been consumed -- otherwise
+    // this passes vacuously if focus never triggers a refetch at all (no
+    // strikes, rows stay, "not refused" trivially holds).
+    expect(refetchOutcomes).toHaveLength(0);
+
     // The strike count resets at the 200 and sits at 2, not 3 -- never refused.
     // RetryBanner is unconditional on the *current* error, independent of the
     // strike count, and the final scripted response here is itself a 403 --
     // so RetryBanner legitimately renders. That's a different, already-correct,
     // unchanged behaviour this test isn't about (see the fence test's own
     // narrower scope for the identical sequence: useRevocationFallbackFocus.test.tsx).
+    expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'oeeLine1' })).toBeInTheDocument();
   });
 });

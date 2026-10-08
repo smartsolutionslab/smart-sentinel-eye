@@ -141,6 +141,11 @@ describe('AuditPage refetches on window focus (spec 317, #2751)', () => {
       await settleRunningQueries(store, auditApi);
     }
 
+    // All 5 scripted outcomes must actually have been consumed -- otherwise
+    // this passes vacuously if focus never triggers a refetch at all (no
+    // strikes, rows stay, "not refused" trivially holds).
+    expect(refetchOutcomes).toHaveLength(0);
+
     // The strike count resets at the 200 and sits at 2, not 3 -- never refused.
     // RetryBanner is unconditional on the *current* error (AuditPage.tsx:211,
     // `error !== undefined`), independent of the strike count, and the final
@@ -148,6 +153,7 @@ describe('AuditPage refetches on window focus (spec 317, #2751)', () => {
     // renders. That's a different, already-correct, unchanged behaviour this
     // test isn't about (see the fence test's own narrower scope for the
     // identical sequence: useRevocationFallbackFocus.test.tsx).
+    expect(screen.getByRole('alert')).toBeInTheDocument();
     expect(screen.getByText('CameraRegisteredV1')).toBeInTheDocument();
   });
 });

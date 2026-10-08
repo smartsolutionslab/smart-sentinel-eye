@@ -134,6 +134,10 @@ describe('useRevocationFallback composes with RTK Query focus refetch (spec 317,
       harness.flush();
     }
 
+    // All 5 pushed outcomes must actually have been consumed (shifted by the
+    // queryFn) -- otherwise this passes vacuously if focus never triggers a
+    // refetch at all (no settlements, refusedByRenderRef trivially stays false).
+    expect(harness.responses).toHaveLength(0);
     expect(harness.refusedByRenderRef.current).toBe(false);
   });
 
