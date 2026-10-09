@@ -1,4 +1,4 @@
-# Spec 317 — The same fifteen seconds everywhere
+# Spec 326 — The same fifteen seconds everywhere
 
 **Issue:** [#2077](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2077)
 — *CI cannot observe first-write fragility at all: retries absorb it and nothing reports a retried
@@ -17,9 +17,12 @@ stated aim fixes that rather than leaving it to judgment.
 **Latency budget (§IV):** N/A for every product leg — test-harness configuration only. The one §IV
 measurement in the e2e suite (`click-to-first-frame.spec.ts`) is assessed in §5: unaffected.
 
-**Spec number.** `develop` tops out at **315**. A local branch `feat/316-operator-mfe-shell-and-first-remote`
-claims **316** (no spec directory yet, not pushed), so this takes **317**. No remote branch claims
-316+ (checked 2026-10-08). Re-check before opening the PR.
+**Spec number.** Originally filed as 317; `develop` already carried three specs numbered 317
+(`317-the-outage-that-held-the-boot`, `317-the-tab-left-alone`, `317-the-unknown-a-source-holds`),
+so this collided and is renumbered to **326**. `develop` now tops out at **325**
+(`325-the-guess-space-the-lockout-outlasts`); 326 is confirmed free via
+`git ls-tree origin/develop specs/`, with no open PR or worktree claiming it (checked 2026-10-09,
+review of #2077). Re-check before opening the PR.
 
 ## 1. The premise, re-checked on this tree
 
@@ -45,6 +48,29 @@ Downloaded `playwright-report-{1..4}-of-4` from runs `37765112945` (`ba37ca5a`),
 - The JSON report carries no per-assertion durations, so **the baseline cannot name any assertion
   that today takes 15–30 s at the default budget in CI** — those pass on attempt 1 and are invisible
   by construction. That invisibility is the issue; phase 5 is where they become visible.
+
+### 1.2 A second cold-cost population, distinct from spec 066's
+
+§1's table accounts for spec 066's explicit first-write budget sites (82 of them) and finds them
+unaffected — they use an explicit per-assertion `timeout:`, not `expect.timeout`. That is not the
+only place a default-budget assertion meets a cold stack. Each of the four e2e shards (`ci.yml`
+`e2e-shards`) boots its **own** stack from scratch, and the first sign-in/navigation in each shard
+pays for Vite's on-demand module transform, Keycloak's first login, and the first JWKS fetch — at
+the **default** `expect.timeout`, not an explicit override:
+
+- `e2e/support/sign-in.ts`'s final `expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible()`.
+- `e2e/support/kiosk-session.ts`'s post-sign-in expects (the *Pick a layout* heading and the first
+  list item).
+
+`scripts/wait-for-e2e-stack.sh` only warms `/` and one module before the suite starts (its own
+header: "Playwright's CI retries absorb any residual warm-up") — it does not warm the full module
+graph or the Keycloak login page, so these sites can still meet a cold path despite the warm-up.
+This is a second, genuinely distinct population from spec 066's: spec 066 covers the *first write of
+each message type*, carried everywhere by an explicit budget; this one is each shard's *first
+sign-in*, running at the default budget this spec changes. Phase 5's verification (§7) sorts any
+newly-retried-pass test by whether it is each shard's first test (likely this population, not a
+regression) versus a later test (genuine first-write fragility at the default budget — the thing
+this issue is actually about).
 
 ## 2. User story
 
@@ -177,4 +203,6 @@ did for its own leg) — a separate issue, not this one.
   it that way (scenario 6).
 - **G1** — *Guess:* the PR's CI run surfaces zero to a few new retried passes rather than a hard
   red. Basis: local runs have used 15 s all along, and spec 066 budgeted the known first-write sites.
-  Unverifiable before the run (§1.1). Phase 5 records the actual figure.
+  Unverifiable before the run (§1.1). Phase 5 records the actual figure. **Caveat:** that basis
+  covers spec 066's first-write population only; it does not cover §1.2's cold-sign-in population
+  (each shard's first sign-in, at the default budget), which this guess did not separately size.

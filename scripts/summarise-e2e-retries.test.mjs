@@ -463,12 +463,12 @@ test('the CI reporter list gains a json entry; retries and workers stay untouche
   assert.match(
     config,
     /expect:\s*\{\s*timeout:\s*15_000\s*\}/,
-    'expect.timeout must be 15_000 in both environments — spec 317 / #2077',
+    'expect.timeout must be 15_000 in both environments — spec 326 / #2077',
   );
   assert.match(
     config,
     /workers:\s*isCI\s*\?\s*1\s*:\s*undefined/,
-    'workers is out of scope for spec 317 (#2077) — a separate asymmetry; do not change it here',
+    'workers is out of scope for spec 326 (#2077) — a separate asymmetry; do not change it here',
   );
 
   // The regexes above prove the strings are *present*, not that they are the

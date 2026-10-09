@@ -49,11 +49,11 @@ setup('a published wall exists whose tiles have both video and a bound overlay',
   //
   // Spec 262 (ADR-0156, D1 option A): the wall grew from four cameras to
   // nine, so registrations 2-4 above became registrations 2-9 — six more
-  // warm sites at the same 30 s CI worst case, +180 s. Rounded up rather than
-  // padded to the old ratio: this sweep has never actually run at nine, so
-  // the risk is watched on the first PR run (spec 262 §7 D1) rather than
-  // trusted from arithmetic alone. `expect.timeout` is now 15 s in both
-  // environments (#2077), so this 600 s ceiling is conservative.
+  // warm sites sized at the then-30 s CI worst case, +180 s. Rounded up
+  // rather than padded to the old ratio: this sweep has never actually run
+  // at nine, so the risk is watched on the first PR run (spec 262 §7 D1)
+  // rather than trusted from arithmetic alone. `expect.timeout` is now 15 s
+  // in both environments (#2077), so this 600 s ceiling is conservative.
   setup.setTimeout(600_000);
 
   const wall = newLiveVideoWall();

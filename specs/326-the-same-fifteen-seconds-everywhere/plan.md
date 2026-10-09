@@ -1,4 +1,4 @@
-# Plan 317 — The same fifteen seconds everywhere
+# Plan 326 — The same fifteen seconds everywhere
 
 **Spec:** [spec.md](spec.md) · **Issue:** #2077 · **Engineer:** infra-engineer (CI / test-harness
 config; no product code) · **Phase 4a colour:** **red** (spec §4).
@@ -40,11 +40,11 @@ Amend in place rather than add a new file: this test is already the home of the 
 moving the assertion elsewhere would read as a deleted pin.
 
 - Replace the `expect.timeout` regex with `/expect:\s*\{\s*timeout:\s*15_000\s*\}/` and the
-  message with *"expect.timeout must be 15_000 in both environments — spec 317 / #2077"*.
+  message with *"expect.timeout must be 15_000 in both environments — spec 326 / #2077"*.
 - Add: exactly one `^\s*expect:` line in the file (mirrors the existing single-`retries:` check,
   same reason — a nested `projects[]` `expect` would win at runtime).
 - Add the scope fence: `/workers:\s*isCI\s*\?\s*1\s*:\s*undefined/` with message *"workers is out of
-  scope for spec 317 (#2077) — a separate asymmetry; do not change it here"*, plus exactly one
+  scope for spec 326 (#2077) — a separate asymmetry; do not change it here"*, plus exactly one
   `^\s*workers:` line.
 - Rename the test title to say what it now pins: reporter json entry, `retries` untouched,
   `expect.timeout` unified, `workers` untouched.
@@ -91,6 +91,7 @@ environment-conditional** — enforced by the guard.
 | New retried passes appear | Expected outcome; recorded in the verification note with names. |
 | Someone later "fixes" `workers` alongside | Fence assertion fails `test:guards`. |
 | Line-number citations drift | Block line count preserved; verified by T004. |
+| A newly-retried-pass test is misread as first-write fragility when it is each shard's cold first sign-in | Two distinct cold-cost populations exist (spec §1.2): spec 066's explicit first-write sites (unaffected, out of scope) and the shard's own first sign-in/navigation (`e2e/support/sign-in.ts`'s final heading assertion, `e2e/support/kiosk-session.ts:26-27`), both of which run at the default budget. `scripts/wait-for-e2e-stack.sh` warms only `/` and one module, not the full module graph or Keycloak's login page, so this population is real. Phase 5 (T008) sorts any new retried pass by position — each shard's first test is this population, not a regression; a later test is the genuine first-write fragility this issue targets. |
 
 ## 7. Verification (phase 5)
 

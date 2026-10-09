@@ -1,4 +1,4 @@
-# Tasks 317 — The same fifteen seconds everywhere
+# Tasks 326 — The same fifteen seconds everywhere
 
 **Spec:** [spec.md](spec.md) · **Plan:** [plan.md](plan.md) · **Issue:** #2077 (feature-level
 issue; already on Project #13 — no per-task issues, per CLAUDE.md Phase 3)
@@ -52,7 +52,9 @@ fan out. No foundational/AppHost work.
 
 ## Commit plan (ADR-0030, each commit builds on its own)
 
-1. `docs(2077): spec 317, one expect.timeout for local and CI` — `specs/317-*/`.
+1. `docs(2077): spec 317, one expect.timeout for local and CI` — `specs/317-*/` (renumbered to
+   `specs/326-*/` by the review commit; the commit message itself is not amended — see CLAUDE.md
+   on not rewriting pushed, reviewed commits).
 2. `fix(2077): unify expect.timeout at 15 s in local and CI` — T002 + T003 **in one commit**.
    Rebase-merge lands commits individually (ADR-0087), so a guard-only commit would put a red
    `test:guards` on `develop`; the red is evidenced by T002's verbatim output in the PR body instead.
