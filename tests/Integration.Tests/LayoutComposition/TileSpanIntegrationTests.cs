@@ -137,7 +137,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         published.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(published));
 
         using HttpClient auditReader = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "operator", "Operator1234");
+            "audit-observability", "operator", SeededCredentials.Operator);
         JsonElement row = await PollForPublishedAuditRowAsync(auditReader, layoutIdentifier);
 
         // The raw audit payload column is JsonSerializer.Serialize(message, message.GetType())

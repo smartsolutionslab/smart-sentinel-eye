@@ -21,8 +21,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
 
     [Fact]
     public async Task A_registered_event_type_is_listed_back()
@@ -297,7 +298,14 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        DresdenOperator => DresdenOperatorPassword,
+        MultiFabOperator => MultiFabOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username), username, "no seeded password for this username"),
+    };
 
     private static string UniqueKind() => $"EventType{Guid.NewGuid():N}";
 

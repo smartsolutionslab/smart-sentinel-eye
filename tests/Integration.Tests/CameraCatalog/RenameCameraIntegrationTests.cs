@@ -25,8 +25,9 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
+    private const string MunichOperatorPassword = SeededCredentials.Op3Munich;
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     private const string OriginalUrl = "rtsp://10.0.7.12/h264";
 
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
@@ -40,7 +41,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Renaming_keeps_the_camera_and_its_registration_record()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid camera = await RegisterAsync(cameras, Unique("line-3"));
 
         JsonElement before = await ReadAsync(cameras, camera);
@@ -66,7 +67,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Renaming_onto_an_active_cameras_name_in_the_same_fab_is_refused()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         string taken = Unique("line-4");
         await RegisterAsync(cameras, taken);
 
@@ -87,7 +88,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Renaming_onto_a_name_differing_only_in_case_is_refused()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         string taken = Unique("line-4");
         await RegisterAsync(cameras, taken);
 
@@ -112,7 +113,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task The_name_a_rename_frees_can_be_registered_again()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         string original = Unique("line-3");
         Guid camera = await RegisterAsync(cameras, original);
         int version = await VersionOfAsync(cameras, camera);
@@ -134,7 +135,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_camera_cannot_be_renamed()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid camera = await RegisterAsync(cameras, Unique("line-3"));
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
@@ -157,7 +158,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_taken_name_and_a_stale_version_arrive_as_different_refusals()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         string taken = Unique("line-4");
         await RegisterAsync(cameras, taken);
 
@@ -202,11 +203,11 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Another_fabs_camera_is_refused_exactly_as_one_that_does_not_exist()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid real = await RegisterAsync(munich, Unique("line-3"));
         Guid imaginary = Guid.CreateVersion7();
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         // With a precondition: both must reach the camera lookup and both must
         // be refused identically.
@@ -237,7 +238,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Renaming_to_the_same_name_succeeds_and_a_case_only_change_is_stored()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         string original = Unique("Line-3");
         Guid camera = await RegisterAsync(cameras, original);
 
@@ -262,7 +263,7 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_patch_carrying_both_a_name_and_an_address_is_refused()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid camera = await RegisterAsync(cameras, Unique("line-3"));
         int version = await VersionOfAsync(cameras, camera);
 
@@ -278,8 +279,8 @@ public class RenameCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         (await cameras.SendAsync(both)).StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, password);
 
     private static StringContent NameBody(string name) =>
         new($"{{\"name\":\"{name}\"}}", Encoding.UTF8, "application/json");

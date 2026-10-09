@@ -22,7 +22,7 @@ namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpDresden;
 
     /// <summary>
     /// How long to wait before concluding a frame is not coming. Generous

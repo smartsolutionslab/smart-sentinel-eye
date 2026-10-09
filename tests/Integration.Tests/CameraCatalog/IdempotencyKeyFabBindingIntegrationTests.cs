@@ -29,8 +29,9 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     /// <summary>
     /// The #2492 headline scenario: one key, one body, two fabs. Today: 201
@@ -39,7 +40,7 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_for_the_same_camera_in_another_fab_is_refused_and_creates_nothing()
     {
-        using HttpClient cameras = await ClientFor(MultiFabOperator);
+        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string name = UniqueName();
         string key = $"key-{Guid.CreateVersion7():N}";
 
@@ -64,7 +65,7 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_for_a_different_camera_in_the_same_fab_is_refused()
     {
-        using HttpClient cameras = await ClientFor(MultiFabOperator);
+        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string first = UniqueName();
         string second = UniqueName();
         string key = $"key-{Guid.CreateVersion7():N}";
@@ -90,7 +91,7 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_fab_guard_refuses_before_a_reused_key_is_examined()
     {
-        using HttpClient cameras = await ClientFor(DresdenOperator);
+        using HttpClient cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
         string name = UniqueName();
         string key = $"key-{Guid.CreateVersion7():N}";
 
@@ -114,8 +115,8 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     public async Task A_key_reused_by_another_caller_is_a_fresh_request()
     {
         string sharedKey = $"key-{Guid.CreateVersion7():N}";
-        using HttpClient dresdenOnly = await ClientFor(DresdenOperator);
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        using HttpClient dresdenOnly = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using HttpClient multi = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
         HttpResponseMessage first = await SendAsync(dresdenOnly, "dresden", UniqueName(), sharedKey);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(first));
@@ -128,8 +129,8 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
             + "get a fresh registration, not 422 and not a replay: " + await BodyAsync(second));
     }
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, password);
 
     private static Task<HttpResponseMessage> SendAsync(HttpClient cameras, string fab, string name, string key)
     {

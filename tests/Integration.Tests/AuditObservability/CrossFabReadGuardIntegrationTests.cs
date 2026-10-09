@@ -23,7 +23,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     {
         // admin@munich.test is a member of /fabs/munich only.
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         Guid overlayId = Guid.CreateVersion7();
 
         HttpResponseMessage ownFab = await client.GetAsync($"/audit/overlay/{overlayId}?fabId=munich");
@@ -59,7 +59,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
             OverlayRow(overlayIdentifier, fab: "berlin"));
 
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
         HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=munich");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -99,7 +99,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         await SeedAsync(Row("berlin"), Row(fab: null));
 
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
         HttpResponseMessage response = await client.GetAsync("/audit?pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -140,11 +140,11 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         await SeedAsync(Row(fab: null));
 
         using HttpClient munich = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         JsonElement archived = await PollForArchiveRowAsync(munich, name);
 
         using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "op-berlin@berlin.test", "Operator1234");
+            "audit-observability", "op-berlin@berlin.test", SeededCredentials.OpBerlin);
         JsonElement[] visible = await ArchiveRowsAsync(berlin);
 
         string[] leaked = [.. visible
@@ -178,7 +178,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task An_empty_fab_on_a_resource_timeline_is_a_client_error()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         Guid overlayIdentifier = Guid.CreateVersion7();
 
         HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
@@ -198,7 +198,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task A_whitespace_fab_on_a_resource_timeline_is_a_client_error()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         Guid overlayIdentifier = Guid.CreateVersion7();
 
         HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=%20");
@@ -224,7 +224,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
         await SeedAsync(Row("munich"), Row("berlin"));
 
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
         HttpResponseMessage response = await client.GetAsync("/audit?fabId=&pageSize=200");
 
@@ -250,7 +250,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task A_cross_fab_timeline_is_refused_before_a_malformed_resource_is_parsed()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         string malformedResourceIdentifier = new('a', ResourceIdentifier.MaximumLength + 1);
 
         HttpResponseMessage response = await client.GetAsync(
@@ -278,7 +278,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task A_malformed_fab_grammar_now_gets_a_client_error_not_an_authorization_refusal()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         Guid overlayIdentifier = Guid.CreateVersion7();
 
         HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=NOT_A_FAB");
@@ -303,7 +303,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task A_malformed_fab_on_the_audit_search_is_a_client_error_not_an_authorization_refusal()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
         HttpResponseMessage response = await client.GetAsync("/audit?fabId=NOT_A_FAB");
 
@@ -324,7 +324,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task An_omitted_fab_keeps_the_frameworks_own_refusal()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         Guid overlayIdentifier = Guid.CreateVersion7();
 
         HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}");
@@ -342,7 +342,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task A_cross_fab_audit_search_is_still_refused()
     {
         using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "admin@munich.test", "Admin1234");
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
         HttpResponseMessage response = await client.GetAsync("/audit?fabId=berlin");
 
@@ -370,7 +370,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     private async Task ArchiveInMunichAsync(string name)
     {
         using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
-            "system-variables", "admin@munich.test", "Admin1234");
+            "system-variables", "admin@munich.test", SeededCredentials.AdminMunich);
 
         HttpResponseMessage defined = await variables.PostAsJsonAsync(
             "/system-variables",

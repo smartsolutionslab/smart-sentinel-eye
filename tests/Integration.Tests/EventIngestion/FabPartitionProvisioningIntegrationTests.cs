@@ -24,7 +24,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
 {
     private const string BerlinOperator = "op-berlin@berlin.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpBerlin;
 
     [Fact]
     public async Task Every_fab_in_the_realm_has_event_storage()

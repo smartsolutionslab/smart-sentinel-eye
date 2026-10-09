@@ -22,8 +22,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string HamburgOperator = "op-hamburg@hamburg.test";
+    private const string HamburgOperatorPassword = SeededCredentials.OpHamburg;
     private const string MunichOperator = "op-3@munich.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MunichOperatorPassword = SeededCredentials.Op3Munich;
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -221,7 +222,14 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        HamburgOperator => HamburgOperatorPassword,
+        MunichOperator => MunichOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username), username, "no seeded password for this username"),
+    };
 
     private static object Body(string kind) => new
     {

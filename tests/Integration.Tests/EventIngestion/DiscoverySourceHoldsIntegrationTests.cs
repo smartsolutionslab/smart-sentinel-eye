@@ -116,7 +116,7 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
     public async Task An_undeclared_source_still_admits_an_unknown_kind_with_201()
     {
         using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
-            ResourceName, DresdenOperator, OperatorPassword);
+            ResourceName, DresdenOperator, DresdenOperatorPassword);
         string kind = UniqueKind();
 
         HttpResponseMessage created = await IngestManualAsync(dresden, kind);
@@ -226,7 +226,7 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> BerlinClientAsync() =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, BerlinOperator, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, BerlinOperator, BerlinOperatorPassword);
 
     private static string UniqueKind() => $"DiscoveryHold{Guid.NewGuid():N}"[..24];
 

@@ -27,7 +27,8 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     public Task InitializeAsync() => aspire.ResetSystemVariablesAsync();
 
@@ -194,7 +195,14 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     }
 
     private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("system-variables", username, OperatorPassword);
+        await aspire.CreateAuthenticatedClientAsync("system-variables", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        MultiFabOperator => MultiFabOperatorPassword,
+        DresdenOperator => DresdenOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username)),
+    };
 
     private static object Body(string name) => new
     {

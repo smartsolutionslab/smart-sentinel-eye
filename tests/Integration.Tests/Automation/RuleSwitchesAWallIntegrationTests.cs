@@ -32,7 +32,7 @@ namespace SmartSentinelEye.Integration.Tests.Automation;
 public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpMulti;
 
     private static readonly TimeSpan EffectDeadline = TimeSpan.FromSeconds(60);
 

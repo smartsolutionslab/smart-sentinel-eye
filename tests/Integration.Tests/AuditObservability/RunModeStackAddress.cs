@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
@@ -36,7 +37,7 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
     private const string Realm = "smart-sentinel-eye";
     private const string ClientId = "management-web";
     private const string AdminUsername = "admin";
-    private const string AdminPassword = "Admin1234";
+    private const string AdminPassword = SeededCredentials.Admin;
 
     /// <summary>
     /// Reads the address from the environment, or explains what is missing.

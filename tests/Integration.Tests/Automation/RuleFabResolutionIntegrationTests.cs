@@ -23,7 +23,8 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     public Task InitializeAsync() => aspire.ResetAutomationAsync();
 
@@ -34,7 +35,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     {
         // Not inferred, and not tie-broken: either would place the rule in a
         // fab the operator never chose (ADR-0114).
-        using HttpClient rules = await ClientFor(MultiFabOperator);
+        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
         HttpResponseMessage refused = await rules.PostAsJsonAsync("/rules", RuleBody(UniqueName()));
 
@@ -46,7 +47,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator);
+        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string name = UniqueName();
 
         HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId=dresden", RuleBody(name));
@@ -65,7 +66,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
         // The dresden-only operator against munich: 403, not 404. Nothing is
         // being hidden here — the caller named a fab, and the answer is about
         // the fab, not about whether a rule exists in it.
-        using HttpClient rules = await ClientFor(DresdenOperator);
+        using HttpClient rules = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage refused = await rules.PostAsJsonAsync("/rules?fabId=munich", RuleBody(UniqueName()));
 
@@ -77,7 +78,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     {
         // The row that already worked, re-asserted from a second fab: it must
         // infer dresden, not the munich that everything else defaults to.
-        using HttpClient rules = await ClientFor(DresdenOperator);
+        using HttpClient rules = await ClientFor(DresdenOperator, DresdenOperatorPassword);
         string name = UniqueName();
 
         HttpResponseMessage created = await rules.PostAsJsonAsync("/rules", RuleBody(name));
@@ -97,7 +98,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_name_held_in_two_of_the_callers_fabs_is_refused_as_ambiguous()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator);
+        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string shared = UniqueName();
 
         (await rules.PostAsJsonAsync($"/rules?fabId=munich", RuleBody(shared)))
@@ -119,7 +120,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task Naming_the_fab_resolves_the_ambiguity()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator);
+        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string shared = UniqueName();
 
         await rules.PostAsJsonAsync($"/rules?fabId=munich", RuleBody(shared));
@@ -135,7 +136,7 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task The_listing_spans_every_fab_the_caller_holds()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator);
+        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string inMunich = UniqueName();
         string inDresden = UniqueName();
 
@@ -152,8 +153,8 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
         names.ShouldContain(inDresden);
     }
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("automation", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("automation", username, password);
 
     private static object RuleBody(string name) => new
     {

@@ -42,7 +42,7 @@ internal static class LayoutRequests
         using HttpClient cameras = fab == "munich"
             ? await aspire.CreateAdminClientAsync("camera-catalog")
             : await aspire.CreateAuthenticatedClientAsync(
-                "camera-catalog", "op-multi@smart-sentinel-eye.test", "Operator1234");
+                "camera-catalog", "op-multi@smart-sentinel-eye.test", SeededCredentials.OpMulti);
 
         HttpResponseMessage created = await cameras.PostAsJsonAsync(
             fab == "munich" ? "/cameras" : $"/cameras?fabId={fab}",

@@ -19,8 +19,9 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
+    private const string MunichOperatorPassword = SeededCredentials.Op3Munich;
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
@@ -29,7 +30,7 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Reading_one_camera_returns_it_with_a_version_on_both_the_ETag_and_the_body()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid camera = await RegisterAsync(cameras, UniqueName());
 
         HttpResponseMessage response = await cameras.GetAsync($"/cameras/{camera}");
@@ -57,7 +58,7 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_camera_is_still_readable_and_says_so()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid camera = await RegisterAsync(cameras, UniqueName());
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
@@ -78,10 +79,10 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich, UniqueName());
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage crossFab = await dresden.GetAsync($"/cameras/{inMunich}");
         HttpResponseMessage neverExisted = await dresden.GetAsync($"/cameras/{Guid.CreateVersion7()}");
@@ -99,7 +100,7 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Every_row_of_the_listing_carries_a_version()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         await RegisterAsync(cameras, UniqueName());
 
         HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200");
@@ -115,8 +116,8 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         page.GetProperty("items").EnumerateArray().ShouldNotBeEmpty();
     }
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, password);
 
     private static string UniqueName() => $"read-{Guid.CreateVersion7():N}"[..24];
 

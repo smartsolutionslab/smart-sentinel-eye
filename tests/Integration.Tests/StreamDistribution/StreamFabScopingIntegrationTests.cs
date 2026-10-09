@@ -19,7 +19,8 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
 
@@ -130,7 +131,7 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     private async Task<(Guid InMunich, Guid InDresden)> ProvisionOnePerFabAsync()
     {
         using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
-            "camera-catalog", MultiFabOperator, OperatorPassword);
+            "camera-catalog", MultiFabOperator, MultiFabOperatorPassword);
 
         Guid inMunich = await RegisterAsync(cameras, "munich");
         Guid inDresden = await RegisterAsync(cameras, "dresden");
@@ -143,7 +144,14 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     }
 
     private Task<HttpClient> StreamsFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync("stream-distribution", username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync("stream-distribution", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        MultiFabOperator => MultiFabOperatorPassword,
+        DresdenOperator => DresdenOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username)),
+    };
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string fab)
     {

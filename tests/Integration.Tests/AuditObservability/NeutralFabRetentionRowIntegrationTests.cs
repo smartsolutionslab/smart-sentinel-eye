@@ -45,7 +45,7 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestOutputHelper output)
 {
     private const string MunichAdminUsername = "admin@munich.test";
-    private const string MunichAdminPassword = "Admin1234";
+    private const string MunichAdminPassword = SeededCredentials.AdminMunich;
 
     /// <summary>
     /// The hypertable's chunk interval is one month;

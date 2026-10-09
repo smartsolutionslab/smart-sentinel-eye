@@ -58,7 +58,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     private const string CameraCatalogResource = "camera-catalog";
     private const string EventIngestionResource = "event-ingestion";
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpMulti;
 
     // Matched by prefix where the placeholder interpolates a resource name or a
     // failure reason, so the assertion does not depend on that variable half.

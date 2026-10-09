@@ -41,8 +41,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
 
     // Seeded dev-only confidential client; the one MQTT principal with both a
     // known secret and an ACL write grant (AppHost realm + mosquitto/acl.txt).
@@ -229,7 +230,14 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        DresdenOperator => DresdenOperatorPassword,
+        MultiFabOperator => MultiFabOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username), username, "no seeded password for this username"),
+    };
 
     private async Task<string> BodyAsync(HttpResponseMessage response) =>
         $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}" +

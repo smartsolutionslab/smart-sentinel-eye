@@ -29,8 +29,9 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
@@ -41,7 +42,7 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     {
         // Not inferred, and not tie-broken: either would file the camera under
         // a fab the operator never chose (ADR-0114).
-        using HttpClient cameras = await ClientFor(MultiFabOperator);
+        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
         HttpResponseMessage refused = await cameras.PostAsJsonAsync("/cameras", Body(UniqueName()));
 
@@ -53,7 +54,7 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient cameras = await ClientFor(MultiFabOperator);
+        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string name = UniqueName();
 
         HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras?fabId=dresden", Body(name));
@@ -67,7 +68,7 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     {
         // The dresden-only operator against munich: 403, not 404. Nothing is
         // hidden — the caller named a fab, and the answer is about the fab.
-        using HttpClient cameras = await ClientFor(DresdenOperator);
+        using HttpClient cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage refused = await cameras.PostAsJsonAsync("/cameras?fabId=munich", Body(UniqueName()));
 
@@ -77,7 +78,7 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_single_fab_operator_has_dresden_inferred_not_the_default()
     {
-        using HttpClient cameras = await ClientFor(DresdenOperator);
+        using HttpClient cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
         string name = UniqueName();
 
         HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", Body(name));
@@ -94,7 +95,7 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     {
         // FR-005, and the asymmetry with the write path: a read does not have
         // to choose.
-        using HttpClient cameras = await ClientFor(MultiFabOperator);
+        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string inMunich = UniqueName();
         string inDresden = UniqueName();
 
@@ -112,18 +113,18 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task The_listing_omits_a_fab_the_caller_does_not_hold()
     {
-        using HttpClient owner = await ClientFor(MultiFabOperator);
+        using HttpClient owner = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
         string inMunich = UniqueName();
         (await owner.PostAsJsonAsync("/cameras?fabId=munich", Body(inMunich)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient outsider = await ClientFor(DresdenOperator);
+        using HttpClient outsider = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         (await NamesAsync(outsider)).ShouldNotContain(inMunich);
     }
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, password);
 
     private static object Body(string name) => new
     {

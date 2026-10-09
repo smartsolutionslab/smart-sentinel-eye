@@ -284,7 +284,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     public async Task A_management_web_token_carries_every_scope_that_client_grants()
     {
         string jwt = await aspire.GetAccessTokenForClientAsync(
-            "management-web", DresdenOperator, OperatorPassword, "openid sse.events.write");
+            "management-web", DresdenOperator, DresdenOperatorPassword, "openid sse.events.write");
 
         string[] granted = ScopesOf(jwt);
 
@@ -346,7 +346,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     }
 
     private Task<string> EventSourceToken(string clientId) =>
-        aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, OperatorPassword, "openid");
+        aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
 
     /// <summary>
     /// The <c>scope</c> claim of a JWT, read without validating it — this asks
@@ -368,7 +368,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, username, PasswordFor(username));
 
     private async Task<string> Diagnose(HttpResponseMessage response) =>
         $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}"

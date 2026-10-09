@@ -1,4 +1,5 @@
 using System.Text.Json;
+using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 
@@ -19,9 +20,23 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 internal static class EventTypeRegistryApi
 {
     internal const string DresdenOperator = "op-dresden@dresden.test";
+    internal const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     internal const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    internal const string OperatorPassword = "Operator1234";
+    internal const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
     internal const string ResourceName = "event-ingestion";
+
+    /// <summary>
+    /// Resolves the seeded password for one of this class's own operator
+    /// usernames, so a helper that is handed a username variable (rather
+    /// than one of the named constants directly) can still authenticate as
+    /// that account (spec 325, #2510).
+    /// </summary>
+    internal static string PasswordFor(string username) => username switch
+    {
+        DresdenOperator => DresdenOperatorPassword,
+        MultiFabOperator => MultiFabOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username), username, "no seeded password for this username"),
+    };
 
     internal static string UniqueKind() => $"EventType{Guid.NewGuid():N}";
 

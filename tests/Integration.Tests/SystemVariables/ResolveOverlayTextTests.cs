@@ -31,7 +31,7 @@ public class ResolveOverlayTextTests(AspireFixture aspire) : IAsyncLifetime
     private const string ServiceAccountClientId = "stream-distribution-attribution";
     private const string ServiceAccountSecret = "dev-only-stream-distribution-secret";
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpDresden;
 
     public Task InitializeAsync() => aspire.ResetSystemVariablesAsync();
 

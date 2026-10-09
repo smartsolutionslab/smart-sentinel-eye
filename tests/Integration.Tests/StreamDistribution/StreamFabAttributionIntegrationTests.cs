@@ -33,7 +33,7 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpMulti;
 
     private const string AttributionClientIdentifier = "stream-distribution-attribution";
     private const string AttributionClientSecret = "dev-only-stream-distribution-secret";

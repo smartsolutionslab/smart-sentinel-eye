@@ -37,7 +37,7 @@ public class EndToEndIngestionIntegrationTests(AspireFixture aspire)
         cameraId.ShouldNotBe(Guid.Empty);
 
         using HttpClient auditReader = await aspire.CreateAuthenticatedClientAsync(
-            "audit-observability", "operator", "Operator1234");
+            "audit-observability", "operator", SeededCredentials.Operator);
 
         JsonElement row = await PollForAuditRowAsync(auditReader, cameraId);
 

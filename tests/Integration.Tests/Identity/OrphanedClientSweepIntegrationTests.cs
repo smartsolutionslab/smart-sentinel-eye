@@ -299,7 +299,7 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     private static readonly Dictionary<string, string> NoAttributes = new(StringComparer.Ordinal);
 
     private Task<HttpClient> MunichClientAsync() =>
-        aspire.CreateAuthenticatedClientAsync("identity", "admin@munich.test", "Admin1234");
+        aspire.CreateAuthenticatedClientAsync("identity", "admin@munich.test", SeededCredentials.AdminMunich);
 
     private static Task<HttpResponseMessage> RegisterDeviceAsync(HttpClient client, string deviceIdentifier) =>
         client.PostAsJsonAsync($"/devices/register?fabId={Fab}", new { deviceType = "plc", deviceIdentifier });

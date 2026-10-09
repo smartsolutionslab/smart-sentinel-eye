@@ -40,7 +40,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpDresden;
     private static readonly JsonElement Payload = JsonDocument.Parse("""{"severity":"high"}""").RootElement;
 
     /// <summary>

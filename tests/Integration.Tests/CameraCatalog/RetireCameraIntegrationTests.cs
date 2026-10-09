@@ -21,8 +21,9 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
+    private const string MunichOperatorPassword = SeededCredentials.Op3Munich;
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     // Fixed rather than unique: every test resets the catalogue, and the
     // reuse stories read better naming the same camera the spec names.
@@ -35,7 +36,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Retiring_a_camera_succeeds_and_retiring_it_again_announces_nothing_further()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid camera = await RegisterAsync(cameras, UniqueName());
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
@@ -72,10 +73,10 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich, UniqueName());
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage crossFab = await dresden.PostAsync($"/cameras/{inMunich}/retire", null);
         HttpResponseMessage neverExisted = await dresden.PostAsync($"/cameras/{Guid.CreateVersion7()}/retire", null);
@@ -92,7 +93,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             .ShouldBe(unknownProblem.GetProperty("title").GetString());
 
         // And the camera is untouched — a refused retire must not half-happen.
-        using HttpClient owner = await ClientFor(MunichOperator);
+        using HttpClient owner = await ClientFor(MunichOperator, MunichOperatorPassword);
         (await NamesAsync(owner)).Length.ShouldBeGreaterThan(0);
     }
 
@@ -109,7 +110,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_cameras_name_is_free_again_in_its_own_fab()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid original = await RegisterAsync(cameras, ReusedName);
 
         (await cameras.PostAsync($"/cameras/{original}/retire", null))
@@ -135,7 +136,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task An_active_cameras_name_is_still_refused()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         await RegisterAsync(cameras, ReusedName);
 
         HttpResponseMessage duplicate = await AttemptRegisterAsync(cameras, ReusedName);
@@ -155,8 +156,8 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retirement_in_one_fab_changes_nothing_in_another()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         Guid inMunich = await RegisterAsync(munich, ReusedName);
 
@@ -187,7 +188,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Case_insensitivity_survives_reuse()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid original = await RegisterAsync(cameras, "Line-3-Inlet");
 
         // #1434: while it is active, a differently-cased name is the same name.
@@ -213,7 +214,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_camera_leaves_the_default_listing_and_comes_back_when_asked_for()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         await RegisterAsync(cameras, "cam-staying");
         Guid going = await RegisterAsync(cameras, "cam-going");
 
@@ -231,8 +232,8 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         ]);
     }
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, password);
 
     private static string UniqueName() => $"retire-{Guid.CreateVersion7():N}"[..24];
 

@@ -31,7 +31,8 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
 
     public Task InitializeAsync() => aspire.ResetLayoutCompositionAsync();
 
@@ -268,7 +269,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
         using HttpClient munich = await aspire.CreateAdminClientAsync("layout-composition");
         Guid a = await PublishedLayoutAsync(munich);
         Guid dresdenLayout = await PublishedLayoutAsync(
-            await aspire.CreateAuthenticatedClientAsync("layout-composition", MultiFabOperator, OperatorPassword),
+            await aspire.CreateAuthenticatedClientAsync("layout-composition", MultiFabOperator, MultiFabOperatorPassword),
             "dresden");
 
         HttpResponseMessage refused = await CreateWallAsync(munich, UniqueName(), [a, dresdenLayout]);
@@ -358,7 +359,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
         Guid wall = await CreateWallReturningIdAsync(munich, [a, b]);
 
         using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
-            "layout-composition", DresdenOperator, OperatorPassword);
+            "layout-composition", DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage hidden = await dresden.GetAsync($"/walls/{wall}");
         hidden.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(hidden));

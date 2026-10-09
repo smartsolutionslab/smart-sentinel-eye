@@ -31,9 +31,11 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
+    private const string MunichOperatorPassword = SeededCredentials.Op3Munich;
     private const string DresdenOperator = "op-dresden@dresden.test";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
 
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();
 
@@ -43,10 +45,10 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Reading_another_fabs_camera_is_byte_identical_to_reading_one_that_never_existed()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage crossFab = await dresden.GetAsync($"/cameras/{inMunich}");
         HttpResponseMessage neverExisted = await dresden.GetAsync($"/cameras/{Guid.CreateVersion7()}");
@@ -62,10 +64,10 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Correcting_another_fabs_camera_is_byte_identical_to_correcting_one_that_never_existed()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage crossFab = await PatchAsync(dresden, inMunich, expectedVersion: 0);
         HttpResponseMessage neverExisted = await PatchAsync(dresden, Guid.CreateVersion7(), expectedVersion: 0);
@@ -98,10 +100,10 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_correction_with_no_If_Match_is_refused_identically_whichever_camera_it_names()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpRequestMessage crossFab = new(HttpMethod.Patch, $"/cameras/{inMunich}") { Content = Body() };
         HttpRequestMessage neverExisted =
@@ -124,10 +126,10 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_correction_with_a_valid_If_Match_is_refused_identically_whichever_camera_it_names()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage crossFab = await PatchAsync(dresden, inMunich, expectedVersion: 1);
         HttpResponseMessage neverExisted = await PatchAsync(dresden, Guid.CreateVersion7(), expectedVersion: 1);
@@ -145,10 +147,10 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task An_operator_holding_both_fabs_can_read_and_correct_the_camera()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
         Guid inMunich = await RegisterAsync(munich);
 
-        using HttpClient multiFab = await ClientFor(MultiFabOperator);
+        using HttpClient multiFab = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
         HttpResponseMessage read = await multiFab.GetAsync($"/cameras/{inMunich}?fabId=munich");
         read.StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -219,8 +221,8 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
             "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
             "<identifier>");
 
-    private async Task<HttpClient> ClientFor(string username) =>
-        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, OperatorPassword);
+    private async Task<HttpClient> ClientFor(string username, string password) =>
+        await aspire.CreateAuthenticatedClientAsync("camera-catalog", username, password);
 
     private static StringContent Body() =>
         new("{\"rtspUrl\":\"rtsp://10.0.5.77/h264\"}", Encoding.UTF8, "application/json");

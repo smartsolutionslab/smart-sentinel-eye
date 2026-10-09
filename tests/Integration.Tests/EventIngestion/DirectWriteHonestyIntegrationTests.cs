@@ -18,7 +18,7 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
 {
     private const string Fab = "hamburg";
     private const string Operator = "op-hamburg@hamburg.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpHamburg;
 
     /// <summary>
     /// FR-001/FR-002. The <c>Location</c> is followed rather than parsed,

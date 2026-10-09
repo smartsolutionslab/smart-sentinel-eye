@@ -181,7 +181,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     public async Task An_undeclared_source_still_ingests_an_unknown_kind()
     {
         using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
-            ResourceName, DresdenOperator, OperatorPassword);
+            ResourceName, DresdenOperator, DresdenOperatorPassword);
 
         HttpResponseMessage created = await IngestManualAsync(dresden, UniqueKind());
 
@@ -326,7 +326,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     });
 
     private Task<HttpClient> BerlinClientAsync() =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, BerlinOperator, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, BerlinOperator, BerlinOperatorPassword);
 
     private static string UniqueKind() => $"StrictMode{Guid.NewGuid():N}"[..24];
 

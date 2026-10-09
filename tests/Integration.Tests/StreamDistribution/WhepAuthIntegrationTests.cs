@@ -16,9 +16,9 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.Op3Munich;
     private const string WallBerlinUsername = "wall-berlin";
-    private const string WallBerlinPassword = "Wall-berlin-1234";
+    private const string WallBerlinPassword = SeededCredentials.WallBerlin;
 
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
 

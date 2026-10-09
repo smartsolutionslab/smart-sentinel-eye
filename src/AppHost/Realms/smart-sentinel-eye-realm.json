@@ -17,7 +17,7 @@
   "quickLoginCheckMilliSeconds": 1000,
   "minimumQuickLoginWaitSeconds": 60,
   "verifyEmail": false,
-  "passwordPolicy": "length(8) and upperCase(1) and lowerCase(1) and digits(1)",
+  "passwordPolicy": "length(15) and upperCase(1) and lowerCase(1) and digits(1) and specialChars(1) and notContainsUsername and notEmail",
   "roles": {
     "realm": [
       { "name": "user", "description": "Standard user role" },
@@ -365,7 +365,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Wall-munich-1234",
+          "value": "Copper-Lantern-Drift-47",
           "temporary": false
         }
       ],
@@ -387,7 +387,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Wall-dresden-1234",
+          "value": "Maple-Orbit-Canvas-82",
           "temporary": false
         }
       ],
@@ -409,7 +409,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Wall-berlin-1234",
+          "value": "Quartz-Harbor-Ember-19",
           "temporary": false
         }
       ],
@@ -431,7 +431,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Wall-hamburg-1234",
+          "value": "Velvet-Summit-Prism-63",
           "temporary": false
         }
       ],
@@ -453,7 +453,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Admin1234",
+          "value": "Granite-Willow-Beacon-58",
           "temporary": false
         }
       ],
@@ -470,7 +470,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "Operator1234",
+          "value": "Cobalt-Meadow-Ripple-24",
           "temporary": false
         }
       ],
@@ -485,7 +485,7 @@
       "firstName": "Munich",
       "lastName": "Admin",
       "credentials": [
-        { "type": "password", "value": "Admin1234", "temporary": false }
+        { "type": "password", "value": "Saffron-Glacier-Tundra-71", "temporary": false }
       ],
       "realmRoles": ["user", "admin"],
       "groups": ["/fabs/munich"]
@@ -498,7 +498,7 @@
       "firstName": "Munich",
       "lastName": "Operator",
       "credentials": [
-        { "type": "password", "value": "Operator1234", "temporary": false }
+        { "type": "password", "value": "Hazel-Compass-Thistle-36", "temporary": false }
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/munich"]
@@ -511,7 +511,7 @@
       "firstName": "Dresden",
       "lastName": "Operator",
       "credentials": [
-        { "type": "password", "value": "Operator1234", "temporary": false }
+        { "type": "password", "value": "Indigo-Falcon-Pebble-90", "temporary": false }
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/dresden"]
@@ -524,7 +524,7 @@
       "firstName": "Multi-fab",
       "lastName": "Operator",
       "credentials": [
-        { "type": "password", "value": "Operator1234", "temporary": false }
+        { "type": "password", "value": "Juniper-Anchor-Mosaic-15", "temporary": false }
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/munich", "/fabs/dresden"]
@@ -537,7 +537,7 @@
       "firstName": "Berlin",
       "lastName": "Operator",
       "credentials": [
-        { "type": "password", "value": "Operator1234", "temporary": false }
+        { "type": "password", "value": "Marble-Cinder-Lagoon-43", "temporary": false }
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/berlin"]
@@ -550,7 +550,7 @@
       "firstName": "Hamburg",
       "lastName": "Operator",
       "credentials": [
-        { "type": "password", "value": "Operator1234", "temporary": false }
+        { "type": "password", "value": "Amber-Trellis-Nimbus-68", "temporary": false }
       ],
       "realmRoles": ["user"],
       "groups": ["/fabs/hamburg"]

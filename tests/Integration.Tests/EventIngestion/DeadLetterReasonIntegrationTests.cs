@@ -48,7 +48,7 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
     // DeadLetterFabScopingIntegrationTests uses its own single-fab operator
     // (op-dresden@dresden.test) — a different, also-seeded user, not this one.
     private const string HamburgOperator = "op-hamburg@hamburg.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpHamburg;
 
     [Fact]
     public async Task A_clock_skewed_delivery_records_the_rule_it_broke_not_the_retry_window()

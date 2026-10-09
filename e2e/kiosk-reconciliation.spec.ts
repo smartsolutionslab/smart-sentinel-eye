@@ -68,7 +68,7 @@ test('kiosk reconciles the overlay state it missed while the hub was down', asyn
   await admin.goto('/');
   await admin.getByRole('button', { name: /sign in/i }).click();
   await admin.locator('#username').fill('operator');
-  await admin.locator('#password').fill('Operator1234');
+  await admin.locator('#password').fill('Cobalt-Meadow-Ripple-24');
   await admin.locator('#kc-login').click();
   await expect(admin.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
 
