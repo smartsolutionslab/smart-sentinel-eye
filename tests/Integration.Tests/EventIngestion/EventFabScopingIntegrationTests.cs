@@ -20,8 +20,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -143,7 +144,14 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        DresdenOperator => DresdenOperatorPassword,
+        MultiFabOperator => MultiFabOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username), username, "no seeded password for this username"),
+    };
 
     private static object Body(string kind) => new
     {

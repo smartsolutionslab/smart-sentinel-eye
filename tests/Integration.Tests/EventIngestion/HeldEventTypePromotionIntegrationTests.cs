@@ -360,7 +360,7 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task<HttpClient> EventSourceClientAsync(string clientId)
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, OperatorPassword, "openid");
+        string jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
 
         HttpClient client = aspire.CreateServiceClient(ResourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
@@ -369,7 +369,7 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, username, PasswordFor(username));
 
     private async Task<string> Diagnose(HttpResponseMessage response) =>
         $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}"

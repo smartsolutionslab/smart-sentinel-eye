@@ -115,7 +115,7 @@ public class EventSourceModeAuthorizationIntegrationTests(AspireFixture aspire)
 
     private async Task<HttpClient> EventSourceClientAsync(string clientId)
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, OperatorPassword, "openid");
+        string jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
 
         HttpClient client = aspire.CreateServiceClient(ResourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);

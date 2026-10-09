@@ -57,7 +57,7 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
 {
     private const string Operator = "operator";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.Operator;
     private const string SystemVariablesResource = "system-variables";
     private const string AuditResource = "audit-observability";
     private const string SystemVariablesRoute = "/system-variables";

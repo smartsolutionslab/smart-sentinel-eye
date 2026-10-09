@@ -8,7 +8,7 @@ namespace SmartSentinelEye.Integration.Tests.Fixtures;
 public sealed partial class AspireFixture
 {
     public const string AdminUsername = "admin";
-    public const string AdminPassword = "Admin1234";
+    public const string AdminPassword = SeededCredentials.Admin;
     public const string ClientId = "management-web";
 
     // Token cache lives across all tests in the collection so a 295-test

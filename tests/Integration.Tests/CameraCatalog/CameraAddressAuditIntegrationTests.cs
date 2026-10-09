@@ -23,7 +23,7 @@ namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
 public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.Op3Munich;
     private const string CorrectedUrl = "rtsp://10.0.5.44/h264";
 
     public Task InitializeAsync() => aspire.ResetCameraCatalogAsync();

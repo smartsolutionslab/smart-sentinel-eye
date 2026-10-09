@@ -38,7 +38,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
 {
     private const string Fab = "munich";
     private const string DresdenOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpDresden;
     private const string CameraRtspUrl = "rtsp://camera.test/stream";
 
     /// <summary>

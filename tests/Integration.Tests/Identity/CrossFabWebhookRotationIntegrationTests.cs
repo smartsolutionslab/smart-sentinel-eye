@@ -112,7 +112,7 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> DresdenClientAsync() =>
-        aspire.CreateAuthenticatedClientAsync("identity", "op-dresden@dresden.test", "Operator1234");
+        aspire.CreateAuthenticatedClientAsync("identity", "op-dresden@dresden.test", SeededCredentials.OpDresden);
 
     /// <summary>
     /// Creates a fresh dresden webhook integration and performs its first

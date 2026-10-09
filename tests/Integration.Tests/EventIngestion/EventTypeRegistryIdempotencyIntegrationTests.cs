@@ -229,7 +229,7 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, username, PasswordFor(username));
 
     private async Task<string> Diagnose(HttpResponseMessage response) =>
         $"body: {await response.Content.ReadAsStringAsync()}{Environment.NewLine}"

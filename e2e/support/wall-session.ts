@@ -17,7 +17,7 @@ import { expect, type Page } from '@playwright/test';
  */
 
 export const WALL_USER = 'wall-munich';
-export const WALL_PASSWORD = 'Wall-munich-1234';
+export const WALL_PASSWORD = 'Copper-Lantern-Drift-47';
 
 export interface SignInAsWallDisplayOptions {
   /**

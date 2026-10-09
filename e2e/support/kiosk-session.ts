@@ -19,7 +19,7 @@ export async function signInToKiosk(page: Page): Promise<void> {
   await page.getByRole('button', { name: /sign in/i }).click();
 
   await page.locator('#username').fill('operator');
-  await page.locator('#password').fill('Operator1234');
+  await page.locator('#password').fill('Cobalt-Meadow-Ripple-24');
   await page.locator('#kc-login').click();
 
   // The picker, with layouts on it. The `seed` project published one.

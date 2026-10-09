@@ -36,7 +36,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper output)
 {
     private const string Operator = "op-hamburg@hamburg.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpHamburg;
     private const string OutboxSchema = "wolverine_event_ingestion";
     private const int Written = 40;
 

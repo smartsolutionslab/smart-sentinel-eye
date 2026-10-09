@@ -27,7 +27,7 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 public class StreamFabDerivationIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpMulti;
 
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(500);

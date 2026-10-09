@@ -19,7 +19,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
 {
     private const string ManualOperator = "op-dresden@dresden.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpDresden;
     private const string WebhookFab = "munich";
 
     [Fact]

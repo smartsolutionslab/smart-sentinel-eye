@@ -108,7 +108,8 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     /// </summary>
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
 
-    private const string OperatorPassword = "Operator1234";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
 
     /// <summary>
     /// How long to wait for a frame that should arrive. Generous against the
@@ -234,7 +235,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
             await ListenAsync(await AdminTokenAsync());
         (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
-            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, OperatorPassword));
+            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, DresdenOperatorPassword));
 
         await using (munich)
         await using (dresden)
@@ -303,7 +304,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
             await ListenAsync(await AdminTokenAsync());
         (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
-            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, OperatorPassword));
+            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, DresdenOperatorPassword));
 
         await using (munich)
         await using (dresden)
@@ -350,16 +351,16 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
             await ListenAsync(await AdminTokenAsync());
         (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
-            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, OperatorPassword));
+            await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, DresdenOperatorPassword));
         (HubConnection bothFabs, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> bothFabsFrames) =
-            await ListenAsync(await aspire.GetAccessTokenAsync(MultiFabOperator, OperatorPassword));
+            await ListenAsync(await aspire.GetAccessTokenAsync(MultiFabOperator, MultiFabOperatorPassword));
 
         await using (munich)
         await using (dresden)
         await using (bothFabs)
         {
             using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
-                "system-variables", MultiFabOperator, OperatorPassword);
+                "system-variables", MultiFabOperator, MultiFabOperatorPassword);
             (await SetDresdenValueAsync(variables, variableName, "63.5")).EnsureSuccessStatusCode();
 
             // The dresden-only screen is told. Awaiting it first is what makes
@@ -461,7 +462,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     private async Task AlsoDefinedInDresdenAsync(string variableName)
     {
         using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
-            "system-variables", MultiFabOperator, OperatorPassword);
+            "system-variables", MultiFabOperator, MultiFabOperatorPassword);
 
         (await variables.PostAsJsonAsync("/system-variables?fabId=dresden", new
         {

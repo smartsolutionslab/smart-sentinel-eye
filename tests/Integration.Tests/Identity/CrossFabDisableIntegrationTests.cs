@@ -161,10 +161,10 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> MunichClientAsync() =>
-        aspire.CreateAuthenticatedClientAsync("identity", "admin@munich.test", "Admin1234");
+        aspire.CreateAuthenticatedClientAsync("identity", "admin@munich.test", SeededCredentials.AdminMunich);
 
     private Task<HttpClient> DresdenClientAsync() =>
-        aspire.CreateAuthenticatedClientAsync("identity", "op-dresden@dresden.test", "Operator1234");
+        aspire.CreateAuthenticatedClientAsync("identity", "op-dresden@dresden.test", SeededCredentials.OpDresden);
 
     private static async Task<string> EnrollKioskAsync(HttpClient munich)
     {

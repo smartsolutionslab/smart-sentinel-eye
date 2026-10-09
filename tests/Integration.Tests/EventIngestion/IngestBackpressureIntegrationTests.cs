@@ -20,7 +20,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class IngestBackpressureIntegrationTests(AspireFixture aspire, ITestOutputHelper output)
 {
     private const string Operator = "op-hamburg@hamburg.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpHamburg;
 
     /// <summary>
     /// AS-1. Both clauses are load-bearing (spec §2.1): at least one 429 proves

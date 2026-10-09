@@ -47,8 +47,9 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     private const string SecondAccountUsername = AspireFixture.AdminUsername;
     private const string SecondAccountPassword = AspireFixture.AdminPassword;
 
-    // Satisfies the realm's password policy (length(8) and upperCase(1) and
-    // lowerCase(1) and digits(1)) with margin, so a policy change trips the
+    // Satisfies the realm's password policy (length(15) and upperCase(1) and
+    // lowerCase(1) and digits(1) and specialChars(1) and notContainsUsername
+    // and notEmail, spec 325/#2510) with margin, so a policy change trips the
     // reset-password assertion in CreateProbeUserAsync, not a mysterious 400
     // deep inside a later assertion.
     private const string ProbePassword = "Lockout-Probe-Pw1";
@@ -504,9 +505,10 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
                 cancellationToken);
             resetPassword.IsSuccessStatusCode.ShouldBeTrue(
                 $"setting the throwaway probe's password failed with {(int)resetPassword.StatusCode}; "
-                + "the realm's password policy is 'length(8) and upperCase(1) and lowerCase(1) and "
-                + $"digits(1)' — a policy change should fail here, at setup, not at a downstream "
-                + $"assertion. body: {await resetPassword.Content.ReadAsStringAsync(cancellationToken)}");
+                + "the realm's password policy is 'length(15) and upperCase(1) and lowerCase(1) and "
+                + "digits(1) and specialChars(1) and notContainsUsername and notEmail' — a policy "
+                + $"change should fail here, at setup, not at a downstream assertion. body: "
+                + $"{await resetPassword.Content.ReadAsStringAsync(cancellationToken)}");
         }
         catch
         {

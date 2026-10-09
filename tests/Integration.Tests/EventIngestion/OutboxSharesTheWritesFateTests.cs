@@ -24,7 +24,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
 {
     private const string Fab = "hamburg";
     private const string Operator = "op-hamburg@hamburg.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.OpHamburg;
     private const string OutboxSchema = "wolverine_event_ingestion";
 
     /// <summary>

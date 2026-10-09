@@ -49,9 +49,9 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOutputHelper output) : IAsyncLifetime
 {
     private const string MunichAdminUsername = "admin@munich.test";
-    private const string MunichAdminPassword = "Admin1234";
+    private const string MunichAdminPassword = SeededCredentials.AdminMunich;
     private const string BerlinOperatorUsername = "op-berlin@berlin.test";
-    private const string BerlinOperatorPassword = "Operator1234";
+    private const string BerlinOperatorPassword = SeededCredentials.OpBerlin;
     private const string UnreachableRtspUrl = "rtsp://10.0.6.1/h264";
 
     /// <summary>Matches <c>StreamHealthTransitionTests.SettleTimeout</c>.</summary>

@@ -169,5 +169,5 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
             CultureInfo.InvariantCulture)));
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, username, PasswordFor(username));
 }

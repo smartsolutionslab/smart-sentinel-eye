@@ -141,7 +141,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
             ["grant_type"] = "password",
             ["client_id"] = AspireFixture.ClientId,
             ["username"] = "operator",
-            ["password"] = "Operator1234",
+            ["password"] = SeededCredentials.Operator,
             ["scope"] = "openid",
         });
 
@@ -164,7 +164,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     /// </summary>
     private Task<string> OperatorTokenAsync() =>
         aspire.GetAccessTokenForClientAsync(
-            AspireFixture.ClientId, "operator", "Operator1234", "openid");
+            AspireFixture.ClientId, "operator", SeededCredentials.Operator, "openid");
 
     /// <summary>
     /// The client_credentials grant the simulator worker uses. Not on the

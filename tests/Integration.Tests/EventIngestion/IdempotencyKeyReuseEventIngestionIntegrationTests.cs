@@ -100,7 +100,7 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync(ResourceName, username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync(ResourceName, username, PasswordFor(username));
 
     private static Task<HttpResponseMessage> IngestManualAsync(HttpClient events, string kind, string key)
     {

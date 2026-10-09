@@ -73,8 +73,9 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 [Collection(AspireCollection.Name)]
 public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
 {
-    // Satisfies the realm's password policy (length(8) and upperCase(1) and
-    // lowerCase(1) and digits(1)) with margin — same shape as
+    // Satisfies the realm's password policy (length(15) and upperCase(1) and
+    // lowerCase(1) and digits(1) and specialChars(1) and notContainsUsername
+    // and notEmail, spec 325/#2510) with margin — same shape as
     // BruteForceLockoutIntegrationTests.ProbePassword.
     private const string ProbePassword = "Session-Probe-Pw1";
     private const string WrongPassword = "wrong-on-purpose";
@@ -651,9 +652,10 @@ public class LockoutSessionSurvivalIntegrationTests(AspireFixture aspire)
                 cancellationToken);
             resetPassword.IsSuccessStatusCode.ShouldBeTrue(
                 $"setting the throwaway probe's password failed with {(int)resetPassword.StatusCode}; "
-                + "the realm's password policy is 'length(8) and upperCase(1) and lowerCase(1) and "
-                + $"digits(1)' — a policy change should fail here, at setup, not at a downstream "
-                + $"assertion. body: {await resetPassword.Content.ReadAsStringAsync(cancellationToken)}");
+                + "the realm's password policy is 'length(15) and upperCase(1) and lowerCase(1) and "
+                + "digits(1) and specialChars(1) and notContainsUsername and notEmail' — a policy "
+                + $"change should fail here, at setup, not at a downstream assertion. body: "
+                + $"{await resetPassword.Content.ReadAsStringAsync(cancellationToken)}");
         }
         catch
         {

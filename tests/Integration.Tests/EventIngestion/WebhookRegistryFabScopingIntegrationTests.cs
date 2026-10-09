@@ -20,8 +20,9 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
 {
     private const string DresdenOperator = "op-dresden@dresden.test";
+    private const string DresdenOperatorPassword = SeededCredentials.OpDresden;
     private const string MultiFabOperator = "op-multi@smart-sentinel-eye.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string MultiFabOperatorPassword = SeededCredentials.OpMulti;
 
     [Fact]
     public async Task An_integration_is_registered_into_the_registering_operators_fab()
@@ -137,7 +138,14 @@ public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
     }
 
     private Task<HttpClient> ClientFor(string username) =>
-        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, OperatorPassword);
+        aspire.CreateAuthenticatedClientAsync("event-ingestion", username, PasswordFor(username));
+
+    private static string PasswordFor(string username) => username switch
+    {
+        DresdenOperator => DresdenOperatorPassword,
+        MultiFabOperator => MultiFabOperatorPassword,
+        _ => throw new ArgumentOutOfRangeException(nameof(username), username, "no seeded password for this username"),
+    };
 
     private static string UniqueName(string prefix) =>
         $"{prefix}-{Guid.NewGuid():N}".ToLowerInvariant()[..Math.Min(63, prefix.Length + 20)];

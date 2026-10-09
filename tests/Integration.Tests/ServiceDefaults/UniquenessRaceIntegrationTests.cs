@@ -32,7 +32,7 @@ namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
 public class UniquenessRaceIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 {
     private const string MunichOperator = "op-3@munich.test";
-    private const string OperatorPassword = "Operator1234";
+    private const string OperatorPassword = SeededCredentials.Op3Munich;
 
     /// <summary>
     /// Enough writers that the race is likely without being so many that the

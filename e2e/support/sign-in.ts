@@ -13,7 +13,7 @@ export async function signInAsOperator(page: Page): Promise<void> {
 
   // Real Keycloak login form (standard login-theme element ids).
   await page.locator('#username').fill('operator');
-  await page.locator('#password').fill('Operator1234');
+  await page.locator('#password').fill('Cobalt-Meadow-Ripple-24');
   await page.locator('#kc-login').click();
 
   // Back in the app, authenticated — the shell renders (opens on Cameras).
