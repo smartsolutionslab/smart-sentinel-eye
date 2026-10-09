@@ -5,12 +5,13 @@ import { defineVariable } from './support/management-variables';
 import { FIRST_WRITE_TEST_TIMEOUT_MS, FIRST_WRITE_TIMEOUT_MS } from './support/cold-stack';
 
 // Spec 066 / #2014 — how long the injected-delay test below holds the define
-// `POST`. 20 s is chosen against both `expect` budgets in `playwright.config.ts`:
-// above the 15 s local default and below CI's 30 s, so the same test says the
-// same thing in both places. The red it produced was an *assertion* timeout, not
-// a test timeout, and it stays that way: 20 s sits far inside the test's
-// ceiling, whether that is the config's 60 s (as when the red was observed) or
-// FIRST_WRITE_TEST_TIMEOUT_MS (as now).
+// `POST`. 20 s is chosen against the shared `expect.timeout` in
+// `playwright.config.ts` (#2077 unified it at 15 s in both environments) and
+// FIRST_WRITE_TIMEOUT_MS: above the shared 15 s default and below the 90 s
+// budget, so the test says the same thing in both environments. The red it
+// produced was an *assertion* timeout, not a test timeout, and it stays that
+// way: 20 s sits far inside the test's ceiling, whether that is the config's
+// 60 s (as when the red was observed) or FIRST_WRITE_TEST_TIMEOUT_MS (as now).
 const SLOW_WRITE_DELAY_MS = 20_000;
 
 // ADR-0108 — system-variables "read" vertical slice. An operator signs in, opens
