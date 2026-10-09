@@ -447,7 +447,7 @@ test('an internal error past the shape checks still leaves the section in the su
 // summary actually renders. See `lint-scope.test.mjs` for the same caveat
 // about the same class of assertion.
 
-test('the CI reporter list gains a json entry, and retries/expect.timeout are untouched', () => {
+test('the CI reporter list gains a json entry; retries and workers stay untouched, and expect.timeout is unified to 15_000', () => {
   const config = readFileSync(playwrightConfigPath, 'utf8');
 
   assert.match(
@@ -462,18 +462,33 @@ test('the CI reporter list gains a json entry, and retries/expect.timeout are un
   );
   assert.match(
     config,
-    /expect:\s*\{\s*timeout:\s*isCI\s*\?\s*30_000\s*:\s*15_000\s*\}/,
-    'expect.timeout must remain isCI ? 30_000 : 15_000 — this issue does not change it (spec 145, out of scope)',
+    /expect:\s*\{\s*timeout:\s*15_000\s*\}/,
+    'expect.timeout must be 15_000 in both environments — spec 317 / #2077',
+  );
+  assert.match(
+    config,
+    /workers:\s*isCI\s*\?\s*1\s*:\s*undefined/,
+    'workers is out of scope for spec 317 (#2077) — a separate asymmetry; do not change it here',
   );
 
-  // The regex above proves the string is *present*, not that it is the value
-  // Playwright actually honours — a second, later `retries:` nested inside a
+  // The regexes above prove the strings are *present*, not that they are the
+  // values Playwright actually honours — a second, later key nested inside a
   // `projects[]` entry would match too and silently win at runtime. Assert
-  // there is exactly one top-level occurrence.
+  // there is exactly one top-level occurrence of each.
   assert.equal(
     config.match(/^\s*retries:/gm)?.length,
     1,
     'expected exactly one `retries:` key in playwright.config.ts — a second one (e.g. inside projects[]) would override this match',
+  );
+  assert.equal(
+    config.match(/^\s*expect:/gm)?.length,
+    1,
+    'expected exactly one `expect:` key in playwright.config.ts — a second one (e.g. inside projects[]) would override the unified value per project',
+  );
+  assert.equal(
+    config.match(/^\s*workers:/gm)?.length,
+    1,
+    'expected exactly one `workers:` key in playwright.config.ts — a second one (e.g. inside projects[]) would override this match',
   );
 });
 
