@@ -153,8 +153,17 @@ var keycloak = builder
     .WithImageRegistry("quay.io")
     .WithRealmImport("../AppHost/Realms");
 
+// The Realms directory holds two imports: smart-sentinel-eye-realm.json (the
+// application realm) and master-realm.json (spec 324, #2508), which replaces
+// Keycloak's bootstrap-created `master` so the admin-cli account gets the same
+// brute-force protection as the application realm. master-realm.json must keep
+// the bootstrap-parity fields (accessTokenLifespan, display name, user-profile
+// component) alongside the brute-force block — without them the imported realm
+// falls back to realm-import defaults that break the bootstrap admin's own
+// password grant (plan.md §2 for spec 324).
+//
 // Persistent means the keycloak-data volume survives AppHost restarts, so an edit to
-// Realms/smart-sentinel-eye-realm.json is NOT re-imported — WithRealmImport only runs
+// either Realms/*.json file is NOT re-imported — WithRealmImport only runs
 // against a fresh volume. Drop the volume (`docker volume rm`, or its Aspire/Docker
 // Desktop equivalent) after a realm edit, or the stack looks healthy while still
 // running the old realm.
