@@ -241,6 +241,72 @@ public class RegisterDeviceCommandHandlerTests
         keycloak.Created.ShouldBeEmpty();
     }
 
+    /// <summary>
+    /// Spec 323 — the composed clientId is <c>&lt;type&gt;-&lt;deviceIdentifier&gt;</c>, so a
+    /// deviceIdentifier of "-" composes "plc--" and "." composes "plc-." — the two examples
+    /// named in issue #2627. Every row must be refused on the new segment-grammar reason, not
+    /// merely refused for some other reason (e.g. the ClientId grammar), so that " x" — which
+    /// already failed today via ClientId's own message — is confirmed to fail on the new
+    /// reason instead.
+    /// </summary>
+    [Theory]
+    [InlineData("plc", "-")]
+    [InlineData("plc", ".")]
+    [InlineData("plc", "-x")]
+    [InlineData("plc", "x-")]
+    [InlineData("plc", "x--y")]
+    [InlineData("plc", "x.y")]
+    [InlineData("plc", "x_y")]
+    [InlineData("plc", "line-3.cell_2")]
+    [InlineData("plc", " x")]
+    [InlineData("inference", "a_b")]
+    public async Task An_identifier_that_is_not_hyphen_separated_alphanumeric_segments_returns_InvalidDeviceIdentifier(
+        string deviceType, string deviceIdentifier)
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        RegisterDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<RegisterDeviceCommandHandler>.Instance);
+
+        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+            await handler.HandleAsync(
+                HappyCommand(deviceType: deviceType, deviceIdentifier: deviceIdentifier),
+                CancellationToken.None);
+
+        result.IsSuccess.ShouldBeFalse();
+        RegisterDeviceError.InvalidDeviceIdentifier error =
+            result.Error.ShouldBeOfType<RegisterDeviceError.InvalidDeviceIdentifier>();
+        error.Reason.ShouldBe("each hyphen-separated segment must be one or more letters or digits.");
+        repo.Clients.ShouldBeEmpty();
+        keycloak.Created.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// Spec 323 green-guard — confirms the new segment-grammar rule does not reject any
+    /// identifier that is, and must remain, hyphen-separated alphanumeric segments.
+    /// </summary>
+    [Theory]
+    [InlineData("x")]
+    [InlineData("4station")]
+    [InlineData("station-4")]
+    [InlineData("line-3-cell-2")]
+    public async Task A_hyphen_separated_alphanumeric_identifier_registers(string deviceIdentifier)
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        RegisterDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<RegisterDeviceCommandHandler>.Instance);
+
+        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+            await handler.HandleAsync(
+                HappyCommand(deviceIdentifier: deviceIdentifier), CancellationToken.None);
+
+        result.IsSuccess.ShouldBeTrue();
+        result.Value.ClientId.ShouldBe("plc-" + deviceIdentifier);
+    }
+
     [Fact]
     public async Task Keycloak_transport_failure_returns_KeycloakUnavailable()
     {
