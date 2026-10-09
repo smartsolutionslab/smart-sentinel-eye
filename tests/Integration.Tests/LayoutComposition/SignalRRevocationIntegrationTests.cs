@@ -51,8 +51,7 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire, ITestOutput
     public async Task Archive_force_disconnects_connected_kiosks_within_one_second()
     {
         using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
-        string accessToken = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string accessToken = await aspire.GetAdminAccessTokenAsync();
 
         // Create + publish a layout so there's something to archive.
         HttpResponseMessage created = await admin.PostAsJsonAsync(

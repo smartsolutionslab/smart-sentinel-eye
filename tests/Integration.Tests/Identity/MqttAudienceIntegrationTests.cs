@@ -152,8 +152,7 @@ public class MqttAudienceIntegrationTests(AspireFixture aspire, ITestOutputHelpe
     [Fact]
     public async Task A_token_minted_with_the_api_audience_still_connects()
     {
-        string adminToken = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string adminToken = await aspire.GetAdminAccessTokenAsync();
 
         ClientCredentials device = await RegisterDeviceAsync(adminToken);
         string token = await MintClientCredentialsTokenAsync(device.ClientId, device.ClientSecret);

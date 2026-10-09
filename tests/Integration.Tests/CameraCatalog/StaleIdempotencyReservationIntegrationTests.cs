@@ -473,7 +473,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task SeedUnfinishedReservationAsync(string key, string name, TimeSpan age)
     {
-        string token = await aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         // Guid.Parse + ToString(), not the raw claim string: CameraEndpoints'
         // ResolveOperator parses the subject into a Guid and stores

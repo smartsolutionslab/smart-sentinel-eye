@@ -243,6 +243,44 @@
       ]
     },
     {
+      "clientId": "integration-test-admin",
+      "name": "Smart Sentinel Eye - Integration test admin (dev/CI-only service account)",
+      "description": "Spec 327 (#2511). The Integration.Tests harness's admin caller via client_credentials, replacing ROPC through management-web. Scopes equal management-web's (guarded). In /fabs/munich like the seeded admin. No realm-management roles. Never deployed.",
+      "enabled": true,
+      "publicClient": false,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "secret": "dev-only-integration-test-admin-secret",
+      "protocol": "openid-connect",
+      "defaultClientScopes": [
+        "sse-identity",
+        "sse-audience",
+        "sse-groups",
+        "sse.cameras.read",
+        "sse.cameras.write",
+        "sse.streams.read",
+        "sse.streams.write",
+        "sse.layouts.read",
+        "sse.layouts.write",
+        "sse.overlays.read",
+        "sse.overlays.write",
+        "sse.variables.read",
+        "sse.variables.write",
+        "sse.rules.read",
+        "sse.rules.write",
+        "sse.events.read",
+        "sse.events.write",
+        "sse.events.types.write",
+        "sse.webhooks.write",
+        "sse.identity.devices.write",
+        "sse.identity.kiosks.write",
+        "sse.identity.devices.read",
+        "sse.identity.kiosks.read",
+        "sse.audit.read"
+      ]
+    },
+    {
       "clientId": "migration-runner",
       "name": "Smart Sentinel Eye â€” Migration Runner (service account)",
       "description": "Reads /fabs so event partitions are provisioned per fab (spec 019). Read-only; see research.md R2 for why view-users is needed.",
@@ -581,6 +619,12 @@
           "query-groups"
         ]
       }
+    },
+    {
+      "username": "service-account-integration-test-admin",
+      "enabled": true,
+      "serviceAccountClientId": "integration-test-admin",
+      "groups": ["/fabs/munich"]
     },
     {
       "username": "service-account-scenario-simulator",

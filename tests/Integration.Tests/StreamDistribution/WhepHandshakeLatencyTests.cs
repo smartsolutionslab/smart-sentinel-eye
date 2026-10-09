@@ -57,8 +57,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire, ITestOutputHelper o
     [Fact]
     public async Task Whep_auth_hook_p95_stays_under_three_seconds_over_twenty_opens()
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         // Warm the OIDC discovery cache + JWT validator state. The first
         // call hits Keycloak's well-known endpoint; subsequent calls reuse

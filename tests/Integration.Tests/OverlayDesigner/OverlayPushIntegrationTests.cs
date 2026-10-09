@@ -69,8 +69,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
     public async Task Overlay_republish_pushes_to_connected_clients_within_one_second()
     {
         using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string accessToken = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string accessToken = await aspire.GetAdminAccessTokenAsync();
 
         // Seed an overlay with a Published revision so revision 2 can branch.
         HttpResponseMessage created = await overlays.PostAsJsonAsync(

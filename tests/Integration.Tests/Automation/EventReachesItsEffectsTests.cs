@@ -395,8 +395,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     private async Task<HubConnection> ListenForHighlightAsync(
         Guid overlay, TaskCompletionSource<HighlightFrame> highlighted)
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         HubConnection kiosk = new HubConnectionBuilder()
             .WithUrl(
