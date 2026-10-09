@@ -3,8 +3,14 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
-import { store } from '../../app/store.js';
-import type { CameraListPage } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { camerasApi, type CameraListPage } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
+
+// Spec 316 T009: the shell's singleton store moved to apps/shared
+// (createApiStore, plan.md §4.1) — the remote builds its own instance from
+// the same construction, mounting only the slices this surface uses.
+const store = createApiStore([camerasApi, streamsApi]);
 
 // The page renders RegisterCameraDialog, which reads the operator's fabs from
 // the OIDC groups claim. A single-fab default keeps the existing cases reading

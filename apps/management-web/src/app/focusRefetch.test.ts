@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { countRequests, fireWindowFocus, settleRunningQueries } from '../test/focusRefetch.js';
+import { countRequests, fireWindowFocus, settleRunningQueries } from '@smart-sentinel-eye/shared/test/focusRefetch';
 
 // gateway.ts resolves the API origin at module load, the same way every
 // other file touching the real `app/store` singleton stubs it — stub the

@@ -1,9 +1,9 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // Same stubbing as CameraDetailRevocation.test.tsx — fetchBaseQuery needs an
 // absolute URL and gateway.ts resolves it at module load.
@@ -18,6 +18,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
 }));
 
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
+const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 const { CameraDetailPage } = await import('./CameraDetailPage.js');
 
 const CAMERA_IDENTIFIER = '11111111-1111-1111-1111-111111111111';
@@ -53,14 +54,13 @@ function isCameraQueryPending(store: ReturnType<typeof createStore>, identifier:
   return camerasApi.endpoints.getCamera.select({ cameraIdentifier: identifier })(store.getState()).isLoading;
 }
 
+// Spec 316 T009: the shell's singleton store moved to apps/shared
+// (createApiStore, plan.md §4.1) — this test's own hand-rolled store (spec
+// 314's listener middleware + camerasApi reducer/middleware) was exactly the
+// "second hand-written store" plan.md §4.1 warns against, now built from the
+// same construction the shell uses.
 function createStore() {
-  // Spec 314 (#2762): useRevocationFallback now observes settlements via a
-  // dispatched listener and throws without this middleware in the store.
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware),
-  });
+  return createApiStore([camerasApi, streamsApi]);
 }
 
 function renderDetailPage(store: ReturnType<typeof createStore>, identifier: string) {

@@ -9,7 +9,7 @@ import {
   fireWindowFocus,
   installFocusListeners,
   settleRunningQueries,
-} from '../../test/focusRefetch.js';
+} from '@smart-sentinel-eye/shared/test/focusRefetch';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches cameras.api/streams.api.

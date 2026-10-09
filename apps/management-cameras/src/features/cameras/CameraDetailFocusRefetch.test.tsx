@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireWindowFocus, installFocusListeners, settleRunningQueries } from '../../test/focusRefetch.js';
+import { fireWindowFocus, installFocusListeners, settleRunningQueries } from '@smart-sentinel-eye/shared/test/focusRefetch';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches cameras.api, mirroring CameraDetailRevocation.test.tsx.

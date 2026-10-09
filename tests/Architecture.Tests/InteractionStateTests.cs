@@ -518,7 +518,11 @@ public class InteractionStateTests
     /// <summary>Every non-test <c>.ts</c>/<c>.tsx</c> file under both apps' and shared's <c>src</c>.</summary>
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        string[] scannedTrees = ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src"];
+        // Spec 316 widens this set (ADR-0144): the cameras feature moved out
+        // of apps/management-web/src into its own federated remote,
+        // apps/management-cameras/src.
+        string[] scannedTrees =
+            ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
 
         foreach (string tree in scannedTrees)
         {

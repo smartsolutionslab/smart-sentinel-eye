@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { fireWindowFocus, installFocusListeners, settleRunningQueries } from '../../test/focusRefetch.js';
+import { fireWindowFocus, installFocusListeners, settleRunningQueries } from '@smart-sentinel-eye/shared/test/focusRefetch';
 
 // gateway.ts resolves the API origin at module load; stub it before any
 // dynamic import touches overlays.api.

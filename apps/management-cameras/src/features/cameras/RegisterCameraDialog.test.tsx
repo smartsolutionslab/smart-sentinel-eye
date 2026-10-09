@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
+
+// Spec 316 T009: see CamerasPage.test.tsx's own comment.
+const store = createApiStore([camerasApi, streamsApi]);
 
 const registerMock = vi.fn(async (_input: Record<string, unknown>) => ({ data: 'ok' }));
 

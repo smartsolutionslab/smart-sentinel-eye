@@ -1,8 +1,8 @@
-import { configureStore, createListenerMiddleware } from '@reduxjs/toolkit';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 // gateway.ts resolves the API origin at module load, the same way
 // LayoutEditorDialogChainRetention.test.tsx (spec 153) stubs it: stub the env
@@ -50,6 +50,7 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
 }));
 
 const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
+const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
 const { CameraDetailPage } = await import('./CameraDetailPage.js');
 
 const CAMERA_A = '11111111-1111-1111-1111-111111111111';
@@ -74,14 +75,9 @@ function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
+// Spec 316 T009: see CameraDetailFabRemoval.test.tsx's own comment.
 function createStore() {
-  // Spec 314 (#2762): useRevocationFallback now observes settlements via a
-  // dispatched listener and throws without this middleware in the store.
-  const listenerMiddleware = createListenerMiddleware();
-  return configureStore({
-    reducer: { [camerasApi.reducerPath]: camerasApi.reducer },
-    middleware: (getDefault) => getDefault().prepend(listenerMiddleware.middleware).concat(camerasApi.middleware),
-  });
+  return createApiStore([camerasApi, streamsApi]);
 }
 
 function renderAt(store: ReturnType<typeof createStore>, initial: string) {
