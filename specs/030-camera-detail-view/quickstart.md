@@ -16,8 +16,9 @@ dotnet run --project src/AppHost
 The management app is an Aspire JS resource; read its URL from the dashboard's
 resource list rather than assuming a port.
 
-Sign in as `op-3@munich.test` / `Operator1234` for Munich, or
-`op-dresden@dresden.test` for the cross-fab check. The seeded names follow
+Sign in as `op-3@munich.test` / `Hazel-Compass-Thistle-36` for Munich, or
+`op-dresden@dresden.test` / `Indigo-Falcon-Pebble-90` for the cross-fab check.
+The seeded names follow
 `op-N@fab` for some fabs and `op-<fab>@fab` for others — spec 028 lost a CI
 round to guessing one that did not exist.
 

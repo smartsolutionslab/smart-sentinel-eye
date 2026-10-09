@@ -18,7 +18,7 @@ cd apps/kiosk-web
 VITE_KEYCLOAK_URL=https://127.0.0.1:10756 npx vite --port 5174 --strictPort
 ```
 
-Sign in as `operator` / `Operator1234`, then in the page's console age the stored
+Sign in as `operator` / `Cobalt-Meadow-Ripple-24`, then in the page's console age the stored
 grant so the next load must talk to the provider:
 
 ```js

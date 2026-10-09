@@ -28,7 +28,7 @@ each `ready: true`.
 
 ## 2. Look at each wall
 
-Sign in at `http://localhost:5173` as `operator` / `Operator1234`, open Layouts,
+Sign in at `http://localhost:5173` as `operator` / `Cobalt-Meadow-Ripple-24`, open Layouts,
 and open each of the three seeded walls in turn.
 
 **Expected**: three plants. Hot steel, a paper mill, an electronics line.

@@ -10,9 +10,9 @@ How to see the two defects closed, by hand, against a running stack.
 >
 > | Account | Password | Fabs |
 > |---|---|---|
-> | `op-3@munich.test` | `Operator1234` | munich |
-> | `op-dresden@dresden.test` | `Operator1234` | dresden |
-> | `op-multi@smart-sentinel-eye.test` | `Operator1234` | munich + dresden |
+> | `op-3@munich.test` | `Hazel-Compass-Thistle-36` | munich |
+> | `op-dresden@dresden.test` | `Indigo-Falcon-Pebble-90` | dresden |
+> | `op-multi@smart-sentinel-eye.test` | `Juniper-Anchor-Mosaic-15` | munich + dresden |
 >
 > Every section below is now runnable as written.
 >
