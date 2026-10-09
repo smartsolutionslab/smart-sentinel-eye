@@ -81,6 +81,7 @@
     "@radix-ui/react-tabs": "1.1.21",
     "@radix-ui/react-tooltip": "1.2.16",
     "clsx": "2.1.1",
+    "react-oidc-context": "3.3.1",
     "react-redux": "9.3.0",
     "react-rnd": "10.5.3",
     "tailwind-merge": "3.7.0",

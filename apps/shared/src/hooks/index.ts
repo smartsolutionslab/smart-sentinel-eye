@@ -6,3 +6,4 @@ export {
   type RevocationQueryState,
   type RevocationSource,
 } from './useRevocationFallback.js';
+export { useAssignedFabs } from './useAssignedFabs.js';

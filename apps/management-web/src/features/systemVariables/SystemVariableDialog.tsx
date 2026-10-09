@@ -7,7 +7,7 @@ import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { FormErrorSummary } from '@smart-sentinel-eye/shared/ui/composites/FormErrorSummary';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAssignedFabs } from '../../app/useAssignedFabs';
+import { useAssignedFabs } from '@smart-sentinel-eye/shared/hooks';
 import { useEffect, useEffectEvent, useState, type FormEvent } from 'react';
 import { useForm } from 'react-hook-form';
 
