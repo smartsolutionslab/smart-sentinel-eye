@@ -33,6 +33,12 @@ public sealed class RegisterDeviceCommandHandler(
             return Failure(RegisterDeviceFailures.InvalidDeviceIdentifier("must not be empty."));
         }
 
+        if (!IsHyphenSeparatedAlphanumeric(deviceIdentifier))
+        {
+            return Failure(RegisterDeviceFailures.InvalidDeviceIdentifier(
+                "each hyphen-separated segment must be one or more letters or digits."));
+        }
+
         ClientId clientId;
         try
         {
@@ -101,4 +107,7 @@ public sealed class RegisterDeviceCommandHandler(
                 fab.Value,
                 credentials.ClientSecret));
     }
+
+    private static bool IsHyphenSeparatedAlphanumeric(string deviceIdentifier) =>
+        deviceIdentifier.Split('-').All(segment => segment.Length > 0 && segment.All(char.IsLetterOrDigit));
 }
