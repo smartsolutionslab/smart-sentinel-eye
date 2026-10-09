@@ -75,11 +75,11 @@ public class OrphanedClientSweepRegistrationTests
     }
 
     [Fact]
-    public void The_sweep_can_be_resolved_from_the_container_that_registration_builds()
+    public async Task The_sweep_can_be_resolved_from_the_container_that_registration_builds()
     {
-        using ServiceProvider provider = IdentityInfrastructure()
+        await using ServiceProvider provider = IdentityInfrastructure()
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
-        using IServiceScope scope = provider.CreateScope();
+        await using AsyncServiceScope scope = provider.CreateAsyncScope();
 
         scope.ServiceProvider.GetService<OrphanedClientSweep>().ShouldNotBeNull(
             "a startup service can only drive the pass if the container it resolves from "
