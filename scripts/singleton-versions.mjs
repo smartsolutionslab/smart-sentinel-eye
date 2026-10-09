@@ -49,9 +49,46 @@ export function checkSingletonVersions({ packages }) {
   const problems = [];
 
   for (const moduleName of SINGLETON_MODULES) {
-    const pins = federationPackages
-      .map((pkg) => ({ path: pkg.path, version: pkg.manifest.dependencies?.[moduleName] }))
-      .filter((pin) => typeof pin.version === 'string');
+    // S1 fix (spec 316 phase-6 review): a singleton no federation-role
+    // package declares anywhere is simply unused — nothing to compare,
+    // nothing at risk. Once at least one package shares it, every other
+    // federation-role package must pin it too, as a real `dependencies`
+    // entry — a package that is missing it, or that only has it under
+    // `devDependencies` (previously silently excluded from the comparison
+    // by the old string-typed-pin filter, rather than reported), is a
+    // problem in its own right, not merely "nothing to compare".
+    const anyPackageUsesIt = federationPackages.some(
+      (pkg) =>
+        typeof pkg.manifest.dependencies?.[moduleName] === 'string' ||
+        typeof pkg.manifest.devDependencies?.[moduleName] === 'string',
+    );
+    if (!anyPackageUsesIt) {
+      continue;
+    }
+
+    const pins = [];
+    for (const pkg of federationPackages) {
+      const dependencyVersion = pkg.manifest.dependencies?.[moduleName];
+      if (typeof dependencyVersion === 'string') {
+        pins.push({ path: pkg.path, version: dependencyVersion });
+        continue;
+      }
+
+      const devDependencyVersion = pkg.manifest.devDependencies?.[moduleName];
+      if (typeof devDependencyVersion === 'string') {
+        problems.push(
+          `${moduleName} is pinned in ${pkg.path}'s devDependencies, not its dependencies — a shared ` +
+            'module-federation singleton must be a real runtime dependency of every federation-role package ' +
+            'that shares it (plan 316 §3).',
+        );
+        continue;
+      }
+
+      problems.push(
+        `${moduleName} is shared by another federation-role package but missing from ${pkg.path}'s own ` +
+          'dependencies — every federation-role package sharing a singleton must pin it too (plan 316 §3).',
+      );
+    }
 
     const distinctVersions = new Set(pins.map((pin) => pin.version));
     if (distinctVersions.size <= 1) {

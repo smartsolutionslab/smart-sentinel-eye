@@ -154,6 +154,50 @@ test('three federation-role packages, one of which pins a different @smart-senti
   assert.match(problems[0], /0\.0\.1/, describeProblems(problems));
 });
 
+// ==== S1 (spec 316 phase-6 review): a singleton another federation package
+//      pins, but this one skips — now reported, not silently excluded from
+//      the comparison by the old string-typed-pin filter =====================
+
+test('a federation package is missing a singleton another federation package pins — fails, naming the missing package', () => {
+  const web = federationPackage('apps/management-web/package.json');
+  const cameras = federationPackage('apps/management-cameras/package.json');
+  delete cameras.manifest.dependencies['react-redux'];
+
+  const problems = checkSingletonVersions({ packages: [web, cameras] });
+
+  assert.equal(problems.length, 1, describeProblems(problems));
+  assert.match(problems[0], /react-redux/, describeProblems(problems));
+  assert.match(problems[0], /apps\/management-cameras\/package\.json/, describeProblems(problems));
+});
+
+test('a federation package pins a singleton only in devDependencies — fails, naming the wrong field', () => {
+  const web = federationPackage('apps/management-web/package.json');
+  const cameras = federationPackage('apps/management-cameras/package.json');
+  delete cameras.manifest.dependencies['react-redux'];
+  cameras.manifest.devDependencies['react-redux'] = '9.3.0';
+
+  const problems = checkSingletonVersions({ packages: [web, cameras] });
+
+  assert.equal(problems.length, 1, describeProblems(problems));
+  assert.match(problems[0], /react-redux/, describeProblems(problems));
+  assert.match(problems[0], /devDependencies/, describeProblems(problems));
+  assert.match(problems[0], /apps\/management-cameras\/package\.json/, describeProblems(problems));
+});
+
+// A singleton no federation-role package declares anywhere stays vacuous —
+// unlike the two cases above, there is no other package's pin it could be
+// missing relative to.
+test('no federation-role package declares a given singleton at all — not reported', () => {
+  const web = federationPackage('apps/management-web/package.json');
+  const cameras = federationPackage('apps/management-cameras/package.json');
+  delete web.manifest.dependencies['react-oidc-context'];
+  delete cameras.manifest.dependencies['react-oidc-context'];
+
+  const problems = checkSingletonVersions({ packages: [web, cameras] });
+
+  assert.deepEqual(problems, [], describeProblems(problems));
+});
+
 // ==== the real repository (mirrors node-types-alignment.test.mjs's own real-
 //      repository case) — the one case that asks the running system =========
 

@@ -1,7 +1,36 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
 import { federation } from '@module-federation/vite';
 import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
+
+// S1 fix (spec 316 phase-6 review): plan §3 says these pins are "read from
+// each package's own package.json" — they were literal strings instead,
+// which pass scripts/singleton-versions.mjs's cross-package comparison even
+// after going stale against what this app actually depends on (T001's case
+// (b): an uncaught `pageerror` at host startup). Read at config-build time,
+// not hand-copied.
+function readOwnDependencyVersion(dependencyName: string): string {
+  const manifest: { dependencies?: Record<string, string> } = JSON.parse(
+    readFileSync(fileURLToPath(new URL('./package.json', import.meta.url)), 'utf8'),
+  );
+  const version = manifest.dependencies?.[dependencyName];
+  if (typeof version !== 'string') {
+    throw new Error(`"${dependencyName}" is missing from this package's own package.json dependencies`);
+  }
+  return version;
+}
+
+// `@smart-sentinel-eye/shared` is a workspace package: this app's own
+// dependency entry for it is the range "workspace:*", not a semver — the
+// one concrete version lives in the shared package's own package.json.
+function readSharedPackageVersion(): string {
+  const manifest: { version: string } = JSON.parse(
+    readFileSync(fileURLToPath(new URL('../shared/package.json', import.meta.url)), 'utf8'),
+  );
+  return manifest.version;
+}
 
 // Plan 316 §3's shared-dependency table — the same requiredVersion pins as
 // the cameras remote (apps/management-cameras/vite.config.ts).
@@ -10,17 +39,29 @@ import { fontPreload } from '../shared/src/ui/fonts/fontPreload.ts';
 // as a runtime strictVersion mismatch (T001 finding 3: not reliably a
 // catchable loadRemote rejection).
 const shared = {
-  react: { singleton: true, strictVersion: true, requiredVersion: '19.3.0' },
-  'react-dom': { singleton: true, strictVersion: true, requiredVersion: '19.3.0' },
-  'react-router-dom': { singleton: true, strictVersion: true, requiredVersion: '7.18.4' },
-  'react-redux': { singleton: true, strictVersion: true, requiredVersion: '9.3.0' },
-  '@reduxjs/toolkit': { singleton: true, strictVersion: true, requiredVersion: '2.12.0' },
-  'react-oidc-context': { singleton: true, strictVersion: true, requiredVersion: '3.3.1' },
+  react: { singleton: true, strictVersion: true, requiredVersion: readOwnDependencyVersion('react') },
+  'react-dom': { singleton: true, strictVersion: true, requiredVersion: readOwnDependencyVersion('react-dom') },
+  'react-router-dom': {
+    singleton: true,
+    strictVersion: true,
+    requiredVersion: readOwnDependencyVersion('react-router-dom'),
+  },
+  'react-redux': { singleton: true, strictVersion: true, requiredVersion: readOwnDependencyVersion('react-redux') },
+  '@reduxjs/toolkit': {
+    singleton: true,
+    strictVersion: true,
+    requiredVersion: readOwnDependencyVersion('@reduxjs/toolkit'),
+  },
+  'react-oidc-context': {
+    singleton: true,
+    strictVersion: true,
+    requiredVersion: readOwnDependencyVersion('react-oidc-context'),
+  },
   // Trailing-slash key: shares every @smart-sentinel-eye/shared subpath
   // import (gateway.ts's token provider state, every api slice, …) as one
   // singleton instance (T001 finding 2), on the precondition that
   // apps/shared/package.json keeps a resolvable root "." export.
-  '@smart-sentinel-eye/shared/': { singleton: true, strictVersion: true, requiredVersion: '0.0.0' },
+  '@smart-sentinel-eye/shared/': { singleton: true, strictVersion: true, requiredVersion: readSharedPackageVersion() },
 };
 
 // Aspire injects backend service URLs as environment variables (ADR-0074).
@@ -49,6 +90,19 @@ export default defineConfig({
             // reads the Aspire-injected VITE_CAMERAS_REMOTE_URL.
             remotes: {},
             shared,
+            // B3 fix (spec 316 phase-6 review): a factory module specifier,
+            // not an inline object — @module-federation/vite's own generated
+            // runtime-init code does `import $runtimePlugin_0 from "<path>"`
+            // then calls the default export as a factory
+            // (lib/index.js:4956/4972, read directly). A project-root-relative
+            // path with forward slashes, not `fileURLToPath`'s absolute
+            // Windows path: the plugin embeds this string RAW into the
+            // generated source (no JSON.stringify/escaping), so a backslash
+            // is read back as a JS escape sequence — `\n` becomes an actual
+            // newline, `\s`/`\a`/`\m` are silently dropped — which mangled the
+            // path into garbage and broke the dev server on Windows (seen
+            // live against the real Vite dev server, not predicted).
+            runtimePlugins: ['./src/app/navigation/mismatchRuntimePlugin.ts'],
             // The exposed contract is the shared RemoteSurfaceModule type
             // (plan §2.2), not plugin-generated types.
             dts: false,
