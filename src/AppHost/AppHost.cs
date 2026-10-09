@@ -732,6 +732,19 @@ if (isRunMode && !isE2ETests)
     // e2e's readiness wait) — don't start it by hand, it runs npm against a
     // pnpm workspace and can leave a stray package-lock.json/node_modules
     // behind that shadows the real install.
+    // management-cameras (spec 316, US3): the federated cameras remote. It
+    // carries no VITE_KEYCLOAK_URL/VITE_API_GATEWAY_URL pair of its own — its
+    // only job is to serve remoteEntry.js to the shell on a fixed, unproxied
+    // port (dev mode confirmed directly, T001 finding 1), so it needs no
+    // WaitFor and no reference beyond the parent-relationship grouping below.
+    // Declared before management-web so the shell can read its endpoint.
+    var camerasRemote = builder.AddJavaScriptApp("management-cameras", "../../apps/management-cameras", "dev")
+        .WithNpm(install: false)
+        .WithHttpEndpoint(env: "PORT", port: 5176, isProxied: false)
+        .WithExternalHttpEndpoints()
+        // Dashboard grouping: nest it under the gateway, like the three shells.
+        .WithParentRelationship(apiGateway);
+
     builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
         .WithNpm(install: false)
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
@@ -739,6 +752,14 @@ if (isRunMode && !isE2ETests)
         .WithEnvironment("VITE_API_GATEWAY_URL", apiGateway.GetEndpoint("http"))
         .WithReference(keycloak)
         .WithEnvironment("VITE_KEYCLOAK_URL", keycloak.GetEndpoint("http"))
+        // Spec 316: the shell reads this to register the cameras remote
+        // (navigation/remotes.ts, T009). Same-origin dev port as every other
+        // Aspire-resolved endpoint here — no WaitFor, matching the reasoning
+        // already recorded above for api-gateway's own nine references: an
+        // unentitled session never registers this remote at all (FR-013), and
+        // an entitled one that beats it up surfaces one contained load
+        // failure (FR-007/FR-008), not a blocked shell boot.
+        .WithEnvironment("VITE_CAMERAS_REMOTE_URL", camerasRemote.GetEndpoint("http"))
         .WithExternalHttpEndpoints()
         // Dashboard grouping: nest the SPAs under the gateway they call.
         .WithParentRelationship(apiGateway);
