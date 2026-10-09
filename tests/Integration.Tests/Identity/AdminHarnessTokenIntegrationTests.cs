@@ -165,6 +165,35 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
             + $"Observed: {(int)status} {body}");
     }
 
+    /// <summary>
+    /// T-D (plan.md §5): admin is one identity (spec 327 AS-3). Many tests mix
+    /// <c>CreateAdminClientAsync</c> with a raw admin token in one flow —
+    /// <c>StaleIdempotencyReservationIntegrationTests</c> seeds a reservation
+    /// under one and replays under the other — so both accessors must present
+    /// the same <c>sub</c>. Counterfactual-observed red: point
+    /// <c>GetAdminAccessTokenAsync</c> at the password grant instead of
+    /// <c>client_credentials</c>, watch this fail on a mismatched subject,
+    /// then revert.
+    /// </summary>
+    [Fact]
+    public async Task Every_admin_accessor_presents_the_same_subject()
+    {
+        using HttpClient client = await aspire.CreateAdminClientAsync(ProbeResource);
+        string? clientSubject = SubjectOf(TokenOf(client));
+        clientSubject.ShouldNotBeNullOrEmpty("CreateAdminClientAsync's token carries no sub claim.");
+
+        string rawToken = await aspire.GetAdminAccessTokenAsync();
+        string? rawSubject = SubjectOf(rawToken);
+        rawSubject.ShouldNotBeNullOrEmpty("GetAdminAccessTokenAsync()'s token carries no sub claim.");
+
+        rawSubject.ShouldBe(
+            clientSubject,
+            customMessage: $"CreateAdminClientAsync's token has sub '{clientSubject}' but "
+            + $"GetAdminAccessTokenAsync()'s token has sub '{rawSubject}' — every admin accessor "
+            + "must present the same identity, or a reservation seeded under one and replayed "
+            + "under the other silently fails (spec 327 AS-3).");
+    }
+
     private async Task<(HttpStatusCode Status, JsonElement Body)> ClientCredentialsGrantAsync(
         string clientId, string clientSecret)
     {

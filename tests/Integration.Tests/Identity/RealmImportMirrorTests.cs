@@ -1,5 +1,6 @@
 using System.Text.Json;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
+using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.Identity;
 
@@ -81,6 +82,53 @@ public partial class RealmImportMirrorTests
             + $"'{expected}'. Make RealmProbe.AdminClientSecret and the realm file agree; if the "
             + "realm file is what changed, delete the Keycloak volume (the import only runs on a "
             + "fresh volume).");
+    }
+
+    /// <summary>
+    /// Mirrors <see cref="RealmProbe_AdminClientId_names_a_client_the_import_seeds"/>
+    /// for the harness client this fixture mints admin tokens through (spec
+    /// 327, #2511). Counterfactual-observed red: mutate
+    /// <see cref="AspireFixture.HarnessClientId"/> away from
+    /// <c>integration-test-admin</c> and this fact fails on the mismatched
+    /// count, then revert.
+    /// </summary>
+    [Fact]
+    public void AspireFixture_HarnessClientId_names_a_client_the_import_seeds()
+    {
+        using JsonDocument import = ReadRealmImport();
+        JsonElement[] matches = ClientsNamed(import, AspireFixture.HarnessClientId);
+
+        matches.Length.ShouldBe(
+            1,
+            $"found {matches.Length} clients named '{AspireFixture.HarnessClientId}' "
+            + $"(AspireFixture.HarnessClientId) in {FullRealmImportPath()}'s 'clients' array; "
+            + "expected exactly one — Keycloak itself would reject a duplicate clientId. Make "
+            + "AspireFixture.HarnessClientId and the realm file agree; if the realm file is what "
+            + "changed, delete the Keycloak volume (the import only runs on a fresh volume).");
+    }
+
+    /// <summary>
+    /// Mirrors <see cref="RealmProbe_AdminClientSecret_is_the_secret_the_import_seeds_for_that_client"/>.
+    /// Counterfactual-observed red: change one character of
+    /// <see cref="AspireFixture.HarnessClientSecret"/> and this fact fails on
+    /// the mismatched secret, then revert.
+    /// </summary>
+    [Fact]
+    public void AspireFixture_HarnessClientSecret_is_the_secret_the_import_seeds_for_that_client()
+    {
+        using JsonDocument import = ReadRealmImport();
+        string expected = SecretForClient(
+            import,
+            AspireFixture.HarnessClientId,
+            nameof(AspireFixture_HarnessClientId_names_a_client_the_import_seeds));
+
+        AspireFixture.HarnessClientSecret.ShouldBe(
+            expected,
+            $"AspireFixture.HarnessClientSecret is '{AspireFixture.HarnessClientSecret}' but the "
+            + $"'{AspireFixture.HarnessClientId}' client's 'secret' in {FullRealmImportPath()} is "
+            + $"'{expected}'. Make AspireFixture.HarnessClientSecret and the realm file agree; if "
+            + "the realm file is what changed, delete the Keycloak volume (the import only runs "
+            + "on a fresh volume).");
     }
 
     [Fact]
