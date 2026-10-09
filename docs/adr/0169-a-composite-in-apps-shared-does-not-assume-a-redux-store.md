@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed.
+Accepted. Merged via PR #2791 (2026-10-08).
 
 ## Context
 
