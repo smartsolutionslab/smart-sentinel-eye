@@ -50,13 +50,14 @@ test('a hero-and-thumbnails wall is authored, published and drawn at its real si
   //
   // Phase-6 review (spec 262 nit S3): that figure alone missed camera
   // registrations 2-6 — five more warm (not cold-budgeted) sites paying the
-  // ordinary `expect.timeout` ceiling of 30 s each in CI
-  // (`playwright.config.ts:12`) = 150 s — plus two full Keycloak sign-ins
-  // (operator and kiosk) and the kiosk's own warm expects (`layout-grid`
-  // visible, the `Layouts` heading, the published listitem). 270 s + 150 s
-  // already exceeds the old 360 s budget before a single sign-in is counted;
-  // rounded up to 480 s for margin on the sign-ins and remaining warm
-  // expects. Same gap already found once in this repo
+  // ordinary `expect.timeout` ceiling, sized when the CI default was 30 s
+  // each = 150 s — plus two full Keycloak sign-ins (operator and kiosk) and
+  // the kiosk's own warm expects (`layout-grid` visible, the `Layouts`
+  // heading, the published listitem). 270 s + 150 s already exceeds the old
+  // 360 s budget before a single sign-in is counted; rounded up to 480 s for
+  // margin on the sign-ins and remaining warm expects. `expect.timeout` is
+  // now 15 s in both environments (#2077), so this ceiling is conservative.
+  // Same gap already found once in this repo
   // (`seed-live-video-wall.setup.ts`, spec 225 phase-6 nit N1) — mirror that
   // arithmetic rather than re-deriving it from scratch next time.
   test.setTimeout(480_000);
