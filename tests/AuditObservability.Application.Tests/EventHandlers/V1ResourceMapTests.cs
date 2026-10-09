@@ -457,54 +457,60 @@ public class V1ResourceMapTests
             overlay.ToString());
     }
 
-    // 17. SystemVariables.SystemVariableArchivedV1 -> variable / Variable
+    // 17. SystemVariables.SystemVariableArchivedV1 -> variable / Name (hand-tweak; spec 322, #2502)
     private static MappingCase SystemVariableArchivedCase()
     {
         Guid variable = Guid.CreateVersion7();
+        string name = "Name-sentinel";
         return new MappingCase(
             typeof(SystemVariableArchivedV1),
             ResourceKind.Variable,
             () => new SystemVariableArchivedV1(
                 variable,
-                "Name-sentinel",
+                name,
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 Guid.CreateVersion7(),
                 TestMetadata),
+            name,
             variable.ToString());
     }
 
-    // 18. SystemVariables.SystemVariableDefinedV1 -> variable / Variable
+    // 18. SystemVariables.SystemVariableDefinedV1 -> variable / Name (hand-tweak; spec 322, #2502)
     private static MappingCase SystemVariableDefinedCase()
     {
         Guid variable = Guid.CreateVersion7();
+        string name = "Name-sentinel";
         return new MappingCase(
             typeof(SystemVariableDefinedV1),
             ResourceKind.Variable,
             () => new SystemVariableDefinedV1(
                 variable,
-                "Name-sentinel",
+                name,
                 "Type-sentinel",
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 Guid.CreateVersion7(),
                 TestMetadata),
+            name,
             variable.ToString());
     }
 
-    // 19. SystemVariables.SystemVariableValueChangedV1 -> variable / Variable
+    // 19. SystemVariables.SystemVariableValueChangedV1 -> variable / Name (hand-tweak; spec 322, #2502)
     private static MappingCase SystemVariableValueChangedCase()
     {
         Guid variable = Guid.CreateVersion7();
+        string name = "Name-sentinel";
         return new MappingCase(
             typeof(SystemVariableValueChangedV1),
             ResourceKind.Variable,
             () => new SystemVariableValueChangedV1(
                 variable,
-                "Name-sentinel",
+                name,
                 "Type-sentinel",
                 "Value-sentinel",
                 DateTimeOffset.UtcNow.AddSeconds(1),
                 Guid.CreateVersion7(),
                 TestMetadata),
+            name,
             variable.ToString());
     }
 
@@ -615,6 +621,67 @@ public class V1ResourceMapTests
         {
             mapping.ResourceIdentifier.Value.Value.ShouldNotBe(mappingCase.MustNotBeIdentifier);
         }
+    }
+
+    /// <summary>
+    /// Spec 322 (#2502) — the defect stated as a test, independent of the
+    /// table above: one variable's whole lifecycle (Defined, ValueChanged,
+    /// Archived, plus Automation's ValueRequested) must land on the same
+    /// audit identifier. One guid, one name, distinct actor guids on every
+    /// field so the assertion cannot pass by coincidence.
+    /// </summary>
+    [Fact]
+    public void Every_variable_contract_for_one_variable_pivots_on_the_same_identifier()
+    {
+        Guid variable = Guid.CreateVersion7();
+        string name = "Spec322-variable-name-sentinel";
+
+        SystemVariableDefinedV1 defined = new(
+            variable,
+            name,
+            "Type-sentinel",
+            DateTimeOffset.UtcNow.AddSeconds(1),
+            Guid.CreateVersion7(),
+            TestMetadata);
+        SystemVariableValueChangedV1 valueChangedOne = new(
+            variable,
+            name,
+            "Type-sentinel",
+            "Value-sentinel-1",
+            DateTimeOffset.UtcNow.AddSeconds(2),
+            Guid.CreateVersion7(),
+            TestMetadata);
+        SystemVariableValueChangedV1 valueChangedTwo = new(
+            variable,
+            name,
+            "Type-sentinel",
+            "Value-sentinel-2",
+            DateTimeOffset.UtcNow.AddSeconds(3),
+            Guid.CreateVersion7(),
+            TestMetadata);
+        SystemVariableValueRequestedV1 valueRequested = new(
+            name,
+            "Value-sentinel-3",
+            DateTimeOffset.UtcNow.AddSeconds(4),
+            Guid.CreateVersion7(),
+            TestMetadata);
+        SystemVariableArchivedV1 archived = new(
+            variable,
+            name,
+            DateTimeOffset.UtcNow.AddSeconds(5),
+            Guid.CreateVersion7(),
+            TestMetadata);
+
+        HashSet<string> identifiers =
+        [
+            map.Lookup(typeof(SystemVariableDefinedV1), defined).ResourceIdentifier.Value.Value,
+            map.Lookup(typeof(SystemVariableValueChangedV1), valueChangedOne).ResourceIdentifier.Value.Value,
+            map.Lookup(typeof(SystemVariableValueChangedV1), valueChangedTwo).ResourceIdentifier.Value.Value,
+            map.Lookup(typeof(SystemVariableValueRequestedV1), valueRequested).ResourceIdentifier.Value.Value,
+            map.Lookup(typeof(SystemVariableArchivedV1), archived).ResourceIdentifier.Value.Value,
+        ];
+
+        identifiers.ShouldBe([name]);
     }
 
     /// <summary>
