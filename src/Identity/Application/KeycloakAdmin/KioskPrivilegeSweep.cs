@@ -21,8 +21,12 @@ namespace SmartSentinelEye.Identity.Application.KeycloakAdmin;
 /// <c>TryDeleteClientAsync</c>, whose comment delegates the case here by name.
 /// When it also fails, a client stamped <c>sse.kind=kiosk</c> survives holding
 /// the privilege, with a service account and a secret the caller never
-/// received, and the existence probe answers already-enrolled for it forever.
-/// Enrolment reported failure, so nobody retries. This is the backstop.
+/// received, and the existence probe answers already-enrolled for it. This
+/// sweep is the backstop for the privilege — it does not touch the client
+/// itself. <c>OrphanedClientSweep</c> (spec 320, #2181) is the one that
+/// eventually disables that surviving client, once its service account is
+/// older than its own grace window, and that is what finally lets the kiosk
+/// be enrolled again.
 /// </para>
 ///
 /// <para>

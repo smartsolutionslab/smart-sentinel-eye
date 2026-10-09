@@ -89,7 +89,15 @@ public sealed class RegisteredClientRepository(
         await commit.CommitAsync(cancellationToken);
     }
 
-    // Spec 320 (#2181), T001: declaration only. Implemented at T010.
-    public Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+    // Spec 320 (#2181) plan §3 — mirrors GetByClientIdAsync's DisabledAt
+    // filter, of any kind.
+    public async Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken)
+    {
+        List<ClientId> active = await dbContext.RegisteredClients
+            .AsNoTracking()
+            .Where(client => client.DisabledAt == null)
+            .Select(client => client.ClientId)
+            .ToListAsync(cancellationToken);
+        return active.ToHashSet();
+    }
 }

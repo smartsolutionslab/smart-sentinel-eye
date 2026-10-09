@@ -398,15 +398,66 @@ public sealed class HttpKeycloakAdminClient(
         return await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
     }
 
-    // Spec 320 (#2181), T001: declaration only. Implemented at T009.
-    public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
-        CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+    /// <summary>
+    /// Spec 320 (#2181) plan §3 — one <c>GET /clients</c>, the same request
+    /// <see cref="GetEnrolledKioskClientIdsAsync"/> makes. Every row carrying
+    /// <c>sse.kind</c> is reported, whatever its value or its <c>enabled</c>
+    /// flag — <see cref="OrphanedClientSweep"/> is the one that filters to
+    /// the kinds and the state it acts on.
+    /// </summary>
+    public async Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken)
+    {
+        string realm = options.Value.Realm;
 
-    // Spec 320 (#2181), T001: declaration only. Implemented at T009.
-    public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
-        string clientId, CancellationToken cancellationToken) =>
-        throw new NotImplementedException();
+        using HttpResponseMessage response = await httpClient
+            .GetAsync($"admin/realms/{realm}/clients", cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        ClientDetailRow[] rows = await response.Content
+            .ReadFromJsonAsync<ClientDetailRow[]>(JsonOptions, cancellationToken) ?? [];
+
+        return rows
+            .Where(row => row.Attributes is not null
+                && row.Attributes.TryGetValue("sse.kind", out string? _))
+            .Select(row => new StampedClient(row.ClientId, row.Attributes!["sse.kind"], row.Enabled))
+            .ToArray();
+    }
+
+    /// <summary>
+    /// Spec 320 (#2181) plan §3 — <c>createdTimestamp</c> on the client's
+    /// service-account <b>user</b>, the only creation time Keycloak records
+    /// for a client at all. <c>None</c> for a client Keycloak no longer has,
+    /// a 404 on its service-account user, or a <c>createdTimestamp</c> that
+    /// is absent — never treated as old by default. Any other failure
+    /// throws.
+    /// </summary>
+    public async Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+        string clientId, CancellationToken cancellationToken)
+    {
+        Ensure.That(clientId).IsNotNull().IsNotNullOrWhiteSpace();
+        string realm = options.Value.Realm;
+
+        string? clientUuid = await TryGetClientUuidAsync(realm, clientId, cancellationToken);
+        if (clientUuid is null)
+        {
+            return Option<DateTimeOffset>.None;
+        }
+
+        using HttpResponseMessage response = await httpClient
+            .GetAsync($"admin/realms/{realm}/clients/{clientUuid}/service-account-user", cancellationToken);
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return Option<DateTimeOffset>.None;
+        }
+        response.EnsureSuccessStatusCode();
+
+        ServiceAccountUser? user = await response.Content
+            .ReadFromJsonAsync<ServiceAccountUser>(JsonOptions, cancellationToken);
+        return user?.CreatedTimestamp is { } createdTimestamp
+            ? Option<DateTimeOffset>.Some(DateTimeOffset.FromUnixTimeMilliseconds(createdTimestamp))
+            : Option<DateTimeOffset>.None;
+    }
 
     /// <summary>
     /// Removes the realm privileges an account inherited simply by being
@@ -467,13 +518,17 @@ public sealed class HttpKeycloakAdminClient(
     /// silent: what it could not remove is reported (spec 122, #2166).
     ///
     /// <para>
-    /// <b>The startup sweep is not the backstop this used to name.</b>
-    /// <c>KioskPrivilegeSweep</c> takes a residue's realm roles away and leaves
-    /// the client, and its enrolled-kiosk query cannot tell a residue from a
-    /// healthy kiosk. So a client that survives here survives every sweep, and
-    /// the existence probe in <c>CreateClientAsync</c> keeps answering
-    /// already-enrolled for it — that kiosk cannot be enrolled again until
-    /// someone deletes the client by hand. Nothing else will.
+    /// <b>The kiosk-privilege startup sweep is not the backstop this used to
+    /// name.</b> <c>KioskPrivilegeSweep</c> takes a residue's realm roles away
+    /// and leaves the client, and its enrolled-kiosk query cannot tell a
+    /// residue from a healthy kiosk. So a client that survives here survives
+    /// that sweep, and the existence probe in <c>CreateClientAsync</c> keeps
+    /// answering already-enrolled for it. <b>A surviving client does not wait
+    /// on a human forever any more</b>: once its service account is older than
+    /// <c>OrphanedClientSweep.GraceWindow</c> (spec 320, #2181), that sweep
+    /// disables it, which hands the next registration or enrolment attempt
+    /// for the same clientId #2728's replace path. Until then, a retry
+    /// collides.
     /// </para>
     /// </summary>
     private async Task TryDeleteClientAsync(
@@ -508,11 +563,11 @@ public sealed class HttpKeycloakAdminClient(
 
     private sealed record ClientRow(string Id, string ClientId, bool Enabled, Dictionary<string, string>? Attributes);
 
-    private sealed record ClientDetailRow(string Id, string ClientId, Dictionary<string, string>? Attributes);
+    private sealed record ClientDetailRow(string Id, string ClientId, bool Enabled, Dictionary<string, string>? Attributes);
 
     private sealed record RealmRoleRow(string Id, string Name);
 
-    private sealed record ServiceAccountUser(string Id);
+    private sealed record ServiceAccountUser(string Id, long? CreatedTimestamp);
 
     // Name and SubGroups are new for spec 019's sub-group read; the
     // group-by-path lookup above uses Id alone and is unaffected by the extra

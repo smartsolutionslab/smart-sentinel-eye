@@ -85,6 +85,14 @@ public static class IdentityInfrastructureModule
         builder.Services.AddScoped<KioskPrivilegeSweep>();
         builder.Services.AddHostedService<KioskPrivilegeSweepHostedService>();
 
+        // Spec 320 (#2181): a cancellation between creating a device/kiosk
+        // Keycloak client and saving its RegisteredClient row leaves the
+        // client live with no row. Startup + hourly (plan §4.4), unlike the
+        // kiosk sweep above: an orphan blocks an operator now, and a 24/7
+        // Identity API may not restart for weeks.
+        builder.Services.AddScoped<OrphanedClientSweep>();
+        builder.Services.AddHostedService<OrphanedClientSweepHostedService>();
+
         // Domain event handler — fans out DeviceRegisteredV1 /
         // KioskEnrolledV1.
         builder.Services.AddScoped<
