@@ -497,7 +497,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     }
 
     private Task<string> AdminTokenAsync() =>
-        aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        aspire.GetAdminAccessTokenAsync();
 
     /// <summary>
     /// The arrangement every test here shares: a munich variable, a published

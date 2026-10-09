@@ -44,8 +44,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Authorize_with_an_invalid_path_returns_403()
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
@@ -57,8 +56,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Authorize_with_a_valid_admin_token_returns_200()
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         // Path doesn't need to exist for the auth check; absence falls
         // through to "stream not registered" which is treated as
@@ -83,8 +81,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Authorize_with_a_Bearer_prefix_strips_it_and_validates()
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
@@ -102,8 +99,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Authorize_a_publish_with_a_valid_admin_token_returns_403()
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",

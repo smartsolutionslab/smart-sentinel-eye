@@ -112,8 +112,7 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
     public async Task Reconnected_client_reconciles_an_archived_layout_promptly()
     {
         using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
-        string accessToken = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string accessToken = await aspire.GetAdminAccessTokenAsync();
 
         // Seed: a Published layout the client is "rendering".
         HttpResponseMessage created = await admin.PostAsJsonAsync(

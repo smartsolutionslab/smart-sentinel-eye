@@ -126,8 +126,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task Mqtt_CONNECT_to_CONNACK_median_stays_within_the_transport_budget()
     {
-        string adminToken = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string adminToken = await aspire.GetAdminAccessTokenAsync();
 
         DeviceCredentials device = await RegisterDeviceAsync(adminToken);
         string deviceJwt = await MintDeviceTokenAsync(device);

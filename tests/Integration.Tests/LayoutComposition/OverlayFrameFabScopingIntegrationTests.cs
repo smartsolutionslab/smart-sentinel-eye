@@ -146,7 +146,7 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
         aspire.GetAccessTokenAsync(username, OperatorPassword);
 
     private Task<string> AdminTokenAsync() =>
-        aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        aspire.GetAdminAccessTokenAsync();
 
     private async Task<Guid> CreatePublishedOverlayAsync()
     {

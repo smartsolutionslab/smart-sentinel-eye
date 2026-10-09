@@ -52,7 +52,8 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
         AudiencesOf(token).ShouldContain(ApiAudience,
             customMessage: $"the token '{AspireFixture.ClientId}' mints does not name "
             + $"'{ApiAudience}', so every API refuses it once audience validation is on. This is "
-            + "the client every other integration test authenticates through (spec 069 FR-003).");
+            + "the console client persona and password-probe tests authenticate through "
+            + "(spec 069 FR-003).");
     }
 
     [Fact]
@@ -76,8 +77,7 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_client_enrolled_at_runtime_mints_a_token_that_names_it()
     {
-        string adminToken = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string adminToken = await aspire.GetAdminAccessTokenAsync();
 
         (string clientId, string clientSecret) = await RegisterDeviceAsync(adminToken);
         string token = await MintClientCredentialsTokenAsync(clientId, clientSecret);

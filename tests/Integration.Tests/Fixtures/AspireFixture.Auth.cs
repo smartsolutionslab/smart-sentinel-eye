@@ -9,7 +9,24 @@ public sealed partial class AspireFixture
 {
     public const string AdminUsername = "admin";
     public const string AdminPassword = SeededCredentials.Admin;
+
+    /// <summary>
+    /// The console client. Scope narrowed to persona tokens
+    /// (<see cref="CreateAuthenticatedClientAsync"/>, non-admin
+    /// <see cref="GetAccessTokenAsync(string, string, CancellationToken)"/>) and the
+    /// password-grant probes that test <c>management-web</c>'s own ROPC behaviour. Admin
+    /// tokens no longer mint here — see <see cref="HarnessClientId"/> and
+    /// <see cref="GetAdminAccessTokenAsync"/> (spec 327, #2511).
+    /// </summary>
     public const string ClientId = "management-web";
+
+    /// <summary>
+    /// The confidential <c>client_credentials</c> client the integration harness uses to mint
+    /// admin tokens (spec 327, #2511), replacing the password grant this fixture previously
+    /// made against <see cref="ClientId"/>.
+    /// </summary>
+    public const string HarnessClientId = "integration-test-admin";
+    public const string HarnessClientSecret = "dev-only-integration-test-admin-secret";
 
     // Token cache lives across all tests in the collection so a 295-test
     // run does not hammer Keycloak with a fresh password grant per test
@@ -57,9 +74,33 @@ public sealed partial class AspireFixture
     public Uri HubUri(string resourceName, string hubPath) =>
         new(App.GetEndpoint(resourceName, "http").ToString().TrimEnd('/') + hubPath);
 
-    public Task<HttpClient> CreateAdminClientAsync(
-        string resourceName, CancellationToken cancellationToken = default) =>
-        CreateAuthenticatedClientAsync(resourceName, AdminUsername, AdminPassword, cancellationToken);
+    public async Task<HttpClient> CreateAdminClientAsync(
+        string resourceName, CancellationToken cancellationToken = default)
+    {
+        string token = await GetAdminAccessTokenAsync(cancellationToken);
+        HttpClient client = CreateServiceClient(resourceName);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client;
+    }
+
+    /// <summary>
+    /// Mints the harness's admin token via <c>client_credentials</c> against
+    /// <see cref="HarnessClientId"/>, sharing <see cref="tokenCache"/> with the password-grant
+    /// path (spec 327, #2511).
+    /// </summary>
+    public async Task<string> GetAdminAccessTokenAsync(CancellationToken cancellationToken = default)
+    {
+        string cacheKey = $"client_credentials|{HarnessClientId}";
+        if (tokenCache.TryGetValue(cacheKey, out CachedToken? cached) &&
+            cached.ExpiresAt > DateTimeOffset.UtcNow + ExpirySafetyMargin)
+        {
+            return cached.AccessToken;
+        }
+
+        CachedToken token = await FetchClientCredentialsTokenAsync(cancellationToken);
+        tokenCache[cacheKey] = token;
+        return token.AccessToken;
+    }
 
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
         string resourceName, string username, string password, CancellationToken cancellationToken = default)
@@ -111,11 +152,10 @@ public sealed partial class AspireFixture
         string username, string password, CancellationToken cancellationToken) =>
         FetchAccessTokenAsync(username, password, ClientId, "openid", cancellationToken);
 
-    private async Task<CachedToken> FetchAccessTokenAsync(
+    private Task<CachedToken> FetchAccessTokenAsync(
         string username, string password, string clientId, string scope,
         CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
@@ -125,6 +165,32 @@ public sealed partial class AspireFixture
             ["scope"] = scope,
         };
 
+        return RequestTokenAsync(form, $"password grant failed for '{username}'", cancellationToken);
+    }
+
+    private Task<CachedToken> FetchClientCredentialsTokenAsync(CancellationToken cancellationToken)
+    {
+        Dictionary<string, string> form = new()
+        {
+            ["grant_type"] = "client_credentials",
+            ["client_id"] = HarnessClientId,
+            ["client_secret"] = HarnessClientSecret,
+        };
+
+        return RequestTokenAsync(
+            form, $"client_credentials grant failed for '{HarnessClientId}'", cancellationToken);
+    }
+
+    /// <summary>
+    /// Shared POST + status check + JSON parse for every grant this fixture mints.
+    /// <paramref name="describe"/> names the grant and the principal, so a failure reads
+    /// e.g. "Keycloak password grant failed for 'admin'" or "Keycloak client_credentials
+    /// grant failed for 'integration-test-admin'" rather than one generic message (spec 327).
+    /// </summary>
+    private async Task<CachedToken> RequestTokenAsync(
+        Dictionary<string, string> form, string describe, CancellationToken cancellationToken)
+    {
+        using HttpClient keycloak = CreateKeycloakClient();
         HttpResponseMessage response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token",
             new FormUrlEncodedContent(form), cancellationToken).ConfigureAwait(false);
@@ -133,7 +199,7 @@ public sealed partial class AspireFixture
         {
             string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException(
-                $"Keycloak password grant failed for '{username}': {response.StatusCode} {body}");
+                $"Keycloak {describe}: {response.StatusCode} {body}");
         }
 
         JsonElement tokenJson = await response.Content

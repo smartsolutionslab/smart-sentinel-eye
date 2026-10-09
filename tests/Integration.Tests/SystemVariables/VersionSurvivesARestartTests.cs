@@ -183,7 +183,7 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
     private async Task<(HubConnection Connection, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> Frames)>
         ListenAsync()
     {
-        string accessToken = await aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string accessToken = await aspire.GetAdminAccessTokenAsync();
 
         HubConnection connection = new HubConnectionBuilder()
             .WithUrl(aspire.HubUri("layout-composition", LayoutLifecycleHub.Path), options =>

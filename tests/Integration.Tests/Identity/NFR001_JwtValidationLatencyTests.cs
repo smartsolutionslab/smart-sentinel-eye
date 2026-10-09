@@ -53,7 +53,7 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
     [Fact]
     public async Task Per_request_JWT_validation_median_stays_under_the_500us_budget()
     {
-        string token = await aspire.GetAccessTokenAsync(AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         using HttpClient keycloak = aspire.CreateKeycloakClient();
         string authority = $"{keycloak.BaseAddress!.ToString().TrimEnd('/')}/realms/smart-sentinel-eye";

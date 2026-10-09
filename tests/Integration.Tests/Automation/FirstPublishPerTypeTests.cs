@@ -180,8 +180,7 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
 
     private async Task<HubConnection> ListenAsync(ConcurrentFrames frames)
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         HubConnection kiosk = new HubConnectionBuilder()
             .WithUrl(

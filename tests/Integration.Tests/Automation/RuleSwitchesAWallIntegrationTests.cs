@@ -673,8 +673,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     private async Task<HubConnection> ListenForWallSceneChangedAsync(
         Guid wall, TaskCompletionSource<WallSceneChangedHubMessage> changed)
     {
-        string token = await aspire.GetAccessTokenAsync(
-            AspireFixture.AdminUsername, AspireFixture.AdminPassword);
+        string token = await aspire.GetAdminAccessTokenAsync();
 
         HubConnection kiosk = new HubConnectionBuilder()
             .WithUrl(
