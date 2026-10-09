@@ -27,15 +27,49 @@ public sealed class OrphanedClientSweepHostedService(
     /// <summary>How often the worker wakes up to sweep, after the startup pass (spec 320 §4.4).</summary>
     internal static readonly TimeSpan TickInterval = TimeSpan.FromHours(1);
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // T001 (spec 320, #2181): declaration only. The three collaborators
-        // below are read here so the primary constructor compiles clean of
-        // CS9113/S2325 ahead of T012's real implementation (plan §5).
-        _ = scopeFactory;
-        _ = timeProvider;
-        _ = logger;
-        throw new NotImplementedException();
+        // StartAsync must never wait on Keycloak (spec 317's lesson): this
+        // yield is what lets BackgroundService.StartAsync return before the
+        // pass below ever calls out.
+        await Task.Yield();
+
+        using PeriodicTimer timer = new(TickInterval, timeProvider);
+        try
+        {
+            await RunOnceSafelyAsync(stoppingToken); // the startup pass
+            while (await timer.WaitForNextTickAsync(stoppingToken))
+            {
+                await RunOnceSafelyAsync(stoppingToken);
+            }
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            // expected on shutdown
+        }
+    }
+
+    /// <summary>
+    /// A failed pass must not be a failed host — the sweep is a background
+    /// reconciliation nobody is waiting on, and the next tick tries again.
+    /// <see cref="BackgroundService"/>'s default
+    /// <c>BackgroundServiceExceptionBehavior.StopHost</c> must not apply to
+    /// this janitor.
+    /// </summary>
+    private async Task RunOnceSafelyAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await RunOnceAsync(cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            logger.OrphanedClientSweepFailed(exception);
+        }
     }
 
     /// <summary>
@@ -44,9 +78,12 @@ public sealed class OrphanedClientSweepHostedService(
     /// tests can drive one pass directly rather than waiting for a timer
     /// tick.
     /// </summary>
-    public Task RunOnceAsync(CancellationToken cancellationToken)
+    public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
-        _ = scopeFactory;
-        throw new NotImplementedException();
+        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+
+        OrphanedClientSweep sweep = scope.ServiceProvider.GetRequiredService<OrphanedClientSweep>();
+
+        await sweep.SweepAsync(cancellationToken);
     }
 }

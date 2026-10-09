@@ -18,6 +18,27 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not strip inherited realm privileges from kiosk '{ClientId}'; it still holds them.")]
     public static partial void CouldNotSweepKiosk(this ILogger logger, string clientId, Exception exception);
 
+    // Spec 320 (#2181). Warning, not Information: disabling a live credential
+    // is security-relevant and must stand out from the summary line below.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Disabled orphaned Keycloak client '{ClientId}' (kind {Kind}), whose service account is {Age} old with no active registered-client row.")]
+    public static partial void DisabledOrphanedClient(this ILogger logger, string clientId, string kind, TimeSpan age);
+
+    // Silent at zero, as spec 132 made KioskPrivilegeSweep's own summary.
+    [LoggerMessage(Level = LogLevel.Information, Message = "Orphan sweep disabled {Disabled} of {Examined} enabled, stamped device/kiosk clients with no active registered-client row.")]
+    public static partial void SweptOrphanedClients(this ILogger logger, int disabled, int examined);
+
+    // Error: the mass-disable guard (spec 320 §4.3) tripping means a restored
+    // or wrong database, not a rare cancellation, and nothing was disabled.
+    [LoggerMessage(Level = LogLevel.Error, Message = "Refused to disable {Candidates} of {Examined} enabled, stamped device/kiosk clients — more than half the fleet looks orphaned, which is more likely the wrong database than a rare cancellation. Nothing was disabled.")]
+    public static partial void OrphanedClientSweepRefused(this ILogger logger, int candidates, int examined);
+
+    // Shared by the age read, the disable call, and a stamped clientId
+    // ClientId.From rejects — each leaves the client untouched and reported
+    // rather than guessed at. exception is null only for "no service account
+    // user at all", which is not itself an exception.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Could not reconcile stamped Keycloak client '{ClientId}' during the orphan sweep; it was left untouched.")]
+    public static partial void CouldNotSweepOrphanedClient(this ILogger logger, string clientId, Exception? exception);
+
     [LoggerMessage(Level = LogLevel.Debug, Message = "Published DeviceRegisteredV1 for {ClientId}.")]
     public static partial void PublishedDeviceRegisteredV1(this ILogger logger, ClientId clientId);
 

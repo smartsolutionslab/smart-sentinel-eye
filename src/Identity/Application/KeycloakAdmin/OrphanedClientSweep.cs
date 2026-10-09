@@ -52,16 +52,122 @@ public sealed class OrphanedClientSweep(
     /// row, ages the rest past <see cref="GraceWindow"/>, and disables what
     /// is left — unless the mass-disable guard (spec 320 §4.3) refuses.
     /// </summary>
-    public Task<OrphanedClientSweepOutcome> SweepAsync(CancellationToken cancellationToken)
+    public async Task<OrphanedClientSweepOutcome> SweepAsync(CancellationToken cancellationToken)
     {
-        // T001 (spec 320, #2181): declaration only. The four collaborators
-        // below are read here so the primary constructor compiles clean of
-        // CS9113/S2325 ahead of T011's real implementation (plan §4).
-        _ = keycloak;
-        _ = clients;
-        _ = clock;
-        _ = logger;
-        throw new NotImplementedException();
+        IReadOnlyList<StampedClient> stamped = await keycloak.GetStampedClientsAsync(cancellationToken); // S5
+        List<StampedClient> eligible =
+            [.. stamped.Where(client => SweptKinds.Contains(client.Kind) && client.Enabled)]; // S1, S2
+        IReadOnlySet<ClientId> active = await clients.GetActiveClientIdsAsync(cancellationToken);
+
+        List<string> unreachable = [];
+        List<(StampedClient Client, TimeSpan Age)> orphans = [];
+        foreach (StampedClient candidate in eligible)
+        {
+            await ClassifyAsync(candidate, active, orphans, unreachable, cancellationToken);
+        }
+
+        // S6, the mass-disable guard. A healthy baseline must exist to ratio
+        // against — when every eligible client is orphaned there is nothing
+        // to compare against a restored or wrong database, and the candidate
+        // floor is what protects that case instead (spec 320 §4.3).
+        if (orphans.Count >= 2 && orphans.Count < eligible.Count && orphans.Count * 2 > eligible.Count)
+        {
+            logger.OrphanedClientSweepRefused(orphans.Count, eligible.Count);
+            return new OrphanedClientSweepOutcome(eligible.Count, Disabled: 0, Refused: true, unreachable);
+        }
+
+        int disabledCount = await DisableAllAsync(orphans, unreachable, cancellationToken);
+        if (disabledCount > 0)
+        {
+            logger.SweptOrphanedClients(disabledCount, eligible.Count);
+        }
+
+        return new OrphanedClientSweepOutcome(eligible.Count, disabledCount, Refused: false, unreachable);
+    }
+
+    /// <summary>
+    /// Decides one eligible client: a malformed clientId, an active row
+    /// (S3), a service account that cannot be read or does not exist, or one
+    /// still inside <see cref="GraceWindow"/> (S4) are each handled and
+    /// classified here; everything else still standing is appended to
+    /// <paramref name="orphans"/>.
+    /// </summary>
+    private async Task ClassifyAsync(
+        StampedClient candidate,
+        IReadOnlySet<ClientId> active,
+        List<(StampedClient Client, TimeSpan Age)> orphans,
+        List<string> unreachable,
+        CancellationToken cancellationToken)
+    {
+        ClientId clientId;
+        try
+        {
+            clientId = ClientId.From(candidate.ClientId);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            unreachable.Add(candidate.ClientId);
+            logger.CouldNotSweepOrphanedClient(candidate.ClientId, exception);
+            return;
+        }
+
+        if (active.Contains(clientId)) // S3
+        {
+            return;
+        }
+
+        Option<DateTimeOffset> createdAt;
+        try
+        {
+            createdAt = await keycloak.GetServiceAccountCreatedAtAsync(candidate.ClientId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            unreachable.Add(candidate.ClientId);
+            logger.CouldNotSweepOrphanedClient(candidate.ClientId, exception);
+            return;
+        }
+
+        if (!createdAt.HasValue)
+        {
+            unreachable.Add(candidate.ClientId);
+            logger.CouldNotSweepOrphanedClient(candidate.ClientId, exception: null);
+            return;
+        }
+
+        TimeSpan age = clock.UtcNow - createdAt.Value;
+        if (age < GraceWindow) // S4: a registration still in flight
+        {
+            return;
+        }
+
+        orphans.Add((candidate, age));
+    }
+
+    private async Task<int> DisableAllAsync(
+        List<(StampedClient Client, TimeSpan Age)> orphans,
+        List<string> unreachable,
+        CancellationToken cancellationToken)
+    {
+        int disabledCount = 0;
+        foreach ((StampedClient client, TimeSpan age) in orphans)
+        {
+            try
+            {
+                await keycloak.DisableClientAsync(client.ClientId, cancellationToken); // S7
+            }
+            catch (Exception exception) when (exception is not OperationCanceledException)
+            {
+                unreachable.Add(client.ClientId);
+                logger.CouldNotSweepOrphanedClient(client.ClientId, exception);
+                continue;
+            }
+
+            disabledCount++;
+            logger.DisabledOrphanedClient(client.ClientId, client.Kind, age);
+        }
+
+        return disabledCount;
     }
 }
 

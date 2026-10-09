@@ -65,6 +65,12 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "The kiosk privilege startup sweep could not complete; enrolled kiosks may still hold inherited realm privileges until the next start.")]
     public static partial void KioskPrivilegeSweepFailed(this ILogger logger, Exception exception);
 
+    // Spec 320 (#2181). Warning, not Error — the API is serving, and the
+    // next hourly tick (or the next start) tries again, the same discipline
+    // as KioskPrivilegeSweepFailed above.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "The orphaned-client sweep could not complete; a client an aborted registration or enrolment left behind may still be enabled until the next tick.")]
+    public static partial void OrphanedClientSweepFailed(this ILogger logger, Exception exception);
+
     // Spec 317 (#2170). Distinct from the arm above: that one is an unexpected
     // fault, this one is the sweep's own bound (KioskPrivilegeSweepHostedService.Bound)
     // ending a pass that never came back. Same Warning level and the same
