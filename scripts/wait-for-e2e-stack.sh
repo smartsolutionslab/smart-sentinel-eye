@@ -236,6 +236,25 @@ if [ "$web_up" != "1" ]; then
   exit 1
 fi
 
+# management-cameras, the federated cameras remote (spec 316 plan.md §1's
+# dev-port table). Waited for like the kiosk probes below it: a shell that
+# comes up without it would fail every federation-dependent spec in a way
+# that describes the boot, not the product.
+echo "Waiting for management-cameras on :5176 ..."
+cameras_up=0
+for i in $(seq 1 60); do # up to ~5 min
+  if curl -fsS -o /dev/null --max-time 4 "http://localhost:5176/" 2>/dev/null; then
+    echo "  serving after ~$((i * 5))s"
+    cameras_up=1
+    break
+  fi
+  sleep 5
+done
+if [ "$cameras_up" != "1" ]; then
+  echo "::error::nothing served on :5176"
+  exit 1
+fi
+
 # The two kiosk instances. **Waited for by name, because there are now three
 # front ends and only one of them was ever checked.** The wall display (spec 052)
 # is the same bundle in wall mode; it starts last and a suite that began before
