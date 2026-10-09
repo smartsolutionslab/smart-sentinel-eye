@@ -48,6 +48,27 @@ async function lintShared(code, relativeFilePath) {
   const [result] = await eslint.lintText(code, {
     filePath: path.join(sharedApp, relativeFilePath),
   });
+
+  // A parse failure (`ruleId: null`, `fatal: true`) or ESLint skipping the
+  // file (a "File ignored…" warning, also `ruleId: null`) would otherwise be
+  // filtered out below along with everything else that isn't
+  // no-restricted-imports, making a broken parse or an unmatched `files`
+  // glob look identical to a genuinely clean lint. Catch both before
+  // narrowing to the rule under test.
+  assert.equal(
+    result.fatalErrorCount,
+    0,
+    `expected no fatal errors linting ${relativeFilePath}, got: ${JSON.stringify(result.messages, null, 2)}`,
+  );
+
+  const ruleIdLessMessages = result.messages.filter((message) => message.ruleId === null);
+  assert.deepEqual(
+    ruleIdLessMessages,
+    [],
+    `expected no ruleId-less messages (parse failure or file ignored) linting ${relativeFilePath}, got: ` +
+      `${JSON.stringify(ruleIdLessMessages, null, 2)}`,
+  );
+
   return result.messages.filter((message) => message.ruleId === 'no-restricted-imports');
 }
 
@@ -61,6 +82,11 @@ const mustFlagCases = [
   [
     'a named import from a @reduxjs/toolkit subpath',
     "import { createApi } from '@reduxjs/toolkit/query/react';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a named import from a react-redux subpath',
+    "import { useSelector } from 'react-redux/es/exports';",
     'src/ui/composites/__probe__.tsx',
   ],
   ['re-exporting from react-redux', "export { Provider } from 'react-redux';", 'src/ui/composites/__probe__.tsx'],
