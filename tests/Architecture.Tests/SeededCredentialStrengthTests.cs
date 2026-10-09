@@ -236,20 +236,37 @@ public class SeededCredentialStrengthTests
     /// themselves now be refused by the realm's own declared policy. Built
     /// from the same derivation rule as <see cref="IsUsernameDerived"/>, not
     /// typed as literals, for the same reason.
+    ///
+    /// <para>
+    /// Checked against the <b>real</b> account each retired value belonged to
+    /// (looked up from the realm import by username), not an unrelated probe
+    /// identity. <c>notContainsUsername</c>/<c>notEmail</c> only have a
+    /// chance to fire against the username/email they actually match — a
+    /// shared, unrelated probe identity can never exercise them, which would
+    /// make this fact pass four of six retired values (the
+    /// <c>Wall-&lt;fab&gt;-1234</c> ones, 16-17 chars, every character class
+    /// present) for the wrong reason: they clear every length/composition
+    /// clause on their own and were only ever weak because they are derived
+    /// from their own username, not because they are short.
+    /// </para>
     /// </summary>
     [Fact]
     public void Every_retired_seeded_password_is_refused_by_the_realms_declared_policy()
     {
         string declared = DeclaredPolicy();
         PolicyPredicate policy = ParsePolicy(declared);
-        string[] retired = [.. RetiredSeededCredentials.Select(credential => Capitalise(credential.Username) + credential.Suffix)];
-        Candidate retiredProbe = new("retired-probe", "retired-probe@policy.test");
+        SeededAccount[] accounts = HumanAccounts();
 
-        foreach (string password in retired)
+        foreach ((string username, string suffix) in RetiredSeededCredentials)
         {
-            policy.IsSatisfiedBy(password, retiredProbe).ShouldBeFalse(
+            string password = Capitalise(username) + suffix;
+            SeededAccount account = accounts.First(candidate => candidate.Username == username);
+            Candidate retiredCandidate = new(account.Username, account.Email);
+
+            policy.IsSatisfiedBy(password, retiredCandidate).ShouldBeFalse(
                 customMessage: $"expected the realm's declared policy '{declared}' to refuse the "
-                + $"retired seeded password '{password}'; it was accepted.");
+                + $"retired seeded password '{password}' for its own account '{username}' "
+                + $"(email '{account.Email}'); it was accepted.");
         }
     }
 
