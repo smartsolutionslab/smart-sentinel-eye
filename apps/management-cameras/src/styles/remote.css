@@ -5,6 +5,28 @@
  * generates may also appear in the shell's own compiled CSS; that
  * duplication (identical declarations) is the accepted cost of each app
  * building independently (US3).
+ *
+ * `@layer utilities` wrapper is load-bearing, not decoration. Tailwind's own
+ * `tailwindcss/index.css` (what `@import 'tailwindcss'` pulls in) declares
+ * `@layer theme, base, components, utilities;` and then wraps its generated
+ * utilities in `@layer utilities { @tailwind utilities; }` — but the
+ * standalone `tailwindcss/utilities.css` entry point this file imports is
+ * just `@tailwind utilities;`, with NO layer wrapper at all (read directly
+ * from node_modules/tailwindcss/utilities.css). Built and inspected
+ * directly: without this wrapper, every utility this remote generates (e.g.
+ * `.text-fg-primary`, picked up from this package's own content scan) comes
+ * out completely UNLAYERED — and an unlayered rule beats EVERY layered rule
+ * on the page regardless of specificity or source order (CSS Cascade
+ * Layers), so it silently overrode the shell's correctly-layered
+ * `disabled:text-fg-disabled:disabled` rule on `RegisterCameraDialog`'s
+ * shared `Input` (confirmed via a static two-stylesheet repro: the disabled
+ * input's computed `color` flips from the right `--color-fg-disabled` value
+ * to `--color-fg-primary` the instant this remote's CSS is added to the
+ * page, with no other change). Wrapping it in the SAME named layer the shell
+ * already establishes lets the two sheets' utilities compete on ordinary
+ * specificity instead, where `:disabled` correctly wins.
  */
-@import 'tailwindcss/utilities';
+@layer utilities {
+  @import 'tailwindcss/utilities';
+}
 @config '../../tailwind.config.ts';
