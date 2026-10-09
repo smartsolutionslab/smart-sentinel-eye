@@ -1,5 +1,6 @@
-import { configureStore, createListenerMiddleware, type Dispatch } from '@reduxjs/toolkit';
+import type { Dispatch } from '@reduxjs/toolkit';
 import { setupListeners } from '@reduxjs/toolkit/query';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 import { layoutsApi } from '@smart-sentinel-eye/shared/api/layouts.api';
@@ -24,31 +25,12 @@ export const apiSlices = [
   wallsApi,
 ];
 
-// Spec 314 (#2762): useRevocationFallback dispatches its own `addListener`
-// from a `useEffect` to observe RTK Query settlements at dispatch time —
-// autobatch can otherwise coalesce a settlement's render notification with
-// the next action and drop a strike (or a reset). Prepended ahead of the
-// api slices' middleware so the listener sees `addListener`'s own action
-// before the serializability check inspects its function-valued payload.
-const listenerMiddleware = createListenerMiddleware();
-
 // Single Redux store per app (ADR-0075). RTK Query slices added per feature.
-export const store = configureStore({
-  reducer: {
-    [camerasApi.reducerPath]: camerasApi.reducer,
-    [streamsApi.reducerPath]: streamsApi.reducer,
-    [layoutsApi.reducerPath]: layoutsApi.reducer,
-    [overlaysApi.reducerPath]: overlaysApi.reducer,
-    [rulesApi.reducerPath]: rulesApi.reducer,
-    [systemVariablesApi.reducerPath]: systemVariablesApi.reducer,
-    [auditApi.reducerPath]: auditApi.reducer,
-    [wallsApi.reducerPath]: wallsApi.reducer,
-  },
-  middleware: (getDefault) =>
-    getDefault()
-      .prepend(listenerMiddleware.middleware)
-      .concat(apiSlices.map((slice) => slice.middleware)),
-});
+// The listener-middleware wiring (spec 314, #2762: useRevocationFallback's
+// own `addListener` must be seen by the serializability check before that
+// check inspects its function-valued payload) lives in `createApiStore`
+// (plan.md §4.1), shared with every app that mounts RTK Query slices.
+export const store = createApiStore(apiSlices);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;
