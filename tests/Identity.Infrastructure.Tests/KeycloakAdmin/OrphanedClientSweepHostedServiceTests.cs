@@ -32,7 +32,7 @@ public class OrphanedClientSweepHostedServiceTests
         SilentKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<OrphanedClientSweepHostedService> logger = new();
-        using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        await using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
 
         OrphanedClientSweepHostedService service = BuildHostedService(provider);
 
@@ -67,7 +67,7 @@ public class OrphanedClientSweepHostedServiceTests
         ThrowingStampedClientKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<OrphanedClientSweepHostedService> logger = new();
-        using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        await using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
 
         OrphanedClientSweepHostedService service = BuildHostedService(provider);
 
@@ -116,7 +116,7 @@ public class OrphanedClientSweepHostedServiceTests
         SilentKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<OrphanedClientSweepHostedService> logger = new();
-        using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        await using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
 
         OrphanedClientSweepHostedService service = BuildHostedService(provider);
 
