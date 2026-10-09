@@ -50,6 +50,12 @@ public sealed class UnreachableKeycloakAdminClient : IKeycloakAdminClient
     public Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken) => throw Unreachable();
 
+    public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken) => throw Unreachable();
+
+    public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+        string clientId, CancellationToken cancellationToken) => throw Unreachable();
+
     private static HttpRequestException Unreachable() =>
         new("Keycloak is not reachable.");
 }

@@ -165,6 +165,24 @@ public interface IKeycloakAdminClient
     /// </summary>
     Task<bool> StripInheritedRealmRolesAsync(
         string clientId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Every client carrying an <c>sse.kind</c> attribute, whatever its value.
+    /// The caller filters; the adapter does not decide policy. One
+    /// <c>GET /clients</c>, like <see cref="GetEnrolledKioskClientIdsAsync"/>
+    /// (spec 320 plan §3).
+    /// </summary>
+    Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// When the client's service-account user was created, by Keycloak's
+    /// clock — the only creation time Keycloak records for a client.
+    /// <c>None</c> when the client or its service account does not exist.
+    /// Any other failure throws (spec 320 plan §3).
+    /// </summary>
+    Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+        string clientId, CancellationToken cancellationToken);
 }
 
 /// <summary>

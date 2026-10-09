@@ -212,6 +212,13 @@ public class KeycloakProvisionedFabSourceTests
 
         public Task DisableClientAsync(string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
+
+        public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+            string clientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
     }
 
     private sealed class ThrowingKeycloakAdminClient : IKeycloakAdminClient
@@ -241,6 +248,13 @@ public class KeycloakProvisionedFabSourceTests
             throw new NotSupportedException();
 
         public Task DisableClientAsync(string clientId, CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(CancellationToken cancellationToken) =>
+            throw new NotSupportedException();
+
+        public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+            string clientId, CancellationToken cancellationToken) =>
             throw new NotSupportedException();
     }
 }
