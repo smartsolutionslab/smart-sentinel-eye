@@ -2,7 +2,5 @@
   "schemaVersion": 1,
   "remote": "cameras",
   "basePath": "/cameras",
-  "entries": [
-    { "path": "/cameras", "label": "Cameras", "order": 10, "requiredScopes": ["sse.cameras.read"] }
-  ]
+  "entries": [{ "path": "/cameras", "label": "Cameras", "order": 10, "requiredScopes": ["sse.cameras.read"] }]
 }
