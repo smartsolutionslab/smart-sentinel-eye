@@ -29,4 +29,11 @@ public interface IRegisteredClientRepository
     void Add(RegisteredClient client);
 
     Task SaveAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// The client ids of every row not disabled, of any kind (spec 320 plan
+    /// §3) — what <c>OrphanedClientSweep</c> subtracts a stamped Keycloak
+    /// client's id from to decide whether it has a row.
+    /// </summary>
+    Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken);
 }

@@ -88,4 +88,8 @@ public sealed class RegisteredClientRepository(
 
         await commit.CommitAsync(cancellationToken);
     }
+
+    // Spec 320 (#2181), T001: declaration only. Implemented at T010.
+    public Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
 }

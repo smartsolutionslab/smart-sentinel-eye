@@ -398,6 +398,16 @@ public sealed class HttpKeycloakAdminClient(
         return await StripInheritedRealmRolesAsync(realm, clientUuid, cancellationToken);
     }
 
+    // Spec 320 (#2181), T001: declaration only. Implemented at T009.
+    public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
+    // Spec 320 (#2181), T001: declaration only. Implemented at T009.
+    public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+        string clientId, CancellationToken cancellationToken) =>
+        throw new NotImplementedException();
+
     /// <summary>
     /// Removes the realm privileges an account inherited simply by being
     /// created, leaving it with only what it was given deliberately.

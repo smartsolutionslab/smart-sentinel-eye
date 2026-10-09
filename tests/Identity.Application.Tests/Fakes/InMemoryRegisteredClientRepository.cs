@@ -67,6 +67,14 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     public IClock? DisableRowOnSecondGetWithinFab { get; set; }
 
     /// <summary>
+    /// Every call this fake made that the sweep's tests care about the order
+    /// of, in order — <c>OrphanedClientSweepTests</c>' U9. Assign the same
+    /// list instance to <c>FakeKeycloakAdminClient.CallLog</c> so one
+    /// sequence spans both ports the sweep reads from (spec 320 plan §3).
+    /// </summary>
+    public List<string> CallLog { get; set; } = [];
+
+    /// <summary>
     /// Places a client that already exists in the database, at
     /// <paramref name="version"/>. Distinct from <see cref="Add"/>, which is
     /// the production path for a row being created now: the interceptor does
@@ -168,5 +176,20 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         }
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Spec 320 plan §3 — mirrors production's <c>DisabledAt == null</c>
+    /// filter, matching <see cref="GetByClientIdAsync"/>.
+    /// </summary>
+    public Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken)
+    {
+        CallLog.Add(nameof(GetActiveClientIdsAsync));
+
+        HashSet<ClientId> active = clients
+            .Where(c => c.DisabledAt is null)
+            .Select(c => c.ClientId)
+            .ToHashSet();
+        return Task.FromResult<IReadOnlySet<ClientId>>(active);
     }
 }

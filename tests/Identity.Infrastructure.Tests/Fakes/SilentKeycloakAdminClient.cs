@@ -24,6 +24,14 @@ public sealed class SilentKeycloakAdminClient : IKeycloakAdminClient
     /// </summary>
     public int EnumerationAttempts { get; private set; }
 
+    /// <summary>
+    /// How many times <see cref="GetStampedClientsAsync"/> — the first call
+    /// <c>OrphanedClientSweep.SweepAsync</c> makes (spec 320 plan §4, S5) —
+    /// was attempted. The sweep's own black hole, mirroring
+    /// <see cref="EnumerationAttempts"/> for <c>KioskPrivilegeSweep</c>.
+    /// </summary>
+    public int StampedClientAttempts { get; private set; }
+
     public Task<KeycloakClientCredentials> CreateClientAsync(
         KeycloakClientRepresentation representation,
         string fabGroupPath,
@@ -57,6 +65,23 @@ public sealed class SilentKeycloakAdminClient : IKeycloakAdminClient
     }
 
     public Task<bool> StripInheritedRealmRolesAsync(
+        string clientId, CancellationToken cancellationToken) => throw Unreachable();
+
+    public async Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken)
+    {
+        StampedClientAttempts++;
+
+        // The black hole, same shape as GetEnrolledKioskClientIdsAsync above:
+        // never completes on its own. The only thing that ends this await is
+        // cancellation, exactly as the hosted service's StartAsync (spec 317's
+        // lesson) must supply for its own pass.
+        await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+
+        throw Unreachable();
+    }
+
+    public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
         string clientId, CancellationToken cancellationToken) => throw Unreachable();
 
     private static HttpRequestException Unreachable() =>

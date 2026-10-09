@@ -63,6 +63,52 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     public Exception? FailNextDisableWith { get; set; }
 
     /// <summary>
+    /// Clients <see cref="GetStampedClientsAsync"/> reports — independent of
+    /// <see cref="Created"/>, the record <see cref="CreateClientAsync"/>
+    /// builds. <c>OrphanedClientSweepTests</c> plants a stamped client
+    /// directly, the way <c>RealmProbe</c> plants one against the real
+    /// provider, rather than going through enrolment or registration.
+    /// </summary>
+    public List<StampedClient> StampedClients { get; } = [];
+
+    /// <summary>
+    /// When each stamped client's service-account user was created, keyed by
+    /// client id. A client id absent here answers <c>None</c> —
+    /// <c>OrphanedClientSweepTests</c>' U7, "no service account".
+    /// </summary>
+    public Dictionary<string, DateTimeOffset> ServiceAccountCreatedAt { get; } =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What <see cref="GetServiceAccountCreatedAtAsync"/> should throw instead
+    /// of answering, keyed by client id — U6 (a transport failure, so the
+    /// other orphan is still disabled) and U11 (an
+    /// <see cref="OperationCanceledException"/>, which must propagate rather
+    /// than being swallowed into <c>Unreachable</c>).
+    /// </summary>
+    public Dictionary<string, Exception> ServiceAccountCreatedAtThrows { get; } =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// What <see cref="DisableClientAsync"/> should throw instead of
+    /// disabling, keyed by client id — U6b, where the second orphan must
+    /// still be disabled despite the first's failure. Distinct from
+    /// <see cref="FailNextDisableWith"/>, which is one-shot against the next
+    /// call from <b>any</b> client and already serves #2628's race-path
+    /// tests: this is per-client and order-independent.
+    /// </summary>
+    public Dictionary<string, Exception> DisableFailsFor { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Every call this fake made that the sweep's tests care about the order
+    /// of, in order — <c>OrphanedClientSweepTests</c>' U9 (Keycloak read
+    /// before Postgres, spec 320 S5). Assign the same list to
+    /// <c>InMemoryRegisteredClientRepository.CallLog</c> so one sequence
+    /// spans both ports the sweep reads from.
+    /// </summary>
+    public List<string> CallLog { get; set; } = [];
+
+    /// <summary>
     /// Every representation handed to <see cref="CreateClientAsync"/>, in order.
     ///
     /// <para>
@@ -158,6 +204,11 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     public Task DisableClientAsync(string clientId, CancellationToken cancellationToken)
     {
         CallCount++;
+        CallLog.Add(nameof(DisableClientAsync));
+        if (DisableFailsFor.TryGetValue(clientId, out Exception? perClientFailure))
+        {
+            throw perClientFailure;
+        }
         if (FailNextDisableWith is not null)
         {
             Exception toThrow = FailNextDisableWith;
@@ -171,6 +222,51 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
 
         Disabled.Add(clientId);
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Spec 320 plan §3 — one <c>GET /clients</c>, filtered to rows carrying
+    /// <c>sse.kind</c>, the same request <see cref="GetEnrolledKioskClientIdsAsync"/>
+    /// makes. The caller (<c>OrphanedClientSweep</c>) filters to the kinds it
+    /// sweeps; this fake hands back every stamped client it was given,
+    /// whatever its kind.
+    /// </summary>
+    public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken)
+    {
+        CallCount++;
+        CallLog.Add(nameof(GetStampedClientsAsync));
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
+        return Task.FromResult<IReadOnlyList<StampedClient>>([.. StampedClients]);
+    }
+
+    /// <summary>
+    /// Spec 320 plan §3 — <c>None</c> when this fake was not told a
+    /// creation time for <paramref name="clientId"/> (U7), unless a failure
+    /// was asked for instead (U6, U11).
+    /// </summary>
+    public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+        string clientId, CancellationToken cancellationToken)
+    {
+        CallCount++;
+        CallLog.Add(nameof(GetServiceAccountCreatedAtAsync));
+        if (ServiceAccountCreatedAtThrows.TryGetValue(clientId, out Exception? toThrow))
+        {
+            throw toThrow;
+        }
+        if (FailNextCall is not null)
+        {
+            ThrowAndClear();
+        }
+
+        return Task.FromResult(
+            ServiceAccountCreatedAt.TryGetValue(clientId, out DateTimeOffset createdAt)
+                ? Option<DateTimeOffset>.Some(createdAt)
+                : Option<DateTimeOffset>.None);
     }
 
     /// <summary>

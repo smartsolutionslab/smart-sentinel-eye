@@ -14,13 +14,16 @@ namespace SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
 /// </para>
 ///
 /// <para>
-/// <b>Only what the bound actually needs.</b> <see cref="GetUtcNow"/> is a
-/// plain field read; <see cref="CreateTimer"/> records a one-shot due time
-/// (the bound never asks for a recurring <c>period</c>) and
-/// <see cref="Advance"/> moves the clock forward and fires, synchronously and
-/// in due-time order, every timer whose time has come — which is what
-/// resumes a <see cref="CancellationTokenSource"/> built against this
-/// provider.
+/// <see cref="GetUtcNow"/> is a plain field read; <see cref="CreateTimer"/>
+/// records a due time and <see cref="Advance"/> moves the clock forward and
+/// fires, synchronously and in due-time order, every timer whose time has
+/// come — which is what resumes a <see cref="CancellationTokenSource"/> (a
+/// one-shot: <c>period</c> is <see cref="Timeout.InfiniteTimeSpan"/>) and
+/// what <c>PeriodicTimer.WaitForNextTickAsync</c> relies on (a genuine
+/// <c>period</c>: spec 320, #2181 — <c>OrphanedClientSweepHostedService</c>'s
+/// own tick, which the bound never needed). A recurring timer re-arms itself
+/// (<c>DueAt += Period</c>) instead of being marked fired, so it stays
+/// eligible for the next <see cref="Advance"/>.
 /// </para>
 /// </summary>
 internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
@@ -44,7 +47,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 
     public override ITimer CreateTimer(TimerCallback callback, object? state, TimeSpan dueTime, TimeSpan period)
     {
-        ScheduledTimer timer = new(callback, state);
+        ScheduledTimer timer = new(callback, state, period);
         TaskCompletionSource signal;
 
         lock (gate)
@@ -112,43 +115,64 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
 
     /// <summary>
     /// Moves the clock forward by <paramref name="delta"/> and fires every
-    /// timer now due, earliest first. Firing runs the callback synchronously
-    /// on the calling (test) thread.
+    /// timer now due, earliest first — repeatedly, so a jump of more than one
+    /// <c>period</c> fires a recurring timer more than once, the same as a
+    /// real clock running that long would. Firing runs the callback
+    /// synchronously on the calling (test) thread. A one-shot timer
+    /// (<c>period</c> is <see cref="Timeout.InfiniteTimeSpan"/>) is marked
+    /// fired and never fires again; a recurring timer re-arms itself instead.
     /// </summary>
     public void Advance(TimeSpan delta)
     {
-        List<ScheduledTimer> due;
-
+        DateTimeOffset target;
         lock (gate)
         {
             now += delta;
-            due = [.. timers.Where(t => !t.Disposed && !t.Fired && t.DueAt <= now).OrderBy(t => t.DueAt)];
+            target = now;
         }
 
-        foreach (ScheduledTimer timer in due)
+        while (true)
         {
-            timer.Fire();
+            ScheduledTimer? due;
+            lock (gate)
+            {
+                due = timers
+                    .Where(t => !t.Disposed && !t.Fired && t.DueAt <= target)
+                    .OrderBy(t => t.DueAt)
+                    .FirstOrDefault();
+
+                if (due is null)
+                {
+                    return;
+                }
+
+                if (due.IsRecurring)
+                {
+                    due.DueAt += due.Period;
+                }
+                else
+                {
+                    due.Fired = true;
+                }
+            }
+
+            due.InvokeCallback();
         }
     }
 
-    private sealed class ScheduledTimer(TimerCallback callback, object? state) : ITimer
+    private sealed class ScheduledTimer(TimerCallback callback, object? state, TimeSpan period) : ITimer
     {
         public DateTimeOffset DueAt { get; set; }
 
-        public bool Disposed { get; private set; }
+        public bool Disposed { get; set; }
 
-        public bool Fired { get; private set; }
+        public bool Fired { get; set; }
 
-        public void Fire()
-        {
-            if (Fired || Disposed)
-            {
-                return;
-            }
+        public TimeSpan Period { get; } = period;
 
-            Fired = true;
-            callback(state);
-        }
+        public bool IsRecurring => Period > TimeSpan.Zero && Period != Timeout.InfiniteTimeSpan;
+
+        public void InvokeCallback() => callback(state);
 
         public bool Change(TimeSpan dueTime, TimeSpan period) => true;
 

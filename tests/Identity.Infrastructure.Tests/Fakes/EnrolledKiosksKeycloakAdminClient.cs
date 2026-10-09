@@ -69,6 +69,12 @@ public sealed class EnrolledKiosksKeycloakAdminClient(params string[] kiosks) : 
     public Task<Option<IReadOnlyList<string>>> GetSubGroupNamesAsync(
         string parentPath, CancellationToken cancellationToken) => throw NotPartOfASweep();
 
+    public Task<IReadOnlyList<StampedClient>> GetStampedClientsAsync(
+        CancellationToken cancellationToken) => throw NotPartOfASweep();
+
+    public Task<Option<DateTimeOffset>> GetServiceAccountCreatedAtAsync(
+        string clientId, CancellationToken cancellationToken) => throw NotPartOfASweep();
+
     private static NotSupportedException NotPartOfASweep() =>
         new("A sweep enumerates kiosks and strips them; it calls nothing else.");
 }
