@@ -51,6 +51,10 @@ public class DesignTokenLayerTests
     private static readonly string[] BridgeNames =
         ["--default-transition-duration", "--default-transition-timing-function"];
 
+    /// <summary>The trees fact 10 (<see cref="Nothing_outside_the_token_file_cites_a_primitive"/>) scans.</summary>
+    private static readonly string[] PrimitiveCitationScannedTrees =
+        ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
+
     /// <summary>
     /// <c>--&lt;hue&gt;-&lt;step&gt;</c> or <c>--black</c>/<c>--white</c>, and
     /// nothing else (plan.md §1): one lower-case word, an optional single numeric
@@ -105,6 +109,51 @@ public class DesignTokenLayerTests
     // §5) — there is no single rendered colour without a backdrop to composite
     // against. Its declared expression is pinned verbatim instead.
     private const string LabelSurface = "color-mix(in oklab, var(--white) 85%, transparent)";
+
+    /// <summary>
+    /// S3 fix (spec 316 phase-6 review): <see cref="ScannedFiles"/> tolerates
+    /// a missing tree (<c>continue</c>, not throw) so a rename doesn't crash
+    /// the scan — but that same tolerance means a future rename of
+    /// <c>apps/management-cameras</c> (or any of the other three trees it
+    /// scans) would silently narrow fact 10 to scanning nothing, rather than
+    /// failing loudly. This fact is the loud failure: every tree
+    /// <see cref="ScannedFiles"/> names must exist and contain at least one
+    /// matching file.
+    /// </summary>
+    [Fact]
+    public void Every_scanned_tree_exists_and_is_non_empty()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        List<string> problems = [];
+
+        foreach (string tree in PrimitiveCitationScannedTrees)
+        {
+            string full = Path.Combine(root.FullName, tree);
+            if (!Directory.Exists(full))
+            {
+                problems.Add($"{tree} does not exist.");
+                continue;
+            }
+
+            bool hasAnyFile = Directory
+                .EnumerateFiles(full, "*", SearchOption.AllDirectories)
+                .Any(file =>
+                    file.EndsWith(".ts", StringComparison.Ordinal)
+                    || file.EndsWith(".tsx", StringComparison.Ordinal)
+                    || file.EndsWith(".css", StringComparison.Ordinal));
+
+            if (!hasAnyFile)
+            {
+                problems.Add($"{tree} exists but contains no .ts/.tsx/.css file.");
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            "a tree fact 10 scans is missing or empty — it would silently narrow to scanning nothing rather "
+            + "than failing:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
 
     /// <summary>Fact 1 (green pin). Both apps' first <c>@import</c> names one file.</summary>
     [Fact]
@@ -679,10 +728,7 @@ public class DesignTokenLayerTests
     /// </summary>
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root, string excludeRelative)
     {
-        string[] scannedTrees =
-            ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
-
-        foreach (string tree in scannedTrees)
+        foreach (string tree in PrimitiveCitationScannedTrees)
         {
             string full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))

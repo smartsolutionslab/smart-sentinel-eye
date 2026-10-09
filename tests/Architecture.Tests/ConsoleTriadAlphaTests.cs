@@ -52,6 +52,47 @@ public class ConsoleTriadAlphaTests
         RegexOptions.Compiled);
 
     /// <summary>
+    /// S3 fix (spec 316 phase-6 review): <see cref="ScannedFiles"/> tolerates
+    /// a missing tree (<c>continue</c>, not throw) so a rename doesn't crash
+    /// the scan — but that same tolerance means a future rename of
+    /// <c>apps/management-cameras</c> would silently narrow every fact in
+    /// this class to scan nothing, rather than failing loudly. This fact is
+    /// the loud failure: every entry in <see cref="ConsoleSrcTrees"/> must
+    /// exist and contain at least one <c>.ts</c>/<c>.tsx</c> file.
+    /// </summary>
+    [Fact]
+    public void Every_scanned_tree_exists_and_is_non_empty()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        List<string> problems = [];
+
+        foreach (string tree in ConsoleSrcTrees)
+        {
+            string full = Path.Combine(root.FullName, tree);
+            if (!Directory.Exists(full))
+            {
+                problems.Add($"{tree} does not exist.");
+                continue;
+            }
+
+            bool hasAnyFile = Directory
+                .EnumerateFiles(full, "*", SearchOption.AllDirectories)
+                .Any(file => file.EndsWith(".ts", StringComparison.Ordinal) || file.EndsWith(".tsx", StringComparison.Ordinal));
+
+            if (!hasAnyFile)
+            {
+                problems.Add($"{tree} exists but contains no .ts/.tsx file.");
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            "a tree this class scans is missing or empty — every other fact in this class would silently "
+            + "narrow to scanning nothing rather than failing:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    /// <summary>
     /// A different set from the class doc's comment means the premise
     /// moved — stop (plan.md §4.4).
     /// </summary>

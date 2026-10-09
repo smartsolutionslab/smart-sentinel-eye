@@ -219,6 +219,55 @@ public class MotionLanguageTests
     private static readonly string[] TravelProperties = ["transform", "translate", "scale", "rotate"];
 
     // =====================================================================
+    // Every scanned tree exists (S3 fix, spec 316 phase-6 review).
+    // =====================================================================
+
+    /// <summary>
+    /// <see cref="ScannedFiles(DirectoryInfo, string, string[])"/> tolerates a
+    /// missing tree (<c>yield break</c>, not throw) so a rename doesn't crash
+    /// the scan — but that same tolerance means a future rename of
+    /// <see cref="ManagementCamerasSrc"/> (or any of the other three trees
+    /// <see cref="ScannedTsFiles"/>/<see cref="ScannedCssFiles"/> name) would
+    /// silently narrow every fact in this class to scanning nothing, rather
+    /// than failing loudly. This fact is the loud failure.
+    /// </summary>
+    [Fact]
+    public void Every_scanned_tree_exists_and_is_non_empty()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        string[] scannedTrees = [ManagementSrc, ManagementCamerasSrc, KioskSrc, SharedUiSrc];
+        List<string> problems = [];
+
+        foreach (string tree in scannedTrees)
+        {
+            string full = Path.Combine(root.FullName, tree);
+            if (!Directory.Exists(full))
+            {
+                problems.Add($"{tree} does not exist.");
+                continue;
+            }
+
+            bool hasAnyFile = Directory
+                .EnumerateFiles(full, "*", SearchOption.AllDirectories)
+                .Any(file =>
+                    file.EndsWith(".ts", StringComparison.Ordinal)
+                    || file.EndsWith(".tsx", StringComparison.Ordinal)
+                    || file.EndsWith(".css", StringComparison.Ordinal));
+
+            if (!hasAnyFile)
+            {
+                problems.Add($"{tree} exists but contains no .ts/.tsx/.css file.");
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            "a tree this class scans is missing or empty — every other fact in this class would silently "
+            + "narrow to scanning nothing rather than failing:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    // =====================================================================
     // Fact 1 — the wall has no motion but its signal.
     // =====================================================================
 
