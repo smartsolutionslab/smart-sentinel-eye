@@ -1,0 +1,10 @@
+/*
+ * Plan 316 §5.2: utilities-only build for this remote. No preflight, no
+ * tokens and no fonts — those come from the shell's own stylesheet, already
+ * in the page by the time this remote is loaded. A utility this file
+ * generates may also appear in the shell's own compiled CSS; that
+ * duplication (identical declarations) is the accepted cost of each app
+ * building independently (US3).
+ */
+@import 'tailwindcss/utilities';
+@config '../../tailwind.config.ts';
