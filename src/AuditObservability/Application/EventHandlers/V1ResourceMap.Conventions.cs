@@ -85,6 +85,16 @@ public sealed partial class V1ResourceMap
             // variable's; SystemVariables addresses every variable by name.
             Add<SystemVariableValueRequestedV1>(map, DomainResourceKind.Variable, requested => requested.Name);
 
+            // Spec 322 (#2502): Defined/ValueChanged/Archived all carry both a
+            // variable Guid and its Name. The convention picker would resolve
+            // these onto the Guid (the first Guid property), but
+            // SystemVariableValueRequestedV1 above already pivots the rest of
+            // this lifecycle on Name — these three must match it, or a
+            // variable's timeline splits across two different identifiers.
+            Add<SystemVariableDefinedV1>(map, DomainResourceKind.Variable, defined => defined.Name);
+            Add<SystemVariableValueChangedV1>(map, DomainResourceKind.Variable, changed => changed.Name);
+            Add<SystemVariableArchivedV1>(map, DomainResourceKind.Variable, archived => archived.Name);
+
             // Spec 258 US1: published from LayoutComposition, but the subject
             // is the wall, not the layout the namespace convention would pick
             // (the picker's first Guid property would otherwise be Wall's own
