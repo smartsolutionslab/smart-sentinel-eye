@@ -52,6 +52,55 @@ public class InteractionStateTests
         RegexOptions.Compiled);
 
     /// <summary>
+    /// The trees <see cref="ScannedFiles"/> scans. Spec 316 widens this set
+    /// (ADR-0144): the cameras feature moved out of apps/management-web/src
+    /// into its own federated remote, apps/management-cameras/src.
+    /// </summary>
+    private static readonly string[] ScannedSrcTrees =
+        ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
+
+    /// <summary>
+    /// S3 fix (spec 316 phase-6 review): <see cref="ScannedFilesUnder"/>
+    /// tolerates a missing tree (<c>yield break</c>, not throw) so a rename
+    /// doesn't crash the scan — but that same tolerance means a future
+    /// rename of <c>apps/management-cameras</c> (or any of the other three
+    /// trees <see cref="ScannedFiles"/> names) would silently narrow every
+    /// fact in this class to scanning nothing, rather than failing loudly.
+    /// This fact is the loud failure.
+    /// </summary>
+    [Fact]
+    public void Every_scanned_tree_exists_and_is_non_empty()
+    {
+        DirectoryInfo root = RepositorySource.Root();
+        List<string> problems = [];
+
+        foreach (string tree in ScannedSrcTrees)
+        {
+            string full = Path.Combine(root.FullName, tree);
+            if (!Directory.Exists(full))
+            {
+                problems.Add($"{tree} does not exist.");
+                continue;
+            }
+
+            bool hasAnyFile = Directory
+                .EnumerateFiles(full, "*", SearchOption.AllDirectories)
+                .Any(file => file.EndsWith(".ts", StringComparison.Ordinal) || file.EndsWith(".tsx", StringComparison.Ordinal));
+
+            if (!hasAnyFile)
+            {
+                problems.Add($"{tree} exists but contains no .ts/.tsx file.");
+            }
+        }
+
+        problems.ShouldBeEmpty(
+            "a tree this class scans is missing or empty — every other fact in this class would silently "
+            + "narrow to scanning nothing rather than failing:"
+            + Environment.NewLine
+            + string.Join(Environment.NewLine, problems.Select(p => $"  {p}")));
+    }
+
+    /// <summary>
     /// Fact 1 (plan.md §5.1). Red on develop: Button.tsx (×3 — the base
     /// `disabled:opacity-50` plus `hover:opacity-90` on `primary` and `danger`),
     /// Input.tsx, ChainRecoveryNotice.tsx and WallForm.tsx (×2 — the Up/Down
@@ -518,13 +567,7 @@ public class InteractionStateTests
     /// <summary>Every non-test <c>.ts</c>/<c>.tsx</c> file under both apps' and shared's <c>src</c>.</summary>
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        // Spec 316 widens this set (ADR-0144): the cameras feature moved out
-        // of apps/management-web/src into its own federated remote,
-        // apps/management-cameras/src.
-        string[] scannedTrees =
-            ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
-
-        foreach (string tree in scannedTrees)
+        foreach (string tree in ScannedSrcTrees)
         {
             foreach (string relative in ScannedFilesUnder(root, Path.Combine(root.FullName, tree)))
             {
