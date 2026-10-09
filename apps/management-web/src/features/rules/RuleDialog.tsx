@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateRuleMutation } from '@smart-sentinel-eye/shared/api/rules.api';
 import { useListWallsQuery } from '@smart-sentinel-eye/shared/api/walls.api';
 import { useListLayoutsQuery } from '@smart-sentinel-eye/shared/api/layouts.api';
-import { useAssignedFabs } from '../../app/useAssignedFabs';
+import { useAssignedFabs } from '@smart-sentinel-eye/shared/hooks';
 import { createRuleSchema, type CreateRuleInput } from '@smart-sentinel-eye/shared/api/rules.schema';
 import { problemDetail } from '@smart-sentinel-eye/shared/api/problemDetail';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
