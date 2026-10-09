@@ -501,6 +501,21 @@ test.describe('Console affordance and selection use the accent (spec 287)', () =
       await page.goto('/');
 
       const signIn = page.getByRole('button', { name: /^sign in$/i });
+      // Wait for the real render before reading either side of the
+      // comparison below. `probeToken`'s throwaway div is unconnected to the
+      // app's component tree, so — unlike every other assertion in this
+      // file, which waits on a real locator — nothing makes it wait for the
+      // stylesheet that defines `--color-accent` to actually be in the page.
+      // `page.goto`'s `load` event fires once the document and its script
+      // tags are fetched, not once the module graph they kick off has
+      // finished executing; the shell's federated host bootstrap (spec 316 —
+      // negotiating singleton shares for react/redux/etc. before the SPA
+      // mounts, even though no remote is ever fetched pre-auth) now measures
+      // over a second on this exact page, reproduced locally without CI's
+      // contention: immediately after `goto` resolves, this probe reads
+      // `rgba(0, 0, 0, 0)` — no stylesheet has been injected at all — while
+      // waiting for the button first reads the correct token every time.
+      await signIn.waitFor();
       const accentProbe = await probeToken(page, '--color-accent', 'backgroundColor');
       const accentActiveProbe = await probeToken(page, '--color-accent-active', 'backgroundColor');
       const restColor = await backgroundColorOf(signIn);
