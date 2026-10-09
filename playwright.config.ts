@@ -8,9 +8,9 @@ const isCI = process.env.CI === 'true';
 export default defineConfig({
   testDir: './e2e',
   timeout: 60_000,
-  // CI cold-loads a freshly booted stack (services still warming, JWKS fetch),
-  // so allow more slack and a couple of retries; local runs stay strict.
-  expect: { timeout: isCI ? 30_000 : 15_000 },
+  // One default assertion budget in both environments (#2077): cold-load
+  // slack is carried per assertion (e2e/support/cold-stack.ts), not here.
+  expect: { timeout: 15_000 },
   fullyParallel: false,
   retries: isCI ? 2 : 0,
   workers: isCI ? 1 : undefined,
