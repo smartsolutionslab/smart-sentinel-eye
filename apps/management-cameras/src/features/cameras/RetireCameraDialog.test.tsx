@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 const retireCamera = vi.hoisted(() => vi.fn());
 const mutationState = vi.hoisted(() => ({
@@ -17,7 +18,10 @@ vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => 
 });
 
 const { RetireCameraDialog } = await import('./RetireCameraDialog.js');
-const { store } = await import('../../app/store.js');
+const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
+const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
+// Spec 316 T009: see CamerasPage.test.tsx's own comment.
+const store = createApiStore([camerasApi, streamsApi]);
 
 const CAMERA = 'line-3-inlet';
 

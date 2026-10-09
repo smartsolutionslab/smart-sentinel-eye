@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 const listCameras = vi.hoisted(() => vi.fn());
 
@@ -86,7 +87,10 @@ vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
 }));
 
 const { CameraDetailPage } = await import('./CameraDetailPage.js');
-const { store } = await import('../../app/store.js');
+const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
+const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
+// Spec 316 T009: see CamerasPage.test.tsx's own comment.
+const store = createApiStore([camerasApi, streamsApi]);
 
 const camera = {
   cameraIdentifier: '11111111-1111-1111-1111-111111111111',

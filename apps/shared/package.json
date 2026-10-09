@@ -57,6 +57,7 @@
     "./ui/motion/*": "./src/ui/motion/*",
     "./ui/fonts/*": "./src/ui/fonts/*",
     "./test/radixJsdom": "./src/test/radixJsdom.ts",
+    "./test/focusRefetch": "./src/test/focusRefetch.ts",
     "./store": "./src/store/createApiStore.ts",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"

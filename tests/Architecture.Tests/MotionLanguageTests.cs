@@ -47,6 +47,12 @@ public class MotionLanguageTests
     private const string KioskSrc = "apps/kiosk-web/src";
     private const string ManagementSrc = "apps/management-web/src";
 
+    // Spec 316: the cameras feature moved out of apps/management-web/src
+    // into its own federated remote. Scanned alongside ManagementSrc below
+    // rather than folded into it, since it is a different app (its own
+    // package, build and Aspire resource) that happens to share this gate.
+    private const string ManagementCamerasSrc = "apps/management-cameras/src";
+
     // Scoped to apps/shared/src/ui (not the whole apps/shared/src tree), mirroring
     // SharedUiTokenUsageTests' own convention: facts 2/3/5(b) scan for Tailwind-utility-
     // shaped string-literal content, and apps/shared/src/api|realtime|observability|
@@ -884,6 +890,7 @@ public class MotionLanguageTests
 
     private static IEnumerable<string> ScannedTsFiles(DirectoryInfo root) =>
         ScannedFiles(root, ManagementSrc, [".ts", ".tsx"])
+            .Concat(ScannedFiles(root, ManagementCamerasSrc, [".ts", ".tsx"]))
             .Concat(ScannedFiles(root, KioskSrc, [".ts", ".tsx"]))
             .Concat(ScannedFiles(root, SharedUiSrc, [".ts", ".tsx"]))
             // tailwindTheme.ts (ui/tokens/) DEFINES the role utilities — it is not a call site —
@@ -900,6 +907,7 @@ public class MotionLanguageTests
     /// </summary>
     private static IEnumerable<string> ScannedCssFiles(DirectoryInfo root) =>
         ScannedFiles(root, ManagementSrc, [".css"])
+            .Concat(ScannedFiles(root, ManagementCamerasSrc, [".css"]))
             .Concat(ScannedFiles(root, KioskSrc, [".css"]))
             .Concat(ScannedFiles(root, SharedUiSrc, [".css"]));
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { store } from '../../app/store.js';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
 vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
@@ -17,6 +17,10 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   };
 });
 
+const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
+const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
+// Spec 316 T009: see CamerasPage.test.tsx's own comment.
+const store = createApiStore([camerasApi, streamsApi]);
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
 function renderViewer(overlay?: {

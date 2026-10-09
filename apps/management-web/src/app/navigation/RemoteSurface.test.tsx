@@ -49,23 +49,34 @@ const errorLoadRemoteHandlers: ErrorLoadRemoteHandler[] = [];
 
 /**
  * The mocked shape of `@module-federation/runtime` 2.9.2's default global
- * instance — `getInstance().hooks.lifecycle.errorLoadRemote.on(handler)` —
- * per plan.md's own citation of `RemoteHandler.hooks.lifecycle` (T001
- * finding item 3). The package itself is not installed on this branch yet
- * (T007 adds the pin), so this mock is not checked against the real
- * package's type declarations; T009 reconciles the shape with the real one
- * when it writes `RemoteSurface.tsx`, adjusting this mock if it is wrong
- * rather than the behaviour this file pins down.
+ * instance. **Reconciled at T009** against the real installed package's own
+ * `.d.ts`/`.js` (not checked when this file was written — T007 added the
+ * pin): `errorLoadRemote` lives on the REMOTE handler's own hooks
+ * (`ModuleFederation.remoteHandler.hooks.lifecycle.errorLoadRemote`,
+ * `runtime-core/dist/remote/index.d.ts`), not on the top-level instance's own
+ * `hooks` (`runtime-core/dist/core.d.ts` declares only
+ * `beforeInit`/`init`/`beforeInitContainer`/`initContainer` there, confirmed
+ * by reading `core.js`'s `this.hooks = new PluginSystem({ beforeInit, init,
+ * ... })` — no `errorLoadRemote` key). Per this file's own original comment,
+ * only this mock's shape changes here; every `it(...)` body below is
+ * unmodified. `remove` is implemented (not a no-op) so `RemoteSurface`'s
+ * effect cleanup — a real call against the real package — doesn't throw.
  */
 vi.mock('@module-federation/runtime', () => ({
   registerRemotes: (...args: unknown[]) => registerRemotesMock(...args),
   loadRemote: (...args: unknown[]) => loadRemoteMock(...args),
   getInstance: () => ({
-    hooks: {
-      lifecycle: {
-        errorLoadRemote: {
-          on: (handler: ErrorLoadRemoteHandler) => {
-            errorLoadRemoteHandlers.push(handler);
+    remoteHandler: {
+      hooks: {
+        lifecycle: {
+          errorLoadRemote: {
+            on: (handler: ErrorLoadRemoteHandler) => {
+              errorLoadRemoteHandlers.push(handler);
+            },
+            remove: (handler: ErrorLoadRemoteHandler) => {
+              const index = errorLoadRemoteHandlers.indexOf(handler);
+              if (index !== -1) errorLoadRemoteHandlers.splice(index, 1);
+            },
           },
         },
       },

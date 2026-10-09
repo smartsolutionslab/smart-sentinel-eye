@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate, useRouteError } from 'react-
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { CommandPalette } from '@smart-sentinel-eye/shared/ui/primitives/CommandPalette';
+import { RemoteLoadFailure } from './navigation/RemoteLoadFailure.js';
 
 /**
  * The nav's destinations — the single source both the nav bar and the
@@ -140,19 +141,32 @@ export function SurfaceCrash() {
   const error = useRouteError();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Re-navigating to the same path gives the router a fresh location, which
+  // resets its error boundary and re-renders the surface. The old shell
+  // called the boundary's own reset; a data router has no equivalent.
+  const retry = () => navigate(location.pathname, { replace: true });
+
+  // FR-007/FR-008 (spec 316): a federated remote that failed to load is
+  // contained the same way a crashed surface is, but with its own wording —
+  // `RemoteSurface` already logged `remote-load-failed` (with the remote's
+  // name) at the point it caught the failure, so this branch only renders;
+  // logging again here would double-count the same failure.
+  if (error instanceof RemoteLoadFailure) {
+    return (
+      <CrashPanel
+        heading="This surface could not be loaded"
+        message="Try again, or use another surface from the navigation above."
+        onRetry={retry}
+      />
+    );
+  }
+
   const message = describeError(error);
 
   logResilienceEvent('crash', 'render-error', { message });
 
-  return (
-    <CrashPanel
-      message={message}
-      // Re-navigating to the same path gives the router a fresh location, which
-      // resets its error boundary and re-renders the surface. The old shell
-      // called the boundary's own reset; a data router has no equivalent.
-      onRetry={() => navigate(location.pathname, { replace: true })}
-    />
-  );
+  return <CrashPanel message={message} onRetry={retry} />;
 }
 
 /**
@@ -184,13 +198,21 @@ function describeError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function CrashPanel({ message, onRetry }: { message: string; onRetry: () => void }) {
+function CrashPanel({
+  heading = 'Something went wrong',
+  message,
+  onRetry,
+}: {
+  heading?: string;
+  message: string;
+  onRetry: () => void;
+}) {
   return (
     <section
       role="alert"
       className="mx-auto mt-16 flex max-w-lg flex-col items-center gap-4 rounded-lg border border-fg-muted/30 p-8 text-center"
     >
-      <h1 className="text-2xl font-semibold">Something went wrong</h1>
+      <h1 className="text-2xl font-semibold">{heading}</h1>
       <p className="text-fg-muted">{message}</p>
       <Button variant="primary" onClick={onRetry}>
         Try again

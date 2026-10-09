@@ -1,7 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom';
 import { AuditPage } from '../features/audit/AuditPage.js';
-import { CameraDetailPage } from '../features/cameras/CameraDetailPage.js';
-import { CamerasPage } from '../features/cameras/CamerasPage.js';
 import { LayoutsPage } from '../features/layouts/LayoutsPage.js';
 import { OverlayCreatePage } from '../features/overlays/OverlayCreatePage.js';
 import { OverlayEditPage } from '../features/overlays/OverlayEditPage.js';
@@ -10,6 +8,7 @@ import { RulesPage } from '../features/rules/RulesPage';
 import { SystemVariablesPage } from '../features/systemVariables/SystemVariablesPage.js';
 import { WallsPage } from '../features/walls/WallsPage.js';
 import { WallDetailPage } from '../features/walls/WallDetailPage.js';
+import { RemoteSurface } from './navigation/RemoteSurface.js';
 import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
 
 /**
@@ -40,16 +39,19 @@ export const createAppRouter = () =>
       element: <ShellLayout />,
       children: [
         // Cameras was the shell's default view, so the bare origin keeps showing
-        // it and an existing bookmark still arrives somewhere familiar.
+        // it and an existing bookmark still arrives somewhere familiar. Spec
+        // 316 US1: Cameras is now the federated remote, loaded by
+        // `RemoteSurface` on first navigation to either route — the index and
+        // `cameras/*` both render it "for now" (US2's gating, T011, replaces
+        // this unconditional default with the first *visible* entry).
         //
         // Rendered directly rather than redirected to `/cameras`. A `<Navigate>`
         // costs an extra render cycle before anything appears, which is a real
         // flash on a cold load and not only a test inconvenience.
-        { index: true, element: <CamerasPage />, errorElement: <SurfaceCrash /> },
-        { path: 'cameras', element: <CamerasPage />, errorElement: <SurfaceCrash /> },
+        { index: true, element: <RemoteSurface remote="cameras" />, errorElement: <SurfaceCrash /> },
         {
-          path: 'cameras/:cameraIdentifier',
-          element: <CameraDetailPage />,
+          path: 'cameras/*',
+          element: <RemoteSurface remote="cameras" />,
           errorElement: <SurfaceCrash />,
         },
         { path: 'layouts', element: <LayoutsPage />, errorElement: <SurfaceCrash /> },

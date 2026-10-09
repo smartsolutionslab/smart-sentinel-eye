@@ -56,6 +56,29 @@ vi.mock('./features/audit/AuditPage.js', () => ({
   },
 }));
 
+// Spec 316: Cameras is now the federated remote (`apps/management-cameras`),
+// loaded at runtime by `RemoteSurface` through `@module-federation/runtime`.
+// This file tests the SHELL's wiring (auth, router, crash containment), not
+// the remote's content — the real `CamerasSurface`/`CamerasPage` are covered
+// by the moved suite in `apps/management-cameras` and by
+// `e2e/operator-shell-federation.spec.ts`/`cameras.spec.ts` against the real
+// federated build. A stand-in module is "the cameras remote mocked", the
+// harness choice plan.md §6 names for this file.
+vi.mock('@module-federation/runtime', () => ({
+  registerRemotes: () => undefined,
+  loadRemote: async () => ({
+    default: () => (
+      <section className="p-6">
+        <header className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-semibold">Cameras</h1>
+          <button>Register camera</button>
+        </header>
+      </section>
+    ),
+  }),
+  getInstance: () => null,
+}));
+
 vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
   return {

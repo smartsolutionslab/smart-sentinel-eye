@@ -2,7 +2,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/WhepClient';
-import { store } from '../../app/store.js';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
+import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
+
+// Spec 316 T009: see CamerasPage.test.tsx's own comment.
+const store = createApiStore([camerasApi, streamsApi]);
 
 /**
  * Spec 045 T019 / T025. **management-web has no wall, so it must never align.**

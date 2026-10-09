@@ -40,7 +40,11 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </summary>
 public class ConsoleTriadAlphaTests
 {
-    private const string ConsoleSrc = "apps/management-web/src";
+    // Spec 316 widens this set rather than narrowing it (ADR-0144): the
+    // cameras feature moved out of apps/management-web/src into its own
+    // federated remote, apps/management-cameras/src. Without this, the
+    // files move and this gate silently stops scanning them.
+    private static readonly string[] ConsoleSrcTrees = ["apps/management-web/src", "apps/management-cameras/src"];
 
     private static readonly Regex TranslucentTriadColour = new(
         @"(?<![\w-])(?:bg|border|text|ring|outline|fill|stroke|divide|from|via|to|shadow|decoration|placeholder|caret)" +
@@ -79,26 +83,33 @@ public class ConsoleTriadAlphaTests
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        string full = Path.Combine(root.FullName, ConsoleSrc);
-
-        foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+        foreach (string tree in ConsoleSrcTrees)
         {
-            if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
+            string full = Path.Combine(root.FullName, tree);
+            if (!Directory.Exists(full))
             {
                 continue;
             }
 
-            // Slash-normalised: Path.GetRelativePath returns the platform
-            // separator — a backslash-literal filter is green on Windows and
-            // red on Linux CI.
-            string relative = RepositorySource.RelativePath(root, file);
-
-            if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
+            foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
             {
-                continue;
-            }
+                if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
+                {
+                    continue;
+                }
 
-            yield return relative;
+                // Slash-normalised: Path.GetRelativePath returns the platform
+                // separator — a backslash-literal filter is green on Windows and
+                // red on Linux CI.
+                string relative = RepositorySource.RelativePath(root, file);
+
+                if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                yield return relative;
+            }
         }
     }
 }

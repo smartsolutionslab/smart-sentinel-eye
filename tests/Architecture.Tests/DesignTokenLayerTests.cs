@@ -35,6 +35,13 @@ public class DesignTokenLayerTests
     private const string KioskIndexCss = "apps/kiosk-web/src/styles/index.css";
     private const string ManagementTailwindConfig = "apps/management-web/tailwind.config.ts";
     private const string KioskTailwindConfig = "apps/kiosk-web/tailwind.config.ts";
+
+    // Spec 316: the cameras remote's own tailwind.config.ts (plan §5.2 — it
+    // compiles its own utilities-only build, so a remote-only class change
+    // never needs a shell rebuild). Widens fact 10's scan and fact 11's
+    // "imports the shared theme" check rather than letting them narrow
+    // silently when the cameras feature moved out of apps/management-web.
+    private const string ManagementCamerasTailwindConfig = "apps/management-cameras/tailwind.config.ts";
     private const string SharedTailwindThemeModule = "apps/shared/src/ui/tokens/tailwindTheme.ts";
     private const string SharedPackageJson = "apps/shared/package.json";
 
@@ -496,7 +503,7 @@ public class DesignTokenLayerTests
         DirectoryInfo root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach (string config in new[] { ManagementTailwindConfig, KioskTailwindConfig })
+        foreach (string config in new[] { ManagementTailwindConfig, KioskTailwindConfig, ManagementCamerasTailwindConfig })
         {
             string path = Path.Combine(root.FullName, config);
             File.Exists(path).ShouldBeTrue($"expected {config} at {path}.");
@@ -672,7 +679,8 @@ public class DesignTokenLayerTests
     /// </summary>
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root, string excludeRelative)
     {
-        string[] scannedTrees = ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src"];
+        string[] scannedTrees =
+            ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
 
         foreach (string tree in scannedTrees)
         {
@@ -703,6 +711,7 @@ public class DesignTokenLayerTests
 
         yield return ManagementTailwindConfig;
         yield return KioskTailwindConfig;
+        yield return ManagementCamerasTailwindConfig;
     }
 
     /// <summary>
