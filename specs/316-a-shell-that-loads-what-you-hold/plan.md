@@ -151,7 +151,17 @@ Host and remote declare the same `shared` block (one exported constant per app's
 | `@smart-sentinel-eye/shared` (all subpaths) | true | true | `0.0.0` (workspace) | `gateway.ts` token provider state; API slice instances; `resetApiCaches` coverage |
 
 - **`strictVersion: true`** turns a mismatch into a load-time error from the federation runtime.
-  `RemoteSurface` catches it as a load failure (FR-008). It is never a silent second copy.
+  **Decision (user, 2026-10-08, resolving T001 findings item 3):** in the realistic direction — the
+  remote declaring the stricter requirement — `loadRemote`'s promise never rejects; the runtime's
+  own `errorLoadRemote` lifecycle hook (`RemoteHandler.hooks.lifecycle`) is the mechanism
+  `RemoteSurface` registers for FR-008, alongside (not instead of) the existing `loadRemote`
+  try/catch, which still catches every other load failure (§4.4). The host declaring the stricter
+  requirement for its own shared package is a separate, shell-side self-consistency bug (an
+  uncaught `pageerror` at bootstrap, before any remote-specific call) — out of scope for a runtime
+  catch; it stays a build-time/CI concern, covered today only to the extent
+  `scripts/singleton-versions.mjs` catches a pinned-version-string drift between packages (it does
+  not catch a `requiredVersion` range chosen independently of the actual shipped version — a gap,
+  not addressed by this spec). It is never a silent second copy.
 - **Build-time guard:** `scripts/singleton-versions.mjs` (plus `.test.mjs`, run by
   `pnpm test:guards`) reads every `apps/*/package.json` that declares a federation role (marker:
   the presence of `@module-federation/vite` in `devDependencies`) and fails if any singleton
@@ -267,10 +277,18 @@ unmodified.
   and logs `logResilienceEvent('crash', 'remote-load-failed', { remote, message })`. Every other
   error keeps today's crash panel (FR-007).
 - **Retry must re-fetch.** `React.lazy` caches a rejected promise, and the federation runtime may
-  cache a failed entry. `RemoteSurface` therefore keys its lazy component on a retry counter held
-  in the shell, and retry forces a fresh registration (`registerRemotes(..., { force: true })`
-  or the pinned runtime's equivalent, which T001 confirms). The spec's "remote is down" scenario
-  is tested by stopping and restarting the resource (T012), not only with a mock.
+  cache a failed entry — but **neither is the binding cache on a same-page retry** (T001 finding,
+  item 4): the browser's own dynamic-`import()` cache permanently caches a failed module load for
+  the literal entry URL, for the life of the page, independent of module-federation entirely.
+  `registerRemotes(..., { force: true })` is necessary (it clears module-federation's own
+  bookkeeping so it doesn't short-circuit on its own cached state) but not sufficient on its own.
+  **Decision (user, 2026-10-08):** `RemoteSurface` keys its lazy component on a retry counter held
+  in the shell, and that counter flows into the registered **entry URL itself** as a cache-busting
+  query parameter (`${baseUrl}/remoteEntry.js?retry=<counter>`), confirmed live to force a genuine
+  re-fetch same-page with no reload. `force: true` is kept alongside it (both are needed; neither
+  alone is sufficient). T005's retry test asserts the registered URL actually varies across
+  attempts, not merely that `loadRemote` was called again. The spec's "remote is down" scenario is
+  tested by stopping and restarting the resource (T012), not only with a mock.
 - Prod-build guard (US3, FR-017): `remotes.ts` throws at module load when `import.meta.env.PROD`
   and `VITE_CAMERAS_REMOTE_URL` is empty, with a message naming the variable. This mirrors
   `auth.ts`'s `VITE_KEYCLOAK_URL` check line for line.
@@ -445,3 +463,265 @@ edit is a block (ADR-0139).
 6. A-1 (`User.scope` carries the 21 scopes) was observed at T001 against the booted realm. Restate
    the observation here.
 7. `git diff --stat develop -- apps/kiosk-web` is empty.
+
+---
+
+## T001 findings (2026-10-08)
+
+Investigated on a disposable scratch workspace outside the repo (not a git branch; nothing from
+it merges), under
+`C:\Users\heiko\AppData\Local\Temp\claude\...\scratchpad\t001-mf-scratch`: a pnpm workspace with
+`packages/shared` (a minimal package with subpath exports `./a`, `./b`, plus a root `.` export,
+mirroring `apps/shared`'s shape), `packages/host` (federation host, name `host`) and
+`packages/remote` (federation remote, name `remote`, `filename: 'remoteEntry.js'`, exposes
+`./Widget`), pinned to the exact versions plan §3 names: `@module-federation/vite@1.23.3`,
+`@module-federation/runtime@2.9.2`, `vite@8.3.1`. Installed versions were verified directly
+(`node_modules/.pnpm/@module-federation+vite@1.23.3...`, `@module-federation+runtime@2.9.2`,
+`vite@8.3.1`). Chromium was driven via `playwright-core@1.63.0` (matching the root repo's pinned
+`@playwright/test`), reusing the already-downloaded browser build; no browsers were installed
+system-wide for this.
+
+Two setup facts the plan doesn't currently mention, found while getting a config to even boot
+(recorded here as implementation detail, not contradicting anything — plan already says `dts:
+false` for a different reason):
+
+- `@module-federation/vite`'s package export is **named** `{ federation }`, not a default export.
+  `import federation from '@module-federation/vite'` fails `vite dev` with "does not provide an
+  export named 'default'". Must be `import { federation } from '@module-federation/vite'`.
+- The plugin's `dts` type-generation worker is **on by default** and shells out to
+  `tsc --showConfig --project <pkg>/tsconfig.json` at dev-server start; with no (or a broken)
+  tsconfig this crashes the dev server with an uncaught exception from a forked worker. Plan §3
+  already mandates `dts: false` on both sides for an unrelated reason (the exposed contract is the
+  shared `RemoteSurfaceModule` type); this is a second, independent reason it's load-bearing, not
+  optional to skip.
+
+### 1. Remote under `vite dev`: yes, serves a loadable entry at the configured path
+
+```
+$ curl -sS -i http://localhost:5501/remoteEntry.js
+HTTP/1.1 200 OK
+Vary: Origin
+Content-Type: text/javascript
+...
+import {init as runtimeInit, loadRemote} from "/node_modules/.vite/deps/@module-federation_runtime.js?v=...";
+...
+```
+
+`vite dev` serves `remoteEntry.js` (the exact `filename` configured) at the root of the dev
+server, status 200, `text/javascript`, as a real ES module that imports the runtime from Vite's
+own dep-optimizer cache. **A-2's fallback (`build && preview`) is not needed**; dev mode works
+directly, confirming plan's primary expectation. No further action needed on A-2.
+
+### 2. Trailing-slash shared key: yes, it shares subpath imports as one instance — with one precondition
+
+Read `sharedKeyMatcher-Od_nYxJA.js` in the installed plugin (`matchesSharedSource`,
+`getSharedRuntimeKey`, `getSharedKeyMatcher`): a shared key ending in `/` (e.g.
+`'@scratch/shared/'`) matches the bare package name and every subpath under it
+(`source === keyBase || source.startsWith(keyBase + '/')`), and derives a **distinct runtime share
+key per subpath** (`shareKey + source.slice(request.length)`) — so `@scratch/shared/a` and
+`@scratch/shared/b` are two separate singleton entries in the share scope, each consistently
+resolved to the *same* derived key on both host and remote. This was then confirmed live: the host
+imports `@scratch/shared/a` directly; the remote's exposed `Widget.bumpAndRead()` imports
+`@scratch/shared/a` and `/b` too; after `loadRemote` + calling the remote's function, the host's
+own read of the module shows the remote's mutation and an **identical `instanceId`**:
+
+```
+=== testSubpathSharing result ===
+{
+  "before":       { "count": 0, "instanceId": "waxvapl0jln" },
+  "remoteResult": { "count": 1, "instanceId": "waxvapl0jln" },
+  "after":        { "count": 1, "instanceId": "waxvapl0jln" },
+  "sameInstance": true
+}
+```
+
+**Precondition found by failure, not by reading:** this only works if the shared package also
+has a resolvable **root (`.`) export**. Without one, the plugin's dev-mode "local shared import
+map" generation (used for the eager/local fallback) tries to `import()` the bare package specifier
+— even though nothing in either app imports the bare path — and the dev server 500s:
+`Failed to resolve import ".../node_modules/@scratch/shared/index.js" from "
+virtual:mf-localSharedImportMap:..."`. Adding `"." : "./src/index.js"` (re-exporting the subpaths)
+fixed it immediately. **This is not a blocker for this spec**: `apps/shared/package.json` already
+declares `"." : "./src/index.ts"` (checked directly), so the real package already satisfies this.
+Recorded so it isn't mistaken for module-federation magic if that root export is ever removed — it
+is now load-bearing for the trailing-slash shared key, not just a convenience export. **No
+fallback to an explicit per-subpath key list is needed**; the trailing-slash key works as plan §3
+hoped.
+
+### 3. `strictVersion: true` + a deliberate mismatch: CONTRADICTS PLAN — not reliably a catchable `loadRemote` rejection
+
+Plan §3 says: *"`strictVersion: true` turns a mismatch into a load-time error from the federation
+runtime. `RemoteSurface` catches it as a load failure (FR-008). It is never a silent second
+copy."* Tested both directions of a real mismatch (real package version `0.0.0`, one side's
+`requiredVersion` set to `^9.9.9`), each confirmed live, each restarted clean (killed dev servers,
+cleared `.vite` cache) before testing:
+
+**(a) Remote declares the stricter/mismatched requirement.** `loadRemote` **resolves
+successfully** (`ok: true`); no exception is thrown anywhere. The only signal is a
+`console.error`, once per affected shared key:
+
+```
+[Module Federation] Failed to bridge external shared module "@scratch/shared/a" Error:
+[ Federation Runtime ]: Version 0.0.0 from host of shared singleton module @scratch/shared/a
+does not satisfy the requirement of remote which needs ^9.9.9)
+```
+
+In this repro the singleton guarantee still held (`sameInstance: true` — host and remote ended up
+using the identical module instance despite the logged "failed to bridge"), but **nothing
+`RemoteSurface` can `try/catch` ever fires**: `loadRemote`'s promise never rejects, so FR-008's
+"contained load failure" path is never entered for this failure mode as currently designed.
+
+**(b) Host declares the stricter/mismatched requirement for its own shared package.** This is
+*worse* than (a): it throws as an **uncaught `pageerror`** during the host's own
+module-federation bootstrap, before `window.__t001` (our equivalent of the shell's app code) is
+even defined — i.e. before any `registerRemotes`/`loadRemote` call happens at all:
+
+```
+[pageerror] [ Federation Runtime ]: Version 0.0.0 from host of shared singleton module
+@scratch/shared/a does not satisfy the requirement of host which needs ^9.9.9)
+```
+
+This is exactly the "page crash" item 3's own wording says must not happen, and it is categorically
+outside anything `RemoteSurface`'s `loadRemote` try/catch (plan §4.4) could ever see, because it
+fires at host init, not at a specific remote's load.
+
+**This needs a plan decision, not a silent fix.** FR-008 ("A shared-dependency mismatch... is a
+contained load failure under FR-007... never a blank shell") cannot be satisfied by catching
+`loadRemote`'s rejection for case (a), because there is no rejection — only a console.error that a
+test can assert on (via a monkey-patched `console.error`/`errorLoadRemote` runtime hook) but that
+`RemoteSurface`'s current catch-based design does not observe. Case (b) is a shell-side
+configuration error (the shell's own declared `requiredVersion` not matching what it actually
+ships), arguably a build-time/CI concern rather than a runtime one — `scripts/singleton-versions.mjs`
+(plan §3) already guards the *pinned-version-string* drift between packages, but note it would
+**not** catch this specific shape (a `requiredVersion` range chosen independently of the actual
+shipped version), only a bump of one app's pin without the other's. **Flagging per instructions
+rather than adapting silently**: the mechanism for FR-008 likely needs the runtime's
+`errorLoadRemote` hook (seen in the runtime's type declarations, `RemoteHandler.hooks.lifecycle`)
+rather than (or in addition to) wrapping `loadRemote` in try/catch, to observe case (a). Case (b)
+is arguably already covered by other means (CI/build) and may not need a runtime-catch answer at
+all — Plan should say which.
+
+### 4. Retry after a failed entry fetch: CONTRADICTS PLAN — `force: true` alone does not force a re-fetch
+
+Confirmed `registerRemotes(remotes, { force?: boolean })` exists exactly as plan §4.4 names it
+(read from `@module-federation/runtime-core`'s `remote/index.d.ts` and `.js`): with `force: true`
+on an already-registered remote, `registerRemote` calls `removeRemote` first, which does clear
+module-federation's own caches (`manifestCache`, `moduleCache`, the share-scope entries, the
+`__INSTANCES__` record) before re-registering.
+
+**But that is not enough, live:** with the remote genuinely down, then started, a plain retry and
+a `force: true` retry **both still failed with the identical error**, referencing the identical
+URL:
+
+```
+--- Phase A: loadOnly while remote server is DOWN ---
+{ "ok": false, "error": "...RUNTIME-008...Failed to fetch dynamically imported module:
+http://localhost:5501/remoteEntry.js" }
+--- Phase C: loadOnly again, SAME registration, NO force (server now up) ---
+{ "ok": false, "error": "...RUNTIME-008...Failed to fetch dynamically imported module:
+http://localhost:5501/remoteEntry.js" }   <- identical, even though curl confirms 200 now
+--- Phase D: forceReregisterAndLoad (force:true) ---
+{ "ok": false, "error": "...RUNTIME-008...Failed to fetch dynamically imported module:
+http://localhost:5501/remoteEntry.js" }   <- still identical
+```
+
+Isolated the cause directly (no module-federation involved at all): a browser's native dynamic
+`import()` of a literal URL **permanently caches a failed module graph for that exact URL, for the
+life of the page** — independent of module-federation entirely:
+
+```
+attempt #1 (server down):            fail: Failed to fetch dynamically imported module: .../remoteEntry.js
+[start the server; node-side fetch of the same URL now returns 200]
+attempt #2 (same page, same URL):    fail: Failed to fetch dynamically imported module: .../remoteEntry.js
+attempt #3 (a FRESH page, same URL): ok: get,init
+```
+
+`force: true` clears module-federation's *own* bookkeeping, but it registers the remote with the
+**same literal `entry` URL string**, so the browser replays its own cached rejection underneath
+module-federation regardless. This is a **third cache plan §4.4 didn't name** (it names only
+"`React.lazy` caches a rejected promise" and "the federation runtime may cache a failed entry") —
+and it's the one that actually blocks a same-page retry here.
+
+**Confirmed workaround:** varying the entry URL itself on each retry attempt (a cache-busting
+query string, e.g. `${baseUrl}/remoteEntry.js?retry=<counter>`) does work, same page, no reload:
+
+```
+attempt #1 (?retry=1, server down): fail: Failed to fetch dynamically imported module: ...?retry=1
+[start the server]
+attempt #2 (?retry=2, server up):   ok: get,init
+```
+
+**This contradicts plan §4.4's "retry forces a fresh registration (`registerRemotes(...,
+{ force: true })` or the pinned runtime's equivalent)" as a complete answer.** `force: true` is
+necessary (to clear module-federation's internal module/manifest cache so it doesn't short-circuit
+on *its own* cached state) but **not sufficient**: `RemoteSurface`'s retry must also vary the
+registered `entry` URL per attempt (not just bump a React key), or retry can never succeed within
+the same page load once the first fetch has failed. Flagging rather than silently writing this
+into Plan's design, since it changes the shape of the retry-counter mechanism §4.4 describes (the
+counter needs to flow into the entry URL, not just into `React.lazy`'s remount key).
+
+### 5. Vite's default `server.cors`: yes, it allows cross-port localhost
+
+Read the installed Vite 8.3.1 source directly (`_serverConfigDefaults` in
+`vite/dist/node/chunks/node.js`): the default is `cors: { origin: defaultAllowedOrigins }`, where
+`defaultAllowedOrigins` is
+`/^https?:\/\/(?:(?:[^:]+\.)?localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/` — a regex that matches any
+port on `localhost`/`127.0.0.1`/`[::1]`, not a specific port. Confirmed live:
+
+```
+$ curl -sS -i -H "Origin: http://localhost:5500" http://localhost:5501/remoteEntry.js
+HTTP/1.1 200 OK
+Access-Control-Allow-Origin: http://localhost:5500
+Vary: Origin
+...
+
+$ curl -sS -i -H "Origin: http://example.com" http://localhost:5501/remoteEntry.js
+HTTP/1.1 200 OK
+Vary: Origin
+...                                         <- no Access-Control-Allow-Origin: non-localhost origin not echoed
+```
+
+So yes: `localhost:5173` fetching modules from `localhost:5176` is allowed by Vite's *default*
+dev-server CORS config, with no explicit `server.cors` override needed on the remote. (Our scratch
+used 5500/5501 as stand-ins for 5173/5176; the regex is port-agnostic so the port numbers don't
+matter.)
+
+### 6. A-1: confirmed against the booted realm — `User.scope` carries the 21 `sse.*` scopes
+
+Done against the real Aspire stack (already up, started by the T002 agent for its own
+characterisation run; reused rather than booting a second one, per project memory on one stack per
+machine). Drove `management-web` at `http://localhost:5173` with Playwright (`playwright-core`),
+signed in as `operator` / `Operator1234` through the real Keycloak login form, and read
+`sessionStorage`'s `oidc.user:...` entry after the redirect back:
+
+```
+landed on: http://localhost:5173/
+after clicking sign-in, url: https://localhost:11274/realms/smart-sentinel-eye/protocol/openid-connect/auth?client_id=management-web&...&scope=openid&...
+back at shell, url: http://localhost:5173/?state=...&session_state=...&code=...
+
+KEY: oidc.user:https://localhost:11274/realms/smart-sentinel-eye:management-web
+scope: openid sse.variables.write sse.identity.kiosks.read sse.identity.devices.read sse.audit.read
+sse.cameras.read sse.overlays.read sse.identity.devices.write sse.rules.read sse.overlays.write
+sse.events.read sse.streams.write sse.layouts.write sse.variables.read sse.events.write
+sse.identity.kiosks.write sse.rules.write sse.webhooks.write sse.cameras.write sse.streams.read
+sse.events.types.write sse.layouts.read
+scope count: 22
+```
+
+22 tokens = `openid` + 21 distinct `sse.*` scopes. **Confirms A-1 exactly as plan assumes.** No
+contradiction. (Keycloak's proxied endpoint, `https://localhost:11274`, was used for the actual
+authorization request per project memory — the container's own mapped port was not used.)
+
+### Summary: two contradictions to resolve before T007/T009
+
+- **Item 3** (strict-version mismatch containment, FR-008): `loadRemote` does not reliably reject
+  on a strict-version mismatch — it's a non-fatal `console.error` on the remote-stricter side, and
+  an uncaught host-init `pageerror` (not scoped to any one remote) on the host-stricter side.
+  `RemoteSurface`'s try/catch around `loadRemote` (as sketched in §4.4) does not observe either.
+- **Item 4** (retry, FR-007): `registerRemotes(..., { force: true })` is necessary but not
+  sufficient for a same-page retry after a failed load; the browser's own dynamic-`import()`
+  cache for the literal entry URL also needs busting (vary the URL per retry attempt), which §4.4
+  does not currently describe.
+
+Everything else (items 1, 2, 5, 6) confirms plan's existing assumptions as written; no change
+needed there.
