@@ -43,6 +43,25 @@ const sleepStub = `#!/usr/bin/env bash
 exit 0
 `;
 
+// Plan 316 §6 test 11 (tasks.md T006, US3) — same healthy-stack answers as
+// curlStub, except a request to :5176 (where management-cameras, the
+// federated cameras remote, must serve remoteEntry.js) always fails. Every
+// other curl invocation — including the gateway/camera-catalog probes and
+// every other port — falls through to the stub's own default success, the
+// same as curlStub. This stands in for "the remote never came up", so the
+// gate must wait for and then fail on :5176 specifically, naming it, rather
+// than opening over a stack management-web and the kiosks are happy with.
+const curlStubCamerasRemoteDown = `#!/usr/bin/env bash
+for argument in "$@"; do
+  case "$argument" in
+    *gateway.ts) echo "export const GATEWAY = 'http://localhost:18888';"; exit 0 ;;
+    */camera-catalog/cameras) printf '401'; exit 0 ;;
+    *:5176*) exit 1 ;;
+  esac
+done
+exit 0
+`;
+
 // Answers the one exec the script makes per poll with a `<database>=<rows>`
 // line each, the way psql-inside-the-container does.
 // $STUB_DATABASES_WITH_HISTORY is the set whose __EFMigrationsHistory table
@@ -115,6 +134,7 @@ const composedResources = [
   'identity',
   'audit-observability',
   'management-web',
+  'management-cameras',
   'kiosk-web',
   'kiosk-wall',
   'fixture-video',
@@ -149,10 +169,10 @@ function writeStatusReport(overrides) {
   return file;
 }
 
-function stubDirectory() {
+function stubDirectory(curlStubText = curlStub) {
   const directory = mkdtempSync(path.join(tmpdir(), 'wait-for-e2e-stack-'));
   for (const [name, body] of [
-    ['curl', curlStub],
+    ['curl', curlStubText],
     ['docker', dockerStub],
     ['sleep', sleepStub],
   ]) {
@@ -163,8 +183,8 @@ function stubDirectory() {
   return directory;
 }
 
-function runScript(environment) {
-  const stubs = stubDirectory();
+function runScript(environment, curlStubText = curlStub) {
+  const stubs = stubDirectory(curlStubText);
 
   // A test that does not name STACK_STATUS_FILE gets the AppHost's own
   // happy-path fixture, written into its own tmp directory and passed
@@ -319,5 +339,30 @@ test('a one-shot resource that ended non-zero fails the gate immediately (#2268)
     output,
     /management-web/,
     `expected the gate to fail before spending the wait budget on resources that wait for migrations (#2268):\n${output}`,
+  );
+});
+
+test('a stack whose management-cameras remote never serves on :5176 is not reported ready (plan 316 §6 test 11)', { skip: !bashAvailable }, () => {
+  // Every other probe is satisfied — every composed resource started
+  // (management-cameras included, now in composedResources above), every
+  // database carries applied migrations, management-web and the two kiosks
+  // serve — and the only thing wrong is that nothing answers on :5176, the
+  // federated cameras remote's port (plan.md §1's dev-port table).
+  const result = runScript(
+    { STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') },
+    curlStubCamerasRemoteDown,
+  );
+
+  const output = `${result.stdout}${result.stderr}`;
+  assert.notEqual(
+    result.status,
+    0,
+    'the gate opened over a stack whose cameras remote never served on :5176 — the script does not '
+      + `wait for it yet (plan.md §8/T008 wires the probe in):\n${output}`,
+  );
+  assert.match(
+    output,
+    /5176/,
+    `expected the failure to name :5176, the port the gate must wait for:\n${output}`,
   );
 });
