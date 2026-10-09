@@ -166,5 +166,55 @@ export default [
       ],
     },
   },
+  // ADR-0169 — a composite in apps/shared does not assume a Redux store. A
+  // component under `src/ui/composites/**` must render without a Redux
+  // `<Provider>` in the tree: it takes data and callbacks as props, and the
+  // query or dispatch lives in the feature-level container that renders it.
+  // `src/api/**` and `src/ui/primitives/**` are the ADR's explicit
+  // exemptions and are not touched here. A composite's own test file is
+  // exempt too — it is allowed to build a store around the component under
+  // test (`ignores` below).
+  //
+  // LIMITS, stated not assumed away (spec 321 §5):
+  //   * Static import/export specifiers only — `require('react-redux')` or a
+  //     dynamically-constructed module string is invisible to this rule.
+  //   * `allowTypeImports` stays at its default (`false`): the ADR says
+  //     "imports", and a type-only import still names the module.
+  {
+    files: ['src/ui/composites/**/*.{ts,tsx}'],
+    ignores: ['src/ui/composites/**/*.test.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-redux',
+              message:
+                'A composite under apps/shared/src/ui/composites does not assume a Redux store ' +
+                '(ADR-0169). Take data and callbacks as props; put the query or dispatch in the ' +
+                'feature-level container that renders this composite.',
+            },
+            {
+              name: '@reduxjs/toolkit',
+              message:
+                'A composite under apps/shared/src/ui/composites does not assume a Redux store ' +
+                '(ADR-0169). Take data and callbacks as props; put the query or dispatch in the ' +
+                'feature-level container that renders this composite.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['react-redux/*', '@reduxjs/toolkit/*'],
+              message:
+                'A composite under apps/shared/src/ui/composites does not assume a Redux store ' +
+                '(ADR-0169). Take data and callbacks as props; put the query or dispatch in the ' +
+                'feature-level container that renders this composite.',
+            },
+          ],
+        },
+      ],
+    },
+  },
   prettier,
 ];
