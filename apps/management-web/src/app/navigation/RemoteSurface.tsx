@@ -1,7 +1,8 @@
 import { useEffect, useState, type ComponentType } from 'react';
-import { getInstance, loadRemote, registerRemotes } from '@module-federation/runtime';
+import { loadRemote, registerRemotes } from '@module-federation/runtime';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
 import { RemoteLoadFailure } from './RemoteLoadFailure.js';
+import { onSharedVersionMismatch } from './mismatchRuntimePlugin.js';
 import { remotes } from './remotes.js';
 
 export interface RemoteSurfaceProps {
@@ -34,6 +35,16 @@ function nextAttempt(remote: string): number {
   return attempt;
 }
 
+// B4 fix (spec 316 phase-6 review): a successful load's component, cached so
+// a remount after success "incurs no fetch" (plan §5.3) — the index route and
+// `cameras/*` are two separate route objects, so navigating between them
+// remounts this component on every click, not only on an actual retry.
+// `failedRemotes` is the other half: only a remote whose *previous* attempt
+// genuinely failed re-registers with `force: true` and a bumped `?retry=`
+// counter: a fresh or successful remote never pays either cost.
+const resolvedComponents = new Map<string, ComponentType>();
+const failedRemotes = new Set<string>();
+
 // ADR-0168 §4's naming convention: a remote named "cameras" exposes
 // "./CamerasSurface" (plan §5.1). One remote exists today — this is the
 // naming the first one already follows, not a lookup table for a need that
@@ -55,16 +66,25 @@ function describeError(error: unknown): string {
  *
  * <p>
  * Two independent failure sources feed one state (T001 finding item 3,
- * decision 2026-10-08): the ordinary `loadRemote` rejection / bad-module-shape
- * path, caught directly below, and the runtime's own `errorLoadRemote`
- * lifecycle hook — the only signal that fires for the realistic
- * shared-dependency mismatch case, where `loadRemote`'s promise never settles
- * at all. Whichever fires first wins; the `settled` guard discards the other.
+ * decision 2026-10-08, revised B3 — spec 316 phase-6 review): the ordinary
+ * `loadRemote` rejection / bad-module-shape path, caught directly below, and
+ * a `resolveShare` runtime plugin (`mismatchRuntimePlugin.ts`, registered via
+ * the shell's `vite.config.ts` `runtimePlugins`) — the one signal confirmed
+ * to fire for the realistic shared-dependency mismatch case, where
+ * `loadRemote`'s promise never settles at all. The remote handler's own
+ * `errorLoadRemote` lifecycle hook was tried first and found dead for this:
+ * its payload's `id` is never the bare remote name, so the filter this
+ * component used to apply could never match. Whichever of the two sources
+ * fires first wins; the `settled` guard discards the other.
  * </p>
  */
 export function RemoteSurface({ remote }: RemoteSurfaceProps) {
   const [failure, setFailure] = useState<RemoteLoadFailure | null>(null);
-  const [Component, setComponent] = useState<ComponentType | null>(null);
+  // B4 fix (spec 316 phase-6 review): a lazy initializer, not a setState call
+  // inside the effect below — react-hooks/set-state-in-effect flags a
+  // synchronous setState in an effect body, and this cache hit needs none:
+  // the cached component is already known at the first render.
+  const [Component, setComponent] = useState<ComponentType | null>(() => resolvedComponents.get(remote) ?? null);
 
   useEffect(() => {
     // No reset of `failure`/`Component` here: `remote` is a stable literal
@@ -78,6 +98,7 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
     const fail = (reason: string) => {
       if (settled) return;
       settled = true;
+      failedRemotes.add(remote);
       logResilienceEvent('crash', 'remote-load-failed', { remote, message: reason });
       setFailure(new RemoteLoadFailure(remote, reason));
     };
@@ -88,25 +109,33 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
       return undefined;
     }
 
-    // Real @module-federation/runtime 2.9.2: `errorLoadRemote` lives on the
-    // REMOTE handler's own hooks (`ModuleFederation.remoteHandler.hooks
-    // .lifecycle.errorLoadRemote`) — confirmed by reading the installed
-    // package's `core.d.ts`/`core.js`, not on the top-level instance's own
-    // `hooks` (which carries only beforeInit/init/beforeInitContainer
-    // /initContainer). Optional chaining throughout: a missing instance or
-    // hook degrades to "this failure mode goes unobserved", never a crash.
-    const errorLoadRemoteHook = getInstance()?.remoteHandler.hooks.lifecycle.errorLoadRemote;
-    const onErrorLoadRemote = (payload: { id: string; error: unknown }) => {
-      if (payload.id !== remote) return;
-      fail(describeError(payload.error));
-    };
-    errorLoadRemoteHook?.on(onErrorLoadRemote);
+    // B4 fix (spec 316 phase-6 review): a remote already resolved once never
+    // re-registers or re-fetches on a later mount — this is the cache that
+    // makes a repeat visit "incur no fetch" (plan §5.3). The cached value
+    // itself was already applied by useState's lazy initializer above; no
+    // setState call belongs here.
+    if (resolvedComponents.has(remote)) {
+      return undefined;
+    }
 
-    const attempt = nextAttempt(remote);
-    // force: true clears the federation runtime's own bookkeeping; the
-    // ?retry= query parameter busts the browser's dynamic-import() cache for
-    // the literal URL, which force: true alone does not (T001 finding item
-    // 4) — both are necessary, neither alone is sufficient.
+    // B3 fix (spec 316 phase-6 review): `resolveShare` fires on every
+    // `loadShare` resolution in the share scope, not only this remote's —
+    // acceptable today because exactly one remote exists (no speculative
+    // generality for a filter this repo has no second remote to exercise).
+    const unsubscribeMismatch = onSharedVersionMismatch(({ pkgName, version, requiredVersion }) => {
+      fail(
+        `shared module "${pkgName}" resolved to ${version}, which does not satisfy required version ${requiredVersion}`,
+      );
+    });
+
+    // B4 fix (spec 316 phase-6 review): only a genuine retry — the
+    // *previous* attempt for this remote actually failed — bumps the
+    // `?retry=` counter and forces re-registration. An ordinary first mount
+    // (never attempted, or still in flight when this instance unmounted)
+    // pays for neither: `force: true` clears bookkeeping a fresh remote
+    // doesn't have yet, and the cache-busting query parameter (T001 finding
+    // item 4) only matters once the browser's dynamic-import() cache
+    // already holds a failed entry for the literal URL.
     //
     // type: 'module' is load-bearing, not a default: with no `type`, the
     // runtime injects remoteEntry.js as a classic <script>, and Vite's dev
@@ -114,9 +143,12 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
     // T001 finding item 1) — a classic script can't parse those, and the
     // browser throws "Cannot use import statement outside a module" (seen
     // live, diagnosed directly against the real dev server, not predicted).
-    registerRemotes([{ name: remote, type: 'module', entry: `${entry.baseUrl}/remoteEntry.js?retry=${attempt}` }], {
-      force: true,
-    });
+    const isRetry = failedRemotes.has(remote);
+    const entryUrl = isRetry
+      ? `${entry.baseUrl}/remoteEntry.js?retry=${nextAttempt(remote)}`
+      : `${entry.baseUrl}/remoteEntry.js`;
+
+    registerRemotes([{ name: remote, type: 'module', entry: entryUrl }], isRetry ? { force: true } : undefined);
 
     loadRemote<RemoteSurfaceModule>(exposedModuleKey(remote))
       .then((module) => {
@@ -126,7 +158,10 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
           return;
         }
         settled = true;
-        setComponent(() => module.default as ComponentType);
+        failedRemotes.delete(remote);
+        const LoadedComponent = module.default as ComponentType;
+        resolvedComponents.set(remote, LoadedComponent);
+        setComponent(() => LoadedComponent);
       })
       .catch((error: unknown) => {
         fail(describeError(error));
@@ -134,7 +169,7 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
 
     return () => {
       settled = true;
-      errorLoadRemoteHook?.remove?.(onErrorLoadRemote);
+      unsubscribeMismatch();
     };
   }, [remote]);
 
