@@ -47,11 +47,10 @@ test.describe('operator shell federation (spec 316)', () => {
   }) => {
     await signInAsOperator(page);
 
-    // plan.md §3's singleton table, plus the shared package's own derived
-    // keys (one per subpath under the trailing-slash shared key, T001
-    // finding item 2) — checked by prefix rather than naming every subpath,
-    // since the exact subpath list is an implementation detail of
-    // `features/cameras` and `CameraDetailPage`, not this spec's contract.
+    // plan.md §3's singleton table. Checked by exact key, not prefix: a
+    // prefix match would wrongly fold in independently-correct singletons
+    // that merely share a name prefix, e.g. `react/jsx-runtime` and
+    // `react/jsx-dev-runtime` under `react`.
     const singletonPackageNames = [
       'react',
       'react-dom',
@@ -61,50 +60,81 @@ test.describe('operator shell federation (spec 316)', () => {
       'react-oidc-context',
     ];
 
-    const loadedVersionCounts = await page.evaluate((packageNames: string[]) => {
-      type SharedVersionEntry = { loaded?: boolean; lib?: unknown };
-      type ShareScope = Record<string, Record<string, SharedVersionEntry>>;
-      type FederationInstance = { shareScopeMap?: Record<string, ShareScope> };
-      type FederationGlobal = { __INSTANCES__?: FederationInstance[] };
+    const sharedPackageName = '@smart-sentinel-eye/shared';
 
-      const federation = (globalThis as unknown as { __FEDERATION__?: FederationGlobal }).__FEDERATION__;
-      const instance = federation?.__INSTANCES__?.[0];
-      const shareScope = instance?.shareScopeMap?.['default'] ?? {};
+    const { loadedVersionCounts, sharedLoadedCount } = await page.evaluate(
+      ({ packageNames, sharedName }: { packageNames: string[]; sharedName: string }) => {
+        type SharedVersionEntry = { loaded?: boolean; lib?: unknown };
+        type ShareScope = Record<string, Record<string, SharedVersionEntry>>;
+        type FederationInstance = { shareScopeMap?: Record<string, ShareScope> };
+        type FederationGlobal = { __INSTANCES__?: FederationInstance[] };
 
-      // Only `@smart-sentinel-eye/shared` has real subpath exports meant to
-      // collapse into one count (e.g. `@smart-sentinel-eye/shared/api/cameras.api`).
-      // Every other singleton name must match exactly: a prefix match would
-      // wrongly fold in independently-correct singletons that merely share a
-      // name prefix, e.g. `react/jsx-runtime` and `react/jsx-dev-runtime`
-      // under `react`.
-      function countLoaded(packageName: string, allowSubpaths: boolean): number {
-        const matchingKeys = Object.keys(shareScope).filter(
-          (key) => key === packageName || (allowSubpaths && key.startsWith(`${packageName}/`)),
-        );
-        let loaded = 0;
-        for (const key of matchingKeys) {
-          const versions = shareScope[key] ?? {};
-          for (const version of Object.values(versions)) {
-            if (version.loaded === true || version.lib !== undefined) loaded += 1;
+        const federation = (globalThis as unknown as { __FEDERATION__?: FederationGlobal }).__FEDERATION__;
+        const instance = federation?.__INSTANCES__?.[0];
+        const shareScope = instance?.shareScopeMap?.['default'] ?? {};
+
+        // S2 fix (spec 316 phase-6 review): the share scope is keyed by
+        // version, so two copies loaded at the SAME version would already
+        // collapse into one entry — the previous count summed across every
+        // subpath key for every name, which could never catch that (the
+        // counterfactual this test exists to catch: a `singleton: false`
+        // drift). Counting per exact key instead catches it, since a second,
+        // independently-loaded copy at the same version still shows up as a
+        // second *loaded* entry under that one key.
+        //
+        // `useIn`/`from` looked like a stronger, per-consumer signal and an
+        // earlier version of this test asserted on them — dropped after
+        // dumping the real `shareScopeMap` live (phase-6 review follow-up):
+        // for every genuine cross-app singleton (react, react-router-dom, …)
+        // both apps load, `useIn` is `["shell"]` and `from` is `"shell"`,
+        // never `"cameras"`, even though cameras is provably using it (this
+        // test's own count, and test 1's rendered page, both confirm
+        // sharing works). The only entries ever showing `"cameras"` are
+        // modules ONLY cameras declares (e.g. its own schema, never shared
+        // with the shell) — so these fields record whichever host first
+        // registered a share key, not "every app that consumed it". There is
+        // no field in this runtime version that proves "the remote used the
+        // host's copy" more directly than the loaded-count already does.
+        function countLoaded(packageName: string, allowSubpaths: boolean): number {
+          const matchingKeys = Object.keys(shareScope).filter(
+            (key) => key === packageName || (allowSubpaths && key.startsWith(`${packageName}/`)),
+          );
+          let loaded = 0;
+          for (const key of matchingKeys) {
+            const versions = shareScope[key] ?? {};
+            for (const version of Object.values(versions)) {
+              if (version.loaded === true || version.lib !== undefined) loaded += 1;
+            }
           }
+          return loaded;
         }
-        return loaded;
-      }
 
-      const result: Record<string, number> = {};
-      for (const packageName of packageNames) {
-        result[packageName] = countLoaded(packageName, false);
-      }
-      result['@smart-sentinel-eye/shared'] = countLoaded('@smart-sentinel-eye/shared', true);
-      return result;
-    }, singletonPackageNames);
+        const result: Record<string, number> = {};
+        for (const packageName of packageNames) {
+          result[packageName] = countLoaded(packageName, false);
+        }
+
+        // `@smart-sentinel-eye/shared` is the one name with real subpath
+        // exports meant to collapse into several keys (one per subpath,
+        // T001 finding item 2, e.g. `@smart-sentinel-eye/shared/api/cameras.api`)
+        // — each subpath is its own singleton, so this name keeps the
+        // weaker "at least one loaded, across every subpath" check, by
+        // design, rather than "exactly one" against a single key.
+        const sharedLoadedCount = countLoaded(sharedName, true);
+
+        return { loadedVersionCounts: result, sharedLoadedCount };
+      },
+      { packageNames: singletonPackageNames, sharedName: sharedPackageName },
+    );
 
     for (const packageName of singletonPackageNames) {
+      // Exactly one loaded version at this exact key — not merely "at least
+      // one" — is the actual singleton guarantee: two copies at different
+      // versions, or (the counterfactual this test exists to catch) a
+      // second, independently-loaded copy at the SAME version, both fail
+      // this, where the old subpath-summing count could not.
       expect(loadedVersionCounts[packageName], `${packageName} loaded version count`).toBe(1);
     }
-    expect(
-      loadedVersionCounts['@smart-sentinel-eye/shared'],
-      '@smart-sentinel-eye/shared loaded version count',
-    ).toBeGreaterThanOrEqual(1);
+    expect(sharedLoadedCount, `${sharedPackageName} loaded version count`).toBeGreaterThanOrEqual(1);
   });
 });
