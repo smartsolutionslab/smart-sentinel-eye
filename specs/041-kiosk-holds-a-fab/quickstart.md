@@ -45,7 +45,7 @@ is gone, and nothing should still refer to it.
 ## 2. Sign in
 
 Open `http://localhost:5174/`, press **Sign in**, and log in as `operator` /
-`Operator1234`.
+`Cobalt-Meadow-Ripple-24`.
 
 **This is where a wrong redirect URI fails**, before any API call — so if the
 Keycloak page shows *"Invalid parameter: redirect_uri"*, stop here: the client

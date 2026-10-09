@@ -26,7 +26,7 @@ mapped port, or every call returns 401 with `The issuer '…' is invalid`:
 ```sh
 curl -sk -X POST "https://localhost:<keycloak-proxied>/realms/smart-sentinel-eye/protocol/openid-connect/token" \
   -d grant_type=password -d client_id=management-web \
-  -d username=op-3@munich.test -d password=Operator1234
+  -d username=op-3@munich.test -d password=Hazel-Compass-Thistle-36
 ```
 
 `op-3@munich.test` is the Munich operator and `op-dresden@dresden.test` the

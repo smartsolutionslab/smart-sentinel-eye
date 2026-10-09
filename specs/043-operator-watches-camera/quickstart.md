@@ -29,7 +29,7 @@ Confirm there is something to watch: MediaMTX's path list should show
 
 ## 2. Open a camera and look at it
 
-Sign in at `http://localhost:5173` as `operator` / `Operator1234`, open Cameras,
+Sign in at `http://localhost:5173` as `operator` / `Cobalt-Meadow-Ripple-24`, open Cameras,
 and click one the simulator feeds.
 
 **Expected**: the picture is on the page, under the name and above the record

@@ -76,7 +76,11 @@ and `camera-catalog` + `keycloak` + the React apps to reach
 1. Open the **management-web** URL from the dashboard (default
    `http://localhost:5173`).
 2. Sign in with the seeded admin (Keycloak realm
-   `smart-sentinel-eye`): **`admin` / `Admin1234`**.
+   `smart-sentinel-eye`): **`admin` / `Granite-Willow-Beacon-58`**. (Spec 325 raised
+   the dev realm's password policy and reseeded every account with a distinct
+   value — an existing persistent stack must drop the `keycloak-data` volume to
+   pick up the new credentials; see the comment above the `Persistent` branch in
+   `src/AppHost/AppHost.cs`.)
 3. Click **Register camera**, give it a unique name, paste an
    `rtsp://...` URL, submit.
 4. The new row appears in the list. Open the **rabbitmq** management
@@ -349,7 +353,7 @@ API uses to mint kiosk + device clients on demand.
    **Finished**.
 2. **Sign in as the fab admin.** Browse the management app at
    `http://localhost:5173`, click **Sign in**, and authenticate as
-   `admin@munich.test` / `Admin1234`. The JWT carries
+   `admin@munich.test` / `Saffron-Glacier-Tundra-71`. The JWT carries
    `groups: ["/fabs/munich"]` + every `sse.*.write` scope.
 3. **Enroll a kiosk** (admin, `sse.identity.kiosks.write`):
    ```bash

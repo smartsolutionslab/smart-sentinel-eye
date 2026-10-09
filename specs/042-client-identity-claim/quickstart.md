@@ -57,7 +57,7 @@ scratch copy of the realm only**, for the user-facing three, and say so in the
 note — it is a probe, not a change.
 
 For each of the **user-facing** identities — the operator console, its
-replacement, and the wall display — take a token as `operator` / `Operator1234`
+replacement, and the wall display — take a token as `operator` / `Cobalt-Meadow-Ripple-24`
 and decode the **access** token (not the ID token; that one carries `sub`
 regardless, which is why this hid for so long).
 
