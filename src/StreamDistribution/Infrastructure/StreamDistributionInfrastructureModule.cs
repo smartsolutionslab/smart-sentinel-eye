@@ -85,13 +85,29 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddScoped<StreamHealthChangedDomainEventHandler>();
         builder.Services.AddScoped<StreamProvisionedDomainEventHandler>();
 
+        builder.Services.AddMediaMtxGateway();
+
+        builder.Services.AddHostedService<StreamHealthWatcher>();
+        builder.Services.AddHostedService<MediaMtxReconciler>();
+        builder.Services.AddHostedService<StreamFabAttributionService>();
+
+        builder.AddWolverineForContext<StreamDistributionDbContext>(
+            moduleQueuePrefix: ContextName,
+            outboxSchema: OutboxSchema,
+            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName);
+
+        return builder;
+    }
+
+    internal static IHttpClientBuilder AddMediaMtxGateway(this IServiceCollection services)
+    {
         // Typed HttpClient for MediaMTX. The retry schedule comes from
         // ServiceDefaults, which applies AddStandardResilienceHandler to every
         // client through ConfigureHttpClientDefaults — so asking for it again
         // here does not reinforce it, it nests a second pipeline inside the
         // first. That is what this call site used to do: four attempts became
         // sixteen, and the two-second health sweep inherited both budgets.
-        builder.Services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
+        return services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
         {
             MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
@@ -106,17 +122,6 @@ public static class StreamDistributionInfrastructureModule
             // which the two-second health sweep would then report as a broken
             // camera.
             .RetryEveryMethod();
-
-        builder.Services.AddHostedService<StreamHealthWatcher>();
-        builder.Services.AddHostedService<MediaMtxReconciler>();
-        builder.Services.AddHostedService<StreamFabAttributionService>();
-
-        builder.AddWolverineForContext<StreamDistributionDbContext>(
-            moduleQueuePrefix: ContextName,
-            outboxSchema: OutboxSchema,
-            postgresConnectionName: StreamDistributionPersistenceModule.DatabaseConnectionName);
-
-        return builder;
     }
 
     private static void BindMediaMtxOptions(IHostApplicationBuilder builder)
