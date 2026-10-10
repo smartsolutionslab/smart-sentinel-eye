@@ -1,0 +1,66 @@
+version: 2
+
+# Every entry targets develop explicitly (ADR-0028) — Dependabot defaults to
+# the repository's default branch, which happens to already be develop here,
+# but naming it avoids relying on that happening to stay true.
+#
+# Minor/patch bumps are grouped per ecosystem (fewer, larger PRs); major
+# bumps are never grouped — they often need code changes and should surface
+# as their own PR, not be folded into a group that hides them.
+#
+# Every Dependabot-opened PR still runs this repo's full CI
+# (.github/workflows/ci.yml's pull_request trigger is deliberately
+# unfiltered, ADR-0028) — this config only opens the PRs, it does not
+# auto-merge them.
+updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    groups:
+      nuget-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "npm"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    groups:
+      npm-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    groups:
+      github-actions-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  - package-ecosystem: "docker"
+    directory: "/src/AppHost/mosquitto"
+    target-branch: "develop"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+    groups:
+      docker-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
