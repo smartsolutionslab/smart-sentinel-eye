@@ -1,7 +1,9 @@
 using JasperFx;
 using JasperFx.CodeGeneration;
+using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using Wolverine.Configuration;
+using Wolverine.ErrorHandling;
 using Wolverine.Runtime.Handlers;
 
 namespace SmartSentinelEye.Identity.Infrastructure;
@@ -15,14 +17,46 @@ namespace SmartSentinelEye.Identity.Infrastructure;
 /// <c>WallSceneSwitchFailurePolicy</c> (spec 296) — no shared default.
 ///
 /// <para>
-/// Seam only: the policy is registered (<c>IdentityInfrastructureModule</c>.
-/// <c>ConfigureMessageHandling</c>) but <see cref="Apply"/> adds no rule yet.
-/// The retry ladder lands in a later commit (plan.md §5.0/§6).
+/// <b>The ladder (plan.md §3):</b> 1 minute, then 2 minutes, then 5 minutes x
+/// 12 — 14 scheduled retries, 15 attempts before the default dead-letter
+/// behaviour (unchanged) takes over. The first two steps are sized to outlast
+/// a Keycloak pod restart or a short database failover, the likeliest outages
+/// and the ones the old budget already lost. The 5-minute cap bounds
+/// post-recovery exposure — once Keycloak is back, the revoked client stays
+/// enabled (and, per ADR-0160, its tokens stay accepted) for at most one cap
+/// plus Wolverine's 5 s scheduled-job poll plus ADR-0160's 5 s snapshot
+/// refresh — against a 3600 s realm token lifetime. Twelve repeats give
+/// roughly an hour of total coverage, a judgment call (spec A4): long enough
+/// to span a restart, failover, node drain/reboot or maintenance window,
+/// short enough that the residual dead letter after it stays the documented
+/// manual recovery (spec 264 §3), not a silent one.
+/// </para>
+///
+/// <para>
+/// <b>Why <c>ScheduleRetry</c> and not
+/// <c>RetryWithCooldown</c>:</b> decompiling the installed Wolverine 6.40.0
+/// (plan.md §2) showed <c>RetryWithCooldown</c> delays with an uncancellable
+/// <c>Task.Delay</c> inline on the listener — wrong at the minute scale, since
+/// it would hold the queue's one listener for up to an hour and block
+/// graceful shutdown. <c>ScheduleRetry</c> reschedules the envelope through
+/// Identity's durable Postgres inbox (ADR-0126) instead, which frees the
+/// listener and survives a restart with its scheduled time intact.
 /// </para>
 /// </summary>
 public sealed class WebhookIntegrationRevokedFailurePolicy : IHandlerPolicy
 {
     public void Apply(IReadOnlyList<HandlerChain> chains, GenerationRules rules, IServiceContainer container)
     {
+        HandlerChain? chain = chains.FirstOrDefault(
+            candidate => candidate.MessageType == typeof(WebhookIntegrationRevokedV1));
+
+        TimeSpan[] ladder =
+        [
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromMinutes(2),
+            .. Enumerable.Repeat(TimeSpan.FromMinutes(5), 12),
+        ];
+
+        chain?.OnException<WebhookClientDisableFailedException>().ScheduleRetry(ladder);
     }
 }
