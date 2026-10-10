@@ -1,6 +1,8 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Polly;
+using Polly.Telemetry;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
@@ -107,7 +109,7 @@ public static class StreamDistributionInfrastructureModule
         // here does not reinforce it, it nests a second pipeline inside the
         // first. That is what this call site used to do: four attempts became
         // sixteen, and the two-second health sweep inherited both budgets.
-        return services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
+        IHttpClientBuilder builder = services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
         {
             MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
@@ -122,6 +124,40 @@ public static class StreamDistributionInfrastructureModule
             // which the two-second health sweep would then report as a broken
             // camera.
             .RetryEveryMethod();
+
+        // Keyed on the request's target host, not the pipeline name: every
+        // StreamDistribution client shares one literal "{name}-standard"
+        // pipeline name (ConfigureHttpClientDefaults wires it that way), so a
+        // pipeline-name key would hit every client in the process rather than
+        // just this one. TelemetryOptions is one shared instance per
+        // container, so the provider composes with whatever was already
+        // configured instead of replacing it.
+        services.AddOptions<TelemetryOptions>()
+            .Configure<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>((options, mediaMtxOptions) =>
+            {
+                Func<SeverityProviderArguments, ResilienceEventSeverity>? previousProvider = options.SeverityProvider;
+                string mediaMtxHost = new Uri(mediaMtxOptions.Value.ManagementUrl).Host;
+
+                options.SeverityProvider = arguments =>
+                {
+                    bool isRoutineMediaMtxProbe =
+                        arguments.Event.EventName == "ExecutionAttempt"
+                        && arguments.Event.Severity == ResilienceEventSeverity.Information
+                        && string.Equals(
+                            arguments.Context.GetRequestMessage()?.RequestUri?.Host,
+                            mediaMtxHost,
+                            StringComparison.OrdinalIgnoreCase);
+
+                    if (isRoutineMediaMtxProbe)
+                    {
+                        return ResilienceEventSeverity.Debug;
+                    }
+
+                    return previousProvider?.Invoke(arguments) ?? arguments.Event.Severity;
+                };
+            });
+
+        return builder;
     }
 
     private static void BindMediaMtxOptions(IHostApplicationBuilder builder)
