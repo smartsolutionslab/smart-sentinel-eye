@@ -5,8 +5,13 @@ import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 
-// Spec 316 T009: see CamerasPage.test.tsx's own comment.
-const store = createApiStore([camerasApi, streamsApi]);
+// A store per test: the auto-batch enhancer's notification latch lives in
+// the store, so a fake-timer window that strands its callback would
+// otherwise silence every later test's subscribers.
+function createStore() {
+  return createApiStore([camerasApi, streamsApi]);
+}
+let store: ReturnType<typeof createStore>;
 
 const construct = vi.fn();
 const connect = vi.fn().mockResolvedValue(undefined);
@@ -39,6 +44,7 @@ const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/
 
 describe('CameraViewer connection lifecycle', () => {
   beforeEach(() => {
+    store = createStore();
     construct.mockClear();
     connect.mockClear();
     close.mockClear();

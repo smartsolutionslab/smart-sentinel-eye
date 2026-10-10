@@ -6,8 +6,13 @@ import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
 
-// Spec 316 T009: see CamerasPage.test.tsx's own comment.
-const store = createApiStore([camerasApi, streamsApi]);
+// A store per test: the auto-batch enhancer's notification latch lives in
+// the store, so a fake-timer window that strands its callback would
+// otherwise silence every later test's subscribers.
+function createStore() {
+  return createApiStore([camerasApi, streamsApi]);
+}
+let store: ReturnType<typeof createStore>;
 
 /**
  * Spec 045 T019 / T025. **management-web has no wall, so it must never align.**
@@ -71,6 +76,7 @@ const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/
 
 describe('CameraViewer on a page with no wall', () => {
   beforeEach(() => {
+    store = createStore();
     setPlayoutTarget.mockClear();
     stats.mockClear();
     vi.useFakeTimers();
