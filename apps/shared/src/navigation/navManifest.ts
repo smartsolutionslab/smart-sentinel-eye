@@ -10,15 +10,19 @@ import { z } from 'zod';
  */
 export const SCOPE_PATTERN = /^sse\.[a-z]+(\.[a-z]+)+$/;
 
-const navEntrySchema = z.object({
-  path: z.string().min(1),
-  label: z.string().min(1),
-  icon: z.string().optional(),
-  order: z.number(),
-  // Empty is refused rather than read as "visible to everyone" (FR-015): a
-  // forgotten field must not publish a surface to every account.
-  requiredScopes: z.array(z.string().regex(SCOPE_PATTERN)).nonempty(),
-});
+const ABSOLUTE_PATH = /^\//;
+
+const navEntrySchema = z
+  .object({
+    path: z.string().regex(ABSOLUTE_PATH, 'path must be absolute (start with "/")'),
+    label: z.string().min(1),
+    icon: z.string().optional(),
+    order: z.number(),
+    // Empty is refused rather than read as "visible to everyone" (FR-015): a
+    // forgotten field must not publish a surface to every account.
+    requiredScopes: z.array(z.string().regex(SCOPE_PATTERN)).nonempty().readonly(),
+  })
+  .readonly();
 
 const navManifestSchema = z
   .object({
@@ -27,9 +31,10 @@ const navManifestSchema = z
     // with the shape of (FR-015).
     schemaVersion: z.literal(1),
     remote: z.string().min(1),
-    basePath: z.string().min(1),
-    entries: z.array(navEntrySchema),
+    basePath: z.string().regex(ABSOLUTE_PATH, 'basePath must be absolute (start with "/")'),
+    entries: z.array(navEntrySchema).readonly(),
   })
+  .readonly()
   .superRefine((manifest, ctx) => {
     for (const [index, entry] of manifest.entries.entries()) {
       if (entry.path !== manifest.basePath && !entry.path.startsWith(`${manifest.basePath}/`)) {
@@ -42,20 +47,11 @@ const navManifestSchema = z
     }
   });
 
-export type NavEntry = {
-  readonly path: string;
-  readonly label: string;
-  readonly icon?: string;
-  readonly order: number;
-  readonly requiredScopes: readonly [string, ...string[]];
-};
-
-export type NavManifest = {
-  readonly schemaVersion: 1;
-  readonly remote: string;
-  readonly basePath: string;
-  readonly entries: readonly NavEntry[];
-};
+// Inferred from the schema, not hand-declared, so the two cannot drift: a
+// field added to one and not the other used to need a cast at the one place
+// this module handed a parsed value back out.
+export type NavEntry = z.infer<typeof navEntrySchema>;
+export type NavManifest = z.infer<typeof navManifestSchema>;
 
 export type NavManifestParseResult =
   { readonly ok: true; readonly manifest: NavManifest } | { readonly ok: false; readonly reason: string };
@@ -72,5 +68,5 @@ export function parseNavManifest(input: unknown): NavManifestParseResult {
   if (!result.success) {
     return { ok: false, reason: result.error.issues.map((issue) => issue.message).join('; ') };
   }
-  return { ok: true, manifest: result.data as unknown as NavManifest };
+  return { ok: true, manifest: result.data };
 }
