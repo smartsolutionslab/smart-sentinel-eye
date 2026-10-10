@@ -235,5 +235,9 @@ would be a much larger change than adding a plugin.
 - Per-message overhead: zero — Mosquitto trusts the TCP
   session for its lifetime.
 - Integration test `NFR002_MqttConnectAuthTests` (spec 008
-  T088) asserts p99 ≤ 5 ms over a warm 100-cycle connect test
-  against a Testcontainers Keycloak + Mosquitto.
+  T088) asserts p50 ≤ 15 ms / p99 ≤ 50 ms over a warm 100-cycle
+  connect test against the Aspire fixture (ADR-0103 — this repo
+  never uses Testcontainers). This is a CI gross-regression gate
+  on the shared runner, not a literal assertion of NFR-002's 5 ms
+  production-hardware figure; the test's own doc comments explain
+  the gap between the two.
