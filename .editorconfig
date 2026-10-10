@@ -108,6 +108,14 @@ dotnet_naming_style.begins_with_i.capitalization = pascal_case
 # Private fields are plain camelCase — no leading underscore. Most types here
 # use primary constructors, so an explicit field is already the exception; when
 # one is needed it reads as an ordinary name.
+#
+# The naming rule's own `.severity` is read by the IDE and `dotnet format`, but
+# NOT by `dotnet build`: the compiler reports IDE1006 only when the diagnostic
+# itself has a severity. Without the dotnet_diagnostic line below this rule was
+# invisible to every build, CI included (#2764, #2174). Advisory: Release's
+# TreatWarningsAsErrors is carved out for IDE1006 in Directory.Build.props.
+dotnet_diagnostic.IDE1006.severity = warning
+
 dotnet_naming_rule.private_fields_are_camel_case.severity = warning
 dotnet_naming_rule.private_fields_are_camel_case.symbols = private_fields
 dotnet_naming_rule.private_fields_are_camel_case.style = camel_case_no_prefix
@@ -116,6 +124,27 @@ dotnet_naming_symbols.private_fields.applicable_kinds = field
 dotnet_naming_symbols.private_fields.applicable_accessibilities = private
 
 dotnet_naming_style.camel_case_no_prefix.capitalization = camel_case
+
+# The rule above would otherwise claim every private const and static readonly,
+# which C# — and this repository — spells in PascalCase. These two are more
+# specific (they name modifiers), so Roslyn applies them first.
+dotnet_naming_rule.private_constants_are_pascal_case.severity = warning
+dotnet_naming_rule.private_constants_are_pascal_case.symbols = private_constants
+dotnet_naming_rule.private_constants_are_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.private_constants.applicable_kinds = field
+dotnet_naming_symbols.private_constants.applicable_accessibilities = private
+dotnet_naming_symbols.private_constants.required_modifiers = const
+
+dotnet_naming_rule.private_static_readonly_fields_are_pascal_case.severity = warning
+dotnet_naming_rule.private_static_readonly_fields_are_pascal_case.symbols = private_static_readonly_fields
+dotnet_naming_rule.private_static_readonly_fields_are_pascal_case.style = pascal_case
+
+dotnet_naming_symbols.private_static_readonly_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_readonly_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_readonly_fields.required_modifiers = static, readonly
+
+dotnet_naming_style.pascal_case.capitalization = pascal_case
 
 # ADR-0084 (as amended 2026-09-17, spec 174 / #2209): the five code-metric
 # limits are ADVISORY — `warning`, never `error`. Until this change they were
