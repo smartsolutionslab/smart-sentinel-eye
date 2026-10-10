@@ -11,12 +11,13 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// privileges.
 ///
 /// <para>
-/// <b>Red today, deliberately.</b> This class is written against the
-/// <i>current</i> realm, which has no such client. Every fact below fails
-/// because the client — or its service-account user — is absent, never
-/// because of a wrong file path or a null-reference: each fact asserts
-/// existence first, with a message that names what is missing, before it
-/// reads any property off what it found (plan.md §5, T-A).
+/// <b>Was the slice's defining red; now green.</b> This class was written
+/// against the realm as it existed then, which had no such client, so every
+/// fact below failed because the client — or its service-account user — was
+/// absent, never because of a wrong file path or a null-reference: each fact
+/// asserts existence first, with a message that names what is missing,
+/// before it reads any property off what it found (plan.md §5, T-A). The
+/// realm now seeds the client, so every fact here passes.
 /// </para>
 ///
 /// <para>
@@ -29,9 +30,9 @@ namespace SmartSentinelEye.Architecture.Tests;
 public class IntegrationTestAdminClientTests
 {
     /// <summary>
-    /// Local on purpose (plan.md §5 T-A): the fixture's own
-    /// <c>HarnessClientId</c> constant does not exist yet, and
-    /// <c>Architecture.Tests</c> does not reference <c>Integration.Tests</c>.
+    /// Local on purpose (plan.md §5 T-A): <c>Architecture.Tests</c> does not
+    /// reference <c>Integration.Tests</c>, so this is its own copy of the
+    /// fixture's <c>HarnessClientId</c> constant, not a reference to it.
     /// </summary>
     private const string HarnessClientId = "integration-test-admin";
 

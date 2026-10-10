@@ -14,27 +14,29 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// (ADR-0100).
 ///
 /// <para>
-/// <b>Red today, deliberately.</b> This class compiles against the fixture
-/// as it exists now — <c>CreateAdminClientAsync</c> still mints by
-/// <c>grant_type=password</c> against <c>management-web</c>, and no
-/// <c>integration-test-admin</c> client exists in the realm. <see
+/// <b>Was the slice's defining red; now green.</b> This class was added
+/// against the fixture as it existed then — <c>CreateAdminClientAsync</c>
+/// still minted by <c>grant_type=password</c> against <c>management-web</c>,
+/// and no <c>integration-test-admin</c> client existed in the realm. <see
 /// cref="The_admin_harness_token_is_minted_by_the_integration_test_admin_client"/>
-/// is the slice's defining red (today's <c>azp</c> is <c>management-web</c>).
-/// <see
+/// was the slice's defining red (then-today's <c>azp</c> was
+/// <c>management-web</c>); it is green now that the client exists and
+/// <c>CreateAdminClientAsync</c> mints through it. <see
 /// cref="The_admin_harness_token_carries_the_admin_users_fab_and_the_consoles_scopes"/>
-/// is the declared characterisation half — green today, and it must pass
-/// <b>unmodified</b> after the migration, because it is the proof the
-/// migration does not drop a claim the 393 admin call sites rely on.
+/// is the characterisation half — green before the migration and still green,
+/// unmodified, after it, which is the proof the migration did not drop a
+/// claim the 393 admin call sites rely on.
 /// </para>
 ///
 /// <para>
-/// <b>Control-first in facts 3 and 4.</b> The client does not exist yet, so a
-/// wrong-secret or a password-grant probe against it today gets exactly the
-/// same <c>invalid_client</c>/401 a genuinely-missing client would give —
-/// which would make either fact pass for the wrong reason. Each fact first
-/// asserts that the <i>correct</i> <c>client_credentials</c> call succeeds,
-/// which fails today because the client is absent, so the whole fact is red
-/// for the right reason rather than green by accident.
+/// <b>Control-first in facts 3 and 4.</b> Before the client existed, a
+/// wrong-secret or a password-grant probe against it got exactly the same
+/// <c>invalid_client</c>/401 a genuinely-missing client would give — which
+/// would have made either fact pass for the wrong reason. Each fact first
+/// asserts that the <i>correct</i> <c>client_credentials</c> call succeeds;
+/// that assertion is why both facts were red for the right reason rather
+/// than green by accident while the client was absent, and the control still
+/// runs first now that it exists.
 /// </para>
 /// </summary>
 [Collection(AspireCollection.Name)]
@@ -42,9 +44,10 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
 {
     /// <summary>
     /// Local on purpose, exactly as <c>RealmProbe</c> keeps its own copy of
-    /// <c>identity-admin</c>'s id/secret: the fixture's <c>HarnessClientId</c>
-    /// / <c>HarnessClientSecret</c> constants do not exist yet (plan.md §5,
-    /// T-B — "use only existing fixture members").
+    /// <c>identity-admin</c>'s id/secret: a copy of
+    /// <see cref="AspireFixture.HarnessClientId"/> /
+    /// <see cref="AspireFixture.HarnessClientSecret"/>, which
+    /// <c>RealmImportMirrorTests</c> guards against drifting from them.
     /// </summary>
     private const string HarnessClientId = "integration-test-admin";
 
