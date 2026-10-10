@@ -140,4 +140,25 @@ describe('createAppRouter — route visibility follows the session’s granted s
     expect(registerRemotesMock).not.toHaveBeenCalled();
     expect(loadRemoteMock).not.toHaveBeenCalled();
   });
+
+  it('An entitled session sees the loading state, never "not available", while the manifest has not settled', async () => {
+    // Never resolves: entitlement for a path the cameras manifest alone
+    // would declare is genuinely unknown until that manifest settles, which
+    // must read as "loading", not as "not available to your account" (that
+    // panel means refused, not merely undetermined yet).
+    fetchMock.mockImplementation(() => new Promise<never>(() => {}));
+    const withCamerasRead = userWithScope('sse.cameras.read');
+
+    renderAppAt('/cameras/11111111-1111-1111-1111-111111111111', managerWith(withCamerasRead));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(/loading/i));
+
+    expect(screen.queryByText(/not available/i)).not.toBeInTheDocument();
+
+    // The loading state must not have fetched the remote's own code either
+    // (FR-003) — only the gate passing does that, not merely "entitlement is
+    // still being determined".
+    expect(registerRemotesMock).not.toHaveBeenCalled();
+    expect(loadRemoteMock).not.toHaveBeenCalled();
+  });
 });

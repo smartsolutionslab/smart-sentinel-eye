@@ -17,35 +17,51 @@ import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
 
 /**
  * Spec 316 FR-013 — wraps one child route's element, rendering
- * {@link NotAvailable} instead when `path` is not in the session's visible
- * set. For the remote route this also keeps `<RemoteSurface>` from ever
- * mounting for an unentitled session, so it never registers or fetches the
- * remote's code (FR-003/FR-013): gating decides what is fetched as code, not
- * only what is shown.
+ * {@link NotAvailable} instead when `path` is not (yet) in the session's
+ * visible set. For the remote route this also keeps `<RemoteSurface>` from
+ * ever mounting for an unentitled session, so it never registers or fetches
+ * the remote's code (FR-003/FR-013): gating decides what is fetched as code,
+ * not only what is shown.
+ *
+ * While a manifest that could still own `path` has not settled
+ * (`useNavigation().status === 'loading'`), this renders the loading state
+ * rather than `NotAvailable`: an entitlement that is merely unknown yet is
+ * not the same thing FR-013's panel means by "not available to your
+ * account", and a full-scope session must not see that panel flash (or, if
+ * the remote's manifest never settles, stick) while its own entry is still
+ * loading. The remote route still only fetches its code once `path` is
+ * visible — this only changes what renders while that is undetermined, not
+ * when the gate passes.
  */
 function Gated({ path, children }: { path: string; children: ReactNode }) {
+  const { status } = useNavigation();
   const visible = useVisibleEntries();
-  if (!visible.some((entry) => entry.path === path)) {
-    return <NotAvailable />;
+
+  if (visible.some((entry) => entry.path === path)) {
+    return <>{children}</>;
   }
-  return <>{children}</>;
+
+  if (status === 'loading') {
+    return <Loading />;
+  }
+
+  return <NotAvailable />;
 }
 
 /**
  * Spec 316 FR-012 — the index route renders the first visible entry's
  * element directly, in manifest order, with no `<Navigate>` (preserving this
  * file's existing "no redirect flash" reasoning). While a manifest that
- * could still own an earlier-ordered entry has not settled
- * (`useNavigation().status === 'loading'`), it shows the existing
- * `Centered`-style "Loading…" state rather than guessing from a partial set;
- * with no visible entry at all it shows the empty-navigation message.
+ * could still own an earlier-ordered entry has not settled, it shows
+ * {@link Loading} rather than guessing from a partial set; with no visible
+ * entry at all it shows the empty-navigation message.
  */
 function FirstVisibleSurface() {
   const { status } = useNavigation();
   const visible = useVisibleEntries();
 
   if (status === 'loading') {
-    return <Centered>Loading…</Centered>;
+    return <Loading />;
   }
 
   const first = visible[0];
@@ -57,11 +73,25 @@ function FirstVisibleSurface() {
   return <Centered>No surfaces are available to your account.</Centered>;
 }
 
+/**
+ * A `<section>`, not a `<main>`: {@link ShellLayout} is already one, and two
+ * `main` landmarks is invalid ARIA and leaves `getByRole('main')` ambiguous.
+ * No `min-h-screen` either — that forced a scrollbar inside the shell's own
+ * `<main>`, which already fills the viewport.
+ */
 function Centered({ children }: { children: ReactNode }) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
-      {children}
-    </main>
+    <section className="mx-auto mt-16 flex max-w-lg flex-col items-center gap-4 p-8 text-center">{children}</section>
+  );
+}
+
+function Loading() {
+  return (
+    <Centered>
+      <p role="status" className="text-fg-muted">
+        Loading…
+      </p>
+    </Centered>
   );
 }
 
