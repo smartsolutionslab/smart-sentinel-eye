@@ -400,7 +400,11 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   `_gate`. Most types use primary constructors, so an explicit field
   is already the exception. Where a constructor parameter shares the
   field's name, assign with `this.value = value;` (`this.` is
-  permitted for exactly this, not mandated elsewhere).
+  permitted for exactly this, not mandated elsewhere). **`dotnet build`
+  now reports a violation as an advisory `IDE1006` warning** —
+  `.editorconfig`'s naming rule plus `Directory.Build.props`'s
+  `WarningsNotAsErrors` carve-out, not build-breaking — so this is no
+  longer a rule the build silently ignores (#2764).
 - **Collections are declared with an explicit type and a collection
   expression** — `List<Camera> cameras = [];`, not `= new()`. `var`
   cannot express this at all: a collection expression has no natural
