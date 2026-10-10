@@ -36,6 +36,7 @@
         "ms-playwright.playwright",
         "bradlc.vscode-tailwindcss",
         "vitest.explorer",
+        "SonarSource.sonarlint-vscode",
         "anthropic.claude-code"
       ]
     }
