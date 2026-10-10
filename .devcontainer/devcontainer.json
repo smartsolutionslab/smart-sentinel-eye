@@ -28,11 +28,13 @@
   "customizations": {
     "vscode": {
       "extensions": [
-        "ms-dotnettools.csdevkit",
-        "ms-dotnettools.csharp",
+        "JetBrains.resharper-code",
+        "microsoft-aspire.aspire-vscode",
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "ms-playwright.playwright",
+        "bradlc.vscode-tailwindcss",
+        "vitest.explorer",
         "anthropic.claude-code"
       ]
     }
