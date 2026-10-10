@@ -39,6 +39,7 @@ builder.Services
 builder.Services.AddSingleton(TimeProvider.System);
 
 // Keycloak client_credentials token provider (scope sse.cameras.write).
+// Idempotent POST (ADR-0143): a second token supersedes the first.
 builder.Services.AddHttpClient(KeycloakTokenProvider.HttpClientName).RetryEveryMethod();
 builder.Services.AddSingleton<KeycloakTokenProvider>();
 
