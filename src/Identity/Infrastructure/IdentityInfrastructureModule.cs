@@ -24,6 +24,7 @@ using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
+using Wolverine;
 
 namespace SmartSentinelEye.Identity.Infrastructure;
 
@@ -162,9 +163,30 @@ public static class IdentityInfrastructureModule
         builder.AddWolverineForContext<IdentityDbContext>(
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
-            postgresConnectionName: IdentityPersistenceModule.DatabaseConnectionName);
+            postgresConnectionName: IdentityPersistenceModule.DatabaseConnectionName,
+            configureMore: ConfigureMessageHandling);
 
         return builder;
+    }
+
+    /// <summary>
+    /// Spec 328 (#2629): registers <see cref="WebhookIntegrationRevokedFailurePolicy"/> so a
+    /// Keycloak outage retries the webhook-client revocation on a cooldown ladder instead of
+    /// dead-lettering after Wolverine's default three immediate attempts.
+    ///
+    /// <para>
+    /// A named method rather than an inline lambda (unlike
+    /// <c>LayoutCompositionInfrastructureModule</c>'s <c>WallSceneSwitchFailurePolicy</c>
+    /// registration): <c>WebhookIntegrationRevokedFailurePolicyTests</c> calls this exact method to
+    /// configure its in-process discovery (plan.md §4/§5.1), so deleting the
+    /// <c>Policies.Add</c> call below fails that test rather than leaving it green.
+    /// </para>
+    /// </summary>
+    public static void ConfigureMessageHandling(WolverineOptions options)
+    {
+        Ensure.That(options).IsNotNull();
+
+        options.Policies.Add<WebhookIntegrationRevokedFailurePolicy>();
     }
 
     /// <summary>
