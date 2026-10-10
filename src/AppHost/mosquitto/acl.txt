@@ -32,3 +32,10 @@ topic write fab/berlin/plc/#
 topic write fab/berlin/inference/#
 topic write fab/hamburg/plc/#
 topic write fab/hamburg/inference/#
+
+# Spec 330 (#2286). A fixed identity for MqttPublishScopeIntegrationTests: the
+# only way to show a publish refused *for the scope* is a user acl.txt would
+# otherwise allow. No realm client has this id; the test creates and deletes it.
+# The topic is outside fab/+/+/+, so nothing ingests what the probe publishes.
+user mqtt-publish-scope-probe
+topic write sse-probe/publish-scope
