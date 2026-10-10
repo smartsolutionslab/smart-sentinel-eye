@@ -1,7 +1,7 @@
 # Implementation Plan: The lane the flag was never named for
 
-**Spec**: [spec.md](./spec.md) · **Issue**: #2297 · **Status**: **DRAFT for route B — void unless
-spec §4 Q1 is answered "B".**
+**Spec**: [spec.md](./spec.md) · **Issue**: #2297 · **Status**: **Approved — route B** (spec §4
+Q1 = B, decided by the user 2026-10-10). Implemented.
 
 **Phase-4a colour**: **behaviour-changing → red** for the e2e lane's composition (spec scenarios 1,
 4, 5-e2e-half), plus **characterisation, observed green** for the lanes that must not move (scenarios
