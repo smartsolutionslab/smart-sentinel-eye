@@ -30,7 +30,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     // applied to the bucket: filtering afterwards would make lookup cost grow
     // with the number of rules in *other* fabs, on a path inside the 200 ms
     // event-to-overlay budget (spec 013 SC-007).
-    private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> _byTrigger = new();
+    private readonly ConcurrentDictionary<(string Fab, string TriggerSource, string TriggerKind), List<CompiledRule>> byTrigger = new();
     private readonly object gate = new();
 
     public IReadOnlyList<CompiledRule> LookupActive(
@@ -38,7 +38,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         Ensure.That(fab).IsNotNull();
 
-        if (!_byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
+        if (!byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
         {
             return Array.Empty<CompiledRule>();
         }
@@ -60,7 +60,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         (string Fab, string TriggerSource, string TriggerKind) key =
             (rule.Fab.Value, rule.TriggerSource.Value, rule.TriggerKind.Value);
 
-        List<CompiledRule> bucket = _byTrigger.GetOrAdd(key, _ => []);
+        List<CompiledRule> bucket = byTrigger.GetOrAdd(key, _ => []);
         lock (gate)
         {
             bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule.Id);
@@ -73,7 +73,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         lock (gate)
         {
-            foreach (List<CompiledRule> bucket in _byTrigger.Values)
+            foreach (List<CompiledRule> bucket in byTrigger.Values)
             {
                 bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule);
             }
@@ -86,7 +86,7 @@ public sealed class InMemoryRuleCache : IRuleCache
         {
             lock (gate)
             {
-                return _byTrigger.Values.Sum(bucket => bucket.Count);
+                return byTrigger.Values.Sum(bucket => bucket.Count);
             }
         }
     }
