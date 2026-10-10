@@ -63,8 +63,9 @@ public class ScopeGrantTests
     /// <c>KeycloakScopeBundles</c> counts as a grant: devices, kiosks and
     /// webhook integrations get their clients created at runtime through the
     /// Admin API, so their scopes are granted by those lists rather than by the
-    /// realm file. <c>sse.events.publish</c> is the live example — no static
-    /// client holds it, and <c>KeycloakScopeBundles.Device</c> does.
+    /// realm file. <c>sse.events.publish</c> is the live example —
+    /// <c>scenario-simulator</c> holds it statically (spec 330, #2286); devices
+    /// get it from <c>KeycloakScopeBundles.Device</c>.
     /// </para>
     /// </summary>
     [Fact]

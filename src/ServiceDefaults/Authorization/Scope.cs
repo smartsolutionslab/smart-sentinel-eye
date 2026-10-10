@@ -60,7 +60,12 @@ public static class Scope
             public const string Read = "sse.events.read";
             public const string Write = "sse.events.write";
 
-            /// <summary>Granted to MQTT-publishing devices; not to humans.</summary>
+            /// <summary>
+            /// Enforced by the Mosquitto plugin's ACL check, not just the catalogue
+            /// (spec 330, #2286): a PUBLISH from a JWT identity without it is refused.
+            /// Granted to MQTT publishers (devices, and the dev-only
+            /// scenario-simulator); not to humans.
+            /// </summary>
             public const string Publish = "sse.events.publish";
 
             /// <summary>

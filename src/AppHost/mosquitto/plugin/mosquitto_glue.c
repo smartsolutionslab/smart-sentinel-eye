@@ -33,9 +33,24 @@ int mosquitto_plugin_cleanup(void *user_data, struct mosquitto_opt *options, int
     return MOSQ_ERR_SUCCESS;
 }
 
-// Registers the Go basic-auth callback; called from goPluginInit.
+// Registers the Go callbacks; called from goPluginInit. The ACL check is
+// registered after basic auth (spec 330, #2286), mirroring the order a
+// connection actually exercises them: CONNECT first, then PUBLISH. Returns
+// the first registration failure rather than swallowing it, so a broken
+// registration fails broker start instead of running with half the
+// callbacks missing. No MOSQ_EVT_DISCONNECT callback: the verdict is kept
+// per username, not per connection, so there is nothing to clear on
+// disconnect (plan.md §3) — and a per-connection entry would be gone
+// before a client's Will is checked anyway (spec finding 3).
 int sse_register(mosquitto_plugin_id_t *id)
 {
-    return mosquitto_callback_register(id, MOSQ_EVT_BASIC_AUTH,
-                                       (MOSQ_FUNC_generic_callback)sseOnBasicAuth, NULL, NULL);
+    int rc = mosquitto_callback_register(id, MOSQ_EVT_BASIC_AUTH,
+                                         (MOSQ_FUNC_generic_callback)sseOnBasicAuth, NULL, NULL);
+    if (rc != MOSQ_ERR_SUCCESS)
+    {
+        return rc;
+    }
+
+    return mosquitto_callback_register(id, MOSQ_EVT_ACL_CHECK,
+                                       (MOSQ_FUNC_generic_callback)sseOnAclCheck, NULL, NULL);
 }

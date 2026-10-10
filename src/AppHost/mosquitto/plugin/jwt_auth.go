@@ -21,6 +21,19 @@
 // FR-001) — an azp equal to the MQTT username, and an iss ending in the
 // realm path.
 //
+// A successful authentication also records, per username, whether the
+// token's scope claim carried sse.events.publish (spec 330, #2286). That
+// verdict is read back on every PUBLISH by a second callback,
+// MOSQ_EVT_ACL_CHECK: a write by an identity last authenticated without the
+// scope is refused outright; every other case — a read/subscribe/
+// unsubscribe, an identity never seen on this path, or a write by an
+// identity that does carry the scope — defers to acl_file, which still
+// decides topic authority. The callback never grants: the strongest thing
+// it can say is "not refused by me" (package authz's Decide has no allow
+// outcome). See authz/authz.go and plan.md §2-3 for the keying-by-username
+// reasoning (a Will is checked after disconnect fires, so a per-connection
+// verdict would already be gone by then).
+//
 // The mosquitto_plugin_* entry points are defined in mosquitto_glue.c
 // with the const-correct signatures the headers require (cgo cannot
 // emit `const`, so those symbols cannot be //export'd from Go). They
@@ -49,6 +62,8 @@ import (
 
 	"github.com/MicahParks/keyfunc/v3"
 	"github.com/golang-jwt/jwt/v5"
+
+	"smartsentineleye.local/mosquitto-jwt-auth/authz"
 )
 
 const defaultRealmPath = "/realms/smart-sentinel-eye"
@@ -65,6 +80,11 @@ var (
 	jwksURI   string
 	realmPath = defaultRealmPath
 )
+
+// grants remembers, per MQTT username, whether that identity's most recent
+// successful JWT authentication carried sse.events.publish. sseOnBasicAuth
+// records into it; sseOnAclCheck reads it back on every PUBLISH.
+var grants = authz.NewGrants()
 
 //export goPluginInit
 func goPluginInit(identifier *C.mosquitto_plugin_id_t, opts *C.struct_mosquitto_opt, optCount C.int) C.int {
@@ -90,8 +110,7 @@ func goPluginInit(identifier *C.mosquitto_plugin_id_t, opts *C.struct_mosquitto_
 		logf("JWT auth enabled; JWKS source %s", jwksURI)
 		go loadJwks()
 	}
-	C.sse_register(identifier)
-	return C.MOSQ_ERR_SUCCESS
+	return C.sse_register(identifier)
 }
 
 // loadJwks retries until Keycloak is reachable: the broker may start
@@ -191,7 +210,49 @@ func sseOnBasicAuth(event C.int, eventData unsafe.Pointer, userData unsafe.Point
 	if issuer, _ := claims["iss"].(string); !strings.HasSuffix(issuer, realmPath) {
 		return C.MOSQ_ERR_AUTH
 	}
+
+	// Spec 330 (#2286): remember whether this identity's token carried the
+	// publish scope, so sseOnAclCheck can answer the PUBLISH this CONNECT
+	// is about to be followed by. Only a successful authentication reaches
+	// here, so a rejected token never overwrites a prior verdict.
+	canPublish := authz.HasScope(claims["scope"], authz.PublishScope)
+	grants.Record(username, canPublish)
+	if !canPublish {
+		logf("%s authenticated without %s; its publishes will be refused", username, authz.PublishScope)
+	}
 	return C.MOSQ_ERR_SUCCESS
+}
+
+// sseOnAclCheck answers an MOSQ_EVT_ACL_CHECK. It never grants: the
+// strongest verdict it can return is MOSQ_ERR_PLUGIN_DEFER, leaving
+// acl_file to decide topic authority (spec finding 2, plan.md §2.1). It
+// only ever refuses a write, and only for an identity whose last successful
+// JWT authentication lacked sse.events.publish.
+//
+//export sseOnAclCheck
+func sseOnAclCheck(event C.int, eventData unsafe.Pointer, userData unsafe.Pointer) (result C.int) {
+	// A panic crossing the cgo boundary would crash the broker; fail
+	// closed rather than let an unexpected shape through as a defer.
+	defer func() {
+		if recover() != nil {
+			result = C.MOSQ_ERR_ACL_DENIED
+		}
+	}()
+
+	ev := (*C.struct_mosquitto_evt_acl_check)(eventData)
+	name := C.mosquitto_client_username(ev.client)
+	if name == nil {
+		// No identity to look up (e.g. during teardown, after a Will has
+		// already been handled). Nothing this plugin can refuse or allow.
+		return C.MOSQ_ERR_PLUGIN_DEFER
+	}
+
+	switch grants.Decide(C.GoString(name), ev.access == C.MOSQ_ACL_WRITE) {
+	case authz.Deny:
+		return C.MOSQ_ERR_ACL_DENIED
+	default:
+		return C.MOSQ_ERR_PLUGIN_DEFER
+	}
 }
 
 func main() {}
