@@ -38,7 +38,10 @@ files), the active one selected by an env var. A scenario is a list of assets;
 both camera seeding and (M2) sensor events.
 
 ### ScenarioSimulator — a new dev-only worker (`src/ScenarioSimulator`)
-Gated `isRunMode && !isE2ETests` (off under E2ETests/CI/prod — zero impact).
+Gated `isRunMode && !isE2ETests && isScenarioSimulatorEnabled` (off under
+E2ETests/CI/prod via the `ScenarioSimulator` switch added by #2013;
+previously `E2ETests` was never set, so the simulator did run in CI before
+that fix).
 
 - **M1 — Camera (implemented now).** Reads the scenario; registers each asset's
   camera in camera-catalog with `RtspUrl = rtsp://camera-sim:8554/<path>`;
