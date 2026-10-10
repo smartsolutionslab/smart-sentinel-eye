@@ -4,21 +4,7 @@ import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/res
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { CommandPalette } from '@smart-sentinel-eye/shared/ui/primitives/CommandPalette';
 import { RemoteLoadFailure } from './navigation/RemoteLoadFailure.js';
-
-/**
- * The nav's destinations — the single source both the nav bar and the
- * command palette render, so the palette can never offer a surface the nav
- * does not (spec 266 SC-6). There are seven.
- */
-const DESTINATIONS: ReadonlyArray<{ to: string; label: string }> = [
-  { to: '/cameras', label: 'Cameras' },
-  { to: '/layouts', label: 'Layouts' },
-  { to: '/walls', label: 'Walls' },
-  { to: '/overlays', label: 'Overlays' },
-  { to: '/rules', label: 'Rules' },
-  { to: '/system-variables', label: 'System variables' },
-  { to: '/audit', label: 'Audit' },
-];
+import { useVisibleEntries } from './navigation/useVisibleEntries.js';
 
 /**
  * The management shell: navigation that is always visible, and the current
@@ -39,6 +25,11 @@ export function ShellLayout() {
   const navigate = useNavigate();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const linkRefs = useRef(new Map<string, ComponentRef<'a'>>());
+  // Spec 316 FR-010/FR-011: the nav and the palette are built from the same
+  // scope-filtered list `useVisibleEntries()` computes (in-shell entries plus
+  // any accepted remote's), replacing the unconditional `DESTINATIONS`
+  // constant this file used before US2.
+  const destinations = useVisibleEntries();
 
   // Mounted once, in the shell — the one component that lives for the whole
   // signed-in session (spec 266 US6, plan.md §4.4). The listener is inline
@@ -77,15 +68,15 @@ export function ShellLayout() {
   return (
     <main className="min-h-screen bg-bg-base text-fg-primary">
       <nav className="flex items-center gap-3 overflow-x-auto border-b border-fg-muted/30 px-6 py-3">
-        {DESTINATIONS.map((destination) => (
+        {destinations.map((destination) => (
           <NavItem
-            key={destination.to}
-            to={destination.to}
+            key={destination.path}
+            to={destination.path}
             ref={(element) => {
               if (element === null) {
-                linkRefs.current.delete(destination.to);
+                linkRefs.current.delete(destination.path);
               } else {
-                linkRefs.current.set(destination.to, element);
+                linkRefs.current.set(destination.path, element);
               }
             }}
           >
@@ -105,7 +96,7 @@ export function ShellLayout() {
       <CommandPalette
         open={paletteOpen}
         onOpenChange={setPaletteOpen}
-        items={DESTINATIONS.map(({ to, label }) => ({ value: to, label }))}
+        items={destinations.map(({ path, label }) => ({ value: path, label }))}
         onSelect={(to) => {
           navigate(to);
           linkRefs.current.get(to)?.focus();

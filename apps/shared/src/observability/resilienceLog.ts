@@ -1,4 +1,4 @@
-export type ResilienceSubsystem = 'stream' | 'hub' | 'session' | 'crash';
+export type ResilienceSubsystem = 'stream' | 'hub' | 'session' | 'crash' | 'navigation';
 
 /**
  * Structured log line for every resilience state transition (spec 011

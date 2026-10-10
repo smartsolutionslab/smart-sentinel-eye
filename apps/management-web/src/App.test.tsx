@@ -1,4 +1,4 @@
-import { beforeEach, describe, it, expect, vi } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { type ReactNode } from 'react';
@@ -28,6 +28,38 @@ vi.mock('@smart-sentinel-eye/shared/api/gateway', async (importOriginal) => {
   };
 });
 
+// Spec 316 (T011) fixture update: the nav/palette and every route are now
+// gated on the session's granted scopes (`User.scope`). This file's own
+// property under test is the shell's auth/router/crash wiring, not
+// navigation gating (covered by `ShellLayout.navigation.test.tsx` and
+// `router.gating.test.tsx`), so the mocked user carries every console scope
+// — "full-scope", per plan.md §6's note on this file — so every surface
+// this suite already exercises (Cameras, Layouts, Audit) stays visible
+// (ADR-0139: fixture, not assertion).
+const ALL_21_SCOPES = [
+  'sse.variables.write',
+  'sse.identity.kiosks.read',
+  'sse.identity.devices.read',
+  'sse.audit.read',
+  'sse.cameras.read',
+  'sse.overlays.read',
+  'sse.identity.devices.write',
+  'sse.rules.read',
+  'sse.overlays.write',
+  'sse.events.read',
+  'sse.streams.write',
+  'sse.layouts.write',
+  'sse.variables.read',
+  'sse.events.write',
+  'sse.identity.kiosks.write',
+  'sse.rules.write',
+  'sse.webhooks.write',
+  'sse.cameras.write',
+  'sse.streams.read',
+  'sse.events.types.write',
+  'sse.layouts.read',
+].join(' ');
+
 // App is gated behind OIDC; render as an authenticated operator so these tests
 // exercise the shell rather than the sign-in screen.
 vi.mock('react-oidc-context', () => ({
@@ -36,7 +68,7 @@ vi.mock('react-oidc-context', () => ({
     isLoading: false,
     isAuthenticated: true,
     error: undefined,
-    user: { access_token: 'test-token', profile: { sub: 'operator' } },
+    user: { access_token: 'test-token', scope: ALL_21_SCOPES, profile: { sub: 'operator' } },
     events: { addUserLoaded: vi.fn(), removeUserLoaded: vi.fn() },
     signinRedirect: oidcMocks.signinRedirect,
     signinSilent: oidcMocks.signinSilent,
@@ -180,8 +212,32 @@ describe('App shell', () => {
   // The router reads the real location, and these tests share one jsdom
   // document — so without this a test that navigated leaves the next one
   // starting somewhere unexpected.
+  //
+  // Spec 316 (T011) fixture addition: `NavigationProvider` (mounted inside
+  // `App` as of this feature) fetches the cameras remote's nav-manifest.json
+  // on mount. Stubbed to resolve rather than hit a real network, since no
+  // other test in this file mocks `fetch` directly (every real API hook it
+  // would otherwise reach is already mocked above).
   beforeEach(() => {
     window.history.pushState({}, '', '/');
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            schemaVersion: 1,
+            remote: 'cameras',
+            basePath: '/cameras',
+            entries: [{ path: '/cameras', label: 'Cameras', order: 10, requiredScopes: ['sse.cameras.read'] }],
+          }),
+          { status: 200, headers: { 'content-type': 'application/json' } },
+        ),
+      ),
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   // Awaited rather than synchronous: RouterProvider resolves its initial
