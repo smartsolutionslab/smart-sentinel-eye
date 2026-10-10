@@ -790,7 +790,7 @@ jobs:
       - name: Boot the Aspire stack (run mode) in the background
         run: |
           rm -f "$GITHUB_WORKSPACE/stack-status.tsv"
-          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false StackStatusFile="$GITHUB_WORKSPACE/stack-status.tsv" > apphost.log 2>&1 &
+          nohup dotnet run --project src/AppHost/SmartSentinelEye.AppHost.csproj -c Release --no-build -- ScenarioSimulator=false PersistentStack=false StackStatusFile="$GITHUB_WORKSPACE/stack-status.tsv" > apphost.log 2>&1 &
           echo "$!" > apphost.pid
           echo "AppHost PID $(cat apphost.pid)"
 

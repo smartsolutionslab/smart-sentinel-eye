@@ -9,8 +9,12 @@ using SmartSentinelEye.AppHost;
 // - migrations: MigrationRunner that runs once on startup
 // - one project per bounded context, each WithReference()'d to the resources it consumes
 //
-// Test mode (E2ETests=true) makes the containers ephemeral; dev mode pins
-// persistent lifetimes + data volumes so the stack survives restarts.
+// Three lanes read this file: a developer's bare `aspire run` (persistent
+// containers, data volumes, pgAdmin — the default); the end-to-end CI job,
+// which boots the same run-mode shape but with `PersistentStack=false`, so
+// nothing it creates outlives the job; and the integration fixture
+// (`E2ETests=true`), which was already ephemeral and stays that way regardless
+// of `PersistentStack`.
 
 var builder = DistributedApplication.CreateBuilder(args);
 bool isRunMode = builder.ExecutionContext.IsRunMode;
@@ -24,6 +28,14 @@ bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e)
 // only place it is wanted.
 bool isScenarioSimulatorEnabled =
     !bool.TryParse(builder.Configuration["ScenarioSimulator"], out bool simulator) || simulator;
+// PersistentStack mirrors ScenarioSimulator's parse shape and fail-open
+// default: absent or unparseable means a developer's stack, the only lane
+// that ever wants persistence. CI's end-to-end job passes
+// PersistentStack=false so the containers, data volumes and pgAdmin it
+// creates do not outlive the job's `kill` (#2297).
+bool isPersistentStackEnabled =
+    !bool.TryParse(builder.Configuration["PersistentStack"], out bool persistent) || persistent;
+bool isPersistentDevStack = isRunMode && !isE2ETests && isPersistentStackEnabled;
 
 var postgresUser = builder.AddOverridableParameter("PostgresUser", "postgres");
 var postgresPassword = builder.AddOverridableParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
@@ -104,7 +116,10 @@ var postgres = builder
 // created with — Docker does not re-read WithArgs (e.g. max_connections above) on
 // a mere restart. Changing them needs `docker rm` of the postgres container (the
 // data volume can stay) before the next `aspire run`, or the old value keeps running.
-if (isRunMode && !isE2ETests)
+//
+// Developer lane only: PersistentStack=false (the e2e CI job) must not pin
+// this, mount a data volume, or add pgAdmin.
+if (isPersistentDevStack)
 {
     postgres
         .WithLifetime(ContainerLifetime.Persistent)
@@ -127,7 +142,8 @@ var rabbitmq = builder
     .WithImageTag("4-management-alpine")
     .WithManagementPlugin();
 
-if (isRunMode && !isE2ETests)
+// Developer lane only (see postgres above).
+if (isPersistentDevStack)
 {
     rabbitmq
         .WithLifetime(ContainerLifetime.Persistent)
@@ -167,7 +183,9 @@ var keycloak = builder
 // against a fresh volume. Drop the volume (`docker volume rm`, or its Aspire/Docker
 // Desktop equivalent) after a realm edit, or the stack looks healthy while still
 // running the old realm.
-if (isRunMode && !isE2ETests)
+//
+// Developer lane only (see postgres above).
+if (isPersistentDevStack)
 {
     keycloak
         .WithLifetime(ContainerLifetime.Persistent)
@@ -257,14 +275,22 @@ if (isRunMode && !isE2ETests)
     // endpoints on random TCP host ports, which ICE can't use (the advertised
     // candidate port wouldn't match and UDP wouldn't traverse), so publish the
     // ICE mux directly with a raw docker port map (host 8189 -> container 8189,
-    // UDP + TCP) and advertise the host loopback. Dev-only; prod browsers share
-    // an L2 with the SFU (spec 002), so local candidates suffice.
+    // UDP + TCP) and advertise the host loopback. Both run-mode lanes need this
+    // — the developer's own stack and CI's end-to-end job, whose Playwright
+    // suite drives a real browser against it — so it stays on `isRunMode &&
+    // !isE2ETests` alone, not `PersistentStack`: it is a networking need, not
+    // persistence (#2297).
     mediamtx
-        .WithLifetime(ContainerLifetime.Persistent)
         .WithContainerRuntimeArgs("--publish", "8189:8189/udp", "--publish", "8189:8189/tcp")
         .WithEnvironment("MTX_WEBRTCADDITIONALHOSTS", "127.0.0.1");
 }
 
+// Developer lane only (see postgres above) — mediamtx's lifetime, split out
+// from its ICE port map above, which the e2e lane still needs.
+if (isPersistentDevStack)
+{
+    mediamtx.WithLifetime(ContainerLifetime.Persistent);
+}
 
 // Mosquitto MQTT broker for spec 006 EventIngestion (ADR-0095). Each
 // PLC and inference device publishes on a per-device topic; the
@@ -294,7 +320,8 @@ var mosquitto = builder
     })
     .WaitFor(keycloak);
 
-if (isRunMode && !isE2ETests)
+// Developer lane only (see postgres above).
+if (isPersistentDevStack)
 {
     mosquitto
         .WithLifetime(ContainerLifetime.Persistent)
@@ -329,7 +356,8 @@ var storage = builder
     .AddAzureStorage("storage")
     .RunAsEmulator(azurite =>
     {
-        if (isRunMode && !isE2ETests)
+        // Developer lane only (see postgres above).
+        if (isPersistentDevStack)
         {
             azurite
                 .WithLifetime(ContainerLifetime.Persistent)
@@ -846,8 +874,13 @@ if (isRunMode && !isE2ETests && isScenarioSimulatorEnabled)
         // and stays the default for any camera with no scenario asset.
         .WithBindMount("Resources/clips", "/media")
         .WithHttpEndpoint(targetPort: 9997, name: "api")
-        .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp")
-        .WithLifetime(ContainerLifetime.Persistent);
+        .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
+
+    // Developer lane only (see postgres above).
+    if (isPersistentDevStack)
+    {
+        cameraSim.WithLifetime(ContainerLifetime.Persistent);
+    }
 
     var scenarioSimulator = builder
         .AddProject<Projects.SmartSentinelEye_ScenarioSimulator>("scenario-simulator")
