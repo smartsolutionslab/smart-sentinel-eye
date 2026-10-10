@@ -28,6 +28,14 @@ namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 /// Excluded from CI for the same reason as its measurement siblings: it needs a
 /// stack CI does not run, and it refuses rather than starting one.
 /// </para>
+///
+/// <para>
+/// <b>Nothing automated reads this sweep's verdict.</b> It is excluded from CI
+/// (the same category as its measurement siblings) and nothing in
+/// <c>scripts/</c> or any workflow runs it. Its pass/fail is read by whoever
+/// runs it by hand, same as its output lines above — an on-demand diagnostic,
+/// not a gate.
+/// </para>
 /// </summary>
 public class RunModeVariableResidueSweep(ITestOutputHelper output)
 {
