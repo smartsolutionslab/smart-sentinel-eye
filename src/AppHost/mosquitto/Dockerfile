@@ -55,6 +55,14 @@ WORKDIR /plugin
 COPY plugin/go.mod plugin/go.sum ./
 RUN go mod download
 COPY plugin/ ./
+# CGO_ENABLED=0 for this step only: the stage's CGO_LDFLAGS="-shared …" is
+# meant for the c-shared build below, and a `go test` binary built under it
+# would link as a shared object instead of an executable and fail to run.
+# authz/ is pure Go (no cgo), so it builds and runs fine without it. This is
+# the one place a Go test is guaranteed to run — no workflow invokes `go`
+# (spec finding 6) — so every image build, including every Aspire boot and
+# every CI job, now runs it.
+RUN CGO_ENABLED=0 go test ./authz/...
 RUN go build -buildmode=c-shared -o /sse-jwt-auth.so .
 
 # --- Stage 3: runtime. ---
