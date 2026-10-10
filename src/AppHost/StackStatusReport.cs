@@ -31,7 +31,7 @@ namespace SmartSentinelEye.AppHost;
 // risk; the type filter was never it.
 public static class StackStatusReport
 {
-    private const string notReported = "(not reported)";
+    private const string NotReported = "(not reported)";
 
     /// <summary>
     /// The resource set a status report should name: every resource in
@@ -164,7 +164,7 @@ public static class StackStatusReport
         Dictionary<string, ResourceStatusLine> instances = new(StringComparer.Ordinal);
         foreach (string name in names)
         {
-            instances[name] = new ResourceStatusLine(name, notReported, string.Empty);
+            instances[name] = new ResourceStatusLine(name, NotReported, string.Empty);
         }
 
         WriteReport(path, instances.Values);
@@ -223,7 +223,7 @@ public static class StackStatusReport
                 string instanceKey = string.IsNullOrEmpty(resourceEvent.ResourceId) ? name : resourceEvent.ResourceId;
                 instances[instanceKey] = new ResourceStatusLine(
                     name,
-                    resourceEvent.Snapshot.State?.Text ?? notReported,
+                    resourceEvent.Snapshot.State?.Text ?? NotReported,
                     resourceEvent.Snapshot.ExitCode?.ToString(CultureInfo.InvariantCulture) ?? string.Empty);
 
                 // Retire the seed placeholder once real per-instance data
