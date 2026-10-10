@@ -55,8 +55,9 @@ type ManifestOutcome = ReturnType<typeof parseNavManifest>;
 async function fetchManifest(remote: RemoteDescriptor, timeoutMs: number): Promise<ManifestOutcome> {
   const controller = new AbortController();
   const abortTimer = setTimeout(() => controller.abort(), timeoutMs);
+  let raceTimer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
-    setTimeout(() => reject(new Error(`manifest request timed out after ${timeoutMs}ms`)), timeoutMs);
+    raceTimer = setTimeout(() => reject(new Error(`manifest request timed out after ${timeoutMs}ms`)), timeoutMs);
   });
 
   try {
@@ -73,6 +74,7 @@ async function fetchManifest(remote: RemoteDescriptor, timeoutMs: number): Promi
     return { ok: false, reason: describeError(error) };
   } finally {
     clearTimeout(abortTimer);
+    clearTimeout(raceTimer);
   }
 }
 
@@ -119,6 +121,15 @@ export function NavigationProvider({
         }
 
         const { manifest } = result;
+
+        if (manifest.remote !== remote.name) {
+          logResilienceEvent('navigation', 'manifest-rejected', {
+            remote: remote.name,
+            reason: `manifest declares remote "${manifest.remote}", which does not match the registered remote "${remote.name}"`,
+          });
+          continue;
+        }
+
         const collides =
           shellEntries.some((entry) => pathsCollide(entry.path, manifest.basePath)) ||
           acceptedBasePaths.some((basePath) => pathsCollide(basePath, manifest.basePath));
