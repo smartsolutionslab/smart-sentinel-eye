@@ -13,8 +13,11 @@ namespace SmartSentinelEye.Identity.Application.EventHandlers;
 /// <c>WebhookIntegrationRevokedV1</c> into a <see cref="DisableWebhookClientCommand"/>
 /// (spec 264, #2206). Shape mirrors <c>CameraRetiredIntegrationEventHandler</c>
 /// (StreamDistribution): a message that can never succeed is dropped rather
-/// than retried forever; a retryable failure is thrown so Wolverine redelivers
-/// it. Discovered by convention (ADR-0088) — no hand-written listener or route.
+/// than retried forever; a retryable failure is thrown as a
+/// <see cref="WebhookClientDisableFailedException"/>, which
+/// <c>WebhookIntegrationRevokedFailurePolicy</c> (spec 328, #2629) retries on a
+/// cooldown ladder instead of Wolverine's default three-attempt budget.
+/// Discovered by convention (ADR-0088) — no hand-written listener or route.
 /// </summary>
 public sealed class WebhookIntegrationRevokedIntegrationEventHandler(
     ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>> handler,
@@ -59,8 +62,7 @@ public sealed class WebhookIntegrationRevokedIntegrationEventHandler(
             // Wolverine treats an exception as a retry signal. A Keycloak outage
             // must not be swallowed — swallowing it would leave the client
             // enabled with nothing left to retry.
-            throw new InvalidOperationException(
-                $"DisableWebhookClientCommand failed for '{integrationName}': {result.Error.Code}");
+            throw new WebhookClientDisableFailedException(integrationName, result.Error.Code);
         }
     }
 
