@@ -80,6 +80,30 @@ public class WebhookIntegrationRevokedIntegrationEventHandlerTests
             CancellationToken.None));
     }
 
+    /// <summary>
+    /// Spec 328 (#2629): the handler must throw the dedicated
+    /// <see cref="WebhookClientDisableFailedException"/> rather than a bare
+    /// <see cref="InvalidOperationException"/>, so
+    /// <c>WebhookIntegrationRevokedFailurePolicy</c>'s rule — which is scoped to
+    /// exactly that type (<c>Identity.Infrastructure.Tests</c>) — matches the
+    /// real throw site. Red today: the handler still throws the base type.
+    /// </summary>
+    [Fact]
+    public async Task KeycloakUnavailable_throws_the_disable_failure_the_retry_policy_matches()
+    {
+        RecordingDisableWebhookClientCommandHandler handler = new()
+        {
+            Result = Result<RegisteredClientIdentifier, DisableWebhookClientError>.Failure(
+                DisableWebhookClientFailures.KeycloakUnavailable("transport failure")),
+        };
+        WebhookIntegrationRevokedIntegrationEventHandler subscriber = new(
+            handler, NullLogger<WebhookIntegrationRevokedIntegrationEventHandler>.Instance);
+
+        (await Should.ThrowAsync<Exception>(() => subscriber.Handle(
+            new WebhookIntegrationRevokedV1("w", RevokedAtMoment, MetadataWithFab("munich")),
+            CancellationToken.None))).ShouldBeOfType<WebhookClientDisableFailedException>();
+    }
+
     [Theory]
     [InlineData(null)]
     [InlineData("")]
