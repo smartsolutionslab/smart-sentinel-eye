@@ -13,6 +13,15 @@ import { signInAsOperator } from './support/sign-in';
  * 12(c) (the narrowed-scope case) belongs to T010/US2, not this file — this
  * file's two cases are US1/US3's loading and singleton-sharing coverage
  * only, per the task split in tasks.md T005 vs T010.
+ *
+ * 12(c), added by T010: a session narrowed to drop "sse.cameras.read",
+ * **through the token response alone** — `User.scope` changes, the real
+ * access token used for API calls does not (FR-009 reads only `User.scope`;
+ * API-level enforcement for a narrower token is spec 200's territory, not
+ * this one's). No `<Gated>` wrapper and no `NavigationProvider` exist yet
+ * (T010/T011), so today this is expected to fail exactly like (a)/(b) above:
+ * on a request that never arrives / a heading that never disappears, not on
+ * an assertion mismatch against a working gate.
  */
 
 test.describe('operator shell federation (spec 316)', () => {
@@ -136,5 +145,65 @@ test.describe('operator shell federation (spec 316)', () => {
       expect(loadedVersionCounts[packageName], `${packageName} loaded version count`).toBe(1);
     }
     expect(sharedLoadedCount, `${sharedPackageName} loaded version count`).toBeGreaterThanOrEqual(1);
+  });
+
+  test('a session narrowed to drop sse.cameras.read via the token response sees no Cameras, and the remote’s code is never fetched', async ({
+    page,
+  }) => {
+    // Rewrites only the token response's "scope" field — the real access
+    // token used for every API call is untouched (FR-009; spec.md's "Also
+    // binding" note on this scenario). Set up before sign-in: the token POST
+    // happens as part of the Keycloak redirect flow below.
+    await page.route('**/protocol/openid-connect/token', async (route) => {
+      const response = await route.fetch();
+      const body = (await response.json()) as Record<string, unknown>;
+      if (typeof body.scope === 'string') {
+        body.scope = body.scope
+          .split(' ')
+          .filter((scope) => scope !== 'sse.cameras.read')
+          .join(' ');
+      }
+      await route.fulfill({ response, json: body });
+    });
+
+    // Judgment call (flagged): spec.md's own acceptance scenario for this
+    // case says "no request is made for the cameras remote's entry or
+    // modules" — the remote's *code*. `nav-manifest.json` is static,
+    // unauthenticated data the shell reads from every registered remote
+    // regardless of entitlement, to learn each entry's requiredScopes in the
+    // first place (FR-015: "Gating decides what is fetched as code, not what
+    // is known") — the same port (:5176) serves both files. So this asserts
+    // no request for the remote's federation entry specifically, not a
+    // blanket zero requests to :5176, which would contradict FR-015's own
+    // manifest-fetch behaviour (exercised unconditionally by every other
+    // NavigationProvider case in this spec's unit-test coverage).
+    const remoteEntryRequests: string[] = [];
+    page.on('request', (request) => {
+      if (request.url().includes(':5176/remoteEntry.js')) remoteEntryRequests.push(request.url());
+    });
+
+    // Not `signInAsOperator`: it asserts the Cameras heading at the end,
+    // which is exactly what a narrowed session must NOT show.
+    await page.goto('/');
+    await page.getByRole('button', { name: /sign in/i }).click();
+    await page.locator('#username').fill('operator');
+    await page.locator('#password').fill('Cobalt-Meadow-Ripple-24');
+    await page.locator('#kc-login').click();
+
+    await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: /^cameras$/i })).toHaveCount(0);
+
+    await page.keyboard.press('Control+K');
+    const dialog = page.getByRole('dialog', { name: 'Go to' });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText('Cameras', { exact: true })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+
+    await page.goto('/cameras/11111111-1111-1111-1111-111111111111');
+    await expect(page.getByText(/not available/i)).toBeVisible();
+
+    expect(remoteEntryRequests, 'the cameras remote’s code must never be fetched for an unentitled session').toEqual(
+      [],
+    );
   });
 });
