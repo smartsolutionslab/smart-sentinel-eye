@@ -190,6 +190,13 @@ test.describe('operator shell federation (spec 316)', () => {
     await page.locator('#password').fill('Cobalt-Meadow-Ripple-24');
     await page.locator('#kc-login').click();
 
+    // A positive assertion first: proves the shell actually rendered (not
+    // merely that it hasn't gotten around to showing Cameras yet, e.g. still
+    // on the Keycloak redirect) before the absence checks below are read as
+    // the gate having refused something, rather than as nothing having
+    // rendered at all.
+    await expect(page.getByRole('link', { name: /^layouts$/i })).toBeVisible();
+
     await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toHaveCount(0);
     await expect(page.getByRole('link', { name: /^cameras$/i })).toHaveCount(0);
 
@@ -199,7 +206,16 @@ test.describe('operator shell federation (spec 316)', () => {
     await expect(dialog.getByText('Cameras', { exact: true })).toHaveCount(0);
     await page.keyboard.press('Escape');
 
+    // Waits for the cameras remote's manifest response before asserting
+    // "not available": without this, the assertion could pass merely
+    // because the manifest fetch (unconditional, FR-015) had not resolved
+    // yet — exactly the same gap `Gated`'s own loading state covers now
+    // (plan.md §4.3) — rather than because the gate actually refused this
+    // path once it knew.
+    const manifestResponse = page.waitForResponse((response) => response.url().includes(':5176/nav-manifest.json'));
     await page.goto('/cameras/11111111-1111-1111-1111-111111111111');
+    await manifestResponse;
+
     await expect(page.getByText(/not available/i)).toBeVisible();
 
     expect(remoteEntryRequests, 'the cameras remote’s code must never be fetched for an unentitled session').toEqual(
