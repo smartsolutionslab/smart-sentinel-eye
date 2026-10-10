@@ -3,7 +3,8 @@ import { useState } from 'react';
 import { Provider } from 'react-redux';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi, beforeEach } from 'vitest';
-import { store } from '../../app/store.js';
+import { apiSlices } from '../../app/store.js';
+import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import type { OverlayEditTarget } from './OverlayDraftForm.js';
 
 const createDraftMock = vi.fn(async () => ({ data: 'noop' }));
@@ -93,7 +94,16 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => 
   };
 });
 
+// A store per test: the auto-batch enhancer's notification latch lives in
+// the store, so a fake-timer window that strands its callback would
+// otherwise silence every later test's subscribers.
+function createStore() {
+  return createApiStore(apiSlices);
+}
+let store: ReturnType<typeof createStore>;
+
 beforeEach(() => {
+  store = createStore();
   useListAllCameraChoicesQueryMock.mockReturnValue({
     data: { items: [], count: 0, complete: true },
     isLoading: false,
