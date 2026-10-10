@@ -146,7 +146,9 @@ displaying — and the recorder in `ServiceDefaults`, beside the meter it owns.
 
 **Neither measurement can be verified in CI.** `camera-sim`,
 `scenario-simulator` and the ICE host-publishing all sit inside
-`if (isRunMode && !isE2ETests)`, so a headless browser gets no video. The
+`if (isRunMode && !isE2ETests)`, so a headless browser gets no video from
+camera-sim/scenario-simulator directly — though `fixture-video` (spec 056)
+supplies real frames to the Playwright stack independently of this guard. The
 automated tests cover the guards and the transport; the numbers themselves are
 read by a person against the run-mode stack. That is a property of the
 environment, not of this decision, but anyone adding the next browser measurement
