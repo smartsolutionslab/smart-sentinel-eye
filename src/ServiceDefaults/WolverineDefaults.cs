@@ -45,6 +45,7 @@ public static class WolverineDefaults
         string rabbitConnectionName = "rabbitmq",
         int listenerCount = 1,
         bool useNativeAcks = false,
+        IReadOnlyCollection<Type>? durableInboxMessageTypes = null,
         Action<WolverineOptions>? configureMore = null)
         where TDbContext : DbContext
     {
@@ -115,7 +116,7 @@ public static class WolverineDefaults
                     // count to Wolverine's default of 1 — observed as
                     // `"consumers":1` on the queue while the code plainly asked
                     // for four.
-                    routing.ConfigureListeners((listener, _) =>
+                    routing.ConfigureListeners((listener, context) =>
                     {
                         // One listener per queue was Wolverine's default rather
                         // than a decision, and it is a throughput ceiling: a
@@ -140,6 +141,27 @@ public static class WolverineDefaults
                         if (useNativeAcks)
                         {
                             listener.ProcessInParallelWithNativeAcks();
+                        }
+
+                        // Every RabbitMQ listener defaults to Mode=Inline — set
+                        // unconditionally by Wolverine's own RabbitMqEndpoint
+                        // constructor, not something this file opts into. A
+                        // handler that reschedules a failed message (Wolverine's
+                        // ScheduleRetry) rather than completing it needs the
+                        // original delivery parked somewhere durable for the
+                        // length of that retry, and Inline mode does not do
+                        // that: RabbitMQ has no native scheduling hook, so the
+                        // reschedule falls back to inserting a row in the
+                        // Postgres inbox without ever acknowledging the
+                        // original delivery, leaving it unacknowledged on the
+                        // channel for as long as the retry ladder runs. Opt-in,
+                        // per message type, for exactly the listeners whose
+                        // failure policy reschedules instead of completing or
+                        // dead-lettering outright — everything else keeps the
+                        // Inline default.
+                        if (durableInboxMessageTypes?.Contains(context.MessageType) == true)
+                        {
+                            listener.UseDurableInbox();
                         }
                     });
                 });
