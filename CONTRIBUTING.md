@@ -208,7 +208,9 @@ bump patch and follow the same dual-merge pattern from `hotfix/<short>`.
   `AnalysisMode=Recommended`) plus **SonarAnalyzer.CSharp**. Warnings
   are errors in `Release` builds, **except ADR-0084's five code-metric
   rules below, which are carved out via `WarningsNotAsErrors` and stay
-  advisory.**
+  advisory.** The private-field naming rule's `IDE1006` is the second
+  such carve-out: `dotnet build` now reports a leading underscore as an
+  advisory warning, not a `Release` error (#2764).
 - **TypeScript / React:** ESLint + Prettier with the configs shipped
   in `apps/web/`.
 - **YAML / Markdown:** Prettier defaults.
