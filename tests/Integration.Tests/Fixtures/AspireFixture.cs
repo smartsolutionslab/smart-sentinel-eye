@@ -457,6 +457,15 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 .WaitForResourceAsync("identity", KnownResourceStates.Running, cts.Token)
                 .ConfigureAwait(false);
 
+            // Running only means the process launched, not that Kestrel has
+            // bound its listener (see overlay-designer's wait below, and
+            // #2598/spec 315's per-class warm-up for the same gap in one
+            // Identity class). #2777 found a second Identity class with the
+            // identical exposure and the same cold-start POST-is-not-retried
+            // risk (ADR-0143) — closing it here, once, covers every Identity
+            // class rather than each discovering it separately.
+            await WaitForServiceHealthAsync("identity", cts.Token).ConfigureAwait(false);
+
             await WaitForKeycloakRealmAsync(cts.Token).ConfigureAwait(false);
             await WaitForMediaMtxAsync(cts.Token).ConfigureAwait(false);
 
