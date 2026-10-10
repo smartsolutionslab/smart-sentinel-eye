@@ -310,10 +310,11 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   handler retries only methods RFC 9110 calls idempotent, so `POST` and
   `PATCH` get one attempt. A client whose non-idempotent calls are
   idempotent *in fact* opts back in with `RetryEveryMethod()` **and says
-  why at the call site** — five do today: the four token mints, where a
-  second token supersedes the first, and the MediaMTX gateway, whose
-  `add/` answers 4xx for an existing path and whose `patch/` sets a fixed
-  value. Retrying is the thing that needs justifying.
+  why at the call site** — every `client_credentials` token mint does,
+  because a second token supersedes the first, and so does the MediaMTX
+  gateway, whose `add/` answers 4xx for an existing path and whose
+  `patch/` sets a fixed value. Retrying is the thing that needs
+  justifying.
 
   **A caller may ask for more** (ADR-0142): an `Idempotency-Key` header
   makes the operation apply at most once and the same key return the same
