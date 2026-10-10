@@ -4,8 +4,9 @@
 
 **Created**: 2026-10-10
 
-**Status**: Draft (Phase 1 gate) — **BLOCKED on one `[NEEDS CLARIFICATION]`** (§4). The decision
-recorded on the issue cannot be implemented as worded; see §2.
+**Status**: Phase 1 gate passed. §4's `[NEEDS CLARIFICATION]` is resolved — route B, decided by the
+user 2026-10-10. The decision recorded on the issue could not be implemented as worded; route B
+delivers it instead — see §2.
 
 **Input**: Issue [#2297](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2297):
 *The e2e CI job runs in dev mode — persistent lifetimes, data volumes, pgAdmin and a fixed host
@@ -90,30 +91,32 @@ lists except the fixed port, and touches nothing the Playwright suite relies on.
 | Rate-limit tests at one replica (#2283) | N/A — closed by ADR-0153 | N/A — same |
 | e2e suite still runs | **Yes** | **No** (B1) |
 
-## 4. `[NEEDS CLARIFICATION]` — for the user, before Phase 2 proceeds
+## 4. Decision (resolved 2026-10-10)
 
 > **Q1. The decision as worded breaks every e2e shard (B1) and its stated side-benefit no longer
 > exists (B8). Which route?**
 >
-> - **A — literal flip.** Set `E2ETests=true` and split the flag so the e2e lane keeps the web apps,
+> - A — literal flip. Set `E2ETests=true` and split the flag so the e2e lane keeps the web apps,
 >   the 6000/min budget and the ICE port while losing persistence; move the fixture-only overrides
 >   (B3–B5) under a new integration-only flag. Large; rewrites the meaning of a flag ~15 guard classes
 >   and ADR-0068 depend on; arguably needs an ADR because it redefines the lane model.
-> - **B — orthogonal persistence switch (recommended).** New AppHost switch `PersistentStack`,
+> - B — orthogonal persistence switch. New AppHost switch `PersistentStack`,
 >   default on (a developer's bare `aspire run` is unchanged, same convention as `ScenarioSimulator`),
 >   `ci.yml`'s e2e boot passes `PersistentStack=false`. Gates every `Persistent` lifetime, every data
 >   volume and pgAdmin. Keeps the web apps, the gateway budget and the 8189 ICE map. Small, no ADR.
-> - **C — close as superseded.** Record on the issue that the replica claim is resolved by ADR-0153
+> - C — close as superseded. Record on the issue that the replica claim is resolved by ADR-0153
 >   and the residual (volumes outliving the run on a non-ephemeral host) is accepted because every CI
 >   runner is ephemeral.
 >
 > **Q2 (only if B).** The 8189 fixed port stays, so two stacks on one host still collide. Accept that
-> as the residual (recommended — memory *one machine, one Aspire stack* already makes concurrent
+> as the residual (memory *one machine, one Aspire stack* already makes concurrent
 > stacks unsupported on a dev box), or file a follow-up to test whether a Linux runner can drop the
 > port map (B6's unverified guess)?
 
-`plan.md` and `tasks.md` are drafted for **B** so the lane can proceed immediately if B is chosen.
-They are void if A or C is chosen.
+**Decision (user, 2026-10-10): Q1 = route B. Q2 = accept the 8189 port residual as a known,
+documented gap (not pursuing a Linux-runner follow-up).**
+
+`plan.md` and `tasks.md` are written for **B** and implement it.
 
 ---
 

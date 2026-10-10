@@ -2,8 +2,8 @@
 
 **Spec**: [spec.md](./spec.md) · **Plan**: [plan.md](./plan.md) · **Issue**: #2297 · **Phase**: 3 (Tasks)
 
-**Status**: **DRAFT for route B — void unless spec §4 Q1 is answered "B".** Phase 1's gate is not
-passed while that `[NEEDS CLARIFICATION]` stands; do not dispatch phase 4 on this file until it is.
+**Status**: **Approved — route B** (spec §4 Q1 = B, decided by the user 2026-10-10). Phase 1's gate
+is passed; T001-T005 are implemented.
 
 **Colour**: **behaviour-changing → red** for the e2e lane (T002 facts 1-3 and 8); **characterisation,
 observed green** for the developer lane, the fixture lane and the e2e lane's retained resources
@@ -18,10 +18,10 @@ reading; one engineer, one worktree (memory *one branch, one index*).
 
 ## Phase 4a — tests first (`test-writer`; return verbatim output)
 
-- [ ] **T001 [US1]** Read `tests/Integration.Tests/AppHostE2ESwitchTests.cs`,
+- [x] **T001 [US1]** Read `tests/Integration.Tests/AppHostE2ESwitchTests.cs`,
   `AppHostReplicaCountTests.cs` and `AppHostGatewayRateBudgetTests.cs` for the argument-array
   convention, the env-annotation reader and the `ci.yml` boot-line reader (plan §2.3). No output.
-- [ ] **T002 [US1]** Create `tests/Integration.Tests/AppHostStackPersistenceTests.cs` with the eight
+- [x] **T002 [US1]** Create `tests/Integration.Tests/AppHostStackPersistenceTests.cs` with the eight
   facts in plan §2.3, and add the class to `tests/Integration.Tests/ci-shards/shard-4.filter`.
   Run `dotnet test tests/Integration.Tests --filter "FullyQualifiedName~AppHostStackPersistenceTests"`
   against unmodified `AppHost.cs`/`ci.yml`. **Expected: exactly facts 1, 2, 3, 8 fail**, each message
@@ -32,12 +32,12 @@ reading; one engineer, one worktree (memory *one branch, one index*).
 
 ## Phase 4b — implement (`infra-engineer`; receives T002's output as its brief; may not edit T002's tests)
 
-- [ ] **T003 [US1]** `src/AppHost/AppHost.cs` per plan §2.1 steps 1-5: the switch, re-gating the five
+- [x] **T003 [US1]** `src/AppHost/AppHost.cs` per plan §2.1 steps 1-5: the switch, re-gating the five
   persistence blocks and pgAdmin, splitting mediamtx's block, camera-sim's lifetime, the three-lane
   header comment. Leave every item in plan §2.1 step 6 untouched. Depends on T002.
-- [ ] **T004 [US1]** `.github/workflows/ci.yml:793` — add `PersistentStack=false` per plan §2.2.
+- [x] **T004 [US1]** `.github/workflows/ci.yml:793` — add `PersistentStack=false` per plan §2.2.
   Depends on T002 (fact 8). Commit 2 together with T003.
-- [ ] **T005 [US1]** Re-run T002's filter: all eight facts green, **test file unmodified since
+- [x] **T005 [US1]** Re-run T002's filter: all eight facts green, **test file unmodified since
   commit 1** (`git diff <commit1> -- tests/` empty). Run the existing `AppHostE2ESwitchTests`,
   `AppHostReplicaCountTests`, `AppHostGatewayRateBudgetTests`, `AppHostWebAppHostingTests`,
   `AppHostMediaMtxImageTests`, `AppHostContainerImagePinTests` — green, unmodified.
