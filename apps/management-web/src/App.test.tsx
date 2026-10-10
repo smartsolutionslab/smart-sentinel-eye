@@ -28,14 +28,12 @@ vi.mock('@smart-sentinel-eye/shared/api/gateway', async (importOriginal) => {
   };
 });
 
-// Spec 316 (T011) fixture update: the nav/palette and every route are now
-// gated on the session's granted scopes (`User.scope`). This file's own
-// property under test is the shell's auth/router/crash wiring, not
-// navigation gating (covered by `ShellLayout.navigation.test.tsx` and
-// `router.gating.test.tsx`), so the mocked user carries every console scope
-// — "full-scope", per plan.md §6's note on this file — so every surface
-// this suite already exercises (Cameras, Layouts, Audit) stays visible
-// (ADR-0139: fixture, not assertion).
+// The nav/palette and every route are gated on the session's granted scopes
+// (`User.scope`). The property under test here is the shell's
+// auth/router/crash wiring, not navigation gating (covered by
+// `ShellLayout.navigation.test.tsx` and `router.gating.test.tsx`), so the
+// mocked user carries every console scope, so every surface this suite
+// already exercises (Cameras, Layouts, Audit) stays visible.
 const ALL_21_SCOPES = [
   'sse.variables.write',
   'sse.identity.kiosks.read',
@@ -213,11 +211,10 @@ describe('App shell', () => {
   // document — so without this a test that navigated leaves the next one
   // starting somewhere unexpected.
   //
-  // Spec 316 (T011) fixture addition: `NavigationProvider` (mounted inside
-  // `App` as of this feature) fetches the cameras remote's nav-manifest.json
-  // on mount. Stubbed to resolve rather than hit a real network, since no
-  // other test in this file mocks `fetch` directly (every real API hook it
-  // would otherwise reach is already mocked above).
+  // `NavigationProvider` (mounted inside `App`) fetches the cameras remote's
+  // nav-manifest.json on mount. Stubbed to resolve rather than hit a real
+  // network, since no other test in this file mocks `fetch` directly (every
+  // real API hook it would otherwise reach is already mocked above).
   beforeEach(() => {
     window.history.pushState({}, '', '/');
     vi.stubGlobal(
