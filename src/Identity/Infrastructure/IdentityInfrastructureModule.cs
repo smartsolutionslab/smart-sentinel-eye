@@ -21,6 +21,7 @@ using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using SmartSentinelEye.ServiceDefaults.Revocation;
+using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.Identity;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -164,6 +165,15 @@ public static class IdentityInfrastructureModule
             moduleQueuePrefix: ContextName,
             outboxSchema: OutboxSchema,
             postgresConnectionName: IdentityPersistenceModule.DatabaseConnectionName,
+            // Spec 328 (#2629): the revocation listener's failure policy reschedules
+            // through ScheduleRetry rather than completing or dead-lettering outright
+            // (WebhookIntegrationRevokedFailurePolicy), so its delivery needs to survive
+            // the retry ladder somewhere durable. RabbitMQ listeners default to
+            // Mode=Inline, which leaves the original delivery unacknowledged on the
+            // channel for as long as a reschedule is pending; UseDurableInbox() moves it
+            // into the Postgres inbox instead. Scoped to exactly this one message type —
+            // every other Identity listener keeps the Inline default.
+            durableInboxMessageTypes: [typeof(WebhookIntegrationRevokedV1)],
             configureMore: ConfigureMessageHandling);
 
         return builder;
