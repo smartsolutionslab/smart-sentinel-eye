@@ -55,7 +55,7 @@ is one attempt nobody makes.
 
 | Client | Non-idempotent call | Why retrying it is safe |
 |---|---|---|
-| The four `client_credentials` token clients | `POST` token | A second token supersedes the first; nothing accumulates. Losing these retries would let a transient Keycloak blip fail a host's startup outright. |
+| Every `client_credentials` token-mint client that opts back into retrying | `POST` token | A second token supersedes the first; nothing accumulates. Losing these retries would let a transient Keycloak blip fail a host's startup outright. |
 | `MediaMtxRtspGateway` | `POST` add-path, `PATCH` patch-path | `add/` answers 4xx for an existing path, which is not retried anyway; `patch/` sets the source to a fixed value, so applying it twice lands in the same place. Without the opt-in a MediaMTX blip during provisioning would leave a stream unprovisioned and never try again, which the two-second health sweep would report as a broken camera. |
 
 `PATCH` is excluded by default despite ours being idempotent by construction,
