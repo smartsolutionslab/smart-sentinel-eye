@@ -55,13 +55,12 @@ import { default as mismatchRuntimePlugin } from './mismatchRuntimePlugin.js';
 const BASE_URL = 'http://localhost:5176';
 vi.stubEnv('VITE_CAMERAS_REMOTE_URL', BASE_URL);
 
-// Spec 316 (T011) fixture update: `ShellLayout` (rendered below, around the
-// remote surface under test) now reads its nav entries from
-// `useVisibleEntries()`, which needs a `NavigationProvider`/`useAuth`
-// context this file's own router never supplies. This file's property under
-// test is `RemoteSurface`'s own load/retry/failure behaviour, not navigation
-// gating — mocked to a fixed list containing Cameras (ADR-0139: fixture, not
-// assertion).
+// `ShellLayout` (rendered below, around the remote surface under test) reads
+// its nav entries from `useVisibleEntries()`, which needs a
+// `NavigationProvider`/`useAuth` context this file's own router never
+// supplies. The property under test here is `RemoteSurface`'s own
+// load/retry/failure behaviour, not navigation gating, so the hook is
+// mocked to a fixed list containing Cameras.
 vi.mock('./useVisibleEntries.js', () => ({
   useVisibleEntries: () => [{ path: '/cameras', label: 'Cameras', order: 10, requiredScopes: ['sse.cameras.read'] }],
 }));

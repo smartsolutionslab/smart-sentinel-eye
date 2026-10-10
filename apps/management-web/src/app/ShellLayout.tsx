@@ -25,10 +25,9 @@ export function ShellLayout() {
   const navigate = useNavigate();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const linkRefs = useRef(new Map<string, ComponentRef<'a'>>());
-  // Spec 316 FR-010/FR-011: the nav and the palette are built from the same
-  // scope-filtered list `useVisibleEntries()` computes (in-shell entries plus
-  // any accepted remote's), replacing the unconditional `DESTINATIONS`
-  // constant this file used before US2.
+  // The nav and the palette are built from the same scope-filtered list
+  // `useVisibleEntries()` computes (in-shell entries plus any accepted
+  // remote's), so the palette can never offer a surface the nav does not.
   const destinations = useVisibleEntries();
 
   // Mounted once, in the shell — the one component that lives for the whole

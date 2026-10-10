@@ -5,14 +5,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ShellLayout } from './ShellLayout.js';
 
 /**
- * Spec 316 (T011) fixture update: `ShellLayout` now reads its nav/palette
- * entries from `useVisibleEntries()` (a scope-gated composition of
- * `NavigationProvider` + `useAuth`) instead of a static `DESTINATIONS`
- * constant. This file's own property under test is the command palette
- * (spec 266), not the navigation gate (spec 316 US2, covered by
+ * `ShellLayout`'s nav/palette entries come from `useVisibleEntries()` (a
+ * scope-gated composition of `NavigationProvider` + `useAuth`), which needs
+ * a context this file's own render never supplies. The property under test
+ * here is the command palette, not navigation gating (covered by
  * `ShellLayout.navigation.test.tsx`), so the hook is mocked to return the
- * same fixed seven entries this file already renders — a fixture change,
- * not an assertion change (ADR-0139/CLAUDE.md).
+ * same fixed seven entries this file already renders.
  */
 vi.mock('./navigation/useVisibleEntries.js', () => ({
   useVisibleEntries: () => [

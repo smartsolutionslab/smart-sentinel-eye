@@ -4,11 +4,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
 
 /**
- * Spec 316 (T011) fixture update: `ShellLayout` now reads its nav entries
- * from `useVisibleEntries()`, which needs a `NavigationProvider`/`useAuth`
- * context this file's own router never supplies — mocked to a fixed list,
- * since this file's property under test is the crash panel, not navigation
- * gating (ADR-0139: fixture, not assertion).
+ * `ShellLayout`'s nav entries come from `useVisibleEntries()`, which needs
+ * a `NavigationProvider`/`useAuth` context this file's own router never
+ * supplies — mocked to a fixed list, since the property under test here is
+ * the crash panel, not navigation gating.
  */
 vi.mock('./navigation/useVisibleEntries.js', () => ({
   useVisibleEntries: () => [
