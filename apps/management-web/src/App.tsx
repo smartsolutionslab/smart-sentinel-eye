@@ -4,6 +4,7 @@ import { RouterProvider } from 'react-router-dom';
 import { setAccessTokenProvider, setOnSessionExpired, setSessionRenewer } from '@smart-sentinel-eye/shared/api/gateway';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { oidcConfig } from './app/auth.js';
+import { NavigationProvider } from './app/navigation/NavigationProvider.js';
 import { createAppRouter } from './app/router.js';
 import { useResetApiCachesOnSubjectChange } from './app/useResetApiCachesOnSubjectChange.js';
 
@@ -102,7 +103,14 @@ function RoutedApp() {
   // navigation to wherever the location currently points.
   const [router] = useState(createAppRouter);
 
-  return <RouterProvider router={router} />;
+  // Spec 316 §4.3: mounted here, after authentication — the navigation gate
+  // (US2) needs a signed-in session's granted scopes, which exist only once
+  // AuthGate has already let this component mount.
+  return (
+    <NavigationProvider>
+      <RouterProvider router={router} />
+    </NavigationProvider>
+  );
 }
 
 function Centered({ children }: { children: ReactNode }) {

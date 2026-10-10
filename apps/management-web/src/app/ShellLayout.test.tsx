@@ -1,8 +1,30 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createMemoryRouter, RouterProvider } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ShellLayout } from './ShellLayout.js';
+
+/**
+ * Spec 316 (T011) fixture update: `ShellLayout` now reads its nav/palette
+ * entries from `useVisibleEntries()` (a scope-gated composition of
+ * `NavigationProvider` + `useAuth`) instead of a static `DESTINATIONS`
+ * constant. This file's own property under test is the command palette
+ * (spec 266), not the navigation gate (spec 316 US2, covered by
+ * `ShellLayout.navigation.test.tsx`), so the hook is mocked to return the
+ * same fixed seven entries this file already renders — a fixture change,
+ * not an assertion change (ADR-0139/CLAUDE.md).
+ */
+vi.mock('./navigation/useVisibleEntries.js', () => ({
+  useVisibleEntries: () => [
+    { path: '/cameras', label: 'Cameras', order: 10, requiredScopes: ['sse.cameras.read'] },
+    { path: '/layouts', label: 'Layouts', order: 20, requiredScopes: ['sse.layouts.read'] },
+    { path: '/walls', label: 'Walls', order: 30, requiredScopes: ['sse.layouts.read'] },
+    { path: '/overlays', label: 'Overlays', order: 40, requiredScopes: ['sse.overlays.read'] },
+    { path: '/rules', label: 'Rules', order: 50, requiredScopes: ['sse.rules.read'] },
+    { path: '/system-variables', label: 'System variables', order: 60, requiredScopes: ['sse.variables.read'] },
+    { path: '/audit', label: 'Audit', order: 70, requiredScopes: ['sse.audit.read'] },
+  ],
+}));
 
 /**
  * Spec 266 (issue #2335) US6 — new behaviour, RED. `ShellLayout` gains a

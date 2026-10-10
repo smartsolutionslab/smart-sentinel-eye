@@ -1,9 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { RouterProvider } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { store } from './store.js';
 import { createAppRouter } from './router.js';
+
+/**
+ * Spec 316 (T011) fixture update: every child route is now wrapped in
+ * `<Gated>`, which reads `useVisibleEntries()` — a `NavigationProvider`/
+ * `useAuth` context this file's own render never supplies. This file's
+ * property under test is route registration (spec 305), not navigation
+ * gating, so the hook is mocked to make `/overlays` visible (ADR-0139:
+ * fixture, not assertion).
+ */
+vi.mock('./navigation/useVisibleEntries.js', () => ({
+  useVisibleEntries: () => [{ path: '/overlays', label: 'Overlays', order: 10, requiredScopes: ['sse.overlays.read'] }],
+}));
 
 /**
  * Spec 305 (#2350) FR-001/FR-008, new behaviour, RED (ADR-0139/0144). Today's

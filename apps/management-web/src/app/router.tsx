@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { createBrowserRouter } from 'react-router-dom';
 import { AuditPage } from '../features/audit/AuditPage.js';
 import { LayoutsPage } from '../features/layouts/LayoutsPage.js';
@@ -8,8 +9,72 @@ import { RulesPage } from '../features/rules/RulesPage';
 import { SystemVariablesPage } from '../features/systemVariables/SystemVariablesPage.js';
 import { WallsPage } from '../features/walls/WallsPage.js';
 import { WallDetailPage } from '../features/walls/WallDetailPage.js';
+import { NotAvailable } from './navigation/NotAvailable.js';
+import { useNavigation } from './navigation/NavigationProvider.js';
 import { RemoteSurface } from './navigation/RemoteSurface.js';
+import { useVisibleEntries } from './navigation/useVisibleEntries.js';
 import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
+
+/**
+ * Spec 316 FR-013 — wraps one child route's element, rendering
+ * {@link NotAvailable} instead when `path` is not in the session's visible
+ * set. For the remote route this also keeps `<RemoteSurface>` from ever
+ * mounting for an unentitled session, so it never registers or fetches the
+ * remote's code (FR-003/FR-013): gating decides what is fetched as code, not
+ * only what is shown.
+ */
+function Gated({ path, children }: { path: string; children: ReactNode }) {
+  const visible = useVisibleEntries();
+  if (!visible.some((entry) => entry.path === path)) {
+    return <NotAvailable />;
+  }
+  return <>{children}</>;
+}
+
+/**
+ * Spec 316 FR-012 — the index route renders the first visible entry's
+ * element directly, in manifest order, with no `<Navigate>` (preserving this
+ * file's existing "no redirect flash" reasoning). While a manifest that
+ * could still own an earlier-ordered entry has not settled
+ * (`useNavigation().status === 'loading'`), it shows the existing
+ * `Centered`-style "Loading…" state rather than guessing from a partial set;
+ * with no visible entry at all it shows the empty-navigation message.
+ */
+function FirstVisibleSurface() {
+  const { status } = useNavigation();
+  const visible = useVisibleEntries();
+
+  if (status === 'loading') {
+    return <Centered>Loading…</Centered>;
+  }
+
+  const first = visible[0];
+  const element = first !== undefined ? SURFACE_ELEMENTS[first.path] : undefined;
+  if (element !== undefined) {
+    return <>{element}</>;
+  }
+
+  return <Centered>No surfaces are available to your account.</Centered>;
+}
+
+function Centered({ children }: { children: ReactNode }) {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg-base text-fg-primary">
+      {children}
+    </main>
+  );
+}
+
+/** Keyed by each in-shell/remote entry's `path` (plan.md §4.3's "Entry" table). */
+const SURFACE_ELEMENTS: Readonly<Record<string, ReactNode>> = {
+  '/cameras': <RemoteSurface remote="cameras" />,
+  '/layouts': <LayoutsPage />,
+  '/walls': <WallsPage />,
+  '/overlays': <OverlaysPage />,
+  '/rules': <RulesPage />,
+  '/system-variables': <SystemVariablesPage />,
+  '/audit': <AuditPage />,
+};
 
 /**
  * Mirrors `apps/kiosk-web/src/app/router.tsx` so the two apps stay recognisable
@@ -38,35 +103,103 @@ export const createAppRouter = () =>
       path: '/',
       element: <ShellLayout />,
       children: [
-        // Cameras was the shell's default view, so the bare origin keeps showing
-        // it and an existing bookmark still arrives somewhere familiar. Spec
-        // 316 US1: Cameras is now the federated remote, loaded by
-        // `RemoteSurface` on first navigation to either route — the index and
-        // `cameras/*` both render it "for now" (US2's gating, T011, replaces
-        // this unconditional default with the first *visible* entry).
-        //
-        // Rendered directly rather than redirected to `/cameras`. A `<Navigate>`
-        // costs an extra render cycle before anything appears, which is a real
-        // flash on a cold load and not only a test inconvenience.
-        { index: true, element: <RemoteSurface remote="cameras" />, errorElement: <SurfaceCrash /> },
+        // Spec 316 US2 (FR-012): the first *visible* entry in manifest order,
+        // rendered directly rather than redirected to its own path. A
+        // `<Navigate>` costs an extra render cycle before anything appears,
+        // which is a real flash on a cold load and not only a test
+        // inconvenience. For a full-scope session that is still Cameras, as
+        // before this feature.
+        { index: true, element: <FirstVisibleSurface />, errorElement: <SurfaceCrash /> },
         {
           path: 'cameras/*',
-          element: <RemoteSurface remote="cameras" />,
+          element: (
+            <Gated path="/cameras">
+              <RemoteSurface remote="cameras" />
+            </Gated>
+          ),
           errorElement: <SurfaceCrash />,
         },
-        { path: 'layouts', element: <LayoutsPage />, errorElement: <SurfaceCrash /> },
-        { path: 'walls', element: <WallsPage />, errorElement: <SurfaceCrash /> },
-        { path: 'walls/:wallIdentifier', element: <WallDetailPage />, errorElement: <SurfaceCrash /> },
-        { path: 'overlays', element: <OverlaysPage />, errorElement: <SurfaceCrash /> },
-        { path: 'overlays/new', element: <OverlayCreatePage />, errorElement: <SurfaceCrash /> },
+        {
+          path: 'layouts',
+          element: (
+            <Gated path="/layouts">
+              <LayoutsPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'walls',
+          element: (
+            <Gated path="/walls">
+              <WallsPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'walls/:wallIdentifier',
+          element: (
+            <Gated path="/walls">
+              <WallDetailPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'overlays',
+          element: (
+            <Gated path="/overlays">
+              <OverlaysPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'overlays/new',
+          element: (
+            <Gated path="/overlays">
+              <OverlayCreatePage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
         {
           path: 'overlays/:overlayIdentifier/revisions/:revisionNumber/edit',
-          element: <OverlayEditPage />,
+          element: (
+            <Gated path="/overlays">
+              <OverlayEditPage />
+            </Gated>
+          ),
           errorElement: <SurfaceCrash />,
         },
-        { path: 'rules', element: <RulesPage />, errorElement: <SurfaceCrash /> },
-        { path: 'system-variables', element: <SystemVariablesPage />, errorElement: <SurfaceCrash /> },
-        { path: 'audit', element: <AuditPage />, errorElement: <SurfaceCrash /> },
+        {
+          path: 'rules',
+          element: (
+            <Gated path="/rules">
+              <RulesPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'system-variables',
+          element: (
+            <Gated path="/system-variables">
+              <SystemVariablesPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'audit',
+          element: (
+            <Gated path="/audit">
+              <AuditPage />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
       ],
     },
   ]);

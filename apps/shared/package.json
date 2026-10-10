@@ -59,6 +59,7 @@
     "./test/radixJsdom": "./src/test/radixJsdom.ts",
     "./test/focusRefetch": "./src/test/focusRefetch.ts",
     "./store": "./src/store/createApiStore.ts",
+    "./navigation/navManifest": "./src/navigation/navManifest.ts",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"
   },

@@ -4,6 +4,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ShellLayout, SurfaceCrash } from './ShellLayout.js';
 
 /**
+ * Spec 316 (T011) fixture update: `ShellLayout` now reads its nav entries
+ * from `useVisibleEntries()`, which needs a `NavigationProvider`/`useAuth`
+ * context this file's own router never supplies — mocked to a fixed list,
+ * since this file's property under test is the crash panel, not navigation
+ * gating (ADR-0139: fixture, not assertion).
+ */
+vi.mock('./navigation/useVisibleEntries.js', () => ({
+  useVisibleEntries: () => [
+    { path: '/crash-probe', label: 'Crash probe', order: 10, requiredScopes: ['sse.audit.read'] },
+  ],
+}));
+
+/**
  * Spec 287 (issue #2623) T002 — characterisation, captured GREEN on develop
  * before any source change (plan.md §5a): nothing today covers the crash
  * panel's own retry, only `App.test.tsx`'s router-level crash-containment
