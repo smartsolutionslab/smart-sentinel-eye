@@ -355,7 +355,8 @@
         "sse.layouts.read",
         "sse.overlays.read",
         "sse.variables.write",
-        "sse.variables.read"
+        "sse.variables.read",
+        "sse.events.publish"
       ]
     },
     {
