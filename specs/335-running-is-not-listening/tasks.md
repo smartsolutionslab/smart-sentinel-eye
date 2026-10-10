@@ -26,13 +26,14 @@
 
 ## Phase 4b — the edit (backend-engineer)
 
-- [ ] **T002** `tests/Integration.Tests/Fixtures/AspireFixture.cs`: add
+- [x] **T002** `tests/Integration.Tests/Fixtures/AspireFixture.cs`: add
       `WaitForServiceHealthAsync("identity", cts.Token)` after the existing `identity` → `Running`
       wait, per plan.md §2. No other line changes.
 
 ## Phase 4c / 5 — verify
 
-- [ ] **T003** `dotnet build -c Release` on `tests/Integration.Tests` clean. `git diff` shows only
-      the one fixture addition (plus this spec/plan/tasks). Local live-boot verification deferred
-      to CI per plan.md §3 (known orphaned-container state on this machine, concurrent sibling
-      pipelines). Record the CI result once observed.
+- [x] **T003** `dotnet build -c Release` on `tests/Integration.Tests`: clean, `0 Error(s)`, 293
+      pre-existing advisory SonarAnalyzer warnings unrelated to this diff, 0 new. `git diff`
+      confirms only the one 9-line fixture addition (plus this spec/plan/tasks). Local live-boot
+      verification deferred to CI per plan.md §3 (known orphaned-container state on this machine,
+      concurrent sibling pipelines). CI result: see PR.
