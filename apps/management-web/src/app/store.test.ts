@@ -8,6 +8,7 @@ import { systemVariablesApi, type Variable } from '@smart-sentinel-eye/shared/ap
 import { auditApi, type AuditRow } from '@smart-sentinel-eye/shared/api/audit.api';
 import { wallsApi, type Wall } from '@smart-sentinel-eye/shared/api/walls.api';
 import { eventIngestionApi, type DeadLetter } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
+import { eventTypesApi } from '@smart-sentinel-eye/shared/api/eventTypes.api';
 import { store, apiSlices, resetApiCaches } from './store.js';
 
 /**
@@ -15,7 +16,7 @@ import { store, apiSlices, resetApiCaches } from './store.js';
  *
  * `apiSlices` is the single source of truth `resetApiCaches` dispatches
  * against (plan.md §1, §4 test 2); the drift guard below fails the build if
- * a 10th `createApi` slice is added to `reducer`/`middleware` without also
+ * an 11th `createApi` slice is added to `reducer`/`middleware` without also
  * being added to `apiSlices` (FR-005).
  */
 
@@ -168,10 +169,15 @@ describe('store.ts — the apiSlices/resetApiCaches contract (spec 303, #2524)',
     store.dispatch(wallsApi.util.upsertQueryData('getWall', 'wall-1', wallFixture));
     store.dispatch(eventIngestionApi.util.upsertQueryData('listHeldEventTypes', undefined, heldEventTypeFixture));
 
-    // Sanity: every slice actually holds the entry just seeded, so the
-    // emptiness asserted below is `resetApiCaches`'s doing, not an artefact of
-    // nothing having been cached in the first place.
+    // Sanity: every query-bearing slice actually holds the entry just
+    // seeded, so the emptiness asserted below is `resetApiCaches`'s doing,
+    // not an artefact of nothing having been cached in the first place.
+    // `eventTypesApi` (issue #2855) has only a mutation endpoint — nothing to
+    // seed a query cache with — so it is excluded here and left to the
+    // reducer-path drift guard above and the empty-either-way assertion
+    // below.
     for (const slice of apiSlices) {
+      if (slice.reducerPath === eventTypesApi.reducerPath) continue;
       expect(Object.keys(queriesFor(slice.reducerPath))).toHaveLength(1);
     }
 
