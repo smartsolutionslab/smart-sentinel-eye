@@ -255,4 +255,60 @@ describe('RemoteSurface — load failure, retry, bad module shape, and no-refetc
     expect(registerRemotesMock).toHaveBeenCalledTimes(1);
     expect(loadRemoteMock).toHaveBeenCalledTimes(1);
   });
+
+  it(
+    'Should-fix 4 (PR #2856 review): a distinct key per remote remounts cleanly when the rendered ' +
+      'remote changes at the same tree position, instead of leaving the stale surface rendered',
+    async () => {
+      function CamerasSurfaceStub() {
+        return <p>cameras surface</p>;
+      }
+      function EventIngestionSurfaceStub() {
+        return <p>event-ingestion surface</p>;
+      }
+
+      loadRemoteMock.mockImplementation((moduleKey: unknown) =>
+        Promise.resolve({
+          default:
+            typeof moduleKey === 'string' && moduleKey.startsWith('cameras/')
+              ? CamerasSurfaceStub
+              : EventIngestionSurfaceStub,
+        }),
+      );
+
+      // Mirrors `router.tsx`'s `SURFACE_ELEMENTS` fix: a distinct `key` per
+      // remote at the same tree slot — the thing that must force React to
+      // unmount and remount rather than reuse the existing instance and
+      // merely update its `remote` prop.
+      function Host({ active }: { active: 'cameras' | 'eventIngestion' }) {
+        return active === 'cameras' ? (
+          <RemoteSurface key="cameras" remote="cameras" />
+        ) : (
+          <RemoteSurface key="eventIngestion" remote="eventIngestion" />
+        );
+      }
+
+      const { rerender } = render(<Host active="cameras" />);
+      expect(await screen.findByText('cameras surface')).toBeInTheDocument();
+
+      // Reproduces the real bug's precondition: the *target* remote's
+      // component is already resolved and cached (module scope,
+      // `resolvedComponents`) independently of the instance under test,
+      // exactly as it would be after an earlier visit to `/event-ingestion`.
+      const second = render(<RemoteSurface key="eventIngestion" remote="eventIngestion" />);
+      expect(await screen.findByText('event-ingestion surface')).toBeInTheDocument();
+      second.unmount();
+
+      // Switches which remote `Host` renders at its one tree position — the
+      // same shape as `FirstVisibleSurface` picking a different
+      // `SURFACE_ELEMENTS` entry after `visible[0].path` changes. Without a
+      // distinct key, `RemoteSurface`'s cache-hit check (`resolvedComponents.has(remote)`)
+      // would return early without calling `setComponent`, leaving the old
+      // "cameras surface" rendered under the new remote's slot.
+      rerender(<Host active="eventIngestion" />);
+
+      expect(await screen.findByText('event-ingestion surface')).toBeInTheDocument();
+      expect(screen.queryByText('cameras surface')).not.toBeInTheDocument();
+    },
+  );
 });

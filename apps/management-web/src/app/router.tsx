@@ -95,10 +95,24 @@ function Loading() {
   );
 }
 
-/** Keyed by each in-shell/remote entry's `path` (plan.md §4.3's "Entry" table). */
+/**
+ * Keyed by each in-shell/remote entry's `path` (plan.md §4.3's "Entry"
+ * table). The two `<RemoteSurface>` entries below carry an explicit `key`
+ * distinct from one another (should-fix 4, PR #2856 review): `
+ * FirstVisibleSurface` picks one of these elements by `visible[0].path`, and
+ * if the first-visible entry ever changes after mount — a token renewal that
+ * changes which scopes the session holds, FR-009's own live-narrowing case —
+ * React would otherwise see the same `RemoteSurface` component type at the
+ * same tree position and merely update its `remote` prop rather than
+ * remount. `RemoteSurface`'s own cache-hit check in that case returns early
+ * without calling `setComponent`, so the stale surface would keep rendering
+ * under the new remote's slot indefinitely. A distinct `key` per remote
+ * forces React to unmount and remount cleanly instead, re-running
+ * `RemoteSurface`'s lazy state initializer against the *new* `remote`.
+ */
 const SURFACE_ELEMENTS: Readonly<Record<string, ReactNode>> = {
-  '/cameras': <RemoteSurface remote="cameras" />,
-  '/event-ingestion': <RemoteSurface remote="eventIngestion" />,
+  '/cameras': <RemoteSurface key="cameras" remote="cameras" />,
+  '/event-ingestion': <RemoteSurface key="eventIngestion" remote="eventIngestion" />,
   '/layouts': <LayoutsPage />,
   '/walls': <WallsPage />,
   '/overlays': <OverlaysPage />,
