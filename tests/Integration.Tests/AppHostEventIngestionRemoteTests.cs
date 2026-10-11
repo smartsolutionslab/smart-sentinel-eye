@@ -111,9 +111,14 @@ public class AppHostEventIngestionRemoteTests
 
     /// <summary>
     /// The shell side of the wiring: <c>management-web</c> must carry the
-    /// remote's URL so <c>navigation/remotes.ts</c> has something to read.
-    /// Key presence only — resolving the value needs endpoint allocation
-    /// this model-only test never performs (class doc).
+    /// remote's URL, and that URL must actually point at
+    /// <c>management-event-ingestion</c> — not a copy-paste of the
+    /// <c>management-cameras</c> wiring above it — so
+    /// <c>navigation/remotes.ts</c> loads the right <c>remoteEntry.js</c>
+    /// under the <c>eventIngestion</c> name. The raw environment value is an
+    /// <see cref="EndpointReference"/>; its <c>Resource.Name</c> is readable
+    /// without allocating the endpoint, so this model-only test can assert on
+    /// it directly.
     /// </summary>
     [Fact]
     public async Task Management_web_s_environment_carries_the_event_ingestion_remote_url_key()
@@ -127,6 +132,11 @@ public class AppHostEventIngestionRemoteTests
         Dictionary<string, object> environment = await RawEnvironmentAsync(managementWeb);
 
         environment.Keys.ShouldContain("VITE_EVENT_INGESTION_REMOTE_URL");
+
+        EndpointReference endpoint = (EndpointReference)environment["VITE_EVENT_INGESTION_REMOTE_URL"];
+
+        endpoint.Resource.Name.ShouldBe("management-event-ingestion");
+        endpoint.EndpointName.ShouldBe("http");
     }
 
     private static async Task<IResource> ResourceAsync()
