@@ -7,6 +7,7 @@ import { rulesApi, type Rule, RULE_ACTION_SET_VARIABLE_VALUE } from '@smart-sent
 import { systemVariablesApi, type Variable } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { auditApi, type AuditRow } from '@smart-sentinel-eye/shared/api/audit.api';
 import { wallsApi, type Wall } from '@smart-sentinel-eye/shared/api/walls.api';
+import { eventIngestionApi, type DeadLetter } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
 import { store, apiSlices, resetApiCaches } from './store.js';
 
 /**
@@ -14,7 +15,7 @@ import { store, apiSlices, resetApiCaches } from './store.js';
  *
  * `apiSlices` is the single source of truth `resetApiCaches` dispatches
  * against (plan.md §1, §4 test 2); the drift guard below fails the build if
- * a 9th `createApi` slice is added to `reducer`/`middleware` without also
+ * a 10th `createApi` slice is added to `reducer`/`middleware` without also
  * being added to `apiSlices` (FR-005).
  */
 
@@ -125,6 +126,20 @@ const wallFixture: Wall = {
   showingSince: '2026-01-01T00:00:00Z',
 };
 
+const heldEventTypeFixture: DeadLetter[] = [
+  {
+    deadLetterIdentifier: 'dl-1',
+    topic: 'fab/munich/plc/line-1',
+    rawPayload: '{}',
+    error: 'unregistered type',
+    rejectedAt: '2026-01-01T00:00:00Z',
+    fab: 'fab-1',
+    reason: 'UnknownEventType',
+    kind: 'TemperatureAlarm',
+    state: 'Held',
+  },
+];
+
 function queriesFor(reducerPath: string): Record<string, unknown> {
   const state = store.getState() as unknown as Record<string, { queries: Record<string, unknown> }>;
   return state[reducerPath]!.queries;
@@ -151,6 +166,7 @@ describe('store.ts — the apiSlices/resetApiCaches contract (spec 303, #2524)',
     store.dispatch(systemVariablesApi.util.upsertQueryData('getVariable', { name: 'variable-1' }, variableFixture));
     store.dispatch(auditApi.util.upsertQueryData('getAuditEvent', 'audit-1', auditFixture));
     store.dispatch(wallsApi.util.upsertQueryData('getWall', 'wall-1', wallFixture));
+    store.dispatch(eventIngestionApi.util.upsertQueryData('listHeldEventTypes', undefined, heldEventTypeFixture));
 
     // Sanity: every slice actually holds the entry just seeded, so the
     // emptiness asserted below is `resetApiCaches`'s doing, not an artefact of

@@ -1,0 +1,11 @@
+/*
+ * Mirrors apps/management-cameras/src/styles/remote.css exactly. The
+ * `@layer utilities` wrapper is load-bearing, not decoration — see that
+ * file's own comment for the full CSS Cascade Layers explanation. Without
+ * it, every utility this remote generates comes out unlayered and silently
+ * overrides the shell's correctly-layered rules regardless of specificity.
+ */
+@layer utilities {
+  @import 'tailwindcss/utilities';
+}
+@config '../../tailwind.config.ts';

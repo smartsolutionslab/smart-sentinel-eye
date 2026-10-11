@@ -782,6 +782,16 @@ if (isRunMode && !isE2ETests)
         // Dashboard grouping: nest it under the gateway, like the three shells.
         .WithParentRelationship(apiGateway);
 
+    // management-event-ingestion (issue #2780): the second federated remote,
+    // composed identically to management-cameras above — same no-WaitFor
+    // reasoning, same fixed unproxied port (the next free one after 5176).
+    var eventIngestionRemote = builder
+        .AddJavaScriptApp("management-event-ingestion", "../../apps/management-event-ingestion", "dev")
+        .WithNpm(install: false)
+        .WithHttpEndpoint(env: "PORT", port: 5177, isProxied: false)
+        .WithExternalHttpEndpoints()
+        .WithParentRelationship(apiGateway);
+
     builder.AddJavaScriptApp("management-web", "../../apps/management-web", "dev")
         .WithNpm(install: false)
         .WithHttpEndpoint(env: "PORT", port: 5173, isProxied: false)
@@ -797,6 +807,8 @@ if (isRunMode && !isE2ETests)
         // an entitled one that beats it up surfaces one contained load
         // failure (FR-007/FR-008), not a blocked shell boot.
         .WithEnvironment("VITE_CAMERAS_REMOTE_URL", camerasRemote.GetEndpoint("http"))
+        // Issue #2780: the second remote's URL, same reasoning as the line above.
+        .WithEnvironment("VITE_EVENT_INGESTION_REMOTE_URL", eventIngestionRemote.GetEndpoint("http"))
         .WithExternalHttpEndpoints()
         // Dashboard grouping: nest the SPAs under the gateway they call.
         .WithParentRelationship(apiGateway);

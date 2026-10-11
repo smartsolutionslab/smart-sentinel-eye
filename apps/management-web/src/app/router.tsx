@@ -98,6 +98,7 @@ function Loading() {
 /** Keyed by each in-shell/remote entry's `path` (plan.md §4.3's "Entry" table). */
 const SURFACE_ELEMENTS: Readonly<Record<string, ReactNode>> = {
   '/cameras': <RemoteSurface remote="cameras" />,
+  '/event-ingestion': <RemoteSurface remote="eventIngestion" />,
   '/layouts': <LayoutsPage />,
   '/walls': <WallsPage />,
   '/overlays': <OverlaysPage />,
@@ -145,6 +146,15 @@ export const createAppRouter = () =>
           element: (
             <Gated path="/cameras">
               <RemoteSurface remote="cameras" />
+            </Gated>
+          ),
+          errorElement: <SurfaceCrash />,
+        },
+        {
+          path: 'event-ingestion/*',
+          element: (
+            <Gated path="/event-ingestion">
+              <RemoteSurface remote="eventIngestion" />
             </Gated>
           ),
           errorElement: <SurfaceCrash />,

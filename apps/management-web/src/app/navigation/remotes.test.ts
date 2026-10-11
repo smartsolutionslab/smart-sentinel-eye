@@ -1,24 +1,18 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * Plan 316 §4.4 / §6 test 7 (tasks.md T006, US3) — `remotes.ts` is the shell's
- * remote registry: `[{ name: 'cameras', baseUrl: VITE_CAMERAS_REMOTE_URL }]`
- * (plan.md §1). Its prod-build guard mirrors `auth.ts`'s `VITE_KEYCLOAK_URL`
- * check line for line (plan.md §4.4): a prod bundle with no remote URL would
- * try to fetch `remoteEntry.js` from localhost on the operator's machine —
- * fail loudly instead, at module load, naming the variable.
- *
- * **Red**: `apps/management-web/src/app/navigation/remotes.ts` does not exist
- * yet (US3 is new behaviour, tasks.md's colour table). T009 (frontend-engineer)
- * is the task that creates it and must leave these assertions unmodified.
+ * Plan 316 §4.4 / §6 test 7 — `remotes.ts` is the shell's remote registry.
+ * Issue #2780 added the second entry (`eventIngestion`); both prod-build
+ * guards mirror `auth.ts`'s `VITE_KEYCLOAK_URL` check line for line: a prod
+ * bundle with no remote URL would try to fetch `remoteEntry.js` from
+ * localhost on the operator's machine — fail loudly instead, at module
+ * load, naming the variable.
  *
  * Follows `apps/kiosk-web/src/app/wallMode.test.ts`'s pattern for a
  * module that reads its environment once, at import: each case resets the
- * module registry and stubs the environment before a fresh dynamic import,
- * rather than stubbing after the fact and asserting against a configuration
- * the module never actually had.
+ * module registry and stubs the environment before a fresh dynamic import.
  */
-describe('The cameras remote registry (plan 316 §4.4, mirrors auth.ts)', () => {
+describe('The shell remote registry (plan 316 §4.4, issue #2780, mirrors auth.ts)', () => {
   afterEach(() => {
     vi.unstubAllEnvs();
     vi.resetModules();
@@ -27,23 +21,37 @@ describe('The cameras remote registry (plan 316 §4.4, mirrors auth.ts)', () => 
   it('Throws at module load, naming VITE_CAMERAS_REMOTE_URL, when it is unset in a production build', async () => {
     vi.stubEnv('PROD', true);
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', 'http://localhost:5177');
 
     await expect(import('./remotes.js')).rejects.toThrow(/VITE_CAMERAS_REMOTE_URL/);
   });
 
-  it('Does not throw outside a production build, even when the URL is unset', async () => {
+  it('Throws at module load, naming VITE_EVENT_INGESTION_REMOTE_URL, when it is unset in a production build', async () => {
+    vi.stubEnv('PROD', true);
+    vi.stubEnv('VITE_CAMERAS_REMOTE_URL', 'http://localhost:5176');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '');
+
+    await expect(import('./remotes.js')).rejects.toThrow(/VITE_EVENT_INGESTION_REMOTE_URL/);
+  });
+
+  it('Does not throw outside a production build, even when both URLs are unset', async () => {
     vi.stubEnv('PROD', false);
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', '');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', '');
 
     await expect(import('./remotes.js')).resolves.toBeDefined();
   });
 
-  it('Registers the cameras remote at the configured base URL', async () => {
+  it('Registers both remotes at their configured base URLs', async () => {
     vi.stubEnv('PROD', true);
     vi.stubEnv('VITE_CAMERAS_REMOTE_URL', 'http://localhost:5176');
+    vi.stubEnv('VITE_EVENT_INGESTION_REMOTE_URL', 'http://localhost:5177');
 
     const { remotes } = await import('./remotes.js');
 
-    expect(remotes).toEqual([{ name: 'cameras', baseUrl: 'http://localhost:5176' }]);
+    expect(remotes).toEqual([
+      { name: 'cameras', baseUrl: 'http://localhost:5176' },
+      { name: 'eventIngestion', baseUrl: 'http://localhost:5177' },
+    ]);
   });
 });

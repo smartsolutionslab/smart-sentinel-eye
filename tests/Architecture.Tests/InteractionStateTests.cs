@@ -57,7 +57,11 @@ public class InteractionStateTests
     /// into its own federated remote, apps/management-cameras/src.
     /// </summary>
     private static readonly string[] ScannedSrcTrees =
-        ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
+    [
+        "apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src",
+        // Issue #2780: the second federated remote.
+        "apps/management-event-ingestion/src",
+    ];
 
     /// <summary>
     /// S3 fix (spec 316 phase-6 review): <see cref="ScannedFilesUnder"/>

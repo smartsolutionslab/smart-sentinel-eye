@@ -42,6 +42,12 @@ public class DesignTokenLayerTests
     // "imports the shared theme" check rather than letting them narrow
     // silently when the cameras feature moved out of apps/management-web.
     private const string ManagementCamerasTailwindConfig = "apps/management-cameras/tailwind.config.ts";
+
+    // Issue #2780: the second remote's own tailwind.config.ts, the same
+    // utilities-only-build shape as management-cameras's. Added alongside it
+    // for the same reason that one was added — a new remote not scanned here
+    // is silently unscanned (a guard gap, not a red build), not a compile error.
+    private const string ManagementEventIngestionTailwindConfig = "apps/management-event-ingestion/tailwind.config.ts";
     private const string SharedTailwindThemeModule = "apps/shared/src/ui/tokens/tailwindTheme.ts";
     private const string SharedPackageJson = "apps/shared/package.json";
 
@@ -53,7 +59,10 @@ public class DesignTokenLayerTests
 
     /// <summary>The trees fact 10 (<see cref="Nothing_outside_the_token_file_cites_a_primitive"/>) scans.</summary>
     private static readonly string[] PrimitiveCitationScannedTrees =
-        ["apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src"];
+    [
+        "apps/management-web/src", "apps/kiosk-web/src", "apps/shared/src", "apps/management-cameras/src",
+        "apps/management-event-ingestion/src",
+    ];
 
     /// <summary>
     /// <c>--&lt;hue&gt;-&lt;step&gt;</c> or <c>--black</c>/<c>--white</c>, and
@@ -552,7 +561,11 @@ public class DesignTokenLayerTests
         DirectoryInfo root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach (string config in new[] { ManagementTailwindConfig, KioskTailwindConfig, ManagementCamerasTailwindConfig })
+        foreach (string config in new[]
+                 {
+                     ManagementTailwindConfig, KioskTailwindConfig, ManagementCamerasTailwindConfig,
+                     ManagementEventIngestionTailwindConfig,
+                 })
         {
             string path = Path.Combine(root.FullName, config);
             File.Exists(path).ShouldBeTrue($"expected {config} at {path}.");
@@ -758,6 +771,7 @@ public class DesignTokenLayerTests
         yield return ManagementTailwindConfig;
         yield return KioskTailwindConfig;
         yield return ManagementCamerasTailwindConfig;
+        yield return ManagementEventIngestionTailwindConfig;
     }
 
     /// <summary>
