@@ -135,7 +135,7 @@ public class BoundedIngestChannelTests
         await channel.ReadBatchAsync(1, CancellationToken.None);
         await pending;
 
-        double waited = recorded.BlockedDurationsSeconds.ShouldHaveSingleItem();
+        double waited = recorded.BlockedDurationsMilliseconds.ShouldHaveSingleItem();
         waited.ShouldBeGreaterThan(0);
     }
 
@@ -152,7 +152,7 @@ public class BoundedIngestChannelTests
 
         await channel.WriteAsync(Delivery("1"), CancellationToken.None);
 
-        recorded.BlockedDurationsSeconds.ShouldBeEmpty("the write found capacity immediately");
+        recorded.BlockedDurationsMilliseconds.ShouldBeEmpty("the write found capacity immediately");
     }
 
     private sealed class RecordingCompletion : IIngestCompletion

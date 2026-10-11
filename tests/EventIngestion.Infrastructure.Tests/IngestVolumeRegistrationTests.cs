@@ -11,9 +11,12 @@ using SmartSentinelEye.EventIngestion.Domain.Event;
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Tests;
 
 /// <summary>
-/// Spec 103 FR-004. <c>AddEventIngestionInfrastructure</c> must call
-/// <c>.AddMeter(IngestVolume.MeterName)</c>; without that line the counter
-/// records into nothing and raises no error.
+/// Spec 103 FR-004, extended by ADR-0175.
+/// <c>AddEventIngestionInfrastructure</c> must call
+/// <c>.AddMeter(...)</c> for both meters this module registers —
+/// <see cref="IngestVolume"/> and <see cref="IngestChannelSaturation"/> —
+/// without which the respective instrument records into nothing and
+/// raises no error.
 ///
 /// <para>
 /// Spec 103 §5 originally claimed a unit test <em>cannot</em> reach this. It
