@@ -81,6 +81,10 @@ public sealed class FakeRtspGateway : IRtspGateway
             DetectedMode: TranscodeMode.Unknown));
     }
 
+    public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>>(
+            new Dictionary<MediaMtxPath, RtspPathHealth>(paths));
+
     public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<MediaMtxPath>>(paths.Keys.ToArray());
 }

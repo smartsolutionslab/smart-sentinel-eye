@@ -96,29 +96,42 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
     {
         DateTimeOffset now = clock.UtcNow;
 
+        // One call for the whole sweep, not one per stream. Every MediaMTX
+        // control-API call now authorizes through the same rate-limited
+        // /streams/authorize hook a real WHEP viewer's open uses (ADR-0171),
+        // so probing per path would have scaled the hook-call rate with the
+        // camera count instead of the poll interval — see
+        // IRtspGateway.GetAllPathsHealthAsync's doc comment.
+        IReadOnlyDictionary<MediaMtxPath, RtspPathHealth> observed;
+        try
+        {
+            observed = await gateway.GetAllPathsHealthAsync(cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            // The whole tick is lost, not one camera — there is only one HTTP
+            // call left to fail. The next tick, two seconds later, tries again.
+            logger.HealthSweepFailed(ex);
+            return;
+        }
+
         foreach ((Guid cameraGuid, MediaMtxPath path, StreamState state) in streams)
         {
-            // Before the probe, so a retired stream costs neither an HTTP call
-            // to a path that no longer exists nor a scope. The listing query
-            // already excludes these; this is the half that a unit test can
-            // reach, and it also closes the race where a stream is retired
-            // between the read and the dispatch.
+            // Before the lookup, so a retired stream costs no scope. The
+            // listing query already excludes these; this is the half that a
+            // unit test can reach, and it also closes the race where a stream
+            // is retired between the read and the dispatch.
             if (state == StreamState.Retired)
             {
                 degradedSince.Remove(cameraGuid);
                 continue;
             }
 
-            RtspPathHealth observation;
-            try
-            {
-                observation = await gateway.GetPathHealthAsync(path, cancellationToken);
-            }
-            catch (HttpRequestException ex)
-            {
-                logger.HealthProbeFailed(ex, path);
-                continue;
-            }
+            // A path absent from the batch reads the same way a 404 from the
+            // old per-path probe did: not registered, not a probe failure.
+            RtspPathHealth observation = observed.TryGetValue(path, out RtspPathHealth? found)
+                ? found
+                : new RtspPathHealth(IsReady: false, LastError: "path not registered", LastFrameAt: null, DetectedMode: TranscodeMode.Unknown);
 
             bool declareOffline = ShouldDeclareOffline(cameraGuid, observation, state, now);
             ReportStreamHealthCommand command = new(CameraIdentifier.From(cameraGuid), observation, declareOffline);

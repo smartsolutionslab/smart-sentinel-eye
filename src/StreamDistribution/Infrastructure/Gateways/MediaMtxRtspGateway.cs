@@ -122,11 +122,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            return new RtspPathHealth(
-                IsReady: false,
-                LastError: "path not registered",
-                LastFrameAt: null,
-                DetectedMode: TranscodeMode.Unknown);
+            return NotRegistered;
         }
         response.EnsureSuccessStatusCode();
 
@@ -134,6 +130,55 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         //   { "ready": bool, "readyTime": "ISO-8601" | null, "tracks": [...] }
         JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
+        return ParsePathHealth(payload);
+    }
+
+    public async Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken)
+    {
+        // GET /v3/paths/list (the runtime list, not /v3/config/paths/list):
+        // one call returning every path's current health in its `items` array,
+        // each item shaped exactly like a single /v3/paths/get response plus a
+        // `name`. One hook call per sweep tick instead of one per stream — see
+        // IRtspGateway.GetAllPathsHealthAsync's doc comment for why that matters.
+        using HttpResponseMessage response = await http.GetAsync("/v3/paths/list", cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+        Dictionary<MediaMtxPath, RtspPathHealth> health = [];
+
+        if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
+        {
+            return health;
+        }
+
+        foreach (JsonElement item in items.EnumerateArray())
+        {
+            if (!item.TryGetProperty("name", out JsonElement name) || name.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            string raw = name.GetString() ?? string.Empty;
+            if (!MediaMtxPath.IsCanonical(raw))
+            {
+                continue;
+            }
+
+            health[MediaMtxPath.From(raw)] = ParsePathHealth(item);
+        }
+
+        return health;
+    }
+
+    private static readonly RtspPathHealth NotRegistered = new(
+        IsReady: false,
+        LastError: "path not registered",
+        LastFrameAt: null,
+        DetectedMode: TranscodeMode.Unknown);
+
+    private static RtspPathHealth ParsePathHealth(JsonElement payload)
+    {
         bool ready = payload.TryGetProperty("ready", out JsonElement readyEl) && readyEl.GetBoolean();
         DateTimeOffset? readyTime = TryReadIsoTimestamp(payload, "readyTime");
 

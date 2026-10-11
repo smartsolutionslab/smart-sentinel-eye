@@ -26,6 +26,13 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.HealthWatcher
 /// Distinct handler instances are the evidence — a shared scope hands back the
 /// same scoped graph, which is exactly what shared the spent outbox.
 /// </para>
+///
+/// <para>
+/// Also covers the ADR-0171 security review's rate-limit fix: the sweep fetches
+/// every path's health in <b>one</b> <see cref="IRtspGateway.GetAllPathsHealthAsync"/>
+/// call rather than one <c>GetPathHealthAsync</c> round trip per stream — the
+/// call <see cref="StubGateway"/> exists to count.
+/// </para>
 /// </summary>
 public class StreamHealthWatcherScopeTests
 {
@@ -49,6 +56,29 @@ public class StreamHealthWatcherScopeTests
     }
 
     /// <summary>
+    /// The rate-limit fix's own counterfactual (ADR-0171 security review):
+    /// at production scale (250 cameras) the sweep must still issue exactly one
+    /// MediaMTX call, not one per camera — ~125 hook calls/s at a 2 s poll would
+    /// have saturated the shared <c>whep-authorize</c> limiter and started
+    /// refusing real viewers.
+    /// </summary>
+    [Fact]
+    public async Task A_sweep_of_250_cameras_issues_exactly_one_batch_call()
+    {
+        // Guid.CreateVersion7(), not the Camera(ordinal) helper: that helper's
+        // fixed-width literal only has room for a 2-digit ordinal (1-99), and
+        // this fact needs 250 distinct, genuinely unique cameras, not a
+        // specific or reproducible value for any of them.
+        (Guid Camera, MediaMtxPath Path, StreamState State)[] streams =
+            [.. Enumerable.Range(1, 250).Select(_ => Stream(Guid.CreateVersion7()))];
+
+        Sweep sweep = await DispatchAsync(streams, _ => Unready);
+
+        sweep.BatchCalls.ShouldBe(1, "250 cameras must cost one MediaMTX call, not 250");
+        sweep.Scopes.Count.ShouldBe(250);
+    }
+
+    /// <summary>
     /// Every scope the sweep opens is also closed. A watcher polling every two
     /// seconds for the life of the process leaks a scoped graph per camera per
     /// poll otherwise — a slower failure than the one this file is named for,
@@ -66,35 +96,54 @@ public class StreamHealthWatcherScopeTests
     }
 
     /// <summary>
-    /// The probe comes first, and a failing one skips the camera without opening
-    /// a scope for it. Guards the plausible refactor that hoists the scope above
-    /// the try.
+    /// A path MediaMTX's batch response does not report reads the same way a
+    /// 404 from the old per-path probe did: "not registered", not a reason to
+    /// skip the camera. Unlike the old per-path <see cref="HttpRequestException"/>
+    /// case, a missing entry is not a transport failure — the batch call itself
+    /// succeeded — so the camera still reaches the handler.
     /// </summary>
     [Fact]
-    public async Task A_camera_whose_probe_fails_opens_no_scope_and_does_not_end_the_sweep()
+    public async Task A_path_missing_from_the_batch_response_is_handled_as_not_registered_not_skipped()
     {
-        Guid first = Camera(1);
-        Guid unreachable = Camera(2);
-        Guid last = Camera(3);
-        MediaMtxPath failing = MediaMtxPath.For(CameraIdentifier.From(unreachable));
+        Guid present = Camera(1);
+        Guid missing = Camera(2);
 
         Sweep sweep = await DispatchAsync(
-            [.. new[] { first, unreachable, last }.Select(Stream)],
-            path => path == failing
-                ? throw new HttpRequestException("MediaMTX unreachable")
-                : Unready);
+            [Stream(present), Stream(missing)],
+            _ => Unready,
+            excludeFromBatch: [MediaMtxPath.For(CameraIdentifier.From(missing))]);
 
-        sweep.Scopes.Count.ShouldBe(2, "the unreachable camera never reached the handler");
-
-        // last, not merely first: a sweep that stopped at the failure would still
-        // satisfy a count assertion made against the survivors alone.
-        sweep.Handled.Select(handled => handled.Camera).ShouldBe(new[] { first, last });
+        sweep.Scopes.Count.ShouldBe(2, "a path absent from the batch is still dispatched, not skipped");
+        sweep.Handled.Select(handled => handled.Camera).ShouldBe([present, missing]);
     }
 
     /// <summary>
-    /// Spec 028 T030 (research §4). A retired stream is skipped before the
-    /// probe, so it costs neither an HTTP call to a path that no longer exists
-    /// nor a scope.
+    /// With one HTTP call standing in for what used to be N, there is no longer
+    /// a per-camera transport failure to guard against — there is only a
+    /// whole-tick one. This is that counterfactual: the batch call itself
+    /// throwing must not crash the watcher (the next tick, two seconds later,
+    /// tries again) and must not dispatch any camera from a result it never
+    /// got.
+    /// </summary>
+    [Fact]
+    public async Task A_failed_batch_call_skips_the_whole_tick_without_crashing_the_watcher()
+    {
+        Guid[] cameras = [Camera(1), Camera(2), Camera(3)];
+
+        Sweep sweep = await DispatchAsync(
+            [.. cameras.Select(Stream)],
+            _ => Unready,
+            batchFailure: new HttpRequestException("MediaMTX unreachable"));
+
+        sweep.BatchCalls.ShouldBe(1);
+        sweep.Scopes.ShouldBeEmpty("no camera can be dispatched from a batch call that never answered");
+        sweep.Handled.ShouldBeEmpty();
+    }
+
+    /// <summary>
+    /// Spec 028 T030 (research §4). A retired stream is skipped before its
+    /// health is even looked up, so it never reaches the handler and opens no
+    /// scope.
     ///
     /// <para>
     /// The listing query excludes these rows too, and this is the half a unit
@@ -105,16 +154,15 @@ public class StreamHealthWatcherScopeTests
     /// </para>
     ///
     /// <para>
-    /// Why it matters more than a wasted request: since #1801 the watcher
+    /// Why it matters more than a wasted dispatch: since #1801 the watcher
     /// announces <em>every</em> health change rather than one per sweep, so a
-    /// retired stream that kept being probed would fail its probe forever and
-    /// become a permanent source of health announcements and audit rows for
-    /// hardware that does not exist — leaving the system noisier after this
-    /// feature than before it.
+    /// retired stream that kept being dispatched would become a permanent
+    /// source of health announcements and audit rows for hardware that does not
+    /// exist — leaving the system noisier after this feature than before it.
     /// </para>
     /// </summary>
     [Fact]
-    public async Task A_retired_stream_is_never_probed_and_opens_no_scope()
+    public async Task A_retired_stream_never_reaches_the_handler_and_opens_no_scope()
     {
         Guid live = Camera(1);
         Guid retired = Camera(2);
@@ -126,7 +174,7 @@ public class StreamHealthWatcherScopeTests
              StreamIn(alsoLive, StreamState.Degraded)],
             _ => Unready);
 
-        sweep.Probed.ShouldNotContain(MediaMtxPath.For(CameraIdentifier.From(retired)));
+        sweep.BatchCalls.ShouldBe(1, "a retired stream mixed into the sweep still costs one call, not more");
         sweep.Scopes.Count.ShouldBe(2, "the retired stream never reached the handler");
 
         // alsoLive, not merely live: skipping must continue the sweep, not end
@@ -137,7 +185,9 @@ public class StreamHealthWatcherScopeTests
 
     private static async Task<Sweep> DispatchAsync(
         IReadOnlyList<(Guid Camera, MediaMtxPath Path, StreamState State)> streams,
-        Func<MediaMtxPath, RtspPathHealth> health)
+        Func<MediaMtxPath, RtspPathHealth> health,
+        IEnumerable<MediaMtxPath>? excludeFromBatch = null,
+        Exception? batchFailure = null)
     {
         Recorder recorder = new();
 
@@ -149,11 +199,14 @@ public class StreamHealthWatcherScopeTests
 
         CountingScopeFactory scopes = new(provider.GetRequiredService<IServiceScopeFactory>());
         StreamHealthWatcher watcher = new(scopes, new FixedClock(), NullLogger<StreamHealthWatcher>.Instance);
-        StubGateway gateway = new(health);
+
+        HashSet<MediaMtxPath> excluded = excludeFromBatch?.ToHashSet() ?? [];
+        MediaMtxPath[] reported = [.. streams.Select(stream => stream.Path).Where(path => !excluded.Contains(path))];
+        StubGateway gateway = new(reported, health, batchFailure);
 
         await watcher.DispatchAsync(streams, gateway, CancellationToken.None);
 
-        return new Sweep(scopes.Scopes, recorder.Handled, gateway.Probed);
+        return new Sweep(scopes.Scopes, recorder.Handled, gateway.BatchCalls);
     }
 
     private static Guid Camera(int ordinal) =>
@@ -168,7 +221,7 @@ public class StreamHealthWatcherScopeTests
     private sealed record Sweep(
         IReadOnlyList<TrackedScope> Scopes,
         IReadOnlyList<(object Handler, Guid Camera)> Handled,
-        IReadOnlyList<MediaMtxPath> Probed);
+        int BatchCalls);
 
     private sealed class Recorder
     {
@@ -235,9 +288,26 @@ public class StreamHealthWatcherScopeTests
         }
     }
 
-    private sealed class StubGateway(Func<MediaMtxPath, RtspPathHealth> health) : IRtspGateway
+    /// <summary>
+    /// Stands in for MediaMTX's batch endpoint. <see cref="BatchCalls"/> is the
+    /// counterfactual the rate-limit fix is about: it must stay 1 for a sweep
+    /// tick regardless of how many cameras it covers.
+    /// </summary>
+    private sealed class StubGateway : IRtspGateway
     {
-        public List<MediaMtxPath> Probed { get; } = [];
+        private readonly MediaMtxPath[] paths;
+        private readonly Func<MediaMtxPath, RtspPathHealth> health;
+        private readonly Exception? batchFailure;
+
+        public StubGateway(
+            IEnumerable<MediaMtxPath> paths, Func<MediaMtxPath, RtspPathHealth> health, Exception? batchFailure = null)
+        {
+            this.paths = [.. paths];
+            this.health = health;
+            this.batchFailure = batchFailure;
+        }
+
+        public int BatchCalls { get; private set; }
 
         public Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
@@ -248,11 +318,25 @@ public class StreamHealthWatcherScopeTests
         public Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
-        {
-            Probed.Add(path);
+        public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
+            Task.FromResult(health(path));
 
-            return Task.FromResult(health(path));
+        public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken)
+        {
+            BatchCalls++;
+
+            if (batchFailure is not null)
+            {
+                throw batchFailure;
+            }
+
+            Dictionary<MediaMtxPath, RtspPathHealth> result = [];
+            foreach (MediaMtxPath path in paths)
+            {
+                result[path] = health(path);
+            }
+
+            return Task.FromResult<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>>(result);
         }
 
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
