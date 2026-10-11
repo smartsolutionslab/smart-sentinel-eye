@@ -70,11 +70,12 @@ public sealed class OrphanedClientSweep(
             await ClassifyAsync(candidate, active, orphans, unreachable, cancellationToken);
         }
 
-        // S6, the mass-disable guard. A healthy baseline must exist to ratio
-        // against — when every eligible client is orphaned there is nothing
-        // to compare against a restored or wrong database, and the candidate
-        // floor is what protects that case instead (spec 320 §4.3).
-        if (orphans.Count >= 2 && orphans.Count < eligible.Count && orphans.Count * 2 > eligible.Count)
+        // S6, the mass-disable guard. "More than half, and at least two"
+        // (spec 320 §4.3) — including the all-orphaned case, which is
+        // exactly the restored-or-wrong-database scenario the guard exists
+        // to catch. The floor of two is not a substitute for that case; it
+        // only rules out a single rare cancellation (#2845).
+        if (orphans.Count >= 2 && orphans.Count * 2 > eligible.Count)
         {
             logger.OrphanedClientSweepRefused(orphans.Count, eligible.Count);
             return new OrphanedClientSweepOutcome(eligible.Count, Disabled: 0, Refused: true, unreachable);
