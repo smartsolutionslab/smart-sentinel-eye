@@ -80,6 +80,13 @@ var systemVariablesSeederClientSecret = builder.AddOverridableParameter("SystemV
 // client_credentials token (scope sse.identity.revocations.read) for its
 // 5-second revocation-snapshot refresh (ServiceDefaults.Revocation).
 var revocationListReaderClientSecret = builder.AddOverridableParameter("RevocationListReaderClientSecret", "dev-only-revocation-list-reader-secret", secret: true);
+// ADR-0171. Authorizes MediaMTX's control-API calls through the existing WHEP
+// hook: StreamDistribution reads it as `MediaMtxApi:Secret` both to check the
+// Basic-auth credential MediaMTX forwards for an `api` hook call and to
+// attach that same credential to its own calls into MediaMTX's control API.
+// Not a Keycloak client secret — MediaMTX itself never holds it, only forwards
+// whatever Basic auth the caller presented.
+var mediaMtxApiSecret = builder.AddOverridableParameter("MediaMtxApiSecret", "dev-only-mediamtx-api-secret", secret: true);
 
 // Spec 009 ADR-0101: the postgres image carries the timescaledb
 // extension so the audit-observability hypertable + compression
@@ -423,6 +430,7 @@ var streamDistribution = builder
     // unattributed and therefore invisible.
     .WithReference(cameraCatalog)
     .WithEnvironment("StreamFabAttribution__ClientSecret", streamDistributionAttributionClientSecret)
+    .WithEnvironment("MediaMtxApi__Secret", mediaMtxApiSecret)
     .WaitFor(rabbitmq)
     .WaitFor(keycloak)
     .WaitFor(mediamtx);

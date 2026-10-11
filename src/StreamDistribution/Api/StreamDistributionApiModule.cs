@@ -23,6 +23,7 @@ public static class StreamDistributionApiModule
         services.AddScoped<ProvisionStreamCommandHandler>();
         services.AddScoped<ReportStreamHealthCommandHandler>();
         services.AddScoped<AuthorizeWhepCommandHandler>();
+        services.AddScoped<AuthorizeMediaMtxApiCommandHandler>();
 
         return services;
     }

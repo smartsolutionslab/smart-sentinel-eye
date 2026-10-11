@@ -126,6 +126,7 @@ public class AppHostStackStatusTests
         names.ShouldNotContain("EventIngestionMqttClientSecret");
         names.ShouldNotContain("StreamDistributionAttributionClientSecret");
         names.ShouldNotContain("SystemVariablesSeederClientSecret");
+        names.ShouldNotContain("MediaMtxApiSecret");
     }
 
     /// <summary>

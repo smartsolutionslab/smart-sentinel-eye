@@ -49,7 +49,17 @@ public sealed class AuthorizeWhepCommandHandler(
         // a static `source` (MediaMtxRtspGateway.cs:32) — another component's
         // configuration file rather than this code, and one nobody here would
         // notice losing.
-        if (action.Value == MediaMtxAction.Publish)
+        //
+        // Api is refused here too, defensively: production never reaches this
+        // handler for it — StreamEndpoints.AuthorizeWhep branches an api action
+        // to AuthorizeMediaMtxApiCommandHandler before this command is even
+        // constructed (ADR-0171), because api carries no stream path and no
+        // bearer. But this handler's own job is to decide what a bearer token
+        // and a scope can authorize, and nothing they grant should ever admit a
+        // control-API call — if a future caller ever did reach this path with
+        // Api, a WHEP viewer's token must not be mistaken for the control-API
+        // secret.
+        if (action.Value == MediaMtxAction.Publish || action.Value == MediaMtxAction.Api)
         {
             logger.RefusedWhepAction(action.Value, path);
             return Failure(AuthorizeWhepFailures.ActionNotPermitted());
