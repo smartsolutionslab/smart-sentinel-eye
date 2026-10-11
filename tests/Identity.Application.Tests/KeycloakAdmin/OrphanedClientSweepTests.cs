@@ -46,8 +46,11 @@ public class OrphanedClientSweepTests
             clock);
 
     [Fact]
-    public async Task An_enabled_device_and_an_enabled_kiosk_orphan_both_past_grace_are_disabled()
+    public async Task An_enabled_device_and_an_enabled_kiosk_orphan_both_past_grace_refuses_the_pass()
     {
+        // Every eligible client orphaned (2 of 2) is the case spec 320 §4.3's
+        // "an empty [database]" scenario describes — the guard must refuse
+        // here, not merely when some healthy baseline survives (#2845).
         FakeKeycloakAdminClient keycloak = new();
         keycloak.StampedClients.Add(new StampedClient("plc-orphan-1", "device", Enabled: true));
         keycloak.StampedClients.Add(new StampedClient("kiosk-orphan-1", "kiosk", Enabled: true));
@@ -60,23 +63,18 @@ public class OrphanedClientSweepTests
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         outcome.Examined.ShouldBe(2);
-        outcome.Disabled.ShouldBe(2);
-        outcome.Refused.ShouldBeFalse();
+        outcome.Disabled.ShouldBe(0);
+        outcome.Refused.ShouldBeTrue();
         outcome.Unreachable.ShouldBeEmpty();
-        keycloak.Disabled.ShouldBe(["plc-orphan-1", "kiosk-orphan-1"], ignoreOrder: true);
+        keycloak.Disabled.ShouldBeEmpty(
+            "2 of 2 eligible stamped clients orphaned looks like the wrong database, not two rare "
+            + "cancellations (spec 320 §4.3)");
 
-        IReadOnlyList<LoggedEntry> disabledEntries = logger.Named("DisabledOrphanedClient");
-        disabledEntries.Count.ShouldBe(2, "one Warning per disabled client");
-        disabledEntries.ShouldAllBe(entry => entry.Level == LogLevel.Warning);
-        disabledEntries.Select(entry => entry.Field("ClientId")).ShouldBe(
-            ["plc-orphan-1", "kiosk-orphan-1"], ignoreOrder: true);
-        disabledEntries.Select(entry => entry.Field("Kind")).ShouldBe(
-            ["device", "kiosk"], ignoreOrder: true);
-
-        IReadOnlyList<LoggedEntry> summary = logger.Named("SweptOrphanedClients");
-        summary.Count.ShouldBe(1, "one Information summary per pass, not one per client");
-        summary[0].Field("Disabled").ShouldBe("2");
-        summary[0].Field("Examined").ShouldBe("2");
+        IReadOnlyList<LoggedEntry> refusals = logger.Named("OrphanedClientSweepRefused");
+        refusals.Count.ShouldBe(1);
+        refusals[0].Level.ShouldBe(LogLevel.Error);
+        refusals[0].Field("Candidates").ShouldBe("2");
+        refusals[0].Field("Examined").ShouldBe("2");
     }
 
     [Fact]
@@ -233,10 +231,22 @@ public class OrphanedClientSweepTests
         keycloak.DisableFailsFor["plc-wont-disable"] =
             new HttpRequestException("Keycloak refused the disable.");
         InMemoryRegisteredClientRepository clients = new();
+        FakeClock clock = new(Now);
+
+        // A healthy baseline (#2845: 2 of 2 orphaned would otherwise trip the
+        // mass-disable guard before either disable is even attempted, which
+        // is this test's own fix-in-flight behaviour, not what this test is
+        // about). 2 orphans of 4 eligible stays clear of "more than half".
+        foreach (string registered in new[] { "plc-registered-a", "plc-registered-b" })
+        {
+            keycloak.StampedClients.Add(new StampedClient(registered, "device", Enabled: true));
+            clients.Add(ActiveRow(registered, ClientKind.Device, clock));
+        }
+
         CapturingLogger<OrphanedClientSweep> logger = new();
 
         OrphanedClientSweepOutcome outcome =
-            await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
+            await SweepOver(keycloak, clients, clock, logger).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBe(["plc-will-disable"]);
         outcome.Disabled.ShouldBe(1);
