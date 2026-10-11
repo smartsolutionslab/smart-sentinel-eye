@@ -15,7 +15,7 @@ const MUNICH = {
 };
 const BERLIN = { ...MUNICH, cameraIdentifier: 'cam-berlin', fab: 'berlin' };
 
-function camerasResult(items: typeof MUNICH[]): CameraChoicesResult {
+function camerasResult(items: (typeof MUNICH)[]): CameraChoicesResult {
   return { data: { items, count: items.length, complete: true }, isLoading: false, isError: false };
 }
 
