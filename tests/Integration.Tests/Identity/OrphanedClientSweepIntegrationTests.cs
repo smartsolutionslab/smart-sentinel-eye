@@ -12,7 +12,8 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.Integration.Tests.Identity;
 
 /// <summary>
-/// Spec 320 (#2181) plan §8.1 — facts I0a, I0b, I1, I1k, I2, I3, I4. The
+/// Spec 320 (#2181) plan §8.1 — facts I0a, I0b, I1, I1k, I2, I3, I4; I5 added
+/// by spec 337 (#2797). The
 /// load-bearing red (I1/I1k) against the real stack: a planted orphan blocks
 /// re-registration with 409 today, and after one pass the same request must
 /// answer 201.
@@ -253,28 +254,46 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     }
 
     [Fact]
-    public async Task I4_an_unstamped_client_and_a_webhook_stamped_client_with_no_row_stay_enabled()
+    public async Task I4_an_unstamped_client_stays_enabled()
     {
         string unstamped = $"unstamped-{NewSuffix("bystander")}";
-        string webhook = $"webhook-{NewSuffix("out-of-scope")}";
         CancellationToken cancellationToken = CancellationToken.None;
         DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(unstamped, NoAttributes, cancellationToken);
-        await realm.PlantAsync(webhook, WebhookAttributes, cancellationToken);
         try
         {
             await RunSweepAsync(plantedAt + ADayLater, cancellationToken);
 
             (await IsEnabledAsync(unstamped, cancellationToken)).ShouldBeTrue(
                 "a client with no sse.kind at all is never a candidate (spec §4, 'safe by default')");
-            (await IsEnabledAsync(webhook, cancellationToken)).ShouldBeTrue(
-                "sse.kind=webhook is outside OrphanedClientSweep.SweptKinds (spec 320 §4.5/§5 — "
-                + "its own, deliberately separate follow-up)");
         }
         finally
         {
             await realm.DeleteAsync(unstamped, cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task I5_a_webhook_stamped_client_with_no_row_is_now_disabled()
+    {
+        string webhook = $"webhook-{NewSuffix("joined-the-sweep")}";
+        CancellationToken cancellationToken = CancellationToken.None;
+        DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
+
+        await realm.PlantAsync(webhook, WebhookAttributes, cancellationToken);
+        try
+        {
+            await RunSweepAsync(plantedAt + ADayLater, cancellationToken);
+
+            (await IsEnabledAsync(webhook, cancellationToken)).ShouldBeFalse(
+                "sse.kind=webhook joined OrphanedClientSweep.SweptKinds (spec 337, #2797) — the same "
+                + "RegisteredClient/ClientKind.WebhookIntegration row shape this sweep already queried "
+                + "for device/kiosk, so a cancelled RotateWebhookClientCommandHandler create is now "
+                + "disabled the same way");
+        }
+        finally
+        {
             await realm.DeleteAsync(webhook, cancellationToken);
         }
     }
