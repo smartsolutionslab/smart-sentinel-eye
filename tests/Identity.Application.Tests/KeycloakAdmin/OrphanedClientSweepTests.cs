@@ -107,12 +107,10 @@ public class OrphanedClientSweepTests
     }
 
     [Fact]
-    public async Task A_webhook_stamped_client_and_an_unknown_kind_are_never_candidates()
+    public async Task An_unknown_kind_is_never_a_candidate()
     {
         FakeKeycloakAdminClient keycloak = new();
-        keycloak.StampedClients.Add(new StampedClient("webhook-1", "webhook", Enabled: true));
         keycloak.StampedClients.Add(new StampedClient("mystery-1", "something-else", Enabled: true));
-        keycloak.ServiceAccountCreatedAt["webhook-1"] = Now - PastGrace;
         keycloak.ServiceAccountCreatedAt["mystery-1"] = Now - PastGrace;
         InMemoryRegisteredClientRepository clients = new();
 
@@ -122,7 +120,43 @@ public class OrphanedClientSweepTests
         keycloak.Disabled.ShouldBeEmpty();
         outcome.Disabled.ShouldBe(0);
         outcome.Examined.ShouldBe(
-            0, "sse.kind=webhook and an unknown kind are outside OrphanedClientSweep.SweptKinds (spec 320 §4.5)");
+            0, "an sse.kind outside OrphanedClientSweep.SweptKinds is never a candidate (spec 320 §4.5)");
+    }
+
+    [Fact]
+    public async Task A_webhook_stamped_orphan_past_grace_is_now_disabled()
+    {
+        FakeKeycloakAdminClient keycloak = new();
+        keycloak.StampedClients.Add(new StampedClient("webhook-orphan-1", "webhook", Enabled: true));
+        keycloak.ServiceAccountCreatedAt["webhook-orphan-1"] = Now - PastGrace;
+        InMemoryRegisteredClientRepository clients = new();
+
+        OrphanedClientSweepOutcome outcome =
+            await SweepOver(keycloak, clients).SweepAsync(CancellationToken.None);
+
+        keycloak.Disabled.ShouldBe(
+            ["webhook-orphan-1"],
+            "a cancelled RotateWebhookClientCommandHandler create leaves the identical orphan shape "
+            + "device/kiosk registration does (#2797) — the row is RegisteredClient/ClientKind.WebhookIntegration, "
+            + "the same table this sweep already queries");
+        outcome.Disabled.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task A_webhook_stamped_client_with_an_active_row_is_left_alone()
+    {
+        FakeKeycloakAdminClient keycloak = new();
+        keycloak.StampedClients.Add(new StampedClient("webhook-active-1", "webhook", Enabled: true));
+        keycloak.ServiceAccountCreatedAt["webhook-active-1"] = Now - PastGrace;
+        InMemoryRegisteredClientRepository clients = new();
+        FakeClock clock = new(Now);
+        clients.Add(ActiveRow("webhook-active-1", ClientKind.WebhookIntegration, clock));
+
+        OrphanedClientSweepOutcome outcome =
+            await SweepOver(keycloak, clients, clock).SweepAsync(CancellationToken.None);
+
+        keycloak.Disabled.ShouldBeEmpty();
+        outcome.Disabled.ShouldBe(0);
     }
 
     [Fact]
