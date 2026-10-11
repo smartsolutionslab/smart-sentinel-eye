@@ -256,13 +256,20 @@ func sseOnAclCheck(event C.int, eventData unsafe.Pointer, userData unsafe.Pointe
 
 	name := C.mosquitto_client_username(ev.client)
 	if name == nil {
-		// A write with no username set. Not the Will path — keying by
-		// username (plan.md §3) exists precisely so a Will's write check
-		// still finds one, since context__cleanup clears it only after the
-		// Will has been handled or discarded. This is some other write
-		// against a context that never completed BASIC_AUTH. Nothing this
-		// plugin can refuse from a token it never saw, so deny rather than
-		// defer: a write cannot reach here without a scope it must prove.
+		// A write with no username set. Unreachable in practice, not a
+		// response to a specific real path: every Will path in Mosquitto
+		// 2.0.18 (disconnect, the will-delay check/send, session-expiry
+		// check, session takeover, the shutdown loop, and auth failure via
+		// will__clear) sends or clears the Will before context__cleanup runs,
+		// and context__cleanup is what frees context->username — so a
+		// cleanup-time Will send always finds a username already cleared,
+		// never a write with one still nil. Nor does a failed auth produce
+		// this: handle_connect.c sets context->username before the auth
+		// check runs, so a rejected context still has one. And with
+		// allow_anonymous false (this deployment's mosquitto.conf), there is
+		// no authorized context without a username either. The deny below is
+		// defence in depth for a case this build cannot actually reach, not
+		// a refusal earned by any token this plugin saw.
 		return C.MOSQ_ERR_ACL_DENIED
 	}
 

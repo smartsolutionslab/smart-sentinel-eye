@@ -72,10 +72,23 @@ unenforced — the scope note above continues to apply.
 ## Addendum (2026-10-10) — the publish scope is now enforced; the `groups`/topic-binding half is not
 
 Spec 330 / #2286 closed the scope half of the publish-ACL gap this ADR's scope note (2026-05-31)
-and 2026-08-06 addendum both flagged as outstanding: the plugin now reads the `scope` claim on
-every `MOSQ_EVT_ACL_CHECK` and refuses a publish lacking `sse.events.publish`, via a new `authz`
-package (`src/AppHost/mosquitto/plugin/authz/`). The check can only refuse or defer to `acl.txt`
-— it never grants — so `acl.txt` remains the sole source of topic authority.
+and 2026-08-06 addendum both flagged as outstanding, via a new `authz` package
+(`src/AppHost/mosquitto/plugin/authz/`). The `scope` claim is read **once**, at `BASIC_AUTH`
+(connect) time — `sseOnBasicAuth` calls `authz.HasScope` on the token's `scope` claim and records
+the verdict per username via `grants.Record`. `sseOnAclCheck`, on every `MOSQ_EVT_ACL_CHECK`, does
+not re-read the token at all: it reads back that recorded per-username verdict via
+`grants.Decide`, and only for a write. A read defers immediately, before even the username lookup.
+The check can only refuse or defer to `acl.txt` — it never grants — so `acl.txt` remains the sole
+source of topic authority.
+
+Capturing the scope once at connect time and enforcing it per write from that recorded verdict
+also surfaces the property plan.md §3 already states for a different reason (keying the Will's
+write check): one username's newest token governs every live session authenticated as that
+username, not just the connection that presented it.
+
+A write whose context carries no username is also now denied rather than deferred — unreachable
+in practice under this deployment's `allow_anonymous false`, so the deny is defence in depth, not
+a response to an observed path.
 
 **Still unenforced, exactly as before:** the `groups`/fab-binding and `azp`-to-topic-segment
 conditions this ADR's "Decision" section describes under the JSON-from-JWT ACL. Only the scope
@@ -84,12 +97,14 @@ is still decided entirely by its static `acl.txt` row.
 
 **On "per-message overhead must remain zero" (Context, above):** that sentence rules out
 per-message cryptographic or network work — this ADR's own Decision already has the ACL
-evaluated "per publish," which a literal zero-overhead reading would contradict. The scope
-check's actual cost is an in-memory mutex-guarded map lookup, well inside what this ADR treated
-as free when it assumed per-connect-only auth. `sseOnAclCheck` returns before that lookup for
-anything other than `MOSQ_ACL_WRITE`, so the read check Mosquitto performs for every subscriber
-on every delivery never reaches it — the crossing count this spec adds is the one write check
-already paid for, not the doubled count a write-and-read version would have carried.
+evaluated "per publish," which a literal zero-overhead reading would contradict. `sse_register`
+(`mosquitto_glue.c`) registers `sseOnAclCheck` for every `MOSQ_EVT_ACL_CHECK` with no access
+filter, so Mosquitto still makes one C→Go cgo call per subscriber per delivery regardless of this
+spec — that crossing was never removable without un-registering the callback for reads, which
+this spec does not do. What the write-only narrowing removes is what used to happen *inside* that
+call on a read: the further Go→C `mosquitto_client_username` call and the per-username map
+lookup. `sseOnAclCheck` now returns before either for anything other than `MOSQ_ACL_WRITE`, so
+those two costs are paid once per write, not once per read as well.
 
 ## Addendum (2026-05-29) — Decision parked
 
