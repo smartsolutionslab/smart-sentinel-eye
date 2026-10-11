@@ -62,6 +62,20 @@ done
 exit 0
 `;
 
+// Nit (PR #2856 review): same shape as curlStubCamerasRemoteDown above, for
+// :5177 (management-event-ingestion, issue #2780's second federated remote).
+// Every other curl invocation falls through to the same default success.
+const curlStubEventIngestionRemoteDown = `#!/usr/bin/env bash
+for argument in "$@"; do
+  case "$argument" in
+    *gateway.ts) echo "export const GATEWAY = 'http://localhost:18888';"; exit 0 ;;
+    */camera-catalog/cameras) printf '401'; exit 0 ;;
+    *:5177*) exit 1 ;;
+  esac
+done
+exit 0
+`;
+
 // Answers the one exec the script makes per poll with a `<database>=<rows>`
 // line each, the way psql-inside-the-container does.
 // $STUB_DATABASES_WITH_HISTORY is the set whose __EFMigrationsHistory table
@@ -135,6 +149,7 @@ const composedResources = [
   'audit-observability',
   'management-web',
   'management-cameras',
+  'management-event-ingestion',
   'kiosk-web',
   'kiosk-wall',
   'fixture-video',
@@ -200,9 +215,8 @@ function runScript(environment, curlStubText = curlStub) {
   // set their own STACK_STATUS_FILE (or deliberately want none) are
   // unaffected — this only fills in a default, never overrides an explicit
   // one.
-  const seededEnvironment = 'STACK_STATUS_FILE' in environment
-    ? environment
-    : { STACK_STATUS_FILE: writeStatusReport(), ...environment };
+  const seededEnvironment =
+    'STACK_STATUS_FILE' in environment ? environment : { STACK_STATUS_FILE: writeStatusReport(), ...environment };
 
   return spawnSync('bash', [script], {
     cwd: repositoryRoot,
@@ -252,69 +266,69 @@ test('a stack the script cannot ask about migrations is not reported ready', { s
   );
 });
 
-test('a stack whose status report names a resource that never started is not reported ready (#2268)', { skip: !bashAvailable }, () => {
-  // #2264's stack exactly (the resource that never started was `minio` at the
-  // time; the example below uses the stack's current storage resource name,
-  // `storage`, per ADR-0155): every existing probe is satisfied — ports
-  // serve, the gateway answers 401, every database carries applied
-  // migrations — and the only thing wrong is a status report naming storage
-  // as FailedToStart and audit-observability as Waiting.
-  const statusFile = writeStatusReport({
-    storage: ['FailedToStart', ''],
-    'audit-observability': ['Waiting', ''],
-  });
+test(
+  'a stack whose status report names a resource that never started is not reported ready (#2268)',
+  { skip: !bashAvailable },
+  () => {
+    // #2264's stack exactly (the resource that never started was `minio` at the
+    // time; the example below uses the stack's current storage resource name,
+    // `storage`, per ADR-0155): every existing probe is satisfied — ports
+    // serve, the gateway answers 401, every database carries applied
+    // migrations — and the only thing wrong is a status report naming storage
+    // as FailedToStart and audit-observability as Waiting.
+    const statusFile = writeStatusReport({
+      storage: ['FailedToStart', ''],
+      'audit-observability': ['Waiting', ''],
+    });
 
-  const result = runScript({
-    STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
-    STACK_STATUS_FILE: statusFile,
-  });
+    const result = runScript({
+      STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
+      STACK_STATUS_FILE: statusFile,
+    });
 
-  const output = `${result.stdout}${result.stderr}`;
-  assert.notEqual(
-    result.status,
-    0,
-    `the gate opened over a stack missing storage (#2268):\n${output}`,
-  );
-  // US2: the refusal must name the offender, not just refuse (tasks.md T009).
-  assert.match(
-    output,
-    /storage/,
-    `expected the failure to name storage, the resource that never started:\n${output}`,
-  );
-  // ... and must not name a resource that did start — "postgres" is Running
-  // in this fixture, same as every other composed resource but storage and
-  // audit-observability.
-  assert.doesNotMatch(
-    output,
-    /postgres/,
-    `expected the failure to name only the resources that did not start, not a healthy one:\n${output}`,
-  );
-});
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(result.status, 0, `the gate opened over a stack missing storage (#2268):\n${output}`);
+    // US2: the refusal must name the offender, not just refuse (tasks.md T009).
+    assert.match(
+      output,
+      /storage/,
+      `expected the failure to name storage, the resource that never started:\n${output}`,
+    );
+    // ... and must not name a resource that did start — "postgres" is Running
+    // in this fixture, same as every other composed resource but storage and
+    // audit-observability.
+    assert.doesNotMatch(
+      output,
+      /postgres/,
+      `expected the failure to name only the resources that did not start, not a healthy one:\n${output}`,
+    );
+  },
+);
 
-test('a stack with no status report for the whole wait window is not reported ready (#2268)', { skip: !bashAvailable }, () => {
-  // "I could not ask" is not "it started" — the migration probe above already
-  // treats a question it could not ask as fatal (#2137), and this reuses that
-  // stance for the resource gate: a missing report is not best-effort.
-  const directory = mkdtempSync(path.join(tmpdir(), 'wait-for-e2e-stack-status-'));
-  const statusFile = path.join(directory, 'never-written.tsv');
+test(
+  'a stack with no status report for the whole wait window is not reported ready (#2268)',
+  { skip: !bashAvailable },
+  () => {
+    // "I could not ask" is not "it started" — the migration probe above already
+    // treats a question it could not ask as fatal (#2137), and this reuses that
+    // stance for the resource gate: a missing report is not best-effort.
+    const directory = mkdtempSync(path.join(tmpdir(), 'wait-for-e2e-stack-status-'));
+    const statusFile = path.join(directory, 'never-written.tsv');
 
-  const result = runScript({
-    STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
-    STACK_STATUS_FILE: statusFile,
-  });
+    const result = runScript({
+      STUB_DATABASES_WITH_HISTORY: allDatabases.join(' '),
+      STACK_STATUS_FILE: statusFile,
+    });
 
-  const output = `${result.stdout}${result.stderr}`;
-  assert.notEqual(
-    result.status,
-    0,
-    `the gate opened with no status report at all (#2268):\n${output}`,
-  );
-  assert.match(
-    output,
-    /StackStatusFile/,
-    `expected the failure to name the switch that produces the report:\n${output}`,
-  );
-});
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(result.status, 0, `the gate opened with no status report at all (#2268):\n${output}`);
+    assert.match(
+      output,
+      /StackStatusFile/,
+      `expected the failure to name the switch that produces the report:\n${output}`,
+    );
+  },
+);
 
 test('a one-shot resource that ended non-zero fails the gate immediately (#2268)', { skip: !bashAvailable }, () => {
   const statusFile = writeStatusReport({
@@ -342,27 +356,43 @@ test('a one-shot resource that ended non-zero fails the gate immediately (#2268)
   );
 });
 
-test('a stack whose management-cameras remote never serves on :5176 is not reported ready (plan 316 §6 test 11)', { skip: !bashAvailable }, () => {
-  // Every other probe is satisfied — every composed resource started
-  // (management-cameras included, now in composedResources above), every
-  // database carries applied migrations, management-web and the two kiosks
-  // serve — and the only thing wrong is that nothing answers on :5176, the
-  // federated cameras remote's port (plan.md §1's dev-port table).
-  const result = runScript(
-    { STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') },
-    curlStubCamerasRemoteDown,
-  );
+test(
+  'a stack whose management-cameras remote never serves on :5176 is not reported ready (plan 316 §6 test 11)',
+  { skip: !bashAvailable },
+  () => {
+    // Every other probe is satisfied — every composed resource started
+    // (management-cameras included, now in composedResources above), every
+    // database carries applied migrations, management-web and the two kiosks
+    // serve — and the only thing wrong is that nothing answers on :5176, the
+    // federated cameras remote's port (plan.md §1's dev-port table).
+    const result = runScript({ STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') }, curlStubCamerasRemoteDown);
 
-  const output = `${result.stdout}${result.stderr}`;
-  assert.notEqual(
-    result.status,
-    0,
-    'the gate opened over a stack whose cameras remote never served on :5176 — the script does not '
-      + `wait for it yet (plan.md §8/T008 wires the probe in):\n${output}`,
-  );
-  assert.match(
-    output,
-    /5176/,
-    `expected the failure to name :5176, the port the gate must wait for:\n${output}`,
-  );
-});
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(
+      result.status,
+      0,
+      'the gate opened over a stack whose cameras remote never served on :5176 — the script does not ' +
+        `wait for it yet (plan.md §8/T008 wires the probe in):\n${output}`,
+    );
+    assert.match(output, /5176/, `expected the failure to name :5176, the port the gate must wait for:\n${output}`);
+  },
+);
+
+test(
+  'a stack whose management-event-ingestion remote never serves on :5177 is not reported ready (issue #2780)',
+  { skip: !bashAvailable },
+  () => {
+    // Same shape as the :5176 (management-cameras) case above, for the second
+    // federated remote (issue #2780): every other probe is satisfied, and the
+    // only thing wrong is that nothing answers on :5177.
+    const result = runScript({ STUB_DATABASES_WITH_HISTORY: allDatabases.join(' ') }, curlStubEventIngestionRemoteDown);
+
+    const output = `${result.stdout}${result.stderr}`;
+    assert.notEqual(
+      result.status,
+      0,
+      `the gate opened over a stack whose event-ingestion remote never served on :5177:\n${output}`,
+    );
+    assert.match(output, /5177/, `expected the failure to name :5177, the port the gate must wait for:\n${output}`);
+  },
+);
