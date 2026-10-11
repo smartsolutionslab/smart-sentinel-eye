@@ -100,6 +100,41 @@ const mustFlagCases = [
     "import { useSelector } from 'react-redux';",
     'src/ui/composites/nested/__probe__.ts',
   ],
+  [
+    'a hook from a shared/api package specifier (#2801)',
+    "import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a hook from a shared/api relative specifier (#2801)',
+    "import { useGetStreamQuery } from '../../api/streams.api.js';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a hook from the relative api barrel, no subpath (#2801)',
+    "import { useGetStreamQuery } from '../../api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'an Api-suffixed slice object import (#2801)',
+    "import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a namespace import of a shared/api module (#2801)',
+    "import * as streamsApi from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    're-exporting a hook from shared/api (#2801)',
+    "export { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a hook from shared/api in a nested composite directory (#2801)',
+    "import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/nested/__probe__.ts',
+  ],
 ];
 
 for (const [description, code, relativeFilePath] of mustFlagCases) {
@@ -155,6 +190,31 @@ const mustNotFlagCases = [
     "import { useState } from 'react';",
     'src/ui/composites/__probe__.tsx',
   ],
+  [
+    'a type-only import of a shared/api type (#2801) — ADR-0169 exempts type imports here',
+    "import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    "a value import whose name doesn't match the hook/slice pattern, from a relative api path (#2801)",
+    "import { DEFAULT_OVERLAY_COLOR } from '../../api/overlays.schema.js';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a type-only import from systemVariables.api (#2801)',
+    "import type { SystemVariable } from '@smart-sentinel-eye/shared/api/systemVariables.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    'a hook from shared/api imported in apps/shared/src/api/** itself (out of scope, ADR-0169) (#2801)',
+    "import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/api/__probe__.ts',
+  ],
+  [
+    "a hook from shared/api in a composite's own test file (exempt) (#2801)",
+    "import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.test.tsx',
+  ],
 ];
 
 for (const [description, code, relativeFilePath] of mustNotFlagCases) {
@@ -182,6 +242,24 @@ test('no-restricted-imports is registered at error for a real composite file', a
     2,
     `expected no-restricted-imports at severity error (2) for ` +
       `${path.relative(repositoryRoot, testFile)}, got ${JSON.stringify(severity)}`,
+  );
+});
+
+test('every real composite file lints clean under the widened rule (#2801)', async () => {
+  const eslint = new ESLint({ cwd: sharedApp });
+  const results = await eslint.lintFiles(['src/ui/composites/**/*.{ts,tsx}']);
+
+  const problems = results.flatMap((result) =>
+    result.messages
+      .filter((message) => message.ruleId === 'no-restricted-imports')
+      .map((message) => ({ filePath: path.relative(repositoryRoot, result.filePath), message: message.message })),
+  );
+
+  assert.deepEqual(
+    problems,
+    [],
+    `expected every real file under apps/shared/src/ui/composites to lint clean, got: ` +
+      `${JSON.stringify(problems, null, 2)}`,
   );
 });
 
