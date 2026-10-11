@@ -5,11 +5,15 @@ using SmartSentinelEye.Shared.Kernel;
 namespace SmartSentinelEye.Identity.Application.KeycloakAdmin;
 
 /// <summary>
-/// Disables a Keycloak client this system stamped <c>sse.kind=device</c> or
-/// <c>sse.kind=kiosk</c> that a cancelled registration or enrolment left
-/// behind — created in Keycloak, enabled, and never followed by the
-/// <c>RegisteredClient</c> row <c>SaveAsync</c> would have committed
-/// (spec 320, #2181).
+/// Disables a Keycloak client this system stamped <c>sse.kind=device</c>,
+/// <c>sse.kind=kiosk</c> or <c>sse.kind=webhook</c> that a cancelled
+/// registration, enrolment or rotation left behind — created in Keycloak,
+/// enabled, and never followed by the <c>RegisteredClient</c> row
+/// <c>SaveAsync</c> would have committed (spec 320, #2181; webhook joined
+/// by spec 337, #2797 — the identical hole in
+/// <c>RotateWebhookClientCommandHandler</c>'s create branch, the same
+/// <c>RegisteredClient</c>/<see cref="ClientKind.WebhookIntegration"/> row
+/// shape this sweep already queries).
 ///
 /// <para>
 /// <b>Mirrors <see cref="KioskPrivilegeSweep"/></b> (ADR-0134 Decision 1): a
@@ -42,10 +46,10 @@ public sealed class OrphanedClientSweep(
 
     /// <summary>
     /// The only <c>sse.kind</c> values this sweep ever acts on (spec 320
-    /// §4.5). <c>webhook</c> and anything else is out of scope.
+    /// §4.5, extended by spec 337/#2797). Anything else is out of scope.
     /// </summary>
     public static readonly IReadOnlySet<string> SweptKinds =
-        new HashSet<string>(StringComparer.Ordinal) { "device", "kiosk" };
+        new HashSet<string>(StringComparer.Ordinal) { "device", "kiosk", "webhook" };
 
     /// <summary>
     /// One pass: lists stamped clients, subtracts the ones with an active
