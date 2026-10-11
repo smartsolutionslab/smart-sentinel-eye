@@ -263,6 +263,38 @@ is exactly the kind of fact `spec.md` §*Out of scope* would want named for a
 future decision, the same way `passwordBlacklist(...)` was named there
 without being adopted.
 
+**Resolution (user decision, 2026-10-10, on #2542): accept the risk and
+document it.** Filed as #2542 for the human remediation call ADR-0144
+reserves. The architect's phase-1 investigation on that issue found the
+originally-approved remedy — gateway-level response normalization — isn't
+actually an option: the gateway sits on none of the nine bounded-context
+routes it owns, browser OIDC goes direct to Keycloak by design
+(`src/AppHost/AppHost.cs:698-702`), and routing Keycloak behind the gateway
+would change the token issuer every service validates against, a materially
+bigger change than this finding's severity warrants. Three real alternatives
+were weighed and declined:
+
+- A custom Keycloak authenticator/SPI or theme override remapping
+  `"Account disabled"` to the generic message — a Keycloak customization that
+  survives upgrades and needs its own tests, for a finding that discloses
+  account state, not credentials or data.
+- Disabling `directAccessGrantsEnabled` on the clients that don't need it,
+  shrinking the oracle's reach — tangled with #2511, which found flipping it
+  on `management-web` breaks the integration suite (`AspireFixture.ClientId`
+  **is** `management-web`).
+- Putting Keycloak behind an edge proxy to normalize there — a topology and
+  issuer change, its own ADR.
+
+The accepted severity: low. It discloses only a boolean (an account is
+currently disabled), never credentials, passwords, or any other account
+data, and only to a caller who can already reach Keycloak's own externally-
+exposed token endpoint directly — nothing this codebase controls sits in
+front of it. Weighed against an ongoing maintenance cost (any of the three
+remedies above adds a new piece of deployed surface this repo would own
+indefinitely) for a risk this narrow, accepting it was judged cheaper than
+remediating it. #2542 is closed on this record; no `src/` or realm change
+follows from it.
+
 Both scaffolding facts were added, built (`dotnet build`, 0 errors each
 time), run, captured above, then removed. The file was rebuilt
 `--no-incremental` afterward and confirmed to hold exactly its seven facts
