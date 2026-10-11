@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Configurations;

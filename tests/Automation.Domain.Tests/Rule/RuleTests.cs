@@ -1,7 +1,7 @@
-using SmartSentinelEye.Shared.Kernel;
 using System.Globalization;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Rule.Events;
+using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Domain.Tests.Rule;

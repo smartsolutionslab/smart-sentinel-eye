@@ -1,8 +1,8 @@
-using SmartSentinelEye.Shared.Kernel;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;
 

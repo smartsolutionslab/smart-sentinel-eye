@@ -6,13 +6,13 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
+using SmartSentinelEye.ServiceDefaults.Persistence;
+using SmartSentinelEye.Shared.CQRS;
+using SmartSentinelEye.Shared.Kernel;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 using Wolverine.Postgresql;
 using Wolverine.RabbitMQ;
-using SmartSentinelEye.ServiceDefaults.Persistence;
-using SmartSentinelEye.Shared.CQRS;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults;
 

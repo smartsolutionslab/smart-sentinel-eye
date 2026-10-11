@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Infrastructure.Persistence.Configurations;

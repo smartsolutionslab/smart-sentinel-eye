@@ -1,9 +1,9 @@
-using SmartSentinelEye.Automation.Domain.Rule;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.Evaluation;
+using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;

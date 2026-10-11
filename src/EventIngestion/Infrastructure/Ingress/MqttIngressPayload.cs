@@ -10,7 +10,7 @@ namespace SmartSentinelEye.EventIngestion.Infrastructure.Ingress;
 /// payload sits under <c>payload</c>.
 /// </summary>
 public sealed record MqttIngressPayload(
-    [property: JsonPropertyName("eventId")]    Guid EventId,
-    [property: JsonPropertyName("kind")]       string Kind,
+    [property: JsonPropertyName("eventId")] Guid EventId,
+    [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("occurredAt")] DateTimeOffset OccurredAt,
-    [property: JsonPropertyName("payload")]    JsonElement Payload);
+    [property: JsonPropertyName("payload")] JsonElement Payload);

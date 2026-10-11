@@ -497,37 +497,37 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static object SwitchWallSceneRuleBody(
         string name, string triggerKind, string predicate, Guid? wall, string sceneTarget, Guid? targetLayout) => new
-    {
-        name,
-        triggerSource = "manual",
-        triggerKind,
-        predicate,
-        actionType = "SwitchWallScene",
-        variableName = (string?)null,
-        valueExpression = (string?)null,
-        overlayIdentifier = (Guid?)null,
-        durationMs = (int?)null,
-        wallIdentifier = wall,
-        sceneTarget,
-        targetLayoutIdentifier = targetLayout,
-    };
+        {
+            name,
+            triggerSource = "manual",
+            triggerKind,
+            predicate,
+            actionType = "SwitchWallScene",
+            variableName = (string?)null,
+            valueExpression = (string?)null,
+            overlayIdentifier = (Guid?)null,
+            durationMs = (int?)null,
+            wallIdentifier = wall,
+            sceneTarget,
+            targetLayoutIdentifier = targetLayout,
+        };
 
     private static object SetVariableRuleBody(
         string name, string triggerKind, string predicate, string variable) => new
-    {
-        name,
-        triggerSource = "manual",
-        triggerKind,
-        predicate,
-        actionType = "SetVariableValue",
-        variableName = variable,
-        valueExpression = "1",
-        overlayIdentifier = (Guid?)null,
-        durationMs = (int?)null,
-        wallIdentifier = (Guid?)null,
-        sceneTarget = (string?)null,
-        targetLayoutIdentifier = (Guid?)null,
-    };
+        {
+            name,
+            triggerSource = "manual",
+            triggerKind,
+            predicate,
+            actionType = "SetVariableValue",
+            variableName = variable,
+            valueExpression = "1",
+            overlayIdentifier = (Guid?)null,
+            durationMs = (int?)null,
+            wallIdentifier = (Guid?)null,
+            sceneTarget = (string?)null,
+            targetLayoutIdentifier = (Guid?)null,
+        };
 
     private static async Task<string> ActivateSwitchWallSceneRuleAsync(
         HttpClient rules, string name, string triggerKind, Guid wall, string sceneTarget, Guid? targetLayout,

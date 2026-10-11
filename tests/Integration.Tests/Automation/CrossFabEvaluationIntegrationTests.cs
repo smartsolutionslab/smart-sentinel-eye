@@ -1,5 +1,5 @@
-using Microsoft.EntityFrameworkCore;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;

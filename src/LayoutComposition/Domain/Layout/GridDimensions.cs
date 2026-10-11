@@ -9,7 +9,7 @@ namespace SmartSentinelEye.LayoutComposition.Domain.Layout;
 /// max-tiles ceiling: a wall is capped at <see cref="MaxCells"/> cells
 /// (3×3) so the kiosk never decodes more than <see cref="MaxTiles"/>
 /// simultaneous WHEP peers — the §IV latency mitigation. A 1×1 grid
-/// (<see cref="Single"/>) is the migrated single-camera layout; 2×2
+/// (<see cref="float"/>) is the migrated single-camera layout; 2×2
 /// (<see cref="Default"/>) is the designer default.
 ///
 /// <para>

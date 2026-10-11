@@ -538,7 +538,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             await logCts.CancelAsync().ConfigureAwait(false);
             if (logTailTasks is not null)
             {
-                try { await Task.WhenAll(logTailTasks).ConfigureAwait(false); }
+                try
+                { await Task.WhenAll(logTailTasks).ConfigureAwait(false); }
                 catch (OperationCanceledException) { /* expected */ }
             }
             logCts.Dispose();

@@ -43,7 +43,7 @@ public class RevertRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<RevertRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand([Munich], 
+            new RevertRevisionCommand([Munich],
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -62,7 +62,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand([Munich], 
+            new RevertRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -81,7 +81,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
-            new RevertRevisionCommand([Munich], 
+            new RevertRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 

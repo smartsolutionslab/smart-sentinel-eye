@@ -1,4 +1,4 @@
-﻿namespace SmartSentinelEye.StreamDistribution.Application.Auth;
+namespace SmartSentinelEye.StreamDistribution.Application.Auth;
 
 /// <summary>
 /// The validated principal extracted from a WHEP bearer token. <c>Scopes</c>

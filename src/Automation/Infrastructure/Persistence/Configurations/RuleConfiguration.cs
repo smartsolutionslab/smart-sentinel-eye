@@ -1,9 +1,9 @@
 using System.Globalization;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Infrastructure.Persistence.Configurations;

@@ -1,4 +1,4 @@
-﻿namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
+namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 /// <summary>
 /// Wire shape for "a revision became Published" SignalR frames. Spec 010

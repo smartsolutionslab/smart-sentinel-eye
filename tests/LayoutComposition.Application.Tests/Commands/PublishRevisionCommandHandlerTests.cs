@@ -28,7 +28,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand([Munich], 
+            new PublishRevisionCommand([Munich],
                 draft.Id,
                 LayoutRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -47,7 +47,7 @@ public class PublishRevisionCommandHandlerTests
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand([Munich], 
+            new PublishRevisionCommand([Munich],
                 LayoutIdentifier.New(),
                 LayoutRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -67,7 +67,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand([Munich], 
+            new PublishRevisionCommand([Munich],
                 draft.Id,
                 LayoutRevisionNumber.From(99),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -89,7 +89,7 @@ public class PublishRevisionCommandHandlerTests
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
-            new PublishRevisionCommand([Munich], 
+            new PublishRevisionCommand([Munich],
                 draft.Id,
                 LayoutRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),

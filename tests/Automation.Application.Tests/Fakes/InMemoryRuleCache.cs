@@ -1,8 +1,8 @@
 using System.Collections.Concurrent;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Domain.Rule;
-using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 using SmartSentinelEye.Shared.Kernel;
+using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Fakes;
 

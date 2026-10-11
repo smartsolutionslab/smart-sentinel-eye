@@ -1,10 +1,10 @@
-using Microsoft.Extensions.DependencyInjection;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
@@ -13,8 +13,8 @@ using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.ServiceDefaults;
-using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.ServiceDefaults.Authorization;
+using SmartSentinelEye.ServiceDefaults.Idempotency;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Api;

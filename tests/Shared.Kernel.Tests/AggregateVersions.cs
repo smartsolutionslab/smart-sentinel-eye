@@ -1,6 +1,6 @@
 using System.Reflection;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Shared.Kernel.Tests;
 

@@ -1,8 +1,7 @@
 using SmartSentinelEye.CameraCatalog.Application.DTOs;
+using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-
-using SmartSentinelEye.CameraCatalog.Domain.Camera;
 
 namespace SmartSentinelEye.CameraCatalog.Application.Queries;
 

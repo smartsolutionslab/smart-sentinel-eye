@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
-using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;

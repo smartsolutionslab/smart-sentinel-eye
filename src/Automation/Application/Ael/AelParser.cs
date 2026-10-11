@@ -69,13 +69,13 @@ public static class AelParser
         AelExpression left = ParseAdditive(tokens, ref cursor);
         BinaryOperator? binaryOperator = tokens[cursor].Kind switch
         {
-            AelTokenKind.Equal              => BinaryOperator.Equal,
-            AelTokenKind.NotEqual           => BinaryOperator.NotEqual,
-            AelTokenKind.LessThan           => BinaryOperator.LessThan,
-            AelTokenKind.LessThanOrEqual    => BinaryOperator.LessThanOrEqual,
-            AelTokenKind.GreaterThan        => BinaryOperator.GreaterThan,
+            AelTokenKind.Equal => BinaryOperator.Equal,
+            AelTokenKind.NotEqual => BinaryOperator.NotEqual,
+            AelTokenKind.LessThan => BinaryOperator.LessThan,
+            AelTokenKind.LessThanOrEqual => BinaryOperator.LessThanOrEqual,
+            AelTokenKind.GreaterThan => BinaryOperator.GreaterThan,
             AelTokenKind.GreaterThanOrEqual => BinaryOperator.GreaterThanOrEqual,
-            AelTokenKind.Contains           => BinaryOperator.Contains,
+            AelTokenKind.Contains => BinaryOperator.Contains,
             _ => null,
         };
         if (binaryOperator is null)

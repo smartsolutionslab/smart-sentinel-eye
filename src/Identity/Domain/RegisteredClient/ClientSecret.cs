@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Identity.Domain.RegisteredClient;
 

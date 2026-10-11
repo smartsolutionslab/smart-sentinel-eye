@@ -60,7 +60,7 @@ public class ArchiveRevisionCommandHandlerTests
             layouts, new FakeClock(FixedMoment), NullLogger<ArchiveRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand([Munich], 
+            new ArchiveRevisionCommand([Munich],
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -79,7 +79,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
-            new ArchiveRevisionCommand([Munich], 
+            new ArchiveRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.From(99), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 

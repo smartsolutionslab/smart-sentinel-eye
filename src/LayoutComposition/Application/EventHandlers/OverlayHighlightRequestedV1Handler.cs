@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
-using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.EventHandlers;

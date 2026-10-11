@@ -1,7 +1,7 @@
 using System.Globalization;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.CameraCatalog.Domain.Tests.Camera.Builders;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.CameraCatalog.Domain.Tests.Camera;
 
