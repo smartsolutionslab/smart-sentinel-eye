@@ -63,6 +63,33 @@ public class IngestVolumeRegistrationTests
     }
 
     /// <summary>
+    /// ADR-0175. The same silent-no-op risk FR-004 names, for the second
+    /// meter this module registers alongside <see cref="IngestVolume"/>.
+    /// </summary>
+    [Fact]
+    public void The_ingest_channel_saturation_meter_is_registered_with_the_meter_provider()
+    {
+        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        builder.Configuration.AddInMemoryCollection(Configuration);
+
+        builder.AddEventIngestionInfrastructure();
+
+        CapturingExporter exporter = new();
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics => metrics.AddReader(new BaseExportingMetricReader(exporter)));
+
+        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        MeterProvider meterProvider = provider.GetRequiredService<MeterProvider>();
+
+        IngestChannelSaturation.RecordBlocked(TimeSpan.FromMilliseconds(5));
+        meterProvider.ForceFlush();
+
+        exporter.Names.ShouldContain(
+            IngestChannelSaturation.MetricName,
+            $"{IngestChannelSaturation.MeterName} is not registered, so {IngestChannelSaturation.MetricName} records into nothing");
+    }
+
+    /// <summary>
     /// The keys the module resolves before it returns. Values are syntactically
     /// valid and never dialled: the module parses them, it does not connect.
     /// </summary>
