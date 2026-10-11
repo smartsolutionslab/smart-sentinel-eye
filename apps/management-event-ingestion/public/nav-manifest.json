@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "remote": "eventIngestion",
+  "basePath": "/event-ingestion",
+  "entries": [
+    { "path": "/event-ingestion", "label": "Event types", "order": 80, "requiredScopes": ["sse.events.read"] }
+  ]
+}

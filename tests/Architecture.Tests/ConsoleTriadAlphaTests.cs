@@ -44,7 +44,8 @@ public class ConsoleTriadAlphaTests
     // cameras feature moved out of apps/management-web/src into its own
     // federated remote, apps/management-cameras/src. Without this, the
     // files move and this gate silently stops scanning them.
-    private static readonly string[] ConsoleSrcTrees = ["apps/management-web/src", "apps/management-cameras/src"];
+    private static readonly string[] ConsoleSrcTrees =
+        ["apps/management-web/src", "apps/management-cameras/src", "apps/management-event-ingestion/src"];
 
     private static readonly Regex TranslucentTriadColour = new(
         @"(?<![\w-])(?:bg|border|text|ring|outline|fill|stroke|divide|from|via|to|shadow|decoration|placeholder|caret)" +

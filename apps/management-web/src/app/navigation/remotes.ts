@@ -10,11 +10,21 @@ if (import.meta.env.PROD && CAMERAS_REMOTE_BASE_URL === '') {
   throw new Error('VITE_CAMERAS_REMOTE_URL must be set in production builds (see docs/deployment-frontend-env.md).');
 }
 
+// Issue #2780 — the second remote. Same shape, same guard.
+const EVENT_INGESTION_REMOTE_BASE_URL = (import.meta.env.VITE_EVENT_INGESTION_REMOTE_URL ?? '').replace(/\/+$/, '');
+
+if (import.meta.env.PROD && EVENT_INGESTION_REMOTE_BASE_URL === '') {
+  throw new Error(
+    'VITE_EVENT_INGESTION_REMOTE_URL must be set in production builds (see docs/deployment-frontend-env.md).',
+  );
+}
+
 export interface RemoteDescriptor {
   readonly name: string;
   readonly baseUrl: string;
 }
 
-// One remote today (US1/US3). A second would be a second entry here, not a
-// configuration knob for a need that doesn't exist yet.
-export const remotes: readonly RemoteDescriptor[] = [{ name: 'cameras', baseUrl: CAMERAS_REMOTE_BASE_URL }];
+export const remotes: readonly RemoteDescriptor[] = [
+  { name: 'cameras', baseUrl: CAMERAS_REMOTE_BASE_URL },
+  { name: 'eventIngestion', baseUrl: EVENT_INGESTION_REMOTE_BASE_URL },
+];

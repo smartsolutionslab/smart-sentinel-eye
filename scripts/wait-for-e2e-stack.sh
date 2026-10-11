@@ -255,6 +255,23 @@ if [ "$cameras_up" != "1" ]; then
   exit 1
 fi
 
+# management-event-ingestion, the second federated remote (issue #2780).
+# Same reasoning as management-cameras above.
+echo "Waiting for management-event-ingestion on :5177 ..."
+event_ingestion_up=0
+for i in $(seq 1 60); do # up to ~5 min
+  if curl -fsS -o /dev/null --max-time 4 "http://localhost:5177/" 2>/dev/null; then
+    echo "  serving after ~$((i * 5))s"
+    event_ingestion_up=1
+    break
+  fi
+  sleep 5
+done
+if [ "$event_ingestion_up" != "1" ]; then
+  echo "::error::nothing served on :5177"
+  exit 1
+fi
+
 # The two kiosk instances. **Waited for by name, because there are now three
 # front ends and only one of them was ever checked.** The wall display (spec 052)
 # is the same bundle in wall mode; it starts last and a suite that began before

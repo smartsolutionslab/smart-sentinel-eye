@@ -9,9 +9,10 @@ import { rulesApi } from '@smart-sentinel-eye/shared/api/rules.api';
 import { systemVariablesApi } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { auditApi } from '@smart-sentinel-eye/shared/api/audit.api';
 import { wallsApi } from '@smart-sentinel-eye/shared/api/walls.api';
+import { eventIngestionApi } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
 
 // Every RTK Query slice mounted in the store, declared once. `store.test.ts`
-// (spec 303, FR-005) fails if a 9th slice is added to `reducer`/`middleware`
+// (spec 303, FR-005) fails if a 10th slice is added to `reducer`/`middleware`
 // without being added here too — this array is also what `resetApiCaches`
 // resets, so the two cannot drift independently.
 export const apiSlices = [
@@ -23,6 +24,7 @@ export const apiSlices = [
   systemVariablesApi,
   auditApi,
   wallsApi,
+  eventIngestionApi,
 ];
 
 // Single Redux store per app (ADR-0075). RTK Query slices added per feature.

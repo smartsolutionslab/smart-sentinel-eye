@@ -53,6 +53,10 @@ public class MotionLanguageTests
     // package, build and Aspire resource) that happens to share this gate.
     private const string ManagementCamerasSrc = "apps/management-cameras/src";
 
+    // Issue #2780: the second federated remote, same reasoning as
+    // ManagementCamerasSrc above.
+    private const string ManagementEventIngestionSrc = "apps/management-event-ingestion/src";
+
     // Scoped to apps/shared/src/ui (not the whole apps/shared/src tree), mirroring
     // SharedUiTokenUsageTests' own convention: facts 2/3/5(b) scan for Tailwind-utility-
     // shaped string-literal content, and apps/shared/src/api|realtime|observability|
@@ -235,7 +239,7 @@ public class MotionLanguageTests
     public void Every_scanned_tree_exists_and_is_non_empty()
     {
         DirectoryInfo root = RepositorySource.Root();
-        string[] scannedTrees = [ManagementSrc, ManagementCamerasSrc, KioskSrc, SharedUiSrc];
+        string[] scannedTrees = [ManagementSrc, ManagementCamerasSrc, ManagementEventIngestionSrc, KioskSrc, SharedUiSrc];
         List<string> problems = [];
 
         foreach (string tree in scannedTrees)
@@ -940,6 +944,7 @@ public class MotionLanguageTests
     private static IEnumerable<string> ScannedTsFiles(DirectoryInfo root) =>
         ScannedFiles(root, ManagementSrc, [".ts", ".tsx"])
             .Concat(ScannedFiles(root, ManagementCamerasSrc, [".ts", ".tsx"]))
+            .Concat(ScannedFiles(root, ManagementEventIngestionSrc, [".ts", ".tsx"]))
             .Concat(ScannedFiles(root, KioskSrc, [".ts", ".tsx"]))
             .Concat(ScannedFiles(root, SharedUiSrc, [".ts", ".tsx"]))
             // tailwindTheme.ts (ui/tokens/) DEFINES the role utilities — it is not a call site —
@@ -957,6 +962,7 @@ public class MotionLanguageTests
     private static IEnumerable<string> ScannedCssFiles(DirectoryInfo root) =>
         ScannedFiles(root, ManagementSrc, [".css"])
             .Concat(ScannedFiles(root, ManagementCamerasSrc, [".css"]))
+            .Concat(ScannedFiles(root, ManagementEventIngestionSrc, [".css"]))
             .Concat(ScannedFiles(root, KioskSrc, [".css"]))
             .Concat(ScannedFiles(root, SharedUiSrc, [".css"]));
 
