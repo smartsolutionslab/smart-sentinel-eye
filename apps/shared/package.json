@@ -22,6 +22,7 @@
     "./api/walls.api": "./src/api/walls.api.ts",
     "./api/walls.schema": "./src/api/walls.schema.ts",
     "./api/eventIngestion.api": "./src/api/eventIngestion.api.ts",
+    "./api/eventTypes.api": "./src/api/eventTypes.api.ts",
     "./api/problemDetail": "./src/api/problemDetail.ts",
     "./format/revisionSummary": "./src/format/revisionSummary.ts",
     "./format/cameraLabel": "./src/format/cameraLabel.ts",
@@ -62,6 +63,7 @@
     "./test/focusRefetch": "./src/test/focusRefetch.ts",
     "./store": "./src/store/createApiStore.ts",
     "./navigation/navManifest": "./src/navigation/navManifest.ts",
+    "./navigation/grantedScopes": "./src/navigation/grantedScopes.ts",
     "./hooks": "./src/hooks/index.ts",
     "./types": "./src/types/index.ts"
   },

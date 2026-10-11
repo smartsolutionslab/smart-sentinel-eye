@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useAuth } from 'react-oidc-context';
-import { grantedScopes } from './grantedScopes.js';
+import { grantedScopes } from '@smart-sentinel-eye/shared/navigation/grantedScopes';
 import { visibleEntries, type NavEntry } from './visibleEntries.js';
 import { useNavigation } from './NavigationProvider.js';
 
