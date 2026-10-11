@@ -94,7 +94,8 @@ plugin can say is "not refused by me".
   - `defer recover` → `C.MOSQ_ERR_ACL_DENIED`. This is fail-closed, the same pattern as basic auth.
   - `ev := (*C.struct_mosquitto_evt_acl_check)(eventData)`.
   - `name := C.mosquitto_client_username(ev.client)`. If it is `nil`, return
-    `C.MOSQ_ERR_PLUGIN_DEFER`.
+    `C.MOSQ_ERR_ACL_DENIED` — unreachable in practice under this deployment's `allow_anonymous
+    false`, but a write with no username to check is denied rather than deferred.
   - `grants.Decide(C.GoString(name), ev.access == C.MOSQ_ACL_WRITE)`: `Deny` →
     `C.MOSQ_ERR_ACL_DENIED`, `Defer` → `C.MOSQ_ERR_PLUGIN_DEFER`. **Never `MOSQ_ERR_SUCCESS`.**
 - Header comment: extend the "What a JWT-shaped password must satisfy" paragraph with the

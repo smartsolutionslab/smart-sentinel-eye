@@ -81,7 +81,7 @@ cited by measurement in phase 5 (plan §6). No other leg is touched.
 | Where the scope is read | At CONNECT, in `sseOnBasicAuth`, after every existing check has passed |
 | What is required | `sse.events.publish` as an exact, ordinal, space-delimited token in the `scope` claim. The rule mirrors `RequireScopeExtensions.AddScopePolicies`. |
 | Where it is enforced | A new `MOSQ_EVT_ACL_CHECK` callback, for `MOSQ_ACL_WRITE` only |
-| Verdicts | JWT identity **without** the scope, write → `MOSQ_ERR_ACL_DENIED`. Every other case → `MOSQ_ERR_PLUGIN_DEFER`, so `acl.txt` still decides. |
+| Verdicts | JWT identity **without** the scope, write → `MOSQ_ERR_ACL_DENIED`. A write with no username on the context → `MOSQ_ERR_ACL_DENIED` (unreachable in practice under `allow_anonymous false`; defence in depth). Every other case → `MOSQ_ERR_PLUGIN_DEFER`, so `acl.txt` still decides. |
 | Unaffected | CONNECT (a JWT without the scope still connects), READ / SUBSCRIBE / UNSUBSCRIBE, password-file users |
 | Realm | `scenario-simulator` gains `sse.events.publish` as a default client scope |
 
@@ -217,7 +217,7 @@ Given a fresh keycloak-data volume and a rebuilt mosquitto image
 | JWT client without the scope, MQTT 3.1.1, QoS 0/1 | Dropped silently | Protocol limitation, and identical to an ACL refusal today. |
 | `$SYS/…` and other `$` topics | Unchanged | `acl__check_dollar` runs before any callback. |
 | Bridge connections | Unchanged | `mosquitto_acl_check` returns success for bridges before any callback. |
-| ACL check with no username on the context | Defer | No identity to look up. Anonymous access is disabled, so this is reachable only during teardown, after the Will has already been handled. |
+| ACL check with no username on the context | Denied | No identity to look up, and nothing this plugin can refuse from a token it never saw — but the case is unreachable in practice: every Will path in Mosquitto 2.0.18 sends or clears the Will before `context__cleanup` frees the username, and `allow_anonymous false` means no authorized context is ever without one. Denied as defence in depth, not a response to a specific real path. |
 | Password-file user | Defer | Unchanged. `passwords.txt` holds no hashes today. |
 | Password-file login using a name that previously authenticated by JWT without the scope | Writes refused | Fail closed: the same name is the same identity (plan §3). |
 | Panic inside the ACL callback | `MOSQ_ERR_ACL_DENIED` | Fail closed. It mirrors basic auth's `recover` → `MOSQ_ERR_AUTH`. |
