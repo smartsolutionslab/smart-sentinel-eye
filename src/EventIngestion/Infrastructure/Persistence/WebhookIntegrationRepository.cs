@@ -38,6 +38,18 @@ public sealed class WebhookIntegrationRepository(
         return found is null ? Option<WebhookIntegration>.None : Option<WebhookIntegration>.Some(found);
     }
 
+    public async Task<bool> IsRevokedByKeycloakClientIdAsync(
+        KeycloakClientIdentifier keycloakClientId, CancellationToken cancellationToken)
+    {
+        Ensure.That(keycloakClientId).IsNotNull();
+
+        return await dbContext.WebhookIntegrations
+            .AnyAsync(
+                integration => integration.KeycloakClientId == keycloakClientId
+                    && integration.RevokedAt != null,
+                cancellationToken);
+    }
+
     public void Add(WebhookIntegration integration)
     {
         Ensure.That(integration).IsNotNull();
