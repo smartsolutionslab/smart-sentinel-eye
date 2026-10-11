@@ -281,6 +281,32 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
     );
   });
 
+  /**
+   * Phase-6/review should-fix: `getToken`, `cameras` and `renderFrameGrabber`
+   * are three independently optional props on `OverlayEditor`, but FR-017's
+   * degradation is all-or-nothing — "absent ⇒ not offered at all". Before
+   * the fix, a caller that wired `getToken`/`cameras` but not
+   * `renderFrameGrabber` still got a working-looking camera picker and
+   * "Capture frame" button that would silently fail after the 10s
+   * `CAPTURE_TIMEOUT_MS` once pressed, because nothing ever mounted the
+   * actual grabber. This proves the gate: with `renderFrameGrabber` absent,
+   * the whole camera-capture section — picker and button alike — is not
+   * offered at all, same as when `getToken`/`cameras` themselves are absent.
+   */
+  it('Offers no camera picker or Capture button when renderFrameGrabber is absent, even with getToken and cameras set', () => {
+    render(
+      <OverlayEditor
+        value={buildLabel()}
+        onChange={vi.fn()}
+        getToken={async () => 'token'}
+        cameras={cameraChoicesFixture() as CameraChoicesResult}
+      />,
+    );
+
+    expect(screen.queryByRole('combobox', { name: /camera/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /capture frame/i })).toBeNull();
+  });
+
   it('Disables the Captured frame backdrop until a frame has been captured (FR-004)', () => {
     render(
       <OverlayEditor
