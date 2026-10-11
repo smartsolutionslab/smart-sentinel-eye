@@ -51,6 +51,7 @@
     "./ui/composites/DataTable": "./src/ui/composites/DataTable.tsx",
     "./ui/composites/CameraViewer": "./src/ui/composites/CameraViewer.tsx",
     "./ui/composites/ErrorBoundary": "./src/ui/composites/ErrorBoundary.tsx",
+    "./ui/composites/FrameGrabber": "./src/ui/composites/FrameGrabber.tsx",
     "./ui/composites/OverlayEditor": "./src/ui/composites/OverlayEditor.tsx",
     "./ui/composites/RetryBanner": "./src/ui/composites/RetryBanner.tsx",
     "./ui/tokens/*": "./src/ui/tokens/*",

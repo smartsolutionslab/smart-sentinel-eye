@@ -1,11 +1,18 @@
 import { useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
-import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 import { logResilienceEvent } from '../../observability/resilienceLog.js';
 import { useWhepSession } from './useWhepSession.js';
 
 export interface FrameGrabberProps {
   cameraIdentifier: string;
+  /**
+   * The caller's `useGetStreamQuery(cameraIdentifier).currentData` (spec 157
+   * FR-002, not `data` — ADR-0169: this composite cannot call the RTK Query
+   * hook itself without assuming a Redux store, so the caller reads it and
+   * passes the result down).
+   */
+  stream: StreamHealth | undefined;
   getToken: () => Promise<string | null>;
   onCaptured: (dataUrl: string) => void;
   onFailed: () => void;
@@ -34,14 +41,7 @@ const HIDDEN_VIDEO_STYLE: CSSProperties = {
  * third, hand-written release path: FR-010 through FR-014 are one mechanism
  * (the unmount), not five.
  */
-export function FrameGrabber({ cameraIdentifier, getToken, onCaptured, onFailed }: FrameGrabberProps) {
-  // `currentData`, not `data` (spec 157 FR-002): behaviour-preserving here —
-  // this component is mounted per capture and never re-propped, so its
-  // `cameraIdentifier` cannot change on a mounted instance and the two
-  // spellings are indistinguishable today. Closed anyway so a known instance
-  // of the `data`-with-a-variable-argument shape does not stay live in the
-  // same file family (spec § "The ESLint rule").
-  const { currentData: stream } = useGetStreamQuery(cameraIdentifier);
+export function FrameGrabber({ cameraIdentifier, stream, getToken, onCaptured, onFailed }: FrameGrabberProps) {
   const { videoRef, status } = useWhepSession({
     cameraIdentifier,
     whepUrl: stream?.whepUrl,

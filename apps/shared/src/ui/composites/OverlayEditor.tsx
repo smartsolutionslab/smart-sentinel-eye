@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
-import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
+import type { CSSProperties, KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Rnd } from 'react-rnd';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
 import type { ResolvedTextPreview } from '@smart-sentinel-eye/shared/api/systemVariables.api';
@@ -7,8 +7,7 @@ import { overlayLabelSurfaceStyle } from './overlayLabelStyle.js';
 import { Button } from '../primitives/Button.js';
 import { Input } from '../primitives/Input.js';
 import { BackdropControls } from './BackdropControls.js';
-import type { Backdrop } from './BackdropControls.js';
-import { FrameGrabber } from './FrameGrabber.js';
+import type { Backdrop, CameraChoicesResult } from './BackdropControls.js';
 import { useFrameCapture } from './useFrameCapture.js';
 import { PlaceholderPreviewPanel, PLACEHOLDER_PREVIEW_STATUS_ID } from './PlaceholderPreviewPanel.js';
 import { formatPercent, QUANTUM } from './normalizedPercent.js';
@@ -51,6 +50,27 @@ export interface OverlayEditorProps {
   resolvedPreview?: ResolvedTextPreview;
   isResolving?: boolean;
   resolveFailed?: boolean;
+  /**
+   * The caller's `useListAllCameraChoicesQuery()` result, forwarded to
+   * `BackdropControls`. Same ADR-0169 reasoning as `resolvedPreview` above —
+   * this composite does not call the hook itself. Meaningful only alongside
+   * `getToken`; a caller that omits one but not the other gets no camera
+   * picker (`BackdropControls`'s own gate), same as before this prop existed.
+   */
+  cameras?: CameraChoicesResult;
+  /**
+   * Renders the capture-in-flight `FrameGrabber` (spec 147), given the three
+   * things only `OverlayEditor` knows (which camera, and where to deliver the
+   * result). ADR-0169: `FrameGrabber` itself takes `stream` as a prop rather
+   * than calling `useGetStreamQuery`, so the caller — who owns a `<Provider>`
+   * — is the one who can call that hook; this is the seam that lets it. Absent
+   * alongside `getToken` ⇒ no capture control is offered (same FR-017 shape).
+   */
+  renderFrameGrabber?: (props: {
+    cameraIdentifier: string;
+    onCaptured: (dataUrl: string) => void;
+    onFailed: () => void;
+  }) => ReactNode;
 }
 
 const MIN_NORMALIZED = 0;
@@ -263,6 +283,8 @@ export function OverlayEditor({
   resolvedPreview,
   isResolving = false,
   resolveFailed = false,
+  cameras,
+  renderFrameGrabber,
 }: OverlayEditorProps) {
   // US3: the canvas box sizes around the string the wall will actually show.
   // Raw text is the fallback while the preview is in flight, has failed, or
@@ -755,6 +777,7 @@ export function OverlayEditor({
         onBackdropChange={setBackdrop}
         hasCapturedFrame={capturedFrame !== null}
         getToken={getToken}
+        cameras={cameras}
         selectedCamera={selectedCamera}
         onCameraChange={handleCameraChange}
         captureState={captureState}
@@ -764,15 +787,13 @@ export function OverlayEditor({
       {/* Mounted only while a capture is in flight (spec 147 plan.md
           §The mechanism) — success, failure, timeout, cancel, camera change
           and unmount all release the WHEP session through this one unmount,
-          never a hand-written release path (FR-010–FR-014). */}
-      {activeCamera !== null && getToken !== undefined && (
-        <FrameGrabber
-          key={activeCamera}
-          cameraIdentifier={activeCamera}
-          getToken={getToken}
-          onCaptured={handleCaptured}
-          onFailed={fail}
-        />
+          never a hand-written release path (FR-010–FR-014). The caller
+          renders the actual `FrameGrabber` (ADR-0169: it owns `useGetStreamQuery`,
+          which needs a `<Provider>`); this only decides when. */}
+      {activeCamera !== null && getToken !== undefined && renderFrameGrabber !== undefined && (
+        <Fragment key={activeCamera}>
+          {renderFrameGrabber({ cameraIdentifier: activeCamera, onCaptured: handleCaptured, onFailed: fail })}
+        </Fragment>
       )}
     </div>
   );

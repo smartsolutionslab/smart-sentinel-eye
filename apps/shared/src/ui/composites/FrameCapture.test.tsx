@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { CameraChoicesResult } from './BackdropControls.js';
 
 /**
  * Spec 147 T003 — new behaviour, RED. `OverlayEditor` gains a bounded WHEP
@@ -123,16 +124,53 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
   useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
 }));
 
-const useListAllCameraChoicesQueryMock = vi.fn();
-vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
-  return {
-    ...actual,
-    useListAllCameraChoicesQuery: (...args: unknown[]) => useListAllCameraChoicesQueryMock(...args),
-  };
-});
-
 const { OverlayEditor } = await import('./OverlayEditor.js');
+const { FrameGrabber } = await import('./FrameGrabber.js');
+const { useGetStreamQuery } = await import('@smart-sentinel-eye/shared/api/streams.api');
+
+// A fixture factory, not a hook mock — `BackdropControls` no longer calls
+// `useListAllCameraChoicesQuery` itself (ADR-0169); the caller reads it and
+// passes the result down as `cameras`.
+const cameraChoicesFixture = vi.fn();
+
+/**
+ * ADR-0169: `OverlayEditor` no longer calls `useGetStreamQuery` itself — the
+ * caller does, and passes `renderFrameGrabber`. This mirrors
+ * `OverlayDraftFormFrameGrabber` (the real caller's wrapper), reading the
+ * same mocked hook this file already set up.
+ */
+function TestFrameGrabber({
+  cameraIdentifier,
+  onCaptured,
+  onFailed,
+}: {
+  cameraIdentifier: string;
+  onCaptured: (dataUrl: string) => void;
+  onFailed: () => void;
+}) {
+  const { currentData: stream } = useGetStreamQuery(cameraIdentifier);
+  return (
+    <FrameGrabber
+      cameraIdentifier={cameraIdentifier}
+      stream={stream}
+      getToken={async () => 'token'}
+      onCaptured={onCaptured}
+      onFailed={onFailed}
+    />
+  );
+}
+
+function renderEditor(props: { value?: OverlayLabel; onChange?: (next: OverlayLabel) => void } = {}) {
+  return render(
+    <OverlayEditor
+      value={props.value ?? buildLabel()}
+      onChange={props.onChange ?? vi.fn()}
+      getToken={async () => 'token'}
+      cameras={cameraChoicesFixture() as CameraChoicesResult}
+      renderFrameGrabber={(p) => <TestFrameGrabber {...p} />}
+    />,
+  );
+}
 
 const CAMERA_42 = {
   cameraIdentifier: 'cam-42',
@@ -227,10 +265,9 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       isLoading: false,
       error: undefined,
     }));
-    useListAllCameraChoicesQueryMock.mockReturnValue({
+    cameraChoicesFixture.mockReturnValue({
       data: { items: [CAMERA_42, CAMERA_7], count: 2, complete: true },
       isLoading: false,
-      isFetching: false,
       isError: false,
     });
   });
@@ -243,7 +280,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-014, the negative the whole design rests on. */
   it('Opens no WHEP session while no capture is in flight', () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
     expect(FakePeerConnection.instances).toHaveLength(0);
 
     selectCamera(CAMERA_42.cameraIdentifier);
@@ -252,7 +289,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-007/FR-008. */
   it('Opens exactly one WHEP session against the selected camera when Capture is pressed', async () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -263,7 +300,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-009. */
   it('Captures nothing before the session reports live', async () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -279,7 +316,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
   /** FR-010, asserted on the `fetch` stub — not a mocked `WhepClient` method. */
   it('Closes the session and issues the WHEP DELETE once a frame is captured', async () => {
     installCanvasStub();
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -295,7 +332,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-011. */
   it('Abandons a capture that produces no frame within 10 seconds', async () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -314,7 +351,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-012: an in-flight capture can be cancelled. */
   it('Closes the session when a capture in flight is cancelled', async () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -358,7 +395,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     /** Item 2 — characterisation, observed green (spec §6). The behaviour is spec 147's `catch`; only the coverage is new. */
     it('Shows the could-not-capture alert and keeps the checkerboard when the canvas is tainted', async () => {
       installTaintedCanvasStub();
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -377,7 +414,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     /** Item 1 — RED (spec §6, FR-001/FR-002). No `frame-capture-failed` line exists today. */
     it('Logs the tainted-canvas cause on the resilience channel', async () => {
       installTaintedCanvasStub();
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -396,7 +433,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     /** Item 1 — RED (spec §6, FR-001/FR-002). The 2d-context-missing branch has a distinct cause. */
     it('Logs a distinct cause when the canvas has no 2d context', async () => {
       installNoContextCanvasStub();
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -416,7 +453,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     /** Guard — FR-003's negative, green before and after (spec §6). Nothing logs on a successful capture, and the picture never reaches the channel. */
     it('Logs no capture failure and never the picture when a frame is captured', async () => {
       installCanvasStub();
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -434,7 +471,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     /** Item 3 — RED (spec §6, FR-005). No live region exists in `BackdropControls.tsx` today. */
     it('Announces the capture in flight and clears the announcement when it ends', async () => {
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       const liveRegion = screen.getByTestId('frame-capture-live-region');
@@ -450,7 +487,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     /** Item 3 — RED (spec §6, FR-006). `fireEvent.click` does not focus in jsdom, so the button is focused explicitly first. */
     it('Returns focus to Capture frame when a focused Cancel is pressed', async () => {
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -470,7 +507,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     /** Item 3 — RED (spec §6, FR-006), the broadened finding (spec §1): a capture that succeeds while Cancel has focus returns it too, not only an explicit Cancel click. */
     it('Returns focus to Capture frame when a capture succeeds while Cancel has focus', async () => {
       installCanvasStub();
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -492,7 +529,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
     /** Item 3 — RED (spec §6, FR-006), the 10 s-timeout half of the same broadened finding. */
     it('Returns focus to Capture frame when a capture fails on the 10 s timeout while Cancel has focus', async () => {
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -514,7 +551,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
     /** Guard — FR-007's negative, green before and after (spec §6). Focus elsewhere is left alone when a capture ends. */
     it('Leaves focus where it is when a capture ends while another control has focus', async () => {
       installCanvasStub();
-      render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+      renderEditor();
 
       selectCamera(CAMERA_42.cameraIdentifier);
       pressCapture();
@@ -537,7 +574,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-012: changing the camera mid-capture closes the old session and applies nothing from it. */
   it('Closes the session against the old camera when the camera is changed mid-capture', async () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -560,9 +597,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
 
   /** FR-013: unmounting the editor (the dialog-close path) closes an in-flight session. */
   it('Closes the session when the editor unmounts mid-capture', async () => {
-    const { unmount } = render(
-      <OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />,
-    );
+    const { unmount } = renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -588,7 +623,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       isLoading: false,
       error: { status: 500 },
     }));
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();
@@ -618,7 +653,7 @@ describe('OverlayEditor frame capture (spec 147 T003)', () => {
       }
       return { ok: false, status: 401, text: async () => 'unauthorized' };
     });
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    renderEditor();
 
     selectCamera(CAMERA_42.cameraIdentifier);
     pressCapture();

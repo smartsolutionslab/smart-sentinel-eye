@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
-import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import type { CameraChoices } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { ambiguousNamesOf, cameraLabel } from '../../format/cameraLabel.js';
 import { Button } from '../primitives/Button.js';
 import { FormField } from './FormField.js';
@@ -7,12 +7,25 @@ import type { CaptureState } from './useFrameCapture.js';
 
 export type Backdrop = 'checkerboard' | 'captured' | 'white' | 'black';
 
+/**
+ * The caller's `useListAllCameraChoicesQuery()` result (ADR-0169: this
+ * composite cannot call the RTK Query hook itself without assuming a Redux
+ * store, so the caller reads it and passes the result down).
+ */
+export interface CameraChoicesResult {
+  data: CameraChoices | undefined;
+  isLoading: boolean;
+  isError: boolean;
+}
+
 export interface BackdropControlsProps {
   backdrop: Backdrop;
   onBackdropChange: (next: Backdrop) => void;
   hasCapturedFrame: boolean;
   /** Absent ⇒ the camera picker and capture control are not offered at all (FR-017's type-level degradation). */
   getToken?: () => Promise<string | null>;
+  /** Required alongside `getToken` — the camera picker has nothing to render without it. */
+  cameras?: CameraChoicesResult;
   selectedCamera: string;
   onCameraChange: (next: string) => void;
   captureState: CaptureState;
@@ -39,18 +52,19 @@ const SELECT_CLASSNAME =
  * 147). The four-way selector is always offered — a translucent label can be
  * checked against a plain white or black field with no camera at all — and
  * costs no dependency of its own. The camera picker and "Capture frame" live
- * in `CameraCaptureSection` below, mounted only when `getToken` is supplied:
- * that is what keeps `useListAllCameraChoicesQuery` (an RTK Query hook,
- * requiring a `<Provider>`) from ever running for a caller that does not
- * offer the capture feature at all — `OverlayEditorCharacterisation.test.tsx`
- * renders `OverlayEditor` with no `getToken` and no Redux store, exactly as it
- * did before this spec (FR-017's degradation path expressed as a type).
+ * in `CameraCaptureSection` below, mounted only when both `getToken` and
+ * `cameras` are supplied — `OverlayEditorCharacterisation.test.tsx` renders
+ * `OverlayEditor` with neither and no Redux store, exactly as it did before
+ * this spec (FR-017's degradation path expressed as a type). This composite
+ * never calls `useListAllCameraChoicesQuery` itself (ADR-0169); the caller
+ * reads it and passes the result down as `cameras`.
  */
 export function BackdropControls({
   backdrop,
   onBackdropChange,
   hasCapturedFrame,
   getToken,
+  cameras,
   selectedCamera,
   onCameraChange,
   captureState,
@@ -82,8 +96,9 @@ export function BackdropControls({
         ))}
       </fieldset>
 
-      {getToken !== undefined && (
+      {getToken !== undefined && cameras !== undefined && (
         <CameraCaptureSection
+          cameras={cameras}
           selectedCamera={selectedCamera}
           onCameraChange={onCameraChange}
           captureState={captureState}
@@ -96,6 +111,7 @@ export function BackdropControls({
 }
 
 interface CameraCaptureSectionProps {
+  cameras: CameraChoicesResult;
   selectedCamera: string;
   onCameraChange: (next: string) => void;
   captureState: CaptureState;
@@ -105,25 +121,27 @@ interface CameraCaptureSectionProps {
 
 /**
  * The camera picker and capture control — split out from `BackdropControls`
- * so `useListAllCameraChoicesQuery` (which needs a Redux `<Provider>`) is
- * called only while this section is actually mounted, i.e. only when a
- * caller supplies `getToken`.
+ * so the camera list (an RTK Query result, needing a Redux `<Provider>`) is
+ * read only while this section is actually mounted, i.e. only when a caller
+ * supplies both `getToken` and `cameras`. ADR-0169: the query itself runs in
+ * the caller (mirrors `LayoutEditorDialog.tsx:85-98`'s use of the same query,
+ * without that dialog's name filter — this picker is a preview-time
+ * convenience, not a record of anything the operator authors), and this
+ * composite only ever reads the result as a prop.
  */
 function CameraCaptureSection({
+  cameras,
   selectedCamera,
   onCameraChange,
   captureState,
   onCapture,
   onCancelCapture,
 }: CameraCaptureSectionProps) {
-  // Mirrors `LayoutEditorDialog.tsx:85-98`'s use of the same query, without
-  // that dialog's name filter: this picker is a preview-time convenience, not
-  // a record of anything the operator authors.
-  const { data: cameras, isLoading: camerasLoading, isError: camerasFailed } = useListAllCameraChoicesQuery();
+  const { data: cameraChoices, isLoading: camerasLoading, isError: camerasFailed } = cameras;
   const cameraSelectId = useId();
 
-  const cameraItems = cameras?.items ?? [];
-  const camerasTruncated = cameras !== undefined && !cameras.complete;
+  const cameraItems = cameraChoices?.items ?? [];
+  const camerasTruncated = cameraChoices !== undefined && !cameraChoices.complete;
   // Fab-qualified when two fabs the operator holds share a name (issue
   // #2686) — the same rule `GridDesigner.tsx` applies to its tile picker.
   const ambiguousCameraNames = ambiguousNamesOf(cameraItems);
@@ -172,9 +190,9 @@ function CameraCaptureSection({
       </FormField>
       {/* Spec 048's truncation notice, mirrored from LayoutEditorDialog — how
           many of how many, and stops there. */}
-      {camerasTruncated && cameras !== undefined && (
+      {camerasTruncated && cameraChoices !== undefined && (
         <p className="m-0 text-xs text-fg-muted">
-          Showing {cameraItems.length} of {cameras.count} cameras.
+          Showing {cameraItems.length} of {cameraChoices.count} cameras.
         </p>
       )}
       <div className="flex gap-2">
