@@ -1,4 +1,4 @@
-﻿namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
+namespace SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
 /// <summary>
 /// Wire shape for "an overlay's resolved text changed" SignalR frames

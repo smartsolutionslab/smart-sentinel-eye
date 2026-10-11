@@ -75,7 +75,8 @@ public sealed class VariableArchivedDomainEventHandler(
                 }
 
                 VariableName parsed;
-                try { parsed = VariableName.From(name); }
+                try
+                { parsed = VariableName.From(name); }
                 catch (ArgumentException) { continue; }
 
                 // Siblings resolve in the fab that changed (ADR-0115).

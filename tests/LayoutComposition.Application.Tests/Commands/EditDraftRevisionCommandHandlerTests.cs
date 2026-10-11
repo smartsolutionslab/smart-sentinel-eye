@@ -40,7 +40,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Default, [TileAt(0, 0), TileAt(1, 1)], 0),
             CancellationToken.None);
 
@@ -58,7 +58,7 @@ public class EditDraftRevisionCommandHandlerTests
             layouts, FakeCameraFabGuard.Permissive(), new FakeClock(FixedMoment), NullLogger<EditDraftRevisionCommandHandler>.Instance);
 
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 LayoutIdentifier.New(), LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
@@ -77,7 +77,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.From(42), GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 
@@ -97,7 +97,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0, overlay)], 0),
             CancellationToken.None);
 
@@ -116,7 +116,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>(), 0),
             CancellationToken.None);
 
@@ -193,7 +193,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id, LayoutRevisionNumber.One, GridDimensions.Cell, [TileAt(0, 0)], 0),
             CancellationToken.None);
 

@@ -1,8 +1,8 @@
 using System.Globalization;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient.Fakes;
+using SmartSentinelEye.Shared.Kernel;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;

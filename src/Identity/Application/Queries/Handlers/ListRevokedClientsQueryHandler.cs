@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Contracts.Identity;
+using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 

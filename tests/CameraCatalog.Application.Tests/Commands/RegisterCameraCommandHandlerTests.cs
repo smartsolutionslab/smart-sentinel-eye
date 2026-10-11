@@ -108,14 +108,14 @@ public class RegisterCameraCommandHandlerTests
         RegisterCameraCommandHandler handler = NewHandler(cameras);
 
         await handler.HandleAsync(
-            new RegisterCameraCommand(FabIdentifier.From("munich"), 
+            new RegisterCameraCommand(FabIdentifier.From("munich"),
                 Name: CameraName.From("Line-1-Entrance"),
                 Url: RtspUrl.From("rtsp://10.0.5.12/h264"),
                 RegisteredBy: AnAdmin),
             CancellationToken.None);
 
         Result<CameraIdentifier, RegisterCameraError> result = await handler.HandleAsync(
-            new RegisterCameraCommand(FabIdentifier.From("munich"), 
+            new RegisterCameraCommand(FabIdentifier.From("munich"),
                 Name: CameraName.From("line-1-entrance"),
                 Url: RtspUrl.From("rtsp://10.0.5.13/h264"),
                 RegisteredBy: AnAdmin),

@@ -1,8 +1,8 @@
 using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
 using RegisteredAt = SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.RegisteredAt;
-using Registration = SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.Registration;
 using RegisteredEventTypeIdentifier = SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.RegisteredEventTypeIdentifier;
+using Registration = SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.Registration;
 using RegistrationState = SmartSentinelEye.EventIngestion.Domain.RegisteredEventType.RegistrationState;
 
 namespace SmartSentinelEye.EventIngestion.Domain.Tests.RegisteredEventType;

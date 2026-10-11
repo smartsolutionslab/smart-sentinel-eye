@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
-using SmartSentinelEye.SystemVariables.Application.Resolution;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.SystemVariables.Application.Resolution;
 
 namespace SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
 
@@ -23,7 +23,8 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
         {
             HashSet<Guid> set = byName.GetOrAdd(name, _ => []);
-            lock (set) { set.Add(overlayIdentifier); }
+            lock (set)
+            { set.Add(overlayIdentifier); }
         }
     }
 
@@ -37,7 +38,8 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     {
         foreach (KeyValuePair<string, HashSet<Guid>> kv in byName)
         {
-            lock (kv.Value) { kv.Value.Remove(overlayIdentifier); }
+            lock (kv.Value)
+            { kv.Value.Remove(overlayIdentifier); }
         }
     }
 
@@ -48,7 +50,8 @@ public sealed class InMemoryReverseIndex : IReverseIndex
             return Array.Empty<Guid>();
         }
 
-        lock (set) { return set.ToArray(); }
+        lock (set)
+        { return set.ToArray(); }
     }
 
     public IReadOnlyList<string>? LookupLabelTexts(Guid overlayIdentifier) =>

@@ -1,6 +1,6 @@
 using System.Globalization;
-using SmartSentinelEye.SystemVariables.Domain.Variable;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.SystemVariables.Domain.Variable;
 
 namespace SmartSentinelEye.SystemVariables.Domain.Tests.Variable;
 

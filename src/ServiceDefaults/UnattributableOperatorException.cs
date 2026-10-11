@@ -1,4 +1,4 @@
-﻿namespace SmartSentinelEye.ServiceDefaults;
+namespace SmartSentinelEye.ServiceDefaults;
 
 /// <summary>
 /// Thrown by <see cref="ClaimsPrincipalExtensions.ToOperatorIdentifier"/>

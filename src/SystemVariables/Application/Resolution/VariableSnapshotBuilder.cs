@@ -27,7 +27,8 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
         foreach (string name in PlaceholderParser.ExtractNames(labelText))
         {
             VariableName parsed;
-            try { parsed = VariableName.From(name); }
+            try
+            { parsed = VariableName.From(name); }
             catch (ArgumentException) { continue; }
 
             // The viewer's fab, not the overlay's: an overlay is a fab-neutral

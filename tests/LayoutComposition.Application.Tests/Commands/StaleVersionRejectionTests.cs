@@ -91,7 +91,7 @@ public class StaleVersionRejectionTests
 
         EditDraftRevisionCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
         Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
-            new EditDraftRevisionCommand([Munich], 
+            new EditDraftRevisionCommand([Munich],
                 layout.Id,
                 LayoutRevisionNumber.One,
                 GridDimensions.Cell,

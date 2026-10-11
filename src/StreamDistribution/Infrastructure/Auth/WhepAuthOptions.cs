@@ -1,4 +1,4 @@
-﻿namespace SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
+namespace SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
 public sealed class WhepAuthOptions
 {

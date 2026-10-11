@@ -1,6 +1,6 @@
 using System.Reflection;
-using Microsoft.Extensions.Options;
 using JasperFx.CodeGeneration.Model;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;

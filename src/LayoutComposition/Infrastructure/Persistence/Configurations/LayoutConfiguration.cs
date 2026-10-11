@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Persistence.Configurations;
 

@@ -1,25 +1,25 @@
 using Microsoft.Extensions.DependencyInjection;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
-using SmartSentinelEye.Automation.Infrastructure.Persistence;
-using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
-using SmartSentinelEye.Identity.Infrastructure.Persistence;
-using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
-using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
-using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 using SmartSentinelEye.AuditObservability.Infrastructure;
+using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Automation.Infrastructure;
+using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.CameraCatalog.Infrastructure;
-using SmartSentinelEye.EventIngestion.Infrastructure;
-using SmartSentinelEye.Identity.Infrastructure;
-using SmartSentinelEye.LayoutComposition.Infrastructure;
+using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
+using SmartSentinelEye.EventIngestion.Infrastructure;
+using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
+using SmartSentinelEye.Identity.Infrastructure;
+using SmartSentinelEye.Identity.Infrastructure.Persistence;
+using SmartSentinelEye.LayoutComposition.Infrastructure;
+using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.MigrationRunner;
 using SmartSentinelEye.OverlayDesigner.Infrastructure;
+using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.StreamDistribution.Infrastructure;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 using SmartSentinelEye.SystemVariables.Infrastructure;
+using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 
 // MigrationRunner orchestrates all bounded-context database migrations and exits (ADR-0067).
 // Each IMigrator runs sequentially before any Api service starts.

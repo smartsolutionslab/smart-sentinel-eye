@@ -380,12 +380,23 @@ public class KioskLatencyTests
             {
                 switch (tag.Key)
                 {
-                    case "segment": segment = tag.Value?.ToString() ?? string.Empty; break;
-                    case "leg": leg = tag.Value?.ToString() ?? string.Empty; break;
-                    case "leg.budget_ms": budget = Convert.ToDouble(tag.Value, CultureInfo.InvariantCulture); break;
-                    case "segment.is_whole_leg": whole = Convert.ToBoolean(tag.Value, CultureInfo.InvariantCulture); break;
-                    case "camera": camera = tag.Value?.ToString() ?? string.Empty; break;
-                    default: break;
+                    case "segment":
+                        segment = tag.Value?.ToString() ?? string.Empty;
+                        break;
+                    case "leg":
+                        leg = tag.Value?.ToString() ?? string.Empty;
+                        break;
+                    case "leg.budget_ms":
+                        budget = Convert.ToDouble(tag.Value, CultureInfo.InvariantCulture);
+                        break;
+                    case "segment.is_whole_leg":
+                        whole = Convert.ToBoolean(tag.Value, CultureInfo.InvariantCulture);
+                        break;
+                    case "camera":
+                        camera = tag.Value?.ToString() ?? string.Empty;
+                        break;
+                    default:
+                        break;
                 }
             }
             // Only this test's own segments. The meter is process-wide and xUnit

@@ -1,6 +1,6 @@
 using System.Globalization;
-using Microsoft.Extensions.Logging.Abstractions;
 using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Automation.Application.Ael;
 using SmartSentinelEye.Automation.Application.DTOs;
 using SmartSentinelEye.Automation.Application.Queries;

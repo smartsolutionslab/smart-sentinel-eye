@@ -1,5 +1,5 @@
-using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Application.DTOs;
+using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 

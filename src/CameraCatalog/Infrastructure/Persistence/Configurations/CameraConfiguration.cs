@@ -1,9 +1,9 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.CameraCatalog.Infrastructure.Persistence.Configurations;
 

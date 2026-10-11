@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
+using SmartSentinelEye.Shared.Kernel.Primitives;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Persistence.Configurations;
