@@ -236,10 +236,10 @@ public class BoundaryTests
         object defaultMap = mapType.GetProperty("Default")!.GetValue(null)!;
         System.Collections.IEnumerable mappedTypes =
             (System.Collections.IEnumerable)mapType.GetProperty("MappedTypes")!.GetValue(defaultMap)!;
-        HashSet<Type> mapped = [..mappedTypes.Cast<Type>()];
+        HashSet<Type> mapped = [.. mappedTypes.Cast<Type>()];
         System.Collections.IEnumerable optOuts =
             (System.Collections.IEnumerable)mapType.GetProperty("ExplicitlyOptedOut")!.GetValue(defaultMap)!;
-        HashSet<string> optedOut = [..optOuts.Cast<string>()];
+        HashSet<string> optedOut = [.. optOuts.Cast<string>()];
 
         IReadOnlyList<Type> unmapped = [.. concreteV1s
             .Where(t => !mapped.Contains(t))
