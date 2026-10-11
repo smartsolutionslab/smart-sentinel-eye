@@ -903,4 +903,18 @@ describe('Frame capture (spec 147)', () => {
 
     expect(useListAllCameraChoicesQueryMock).toHaveBeenCalledWith(undefined, { skip: true });
   });
+
+  /**
+   * Review should-fix: the test above only covers the shapes-only side of
+   * `skip: !hasTextElement` — nothing asserted the matching `skip: false`
+   * for a draft that actually has a Text element, so a regression to a
+   * constant `skip: true` (breaking the real app's camera picker forever)
+   * would pass the whole suite silently.
+   */
+  it('Makes a camera-choices request for a draft with a Text element', () => {
+    useListAllCameraChoicesQueryMock.mockClear();
+    renderDialog();
+
+    expect(useListAllCameraChoicesQueryMock).toHaveBeenCalledWith(undefined, { skip: false });
+  });
 });
