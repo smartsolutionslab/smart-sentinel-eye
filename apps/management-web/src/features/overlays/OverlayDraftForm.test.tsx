@@ -867,4 +867,40 @@ describe('Frame capture (spec 147)', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(SESSION_URL, expect.objectContaining({ method: 'DELETE' }));
   });
+
+  /**
+   * Issue #2847, new behaviour, RED (ADR-0139). The camera-choices query now
+   * lives in `OverlayDraftForm` (moved up from `OverlayEditor`/
+   * `BackdropControls`, ADR-0169), so it must keep the same `skip` shape the
+   * old call site had: it never ran unless `OverlayEditor` was mounted,
+   * which only happens when the draft has a Text element. Without `skip:
+   * !hasTextElement`, a shapes-only draft would make a request it never
+   * made before this issue.
+   */
+  it('Makes no camera-choices request for a shapes-only draft', () => {
+    const BOX_ONLY: OverlayEditTarget = {
+      overlayIdentifier: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+      revisionNumber: 1,
+      name: 'Shapes-only overlay',
+      elements: [
+        {
+          kind: 'Box',
+          color: '#D32F2FFF',
+          normalizedX: 0.05,
+          normalizedY: 0.05,
+          normalizedWidth: 0.2,
+          normalizedHeight: 0.2,
+        },
+      ],
+    };
+    chainQueryState = {
+      data: { overlayIdentifier: BOX_ONLY.overlayIdentifier, version: 1 },
+      isLoading: false,
+      isError: false,
+    };
+    useListAllCameraChoicesQueryMock.mockClear();
+    renderDialog(BOX_ONLY);
+
+    expect(useListAllCameraChoicesQueryMock).toHaveBeenCalledWith(undefined, { skip: true });
+  });
 });

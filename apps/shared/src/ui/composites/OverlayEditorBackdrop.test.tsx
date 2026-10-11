@@ -2,6 +2,7 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OverlayLabel } from '@smart-sentinel-eye/shared/api/overlays.api';
+import type { CameraChoicesResult } from './BackdropControls.js';
 
 /**
  * Spec 147 T002 — new behaviour, RED. `OverlayEditor` gains a four-way backdrop
@@ -101,16 +102,36 @@ vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
   useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
 }));
 
-const useListAllCameraChoicesQueryMock = vi.fn();
-vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
-  return {
-    ...actual,
-    useListAllCameraChoicesQuery: (...args: unknown[]) => useListAllCameraChoicesQueryMock(...args),
-  };
-});
-
 const { OverlayEditor } = await import('./OverlayEditor.js');
+const { FrameGrabber } = await import('./FrameGrabber.js');
+const { useGetStreamQuery } = await import('@smart-sentinel-eye/shared/api/streams.api');
+
+/**
+ * ADR-0169: `OverlayEditor` no longer calls `useGetStreamQuery` itself — the
+ * caller does, and passes `renderFrameGrabber`. This mirrors
+ * `OverlayDraftFormFrameGrabber` (the real caller's wrapper), reading the
+ * same mocked hook this file already set up.
+ */
+function TestFrameGrabber({
+  cameraIdentifier,
+  onCaptured,
+  onFailed,
+}: {
+  cameraIdentifier: string;
+  onCaptured: (dataUrl: string) => void;
+  onFailed: () => void;
+}) {
+  const { currentData: stream } = useGetStreamQuery(cameraIdentifier);
+  return (
+    <FrameGrabber
+      cameraIdentifier={cameraIdentifier}
+      stream={stream}
+      getToken={async () => 'token'}
+      onCaptured={onCaptured}
+      onFailed={onFailed}
+    />
+  );
+}
 
 const CAMERA = {
   cameraIdentifier: 'cam-42',
@@ -161,6 +182,12 @@ async function flushMicrotasks() {
   });
 }
 
+// A fixture factory, not a hook mock — `BackdropControls` no longer calls
+// `useListAllCameraChoicesQuery` itself (ADR-0169); the caller reads it and
+// passes the result down as `cameras`, so this `beforeEach`-set value is
+// just read directly where a test needs it.
+const cameraChoicesFixture = vi.fn();
+
 describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
@@ -189,10 +216,9 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
       isLoading: false,
       error: undefined,
     }));
-    useListAllCameraChoicesQueryMock.mockReturnValue({
+    cameraChoicesFixture.mockReturnValue({
       data: { items: [CAMERA], count: 1, complete: true },
       isLoading: false,
-      isFetching: false,
       isError: false,
     });
   });
@@ -256,13 +282,29 @@ describe('OverlayEditor backdrop selection (spec 147 T002)', () => {
   });
 
   it('Disables the Captured frame backdrop until a frame has been captured (FR-004)', () => {
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    render(
+      <OverlayEditor
+        value={buildLabel()}
+        onChange={vi.fn()}
+        getToken={async () => 'token'}
+        cameras={cameraChoicesFixture() as CameraChoicesResult}
+        renderFrameGrabber={(p) => <TestFrameGrabber {...p} />}
+      />,
+    );
     expect(isDisabled(screen.getByRole('radio', { name: 'Captured frame' }))).toBe(true);
   });
 
   it('Shows the captured still, letterboxed over black, once a frame is captured (FR-004/FR-019)', async () => {
     installCanvasStub();
-    render(<OverlayEditor value={buildLabel()} onChange={vi.fn()} getToken={async () => 'token'} />);
+    render(
+      <OverlayEditor
+        value={buildLabel()}
+        onChange={vi.fn()}
+        getToken={async () => 'token'}
+        cameras={cameraChoicesFixture() as CameraChoicesResult}
+        renderFrameGrabber={(p) => <TestFrameGrabber {...p} />}
+      />,
+    );
 
     fireEvent.change(screen.getByRole('combobox', { name: /camera/i }), {
       target: { value: CAMERA.cameraIdentifier },

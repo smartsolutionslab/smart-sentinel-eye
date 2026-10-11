@@ -1,17 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const useListAllCameraChoicesQueryMock = vi.fn();
-vi.mock('@smart-sentinel-eye/shared/api/cameras.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/cameras.api')>();
-  return {
-    ...actual,
-    useListAllCameraChoicesQuery: (...args: unknown[]) => useListAllCameraChoicesQueryMock(...args),
-  };
-});
-
-const { BackdropControls } = await import('./BackdropControls.js');
+import { BackdropControls } from './BackdropControls.js';
+import type { CameraChoicesResult } from './BackdropControls.js';
 
 const MUNICH = {
   cameraIdentifier: 'cam-munich',
@@ -23,6 +14,10 @@ const MUNICH = {
   status: 'Registered',
 };
 const BERLIN = { ...MUNICH, cameraIdentifier: 'cam-berlin', fab: 'berlin' };
+
+function camerasResult(items: typeof MUNICH[]): CameraChoicesResult {
+  return { data: { items, count: items.length, complete: true }, isLoading: false, isError: false };
+}
 
 /**
  * Issue #2686 — camera names are unique only *within* a fab, and
@@ -38,19 +33,13 @@ describe('BackdropControls — camera names ambiguous across fabs (issue #2686)'
   });
 
   it('Qualifies two identically-named cameras from different fabs by fab', () => {
-    useListAllCameraChoicesQueryMock.mockReturnValue({
-      data: { items: [MUNICH, BERLIN], count: 2, complete: true },
-      isLoading: false,
-      isFetching: false,
-      isError: false,
-    });
-
     render(
       <BackdropControls
         backdrop="checkerboard"
         onBackdropChange={vi.fn()}
         hasCapturedFrame={false}
         getToken={async () => 'token'}
+        cameras={camerasResult([MUNICH, BERLIN])}
         selectedCamera=""
         onCameraChange={vi.fn()}
         captureState="idle"
@@ -66,19 +55,13 @@ describe('BackdropControls — camera names ambiguous across fabs (issue #2686)'
   });
 
   it('Announces the fab-qualified name while a capture is in flight', () => {
-    useListAllCameraChoicesQueryMock.mockReturnValue({
-      data: { items: [MUNICH, BERLIN], count: 2, complete: true },
-      isLoading: false,
-      isFetching: false,
-      isError: false,
-    });
-
     render(
       <BackdropControls
         backdrop="checkerboard"
         onBackdropChange={vi.fn()}
         hasCapturedFrame={false}
         getToken={async () => 'token'}
+        cameras={camerasResult([MUNICH, BERLIN])}
         selectedCamera={BERLIN.cameraIdentifier}
         onCameraChange={vi.fn()}
         captureState="capturing"

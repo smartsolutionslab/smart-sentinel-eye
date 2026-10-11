@@ -11,12 +11,15 @@ import {
   type CreateOverlayDraftInput,
 } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useResolveOverlayTextQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
+import { useListAllCameraChoicesQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
+import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import { skipToken } from '@reduxjs/toolkit/query/react';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
 import { Input } from '@smart-sentinel-eye/shared/ui/primitives/Input';
 import { ChainRecoveryNotice } from '@smart-sentinel-eye/shared/ui/composites/ChainRecoveryNotice';
 import { FormField } from '@smart-sentinel-eye/shared/ui/composites/FormField';
 import { OverlayEditor } from '@smart-sentinel-eye/shared/ui/composites/OverlayEditor';
+import { FrameGrabber } from '@smart-sentinel-eye/shared/ui/composites/FrameGrabber';
 import {
   CONFLICT_FALLBACK,
   isStaleConflict,
@@ -109,6 +112,41 @@ function textIndexOf(elements: readonly OverlayElement[]): number {
 
 /** Phase-6 should-fix 4 (#2350) — `readOnly`'s `OverlayEditor.onChange` override. */
 function noop(): void {}
+
+/**
+ * ADR-0169 (issue #2847): `FrameGrabber` takes `stream` as a prop rather than
+ * calling `useGetStreamQuery` itself, so this wrapper — which does have a
+ * `<Provider>` above it — is where that call happens. `currentData`, not
+ * `data` (spec 157 FR-002): this component is mounted per capture and never
+ * re-propped, so its `cameraIdentifier` cannot change on a mounted instance
+ * and the two spellings are indistinguishable today. Closed anyway so no
+ * instance of the `data`-with-a-variable-argument shape stays live in this
+ * file family. Module scope, not inline in `OverlayDraftForm`'s render — a
+ * component defined inside another component's body would remount every
+ * render, dropping its own WHEP session.
+ */
+function OverlayDraftFormFrameGrabber({
+  cameraIdentifier,
+  getToken,
+  onCaptured,
+  onFailed,
+}: {
+  cameraIdentifier: string;
+  getToken: () => Promise<string | null>;
+  onCaptured: (dataUrl: string) => void;
+  onFailed: () => void;
+}) {
+  const { currentData: stream } = useGetStreamQuery(cameraIdentifier);
+  return (
+    <FrameGrabber
+      cameraIdentifier={cameraIdentifier}
+      stream={stream}
+      getToken={getToken}
+      onCaptured={onCaptured}
+      onFailed={onFailed}
+    />
+  );
+}
 
 export function OverlayDraftForm({
   editTarget,
@@ -276,6 +314,20 @@ export function OverlayDraftForm({
   const resolvedPreview = settled ? currentData : undefined;
   const isResolving = isFetching || !settled;
 
+  // ADR-0169 (issue #2847): `BackdropControls`' camera picker needs this
+  // query, and for the same reason as `resolvedPreview` above, it cannot live
+  // in `OverlayEditor` — `OverlayEditorCharacterisation.test.tsx` and its
+  // siblings render that component bare, with no Redux `<Provider>`. `skip:
+  // !hasTextElement` matters: before this query moved here, it only ever ran
+  // once `OverlayEditor` mounted, which only happens when `hasTextElement`
+  // (above). Without the skip, a shapes-only draft would make a request it
+  // never made before.
+  const {
+    data: cameraChoices,
+    isLoading: cameraChoicesLoading,
+    isError: cameraChoicesFailed,
+  } = useListAllCameraChoicesQuery(undefined, { skip: !hasTextElement });
+
   const onSubmit = handleSubmit(async (input) => {
     if (editTarget !== undefined) {
       // FR-013: kept as defence-in-depth alongside `saveBlocked` below (spec
@@ -416,6 +468,15 @@ export function OverlayDraftForm({
                 resolvedPreview={resolvedPreview}
                 isResolving={isResolving}
                 resolveFailed={resolveFailed}
+                cameras={{ data: cameraChoices, isLoading: cameraChoicesLoading, isError: cameraChoicesFailed }}
+                renderFrameGrabber={({ cameraIdentifier, onCaptured, onFailed }) => (
+                  <OverlayDraftFormFrameGrabber
+                    cameraIdentifier={cameraIdentifier}
+                    getToken={getToken}
+                    onCaptured={onCaptured}
+                    onFailed={onFailed}
+                  />
+                )}
               />
             )}
           />
