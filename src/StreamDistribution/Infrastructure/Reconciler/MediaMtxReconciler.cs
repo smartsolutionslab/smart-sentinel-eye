@@ -34,23 +34,47 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 /// </summary>
 public sealed class MediaMtxReconciler(
     IServiceScopeFactory scopeFactory,
+    IHostApplicationLifetime lifetime,
     ILogger<MediaMtxReconciler> logger) : IHostedService
 {
-    public async Task StartAsync(CancellationToken cancellationToken)
+    /// <summary>
+    /// Deferred to <see cref="IHostApplicationLifetime.ApplicationStarted"/>
+    /// rather than run inline here. <c>IHostedService.StartAsync</c> runs
+    /// before Kestrel binds its listener (<c>WebApplicationBuilder</c>'s
+    /// documented ordering), and since ADR-0171 every one of this pass's own
+    /// gateway calls (<c>ListConfiguredPathsAsync</c>, <c>AddPathAsync</c>,
+    /// <c>RemovePathAsync</c>) authorizes through a callback to this same
+    /// host's <c>/streams/authorize</c> — so a reconcile that ran here would
+    /// have MediaMTX call back to a port nothing is listening on yet, get no
+    /// response, deny with 401 (or time out), and fail every call. Before this
+    /// fix that failure was swallowed by the catch below and logged once as
+    /// <c>ReconcilerStartupPassFailed</c>, so the reconcile silently no-opped
+    /// on every single boot. Registering against <c>ApplicationStarted</c>
+    /// instead waits for the listener to actually be up before the first
+    /// gateway call is made.
+    /// </summary>
+    public Task StartAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            await ReconcileOnceAsync(cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // A reconcile failure must not block the host from starting.
-            // Streams keep working; the next restart retries.
-            logger.ReconcilerStartupPassFailed(ex);
-        }
+        lifetime.ApplicationStarted.Register(() => _ = RunDeferredAsync());
+
+        return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private async Task RunDeferredAsync()
+    {
+        try
+        {
+            await ReconcileOnceAsync(lifetime.ApplicationStopping);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // A reconcile failure must not take the host down. Streams keep
+            // working; the next restart retries.
+            logger.ReconcilerStartupPassFailed(ex);
+        }
+    }
 
     public async Task ReconcileOnceAsync(CancellationToken cancellationToken)
     {
