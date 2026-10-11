@@ -84,9 +84,16 @@ async function fetchManifest(remote: RemoteDescriptor, timeoutMs: number): Promi
  * closed per manifest (FR-015), and exposes the composed in-shell + accepted
  * remote entries for `useVisibleEntries`/route gating to filter by scope.
  *
- * Remotes are processed in registration order, one at a time: a basePath
- * collision must have a deterministic winner (the earlier-registered
- * remote), not a race between concurrent fetches.
+ * Manifests are fetched in parallel, not one remote at a time (should-fix 3,
+ * PR #2856 review): sequentially, an unreachable remote held up every
+ * later-registered remote's own manifest for up to `manifestTimeoutMs` — with
+ * two remotes that meant an unreachable cameras remote delayed
+ * event-ingestion's landing too, which contradicts ADR-0168 §3's
+ * "independently deployable" intent. Collision handling stays deterministic
+ * regardless: every fetch settles first, and only then are the results
+ * walked in registry order, so a basePath collision still always has the
+ * same winner (the earlier-registered remote) rather than whichever request
+ * happened to resolve first over the network.
  */
 export function NavigationProvider({
   remotes = defaultRemotes,
@@ -108,13 +115,20 @@ export function NavigationProvider({
     }
 
     let cancelled = false;
-    const acceptedBasePaths: string[] = [];
 
     void (async () => {
-      for (const remote of remotes) {
-        const result = await fetchManifest(remote, manifestTimeoutMs);
-        if (cancelled) return;
+      // Parallel, not sequential (should-fix 3, PR #2856 review): each
+      // promise pairs its own remote with its own outcome, so `Promise.all`
+      // preserves registry order in the resolved array regardless of which
+      // request actually settles first over the network.
+      const outcomes = await Promise.all(
+        remotes.map(async (remote) => ({ remote, result: await fetchManifest(remote, manifestTimeoutMs) })),
+      );
+      if (cancelled) return;
 
+      const acceptedBasePaths: string[] = [];
+
+      for (const { remote, result } of outcomes) {
         if (!result.ok) {
           logResilienceEvent('navigation', 'manifest-rejected', { remote: remote.name, reason: result.reason });
           continue;

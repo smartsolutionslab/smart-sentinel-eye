@@ -188,4 +188,44 @@ describe('NavigationProvider — fail-closed manifest handling (spec 316 FR-015,
     expect(lines).toHaveLength(1);
     expect(lines[0]?.reason).toMatch(/basePath|collis/i);
   });
+
+  it('Should-fix 3 (PR #2856 review): fetches every remote manifest in parallel, not one at a time', async () => {
+    // Each URL's request is held open until this test resolves it — the
+    // previous, sequential implementation never issued the SECOND remote's
+    // request at all until the first one's had already resolved, so if that
+    // regressed, the waitFor below would see only one call and time out.
+    const pending = new Map<string, (response: Response) => void>();
+    fetchMock.mockImplementation((input: unknown) => {
+      const url = typeof input === 'string' ? input : (input as Request).url;
+      return new Promise<Response>((resolve) => pending.set(url, resolve));
+    });
+
+    render(
+      <NavigationProvider
+        remotes={[
+          { name: 'cameras', baseUrl: CAMERAS_BASE_URL },
+          { name: 'layouts', baseUrl: LAYOUTS_BASE_URL },
+        ]}
+      >
+        <Probe />
+      </NavigationProvider>,
+    );
+
+    // Both requests in flight at once, before either has settled.
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    pending.get(`${CAMERAS_BASE_URL}/nav-manifest.json`)?.(manifestResponse(VALID_CAMERAS_MANIFEST));
+    pending.get(`${LAYOUTS_BASE_URL}/nav-manifest.json`)?.(
+      manifestResponse({
+        schemaVersion: 1,
+        remote: 'layouts',
+        basePath: '/layouts',
+        entries: [{ path: '/layouts', label: 'Layouts', order: 20, requiredScopes: ['sse.layouts.read'] }],
+      }),
+    );
+
+    await waitFor(() => expect(screen.getByTestId('probe')).toHaveAttribute('data-status', 'ready'));
+    expect(screen.getByText('Cameras')).toBeInTheDocument();
+    expect(screen.getByText('Layouts')).toBeInTheDocument();
+  });
 });
