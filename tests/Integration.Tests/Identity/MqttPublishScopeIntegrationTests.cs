@@ -83,6 +83,21 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     private const string AudienceScope = "sse-audience";
     private const string PublishScope = "sse.events.publish";
 
+    /// <summary>
+    /// The two PUBACK reason codes MQTTnet 5.2.0.1603 defines below 0x80 —
+    /// MQTT v5's own convention for "accepted" versus the 0x80+ range, all of
+    /// which are refusals (<c>NotAuthorized</c> among them). <see cref="ProbeTopic"/>
+    /// has no subscriber anywhere in this stack, so Mosquitto reports
+    /// <c>NoMatchingSubscribers</c> rather than <c>Success</c> for a publish it
+    /// accepts — AS-2 must treat both as "not refused," not require the exact
+    /// code a subscribed topic would get.
+    /// </summary>
+    private static readonly MqttClientPublishReasonCode[] NonRefusalPublishReasonCodes =
+    [
+        MqttClientPublishReasonCode.Success,
+        MqttClientPublishReasonCode.NoMatchingSubscribers,
+    ];
+
     public async Task InitializeAsync()
     {
         using CancellationTokenSource cts = new(TimeSpan.FromMinutes(2));
@@ -186,10 +201,14 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
             MqttClientPublishResult published = await client.PublishAsync(ProbeMessage());
             output.WriteLine($"AS-2 PUBACK: {published.ReasonCode}");
 
-            published.ReasonCode.ShouldBe(MqttClientPublishReasonCode.Success,
+            NonRefusalPublishReasonCodes.ShouldContain(published.ReasonCode,
                 customMessage: $"'{probe.ClientId}' holds '{PublishScope}' and acl.txt grants it write "
-                + $"on '{ProbeTopic}'. A fix that refused everything would pass AS-1 and fail here — "
-                + "that is exactly what this control exists to catch.");
+                + $"on '{ProbeTopic}'. Nothing ever subscribes to '{ProbeTopic}', so an accepted publish "
+                + $"reports {nameof(MqttClientPublishReasonCode.NoMatchingSubscribers)} rather than "
+                + $"{nameof(MqttClientPublishReasonCode.Success)} — both mean the broker did not refuse "
+                + "it. A fix that refused everything would return "
+                + $"{nameof(MqttClientPublishReasonCode.NotAuthorized)} here instead, which is exactly "
+                + "what this control exists to catch.");
         }
         finally
         {
