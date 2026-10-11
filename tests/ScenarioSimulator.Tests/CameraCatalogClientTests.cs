@@ -19,8 +19,9 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests;
 /// largest the catalog serves — and searching it by name meant a camera past the
 /// two-hundredth was reported "not present in the catalog listing": a false
 /// statement about the catalogue, logged as a read-back failure, with the tile
-/// correlation lost. The constitution targets 250 cameras per fab, so the target
-/// itself reaches it.
+/// correlation lost. The constitution targets 250 cameras per deployment,
+/// shared across its fabs (ADR-0159), so a single fab at scale can already
+/// reach it.
 /// </para>
 ///
 /// <para>
