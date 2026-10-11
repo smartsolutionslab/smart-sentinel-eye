@@ -144,7 +144,7 @@ const mustNotFlagCases = [
     'src/ui/primitives/__probe__.tsx',
   ],
   [
-    "a composite's own test file building a store around it (exempt, as CameraViewerCameraSwap.test.tsx does on develop)",
+    "a composite's own test file building a store around it (exempt — a hypothetical case; no composite test on develop currently needs this)",
     "import { configureStore } from '@reduxjs/toolkit';\nimport { Provider } from 'react-redux';",
     'src/ui/composites/__probe__.test.tsx',
   ],
