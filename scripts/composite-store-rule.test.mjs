@@ -135,6 +135,15 @@ const mustFlagCases = [
     "import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
     'src/ui/composites/nested/__probe__.ts',
   ],
+  [
+    // A mixed import: one specifier is type-only and exempt
+    // (`StreamHealth`), the other is a value import matching the hook
+    // pattern (`useGetStreamQuery`) and is not. Confirms the exemption
+    // applies per-specifier, not to the whole import statement.
+    'a mixed import of a type-only shape and a value-level hook from shared/api (#2801)',
+    "import { type StreamHealth, useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
 ];
 
 for (const [description, code, relativeFilePath] of mustFlagCases) {
@@ -191,7 +200,12 @@ const mustNotFlagCases = [
     'src/ui/composites/__probe__.tsx',
   ],
   [
-    'a type-only import of a shared/api type (#2801) — ADR-0169 exempts type imports here',
+    // Real-world regression case, not proof of the allowTypeImports
+    // exemption: `StreamHealth` doesn't match the hook/slice
+    // importNamePattern (`^use[A-Z]|Api$`) either, so this stays clean
+    // regardless of allowTypeImports. The cases below it exercise the
+    // exemption itself.
+    'a type-only import of a shared/api response-shape type (#2801) — stays clean independently of the hook/slice pattern',
     "import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';",
     'src/ui/composites/__probe__.tsx',
   ],
@@ -201,8 +215,31 @@ const mustNotFlagCases = [
     'src/ui/composites/__probe__.tsx',
   ],
   [
-    'a type-only import from systemVariables.api (#2801)',
+    // Same caveat as the StreamHealth case above: `SystemVariable` doesn't
+    // match importNamePattern either, so this is a regression check, not an
+    // exemption proof.
+    'a type-only import from systemVariables.api (#2801) — stays clean independently of the hook/slice pattern',
     "import type { SystemVariable } from '@smart-sentinel-eye/shared/api/systemVariables.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    // This one DOES exercise the allowTypeImports exemption: ESLint's
+    // no-restricted-imports treats a type-only namespace import as matching
+    // importNamePattern regardless of the bound local name (`Streams`) —
+    // confirmed by temporarily setting allowTypeImports: false and observing
+    // this flip to exactly 1 problem.
+    'a type-only namespace import of a shared/api module (#2801) — genuinely exercises the allowTypeImports exemption',
+    "import type * as Streams from '@smart-sentinel-eye/shared/api/streams.api';",
+    'src/ui/composites/__probe__.tsx',
+  ],
+  [
+    // Also exercises the exemption: `useGetStreamQuery` DOES match
+    // importNamePattern (`^use[A-Z]`), so the only thing keeping this clean
+    // is the inline `type` modifier plus allowTypeImports: true — confirmed
+    // by temporarily setting allowTypeImports: false and observing this flip
+    // to exactly 1 problem.
+    'an inline type-only named import of a hook matching the hook/slice pattern (#2801) — genuinely exercises the allowTypeImports exemption',
+    "import { type useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';",
     'src/ui/composites/__probe__.tsx',
   ],
   [
@@ -248,6 +285,22 @@ test('no-restricted-imports is registered at error for a real composite file', a
 test('every real composite file lints clean under the widened rule (#2801)', async () => {
   const eslint = new ESLint({ cwd: sharedApp });
   const results = await eslint.lintFiles(['src/ui/composites/**/*.{ts,tsx}']);
+
+  // Asserts the lint run itself is non-vacuous and trustworthy (same
+  // reasoning as `lintShared`'s guard above): with no files matched, or a
+  // parse failure silently dropped by the ruleId filter below, this test
+  // would read "clean" for the wrong reason.
+  assert.ok(results.length > 0, 'expected at least one file matched under src/ui/composites/**/*.{ts,tsx}');
+  assert.ok(
+    results.every((result) => result.fatalErrorCount === 0),
+    `expected no fatal (parse) errors among linted composite files, got: ${JSON.stringify(
+      results
+        .filter((result) => result.fatalErrorCount > 0)
+        .map((result) => path.relative(repositoryRoot, result.filePath)),
+      null,
+      2,
+    )}`,
+  );
 
   const problems = results.flatMap((result) =>
     result.messages
