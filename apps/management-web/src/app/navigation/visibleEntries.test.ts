@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { grantedScopes } from './grantedScopes.js';
+import { grantedScopes } from '@smart-sentinel-eye/shared/navigation/grantedScopes';
 import { visibleEntries, type NavEntry } from './visibleEntries.js';
 
 /**
