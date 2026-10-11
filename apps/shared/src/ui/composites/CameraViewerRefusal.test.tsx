@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 
 /**
  * Spec 233 (issue #2355) — a WHEP authorization refusal (401/403) ends the
@@ -26,12 +27,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * file is the ladder's own characterisation and stays byte-identical.
  * </p>
  */
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -99,14 +94,27 @@ function errorResponse(status: number, body: string) {
 const REFUSED_ANNOUNCEMENT =
   'Access refused. The stream server refused this viewer. This tile will not retry on its own.';
 
-let streamHealthByCamera: Record<string, { state: string; whepUrl: string; error: string | null } | undefined>;
+let streamHealthByCamera: Record<string, StreamHealth | undefined>;
 
-function setHealth(cameraIdentifier: string, state: string, error: string | null = null) {
-  streamHealthByCamera[cameraIdentifier] = { state, whepUrl: `http://sfu.test/${cameraIdentifier}/whep`, error };
+function setHealth(cameraIdentifier: string, state: StreamHealth['state'], error: string | null = null) {
+  streamHealthByCamera[cameraIdentifier] = {
+    cameraIdentifier,
+    state,
+    whepUrl: `http://sfu.test/${cameraIdentifier}/whep`,
+    transcodeMode: 'Passthrough',
+    lastSuccessAt: null,
+    error,
+  };
 }
 
 function viewer(cameraIdentifier = 'cam-42', getToken: () => Promise<string | null> = async () => 'token') {
-  return <CameraViewer cameraIdentifier={cameraIdentifier} getToken={getToken} />;
+  return (
+    <CameraViewer
+      cameraIdentifier={cameraIdentifier}
+      getToken={getToken}
+      stream={streamHealthByCamera[cameraIdentifier]}
+    />
+  );
 }
 
 function renderViewer(cameraIdentifier = 'cam-42', getToken?: () => Promise<string | null>) {
@@ -145,12 +153,6 @@ describe('CameraViewer WHEP refusal (spec 233, issue #2355)', () => {
     fetchMock = vi.fn().mockResolvedValue(sdpResponse('http://sfu.test/cam-42/whep/session-1'));
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     streamHealthByCamera = {};
-    useGetStreamQueryMock.mockImplementation((cameraIdentifier: string) => ({
-      data: streamHealthByCamera[cameraIdentifier],
-      currentData: streamHealthByCamera[cameraIdentifier],
-      isLoading: false,
-      error: undefined,
-    }));
     // Pins the ±20% jitter factor to 1.0, as the neighbouring suites do, so
     // the ladder's delays are the base delays.
     vi.spyOn(Math, 'random').mockReturnValue(0.5);

@@ -129,6 +129,21 @@ interface MockOverlayElement {
   normalizedHeight: number;
 }
 
+// CameraTile (the per-tile wrapper, #2846/ADR-0169) makes this call for real
+// now that CameraViewer no longer does — this file mocks CameraViewer itself
+// wholesale and never needed to mock the stream hook before. Stubbed here
+// only so CameraTile's hook call does not fire a real, unmocked network
+// request (and its 5 s poll does not leak a timer past unmount); none of
+// this file's assertions read the stream the real CameraViewer would have
+// used it for.
+vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
+  return {
+    ...actual,
+    useGetStreamQuery: () => ({ data: undefined, currentData: undefined, isLoading: false, error: undefined }),
+  };
+});
+
 vi.mock('@smart-sentinel-eye/shared/ui/composites/CameraViewer', () => ({
   CameraViewer: ({
     cameraIdentifier,

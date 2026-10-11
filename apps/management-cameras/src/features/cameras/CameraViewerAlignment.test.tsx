@@ -1,18 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render } from '@testing-library/react';
-import { Provider } from 'react-redux';
 import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/WhepClient';
-import { createApiStore } from '@smart-sentinel-eye/shared/store';
-import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
-import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
-
-// A store per test: the auto-batch enhancer's notification latch lives in
-// the store, so a fake-timer window that strands its callback would
-// otherwise silence every later test's subscribers.
-function createStore() {
-  return createApiStore([camerasApi, streamsApi]);
-}
-let store: ReturnType<typeof createStore>;
 
 /**
  * Spec 045 T019 / T025. **management-web has no wall, so it must never align.**
@@ -59,24 +47,21 @@ vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
   },
 }));
 
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
-  return {
-    ...actual,
-    useGetStreamQuery: () => ({
-      data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      isLoading: false,
-      error: undefined,
-    }),
-  };
-});
-
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
+
+// CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) — it
+// takes the stream as a prop, so this is passed directly instead of mocked.
+const STREAM = {
+  cameraIdentifier: 'cam-42',
+  state: 'Healthy' as const,
+  whepUrl: 'http://sfu/whep/cam-42',
+  transcodeMode: 'Passthrough' as const,
+  lastSuccessAt: null,
+  error: null,
+};
 
 describe('CameraViewer on a page with no wall', () => {
   beforeEach(() => {
-    store = createStore();
     setPlayoutTarget.mockClear();
     stats.mockClear();
     vi.useFakeTimers();
@@ -87,11 +72,7 @@ describe('CameraViewer on a page with no wall', () => {
   });
 
   it('Never writes a playout target when no wall asked for one', () => {
-    render(
-      <Provider store={store}>
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />
-      </Provider>,
-    );
+    render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />);
 
     act(() => {
       vi.advanceTimersByTime(30_000);
@@ -101,11 +82,7 @@ describe('CameraViewer on a page with no wall', () => {
   });
 
   it('Starts no lag sampling when nobody is listening for it', () => {
-    render(
-      <Provider store={store}>
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />
-      </Provider>,
-    );
+    render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />);
 
     const before = stats.mock.calls.length;
     act(() => {

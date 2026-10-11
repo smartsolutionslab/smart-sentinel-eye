@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
+import { afterEach, describe, expect, it } from 'vitest';
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 const { OverlayEditor } = await import('@smart-sentinel-eye/shared/ui/composites/OverlayEditor');
@@ -45,9 +39,9 @@ describe('OverlayEditor preview vs CameraViewer wall label (parity guard)', () =
   };
 
   function renderWallLabel() {
-    useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
-
-    render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlays={[label]} />);
+    render(
+      <CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlays={[label]} stream={undefined} />,
+    );
 
     return screen.getByTestId('camera-viewer-overlay-label');
   }

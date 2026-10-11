@@ -1,5 +1,4 @@
 import clsx from 'clsx';
-import { useGetStreamQuery } from '@smart-sentinel-eye/shared/api/streams.api';
 import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 import { useCallback, useEffect, useRef } from 'react';
 import {
@@ -72,6 +71,16 @@ export interface CameraViewerProps {
   /** Resolves the bearer token for the current operator (Keycloak access token). */
   getToken: () => Promise<string | null>;
   /**
+   * The current camera's stream health, read fresh for THIS
+   * `cameraIdentifier` — never a previous camera's answer (spec 157 FR-001).
+   * Callers get this from `useCameraStream` (`@smart-sentinel-eye/shared/hooks`),
+   * which reads `currentData`, not `data`, from the underlying RTK Query hook
+   * (ADR-0169, #2846: this composite does not call the hook itself).
+   */
+  stream: StreamHealth | undefined;
+  /** The stream-health query's own error, read alongside `stream` from the same call. */
+  queryError?: unknown;
+  /**
    * Labels rendered on top of the live frame (spec 004 US2; spec 150 widens
    * this from one label to an ordered set, #2345). Absent or empty paints
    * nothing (FR-013) — every label is painted in array order, each a direct
@@ -122,21 +131,14 @@ export interface CameraViewerProps {
 export function CameraViewer({
   cameraIdentifier,
   getToken,
+  stream,
+  queryError,
   overlays,
   playoutTargetMilliseconds,
   onLagMeasured,
   className,
   cameraName,
 }: CameraViewerProps) {
-  // `currentData`, not `data` (spec 157 FR-001): `data` is the last successful
-  // result for ANY argument this hook instance has ever been called with, so a
-  // camera swap would keep answering the previous camera's stream — and
-  // therefore its `whepUrl` — until the new camera's own read succeeds, or
-  // forever if it never does. `currentData` resets to `undefined` the instant
-  // the argument changes.
-  const { currentData: stream, error: queryError } = useGetStreamQuery(cameraIdentifier, {
-    pollingInterval: 5000,
-  });
   const { videoRef, status, errorMessage, stats, setPlayoutTarget } = useWhepSession({
     cameraIdentifier,
     whepUrl: stream?.whepUrl,

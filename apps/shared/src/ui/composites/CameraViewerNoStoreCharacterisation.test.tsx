@@ -18,7 +18,7 @@ describe('CameraViewer renders without a Redux Provider in the tree (#2846)', ()
 
   it('Renders with no Provider in the tree', () => {
     expect(() => {
-      render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => null} />);
+      render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => null} stream={undefined} />);
     }).not.toThrow();
   });
 });

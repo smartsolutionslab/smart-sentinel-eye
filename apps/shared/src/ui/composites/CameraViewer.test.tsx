@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -66,14 +61,24 @@ function sdpResponse(location: string | null = 'http://sfu.test/cam-42/whep/sess
   };
 }
 
-let streamHealth: { state: string; whepUrl: string; error: string | null } | undefined;
+let streamHealth: StreamHealth | undefined;
 
-function setHealth(state: string, error: string | null = null) {
-  streamHealth = { state, whepUrl: 'http://sfu.test/cam-42/whep', error };
+function setHealth(state: StreamHealth['state'], error: string | null = null) {
+  streamHealth = {
+    cameraIdentifier: 'cam-42',
+    state,
+    whepUrl: 'http://sfu.test/cam-42/whep',
+    transcodeMode: 'Passthrough',
+    lastSuccessAt: null,
+    error,
+  };
 }
 
 function viewer() {
-  return <CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} />;
+  // CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) —
+  // it takes the stream as a prop, driven by the same `streamHealth` module
+  // variable `setHealth` writes.
+  return <CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} stream={streamHealth} />;
 }
 
 function renderViewer() {
@@ -118,12 +123,6 @@ describe('CameraViewer stream session state machine', () => {
     fetchMock = vi.fn().mockResolvedValue(sdpResponse());
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     streamHealth = undefined;
-    useGetStreamQueryMock.mockImplementation(() => ({
-      data: streamHealth,
-      currentData: streamHealth,
-      isLoading: false,
-      error: undefined,
-    }));
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
   });
 

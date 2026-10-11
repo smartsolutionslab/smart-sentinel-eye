@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 
 /**
  * Spec 094 / issue #2111 — **a tile says Live when a picture has arrived**,
@@ -47,12 +48,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * means media the signal deciding the gate is switched on by the gate.
  * </p>
  */
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -147,14 +142,21 @@ function removeFrameCounter() {
   delete (window.HTMLVideoElement.prototype as unknown as Record<string, unknown>)['getVideoPlaybackQuality'];
 }
 
-let streamHealth: { state: string; whepUrl: string; error: string | null } | undefined;
+let streamHealth: StreamHealth | undefined;
 
-function setHealth(state: string, error: string | null = null) {
-  streamHealth = { state, whepUrl: 'http://sfu.test/cam-42/whep', error };
+function setHealth(state: StreamHealth['state'], error: string | null = null) {
+  streamHealth = {
+    cameraIdentifier: 'cam-42',
+    state,
+    whepUrl: 'http://sfu.test/cam-42/whep',
+    transcodeMode: 'Passthrough',
+    lastSuccessAt: null,
+    error,
+  };
 }
 
 function renderViewer() {
-  return render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} />);
+  return render(<CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} stream={streamHealth} />);
 }
 
 /**
@@ -224,12 +226,6 @@ describe('CameraViewer media confirmation', () => {
     fetchMock = vi.fn().mockResolvedValue(sdpResponse());
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     streamHealth = undefined;
-    useGetStreamQueryMock.mockImplementation(() => ({
-      data: streamHealth,
-      currentData: streamHealth,
-      isLoading: false,
-      error: undefined,
-    }));
     // Pins the ±20% jitter factor to 1.0, as the neighbouring suite does, so
     // the ladder's delays are the base delays.
     vi.spyOn(Math, 'random').mockReturnValue(0.5);

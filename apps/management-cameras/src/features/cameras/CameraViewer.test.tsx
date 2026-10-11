@@ -1,26 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { createApiStore } from '@smart-sentinel-eye/shared/store';
 
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
-  return {
-    ...actual,
-    // No stream data → no WhepClient is constructed; the overlay branch is
-    // independent of the streaming path and is what this test is about.
-    useGetStreamQuery: () => ({
-      data: undefined,
-      isLoading: false,
-      error: undefined,
-    }),
-  };
-});
-
-const { camerasApi } = await import('@smart-sentinel-eye/shared/api/cameras.api');
-const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
-// Spec 316 T009: see CamerasPage.test.tsx's own comment.
-const store = createApiStore([camerasApi, streamsApi]);
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
 function renderViewer(overlay?: {
@@ -33,14 +13,17 @@ function renderViewer(overlay?: {
   normalizedHeight: number;
   fontSizePx: number;
 }) {
+  // CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) —
+  // it takes the stream as a prop. No stream → no WhepClient is constructed;
+  // the overlay branch is independent of the streaming path and is what this
+  // test is about.
   return render(
-    <Provider store={store}>
-      <CameraViewer
-        cameraIdentifier="cam-42"
-        getToken={async () => null}
-        overlays={overlay === undefined ? undefined : [overlay]}
-      />
-    </Provider>,
+    <CameraViewer
+      cameraIdentifier="cam-42"
+      getToken={async () => null}
+      stream={undefined}
+      overlays={overlay === undefined ? undefined : [overlay]}
+    />,
   );
 }
 

@@ -1,12 +1,12 @@
 import { camerasApi, useGetCameraQuery } from '@smart-sentinel-eye/shared/api/cameras.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
-import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { RetryBanner } from '@smart-sentinel-eye/shared/ui/composites/RetryBanner';
 import { useRevocationFallback } from '@smart-sentinel-eye/shared/hooks';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { Link, useParams } from 'react-router-dom';
 import { Button } from '@smart-sentinel-eye/shared/ui/primitives/Button';
+import { CameraDetailViewer } from './CameraDetailViewer.js';
 import { EditCameraAddressDialog } from './EditCameraAddressDialog.js';
 import { RenameCameraDialog } from './RenameCameraDialog.js';
 import { RetireCameraDialog } from './RetireCameraDialog.js';
@@ -178,7 +178,7 @@ export function CameraDetailPage() {
           notice below says so in words instead. */}
       {retired ? null : (
         <div className="mb-6 max-w-3xl">
-          <CameraViewer cameraIdentifier={record.cameraIdentifier} getToken={getToken} cameraName={record.name} />
+          <CameraDetailViewer cameraIdentifier={record.cameraIdentifier} getToken={getToken} cameraName={record.name} />
         </div>
       )}
 
