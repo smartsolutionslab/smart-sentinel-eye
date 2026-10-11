@@ -1,10 +1,12 @@
+using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 
 namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 
-public sealed class AuthorizeMediaMtxApiCommandHandler(IMediaMtxApiAuthenticator authenticator)
+public sealed class AuthorizeMediaMtxApiCommandHandler(
+    IMediaMtxApiAuthenticator authenticator, ILogger<AuthorizeMediaMtxApiCommandHandler> logger)
     : ICommandHandler<AuthorizeMediaMtxApiCommand, Result<bool, AuthorizeMediaMtxApiError>>
 {
     public Task<Result<bool, AuthorizeMediaMtxApiError>> HandleAsync(
@@ -13,10 +15,13 @@ public sealed class AuthorizeMediaMtxApiCommandHandler(IMediaMtxApiAuthenticator
     {
         Ensure.That(command).IsNotNull();
 
-        Result<bool, AuthorizeMediaMtxApiError> result = authenticator.Authorizes(command.Password)
-            ? Success(true)
-            : Failure(AuthorizeMediaMtxApiFailures.Unauthorized());
+        if (authenticator.Authorizes(command.Password))
+        {
+            return Task.FromResult<Result<bool, AuthorizeMediaMtxApiError>>(Success(true));
+        }
 
-        return Task.FromResult(result);
+        logger.RefusedMediaMtxApiCall();
+        return Task.FromResult<Result<bool, AuthorizeMediaMtxApiError>>(
+            Failure(AuthorizeMediaMtxApiFailures.Unauthorized()));
     }
 }

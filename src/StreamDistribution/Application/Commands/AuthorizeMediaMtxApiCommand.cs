@@ -13,4 +13,18 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands;
 /// accommodate a request shape that is not theirs.
 /// </summary>
 public sealed record AuthorizeMediaMtxApiCommand(string? Password)
-    : ICommand<Result<bool, AuthorizeMediaMtxApiError>>;
+    : ICommand<Result<bool, AuthorizeMediaMtxApiError>>
+{
+    /// <summary>
+    /// <see cref="Password"/> is the control-API secret itself — it must never
+    /// reach a log line through this record's compiler-generated
+    /// <c>ToString()</c>, which is what actually calls this method.
+    /// </summary>
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{nameof(Password)} = {(Password is null ? "null" : "***")}");
+        return true;
+    }
+}

@@ -73,4 +73,11 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX path removal failed for retired camera {Camera} during provisioning; a redelivery will retry it.")]
     public static partial void ProvisionCompensationFailed(this ILogger logger, Exception exception, CameraIdentifier camera);
+
+    // Mirrors RefusedWhepAction's own WHEP-side refusal log (ADR-0171). The
+    // password itself must never reach this line, even redacted — there is
+    // nothing diagnostic a presented value could add that "it did not match"
+    // does not already say.
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Refused MediaMTX's own control-API call: the Basic-auth password did not match the configured secret.")]
+    public static partial void RefusedMediaMtxApiCall(this ILogger logger);
 }

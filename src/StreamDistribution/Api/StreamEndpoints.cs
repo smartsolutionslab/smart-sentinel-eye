@@ -438,4 +438,21 @@ public static class StreamEndpoints
 /// forwards for an <c>api</c> call); <c>user</c> is accepted but ignored — a
 /// shared-secret scheme has no independent use for it.
 /// </summary>
-public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path, string? Action, string? Password);
+public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path, string? Action, string? Password)
+{
+    /// <summary>
+    /// <see cref="Token"/> (a WHEP viewer's bearer) and <see cref="Password"/>
+    /// (ADR-0171's control-API secret) must never reach a log line through the
+    /// record's own compiler-generated <c>ToString()</c> — this is what that
+    /// <c>ToString()</c> actually calls.
+    /// </summary>
+    private bool PrintMembers(System.Text.StringBuilder builder)
+    {
+        builder.Append(
+            System.Globalization.CultureInfo.InvariantCulture,
+            $"{nameof(Token)} = {Redacted(Token)}, {nameof(Path)} = {Path}, {nameof(Action)} = {Action}, {nameof(Password)} = {Redacted(Password)}");
+        return true;
+    }
+
+    private static string Redacted(string? value) => value is null ? "null" : "***";
+}
