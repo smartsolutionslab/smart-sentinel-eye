@@ -51,6 +51,33 @@ anywhere else in the sweep, **this spec joins webhook to the existing
 sweep** rather than building a second one. There is no second remedy to
 design — `SweptKinds` is the entire boundary.
 
+## Lifecycle rationale (spec 320's exclusion, revisited)
+
+Spec 320 excluded webhook deliberately, not by oversight (`specs/320-the-client-a-cancel-left-behind/spec.md:243`):
+
+> Webhook rows have a different lifecycle: spec 264's asynchronous revoke-then-disable and
+> spec 318's EventIngestion lookup. "No active row" may legitimately describe an integration
+> mid-revocation. It needs its own reading, not a third value in the filter set.
+
+This spec's investigation above answers "is the row shape the same?" but not that question
+directly, so here it is: **it is safe, because of the order `DisableWebhookClientCommandHandler`
+already uses.** `DisableWebhookClientCommandHandler.cs:35-46` disables the client in Keycloak
+first and only then stamps the `RegisteredClient` row's `DisabledAt` — so for the entire window a
+revocation is in flight, the row stays active (`DisabledAt == null`) and the client is never a
+sweep candidate regardless of how long that window is, including spec 328's retry ladder riding
+out a Keycloak outage. The row and the client only ever disagree in the one direction spec 320's
+own active-row check already tolerates (client disabled, row still active — not "row says
+active, client says orphan").
+
+**That safety is a dependency on the current order, not a property of the sweep.** Spec 328's own
+scope lists "reorder `DisableWebhookClientCommandHandler` to stamp `DisabledAt` before Keycloak" as
+a live, separate decision it declined to make. If that reorder ever lands, a revocation stuck
+mid-retry-ladder would stamp `DisabledAt` first and disable Keycloak after — during that window the
+row would read as inactive while the Keycloak client is still enabled, which is exactly "enabled
+client, no active row," the shape this sweep now disables. A future author of that reorder needs to
+check this dependency before shipping it; this is flagged here so it does not become a latent
+assumption discovered by an incident instead.
+
 ## What does NOT change
 
 - The EventIngestion-side `WebhookIntegration` aggregate (spec 318/#2814's
@@ -62,7 +89,14 @@ design — `SweptKinds` is the entire boundary.
   about this sweep.
 - The mass-disable guard, the grace window, disable-not-delete — all of
   spec 320 §4's behaviour is unchanged for device/kiosk and applies
-  identically to webhook once it's no longer filtered out.
+  identically to webhook once it's no longer filtered out. **The code is
+  unchanged; the population it runs over is not.**
+  `OrphanedClientSweep.cs:77`'s guard (`orphans.Count * 2 > eligible.Count`)
+  now counts enabled webhook clients into `eligible` too, so its practical
+  threshold moves even though no line of the guard itself does: healthy
+  webhook clients dilute the ratio (makes a given count of orphans look
+  smaller), while webhook orphans mixed in with device/kiosk orphans can
+  push a pass over the guard that would not have tripped it before.
 
 ## Acceptance
 
