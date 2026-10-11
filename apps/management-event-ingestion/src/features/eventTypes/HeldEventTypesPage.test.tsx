@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
 import {
@@ -7,8 +8,9 @@ import {
   HELD_EVENT_TYPES_LIMIT,
   type DeadLetter,
 } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
+import { eventTypesApi } from '@smart-sentinel-eye/shared/api/eventTypes.api';
 
-const store = createApiStore([eventIngestionApi]);
+const store = createApiStore([eventIngestionApi, eventTypesApi]);
 
 const listHeldEventTypesMock = vi.fn();
 
@@ -19,6 +21,22 @@ vi.mock('@smart-sentinel-eye/shared/api/eventIngestion.api', async (importOrigin
     useListHeldEventTypesQuery: (...args: unknown[]) => listHeldEventTypesMock(...args),
   };
 });
+
+const promoteEventTypeMock = vi.fn();
+
+vi.mock('@smart-sentinel-eye/shared/api/eventTypes.api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/eventTypes.api')>();
+  return {
+    ...actual,
+    usePromoteEventTypeMutation: () => [promoteEventTypeMock, { isLoading: false }],
+  };
+});
+
+const useAuthMock = vi.fn();
+
+vi.mock('react-oidc-context', () => ({
+  useAuth: () => useAuthMock(),
+}));
 
 const { HeldEventTypesPage } = await import('./HeldEventTypesPage.js');
 
@@ -46,6 +64,11 @@ function renderPage() {
 }
 
 describe('HeldEventTypesPage (issue #2780, US1)', () => {
+  beforeEach(() => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.read' } });
+    promoteEventTypeMock.mockReturnValue({ unwrap: () => Promise.resolve('d290f1ee-6c54-4b01-90e6-d701748f0851') });
+  });
+
   it('Shows a loading state while the query is in flight', () => {
     listHeldEventTypesMock.mockReturnValue({ data: undefined, isLoading: true, error: undefined, refetch: vi.fn() });
 
@@ -134,5 +157,91 @@ describe('HeldEventTypesPage (issue #2780, US1)', () => {
     renderPage();
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+});
+
+describe('HeldEventTypesPage — Promote (issue #2855, slice 2)', () => {
+  beforeEach(() => {
+    promoteEventTypeMock.mockReturnValue({ unwrap: () => Promise.resolve('d290f1ee-6c54-4b01-90e6-d701748f0851') });
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: 'TemperatureAlarm' })],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+  });
+
+  it('Shows no Promote button when the operator lacks sse.events.types.write', () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.read' } });
+
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: /promote/i })).not.toBeInTheDocument();
+  });
+
+  it('Shows a Promote button per held row when the operator holds sse.events.types.write', () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.read sse.events.types.write' } });
+
+    renderPage();
+
+    expect(screen.getByRole('button', { name: /promote/i })).toBeInTheDocument();
+  });
+
+  it("Clicking Promote calls the mutation with the row's own fab and kind, not re-derived", async () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: /promote/i }));
+
+    expect(promoteEventTypeMock).toHaveBeenCalledWith({ fab: 'munich', kind: 'TemperatureAlarm' });
+  });
+
+  it('A fab-neutral held group (fab is null) shows no Promote button — there is no fab to name', () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1', fab: null, kind: 'ParseFailureKind' })],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: /promote/i })).not.toBeInTheDocument();
+  });
+
+  it('On a successful promote, refetches the held list so the row leaves without a full page reload', async () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    const refetch = vi.fn();
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: 'TemperatureAlarm' })],
+      isLoading: false,
+      error: undefined,
+      refetch,
+    });
+
+    renderPage();
+    await userEvent.click(screen.getByRole('button', { name: /promote/i }));
+
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('Disables the clicked Promote button while the mutation is in flight (ADR-0151 unavailable, holds focus)', async () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    let resolvePromote: (value: string) => void = () => {};
+    promoteEventTypeMock.mockReturnValue({
+      unwrap: () =>
+        new Promise<string>((resolve) => {
+          resolvePromote = resolve;
+        }),
+    });
+    renderPage();
+
+    const button = screen.getByRole('button', { name: /promote/i });
+    await userEvent.click(button);
+
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+
+    resolvePromote('d290f1ee-6c54-4b01-90e6-d701748f0851');
   });
 });
