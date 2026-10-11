@@ -175,11 +175,32 @@ export default [
   // exempt too — it is allowed to build a store around the component under
   // test (`ignores` below).
   //
+  // The third `patterns` entry (#2801) widens detection past the literal
+  // react-redux/@reduxjs/toolkit specifiers: a composite reaching a generated
+  // RTK Query hook or an `Api`-suffixed slice object straight from
+  // `shared/api` (package or relative specifier) needs a store exactly the
+  // same way, and the rule's literal-name match couldn't see it. #2846 and
+  // #2847 removed the only two real instances (CameraViewer, BackdropControls
+  // + FrameGrabber) before this entry was added, so it starts at zero
+  // violations — confirmed by this block's own "lints clean" guard test, not
+  // assumed.
+  //
   // LIMITS, stated not assumed away (spec 321 §5):
   //   * Static import/export specifiers only — `require('react-redux')` or a
   //     dynamically-constructed module string is invisible to this rule.
-  //   * `allowTypeImports` stays at its default (`false`): the ADR says
-  //     "imports", and a type-only import still names the module.
+  //   * `allowTypeImports` stays at its default (`false`) for the
+  //     react-redux/@reduxjs/toolkit entries: the ADR says "imports", and a
+  //     type-only import still names the module. The `shared/api` entry sets
+  //     `allowTypeImports: true` instead (#2801) — a type-only import of a
+  //     response shape (`import type { StreamHealth }`) names no hook and
+  //     reaches no store.
+  //   * The `shared/api` entry's `importNamePattern` (`^use[A-Z]|Api$`) only
+  //     catches a hook or slice object reached directly from `shared/api`.
+  //     The same hook reached through a non-api module under `src/hooks/**`
+  //     (e.g. `useCameraStream`) is invisible to this rule — zero composites
+  //     do this today (#2846/#2847 moved the hook calls to feature-level
+  //     callers, not to a re-exporting hook under composites), but a future
+  //     one could reintroduce the gap this entry closes.
   {
     files: ['src/ui/composites/**/*.{ts,tsx}'],
     ignores: ['src/ui/composites/**/*.test.{ts,tsx}'],
@@ -210,6 +231,16 @@ export default [
                 'A composite under apps/shared/src/ui/composites does not assume a Redux store ' +
                 '(ADR-0169). Take data and callbacks as props; put the query or dispatch in the ' +
                 'feature-level container that renders this composite.',
+            },
+            {
+              regex: '^(@smart-sentinel-eye/shared/api(/.*)?|(\\.\\./)+api(/.*)?)$',
+              caseSensitive: true,
+              importNamePattern: '^use[A-Z]|Api$',
+              allowTypeImports: true,
+              message:
+                'A composite under apps/shared/src/ui/composites does not assume a Redux store ' +
+                '(ADR-0169). A hook or API-slice object from shared/api needs a store the same ' +
+                'way react-redux does; take the result as props instead.',
             },
           ],
         },
