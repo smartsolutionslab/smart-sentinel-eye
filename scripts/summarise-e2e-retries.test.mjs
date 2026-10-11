@@ -447,7 +447,7 @@ test('an internal error past the shape checks still leaves the section in the su
 // summary actually renders. See `lint-scope.test.mjs` for the same caveat
 // about the same class of assertion.
 
-test('the CI reporter list gains a json entry; retries and workers stay untouched, and expect.timeout is unified to 15_000', () => {
+test('the CI reporter list gains a json entry; retries stay untouched, workers gains the cleanup pin (#2796), and expect.timeout is unified to 15_000', () => {
   const config = readFileSync(playwrightConfigPath, 'utf8');
 
   assert.match(
@@ -468,13 +468,22 @@ test('the CI reporter list gains a json entry; retries and workers stay untouche
   assert.match(
     config,
     /workers:\s*isCI\s*\?\s*1\s*:\s*undefined/,
-    'workers is out of scope for spec 326 (#2077) — a separate asymmetry; do not change it here',
+    'the top-level workers value stays isCI ? 1 : undefined — out of scope for spec 326 (#2077)',
+  );
+  assert.match(
+    config,
+    /name:\s*'cleanup'[\s\S]*?workers:\s*1,/,
+    "the cleanup project must pin workers: 1 (#2796) — the three teardown files share one Keycloak realm, and unpinned local workers let them submit concurrent logins; CI's top-level workers: 1 already serialised this, which is why the flake never showed up there",
   );
 
   // The regexes above prove the strings are *present*, not that they are the
   // values Playwright actually honours — a second, later key nested inside a
   // `projects[]` entry would match too and silently win at runtime. Assert
-  // there is exactly one top-level occurrence of each.
+  // there is exactly one top-level occurrence of `retries` and `expect` (no
+  // project overrides either), and exactly two occurrences of `workers` — the
+  // unchanged top-level value plus the one sanctioned project override
+  // asserted above. A third `workers:` would mean some other, undocumented
+  // project picked up its own setting.
   assert.equal(
     config.match(/^\s*retries:/gm)?.length,
     1,
@@ -487,8 +496,8 @@ test('the CI reporter list gains a json entry; retries and workers stay untouche
   );
   assert.equal(
     config.match(/^\s*workers:/gm)?.length,
-    1,
-    'expected exactly one `workers:` key in playwright.config.ts — a second one (e.g. inside projects[]) would override this match',
+    2,
+    "expected exactly two `workers:` keys: the unchanged top-level value and the cleanup project's deliberate pin (#2796) — a third would mean an undocumented project picked up its own override",
   );
 });
 
