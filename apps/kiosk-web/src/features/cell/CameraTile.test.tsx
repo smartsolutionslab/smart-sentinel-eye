@@ -11,12 +11,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 
 /**
- * Issue #2370 / spec 157. `useGetStreamQuery` is REAL here, and so is
- * `WhepClient` — that is the whole point. Every mocked double of this hook in
- * the repo answers `{ data, isLoading, error }` regardless of its argument, so
- * a mocked suite cannot express RTK Query's own distinction between `data`
- * (the last successful result for ANY argument this hook instance has ever
- * been called with) and `currentData` (resets to `undefined` on an argument
+ * Issue #2370 / spec 157, moved to this call-site location by #2846
+ * (ADR-0169): `CameraViewer` stopped calling `useGetStreamQuery` itself, so
+ * the real integration this file exists to prove — `currentData` vs `data`
+ * across a camera swap at the same mounted position — now happens in
+ * `CameraTile`, the per-tile wrapper `Tile` (`LayoutGrid.tsx`) renders. This
+ * file moved with it; its harness and every scenario are unchanged from the
+ * original `CameraViewerCameraSwap.test.tsx` (`apps/shared/src/ui/composites/`),
+ * only the imported component differs.
+ *
+ * `useGetStreamQuery` is REAL here, and so is `WhepClient` — that is the
+ * whole point. Every mocked double of this hook in the repo answers
+ * `{ data, isLoading, error }` regardless of its argument, so a mocked suite
+ * cannot express RTK Query's own distinction between `data` (the last
+ * successful result for ANY argument this hook instance has ever been
+ * called with) and `currentData` (resets to `undefined` on an argument
  * change). It could not go red against this defect, and it will go red
  * against the fix once the mocks are widened (T001) — the same structural
  * blindness phase 6 found on the overlay twin, PR #2369
@@ -25,7 +34,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  *
  * `CellPage` keys tiles on grid position, not camera (spec 095), so a
  * reassignment changes only the `cameraIdentifier` prop of an
- * already-mounted `CameraViewer` — the `<video>` element is never remounted.
+ * already-mounted `CameraTile` — the `<video>` element is never remounted.
  * A test that remounted to perform the swap would prove nothing about the
  * defect at all; every scenario below captures the `<video>` node before the
  * swap and asserts it is the SAME node after (spec § "Why this cannot be
@@ -33,7 +42,7 @@ vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
  */
 
 const { streamsApi } = await import('@smart-sentinel-eye/shared/api/streams.api');
-const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
+const { CameraTile } = await import('./CameraTile.js');
 
 const CAM_A = 'cam-a';
 const CAM_B = 'cam-b';
@@ -219,7 +228,7 @@ let store: ReturnType<typeof createStore>;
 function viewerFor(cameraIdentifier: string, getToken: () => Promise<string | null> = async () => 'token') {
   return (
     <Provider store={store}>
-      <CameraViewer cameraIdentifier={cameraIdentifier} getToken={getToken} />
+      <CameraTile cameraIdentifier={cameraIdentifier} getToken={getToken} />
     </Provider>
   );
 }
@@ -346,7 +355,7 @@ function videoElement(): HTMLVideoElement {
   return el as HTMLVideoElement;
 }
 
-describe('CameraViewer — a tile reassigned from camera A to camera B (spec 157)', () => {
+describe('CameraTile — a tile reassigned from camera A to camera B (spec 157)', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {

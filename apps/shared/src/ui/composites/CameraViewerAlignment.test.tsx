@@ -26,12 +26,6 @@ import type { PlayoutTargetOutcome } from '@smart-sentinel-eye/shared/streaming/
  * </p>
  */
 
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
-
 const statsThrows = vi.fn(() => {
   throw new Error('getStats exploded');
 });
@@ -80,6 +74,17 @@ vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
 }));
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
+
+// CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) —
+// it takes the stream as a prop, passed directly instead of mocked.
+const STREAM = {
+  cameraIdentifier: 'cam-42',
+  state: 'Healthy' as const,
+  whepUrl: 'http://sfu/whep/cam-42',
+  transcodeMode: 'Passthrough' as const,
+  lastSuccessAt: null,
+  error: null,
+};
 
 /**
  * A receiver statistics report carrying one inbound video stat, with the named
@@ -183,12 +188,6 @@ describe('CameraViewer when alignment fails', () => {
     setPlayoutTargetBehaviour = setPlayoutTargetThrows;
     sessions.length = 0;
     infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-    useGetStreamQueryMock.mockReturnValue({
-      data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      isLoading: false,
-      error: undefined,
-    });
   });
 
   afterEach(() => {
@@ -199,7 +198,12 @@ describe('CameraViewer when alignment fails', () => {
 
   it('Keeps showing video when reading the tile lag throws', async () => {
     const { container } = render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={() => {}}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -220,6 +224,7 @@ describe('CameraViewer when alignment fails', () => {
         getToken={() => Promise.resolve('token')}
         playoutTargetMilliseconds={120}
         onLagMeasured={() => {}}
+        stream={STREAM}
       />,
     );
 
@@ -245,6 +250,7 @@ describe('CameraViewer when alignment fails', () => {
         getToken={() => Promise.resolve('token')}
         playoutTargetMilliseconds={null}
         onLagMeasured={() => {}}
+        stream={STREAM}
       />,
     );
 
@@ -276,6 +282,7 @@ describe('CameraViewer when alignment fails', () => {
         cameraIdentifier="cam-42"
         getToken={() => Promise.resolve('token')}
         onLagMeasured={onLagMeasured}
+        stream={STREAM}
       />,
     );
 
@@ -320,7 +327,12 @@ describe('CameraViewer when alignment fails', () => {
     statsBehaviour = statsWithoutVideo;
 
     render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={() => {}}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -352,6 +364,7 @@ describe('CameraViewer when alignment fails', () => {
         getToken={() => Promise.resolve('token')}
         playoutTargetMilliseconds={120}
         onLagMeasured={() => {}}
+        stream={STREAM}
       />,
     );
 
@@ -397,6 +410,7 @@ describe('CameraViewer when alignment fails', () => {
         getToken={() => Promise.resolve('token')}
         playoutTargetMilliseconds={120}
         onLagMeasured={() => {}}
+        stream={STREAM}
       />,
     );
 
@@ -432,6 +446,7 @@ describe('CameraViewer when alignment fails', () => {
         getToken={() => Promise.resolve('token')}
         playoutTargetMilliseconds={120}
         onLagMeasured={() => {}}
+        stream={STREAM}
       />,
     );
 
@@ -459,7 +474,12 @@ describe('CameraViewer when alignment fails', () => {
     statsBehaviour = statsMissingField;
 
     render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={() => {}}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -496,6 +516,7 @@ describe('CameraViewer when alignment fails', () => {
         getToken={() => Promise.resolve('token')}
         playoutTargetMilliseconds={120}
         onLagMeasured={() => {}}
+        stream={STREAM}
       />,
     );
 
@@ -535,7 +556,12 @@ describe('CameraViewer when alignment fails', () => {
    */
   it('Says so when reading the tile lag throws', async () => {
     const { container } = render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={() => {}}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -578,7 +604,7 @@ describe('CameraViewer when alignment fails', () => {
    * (`CameraViewer.tsx:204-207`, FR-004).
    */
   it('Says so when the decode sampler throws on a page with no wall', async () => {
-    render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />);
+    render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />);
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(20_000);
@@ -626,6 +652,7 @@ describe('CameraViewer when alignment fails', () => {
         cameraIdentifier="cam-42"
         getToken={() => Promise.resolve('token')}
         onLagMeasured={onLagMeasuredThrows}
+        stream={STREAM}
       />,
     );
 
@@ -649,7 +676,12 @@ describe('CameraViewer when alignment fails', () => {
    */
   it('Bounds a permanently broken sampler to a decade cadence', async () => {
     render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={() => {}}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -678,7 +710,12 @@ describe('CameraViewer when alignment fails', () => {
    */
   it('Counts across a flap rather than starting again', async () => {
     render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={() => {}} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={() => {}}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -726,6 +763,7 @@ describe('CameraViewer when alignment fails', () => {
         cameraIdentifier="cam-42"
         getToken={() => Promise.resolve('token')}
         onLagMeasured={onLagMeasured}
+        stream={STREAM}
       />,
     );
 

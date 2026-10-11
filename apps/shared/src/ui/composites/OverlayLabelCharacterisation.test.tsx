@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
+import { afterEach, describe, expect, it } from 'vitest';
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -29,8 +23,6 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
   });
 
   function renderLabel() {
-    useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
-
     render(
       <CameraViewer
         cameraIdentifier="cam-42"
@@ -47,6 +39,7 @@ describe('CameraViewer.OverlayLabel style (characterisation — must not move)',
             fontSizePx: 48,
           },
         ]}
+        stream={undefined}
       />,
     );
 

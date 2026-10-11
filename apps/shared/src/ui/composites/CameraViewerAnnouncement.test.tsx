@@ -1,12 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -18,9 +13,11 @@ const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/
  *
  * <p>
  * <b>Mirrors CameraViewer.test.tsx's harness</b> — same FakePeerConnection,
- * same `useGetStreamQuery` mock — because these scenarios ride the identical
- * session state machine; only the assertions differ (what a screen reader
- * hears, not what a sighted operator sees).
+ * same `streamHealth`/`streamQueryError` driven props (ADR-0169, #2846: no
+ * longer a `useGetStreamQuery` mock, since CameraViewer takes them as props
+ * now) — because these scenarios ride the identical session state machine;
+ * only the assertions differ (what a screen reader hears, not what a sighted
+ * operator sees).
  * </p>
  */
 
@@ -80,11 +77,18 @@ function sdpResponse(location: string | null = 'http://sfu.test/cam-42/whep/sess
   };
 }
 
-let streamHealth: { state: string; whepUrl: string; error: string | null } | undefined;
+let streamHealth: StreamHealth | undefined;
 let streamQueryError: unknown;
 
-function setHealth(state: string, error: string | null = null) {
-  streamHealth = { state, whepUrl: 'http://sfu.test/cam-42/whep', error };
+function setHealth(state: StreamHealth['state'], error: string | null = null) {
+  streamHealth = {
+    cameraIdentifier: 'cam-42',
+    state,
+    whepUrl: 'http://sfu.test/cam-42/whep',
+    transcodeMode: 'Passthrough',
+    lastSuccessAt: null,
+    error,
+  };
   streamQueryError = undefined;
 }
 
@@ -95,7 +99,15 @@ function setStreamReadError(error: unknown) {
 }
 
 function viewer(cameraName?: string) {
-  return <CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} cameraName={cameraName} />;
+  return (
+    <CameraViewer
+      cameraIdentifier="cam-42"
+      getToken={async () => 'token'}
+      cameraName={cameraName}
+      stream={streamHealth}
+      queryError={streamQueryError}
+    />
+  );
 }
 
 function renderViewer(cameraName?: string) {
@@ -145,12 +157,6 @@ describe('CameraViewer accessibility — announcements and the video name', () =
     globalThis.fetch = fetchMock as unknown as typeof fetch;
     streamHealth = undefined;
     streamQueryError = undefined;
-    useGetStreamQueryMock.mockImplementation(() => ({
-      data: streamHealth,
-      currentData: streamHealth,
-      isLoading: false,
-      error: streamQueryError,
-    }));
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
   });
 

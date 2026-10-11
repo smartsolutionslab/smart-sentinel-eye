@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 
 /**
  * Spec 308 (issue #2709), plan.md §6.3. `ViewerOverlay`'s fault/warning tone
@@ -25,12 +26,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * emits `text-accent-fault` / `text-accent-warning`, so every `-on-video`
  * assertion below fails for a missing class, not a typo.
  */
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -90,14 +85,30 @@ function sdpResponse(location: string | null = 'http://sfu.test/cam-42/whep/sess
   };
 }
 
-let streamHealth: { state: string; whepUrl: string; error: string | null } | undefined;
+let streamHealth: StreamHealth | undefined;
+let streamQueryError: unknown;
 
-function setHealth(state: string, error: string | null = null) {
-  streamHealth = { state, whepUrl: 'http://sfu.test/cam-42/whep', error };
+function setHealth(state: StreamHealth['state'], error: string | null = null) {
+  streamHealth = {
+    cameraIdentifier: 'cam-42',
+    state,
+    whepUrl: 'http://sfu.test/cam-42/whep',
+    transcodeMode: 'Passthrough',
+    lastSuccessAt: null,
+    error,
+  };
+  streamQueryError = undefined;
 }
 
 function viewer() {
-  return <CameraViewer cameraIdentifier="cam-42" getToken={async () => 'token'} />;
+  return (
+    <CameraViewer
+      cameraIdentifier="cam-42"
+      getToken={async () => 'token'}
+      stream={streamHealth}
+      queryError={streamQueryError}
+    />
+  );
 }
 
 function renderViewer() {
@@ -133,12 +144,7 @@ describe('CameraViewer ViewerOverlay on-video tone', () => {
     (globalThis as unknown as { RTCPeerConnection: typeof FakePeerConnection }).RTCPeerConnection = FakePeerConnection;
     globalThis.fetch = vi.fn().mockResolvedValue(sdpResponse()) as unknown as typeof fetch;
     streamHealth = undefined;
-    useGetStreamQueryMock.mockImplementation(() => ({
-      data: streamHealth,
-      currentData: streamHealth,
-      isLoading: false,
-      error: undefined,
-    }));
+    streamQueryError = undefined;
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
   });
 
@@ -175,12 +181,8 @@ describe('CameraViewer ViewerOverlay on-video tone', () => {
   });
 
   it('Carries text-accent-fault-on-video, not text-accent-fault, when the stream read itself fails', async () => {
-    useGetStreamQueryMock.mockImplementation(() => ({
-      data: undefined,
-      currentData: undefined,
-      isLoading: false,
-      error: new Error('socket closed'),
-    }));
+    streamHealth = undefined;
+    streamQueryError = new Error('socket closed');
     renderViewer();
     await flushMicrotasks();
 

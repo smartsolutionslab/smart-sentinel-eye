@@ -5,7 +5,6 @@ import type { OverlayElement, OverlayTextElement } from '@smart-sentinel-eye/sha
 import { DEFAULT_OVERLAY_COLOR } from '@smart-sentinel-eye/shared/api/overlays.schema';
 import { useGetOverlaySnapshotQuery } from '@smart-sentinel-eye/shared/api/systemVariables.api';
 import { Badge } from '@smart-sentinel-eye/shared/ui/composites/Badge';
-import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import { measureOverlayDraw, reportKioskLatency } from '@smart-sentinel-eye/shared/observability/kioskLatency';
 import { logResilienceEvent } from '@smart-sentinel-eye/shared/observability/resilienceLog';
@@ -15,6 +14,7 @@ import { useAuth } from 'react-oidc-context';
 import { useNavigate } from 'react-router-dom';
 import { LiveUpdatesBadge } from '../revocation/LiveUpdatesBadge.js';
 import { useLayoutLifecycle } from '../revocation/useLayoutLifecycle.js';
+import { CameraTile } from './CameraTile.js';
 import { TileAlignmentBadge } from './TileAlignmentBadge.js';
 import { useLabelDelay } from './useLabelDelay.js';
 import { useOverlayHubHandlers } from './useOverlayHubHandlers.js';
@@ -55,8 +55,8 @@ export interface LayoutGridProps {
  * currently showing, remounting it on every scene change via `key`.
  *
  * Renders the Published revision's tile set as a CSS grid
- * (`gridRows × gridCols`); each populated cell is a `<CameraViewer>` (spec
- * 002 composite, unchanged) owning its per-tile overlay fetch + resolved-text
+ * (`gridRows × gridCols`); each populated cell is a `<CameraTile>` (spec
+ * 002 composite, wrapped per #2846/ADR-0169) owning its per-tile overlay fetch + resolved-text
  * snapshot. Empty cells render a placeholder.
  *
  * N=1 (including layouts migrated from before this feature) is a 1×1 grid
@@ -599,7 +599,7 @@ function Tile({
         </Badge>
       )}
       {outOfAlignment && <TileAlignmentBadge camera={tile.cameraIdentifier} />}
-      <CameraViewer
+      <CameraTile
         cameraIdentifier={tile.cameraIdentifier}
         getToken={getToken}
         overlays={renderElements}

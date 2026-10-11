@@ -1,17 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, render, screen } from '@testing-library/react';
-import { Provider } from 'react-redux';
-import { createApiStore } from '@smart-sentinel-eye/shared/store';
-import { camerasApi } from '@smart-sentinel-eye/shared/api/cameras.api';
-import { streamsApi } from '@smart-sentinel-eye/shared/api/streams.api';
-
-// A store per test: the auto-batch enhancer's notification latch lives in
-// the store, so a fake-timer window that strands its callback would
-// otherwise silence every later test's subscribers.
-function createStore() {
-  return createApiStore([camerasApi, streamsApi]);
-}
-let store: ReturnType<typeof createStore>;
 
 const construct = vi.fn();
 const connect = vi.fn().mockResolvedValue(undefined);
@@ -27,24 +15,21 @@ vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
   },
 }));
 
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/streams.api')>();
-  return {
-    ...actual,
-    useGetStreamQuery: () => ({
-      data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      isLoading: false,
-      error: undefined,
-    }),
-  };
-});
-
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
+
+// CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) — it
+// takes the stream as a prop, so this is passed directly instead of mocked.
+const STREAM = {
+  cameraIdentifier: 'cam-42',
+  state: 'Healthy' as const,
+  whepUrl: 'http://sfu/whep/cam-42',
+  transcodeMode: 'Passthrough' as const,
+  lastSuccessAt: null,
+  error: null,
+};
 
 describe('CameraViewer connection lifecycle', () => {
   beforeEach(() => {
-    store = createStore();
     construct.mockClear();
     connect.mockClear();
     close.mockClear();
@@ -56,9 +41,7 @@ describe('CameraViewer connection lifecycle', () => {
 
   it('Does not renegotiate the peer connection when the getToken closure changes between renders, and the session can still reach the fresh token', async () => {
     const { rerender } = render(
-      <Provider store={store}>
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token-a')} />
-      </Provider>,
+      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token-a')} stream={STREAM} />,
     );
     expect(construct).toHaveBeenCalledTimes(1);
     const options = construct.mock.calls[0]![0] as { getToken: () => Promise<string | null> };
@@ -66,11 +49,7 @@ describe('CameraViewer connection lifecycle', () => {
 
     // Callers pass a fresh inline getToken on every render; that alone must
     // not tear down and rebuild the RTCPeerConnection (the live-video path).
-    rerender(
-      <Provider store={store}>
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token-b')} />
-      </Provider>,
-    );
+    rerender(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token-b')} stream={STREAM} />);
     expect(construct).toHaveBeenCalledTimes(1);
     expect(close).not.toHaveBeenCalled();
     // The session was NOT rebuilt — and it can still reach the new token.
@@ -79,11 +58,7 @@ describe('CameraViewer connection lifecycle', () => {
 
   it('Reconnects automatically with a fresh WhepClient after the peer connection fails', () => {
     vi.useFakeTimers();
-    render(
-      <Provider store={store}>
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />
-      </Provider>,
-    );
+    render(<CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />);
     expect(construct).toHaveBeenCalledTimes(1);
     const options = construct.mock.calls[0]![0] as {
       onConnectionStateChange?: (state: string) => void;
@@ -103,9 +78,7 @@ describe('CameraViewer connection lifecycle', () => {
 
   it('Closes the WHEP session when the viewer unmounts', () => {
     const { unmount } = render(
-      <Provider store={store}>
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />
-      </Provider>,
+      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />,
     );
 
     unmount();

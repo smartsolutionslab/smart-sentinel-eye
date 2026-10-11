@@ -54,12 +54,6 @@ import type { MockInstance } from 'vitest';
  * </p>
  */
 
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
-
 // Mirrors CameraViewerAlignment.test.tsx's own double shape: one mocked
 // class, and each case swaps `statsBehaviour` in rather than adding a
 // second module double.
@@ -93,6 +87,17 @@ vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
 }));
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
+
+// CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) —
+// it takes the stream as a prop, passed directly instead of mocked.
+const STREAM = {
+  cameraIdentifier: 'cam-42',
+  state: 'Healthy' as const,
+  whepUrl: 'http://sfu/whep/cam-42',
+  transcodeMode: 'Passthrough' as const,
+  lastSuccessAt: null,
+  error: null,
+};
 
 // 30 frames per 2 000 ms lag tick, expressed per millisecond.
 const FRAMES_PER_MS = 0.015;
@@ -195,12 +200,6 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
     vi.useFakeTimers();
     sessions.length = 0;
     infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
-    useGetStreamQueryMock.mockReturnValue({
-      data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      isLoading: false,
-      error: undefined,
-    });
   });
 
   afterEach(() => {
@@ -238,6 +237,7 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
           cameraIdentifier="cam-42"
           getToken={() => Promise.resolve('token')}
           onLagMeasured={onLagMeasured}
+          stream={STREAM}
         />,
       );
 
@@ -299,6 +299,7 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
           cameraIdentifier="cam-42"
           getToken={() => Promise.resolve('token')}
           onLagMeasured={onLagMeasured}
+          stream={STREAM}
         />,
       );
 
@@ -338,6 +339,7 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
           cameraIdentifier="cam-42"
           getToken={() => Promise.resolve('token')}
           onLagMeasured={onLagMeasured}
+          stream={STREAM}
         />,
       );
 
@@ -371,6 +373,7 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
           cameraIdentifier="cam-42"
           getToken={() => Promise.resolve('token')}
           onLagMeasured={onLagMeasured}
+          stream={STREAM}
         />,
       );
 
@@ -420,7 +423,7 @@ describe('CameraViewer sampler window after a throw (#2314)', () => {
       statsBehaviour = steppedStatsDouble({ decodeStepAtMs: 10_000, throwAtMs: 10_000 });
 
       const { container } = render(
-        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} />,
+        <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} stream={STREAM} />,
       );
 
       await act(async () => {

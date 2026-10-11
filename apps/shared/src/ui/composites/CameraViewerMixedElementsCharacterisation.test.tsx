@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
+import { afterEach, describe, expect, it } from 'vitest';
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 import type { CameraViewerOverlay } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
@@ -57,10 +51,8 @@ describe('CameraViewer renders a mixed Box/Text/Ellipse element set (characteris
   ];
 
   function renderViewer() {
-    useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
-
     const { container } = render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={async () => null} overlays={elements} />,
+      <CameraViewer cameraIdentifier="cam-42" getToken={async () => null} stream={undefined} overlays={elements} />,
     );
 
     return container;

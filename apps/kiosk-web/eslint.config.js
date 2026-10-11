@@ -31,6 +31,11 @@ export default [
         URL: 'readonly',
         URLSearchParams: 'readonly',
         HTMLElement: 'readonly',
+        HTMLVideoElement: 'readonly',
+        Response: 'readonly',
+        Request: 'readonly',
+        RequestInfo: 'readonly',
+        RequestInit: 'readonly',
       },
     },
     plugins: {

@@ -1,12 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
+import { afterEach, describe, expect, it } from 'vitest';
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
 
@@ -33,13 +27,12 @@ describe('CameraViewer overlay label node count (characterisation — the gap th
     normalizedHeight: number;
     fontSizePx: number;
   }) {
-    useGetStreamQueryMock.mockReturnValue({ data: undefined, isLoading: false, error: undefined });
-
     const { container } = render(
       <CameraViewer
         cameraIdentifier="cam-42"
         getToken={async () => null}
         overlays={overlay === undefined ? undefined : [overlay]}
+        stream={undefined}
       />,
     );
 

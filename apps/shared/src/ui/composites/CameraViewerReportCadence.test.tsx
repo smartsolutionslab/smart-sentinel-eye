@@ -2,6 +2,7 @@
 import { act, cleanup, render } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MockInstance } from 'vitest';
+import type { StreamHealth } from '@smart-sentinel-eye/shared/api/streams.api';
 
 /**
  * Spec 307 (#2563). **A 4-tile wall at rest sends 246 req/min; 198 of those
@@ -30,12 +31,6 @@ import type { MockInstance } from 'vitest';
  * fixture.
  * </p>
  */
-
-const useGetStreamQueryMock = vi.fn();
-
-vi.mock('@smart-sentinel-eye/shared/api/streams.api', () => ({
-  useGetStreamQuery: (...args: unknown[]) => useGetStreamQueryMock(...args),
-}));
 
 interface WhepClientDoubleOptions {
   onConnectionStateChange?: (state: string) => void;
@@ -69,6 +64,17 @@ vi.mock('@smart-sentinel-eye/shared/streaming/WhepClient', () => ({
 }));
 
 const { CameraViewer } = await import('@smart-sentinel-eye/shared/ui/composites/CameraViewer');
+
+// CameraViewer no longer calls useGetStreamQuery itself (ADR-0169, #2846) —
+// it takes the stream as a prop, passed directly instead of mocked.
+const STREAM: StreamHealth = {
+  cameraIdentifier: 'cam-42',
+  state: 'Healthy',
+  whepUrl: 'http://sfu/whep/cam-42',
+  transcodeMode: 'Passthrough',
+  lastSuccessAt: null,
+  error: null,
+};
 
 // 30 frames per 2 000 ms lag tick, expressed per millisecond — the same
 // rate CameraViewerSamplerWindow.test.tsx uses, so this file's counts are
@@ -142,12 +148,6 @@ describe('CameraViewer report cadence (#2563)', () => {
         return { ok: true, status: 202 };
       }),
     );
-    useGetStreamQueryMock.mockReturnValue({
-      data: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      currentData: { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null },
-      isLoading: false,
-      error: undefined,
-    });
   });
 
   afterEach(() => {
@@ -175,6 +175,7 @@ describe('CameraViewer report cadence (#2563)', () => {
         cameraIdentifier="cam-42"
         getToken={() => Promise.resolve('token')}
         onLagMeasured={onLagMeasured}
+        stream={STREAM}
       />,
     );
 
@@ -208,6 +209,7 @@ describe('CameraViewer report cadence (#2563)', () => {
         cameraIdentifier="cam-42"
         getToken={() => Promise.resolve('token')}
         onLagMeasured={onLagMeasured}
+        stream={STREAM}
       />,
     );
 
@@ -230,7 +232,12 @@ describe('CameraViewer report cadence (#2563)', () => {
     statsBehaviour = steadyStatsDouble();
 
     render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={vi.fn()} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={vi.fn()}
+        stream={STREAM}
+      />,
     );
 
     await act(async () => {
@@ -258,20 +265,15 @@ describe('CameraViewer report cadence (#2563)', () => {
    */
   it('Sends no additional presentation_buffer POST across a live → reconnecting → live cycle inside the 30 s window', async () => {
     statsBehaviour = steadyStatsDouble();
-    let streamHealth: { state: string; whepUrl: string; error: string | null } = {
-      state: 'Healthy',
-      whepUrl: 'http://sfu/whep/cam-42',
-      error: null,
-    };
-    useGetStreamQueryMock.mockImplementation(() => ({
-      data: streamHealth,
-      currentData: streamHealth,
-      isLoading: false,
-      error: undefined,
-    }));
+    let streamHealth = STREAM;
 
     const view = render(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={vi.fn()} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={vi.fn()}
+        stream={streamHealth}
+      />,
     );
 
     // First valid sample: ships immediately (spec 307's own "first figure
@@ -284,14 +286,24 @@ describe('CameraViewer report cadence (#2563)', () => {
 
     // The tile drops and comes back, well inside the 30 s window the first
     // POST opened (4 s + 30 s = 34 s).
-    streamHealth = { state: 'Degraded', whepUrl: 'http://sfu/whep/cam-42', error: 'Source unreachable.' };
+    streamHealth = { ...STREAM, state: 'Degraded', error: 'Source unreachable.' };
     view.rerender(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={vi.fn()} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={vi.fn()}
+        stream={streamHealth}
+      />,
     );
 
-    streamHealth = { state: 'Healthy', whepUrl: 'http://sfu/whep/cam-42', error: null };
+    streamHealth = STREAM;
     view.rerender(
-      <CameraViewer cameraIdentifier="cam-42" getToken={() => Promise.resolve('token')} onLagMeasured={vi.fn()} />,
+      <CameraViewer
+        cameraIdentifier="cam-42"
+        getToken={() => Promise.resolve('token')}
+        onLagMeasured={vi.fn()}
+        stream={streamHealth}
+      />,
     );
 
     expect(sessions, 'the reconnect must really have rebuilt a session').toHaveLength(2);

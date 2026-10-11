@@ -7,3 +7,4 @@ export {
   type RevocationSource,
 } from './useRevocationFallback.js';
 export { useAssignedFabs } from './useAssignedFabs.js';
+export { useCameraStream } from './useCameraStream.js';
