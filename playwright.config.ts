@@ -105,6 +105,15 @@ export default defineConfig({
       name: 'cleanup',
       use: { ...devices['Desktop Chrome'], baseURL: 'http://localhost:5173' },
       testMatch: /.*.teardown.ts/,
+      // Pinned regardless of CI: the three teardown files all call
+      // signInAsOperator against the shared test realm, and on separate local
+      // workers (the top-level `workers` is unset there) they can submit
+      // concurrent Keycloak logins — the actual cause of #2796's local-only
+      // flake. CI already serialises every project via the top-level
+      // `workers: 1`, which is why this never showed up there; this override
+      // makes local runs match that, rather than widening a timeout to
+      // tolerate the concurrency.
+      workers: 1,
     },
   ],
 });
