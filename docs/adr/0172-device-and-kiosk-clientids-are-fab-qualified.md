@@ -5,6 +5,40 @@
 **Supersedes:** —
 **Superseded by:** —
 
+## Addendum (2026-10-11) — kiosk enrollment's wire contract changes
+
+The implementing work found a wire-contract question this ADR left as
+"exact format to be finalized in the implementing spec" and it turned
+out to be a real choice, not a detail. Devices build their clientId
+server-side from caller-supplied parts (`{deviceType}-{deviceIdentifier}`),
+so fab-qualifying them is a one-line change. Kiosks are different:
+`EnrollKioskRequest`/`EnrollKioskCommand` take a full caller-supplied
+`ClientId` directly, with no fab segment built in.
+
+**Decision: the server composes the kiosk clientId, symmetric with how
+devices already work.** `POST /kiosks/enroll`'s request body changes
+from a full `clientId` to a bare `name`; the server composes
+`kiosk-{fab}-{name}` itself. This is a breaking change to the enrollment
+request shape — every caller of `/kiosks/enroll` needs updating — but
+it removes any way for a caller to construct the fab-qualified form
+incorrectly, matching the guarantee devices already have.
+
+Rejected: keeping the caller-supplied full clientId and validating it
+already starts with `kiosk-{fab}-` matching the resolved fab. That
+avoids the contract break but pushes the format requirement onto every
+caller with no server-side enforcement that they constructed it
+correctly — exactly the kind of silent drift this ADR programme exists
+to close, not reproduce in a new place.
+
+Found during #2756's implementation, in particular a dedicated existing
+test — `tests/Integration.Tests/Identity/CrossFabRegistrationConflictIntegrationTests.cs`
+(spec 304/#2626) — which already anticipated this exact ADR by name in
+its own doc comment, and whose two facts need their assertions inverted
+(a cross-fab registration of the same identifier should now succeed,
+not conflict) as part of this work, alongside the mechanical rename
+across the ~28 files that reference the `plc-`/`kiosk-` clientId
+literals.
+
 ## Context
 
 Keycloak clientIds are unique per realm (ADR-0159: one realm per
