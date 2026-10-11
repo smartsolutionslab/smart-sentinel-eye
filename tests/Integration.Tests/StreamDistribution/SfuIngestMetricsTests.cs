@@ -255,7 +255,7 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private async Task<JsonElement> PathStateAsync(string path)
     {
-        using HttpClient api = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient api = aspire.CreateMediaMtxApiClient();
 
         HttpResponseMessage response = await api.GetAsync($"/v3/paths/get/{path}");
         response.EnsureSuccessStatusCode();

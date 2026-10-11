@@ -216,7 +216,7 @@ public sealed partial class AspireFixture
     /// </summary>
     public async Task ResetMediaMtxAsync(CancellationToken cancellationToken = default)
     {
-        using HttpClient client = App.CreateHttpClient("mediamtx", "api");
+        using HttpClient client = CreateMediaMtxApiClient();
         for (int page = 0; page < 16; page++)
         {
             using HttpResponseMessage list = await SendMediaMtxWithRetryAsync(
@@ -278,7 +278,7 @@ public sealed partial class AspireFixture
         Ensure.That(pathName).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(rtspSourceUrl).IsNotNull().IsNotNullOrWhiteSpace();
 
-        using HttpClient client = App.CreateHttpClient("mediamtx", "api");
+        using HttpClient client = CreateMediaMtxApiClient();
 
         using HttpResponseMessage response = await SendMediaMtxWithRetryAsync(
             () => client.PatchAsJsonAsync(

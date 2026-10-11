@@ -109,7 +109,7 @@ public class ProvisionStreamIntegrationTests(AspireFixture aspire) : IAsyncLifet
 
     private async Task AssertMediaMtxHasPathAsync(string path)
     {
-        using HttpClient mediamtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediamtx = aspire.CreateMediaMtxApiClient();
         HttpResponseMessage response = await mediamtx.GetAsync($"/v3/config/paths/get/{path}");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

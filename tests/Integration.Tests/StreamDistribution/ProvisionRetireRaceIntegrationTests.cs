@@ -333,14 +333,14 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<HttpStatusCode> MediaMtxConfigStatusAsync(MediaMtxPath path)
     {
-        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
         using HttpResponseMessage response = await mediaMtx.GetAsync($"/v3/config/paths/get/{path.Value}");
 
         return response.StatusCode;
     }
 
     private MediaMtxRtspGateway NewGateway() =>
-        new(aspire.App.CreateHttpClient("mediamtx", "api"), NullLogger<MediaMtxRtspGateway>.Instance);
+        new(aspire.CreateMediaMtxApiClient(), NullLogger<MediaMtxRtspGateway>.Instance);
 
     private static StreamRepository NewRepository(StreamDistributionDbContext context) =>
         new(context, new SaveChangesCommit(context), new NoOpDomainEventDispatcher());
@@ -403,6 +403,9 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
         public Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken) =>
             inner.GetPathHealthAsync(path, cancellationToken);
+
+        public Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken) =>
+            inner.GetAllPathsHealthAsync(cancellationToken);
 
         public Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken) =>
             inner.ListConfiguredPathsAsync(cancellationToken);

@@ -1,7 +1,10 @@
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
@@ -33,7 +36,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_removes_orphan_paths_and_preserves_paths_with_a_DB_stream()
     {
-        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
 
         Guid keptCamera = Guid.CreateVersion7();
         Guid orphanCamera = Guid.CreateVersion7();
@@ -74,7 +77,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_re_adds_a_missing_path_from_the_persisted_source_url()
     {
-        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
 
         Guid camera = Guid.CreateVersion7();
         MediaMtxPath missingPath = MediaMtxPath.For(CameraIdentifier.From(camera));
@@ -114,7 +117,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_does_not_re_add_a_retired_stream_s_path()
     {
-        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
 
         Guid liveCamera = Guid.CreateVersion7();
         Guid retiredCamera = Guid.CreateVersion7();
@@ -167,7 +170,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_removes_a_retired_stream_s_leftover_path_as_an_orphan()
     {
-        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
 
         Guid retiredCamera = Guid.CreateVersion7();
         MediaMtxPath retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
@@ -221,13 +224,44 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>(client =>
         {
             client.BaseAddress = new Uri(mediaMtxUrl);
+            // ADR-0171: every control-API call now authorizes through the
+            // shared secret, forwarded as Basic auth exactly as production's
+            // own gateway client presents it.
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Basic",
+                Convert.ToBase64String(Encoding.UTF8.GetBytes($"stream-distribution:{aspire.MediaMtxApiSecret}")));
         });
         services.AddSingleton<MediaMtxReconciler>();
 
         ServiceProvider provider = services.BuildServiceProvider();
+
+        // This harness only ever calls ReconcileOnceAsync directly, never
+        // StartAsync, so the lifetime the fix added is never actually
+        // consulted here — a no-op stands in rather than a real host's.
         return new MediaMtxReconciler(
             provider.GetRequiredService<IServiceScopeFactory>(),
+            new NoOpHostApplicationLifetime(),
             NullLogger<MediaMtxReconciler>.Instance);
+    }
+
+    /// <summary>
+    /// <see cref="MediaMtxReconciler"/> only reads this to defer its reconcile
+    /// pass past <c>ApplicationStarted</c> (the fix for the startup-ordering
+    /// bug ADR-0171 exposed) and to bound it with <c>ApplicationStopping</c>.
+    /// Neither is exercised by <see cref="BuildReconcilerAsync"/>'s direct
+    /// <c>ReconcileOnceAsync</c> calls, so this never needs to actually fire.
+    /// </summary>
+    private sealed class NoOpHostApplicationLifetime : IHostApplicationLifetime
+    {
+        public CancellationToken ApplicationStarted => CancellationToken.None;
+
+        public CancellationToken ApplicationStopping => CancellationToken.None;
+
+        public CancellationToken ApplicationStopped => CancellationToken.None;
+
+        public void StopApplication()
+        {
+        }
     }
 
     private static async Task AddMediaMtxPathAsync(HttpClient client, MediaMtxPath path, string source)

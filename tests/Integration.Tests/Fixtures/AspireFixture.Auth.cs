@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -62,6 +63,24 @@ public sealed partial class AspireFixture
                 HttpClientHandler.DangerousAcceptAnyServerCertificateValidator,
         };
         return new HttpClient(handler) { BaseAddress = App.GetEndpoint("keycloak") };
+    }
+
+    /// <summary>
+    /// A MediaMTX control-API client (port 9997) already carrying ADR-0171's
+    /// Basic-auth credential — every one of this fixture's own calls into
+    /// MediaMTX authorizes through the same hook production's own gateway
+    /// client does. One helper, not a client built ad hoc at each call site,
+    /// so every caller presents the secret the same way
+    /// (<c>StreamDistributionInfrastructureModule.AddMediaMtxGateway</c>'s own
+    /// wiring is the production twin).
+    /// </summary>
+    public HttpClient CreateMediaMtxApiClient()
+    {
+        HttpClient client = App.CreateHttpClient("mediamtx", "api");
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Basic",
+            Convert.ToBase64String(Encoding.UTF8.GetBytes($"stream-distribution:{MediaMtxApiSecret}")));
+        return client;
     }
 
     /// <summary>
