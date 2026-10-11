@@ -69,6 +69,28 @@ the plugin's `azp == username` check is what binds the two together.
 The publish ACL under "Decision" (scope/groups/topic binding) is still
 unenforced — the scope note above continues to apply.
 
+## Addendum (2026-10-10) — the publish scope is now enforced; the `groups`/topic-binding half is not
+
+Spec 330 / #2286 closed the scope half of the publish-ACL gap this ADR's scope note (2026-05-31)
+and 2026-08-06 addendum both flagged as outstanding: the plugin now reads the `scope` claim on
+every `MOSQ_EVT_ACL_CHECK` and refuses a publish lacking `sse.events.publish`, via a new `authz`
+package (`src/AppHost/mosquitto/plugin/authz/`). The check can only refuse or defer to `acl.txt`
+— it never grants — so `acl.txt` remains the sole source of topic authority.
+
+**Still unenforced, exactly as before:** the `groups`/fab-binding and `azp`-to-topic-segment
+conditions this ADR's "Decision" section describes under the JSON-from-JWT ACL. Only the scope
+condition moved from "catalogued, not read" to "read and enforced." A device's topic authority
+is still decided entirely by its static `acl.txt` row.
+
+**On "per-message overhead must remain zero" (Context, above):** that sentence rules out
+per-message cryptographic or network work — this ADR's own Decision already has the ACL
+evaluated "per publish," which a literal zero-overhead reading would contradict. The scope
+check's actual cost is an in-memory mutex-guarded map lookup, well inside what this ADR treated
+as free when it assumed per-connect-only auth. `sseOnAclCheck` returns before that lookup for
+anything other than `MOSQ_ACL_WRITE`, so the read check Mosquitto performs for every subscriber
+on every delivery never reaches it — the crossing count this spec adds is the one write check
+already paid for, not the doubled count a write-and-read version would have carried.
+
 ## Addendum (2026-05-29) — Decision parked
 
 Hands-on bring-up against the real broker surfaced three
