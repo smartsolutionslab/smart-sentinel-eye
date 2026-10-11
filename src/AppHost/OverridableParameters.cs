@@ -29,8 +29,10 @@ namespace SmartSentinelEye.AppHost;
 // affected container **and its data volume**, not just the container (see
 // this repo's own recorded traps: a reused `keycloak-data` volume keeps a
 // stale realm, and a persistent container keeps its old args). The other
-// seven parameters (`PostgresUser` and the six `*ClientSecret` values) are
-// injected into services only and have no such trap.
+// nine parameters (`PostgresUser`, `MediaMtxApiSecret`, and the seven
+// `*ClientSecret` values — written as a sum because this count already
+// drifted silently once) are injected into services only and have no such
+// trap.
 internal static class OverridableParameters
 {
     internal static IResourceBuilder<ParameterResource> AddOverridableParameter(

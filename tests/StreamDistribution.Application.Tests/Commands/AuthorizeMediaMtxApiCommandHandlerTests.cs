@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
@@ -19,7 +20,7 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
     public async Task Authorize_with_a_matching_secret_returns_success()
     {
         FakeMediaMtxApiAuthenticator authenticator = new() { Result = true };
-        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator);
+        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, NullLogger<AuthorizeMediaMtxApiCommandHandler>.Instance);
 
         Result<bool, AuthorizeMediaMtxApiError> result = await handler.HandleAsync(
             new AuthorizeMediaMtxApiCommand("correct-secret"), CancellationToken.None);
@@ -32,13 +33,44 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
     public async Task Authorize_with_a_non_matching_secret_returns_Unauthorized()
     {
         FakeMediaMtxApiAuthenticator authenticator = new() { Result = false };
-        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator);
+        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, NullLogger<AuthorizeMediaMtxApiCommandHandler>.Instance);
 
         Result<bool, AuthorizeMediaMtxApiError> result = await handler.HandleAsync(
             new AuthorizeMediaMtxApiCommand("wrong-secret"), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<AuthorizeMediaMtxApiError.Unauthorized>();
+    }
+
+    /// <summary>
+    /// The nit the security review raised: a refused api call should log,
+    /// mirroring <c>RefusedWhepAction</c> on the WHEP side — and the one thing
+    /// that log line must never do is carry the password it refused.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_with_a_non_matching_secret_logs_the_refusal_without_the_password()
+    {
+        FakeMediaMtxApiAuthenticator authenticator = new() { Result = false };
+        CapturingLogger<AuthorizeMediaMtxApiCommandHandler> logger = new();
+        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, logger);
+
+        await handler.HandleAsync(new AuthorizeMediaMtxApiCommand("wrong-secret"), CancellationToken.None);
+
+        string message = logger.Entries.ShouldHaveSingleItem().Message;
+        message.ShouldNotContain("wrong-secret");
+    }
+
+    /// <summary>The control: a matching secret logs nothing.</summary>
+    [Fact]
+    public async Task Authorize_with_a_matching_secret_logs_nothing()
+    {
+        FakeMediaMtxApiAuthenticator authenticator = new() { Result = true };
+        CapturingLogger<AuthorizeMediaMtxApiCommandHandler> logger = new();
+        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, logger);
+
+        await handler.HandleAsync(new AuthorizeMediaMtxApiCommand("correct-secret"), CancellationToken.None);
+
+        logger.Entries.ShouldBeEmpty();
     }
 
     /// <summary>
@@ -53,7 +85,7 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
     public async Task Authorize_with_a_whep_bearer_token_as_the_password_returns_Unauthorized()
     {
         FakeMediaMtxApiAuthenticator authenticator = new() { Result = false };
-        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator);
+        AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, NullLogger<AuthorizeMediaMtxApiCommandHandler>.Instance);
 
         Result<bool, AuthorizeMediaMtxApiError> result = await handler.HandleAsync(
             new AuthorizeMediaMtxApiCommand("Bearer.xyz"), CancellationToken.None);

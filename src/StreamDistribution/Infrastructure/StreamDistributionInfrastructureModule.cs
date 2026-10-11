@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Telemetry;
 using SmartSentinelEye.ServiceDefaults;
@@ -123,9 +124,9 @@ public static class StreamDistributionInfrastructureModule
             // the authorize hook, so every one of this client's own calls into
             // MediaMTX's control API now triggers a callback to this same
             // service's /streams/authorize. MediaMTX forwards whatever Basic
-            // auth this client presents as the hook's user/password fields;
-            // the username carries no security meaning for a shared-secret
-            // scheme, so it is a fixed, readable label.
+            // auth this client presents as the hook's user and password. The
+            // username carries no security meaning for a shared-secret scheme,
+            // so it is a fixed, readable label.
             string apiSecret = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxApiOptions>>().Value.Secret;
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
@@ -207,8 +208,19 @@ public static class StreamDistributionInfrastructureModule
     /// </summary>
     private static void BindMediaMtxApiOptions(IHostApplicationBuilder builder)
     {
-        builder.Services.Configure<MediaMtxApiOptions>(options =>
-            builder.Configuration.GetSection(MediaMtxApiOptions.SectionName).Bind(options));
+        // ValidateOnStart, not a runtime guard: an empty secret otherwise fails
+        // closed silently — every api call and every WHEP viewer sharing the
+        // hook keeps working, while MediaMtxApiAuthenticator.Authorizes refuses
+        // every password including the real one, which only a 401 against a
+        // live MediaMTX would surface. A misconfiguration should be a startup
+        // failure, not a total, unexplained denial discovered in production.
+        builder.Services.AddOptions<MediaMtxApiOptions>()
+            .Configure(options => builder.Configuration.GetSection(MediaMtxApiOptions.SectionName).Bind(options))
+            .Validate(
+                options => !string.IsNullOrEmpty(options.Secret),
+                "MediaMtxApi:Secret must be configured — an empty secret refuses every control-API call, "
+                + "including this service's own, closed.")
+            .ValidateOnStart();
     }
 
     /// <summary>
