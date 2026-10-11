@@ -1,5 +1,6 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
@@ -119,9 +120,24 @@ public class WebhookRevocationRefusesDeliveryIntegrationTests(AspireFixture aspi
 
         await RevokeAsync(admin, name);
 
-        HttpResponseMessage refused = await PostWebhookAsync(name, Fab, jwt);
+        try
+        {
+            HttpResponseMessage refused = await PostWebhookAsync(name, Fab, jwt);
 
-        refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await DiagnoseAsync(refused));
+            refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await DiagnoseAsync(refused));
+        }
+        finally
+        {
+            // #2814: /events/manual now also refuses any caller whose webhook
+            // integration by KeycloakClientId is revoked — fail-closed, not
+            // most-recently-rotated-wins, so a fresher sibling row sharing
+            // "management-web" would not rescue this. Moving the revoked row
+            // itself off the shared client id keeps this test from poisoning
+            // whatever /events/manual test runs next in this process (see
+            // spec 336's plan.md §3). In a finally so it still runs if the
+            // assertion above just failed.
+            await DetachFromSharedClientAsync(name);
+        }
     }
 
     /// <summary>
@@ -194,6 +210,27 @@ public class WebhookRevocationRefusesDeliveryIntegrationTests(AspireFixture aspi
         integration.ClearPendingEvents();
 
         context.WebhookIntegrations.Add(integration);
+        await context.SaveChangesAsync();
+    }
+
+    /// <summary>
+    /// <c>MarkAsRotated</c> has no revoked guard, so this moves the row named
+    /// <paramref name="name"/> onto a client id derived from its own (unique)
+    /// name — off <c>management-web</c> for good, rather than leaving it
+    /// there and hoping a fresher sibling row outranks it (#2814;
+    /// <c>IsRevokedByKeycloakClientIdAsync</c> is fail-closed and does not
+    /// rank rows by recency at all).
+    /// </summary>
+    private async Task DetachFromSharedClientAsync(string name)
+    {
+        await using EventIngestionDbContext context = await aspire.CreateEventIngestionDbContextAsync();
+        WebhookIntegrationName parsed = WebhookIntegrationName.From(name);
+        WebhookIntegration integration = await context.WebhookIntegrations
+            .SingleAsync(candidate => candidate.Name == parsed);
+
+        integration.MarkAsRotated(KeycloakClientIdentifier.From($"webhook-{name}"), new SystemClock());
+        integration.ClearPendingEvents();
+
         await context.SaveChangesAsync();
     }
 
