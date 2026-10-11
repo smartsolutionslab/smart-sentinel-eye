@@ -30,7 +30,7 @@ ARG MOSQUITTO_SHA256=d665fe7d0032881b1371a47f34169ee4edab67903b2cd2b4c083822823f
 # --- Stage 1: build Mosquitto (glibc) so we get the broker binary,
 #     libmosquitto, and the plugin headers (mosquitto_broker.h is not in
 #     any Debian -dev package). ---
-FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS mosquitto_builder
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587 AS mosquitto_builder
 ARG MOSQUITTO_VERSION
 ARG MOSQUITTO_SHA256
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -58,7 +58,7 @@ COPY plugin/ ./
 RUN go build -buildmode=c-shared -o /sse-jwt-auth.so .
 
 # --- Stage 3: runtime. ---
-FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
+FROM debian:bookworm-slim@sha256:7c7b2c966bc9ee8cedfeef67e0e279108992c77681fa595db4a9d65c06ccc587
 # The `mosquitto` user has to exist. Started as root, the broker drops
 # privileges to it by default; the official Alpine image ships that user but a
 # from-source build does not, so it fell back to `nobody` and then could not
