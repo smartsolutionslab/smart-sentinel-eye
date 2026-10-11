@@ -20,11 +20,6 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     private const string WallBerlinUsername = "wall-berlin";
     private const string WallBerlinPassword = SeededCredentials.WallBerlin;
 
-    // ADR-0171's AppHost default (AddOverridableParameter("MediaMtxApiSecret", ...)).
-    // The fixture never overrides it — mirrors every other *ClientSecret dev default
-    // referenced directly in this test project (e.g. RealmProbe.AdminClientSecret).
-    private const string MediaMtxApiSecret = "dev-only-mediamtx-api-secret";
-
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
 
     public async Task InitializeAsync()
@@ -138,7 +133,7 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     {
         HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
-            new { path = "", action = "api", password = MediaMtxApiSecret });
+            new { path = "", action = "api", password = aspire.MediaMtxApiSecret });
 
         await AssertStatusAsync(response, HttpStatusCode.OK);
     }

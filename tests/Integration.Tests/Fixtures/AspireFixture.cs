@@ -306,6 +306,17 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     public HttpClient Automation { get; private set; } = null!;
 
+    /// <summary>
+    /// ADR-0171's shared secret, resolved from the AppHost's own
+    /// <c>MediaMtxApiSecret</c> parameter rather than duplicated here as a
+    /// test-side literal — this fixture never overrides that parameter, so
+    /// resolving it is the only way a test-side copy cannot silently diverge
+    /// from whatever AppHost.cs's own default currently is. Use
+    /// <see cref="CreateMediaMtxApiClient"/> rather than reading this directly
+    /// unless a test genuinely needs the raw value.
+    /// </summary>
+    public string MediaMtxApiSecret { get; private set; } = string.Empty;
+
     public async Task InitializeAsync()
     {
         string[] parameters =
@@ -330,6 +341,8 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         builder.Services.ConfigureHttpClientDefaults(FixtureHttpClients.Configure);
 
         app = await builder.BuildAsync(cts.Token).ConfigureAwait(false);
+
+        MediaMtxApiSecret = await ResolveMediaMtxApiSecretAsync(cts.Token).ConfigureAwait(false);
 
         logCts = new CancellationTokenSource();
 
@@ -521,6 +534,27 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         EventIngestion = App.CreateHttpClient("event-ingestion", "http");
         SystemVariables = App.CreateHttpClient("system-variables", "http");
         Automation = App.CreateHttpClient("automation", "http");
+    }
+
+    /// <summary>
+    /// Reads <c>MediaMtxApiSecret</c>'s resolved value straight out of the
+    /// composed AppHost model (<c>AddOverridableParameter</c>'s fallback,
+    /// since this fixture never overrides it), the same way
+    /// <c>RealmImportMirrorTests</c> and <c>AppHostParameterOverrideTests</c>
+    /// already read a declared parameter's value off a
+    /// <see cref="ParameterResource"/> rather than hand-copying AppHost.cs's
+    /// literal into the test project.
+    /// </summary>
+    private async Task<string> ResolveMediaMtxApiSecretAsync(CancellationToken cancellationToken)
+    {
+        ParameterResource parameter = App.Services
+            .GetRequiredService<DistributedApplicationModel>()
+            .Resources
+            .OfType<ParameterResource>()
+            .Single(candidate => candidate.Name == "MediaMtxApiSecret");
+
+        return await parameter.GetValueAsync(cancellationToken).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("MediaMtxApiSecret parameter resolved to null.");
     }
 
     public async Task DisposeAsync()
@@ -1385,7 +1419,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task WaitForMediaMtxAsync(CancellationToken cancellationToken)
     {
-        using HttpClient probe = App.CreateHttpClient("mediamtx", "api");
+        using HttpClient probe = CreateMediaMtxApiClient();
         for (int attempt = 0; attempt < 60; attempt++)
         {
             try

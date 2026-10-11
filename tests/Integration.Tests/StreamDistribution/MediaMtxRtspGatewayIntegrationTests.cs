@@ -58,11 +58,11 @@ public class MediaMtxRtspGatewayIntegrationTests(AspireFixture aspire) : IAsyncL
     }
 
     private MediaMtxRtspGateway NewGateway() =>
-        new(aspire.App.CreateHttpClient("mediamtx", "api"), NullLogger<MediaMtxRtspGateway>.Instance);
+        new(aspire.CreateMediaMtxApiClient(), NullLogger<MediaMtxRtspGateway>.Instance);
 
     private async Task<IReadOnlyList<string>> ListMediaMtxPathNamesAsync()
     {
-        using HttpClient mediaMtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
         HttpResponseMessage response = await mediaMtx.GetAsync("/v3/config/paths/list");
         response.EnsureSuccessStatusCode();
         JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();

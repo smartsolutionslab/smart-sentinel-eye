@@ -208,7 +208,7 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task AssertMediaMtxPathAsync(string path, bool expected)
     {
-        using HttpClient mediamtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediamtx = aspire.CreateMediaMtxApiClient();
         DateTime deadline = DateTime.UtcNow + RetireTimeout;
 
         while (DateTime.UtcNow < deadline)

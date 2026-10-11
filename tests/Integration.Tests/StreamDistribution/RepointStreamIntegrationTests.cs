@@ -150,7 +150,7 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     /// </summary>
     private async Task WaitForMediaMtxSourceAsync(string path, string expectedSource)
     {
-        using HttpClient mediamtx = aspire.App.CreateHttpClient("mediamtx", "api");
+        using HttpClient mediamtx = aspire.CreateMediaMtxApiClient();
         DateTime deadline = DateTime.UtcNow + RepointTimeout;
         string observed = "(never read)";
 
