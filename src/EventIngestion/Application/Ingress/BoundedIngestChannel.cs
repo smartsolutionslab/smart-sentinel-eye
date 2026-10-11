@@ -44,6 +44,12 @@ public sealed class BoundedIngestChannel : IIngestChannel
     {
         Ensure.That(delivery).IsNotNull();
 
+        // TryWrite ignores the token, unlike the WriteAsync this replaces on
+        // the non-blocking path — so an already-cancelled token is checked
+        // explicitly here to keep that case throwing exactly as it did
+        // before.
+        cancellationToken.ThrowIfCancellationRequested();
+
         // TryWrite is the non-blocking attempt: if a slot is free, this is
         // the entire method, and nothing times a write that never blocked.
         // Only a full channel falls through to WriteAsync below, which is

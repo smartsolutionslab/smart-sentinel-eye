@@ -8,8 +8,10 @@ namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 /// alone cannot tell an operator "saturated and recovering" apart from
 /// "saturated and stuck" — both read as a full channel. This instrument is
 /// what tells them apart: a channel that is full but draining quickly
-/// records short waits; one that is stuck under sustained overload records
-/// waits that keep growing.
+/// records short waits. A channel that is stuck does not record growing
+/// waits — a measurement only happens once a blocked write completes, so a
+/// write that never completes produces no sample at all. The "stuck" case
+/// shows up as this series going silent, not as its values climbing.
 /// </summary>
 public static class IngestChannelSaturation
 {
@@ -30,7 +32,7 @@ public static class IngestChannelSaturation
 
     private static readonly Histogram<double> BlockedDuration = Meter.CreateHistogram<double>(
         name: MetricName,
-        unit: "s",
+        unit: "ms",
         description: "How long a write to the bounded ingest channel was blocked waiting for capacity (ADR-0175).");
 
     /// <summary>
@@ -48,6 +50,6 @@ public static class IngestChannelSaturation
             return;
         }
 
-        BlockedDuration.Record(duration.TotalSeconds);
+        BlockedDuration.Record(duration.TotalMilliseconds);
     }
 }
