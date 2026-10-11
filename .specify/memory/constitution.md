@@ -333,15 +333,17 @@ OpenTelemetry (provided by Aspire defaults).
   with payload and error, audit-only and never fanned out. A fab-scoped
   event-type registry now exists (spec 143, the first third of issue
   1972) — an operator can declare, list and retire the event types a fab
-  expects. A per-`(fab, Source)` strict/discovery admission mode now
-  exists too (spec 269, the second third of issue 1972): an undeclared
-  or explicitly `discovery` pair defaults to today's open behaviour, and
-  a source an operator has declared `strict` has an event refused at the
-  door when its type has no `Registered` entry for that fab. **There is
-  still no promotion path (issue 2325)**, so an *unknown* type under
-  `discovery` is ingested like any other rather than quarantined for
-  review. The intended guarantee stands as a requirement (ADR-018,
-  ADR-0130, issue 1972), **not as a description of today**.
+  expects. A per-`(fab, Source)` admission mode exists too (spec 269),
+  with three states since spec 317 (issue 2325): an **undeclared** pair
+  is open — an event of an unregistered type is stored and fanned out
+  as it always was; a pair declared **`discovery`** holds such an event
+  in the dead-letter table, reason `UnknownEventType`, audit-only and
+  never fanned out; a pair declared **`strict`** refuses it at the door.
+  Registering a type promotes that fab's held rows of it. The undeclared
+  state is a deliberate departure from decision 018's two flags (user
+  decision, 2026-10-08, on #2325), so that no deployment changed
+  behaviour when quarantine shipped. Schema validation of known types
+  (issue 2326) does not exist.
 - **Kiosks.** Device-bound credentials **exist** — `POST /kiosks/enroll`
   mints a per-kiosk confidential client with a service account and a
   secret revealed **once per idempotency key** (ADR-0142): exactly once
