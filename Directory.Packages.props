@@ -7,7 +7,7 @@
 
   <ItemGroup>
     <!-- Analyzers (transitively applied via Directory.Build.props) -->
-    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.34.0.3385" />
+    <PackageVersion Include="SonarAnalyzer.CSharp" Version="10.35.0.4138" />
     <PackageVersion Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="5.6.0" />
 
     <!-- Architecture tests -->
@@ -16,28 +16,28 @@
     <!-- xUnit test stack (ADR-0052) -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.10.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.1" />
+    <PackageVersion Include="coverlet.collector" Version="10.1.0" />
     <PackageVersion Include="Shouldly" Version="4.3.0" />
     <PackageVersion Include="Moq" Version="4.21.0" />
 
     <!-- Aspire integration testing (Integration.Tests fixture, ADR-0068 — pre-wired so the package resolves) -->
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" />
 
     <!-- Aspire JavaScript integration: AppHost registers management-web, kiosk-web and kiosk-wall as JavaScript apps (ADR-0074) -->
-    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.1" />
 
     <!-- Aspire infrastructure resources (ADR-0007 + ADR-0009 + ADR-0010). Version-aligned with
          Yumney's working .NET 10 stack. Keycloak hosting is preview-only at the moment. -->
-    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.0" />
-    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.PostgreSQL" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.RabbitMQ" Version="13.6.1" />
     <PackageVersion Include="Aspire.Hosting.Keycloak" Version="13.6.0-preview.1.26479.8" />
 
     <!-- Aspire client integration for ASP.NET Core services that consume Postgres.
          On the same 13.x line as the rest of the Aspire family above.
          Referenced only by ServiceDefaults; every context calls it through
          PostgresTelemetry.EnrichPostgresDbContext, never directly. -->
-    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Npgsql.EntityFrameworkCore.PostgreSQL" Version="13.6.1" />
 
     <!-- ASP.NET Core auth (ADR-0007 + ADR-0008 + ADR-0023). Plain JwtBearer; no Aspire
          Keycloak client package needed — realm URL comes from the Aspire-injected
@@ -57,17 +57,17 @@
     <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.3" />
 
     <!-- Wolverine (ADR-0042, ADR-0057, ADR-0088). Version-aligned with Yumney. -->
-    <PackageVersion Include="WolverineFx" Version="6.40.0" />
+    <PackageVersion Include="WolverineFx" Version="6.48.3" />
     <PackageVersion Include="WolverineFx.Http" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.Postgresql" Version="6.40.0" />
-    <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.40.0" />
+    <PackageVersion Include="WolverineFx.EntityFrameworkCore" Version="6.48.3" />
+    <PackageVersion Include="WolverineFx.Postgresql" Version="6.48.3" />
+    <PackageVersion Include="WolverineFx.RabbitMQ" Version="6.48.3" />
     <!-- Wolverine 6 dropped JasperFx.RuntimeCompiler from the core package, so
          runtime codegen is now opt-in. Both UseWolverine call sites run on the
          implicit TypeLoadMode.Dynamic, which fails fast at startup without an
          IAssemblyGenerator. Referenced by ServiceDefaults + ScenarioSimulator,
          the two hosts that call UseWolverine. -->
-    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.40.0" />
+    <PackageVersion Include="WolverineFx.RuntimeCompilation" Version="6.48.3" />
 
     <!-- MQTT (spec 006, ADR-0096): .NET client for the Mosquitto broker (ADR-0095).
          v5 removed MQTTnet.Extensions.ManagedClient: that package stops at
@@ -81,8 +81,8 @@
          locally/in CI, so no real Azure subscription is needed. Replaces
          CommunityToolkit.Aspire.Hosting.Minio / .Minio.Client (ADR-0155)
          after MinIO's registry access broke (#2265, #2266, #2267). -->
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.0" />
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.0" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.6.1" />
 
     <!-- ASP.NET Core / Hosting / Resilience / Service Discovery -->
     <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
