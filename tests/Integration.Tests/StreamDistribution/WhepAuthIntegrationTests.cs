@@ -20,6 +20,11 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     private const string WallBerlinUsername = "wall-berlin";
     private const string WallBerlinPassword = SeededCredentials.WallBerlin;
 
+    // ADR-0171's AppHost default (AddOverridableParameter("MediaMtxApiSecret", ...)).
+    // The fixture never overrides it — mirrors every other *ClientSecret dev default
+    // referenced directly in this test project (e.g. RealmProbe.AdminClientSecret).
+    private const string MediaMtxApiSecret = "dev-only-mediamtx-api-secret";
+
     private static readonly TimeSpan ProvisionTimeout = TimeSpan.FromSeconds(30);
 
     public async Task InitializeAsync()
@@ -106,6 +111,53 @@ public class WhepAuthIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             new { token, path = $"cam-{Guid.CreateVersion7()}", action = "publish" });
 
         await AssertStatusAsync(response, HttpStatusCode.Forbidden);
+    }
+
+    /// <summary>
+    /// ADR-0171. MediaMTX's control API (paths/list and friends) now reports
+    /// through this same hook as the <c>api</c> action, with no stream path
+    /// and no bearer — only the Basic-auth password MediaMTX forwards. No
+    /// password at all is refused exactly like a missing WHEP token.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_an_api_action_without_a_password_returns_401()
+    {
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { path = "", action = "api", password = (string?)null });
+
+        await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
+    }
+
+    /// <summary>
+    /// The control for the fact above: the real secret this AppHost injects
+    /// into stream-distribution (ADR-0171) is admitted.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_an_api_action_with_the_configured_secret_returns_200()
+    {
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { path = "", action = "api", password = MediaMtxApiSecret });
+
+        await AssertStatusAsync(response, HttpStatusCode.OK);
+    }
+
+    /// <summary>
+    /// A real WHEP viewer's bearer token is not the control-API secret, and
+    /// must not be admitted as one just because it is a long, real credential
+    /// — the two authorization paths this hook now serves are separate gates.
+    /// </summary>
+    [Fact]
+    public async Task Authorize_an_api_action_with_a_whep_bearer_token_as_the_password_returns_401()
+    {
+        string token = await aspire.GetAdminAccessTokenAsync();
+
+        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            "/streams/authorize",
+            new { path = "", action = "api", password = token });
+
+        await AssertStatusAsync(response, HttpStatusCode.Unauthorized);
     }
 
     /// <summary>

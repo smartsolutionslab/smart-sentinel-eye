@@ -355,12 +355,17 @@ public class AuthorizeWhepCommandHandlerTests
     }
 
     /// <summary>
-    /// <c>api</c> is excluded from the hook by <c>mediamtx.yml:46-49</c>, so it
-    /// reaches the command as absent. This is the shape the day an exclusion is
-    /// deleted takes, and it is refused.
+    /// <b>ADR-0171.</b> Before this, <c>api</c> was excluded from the hook by
+    /// <c>mediamtx.yml</c> and reached this command as absent — refused via
+    /// <c>ActionUnknown</c>. Now that <c>api</c> is modelled, production never
+    /// constructs this command for it at all (<c>StreamEndpoints.AuthorizeWhep</c>
+    /// branches it to <c>AuthorizeMediaMtxApiCommandHandler</c> first). This test
+    /// is the defensive line behind that routing: even a real, valid WHEP
+    /// viewer token must not be mistaken for the control-API secret if an
+    /// <c>api</c> action ever did reach this handler.
     /// </summary>
     [Fact]
-    public async Task Authorize_with_an_unrecognised_action_is_refused()
+    public async Task Authorize_an_api_action_is_refused_even_with_a_valid_token()
     {
         FakeWhepAuthValidator validator = new()
         {
@@ -377,7 +382,7 @@ public class AuthorizeWhepCommandHandlerTests
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionUnknown>();
+        result.Error.ShouldBeOfType<AuthorizeWhepError.ActionNotPermitted>();
     }
 
     /// <summary>

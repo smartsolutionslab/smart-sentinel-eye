@@ -9,6 +9,7 @@ public class MediaMtxActionTests
     [InlineData("read")]
     [InlineData("publish")]
     [InlineData("playback")]
+    [InlineData("api")]
     public void From_returns_the_matching_instance_for_a_modelled_action(string wire)
     {
         MediaMtxAction action = MediaMtxAction.From(wire);
@@ -19,7 +20,7 @@ public class MediaMtxActionTests
     [Fact]
     public void From_rejects_an_action_the_hook_never_sends()
     {
-        Action act = () => MediaMtxAction.From("api");
+        Action act = () => MediaMtxAction.From("sideload");
 
         act.ShouldThrow<ArgumentException>();
     }
@@ -28,6 +29,7 @@ public class MediaMtxActionTests
     [InlineData("read")]
     [InlineData("publish")]
     [InlineData("playback")]
+    [InlineData("api")]
     public void TryFrom_returns_Some_for_a_modelled_action(string wire)
     {
         Option<MediaMtxAction> parsed = MediaMtxAction.TryFrom(wire);
@@ -37,16 +39,17 @@ public class MediaMtxActionTests
     }
 
     /// <summary>
-    /// <c>api</c>, <c>metrics</c> and <c>pprof</c> are excluded from the hook by
-    /// <c>mediamtx.yml:46-49</c>, so they never arrive today. They parse as
-    /// absent rather than as anything admissible, which is what keeps the day an
-    /// exclusion is deleted a refusal instead of a silent grant.
+    /// <c>metrics</c> and <c>pprof</c> are excluded from the hook by
+    /// <c>mediamtx.yml</c>, so they never arrive today. They parse as absent
+    /// rather than as anything admissible, which is what keeps the day an
+    /// exclusion is deleted a refusal instead of a silent grant. <c>api</c> is
+    /// no longer in this list — ADR-0171 un-excludes it, and
+    /// <see cref="TryFrom_returns_Some_for_a_modelled_action"/> is its control.
     /// </summary>
     [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]
-    [InlineData("api")]
     [InlineData("metrics")]
     [InlineData("pprof")]
     [InlineData("sideload")]
@@ -78,5 +81,6 @@ public class MediaMtxActionTests
         MediaMtxAction.Read.ToString().ShouldBe("read");
         MediaMtxAction.Publish.ToString().ShouldBe("publish");
         MediaMtxAction.Playback.ToString().ShouldBe("playback");
+        MediaMtxAction.Api.ToString().ShouldBe("api");
     }
 }

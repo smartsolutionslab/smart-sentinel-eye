@@ -76,7 +76,10 @@ public static class StreamEndpoints
                 + "and playback are admitted on that same scope, publish is refused outright because "
                 + "nothing in this product publishes through this hook, and an absent or unrecognised "
                 + "action is refused too — both of those are 403, never 401. A source address over its "
-                + "configured ceiling is refused 429 before any of this runs (spec 208).")
+                + "configured ceiling is refused 429 before any of this runs (spec 208). Since ADR-0171, "
+                + "MediaMTX also reports its own control-API calls through this hook as the api action; "
+                + "those are authorized separately, against a shared secret presented as Basic auth, not "
+                + "against a bearer token or scope.")
             .Produces(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status403Forbidden)
@@ -354,9 +357,24 @@ public static class StreamEndpoints
     private static async Task<IResult> AuthorizeWhep(
         [FromBody] MediaMtxAuthorizeRequest body,
         [FromServices] AuthorizeWhepCommandHandler handler,
+        [FromServices] AuthorizeMediaMtxApiCommandHandler apiHandler,
         CancellationToken cancellationToken)
     {
         Ensure.That(body).IsNotNull();
+
+        // ADR-0171: MediaMTX reports its own control-API calls through this
+        // same hook, under this same action, with no stream path at all —
+        // `path` arrives as "". That has to branch before MediaMtxPath.From
+        // below, which throws on an empty value and would otherwise turn
+        // every api call into a wrongly-diagnosed WHEP_INVALID_PATH before the
+        // action is ever inspected.
+        if (string.Equals(body.Action, "api", StringComparison.Ordinal))
+        {
+            Result<bool, AuthorizeMediaMtxApiError> apiResult = await apiHandler.HandleAsync(
+                new AuthorizeMediaMtxApiCommand(body.Password), cancellationToken);
+
+            return apiResult.Match<IResult>(onSuccess: _ => Results.Ok(), onFailure: error => error.ToProblem());
+        }
 
         MediaMtxPath parsedPath;
         try
@@ -415,7 +433,9 @@ public static class StreamEndpoints
 /// MediaMTX's external-auth POST body. Fields match MediaMTX v1.x
 /// (<c>user</c>, <c>password</c>, <c>token</c>, <c>action</c>, <c>path</c>).
 /// We consume <c>path</c> (the stream being opened), <c>token</c> (the
-/// forwarded bearer) and <c>action</c> (the operation being asked about);
-/// <c>user</c> and <c>password</c> are accepted but ignored.
+/// forwarded bearer), <c>action</c> (the operation being asked about) and,
+/// since ADR-0171, <c>password</c> (the Basic-auth credential MediaMTX
+/// forwards for an <c>api</c> call); <c>user</c> is accepted but ignored — a
+/// shared-secret scheme has no independent use for it.
 /// </summary>
-public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path, string? Action);
+public sealed record MediaMtxAuthorizeRequest(string? Token, string? Path, string? Action, string? Password);

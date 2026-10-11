@@ -41,10 +41,19 @@ rtspAddress: :8554
 # `stream-distribution` resolves via Aspire's service-discovery DNS once both
 # containers join the AppHost network. The auth endpoint validates the bearer
 # token forwarded by MediaMTX and returns 200/401/403.
+#
+# ADR-0171: `api` is deliberately NOT excluded. MediaMTX's own control API
+# (port 9997 above) was previously reachable by anyone who could reach the
+# container network with no credential at all; it is now routed through this
+# same hook and authorized against a shared secret presented as Basic auth.
+# `metrics` stays excluded — it is read-only Prometheus scraping (spec 024),
+# not a control surface. `pprof` is never enabled in this file, so its
+# exclusion is inert; left in place since removing it risks nothing and a
+# future `pprof: yes` would then fail closed through this same hook rather
+# than silently going unauthenticated.
 authMethod: http
 authHTTPAddress: http://stream-distribution:8080/streams/authorize
 authHTTPExclude:
-  - action: api
   - action: metrics
   - action: pprof
 

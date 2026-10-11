@@ -43,6 +43,7 @@ public static class StreamDistributionInfrastructureModule
         builder.EnrichPostgresDbContext<StreamDistributionDbContext>();
 
         BindMediaMtxOptions(builder);
+        BindMediaMtxApiOptions(builder);
         BindWhepAuthOptions(builder);
         BindStreamFabAttribution(builder);
 
@@ -59,6 +60,7 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddSingleton(TimeProvider.System);
         builder.Services.AddSingleton<IStreamWhepUrlBuilder, MediaMtxWhepUrlBuilder>();
         builder.Services.AddSingleton<IWhepAuthValidator, WhepAuthValidator>();
+        builder.Services.AddSingleton<IMediaMtxApiAuthenticator, MediaMtxApiAuthenticator>();
 
         // Hand-rolled command/query handler registrations (ADR-0042 + ADR-0057).
         builder.Services.AddScoped<
@@ -70,6 +72,9 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddScoped<
             ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>,
             AuthorizeWhepCommandHandler>();
+        builder.Services.AddScoped<
+            ICommandHandler<AuthorizeMediaMtxApiCommand, Result<bool, AuthorizeMediaMtxApiError>>,
+            AuthorizeMediaMtxApiCommandHandler>();
         builder.Services.AddScoped<
             ICommandHandler<RetireStreamCommand, Result<Option<StreamIdentifier>, RetireStreamError>>,
             RetireStreamCommandHandler>();
@@ -113,6 +118,19 @@ public static class StreamDistributionInfrastructureModule
         {
             MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
+
+            // ADR-0171: mediamtx.yml no longer excludes the `api` action from
+            // the authorize hook, so every one of this client's own calls into
+            // MediaMTX's control API now triggers a callback to this same
+            // service's /streams/authorize. MediaMTX forwards whatever Basic
+            // auth this client presents as the hook's user/password fields;
+            // the username carries no security meaning for a shared-secret
+            // scheme, so it is a fixed, readable label.
+            string apiSecret = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxApiOptions>>().Value.Secret;
+            client.DefaultRequestHeaders.Authorization =
+                new System.Net.Http.Headers.AuthenticationHeaderValue(
+                    "Basic",
+                    Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"stream-distribution:{apiSecret}")));
         })
             // Its two non-idempotent methods are idempotent in fact (ADR-0143).
             // add/ is idempotent in fact (spec 309 FR-002): an existing path is
@@ -179,6 +197,18 @@ public static class StreamDistributionInfrastructureModule
             options.ManagementUrl = managementUrl;
             options.WhepBaseUrl = whepBaseUrl;
         });
+    }
+
+    /// <summary>
+    /// ADR-0171. The shared secret that authorizes both directions of the
+    /// MediaMTX control API: this service's own calls out to MediaMTX
+    /// (<see cref="AddMediaMtxGateway"/>) and MediaMTX's hook callback for
+    /// those same calls (<see cref="AuthorizeMediaMtxApiCommandHandler"/>).
+    /// </summary>
+    private static void BindMediaMtxApiOptions(IHostApplicationBuilder builder)
+    {
+        builder.Services.Configure<MediaMtxApiOptions>(options =>
+            builder.Configuration.GetSection(MediaMtxApiOptions.SectionName).Bind(options));
     }
 
     /// <summary>

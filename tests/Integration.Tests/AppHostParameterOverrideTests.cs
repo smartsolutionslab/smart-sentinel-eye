@@ -55,6 +55,7 @@ public class AppHostParameterOverrideTests
         ["StreamDistributionAttributionClientSecret"] = "dev-only-stream-distribution-secret",
         ["SystemVariablesSeederClientSecret"] = "dev-only-system-variables-seeder-secret",
         ["RevocationListReaderClientSecret"] = "dev-only-revocation-list-reader-secret",
+        ["MediaMtxApiSecret"] = "dev-only-mediamtx-api-secret",
     };
 
     /// <summary>
