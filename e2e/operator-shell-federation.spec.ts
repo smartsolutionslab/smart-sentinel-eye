@@ -51,6 +51,53 @@ test.describe('operator shell federation (spec 316)', () => {
     // remote entry loading and rendering) covers.
   });
 
+  // Should-fix 2 (PR #2856 review, issue #2780) — neither reviewer pass found
+  // anything in CI that actually loads the second remote in a browser:
+  // `wait-for-e2e-stack.sh` only checked :5177/ answers HTTP, and nothing
+  // navigated to `/event-ingestion`. The real multi-remote risk — concurrent
+  // manifest loading, federation share-scope resolution with two remotes
+  // registered — was unverified. Modeled on the first test in this file.
+  test('navigating to /event-ingestion fetches remoteEntry.js from :5177, and Event types renders under the shell', async ({
+    page,
+  }) => {
+    await signInAsOperator(page);
+
+    const remoteEntryResponse = page.waitForResponse((response) => response.url().includes(':5177/remoteEntry.js'), {
+      timeout: 15_000,
+    });
+
+    await page.getByRole('link', { name: /^event types$/i }).click();
+
+    const response = await remoteEntryResponse;
+    expect(response.ok()).toBe(true);
+
+    await expect(page.getByRole('heading', { name: 'Event types', exact: true })).toBeVisible();
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
+  // Exercises both remotes sharing one federation share scope within a single
+  // session — the condition should-fix 4's `RemoteSurface` key fix depends on
+  // staying safe (a sibling route mounting only one `<RemoteSurface>` at a
+  // time). Cameras, loaded first by sign-in, then event-ingestion, then back
+  // to cameras — the cameras remote's own surface must still render
+  // correctly on the way back, not get stuck on whichever surface loaded
+  // most recently.
+  test('cameras -> event-ingestion -> cameras in one session renders the correct surface at every step', async ({
+    page,
+  }) => {
+    await signInAsOperator(page);
+    await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
+
+    await page.getByRole('link', { name: /^event types$/i }).click();
+    await expect(page.getByRole('heading', { name: 'Event types', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toHaveCount(0);
+
+    await page.getByRole('link', { name: /^cameras$/i }).click();
+    await expect(page.getByRole('heading', { name: 'Cameras', exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Event types', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('alert')).toHaveCount(0);
+  });
+
   test('every shared singleton resolves to exactly one loaded instance in the federation share scope', async ({
     page,
   }) => {
