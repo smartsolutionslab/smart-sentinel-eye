@@ -140,6 +140,9 @@ public class OrphanedClientSweepTests
             + "device/kiosk registration does (#2797) — the row is RegisteredClient/ClientKind.WebhookIntegration, "
             + "the same table this sweep already queries");
         outcome.Disabled.ShouldBe(1);
+        outcome.Examined.ShouldBe(
+            1, "before the fix, webhook was dropped by SweptKinds and never examined at all (Examined == 0); "
+            + "joining the sweep flips this to 1, mirroring the old combined fact's assertion");
     }
 
     [Fact]
