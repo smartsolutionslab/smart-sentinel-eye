@@ -2,7 +2,11 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { createApiStore } from '@smart-sentinel-eye/shared/store';
-import { eventIngestionApi, type DeadLetter } from '@smart-sentinel-eye/shared/api/eventIngestion.api';
+import {
+  eventIngestionApi,
+  HELD_EVENT_TYPES_LIMIT,
+  type DeadLetter,
+} from '@smart-sentinel-eye/shared/api/eventIngestion.api';
 
 const store = createApiStore([eventIngestionApi]);
 
@@ -93,5 +97,42 @@ describe('HeldEventTypesPage (issue #2780, US1)', () => {
     expect(screen.getByText('TemperatureAlarm')).toBeInTheDocument();
     expect(screen.getByText('berlin')).toBeInTheDocument();
     expect(screen.getByText('PressureAlarm')).toBeInTheDocument();
+
+    // Nit (PR #2856 review): the query is hardcoded to
+    // reason=UnknownEventType, so every row shows the identical value — not
+    // information, and dropped from the table.
+    expect(screen.queryByText('Reason', { selector: 'th' })).not.toBeInTheDocument();
+  });
+
+  it('Renders through the shared DataTable composite, with an accessible caption', () => {
+    listHeldEventTypesMock.mockReturnValue({ data: [], isLoading: false, error: undefined, refetch: vi.fn() });
+
+    renderPage();
+
+    expect(screen.getByRole('table', { name: 'Held event types' })).toBeInTheDocument();
+  });
+
+  it('A response at the server limit shows a partial-data notice, not a silent truncation', () => {
+    const rows = Array.from({ length: HELD_EVENT_TYPES_LIMIT }, (_unused, index) =>
+      row({ deadLetterIdentifier: `dl-${index}`, kind: `Kind${index}` }),
+    );
+    listHeldEventTypesMock.mockReturnValue({ data: rows, isLoading: false, error: undefined, refetch: vi.fn() });
+
+    renderPage();
+
+    expect(screen.getByRole('status')).toHaveTextContent(`Showing the newest ${HELD_EVENT_TYPES_LIMIT} deliveries`);
+  });
+
+  it('A response under the limit shows no partial-data notice', () => {
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1' })],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 });
