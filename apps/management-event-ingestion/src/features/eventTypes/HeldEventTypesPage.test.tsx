@@ -23,12 +23,25 @@ vi.mock('@smart-sentinel-eye/shared/api/eventIngestion.api', async (importOrigin
 });
 
 const promoteEventTypeMock = vi.fn();
+// A plain mutable ref, not component state: usePromoteEventTypeMutation's
+// mocked hook reads it on every render, mirroring RTK Query's own mutation
+// state updating independently of whatever the caller does with the
+// returned promise (should-fix 1, PR #2857 review).
+const promoteErrorRef: { current: unknown } = { current: undefined };
 
 vi.mock('@smart-sentinel-eye/shared/api/eventTypes.api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@smart-sentinel-eye/shared/api/eventTypes.api')>();
   return {
     ...actual,
-    usePromoteEventTypeMutation: () => [promoteEventTypeMock, { isLoading: false }],
+    usePromoteEventTypeMutation: () => [
+      promoteEventTypeMock,
+      {
+        isLoading: false,
+        get error() {
+          return promoteErrorRef.current;
+        },
+      },
+    ],
   };
 });
 
@@ -66,6 +79,7 @@ function renderPage() {
 describe('HeldEventTypesPage (issue #2780, US1)', () => {
   beforeEach(() => {
     useAuthMock.mockReturnValue({ user: { scope: 'sse.events.read' } });
+    promoteErrorRef.current = undefined;
     promoteEventTypeMock.mockReturnValue({ unwrap: () => Promise.resolve('d290f1ee-6c54-4b01-90e6-d701748f0851') });
   });
 
@@ -162,6 +176,7 @@ describe('HeldEventTypesPage (issue #2780, US1)', () => {
 
 describe('HeldEventTypesPage — Promote (issue #2855, slice 2)', () => {
   beforeEach(() => {
+    promoteErrorRef.current = undefined;
     promoteEventTypeMock.mockReturnValue({ unwrap: () => Promise.resolve('d290f1ee-6c54-4b01-90e6-d701748f0851') });
     listHeldEventTypesMock.mockReturnValue({
       data: [row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: 'TemperatureAlarm' })],
@@ -210,6 +225,20 @@ describe('HeldEventTypesPage — Promote (issue #2855, slice 2)', () => {
     expect(screen.queryByRole('button', { name: /promote/i })).not.toBeInTheDocument();
   });
 
+  it('A group with a fab but a null kind shows no Promote button either — the server rejects an empty kind (nit, PR #2857 review)', () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: null })],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+
+    renderPage();
+
+    expect(screen.queryByRole('button', { name: /promote/i })).not.toBeInTheDocument();
+  });
+
   it('On a successful promote, refetches the held list so the row leaves without a full page reload', async () => {
     useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
     const refetch = vi.fn();
@@ -243,5 +272,89 @@ describe('HeldEventTypesPage — Promote (issue #2855, slice 2)', () => {
     expect(button).toHaveAttribute('aria-disabled', 'true');
 
     resolvePromote('d290f1ee-6c54-4b01-90e6-d701748f0851');
+  });
+
+  it("Marks every row's Promote button unavailable while one is in flight, but busy only on the clicked row (nit, PR #2857 review)", async () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    let resolvePromote: (value: string) => void = () => {};
+    promoteEventTypeMock.mockReturnValue({
+      unwrap: () =>
+        new Promise<string>((resolve) => {
+          resolvePromote = resolve;
+        }),
+    });
+    listHeldEventTypesMock.mockReturnValue({
+      data: [
+        row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: 'TemperatureAlarm' }),
+        row({ deadLetterIdentifier: 'dl-2', fab: 'berlin', kind: 'PressureAlarm' }),
+      ],
+      isLoading: false,
+      error: undefined,
+      refetch: vi.fn(),
+    });
+    renderPage();
+
+    const buttons = screen.getAllByRole('button', { name: /promote/i });
+    expect(buttons).toHaveLength(2);
+    const [clicked, other] = buttons as [HTMLElement, HTMLElement];
+    await userEvent.click(clicked);
+
+    expect(clicked).toHaveAttribute('aria-disabled', 'true');
+    expect(clicked).toHaveAttribute('aria-busy', 'true');
+    expect(other).toHaveAttribute('aria-disabled', 'true');
+    expect(other).not.toHaveAttribute('aria-busy', 'true');
+
+    resolvePromote('d290f1ee-6c54-4b01-90e6-d701748f0851');
+  });
+
+  it('Shows a FaultNotice with the problem detail when the promote mutation rejects, and still refetches (should-fix 1/2, PR #2857 review)', async () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    const refetch = vi.fn();
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: 'TemperatureAlarm' })],
+      isLoading: false,
+      error: undefined,
+      refetch,
+    });
+    const rejection = { status: 403, data: { detail: 'Not authorised for this fab.' } };
+    promoteEventTypeMock.mockReturnValue({
+      unwrap: () => {
+        promoteErrorRef.current = rejection;
+        return Promise.reject(rejection);
+      },
+    });
+    renderPage();
+
+    // No unhandled rejection: the click resolves (the component's own catch
+    // observes it), and the error is what the FaultNotice below reads.
+    await userEvent.click(screen.getByRole('button', { name: /promote/i }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Not authorised for this fab.');
+    expect(refetch).toHaveBeenCalled();
+  });
+
+  it('Treats a 409 "already registered" rejection as a non-fault outcome, not a FaultNotice, and still refetches (should-fix 2, PR #2857 review)', async () => {
+    useAuthMock.mockReturnValue({ user: { scope: 'sse.events.types.write' } });
+    const refetch = vi.fn();
+    listHeldEventTypesMock.mockReturnValue({
+      data: [row({ deadLetterIdentifier: 'dl-1', fab: 'munich', kind: 'TemperatureAlarm' })],
+      isLoading: false,
+      error: undefined,
+      refetch,
+    });
+    const conflict = { status: 409, data: { detail: 'Already registered.' } };
+    promoteEventTypeMock.mockReturnValue({
+      unwrap: () => {
+        promoteErrorRef.current = conflict;
+        return Promise.reject(conflict);
+      },
+    });
+    renderPage();
+
+    await userEvent.click(screen.getByRole('button', { name: /promote/i }));
+
+    expect(screen.getByText('Already registered — held rows released.')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(refetch).toHaveBeenCalled();
   });
 });
