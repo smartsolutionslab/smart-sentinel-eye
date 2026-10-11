@@ -56,6 +56,11 @@ export interface OverlayEditorProps {
    * this composite does not call the hook itself. Meaningful only alongside
    * `getToken`; a caller that omits one but not the other gets no camera
    * picker (`BackdropControls`'s own gate), same as before this prop existed.
+   * `data.complete` — the response's own truncation signal (spec 048) —
+   * travels through this prop untouched; `CameraCaptureSection` inside
+   * `BackdropControls.tsx` is what actually reads it and renders the
+   * "Showing N of M cameras" notice, since it is the component that owns
+   * the picker UI.
    */
   cameras?: CameraChoicesResult;
   /**

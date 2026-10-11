@@ -322,6 +322,14 @@ export function OverlayDraftForm({
   // once `OverlayEditor` mounted, which only happens when `hasTextElement`
   // (above). Without the skip, a shapes-only draft would make a request it
   // never made before.
+  //
+  // `cameraChoices` (the `data` below) carries its own `complete` — spec
+  // 048's truncation signal for this bounded response. It is forwarded
+  // whole, unread here, as `cameras.data` to `OverlayEditor` and on to
+  // `BackdropControls`; `CameraCaptureSection` (`BackdropControls.tsx`) is
+  // what actually reads `complete` and renders the "Showing N of M cameras"
+  // notice, because it is the component that owns the picker UI this query
+  // feeds.
   const {
     data: cameraChoices,
     isLoading: cameraChoicesLoading,
