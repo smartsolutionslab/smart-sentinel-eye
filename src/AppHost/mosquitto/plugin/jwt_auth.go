@@ -24,15 +24,19 @@
 // A successful authentication also records, per username, whether the
 // token's scope claim carried sse.events.publish (spec 330, #2286). That
 // verdict is read back on every PUBLISH by a second callback,
-// MOSQ_EVT_ACL_CHECK: a write by an identity last authenticated without the
-// scope is refused outright; every other case — a read/subscribe/
-// unsubscribe, an identity never seen on this path, or a write by an
-// identity that does carry the scope — defers to acl_file, which still
-// decides topic authority. The callback never grants: the strongest thing
-// it can say is "not refused by me" (package authz's Decide has no allow
-// outcome). See authz/authz.go and plan.md §2-3 for the keying-by-username
-// reasoning (a Will is checked after disconnect fires, so a per-connection
-// verdict would already be gone by then).
+// MOSQ_EVT_ACL_CHECK, which defers on a read immediately — before even
+// looking up the username — since Mosquitto runs this check once per
+// subscriber per delivery, not once per publish, and a read can never be
+// refused by it. For a write: no username on the context is refused
+// outright, as is a write by an identity last authenticated without the
+// scope; every other write — one never seen on this path (a password_file
+// user), or one by an identity that does carry the scope — defers to
+// acl_file, which still decides topic authority. The callback never
+// grants: the strongest thing it can say is "not refused by me" (package
+// authz's Decide has no allow outcome). See authz/authz.go and plan.md
+// §2-3 for the keying-by-username reasoning (a Will is checked after
+// disconnect fires, so a per-connection verdict would already be gone by
+// then).
 //
 // The mosquitto_plugin_* entry points are defined in mosquitto_glue.c
 // with the const-correct signatures the headers require (cgo cannot
@@ -225,9 +229,12 @@ func sseOnBasicAuth(event C.int, eventData unsafe.Pointer, userData unsafe.Point
 
 // sseOnAclCheck answers an MOSQ_EVT_ACL_CHECK. It never grants: the
 // strongest verdict it can return is MOSQ_ERR_PLUGIN_DEFER, leaving
-// acl_file to decide topic authority (spec finding 2, plan.md §2.1). It
-// only ever refuses a write, and only for an identity whose last successful
-// JWT authentication lacked sse.events.publish.
+// acl_file to decide topic authority (spec finding 2, plan.md §2.1). A
+// read defers immediately, before the username lookup — Decide would defer
+// on it anyway, and a read reaches this callback once per subscriber per
+// delivery, not once per publish. A write is refused outright when its
+// context carries no username, and otherwise only when the identity's last
+// successful JWT authentication lacked sse.events.publish.
 //
 //export sseOnAclCheck
 func sseOnAclCheck(event C.int, eventData unsafe.Pointer, userData unsafe.Pointer) (result C.int) {
@@ -240,14 +247,26 @@ func sseOnAclCheck(event C.int, eventData unsafe.Pointer, userData unsafe.Pointe
 	}()
 
 	ev := (*C.struct_mosquitto_evt_acl_check)(eventData)
-	name := C.mosquitto_client_username(ev.client)
-	if name == nil {
-		// No identity to look up (e.g. during teardown, after a Will has
-		// already been handled). Nothing this plugin can refuse or allow.
+	// Every read (subscribe and per-delivery) reaches this callback too, and
+	// Decide defers on all of them anyway — so return before the username
+	// lookup instead of paying for it on a path that can never deny.
+	if ev.access != C.MOSQ_ACL_WRITE {
 		return C.MOSQ_ERR_PLUGIN_DEFER
 	}
 
-	switch grants.Decide(C.GoString(name), ev.access == C.MOSQ_ACL_WRITE) {
+	name := C.mosquitto_client_username(ev.client)
+	if name == nil {
+		// A write with no username set. Not the Will path — keying by
+		// username (plan.md §3) exists precisely so a Will's write check
+		// still finds one, since context__cleanup clears it only after the
+		// Will has been handled or discarded. This is some other write
+		// against a context that never completed BASIC_AUTH. Nothing this
+		// plugin can refuse from a token it never saw, so deny rather than
+		// defer: a write cannot reach here without a scope it must prove.
+		return C.MOSQ_ERR_ACL_DENIED
+	}
+
+	switch grants.Decide(C.GoString(name), true) {
 	case authz.Deny:
 		return C.MOSQ_ERR_ACL_DENIED
 	default:
