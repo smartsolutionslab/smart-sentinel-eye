@@ -42,10 +42,22 @@ public static partial class EventsEndpoints
         IServiceScopeFactory scopeFactory = services.ScopeFactory;
         IFabAuthorizationGuard fabGuard = services.FabGuard;
         IFabStorageReadiness storage = services.Storage;
+        IWebhookIntegrationRepository webhookIntegrations = services.WebhookIntegrations;
 
         if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
         {
             return keyProblem;
+        }
+
+        // ADR-0160's generic DisabledAt check only trusts a snapshot that is
+        // stamped *after* Keycloak successfully disables the client (spec 264,
+        // "Keycloak first, then the row") — a window #2629 widened to ~70 min.
+        // This integration's own RevokedAt is stamped at the revoke decision
+        // itself, the same moment /events/webhook/{name}'s check reads it
+        // (#2814), so a webhook-sourced caller is refused here just as fast.
+        if (await IsRevokedWebhookCallerAsync(user, webhookIntegrations, cancellationToken))
+        {
+            return Results.Unauthorized();
         }
 
         // Resolved from the caller, never from the request (spec 018 FR-006).
@@ -122,7 +134,29 @@ public static partial class EventsEndpoints
         [FromServices] IFabAuthorizationGuard FabGuard,
         [FromServices] IFabStorageReadiness Storage,
         [FromServices] IIdempotencyStore Idempotency,
-        [FromServices] TimeProvider Clock);
+        [FromServices] TimeProvider Clock,
+        [FromServices] IWebhookIntegrationRepository WebhookIntegrations);
+
+    /// <summary>
+    /// A manual caller presenting a rotated webhook integration's own JWT
+    /// (identified by <c>azp</c>) is refused once that integration is
+    /// revoked, mirroring <c>AuthenticateWebhookAsync</c>'s check (#2814). A
+    /// caller with no <c>azp</c>, or one no rotated integration claims, is
+    /// unaffected — this only narrows an already-authenticated webhook-sourced
+    /// token, never a human operator's.
+    /// </summary>
+    private static async Task<bool> IsRevokedWebhookCallerAsync(
+        ClaimsPrincipal user, IWebhookIntegrationRepository webhookIntegrations, CancellationToken cancellationToken)
+    {
+        string? azp = user.FindFirst("azp")?.Value;
+        if (string.IsNullOrWhiteSpace(azp) || azp.Length > KeycloakClientIdentifier.MaximumLength)
+        {
+            return false;
+        }
+
+        return await webhookIntegrations.IsRevokedByKeycloakClientIdAsync(
+            KeycloakClientIdentifier.From(azp), cancellationToken);
+    }
 
     private static async Task<IResult> IngestWebhook(
         string integrationName,

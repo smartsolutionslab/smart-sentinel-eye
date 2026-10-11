@@ -64,6 +64,20 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
             : Option<WebhookIntegration>.Some(found));
     }
 
+    /// <summary>
+    /// Mirrors the production fail-closed check (#2814): any row sharing
+    /// this client id that is revoked makes the lookup true, not just one
+    /// picked by recency.
+    /// </summary>
+    public Task<bool> IsRevokedByKeycloakClientIdAsync(
+        KeycloakClientIdentifier keycloakClientId, CancellationToken cancellationToken)
+    {
+        Ensure.That(keycloakClientId).IsNotNull();
+        bool revoked = integrations.Any(
+            i => i.KeycloakClientId == keycloakClientId && i.IsRevoked);
+        return Task.FromResult(revoked);
+    }
+
     public void Add(WebhookIntegration integration)
     {
         Ensure.That(integration).IsNotNull();
