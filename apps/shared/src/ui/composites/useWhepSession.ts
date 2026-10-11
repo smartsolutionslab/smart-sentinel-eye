@@ -192,7 +192,7 @@ export function useWhepSession(options: WhepSessionOptions): WhepSessionResult {
   // writer and wins. Declared second, `'connecting'` would be the last writer
   // instead, and an offline camera B would read "Connecting…" forever under
   // its own name — #2370's own defect class. Guarded by
-  // `CameraViewerCameraSwap.test.tsx`'s "Reads Stream is offline, not
+  // `CameraTile.test.tsx`'s "Reads Stream is offline, not
   // Connecting forever, when camera B is already warm in the cache".
   useEffect(() => {
     const previousCamera = previousCameraRef.current;
