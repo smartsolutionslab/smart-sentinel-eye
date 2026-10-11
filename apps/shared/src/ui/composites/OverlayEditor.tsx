@@ -776,7 +776,16 @@ export function OverlayEditor({
         backdrop={backdrop}
         onBackdropChange={setBackdrop}
         hasCapturedFrame={capturedFrame !== null}
-        getToken={getToken}
+        // Phase-6/review should-fix: `getToken`, `cameras` and
+        // `renderFrameGrabber` are three independently optional props, but
+        // FR-017's degradation is all-or-nothing — "absent ⇒ not offered at
+        // all". `BackdropControls` only gates on `getToken`/`cameras`, so a
+        // caller that wires the first two but not `renderFrameGrabber` would
+        // otherwise get a Capture button with nothing to mount when pressed
+        // (silently failing the 10s timeout). Gating `getToken` here on
+        // `renderFrameGrabber` too restores the single guarantee without
+        // reshaping the props into one object (out of scope for this issue).
+        getToken={renderFrameGrabber !== undefined ? getToken : undefined}
         cameras={cameras}
         selectedCamera={selectedCamera}
         onCameraChange={handleCameraChange}
