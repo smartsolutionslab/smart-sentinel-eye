@@ -55,8 +55,8 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Error, Message = "StreamHealthWatcher poll iteration failed; will retry next tick.")]
     public static partial void StreamHealthWatcherPollFailed(this ILogger logger, Exception exception);
 
-    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX health probe failed for path {Path}; skipping this tick.")]
-    public static partial void HealthProbeFailed(this ILogger logger, Exception exception, MediaMtxPath path);
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX health sweep failed; skipping this tick for every stream.")]
+    public static partial void HealthSweepFailed(this ILogger logger, Exception exception);
 
     // Every WHEP open is refused for as long as this holds, so the exception is
     // carried: IDX20803 names the address that could not be reached and wraps the

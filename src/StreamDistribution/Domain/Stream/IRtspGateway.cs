@@ -45,6 +45,31 @@ public interface IRtspGateway
     Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Fetches health for every path MediaMTX currently reports, in one call
+    /// (<c>GET /v3/paths/list</c>) rather than one <see cref="GetPathHealthAsync"/>
+    /// round trip per path.
+    ///
+    /// <para>
+    /// <c>StreamHealthWatcher</c>'s sweep is the reason this exists. ADR-0171
+    /// routes every control-API call — including this one — back through the
+    /// same <c>/streams/authorize</c> hook a real WHEP viewer's open uses, and
+    /// that hook is rate-limited per source address. Probing per path scaled
+    /// the hook-call rate with the camera count: at the 250-camera production
+    /// target and a 2 s poll, ~125 hook calls/s against a 2000/min (~33/s)
+    /// ceiling — enough to start refusing real viewers with no attacker
+    /// involved. One call per sweep tick, independent of camera count, stays
+    /// clear of that ceiling at any realistic scale.
+    /// </para>
+    ///
+    /// <para>
+    /// A path MediaMTX does not report is simply absent from the result — the
+    /// caller reads that the same way <see cref="GetPathHealthAsync"/>'s own
+    /// 404 branch does, as "not registered", not as a probe failure.
+    /// </para>
+    /// </summary>
+    Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken);
+
+    /// <summary>
     /// Lists every configured MediaMtx path name. Used by the startup
     /// reconciler to find orphans (paths in MediaMTX that no longer back
     /// a DB stream — e.g. left over after a manual MediaMTX restart, or a
