@@ -74,29 +74,14 @@ public static class ListCamerasDefaults
     /// is an error and not a smaller page.
     ///
     /// <para>
-    /// <b>It sits below the production target of 250 cameras per fab</b>
-    /// (constitution §Scale). That is not a contradiction to be fixed by reading
-    /// this comment: it means <i>no single request can enumerate a fab at the
-    /// scale the system is designed for</i>, and every caller wanting the whole
-    /// set must page. Both known callers do — the picker in
-    /// <c>apps/shared</c> and the scenario simulator's read-back, the latter
-    /// having been fixed after reporting a camera past the 200th as absent.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>Why 200, specifically, is not recorded anywhere and could not be
-    /// recovered.</b> Spec 001 states it three times — FR-007b, a clarification,
-    /// and decision-table row 6 — and justifies it in none of them. It is
-    /// therefore deliberate rather than drift, and the 250 target predates it
-    /// (the constitution's bootstrap commit; this constant arrived later), so it
-    /// was chosen with that target already written down. Whether it was chosen
-    /// <i>with reference to</i> the target is what the record does not say.
-    /// </para>
-    ///
-    /// <para>
-    /// This note exists because the number was rediscovered painfully twice.
-    /// Raising it, or changing the refusal to a clamp, needs a reason nobody has
-    /// yet supplied — it is not decided here.
+    /// <b>This is a page size, not the deployment's 250-camera scale target</b>
+    /// (ADR-0170; the target itself is per deployment, shared across its fabs,
+    /// not per fab — ADR-0159). No single request enumerates the whole of a
+    /// deployment regardless of this number: <c>includeRetired=true</c>
+    /// accumulates past any target over a deployment's lifetime, and a caller
+    /// holding several fabs sees their combined total. Every caller wanting the
+    /// full set already pages — the picker in <c>apps/shared</c> and the
+    /// scenario simulator's read-back both do.
     /// </para>
     /// </summary>
     public const int MaximumLimit = 200;
