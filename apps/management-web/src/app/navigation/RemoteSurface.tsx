@@ -46,9 +46,11 @@ const resolvedComponents = new Map<string, ComponentType>();
 const failedRemotes = new Set<string>();
 
 // ADR-0168 §4's naming convention: a remote named "cameras" exposes
-// "./CamerasSurface" (plan §5.1). One remote exists today — this is the
-// naming the first one already follows, not a lookup table for a need that
-// doesn't exist yet (CLAUDE.md: no speculative generality).
+// "./CamerasSurface" (plan §5.1), and "eventIngestion" exposes
+// "./EventIngestionSurface" (issue #2780, the second remote). A pure
+// name-to-key derivation, not a lookup table — there is still no need this
+// repo has to hold a second remote's module key anywhere but here
+// (CLAUDE.md: no speculative generality).
 function exposedModuleKey(remote: string): string {
   return `${remote}/${remote.charAt(0).toUpperCase()}${remote.slice(1)}Surface`;
 }
@@ -87,12 +89,18 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
   const [Component, setComponent] = useState<ComponentType | null>(() => resolvedComponents.get(remote) ?? null);
 
   useEffect(() => {
-    // No reset of `failure`/`Component` here: `remote` is a stable literal
-    // prop (one remote exists today) and a retry remounts this component
-    // fresh via `SurfaceCrash`'s navigate — so this effect body runs exactly
-    // once per mounted instance, always starting from each `useState`'s own
-    // initial `null`. Resetting here too would be a synchronous setState in
-    // an effect body for a case this component never actually hits.
+    // No reset of `failure`/`Component` here: every call site gives this
+    // component a `remote` that is both a stable literal prop AND a distinct
+    // React `key` from any sibling that could occupy the same tree position
+    // (`router.tsx`'s `SURFACE_ELEMENTS`, should-fix 4, PR #2856 review) — so
+    // `remote` itself never changes across the life of one mounted instance.
+    // A retry remounts this component fresh via `SurfaceCrash`'s navigate,
+    // and a change in which remote is shown remounts it fresh via the key
+    // instead of updating this instance's props. This effect body therefore
+    // runs exactly once per mounted instance, always starting from each
+    // `useState`'s own initial `null`. Resetting here too would be a
+    // synchronous setState in an effect body for a case this component never
+    // actually hits.
     let settled = false;
 
     const fail = (reason: string) => {
@@ -120,8 +128,15 @@ export function RemoteSurface({ remote }: RemoteSurfaceProps) {
 
     // B3 fix (spec 316 phase-6 review): `resolveShare` fires on every
     // `loadShare` resolution in the share scope, not only this remote's —
-    // acceptable today because exactly one remote exists (no speculative
-    // generality for a filter this repo has no second remote to exercise).
+    // unfiltered by remote name. With two remotes now registered (issue
+    // #2780), this listener genuinely can fire for the *other* remote's
+    // share resolution while this instance is mounted. It stays correct
+    // because of a real assumption, not an accident of there being only one
+    // remote: `router.tsx`'s routes mount at most one `<RemoteSurface>` at a
+    // time (the index route XOR exactly one of `cameras/*` /
+    // `event-ingestion/*`), so exactly one instance is ever listening — there
+    // is still no second, simultaneously-mounted surface this filter would
+    // need to distinguish the mismatch from.
     const unsubscribeMismatch = onSharedVersionMismatch(({ pkgName, version, requiredVersion }) => {
       fail(
         `shared module "${pkgName}" resolved to ${version}, which does not satisfy required version ${requiredVersion}`,
