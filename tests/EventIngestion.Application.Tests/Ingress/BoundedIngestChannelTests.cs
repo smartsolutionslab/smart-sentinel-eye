@@ -1,9 +1,11 @@
 using System.Globalization;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
+using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Ingress;
 
+[Collection(IngestChannelSaturationCollection.Name)]
 public class BoundedIngestChannelTests
 {
     private static readonly DateTimeOffset Now =
@@ -105,7 +107,7 @@ public class BoundedIngestChannelTests
 
         // Blocks because the channel is full. This is the backpressure the
         // broker feels: the handler stops returning, the in-flight window
-        // fills, and queue depth absorbs the burst (FR-022).
+        // fills, and queue depth absorbs the burst (FR-022, ADR-0175).
         ValueTask pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
         pending.IsCompleted.ShouldBeFalse();
 
@@ -113,6 +115,44 @@ public class BoundedIngestChannelTests
 
         await pending;
         channel.CurrentDepth.ShouldBe(1);
+    }
+
+    /// <summary>
+    /// ADR-0175's observability follow-up. <c>CurrentDepth</c> alone cannot
+    /// distinguish a channel that is full and draining from one that is full
+    /// and stuck — this is the signal that tells them apart, so a write that
+    /// genuinely had to wait must record how long.
+    /// </summary>
+    [Fact]
+    public async Task A_write_that_blocks_records_how_long_it_waited()
+    {
+        using RecordedIngestChannelSaturation recorded = new();
+        BoundedIngestChannel channel = new(capacity: 1);
+        await channel.WriteAsync(Delivery("1"), CancellationToken.None);
+
+        ValueTask pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
+        await Task.Delay(TimeSpan.FromMilliseconds(20));
+        await channel.ReadBatchAsync(1, CancellationToken.None);
+        await pending;
+
+        double waited = recorded.BlockedDurationsSeconds.ShouldHaveSingleItem();
+        waited.ShouldBeGreaterThan(0);
+    }
+
+    /// <summary>
+    /// The companion to the fact above: a write that finds capacity
+    /// immediately did not block, and recording a zero would publish a
+    /// measurement claiming saturation that never happened.
+    /// </summary>
+    [Fact]
+    public async Task A_write_that_does_not_block_records_nothing()
+    {
+        using RecordedIngestChannelSaturation recorded = new();
+        BoundedIngestChannel channel = new(capacity: 10);
+
+        await channel.WriteAsync(Delivery("1"), CancellationToken.None);
+
+        recorded.BlockedDurationsSeconds.ShouldBeEmpty("the write found capacity immediately");
     }
 
     private sealed class RecordingCompletion : IIngestCompletion

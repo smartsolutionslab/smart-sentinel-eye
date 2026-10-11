@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Threading.Channels;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -8,7 +9,9 @@ namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 /// persistence loop (spec 006 FR-021). 5 000 slots per instance.
 /// <c>FullMode = Wait</c> — <see cref="WriteAsync"/> blocks the caller, which
 /// is what makes the MQTT subscriber stop taking deliveries when the channel
-/// saturates and lets the broker hold queue depth (FR-022).
+/// saturates and lets the broker hold queue depth (FR-022). ADR-0175 records
+/// this as a decision, not an inferred default; a blocked write's wait is
+/// reported through <see cref="IngestChannelSaturation"/>.
 ///
 /// <para>
 /// Single reader, so per-source order is preserved end to end: the broker
@@ -37,10 +40,22 @@ public sealed class BoundedIngestChannel : IIngestChannel
 
     public int CurrentDepth => channel.Reader.Count;
 
-    public ValueTask WriteAsync(IngestDelivery delivery, CancellationToken cancellationToken)
+    public async ValueTask WriteAsync(IngestDelivery delivery, CancellationToken cancellationToken)
     {
         Ensure.That(delivery).IsNotNull();
-        return channel.Writer.WriteAsync(delivery, cancellationToken);
+
+        // TryWrite is the non-blocking attempt: if a slot is free, this is
+        // the entire method, and nothing times a write that never blocked.
+        // Only a full channel falls through to WriteAsync below, which is
+        // the one case ADR-0175's instrument exists to measure.
+        if (channel.Writer.TryWrite(delivery))
+        {
+            return;
+        }
+
+        long start = Stopwatch.GetTimestamp();
+        await channel.Writer.WriteAsync(delivery, cancellationToken);
+        IngestChannelSaturation.RecordBlocked(Stopwatch.GetElapsedTime(start));
     }
 
     public async Task<IReadOnlyList<IngestDelivery>> ReadBatchAsync(

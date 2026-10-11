@@ -165,20 +165,23 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddSingleton(provider =>
             new IngestWriteLimiter(provider.GetRequiredService<IOptions<IngestWriteOptions>>().Value.Concurrency));
 
-        // Spec 103 FR-004. A meter nobody registers records into nothing and
-        // raises no error, so this line is the whole difference between an
-        // instrument and a no-op. IngestVolumeRegistrationTests fails loudly if
-        // it goes; what no unit test can see is whether the exporter then ships
+        // Spec 103 FR-004 (IngestVolume). ADR-0175 (IngestChannelSaturation).
+        // A meter nobody registers records into nothing and raises no error,
+        // so this line is the whole difference between an instrument and a
+        // no-op. IngestVolumeRegistrationTests fails loudly if its meter
+        // goes; what no unit test can see is whether the exporter then ships
         // the figure to a sink, which is spec 103 §5's job.
         //
         // Here rather than beside the other three meters in ServiceDefaults:
         // that project is referenced by every context and references none of
-        // them, so it cannot see IngestVolume.MeterName. Registering it there
+        // them, so it cannot see these meter names. Registering them there
         // would mean the same string in two projects, which is how a rename
         // silently unregisters a meter. ADR-0051 puts a context's own wiring in
         // the context's own DI extension anyway.
         builder.Services.AddOpenTelemetry()
-            .WithMetrics(metrics => metrics.AddMeter(IngestVolume.MeterName));
+            .WithMetrics(metrics => metrics
+                .AddMeter(IngestVolume.MeterName)
+                .AddMeter(IngestChannelSaturation.MeterName));
 
         // FR-005: how long a failing write keeps being retried before the
         // delivery is recorded and released. Bound out here rather than in the
