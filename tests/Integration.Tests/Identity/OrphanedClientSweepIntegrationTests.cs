@@ -13,10 +13,9 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 
 /// <summary>
 /// Spec 320 (#2181) plan §8.1 — facts I0a, I0b, I1, I1k, I2, I3, I4; I5 added
-/// by spec 337 (#2797). The
-/// load-bearing red (I1/I1k) against the real stack: a planted orphan blocks
-/// re-registration with 409 today, and after one pass the same request must
-/// answer 201.
+/// by spec 337 (#2797), mirroring I1/I1k's own shape: a planted orphan blocks
+/// the next create-branch rotate with 409 today, and after one pass the same
+/// request must succeed and its secret must authenticate.
 ///
 /// <para>
 /// <b>I0a and I0b are controls, not the feature.</b> I0a proves the defect
@@ -275,26 +274,42 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     }
 
     [Fact]
-    public async Task I5_a_webhook_stamped_client_with_no_row_is_now_disabled()
+    public async Task I5_a_webhook_stamped_client_with_no_row_is_now_disabled_and_rotation_then_succeeds()
     {
-        string webhook = $"webhook-{NewSuffix("joined-the-sweep")}";
+        string integrationName = NewSuffix("joined-the-sweep");
+        string clientId = $"webhook-{integrationName}";
         CancellationToken cancellationToken = CancellationToken.None;
         DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
 
-        await realm.PlantAsync(webhook, WebhookAttributes, cancellationToken);
+        await realm.PlantAsync(clientId, WebhookAttributes(integrationName), cancellationToken);
         try
         {
             await RunSweepAsync(plantedAt + ADayLater, cancellationToken);
 
-            (await IsEnabledAsync(webhook, cancellationToken)).ShouldBeFalse(
+            (await IsEnabledAsync(clientId, cancellationToken)).ShouldBeFalse(
                 "sse.kind=webhook joined OrphanedClientSweep.SweptKinds (spec 337, #2797) — the same "
                 + "RegisteredClient/ClientKind.WebhookIntegration row shape this sweep already queried "
                 + "for device/kiosk, so a cancelled RotateWebhookClientCommandHandler create is now "
                 + "disabled the same way");
+
+            using HttpClient munich = await MunichClientAsync();
+            HttpResponseMessage response = await RotateWebhookClientAsync(munich, integrationName, Fab);
+            response.StatusCode.ShouldBe(
+                HttpStatusCode.OK,
+                "disabling the orphan must unblock the next create-branch rotate for the same "
+                + "integration name — #2797's actual harm is not the disable by itself, it is that an "
+                + "orphan left RotateWebhookClientCommandHandler's create branch answering 409 "
+                + $"WebhookClientNameConflict forever: {await aspire.DiagnoseAsync("identity", response)}");
+
+            JsonElement created = await response.Content.ReadFromJsonAsync<JsonElement>();
+            string secret = created.GetProperty("clientSecret").GetString()!;
+
+            (await CanAuthenticateAsync(clientId, secret)).ShouldBeTrue(
+                "the fresh secret from the healed rotation must actually work");
         }
         finally
         {
-            await realm.DeleteAsync(webhook, cancellationToken);
+            await realm.DeleteAsync(clientId, cancellationToken);
         }
     }
 
@@ -312,8 +327,18 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     private static readonly Dictionary<string, string> KioskAttributes =
         new(StringComparer.Ordinal) { ["sse.kind"] = "kiosk", ["sse.fab"] = Fab };
 
-    private static readonly Dictionary<string, string> WebhookAttributes =
-        new(StringComparer.Ordinal) { ["sse.kind"] = "webhook", ["sse.fab"] = Fab };
+    // Stamped exactly as RotateWebhookClientCommandHandler.cs:150-155 does in
+    // production, sse.integrationName included — the sweep's own
+    // GetStampedClientsAsync reads sse.kind, but the recovery assertion below
+    // calls /webhook-integrations/{name}/rotate, which derives the Keycloak
+    // clientId from the integration name, not the other way round.
+    private static Dictionary<string, string> WebhookAttributes(string integrationName) =>
+        new(StringComparer.Ordinal)
+        {
+            ["sse.kind"] = "webhook",
+            ["sse.integrationName"] = integrationName,
+            ["sse.fab"] = Fab,
+        };
 
     private static readonly Dictionary<string, string> NoAttributes = new(StringComparer.Ordinal);
 
@@ -325,6 +350,22 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
 
     private static Task<HttpResponseMessage> EnrollKioskAsync(HttpClient client, string clientId) =>
         client.PostAsJsonAsync($"/kiosks/enroll?fabId={Fab}", new { clientId });
+
+    /// <summary>
+    /// Create-branch rotation (<c>If-None-Match: *</c>), mirroring
+    /// <see cref="RegisterDeviceAsync"/>/<see cref="EnrollKioskAsync"/> for
+    /// webhook integrations — the recovery path #2797 is actually about.
+    /// </summary>
+    private static Task<HttpResponseMessage> RotateWebhookClientAsync(
+        HttpClient client, string integrationName, string fab)
+    {
+        HttpRequestMessage request = new(HttpMethod.Post, $"/webhook-integrations/{integrationName}/rotate")
+        {
+            Content = JsonContent.Create(new { fabId = fab }),
+        };
+        request.Headers.TryAddWithoutValidation("If-None-Match", "*");
+        return client.SendAsync(request);
+    }
 
     private async Task<bool> IsEnabledAsync(string clientId, CancellationToken cancellationToken)
     {
