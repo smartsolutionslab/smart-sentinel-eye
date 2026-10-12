@@ -5,6 +5,17 @@
 **Amends:** Constitution §VII (Observability Is Non-Negotiable)
 **Relates to:** ADR-015 (latency budget), ADR-026 (observability stack), #1681, #1714
 
+## Addendum (2026-10-12) — #1940 resolved: ADR-0118 governs
+
+#1940 found this ADR and ADR-0118 disagreeing, one day apart, on whether
+"readable in the Aspire dev sink" discharges §VII's dashboard obligation.
+Resolved: **ADR-0118's reading stands.** Readable in the Aspire dev sink
+satisfies §VII's dashboard obligation, given no production deployment
+exists yet (ADR-0118). This ADR's own Decision clause 1 ("a dashboard
+showing it against its ADR-015 budget") is satisfied by the measurement
+being visible in the dev-sink trace/metric view — it does not require a
+purpose-built dashboard widget beyond that.
+
 ## Context
 
 Constitution §VII says:
