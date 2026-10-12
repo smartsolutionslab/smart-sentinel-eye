@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
@@ -41,8 +42,11 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     private readonly JwtSecurityTokenHandler handler = new();
 
     public WhepAuthValidator(
-        IOptions<WhepAuthOptions> options, IRevokedClientRegistry revokedClients, ILogger<WhepAuthValidator> logger)
-        : this(MetadataSourceFor(options), revokedClients, logger)
+        IOptions<WhepAuthOptions> options,
+        IHostEnvironment environment,
+        IRevokedClientRegistry revokedClients,
+        ILogger<WhepAuthValidator> logger)
+        : this(MetadataSourceFor(options, environment), revokedClients, logger)
     {
     }
 
@@ -71,23 +75,24 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     }
 
     internal static ConfigurationManager<OpenIdConnectConfiguration> MetadataSourceFor(
-        IOptions<WhepAuthOptions> options)
+        IOptions<WhepAuthOptions> options, IHostEnvironment environment)
     {
         Ensure.That(options).IsNotNull();
+        Ensure.That(environment).IsNotNull();
         string authority = options.Value.Authority.TrimEnd('/');
 
-        // Allow an http metadata authority (dev/test/Aspire) — there is no Helm
-        // overlay enforcing https on Keycloak (deploy/helm/ has only the Mosquitto
-        // chart); this is a permissive default, not one backed by deployment
-        // config. Mirrors the standard JwtBearer pipeline's
-        // RequireHttpsMetadata = false (AuthenticationDefaults, which states
-        // the same reasoning). Without this the default HttpDocumentRetriever
-        // requires https and throws IDX20108 on the dev/CI http authority — a 500 on
-        // every WHEP authorize.
+        // Spec 340 (#2238): strict everywhere except Development, through the
+        // same policy AuthenticationDefaults defines for the nine REST APIs —
+        // there is no separate flag on WhepAuthOptions, because a settable
+        // one would just be the configuration knob spec 340 §3.4 rules out.
+        // Outside Development this makes the retriever refuse an http
+        // authority on scheme alone (IDX20108) instead of dialling it; the
+        // dev/CI stack, which Aspire wires over plain http by design, is
+        // unaffected.
         return new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{authority}/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever(),
-            new HttpDocumentRetriever { RequireHttps = false });
+            new HttpDocumentRetriever { RequireHttps = AuthenticationDefaults.RequiresHttpsMetadata(environment) });
     }
 
     internal static TokenValidationParameters CreateParameters() => new()
