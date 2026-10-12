@@ -24,6 +24,28 @@ int whepAuthorizePermitLimit =
 TimeSpan whepAuthorizeWindow =
     builder.Configuration.GetValue<TimeSpan?>("WhepAuthorizeRateLimiting:Window") ?? TimeSpan.FromMinutes(1);
 
+// #2871: the `api` partition used to share this same ceiling (see the
+// classification split below), sized only against the two WHEP test
+// classes' own direct call counts (AppHost.cs's accounting comment). It was
+// never sized against ITS OWN consumers — the 2-second health sweep
+// (StreamHealthWatcher), MediaMtxReconciler's startup pass, and every
+// StreamDistribution integration test's own fixture resets/add/list/delete
+// calls, all landing in one fixed window keyed by this one test host
+// address. Under CI load that total exceeds a 50/10s ceiling; MediaMTX
+// reports ANY non-2xx answer from this hook (429 included) to its own
+// caller as a flat 401, which is exactly the "intermittent 401" #2871 chased
+// — confirmed by directly hammering MediaMTX's control API with 150
+// concurrent, correctly-credentialed calls under the old shared ceiling: 46
+// got through, 104 came back 401. A separate, far larger ceiling for `api`
+// is safe to size generously: unlike a WHEP open (RSA/JWT signature
+// verification), a failed `api` attempt costs one cheap SHA-256 compare
+// (MediaMtxApiAuthenticator), so a higher ceiling does not reopen the
+// CPU-exhaustion finding ADR-0171 closed.
+int mediaMtxApiAuthorizePermitLimit =
+    builder.Configuration.GetValue<int?>("MediaMtxApiAuthorizeRateLimiting:PermitLimit") ?? 2000;
+TimeSpan mediaMtxApiAuthorizeWindow =
+    builder.Configuration.GetValue<TimeSpan?>("MediaMtxApiAuthorizeRateLimiting:Window") ?? TimeSpan.FromMinutes(1);
+
 // Spec 208 review S13: a misconfigured PermitLimit <= 0 or a zero/negative
 // Window binds successfully and only throws inside the rate limiter on the
 // first real request — turning a config typo into a 500-generating outage
@@ -34,6 +56,9 @@ TimeSpan whepAuthorizeWindow =
 Ensure.That(whepAuthorizePermitLimit).AtLeast(1);
 int whepAuthorizeWindowMilliseconds = (int)whepAuthorizeWindow.TotalMilliseconds;
 Ensure.That(whepAuthorizeWindowMilliseconds).AtLeast(1);
+Ensure.That(mediaMtxApiAuthorizePermitLimit).AtLeast(1);
+int mediaMtxApiAuthorizeWindowMilliseconds = (int)mediaMtxApiAuthorizeWindow.TotalMilliseconds;
+Ensure.That(mediaMtxApiAuthorizeWindowMilliseconds).AtLeast(1);
 
 builder.Services.AddMemoryCache();
 
@@ -114,16 +139,25 @@ static string WhepAuthorizeActionClassification(HttpContext context) =>
 // nothing but network reach", keyed on attacker-influenced input (source
 // addresses), it grew for the process lifetime. IMemoryCache is already
 // part of the ASP.NET Core shared framework (no new package, NFR-002).
-bool IsNewWhepAuthorizeThrottleTransition(IMemoryCache cache, string partition)
+bool IsNewWhepAuthorizeThrottleTransition(IMemoryCache cache, string partition, TimeSpan window)
 {
     if (cache.TryGetValue(partition, out _))
     {
         return false;
     }
 
-    cache.Set(partition, true, whepAuthorizeWindow);
+    cache.Set(partition, true, window);
     return true;
 }
+
+// #2871: each classification now has its own ceiling (see
+// mediaMtxApiAuthorizePermitLimit above), so the throttle-transition log and
+// the limiter's own options factory both need to pick the pair that matches
+// the request actually being decided, not always the "whep" pair.
+(int PermitLimit, TimeSpan Window) RateLimitBudgetFor(string classification) =>
+    classification == ApiActionPartition
+        ? (mediaMtxApiAuthorizePermitLimit, mediaMtxApiAuthorizeWindow)
+        : (whepAuthorizePermitLimit, whepAuthorizeWindow);
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -134,14 +168,16 @@ builder.Services.AddRateLimiter(options =>
         // Same "ip:{RemoteIpAddress}:action:{classification}" spelling as the
         // policy's own partition key below, so a transition log record names
         // exactly the partition the limiter itself keyed on.
+        string classification = WhepAuthorizeActionClassification(context.HttpContext);
         string partition =
             $"ip:{context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"
-            + $":action:{WhepAuthorizeActionClassification(context.HttpContext)}";
+            + $":action:{classification}";
+        (int permitLimit, TimeSpan window) = RateLimitBudgetFor(classification);
         IMemoryCache cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
-        if (IsNewWhepAuthorizeThrottleTransition(cache, partition))
+        if (IsNewWhepAuthorizeThrottleTransition(cache, partition, window))
         {
             context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
-                .WhepAuthorizeThrottled(partition, whepAuthorizePermitLimit);
+                .WhepAuthorizeThrottled(partition, permitLimit);
         }
 
         return ValueTask.CompletedTask;
@@ -163,10 +199,17 @@ builder.Services.AddRateLimiter(options =>
             // alone put them in the same budget.
             $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"
                 + $":action:{WhepAuthorizeActionClassification(context)}",
+            // #2871: api and whep draw from separate budgets
+            // (mediaMtxApiAuthorizePermitLimit vs whepAuthorizePermitLimit) —
+            // see that variable's own comment for why `api` needs a much
+            // larger one. RateLimitBudgetFor is called once per distinct
+            // partition key (GetFixedWindowLimiter caches the limiter it
+            // builds), so this still runs once per api/whep split, not once
+            // per request.
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = whepAuthorizePermitLimit,
-                Window = whepAuthorizeWindow,
+                PermitLimit = RateLimitBudgetFor(WhepAuthorizeActionClassification(context)).PermitLimit,
+                Window = RateLimitBudgetFor(WhepAuthorizeActionClassification(context)).Window,
                 QueueLimit = 0,
             }));
 });
