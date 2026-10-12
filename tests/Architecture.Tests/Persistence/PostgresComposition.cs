@@ -198,7 +198,7 @@ public static class PostgresComposition
     /// <c>IngestVolumeRegistrationTests.Configuration</c> and
     /// <c>KioskPrivilegeSweepRegistrationTests</c>).
     /// </summary>
-    private static Dictionary<string, string?> ConfigurationFor(string contextName)
+    internal static Dictionary<string, string?> ConfigurationFor(string contextName)
     {
         Dictionary<string, string?> configuration = new()
         {
