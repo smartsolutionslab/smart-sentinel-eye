@@ -45,7 +45,7 @@ public interface IRtspGateway
     Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Fetches health for every path MediaMTX currently reports, in one call
+    /// Fetches health for every path MediaMTX currently reports
     /// (<c>GET /v3/paths/list</c>) rather than one <see cref="GetPathHealthAsync"/>
     /// round trip per path.
     ///
@@ -57,8 +57,10 @@ public interface IRtspGateway
     /// the hook-call rate with the camera count: at the 250-camera production
     /// target and a 2 s poll, ~125 hook calls/s against a 2000/min (~33/s)
     /// ceiling — enough to start refusing real viewers with no attacker
-    /// involved. One call per sweep tick, independent of camera count, stays
-    /// clear of that ceiling at any realistic scale.
+    /// involved. One call per *page* per sweep tick — MediaMTX paginates this
+    /// endpoint at 100 items and takes no "give me everything" option — stays
+    /// clear of that ceiling at any realistic scale: ~3 calls/tick at the
+    /// 250-camera target.
     /// </para>
     ///
     /// <para>

@@ -136,20 +136,55 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     public async Task<IReadOnlyDictionary<MediaMtxPath, RtspPathHealth>> GetAllPathsHealthAsync(CancellationToken cancellationToken)
     {
         // GET /v3/paths/list (the runtime list, not /v3/config/paths/list):
-        // one call returning every path's current health in its `items` array,
-        // each item shaped exactly like a single /v3/paths/get response plus a
-        // `name`. One hook call per sweep tick instead of one per stream — see
-        // IRtspGateway.GetAllPathsHealthAsync's doc comment for why that matters.
-        using HttpResponseMessage response = await http.GetAsync("/v3/paths/list", cancellationToken);
-        response.EnsureSuccessStatusCode();
-
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-
+        // each page's `items` array holds every path's current health shaped
+        // exactly like a single /v3/paths/get response plus a `name`. One hook
+        // call per *page* per sweep tick instead of one per stream — see
+        // IRtspGateway.GetAllPathsHealthAsync's doc comment for why that
+        // matters.
+        //
+        // MediaMTX paginates this endpoint (internal/api/paginate.go defaults
+        // itemsPerPage to 100, sorted by Name ascending) and does not take a
+        // "give me everything" option, so a single unpaged read silently
+        // dropped every path past the 100th — path names are cam-<Guid v7>,
+        // which sort by creation time, so this was every camera past the
+        // 100th at any deployment past that size (250-camera target). Looping
+        // until pageCount is exhausted mirrors AspireFixture.Db.cs's
+        // ResetMediaMtxAsync, which already loops the sibling
+        // /v3/config/paths/list endpoint the same way.
         Dictionary<MediaMtxPath, RtspPathHealth> health = [];
 
+        int page = 0;
+        bool hasMorePages = true;
+        while (hasMorePages)
+        {
+            using HttpResponseMessage response = await http.GetAsync(
+                $"/v3/paths/list?page={page}&itemsPerPage=100", cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            AddPageToHealth(payload, health);
+
+            // Absent pageCount (an older MediaMTX, or a test double that never
+            // set it) reads as "one page" — the behaviour this method always
+            // had before pagination was accounted for.
+            int pageCount = payload.TryGetProperty("pageCount", out JsonElement pageCountElement)
+                && pageCountElement.ValueKind == JsonValueKind.Number
+                ? pageCountElement.GetInt32()
+                : 1;
+
+            page++;
+            hasMorePages = page < pageCount;
+        }
+
+        return health;
+    }
+
+    private static void AddPageToHealth(JsonElement payload, Dictionary<MediaMtxPath, RtspPathHealth> health)
+    {
         if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
         {
-            return health;
+            return;
         }
 
         foreach (JsonElement item in items.EnumerateArray())
@@ -167,8 +202,6 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
             health[MediaMtxPath.From(raw)] = ParsePathHealth(item);
         }
-
-        return health;
     }
 
     private static readonly RtspPathHealth NotRegistered = new(
