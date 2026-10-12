@@ -79,6 +79,82 @@ public class MediaMtxRtspGatewayPaginationTests
         handler.RequestedPages.ShouldBe([0], "a single-page report must not cause a second request");
     }
 
+    [Fact]
+    public async Task Every_configured_page_mediamtx_reports_is_read_not_only_the_first()
+    {
+        string[] firstPageNames = [.. Enumerable.Range(0, 100).Select(_ => $"cam-{Guid.NewGuid()}")];
+        string[] secondPageNames = [.. Enumerable.Range(0, 37).Select(_ => $"cam-{Guid.NewGuid()}")];
+
+        PagedPathsHandler handler = new(new Dictionary<int, string>
+        {
+            [0] = PageBody(firstPageNames, pageCount: 2),
+            [1] = PageBody(secondPageNames, pageCount: 2),
+        });
+
+        using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
+        MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
+
+        IReadOnlyList<MediaMtxPath> paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
+
+        paths.Count.ShouldBe(
+            137,
+            "both pages' paths should be in the result — a gateway that reads only the first page "
+            + "would stop at 100, silently dropping every camera past it");
+
+        foreach (string name in firstPageNames.Concat(secondPageNames))
+        {
+            paths.ShouldContain(MediaMtxPath.From(name));
+        }
+
+        handler.RequestedPages.ShouldBe(
+            [0, 1],
+            "exactly one request per page, in order, and no more once pageCount is exhausted");
+
+        handler.RequestedPaths.ShouldAllBe(
+            path => path == "/v3/config/paths/list",
+            "the config list endpoint, not the runtime /v3/paths/list the health sweep hits");
+    }
+
+    [Fact]
+    public async Task A_single_configured_page_response_issues_exactly_one_request()
+    {
+        string[] names = [.. Enumerable.Range(0, 12).Select(_ => $"cam-{Guid.NewGuid()}")];
+
+        PagedPathsHandler handler = new(new Dictionary<int, string>
+        {
+            [0] = PageBody(names, pageCount: 1),
+        });
+
+        using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
+        MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
+
+        IReadOnlyList<MediaMtxPath> paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
+
+        paths.Count.ShouldBe(12);
+        handler.RequestedPages.ShouldBe([0], "a single-page report must not cause a second request");
+    }
+
+    [Fact]
+    public async Task A_non_canonical_name_on_a_later_configured_page_is_still_filtered_out()
+    {
+        string[] firstPageNames = [.. Enumerable.Range(0, 100).Select(_ => $"cam-{Guid.NewGuid()}")];
+        string[] secondPageNames = ["manually-created-path", $"cam-{Guid.NewGuid()}"];
+
+        PagedPathsHandler handler = new(new Dictionary<int, string>
+        {
+            [0] = PageBody(firstPageNames, pageCount: 2),
+            [1] = PageBody(secondPageNames, pageCount: 2),
+        });
+
+        using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
+        MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
+
+        IReadOnlyList<MediaMtxPath> paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
+
+        paths.Count.ShouldBe(101, "the manually-created, non-canonical name on page 2 must be filtered out");
+        paths.ShouldAllBe(path => path.Value != "manually-created-path");
+    }
+
     private static string PageBody(IReadOnlyList<string> names, int pageCount)
     {
         string items = string.Join(
@@ -89,20 +165,29 @@ public class MediaMtxRtspGatewayPaginationTests
 
     /// <summary>
     /// Hand-written primary handler (ADR-0052): answers each page from the
-    /// map it was built with and records the <c>page</c> query parameter it
-    /// actually received, in request order.
+    /// map it was built with and records the <c>page</c> query parameter
+    /// and the request path it actually received, in request order. A
+    /// missing <c>page</c> parameter reads as page 0 — MediaMTX's own
+    /// default — so a gateway that forgets to send it still gets served
+    /// page 0's body rather than failing the stub itself (a real red
+    /// should come from the resulting assertion, not from this handler).
     /// </summary>
     private sealed class PagedPathsHandler(Dictionary<int, string> pages) : HttpMessageHandler
     {
         private readonly List<int> requestedPages = [];
+        private readonly List<string> requestedPaths = [];
 
         public IReadOnlyList<int> RequestedPages => requestedPages;
+
+        public IReadOnlyList<string> RequestedPaths => requestedPaths;
 
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            int page = ParsePage(request.RequestUri ?? throw new InvalidOperationException("request had no URI"));
+            Uri uri = request.RequestUri ?? throw new InvalidOperationException("request had no URI");
+            int page = ParsePage(uri);
             requestedPages.Add(page);
+            requestedPaths.Add(uri.AbsolutePath);
 
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
@@ -121,7 +206,7 @@ public class MediaMtxRtspGatewayPaginationTests
                 }
             }
 
-            throw new InvalidOperationException($"request URI '{uri}' carried no 'page' query parameter");
+            return 0;
         }
     }
 }
