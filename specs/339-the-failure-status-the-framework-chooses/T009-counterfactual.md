@@ -11,6 +11,8 @@ moving to the next mutation.
 
 ## (a) SC-003 — `WolverineDefaults.cs:211`, `failureStatus: HealthStatus.Degraded` → `HealthStatus.Unhealthy`
 
+Rebuild (after editing `WolverineDefaults.cs`): `dotnet build tests/Architecture.Tests -c Release`
+
 Command: `dotnet test tests/Architecture.Tests -c Release --filter "FullyQualifiedName~Every_health_check_on_a_host_serving_health_declares_a_failure_status_other_than_unhealthy" --no-build`
 
 Result: **exactly the nine context-host cases failed; ApiGateway stayed green** —
@@ -42,6 +44,8 @@ is the one passing case, confirming it composes no Wolverine outbox check.
 
 ## (b) SC-004 — `Extensions.cs:129`, `AddCheck("self", …, ["live"])` → `["ready"]`
 
+Rebuild (after editing `Extensions.cs`): `dotnet build tests/Architecture.Tests -c Release`
+
 Command: `dotnet test tests/Architecture.Tests -c Release --filter "FullyQualifiedName~Every_health_check_on_a_host_serving_health_declares_a_failure_status_other_than_unhealthy" --no-build`
 
 Result: **all ten cases failed, every one naming `self`**.
@@ -69,6 +73,8 @@ shape, and a tag change alone (name and factory type both still match) is enough
 to lose it.
 
 ## (c) Completeness — drop `EventIngestion.Api` from `ServedHealthHosts`
+
+Rebuild (after editing `ServedHealthHosts.cs`): `dotnet build tests/Architecture.Tests -c Release`
 
 Command: `dotnet test tests/Architecture.Tests -c Release --filter "FullyQualifiedName~ServedHealthHostCompletenessTests" --no-build`
 

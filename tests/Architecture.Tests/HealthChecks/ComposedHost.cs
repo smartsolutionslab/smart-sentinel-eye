@@ -85,11 +85,31 @@ internal static class ComposedHost
             Name = $"ComposedHost.Capture({entryAssemblyName})",
         };
 
-        using CompositeDisposable subscription = SubscribeToHostingEvents(captureThread, configureServices, captured);
+        CompositeDisposable subscription = SubscribeToHostingEvents(captureThread, configureServices, captured);
 
         captureThread.Start();
 
-        return Wait(captured, entryAssemblyName, timeout);
+        try
+        {
+            return Wait(captured, entryAssemblyName, timeout);
+        }
+        finally
+        {
+            // Dispose only once the capture thread has actually finished —
+            // captured.Task completed, whether with the built host or with
+            // its own exception. On a timeout the task is still pending and
+            // the thread may still be running; disposing here would sever
+            // the subscription before a late HostBuilt arrives, leaving no
+            // observer to throw CaptureCompleteException. Program.cs would
+            // then fall through Build() into MapDefaultEndpoints/RunAsync
+            // for real, inside this test process (should-fix 2, PR #2872
+            // review). Leaving the subscription (and the thread it watches)
+            // live is the lesser leak.
+            if (captured.Task.IsCompleted)
+            {
+                subscription.Dispose();
+            }
+        }
     }
 
     private static MethodInfo ResolveEntryPoint(string entryAssemblyName)
