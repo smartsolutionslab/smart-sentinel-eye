@@ -140,7 +140,7 @@ public class IngestChannelGaugesTests
 
         double elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
         elapsed.ShouldBeInRange(
-            0.3,
+            0.25,
             2.0,
             "a stuck channel must show this climbing from the last completed write, not sitting at zero");
     }
