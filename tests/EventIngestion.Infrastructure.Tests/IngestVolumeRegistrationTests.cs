@@ -93,6 +93,40 @@ public class IngestVolumeRegistrationTests
     }
 
     /// <summary>
+    /// Issue #2863/#2880. The module's <c>IIngestChannel</c> factory is the
+    /// only place that calls <see cref="IngestChannelSaturation.RegisterGauges"/>
+    /// — deleting that one line leaves every other test in this suite green,
+    /// so resolving the channel and reading what the exporter captured is
+    /// what actually proves production wires the two gauges rather than
+    /// merely compiling the capability.
+    /// </summary>
+    [Fact]
+    public void The_ingest_channel_gauges_are_registered_when_the_ingest_channel_is_resolved()
+    {
+        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        builder.Configuration.AddInMemoryCollection(Configuration);
+
+        builder.AddEventIngestionInfrastructure();
+
+        CapturingExporter exporter = new();
+        builder.Services.AddOpenTelemetry()
+            .WithMetrics(metrics => metrics.AddReader(new BaseExportingMetricReader(exporter)));
+
+        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        MeterProvider meterProvider = provider.GetRequiredService<MeterProvider>();
+
+        provider.GetRequiredService<IIngestChannel>();
+        meterProvider.ForceFlush();
+
+        exporter.Names.ShouldContain(
+            IngestChannelSaturation.DepthMetricName,
+            $"{IngestChannelSaturation.DepthMetricName} is not registered when IIngestChannel is resolved");
+        exporter.Names.ShouldContain(
+            IngestChannelSaturation.TimeSinceLastWriteMetricName,
+            $"{IngestChannelSaturation.TimeSinceLastWriteMetricName} is not registered when IIngestChannel is resolved");
+    }
+
+    /// <summary>
     /// The keys the module resolves before it returns. Values are syntactically
     /// valid and never dialled: the module parses them, it does not connect.
     /// </summary>
