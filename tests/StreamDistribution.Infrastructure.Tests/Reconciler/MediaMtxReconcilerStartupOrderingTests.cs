@@ -1,7 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
+using SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Fakes;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Reconciler;
 
@@ -61,16 +63,26 @@ public class MediaMtxReconcilerStartupOrderingTests
     }
 
     /// <summary>
-    /// A failure deferred to <c>ApplicationStarted</c> must still be swallowed,
-    /// exactly as it was when the pass ran inline — this fix changes when the
-    /// pass runs, not what happens when it fails.
+    /// A failure deferred to <c>ApplicationStarted</c> must still be swallowed
+    /// and logged, exactly as it was when the pass ran inline — this fix
+    /// changes when the pass runs, not what happens when it fails.
     /// </summary>
+    /// <remarks>
+    /// #2862 should-fix 1: production's <c>_ = RunDeferredAsync()</c> discards
+    /// the task, so <c>Should.NotThrow(lifetime.FireApplicationStarted)</c>
+    /// alone cannot fail on any exception the pass raises — it would pass
+    /// identically with <see cref="MediaMtxReconciler"/>'s own catch block
+    /// deleted, because nothing would still be observing that task either way.
+    /// Asserting the log record <see cref="MediaMtxReconciler"/>'s catch block
+    /// writes is what actually proves the catch ran.
+    /// </remarks>
     [Fact]
-    public async Task A_reconcile_failure_after_ApplicationStarted_is_swallowed_not_thrown()
+    public async Task A_reconcile_failure_after_ApplicationStarted_is_logged_not_thrown()
     {
         ScopeCreationProbe scopeFactory = new();
         using FakeHostApplicationLifetime lifetime = new();
-        MediaMtxReconciler reconciler = new(scopeFactory, lifetime, NullLogger<MediaMtxReconciler>.Instance);
+        CapturingLogger<MediaMtxReconciler> logger = new();
+        MediaMtxReconciler reconciler = new(scopeFactory, lifetime, logger);
 
         await reconciler.StartAsync(CancellationToken.None);
 
@@ -78,12 +90,18 @@ public class MediaMtxReconcilerStartupOrderingTests
         // this thread when the token is cancelled (CancellationTokenSource's
         // default), and the probe's CreateScope throws synchronously too — so
         // by the time FireApplicationStarted returns, the whole deferred pass
-        // has already run and its failure already been caught. Asserting that
-        // nothing escaped this call is the proof, not an assumption.
+        // has already run and its failure already been caught.
         Should.NotThrow(lifetime.FireApplicationStarted);
 
         await scopeFactory.WaitForScopeCreationAsync(TimeSpan.FromSeconds(2));
         scopeFactory.Created.ShouldBeTrue();
+
+        logger.Entries.ShouldContain(
+            entry => entry.Level == LogLevel.Warning
+                && entry.Message.Contains("startup pass failed", StringComparison.OrdinalIgnoreCase)
+                && entry.Exception is InvalidOperationException,
+            "ReconcilerStartupPassFailed should have been logged once the deferred pass's own exception "
+            + $"was caught; logged entries: {string.Join("; ", logger.Entries.Select(entry => $"{entry.Level}: {entry.Message}"))}");
     }
 
     /// <summary>
