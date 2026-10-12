@@ -105,7 +105,7 @@ public class KeycloakAdminSerializationTests
             Options.Create(new KeycloakAdminOptions { Realm = Realm }),
             NullLogger<HttpKeycloakAdminClient>.Instance);
 
-    /// <summary>The kiosk payload, flag for flag — <c>EnrollKioskCommandHandler.cs:31-45</c>.</summary>
+    /// <summary>The kiosk payload, flag for flag — <c>EnrollKioskCommandHandler.cs:52-66</c>.</summary>
     private static KeycloakClientRepresentation Representation() =>
         new(ClientId: "kiosk-a",
             Name: "Kiosk kiosk-a",

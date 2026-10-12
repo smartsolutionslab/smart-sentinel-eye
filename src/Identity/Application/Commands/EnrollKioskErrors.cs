@@ -12,6 +12,12 @@ public abstract record EnrollKioskError(string Code, string Message, HttpStatusC
             $"A kiosk with clientId '{ClientId}' is already enrolled.",
             HttpStatusCode.Conflict);
 
+    public sealed record InvalidName(string Reason)
+        : EnrollKioskError(
+            "KIOSK_INVALID_NAME",
+            $"name rejected: {Reason}",
+            HttpStatusCode.BadRequest);
+
     public sealed record KeycloakUnavailable(string Reason)
         : EnrollKioskError(
             "KEYCLOAK_UNAVAILABLE",
@@ -29,6 +35,9 @@ public static class EnrollKioskFailures
 {
     public static EnrollKioskError KioskAlreadyEnrolled(string clientId) =>
         new EnrollKioskError.KioskAlreadyEnrolled(clientId);
+
+    public static EnrollKioskError InvalidName(string reason) =>
+        new EnrollKioskError.InvalidName(reason);
 
     public static EnrollKioskError KeycloakUnavailable(string reason) =>
         new EnrollKioskError.KeycloakUnavailable(reason);

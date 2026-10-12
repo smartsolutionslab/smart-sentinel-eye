@@ -71,7 +71,11 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     public async Task I0a_a_planted_orphan_device_makes_registration_answer_409_device_already_registered()
     {
         string deviceIdentifier = NewSuffix("orphan");
-        string clientId = $"plc-{deviceIdentifier}";
+        // Must equal the exact clientId RegisterDeviceCommandHandler composes
+        // (ADR-0172's fab-qualified, `.`-separated form) for this to actually
+        // collide — a bare `plc-{deviceIdentifier}` no longer matches anything
+        // the handler would ever compose.
+        string clientId = $"plc.{Fab}.{deviceIdentifier}";
         CancellationToken cancellationToken = CancellationToken.None;
 
         await realm.PlantAsync(clientId, DeviceAttributes(deviceIdentifier), cancellationToken);
@@ -140,7 +144,11 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     public async Task I1_an_orphan_device_past_grace_is_disabled_and_re_registration_then_succeeds()
     {
         string deviceIdentifier = NewSuffix("orphan");
-        string clientId = $"plc-{deviceIdentifier}";
+        // Must equal the exact clientId RegisterDeviceCommandHandler composes
+        // (ADR-0172's fab-qualified, `.`-separated form): re-registration's
+        // delete-and-recreate-on-disabled-hit path (#2728) only fires when the
+        // disabled Keycloak client's own id is the one it is about to create.
+        string clientId = $"plc.{Fab}.{deviceIdentifier}";
         CancellationToken cancellationToken = CancellationToken.None;
         DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
 
@@ -174,7 +182,12 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I1k_an_orphan_kiosk_past_grace_is_disabled_and_re_enrollment_then_succeeds()
     {
-        string clientId = $"kiosk-{NewSuffix("orphan")}";
+        string name = NewSuffix("orphan");
+        // Must equal the exact clientId EnrollKioskCommandHandler composes
+        // (ADR-0172's fab-qualified, `.`-separated form): re-enrollment's
+        // delete-and-recreate-on-disabled-hit path (#2728) only fires when the
+        // disabled Keycloak client's own id is the one it is about to create.
+        string clientId = $"kiosk.{Fab}.{name}";
         CancellationToken cancellationToken = CancellationToken.None;
         DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
 
@@ -187,15 +200,20 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
                 "a pass past the grace window must disable the orphaned kiosk too (spec 320 §2 US1)");
 
             using HttpClient munich = await MunichClientAsync();
-            HttpResponseMessage response = await EnrollKioskAsync(munich, clientId);
+            HttpResponseMessage response = await EnrollKioskAsync(munich, name);
             response.StatusCode.ShouldBe(
                 HttpStatusCode.Created,
                 $"enrollment must succeed once the orphan is disabled: {await aspire.DiagnoseAsync("identity", response)}");
 
             JsonElement created = await response.Content.ReadFromJsonAsync<JsonElement>();
+            string enrolledClientId = created.GetProperty("clientId").GetString()!;
+            enrolledClientId.ShouldBe(
+                clientId,
+                "re-enrollment under the same name in the same fab must compose the identical "
+                + "clientId the orphan held");
             string secret = created.GetProperty("clientSecret").GetString()!;
 
-            (await CanAuthenticateAsync(clientId, secret)).ShouldBeTrue(
+            (await CanAuthenticateAsync(enrolledClientId, secret)).ShouldBeTrue(
                 "the fresh secret from the healed enrollment must actually work");
         }
         finally
@@ -208,7 +226,7 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     public async Task I2_a_stamped_client_younger_than_the_grace_window_stays_enabled()
     {
         string deviceIdentifier = NewSuffix("too-young");
-        string clientId = $"plc-{deviceIdentifier}";
+        string clientId = $"plc.{Fab}.{deviceIdentifier}";
         CancellationToken cancellationToken = CancellationToken.None;
         DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
 
@@ -231,13 +249,18 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     public async Task I3_a_device_registered_through_the_endpoint_stays_enabled_after_a_pass_a_day_later()
     {
         string deviceIdentifier = NewSuffix("registered");
-        string clientId = $"plc-{deviceIdentifier}";
         CancellationToken cancellationToken = CancellationToken.None;
 
         using HttpClient munich = await MunichClientAsync();
         HttpResponseMessage registered = await RegisterDeviceAsync(munich, deviceIdentifier);
         registered.StatusCode.ShouldBe(
             HttpStatusCode.Created, await aspire.DiagnoseAsync("identity", registered));
+
+        // Read the composed clientId back rather than assume its shape
+        // (ADR-0172 fab-qualifies it; the exact `.`-separated form is the
+        // handler's own composition, not something this test should repeat).
+        JsonElement registeredBody = await registered.Content.ReadFromJsonAsync<JsonElement>();
+        string clientId = registeredBody.GetProperty("clientId").GetString()!;
 
         try
         {
@@ -348,8 +371,8 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     private static Task<HttpResponseMessage> RegisterDeviceAsync(HttpClient client, string deviceIdentifier) =>
         client.PostAsJsonAsync($"/devices/register?fabId={Fab}", new { deviceType = "plc", deviceIdentifier });
 
-    private static Task<HttpResponseMessage> EnrollKioskAsync(HttpClient client, string clientId) =>
-        client.PostAsJsonAsync($"/kiosks/enroll?fabId={Fab}", new { clientId });
+    private static Task<HttpResponseMessage> EnrollKioskAsync(HttpClient client, string name) =>
+        client.PostAsJsonAsync($"/kiosks/enroll?fabId={Fab}", new { name });
 
     /// <summary>
     /// Create-branch rotation (<c>If-None-Match: *</c>), mirroring

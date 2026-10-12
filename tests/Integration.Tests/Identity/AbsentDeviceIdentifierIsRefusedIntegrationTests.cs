@@ -9,10 +9,12 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// <summary>
 /// Against the real stack: <c>RegisterDeviceCommandHandler</c> checks
 /// <c>deviceType</c> but must also refuse an absent <c>deviceIdentifier</c>
-/// before building <c>ClientId.From($"{deviceType}-{deviceIdentifier}")</c> —
-/// a <see langword="null"/> or empty identifier would otherwise still
-/// produce a grammatically valid clientId ("plc-"), registering a real
-/// Keycloak client literally named "plc-".
+/// before building <c>ClientId.From($"{deviceType}.{fab.Value}.{deviceIdentifier}")</c>
+/// (ADR-0172 added the fab segment, with a <c>.</c> separator so the
+/// composition stays injective even when the fab or identifier itself
+/// contains a <c>-</c>) — a <see langword="null"/> or empty identifier would
+/// otherwise still produce a grammatically valid clientId ("plc.munich."),
+/// registering a real Keycloak client literally named "plc.munich.".
 ///
 /// <para>
 /// The unit tests (<c>RegisterDeviceCommandHandlerTests</c>) prove the same

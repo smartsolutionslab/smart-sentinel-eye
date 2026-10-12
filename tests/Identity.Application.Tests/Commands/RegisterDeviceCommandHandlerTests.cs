@@ -36,7 +36,7 @@ public class RegisterDeviceCommandHandlerTests
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ClientId.ShouldBe("plc-station-4");
+        result.Value.ClientId.ShouldBe("plc.munich.station-4");
         result.Value.DeviceType.ShouldBe("plc");
         result.Value.DeviceIdentifier.ShouldBe("station-4");
         repo.Clients.ShouldHaveSingleItem().Kind.ShouldBe(ClientKind.Device);
@@ -60,15 +60,16 @@ public class RegisterDeviceCommandHandlerTests
     }
 
     /// <summary>
-    /// Spec 304 US1 — the 409 is already fab-neutral; this pins it. Whether
-    /// the conflicting registration is attempted from the holder's own fab or
-    /// from another fab entirely, <c>GetByClientIdAsync</c> is the same
-    /// realm-global lookup (spec plan 304 §1), so both refusals must carry
-    /// the identical <see cref="RegisterDeviceError.DeviceAlreadyRegistered"/>
-    /// value and neither attempt may create anything.
+    /// ADR-0172 — the clientId is now fab-qualified
+    /// (<c>plc.{fab}.{identifier}</c>), so two fabs registering the same
+    /// device identifier compose genuinely different strings and the
+    /// lookup (now <c>GetWithinFabAsync</c>, fab-scoped as defense in depth)
+    /// no longer sees a collision regardless. A same-fab repeat is still the
+    /// identical clientId and must still conflict — the fix narrows the
+    /// uniqueness check to within a fab, it does not remove it.
     /// </summary>
     [Fact]
-    public async Task A_clientId_held_by_another_fab_is_refused_with_the_same_error_as_one_held_by_the_callers_fab()
+    public async Task A_clientId_registered_by_another_fab_no_longer_conflicts_but_a_same_fab_repeat_still_does()
     {
         InMemoryRegisteredClientRepository repo = new();
         FakeKeycloakAdminClient keycloak = new();
@@ -77,7 +78,8 @@ public class RegisterDeviceCommandHandlerTests
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
         RegisterDeviceCommand munichCommand = HappyCommand();
-        await handler.HandleAsync(munichCommand, CancellationToken.None);
+        Result<DeviceCredentialsDto, RegisterDeviceError> munichAttempt =
+            await handler.HandleAsync(munichCommand, CancellationToken.None);
 
         RegisterDeviceCommand dresdenCommand = munichCommand with
         {
@@ -89,34 +91,36 @@ public class RegisterDeviceCommandHandlerTests
         Result<DeviceCredentialsDto, RegisterDeviceError> munichSecondAttempt =
             await handler.HandleAsync(munichCommand, CancellationToken.None);
 
-        dresdenAttempt.IsSuccess.ShouldBeFalse();
-        munichSecondAttempt.IsSuccess.ShouldBeFalse();
-        dresdenAttempt.Error.ShouldBe(
-            munichSecondAttempt.Error,
-            "a cross-fab conflict must answer exactly what a same-fab conflict answers — "
-            + "nothing in the response may vary by which fab actually holds the clientId");
-        repo.Clients.ShouldHaveSingleItem().Fab.ShouldBe(FabIdentifier.From("munich"));
-        keycloak.Created.ShouldHaveSingleItem();
+        munichAttempt.IsSuccess.ShouldBeTrue();
+        dresdenAttempt.IsSuccess.ShouldBeTrue(
+            "a cross-fab registration of the same device identifier must now succeed — "
+            + "the two fabs compose distinct, fab-qualified clientIds");
+        dresdenAttempt.Value.ClientId.ShouldNotBe(munichAttempt.Value.ClientId);
+
+        munichSecondAttempt.IsSuccess.ShouldBeFalse(
+            "a same-fab repeat is still the identical clientId and must still conflict");
+        munichSecondAttempt.Error.ShouldBeOfType<RegisterDeviceError.DeviceAlreadyRegistered>();
+
+        repo.Clients.Count.ShouldBe(2, "both fabs' registrations must persist as distinct clients");
+        keycloak.Created.Count.ShouldBe(2);
     }
 
     /// <summary>
-    /// Spec 304 US1 — exercises the *other* conflict branch
-    /// (<c>RegisterDeviceCommandHandler.cs:79-82</c>), which the fact above
-    /// cannot reach: every DB-backed scenario leaves a row for the
-    /// conflicting clientId, so <c>GetByClientIdAsync</c> (:46-51) always
-    /// wins the race and the Keycloak catch never runs. Here the database
-    /// has no row at all — only Keycloak holds the clientId, seeded directly
-    /// via <see cref="FakeKeycloakAdminClient.CreateClientAsync"/> without
-    /// going through the repository, modelling "created in Keycloak, DB
-    /// write never landed" or any other state where the two diverge. Both a
-    /// same-fab and a cross-fab attempt against that Keycloak-only conflict
-    /// must throw <see cref="KeycloakClientAlreadyExistsException"/> carrying
-    /// only the caller's own clientId (never the holder's), so the two
-    /// resulting errors must be record-equal and neither may mention the
-    /// holder's fab.
+    /// Exercises the *other* conflict branch
+    /// (<c>RegisterDeviceCommandHandler.cs</c>'s <c>KeycloakClientAlreadyExistsException</c>
+    /// catch), which the fact above cannot reach: every DB-backed scenario
+    /// leaves a row for the conflicting clientId, so the repository lookup
+    /// always wins the race and the Keycloak catch never runs. Here the
+    /// database has no row at all — only Keycloak holds munich's
+    /// fab-qualified clientId, seeded directly via
+    /// <see cref="FakeKeycloakAdminClient.CreateClientAsync"/> without going
+    /// through the repository, modelling "created in Keycloak, DB write
+    /// never landed" or any other state where the two diverge. A same-fab
+    /// repeat composes the identical string and must still hit this branch;
+    /// a cross-fab attempt composes a different one (ADR-0172) and must not.
     /// </summary>
     [Fact]
-    public async Task A_clientId_held_only_in_Keycloak_is_refused_with_the_same_holder_neutral_error_regardless_of_the_callers_fab()
+    public async Task A_clientId_held_only_in_Keycloak_still_refuses_the_same_fab_but_not_another()
     {
         InMemoryRegisteredClientRepository repo = new();
         FakeKeycloakAdminClient keycloak = new();
@@ -124,13 +128,13 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        // Keycloak already holds "plc-station-4" under munich; the database
-        // has no row for it at all, so GetByClientIdAsync cannot be the
-        // branch that catches this conflict.
+        // Keycloak already holds "plc.munich.station-4"; the database has no
+        // row for it at all, so the repository lookup cannot be the branch
+        // that catches this conflict.
         await keycloak.CreateClientAsync(
             new KeycloakClientRepresentation(
-                ClientId: "plc-station-4",
-                Name: "plc station-4",
+                ClientId: "plc.munich.station-4",
+                Name: "plc munich-station-4",
                 ServiceAccountsEnabled: true,
                 StandardFlowEnabled: false,
                 DirectAccessGrantsEnabled: false,
@@ -153,23 +157,16 @@ public class RegisterDeviceCommandHandlerTests
         Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
             await handler.HandleAsync(dresdenCommand, CancellationToken.None);
 
-        munichAttempt.IsSuccess.ShouldBeFalse();
-        dresdenAttempt.IsSuccess.ShouldBeFalse();
-        munichAttempt.Error.ShouldBeOfType<RegisterDeviceError.DeviceAlreadyRegistered>();
-        dresdenAttempt.Error.ShouldBe(
-            munichAttempt.Error,
-            "a cross-fab attempt against a Keycloak-only conflict must answer exactly what "
-            + "a same-fab attempt against the same conflict answers");
-        dresdenAttempt.Error.ShouldBe(RegisterDeviceFailures.DeviceAlreadyRegistered("plc-station-4"));
+        munichAttempt.IsSuccess.ShouldBeFalse(
+            "munich's attempt composes the exact clientId Keycloak already holds");
+        munichAttempt.Error.ShouldBe(RegisterDeviceFailures.DeviceAlreadyRegistered("plc.munich.station-4"));
 
-        repo.Clients.ShouldBeEmpty("neither attempt may persist anything to the database");
+        dresdenAttempt.IsSuccess.ShouldBeTrue(
+            "dresden composes a different, fab-qualified clientId — ADR-0172's Keycloak-only conflict "
+            + "branch must no longer catch another fab's attempt");
+        dresdenAttempt.Value.ClientId.ShouldBe("plc.dresden.station-4");
 
-        string dresdenMessage = ((RegisterDeviceError.DeviceAlreadyRegistered)dresdenAttempt.Error).Message;
-        string munichMessage = ((RegisterDeviceError.DeviceAlreadyRegistered)munichAttempt.Error).Message;
-        dresdenMessage.ShouldNotContain(
-            "munich", customMessage: $"the error must never name the holder's fab — got: {dresdenMessage}");
-        munichMessage.ShouldNotContain(
-            "munich", customMessage: $"the error must never name the holder's fab — got: {munichMessage}");
+        repo.Clients.ShouldHaveSingleItem("only dresden's attempt may persist to the database");
     }
 
     [Theory]
@@ -213,9 +210,10 @@ public class RegisterDeviceCommandHandlerTests
 
     /// <summary>
     /// A null or empty deviceIdentifier would otherwise pass the ClientId
-    /// grammar (it composes "plc-" or "inference-", both valid), so the
-    /// handler must refuse it before Keycloak or the repository are ever
-    /// reached. No client may be created for any of these rows.
+    /// grammar (it composes "plc.munich." or "inference.munich.", both
+    /// valid), so the handler must refuse it before Keycloak or the
+    /// repository are ever reached. No client may be created for any of
+    /// these rows.
     /// </summary>
     [Theory]
     [InlineData("plc", null)]
@@ -242,9 +240,10 @@ public class RegisterDeviceCommandHandlerTests
     }
 
     /// <summary>
-    /// Spec 323 — the composed clientId is <c>&lt;type&gt;-&lt;deviceIdentifier&gt;</c>, so a
-    /// deviceIdentifier of "-" composes "plc--" and "." composes "plc-." — the two examples
-    /// named in issue #2627. Every row must be refused on the new segment-grammar reason, not
+    /// Spec 323 — the composed clientId is <c>&lt;type&gt;.&lt;fab&gt;.&lt;deviceIdentifier&gt;</c>
+    /// (ADR-0172 added the fab segment), so a deviceIdentifier of "-" composes "plc.munich.-" and
+    /// "." composes "plc.munich.." — the two examples named in issue #2627. Every row must be
+    /// refused on the new segment-grammar reason, not
     /// merely refused for some other reason (e.g. the ClientId grammar), so that " x" — which
     /// already failed today via ClientId's own message — is confirmed to fail on the new
     /// reason instead.
@@ -304,7 +303,7 @@ public class RegisterDeviceCommandHandlerTests
                 HappyCommand(deviceIdentifier: deviceIdentifier), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        result.Value.ClientId.ShouldBe("plc-" + deviceIdentifier);
+        result.Value.ClientId.ShouldBe("plc.munich." + deviceIdentifier);
     }
 
     [Fact]
@@ -321,5 +320,46 @@ public class RegisterDeviceCommandHandlerTests
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<RegisterDeviceError.KeycloakUnavailable>();
+    }
+
+    /// <summary>
+    /// The counterfactual for the bug the <c>.</c> separator closes: a
+    /// <c>-</c>-joined composition is not injective, because both
+    /// <c>FabIdentifier</c> and the caller-supplied deviceIdentifier may
+    /// themselves contain <c>-</c>. <c>(fab: "dresden", identifier:
+    /// "2-press")</c> and <c>(fab: "dresden-2", identifier: "press")</c>
+    /// would both compose to <c>"plc-dresden-2-press"</c> under the old
+    /// separator — one fab could squat or probe the other's device by
+    /// shifting where the hyphen split falls. With <c>.</c> as the separator
+    /// the two compose to genuinely distinct strings and both registrations
+    /// must succeed independently.
+    /// </summary>
+    [Fact]
+    public async Task A_hyphen_prefixed_fab_does_not_collide_with_a_shifted_identifier_split()
+    {
+        InMemoryRegisteredClientRepository repo = new();
+        FakeKeycloakAdminClient keycloak = new();
+        RegisterDeviceCommandHandler handler = new(
+            repo, keycloak, new FakeClock(Now),
+            NullLogger<RegisterDeviceCommandHandler>.Instance);
+
+        RegisterDeviceCommand dresdenCommand = new(
+            "plc", "2-press", FabIdentifier.From("dresden"), OperatorIdentifier.From(Guid.CreateVersion7()));
+        RegisterDeviceCommand dresdenTwoCommand = new(
+            "plc", "press", FabIdentifier.From("dresden-2"), OperatorIdentifier.From(Guid.CreateVersion7()));
+
+        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
+            await handler.HandleAsync(dresdenCommand, CancellationToken.None);
+        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenTwoAttempt =
+            await handler.HandleAsync(dresdenTwoCommand, CancellationToken.None);
+
+        dresdenAttempt.IsSuccess.ShouldBeTrue();
+        dresdenAttempt.Value.ClientId.ShouldBe("plc.dresden.2-press");
+        dresdenTwoAttempt.IsSuccess.ShouldBeTrue(
+            "a hyphen-prefixed fab must not collide with the first fab's shifted identifier split");
+        dresdenTwoAttempt.Value.ClientId.ShouldBe("plc.dresden-2.press");
+        dresdenTwoAttempt.Value.ClientId.ShouldNotBe(dresdenAttempt.Value.ClientId);
+
+        repo.Clients.Count.ShouldBe(2, "both registrations must persist as distinct clients");
     }
 }

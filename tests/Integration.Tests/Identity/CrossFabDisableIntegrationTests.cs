@@ -168,10 +168,10 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> EnrollKioskAsync(HttpClient munich)
     {
-        string clientId = $"t180-wall-{Guid.CreateVersion7():N}";
+        string name = $"t180-wall-{Guid.CreateVersion7():N}";
 
         HttpResponseMessage enrolled = await munich.PostAsJsonAsync(
-            "/kiosks/enroll?fabId=munich", new { clientId });
+            "/kiosks/enroll?fabId=munich", new { name });
         enrolled.StatusCode.ShouldBe(
             HttpStatusCode.Created, await enrolled.Content.ReadAsStringAsync());
 

@@ -120,11 +120,9 @@ public static class KiosksEndpoints
             return keyProblem;
         }
 
-        ClientId clientId;
         FabIdentifier fab;
         try
         {
-            clientId = ClientId.From(body.ClientId);
             fab = FabIdentifier.From(fabId);
         }
         catch (ArgumentException ex)
@@ -151,7 +149,7 @@ public static class KiosksEndpoints
             async token =>
             {
                 Result<KioskCredentialsDto, EnrollKioskError> result = await handler.HandleAsync(
-                    new EnrollKioskCommand(clientId, fab, actingOperator), token);
+                    new EnrollKioskCommand(body.Name, fab, actingOperator), token);
 
                 return result.Match(
                     onSuccess: dto => IdempotentOutcome.Created(

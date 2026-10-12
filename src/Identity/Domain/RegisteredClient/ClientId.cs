@@ -8,9 +8,15 @@ namespace SmartSentinelEye.Identity.Domain.RegisteredClient;
 /// Keycloak's own client-id validation: starts with a letter or
 /// digit, contains only letters/digits/<c>.</c>/<c>_</c>/<c>-</c>,
 /// 1–255 chars. The shape is also constrained by FR-008 (the
-/// MQTT ACL expects <c>&lt;source&gt;-&lt;deviceId&gt;</c> for
-/// device clients) but that's checked at command-time, not by
-/// this VO.
+/// MQTT ACL expects <c>&lt;source&gt;.&lt;fab&gt;.&lt;deviceId&gt;</c>
+/// for device clients, ADR-0172) but that's checked at command-time,
+/// not by this VO. The fab segment is <c>.</c>-separated rather than
+/// <c>-</c>-separated: both <c>FabIdentifier</c> and the caller-supplied
+/// name/identifier segment may themselves contain <c>-</c>, so a
+/// <c>-</c>-joined composition is not injective — <c>(fab: "dresden",
+/// name: "2-press")</c> and <c>(fab: "dresden-2", name: "press")</c>
+/// would both compose to <c>"plc-dresden-2-press"</c>. Neither part may
+/// contain <c>.</c>, so joining on it is unambiguous.
 /// </summary>
 public sealed record ClientId : StringValueObject
 {
