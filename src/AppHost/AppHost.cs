@@ -232,7 +232,20 @@ var mediamtx = builder
     // what makes camera → SFU readable at all (§VII, ≤ 80 ms).
     .WithHttpEndpoint(targetPort: 9998, name: "metrics")
     .WithHttpEndpoint(targetPort: 8889, name: "whep")
-    .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
+    .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp")
+    // ADR-0177: declares what "ready" means for MediaMTX instead of inferring
+    // it from container-runtime state (#2060). Targets `metrics`, not `api`:
+    // ADR-0171 routes every `api` request through StreamDistribution's
+    // /streams/authorize hook, and `stream-distribution` does
+    // `.WaitFor(mediamtx)` below — a health check against `api` would need
+    // stream-distribution already answering that hook to ever report
+    // healthy, which is a dependency cycle (mediamtx can't go healthy until
+    // stream-distribution is up, which can't start until mediamtx is
+    // healthy). `metrics` stays excluded from the hook (mediamtx.yml's
+    // authHTTPExclude) and is already proven reachable unauthenticated by
+    // SfuIngestMetricsTests, so it is a true "MediaMTX is answering HTTP"
+    // signal with no such cycle.
+    .WithHttpHealthCheck(path: "/metrics", statusCode: 200, endpointName: "metrics");
 
 // fixture-video (spec 056, spec 076) — one looping clip over RTSP, so an
 // automated check can see a picture. Before spec 056 every overlay fixture
