@@ -96,12 +96,13 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
     {
         DateTimeOffset now = clock.UtcNow;
 
-        // One call for the whole sweep, not one per stream. Every MediaMTX
-        // control-API call now authorizes through the same rate-limited
-        // /streams/authorize hook a real WHEP viewer's open uses (ADR-0171),
-        // so probing per path would have scaled the hook-call rate with the
-        // camera count instead of the poll interval — see
-        // IRtspGateway.GetAllPathsHealthAsync's doc comment.
+        // A handful of calls for the whole sweep (one per MediaMTX page of
+        // paths, not one per stream). Every MediaMTX control-API call now
+        // authorizes through the same rate-limited /streams/authorize hook a
+        // real WHEP viewer's open uses (ADR-0171), so probing per path would
+        // have scaled the hook-call rate with the camera count instead of
+        // the poll interval — see IRtspGateway.GetAllPathsHealthAsync's doc
+        // comment.
         IReadOnlyDictionary<MediaMtxPath, RtspPathHealth> observed;
         try
         {
