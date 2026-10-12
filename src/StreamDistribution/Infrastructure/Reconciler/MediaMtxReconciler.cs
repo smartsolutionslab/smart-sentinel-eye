@@ -37,6 +37,17 @@ public sealed class MediaMtxReconciler(
     IHostApplicationLifetime lifetime,
     ILogger<MediaMtxReconciler> logger) : IHostedService
 {
+    private static readonly TimeSpan StopWaitTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// The deferred pass, once <see cref="IHostApplicationLifetime.ApplicationStarted"/>
+    /// has fired — <see langword="null"/> until then. <see cref="StopAsync"/>
+    /// awaits this rather than returning immediately, so a shutdown that lands
+    /// mid-pass does not dispose the scoped service provider out from under
+    /// it.
+    /// </summary>
+    private volatile Task? deferredPass;
+
     /// <summary>
     /// Deferred to <see cref="IHostApplicationLifetime.ApplicationStarted"/>
     /// rather than run inline here. <c>IHostedService.StartAsync</c> runs
@@ -55,12 +66,45 @@ public sealed class MediaMtxReconciler(
     /// </summary>
     public Task StartAsync(CancellationToken cancellationToken)
     {
-        lifetime.ApplicationStarted.Register(() => _ = RunDeferredAsync());
+        lifetime.ApplicationStarted.Register(() => deferredPass = RunDeferredAsync());
 
         return Task.CompletedTask;
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    /// <summary>
+    /// Waits, bounded by <see cref="StopWaitTimeout"/>, for an in-flight pass
+    /// to finish before returning. Without this, a shutdown landing mid-pass
+    /// lets the host dispose the scoped service provider
+    /// <see cref="ReconcileOnceAsync"/> is still using underneath it — seen as
+    /// a spurious <c>ReconcilerStartupPassFailed</c> on an
+    /// <see cref="ObjectDisposedException"/>, not a real reconcile failure.
+    /// The bound exists so a pass that is for some reason taking too long
+    /// cannot hang shutdown itself; <see cref="ReconcileOnceAsync"/> is also
+    /// handed <see cref="IHostApplicationLifetime.ApplicationStopping"/> as
+    /// its own cancellation token, so it is already being asked to wind down.
+    /// </summary>
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        Task? pass = deferredPass;
+        if (pass is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await pass.WaitAsync(StopWaitTimeout, cancellationToken);
+        }
+        catch (Exception ex) when (ex is OperationCanceledException or TimeoutException)
+        {
+            // Either the bound elapsed or shutdown's own token fired first —
+            // expected under a fast or forced shutdown, not a failure. The
+            // pass's own cancellation token (ApplicationStopping) has already
+            // asked it to wind down; StopAsync must not hang waiting longer
+            // than StopWaitTimeout for that to happen.
+            logger.ReconcilerStopWaitDidNotComplete();
+        }
+    }
 
     private async Task RunDeferredAsync()
     {
@@ -68,10 +112,19 @@ public sealed class MediaMtxReconciler(
         {
             await ReconcileOnceAsync(lifetime.ApplicationStopping);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (!lifetime.ApplicationStopping.IsCancellationRequested)
         {
             // A reconcile failure must not take the host down. Streams keep
             // working; the next restart retries.
+            //
+            // Filtered on the lifetime's own token, not `ex is not
+            // OperationCanceledException`: that exception-type filter let a
+            // shutdown-caused OperationCanceledException escape this catch
+            // entirely (unlogged, by design — shutdown isn't a failure), but
+            // it just as readily let a *different* exception born of the same
+            // shutdown (e.g. ObjectDisposedException from StopAsync's old
+            // immediate return) through as if it were a genuine reconcile
+            // failure. Checking "are we shutting down" directly covers both.
             logger.ReconcilerStartupPassFailed(ex);
         }
     }

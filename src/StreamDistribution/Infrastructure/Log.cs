@@ -10,6 +10,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxReconciler startup pass failed; continuing without reconcile.")]
     public static partial void ReconcilerStartupPassFailed(this ILogger logger, Exception exception);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "MediaMtxReconciler shutdown wait did not observe the deferred pass finish within its bound; proceeding with shutdown anyway.")]
+    public static partial void ReconcilerStopWaitDidNotComplete(this ILogger logger);
+
     [LoggerMessage(Level = LogLevel.Information, Message = "Reconciler removed orphan MediaMTX path {Path}.")]
     public static partial void ReconcilerRemovedOrphanPath(this ILogger logger, MediaMtxPath path);
 
