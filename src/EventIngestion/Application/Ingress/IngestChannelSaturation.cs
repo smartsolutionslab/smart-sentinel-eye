@@ -105,9 +105,21 @@ public static class IngestChannelSaturation
     {
         Ensure.That(channel).IsNotNull();
 
-        // Stub: establishes the API surface IngestChannelGaugesTests compiles
-        // against. No instruments are published yet, so every reading those
-        // tests expect to observe is absent — the next commit fills this in.
-        return new Meter(MeterName);
+        Meter registrationMeter = new(MeterName);
+
+        registrationMeter.CreateObservableGauge(
+            name: DepthMetricName,
+            observeValue: () => channel.CurrentDepth,
+            unit: "{deliveries}",
+            description: "How many deliveries are currently queued in the bounded ingest channel.");
+
+        registrationMeter.CreateObservableGauge(
+            name: TimeSinceLastWriteMetricName,
+            observeValue: () => channel.SecondsSinceLastWrite,
+            unit: "s",
+            description: "Seconds since the bounded ingest channel last completed a write; read together "
+                + "with channel depth to tell a stuck channel apart from a quiet one.");
+
+        return registrationMeter;
     }
 }

@@ -25,6 +25,7 @@ public sealed class BoundedIngestChannel : IIngestChannel
     public const int DefaultCapacity = 5_000;
 
     private readonly Channel<IngestDelivery> channel;
+    private long lastWriteTimestamp;
 
     public BoundedIngestChannel() : this(DefaultCapacity) { }
 
@@ -36,9 +37,19 @@ public sealed class BoundedIngestChannel : IIngestChannel
             SingleReader = true,
             SingleWriter = false,
         });
+        lastWriteTimestamp = Stopwatch.GetTimestamp();
     }
 
     public int CurrentDepth => channel.Reader.Count;
+
+    /// <summary>
+    /// Seconds since this instance's last completed write, read fresh on
+    /// every call. Backs <see cref="IngestChannelSaturation"/>'s
+    /// time-since-last-write gauge (#2863) — internal because nothing outside
+    /// that gauge callback needs it.
+    /// </summary>
+    internal double SecondsSinceLastWrite =>
+        Stopwatch.GetElapsedTime(Interlocked.Read(ref lastWriteTimestamp)).TotalSeconds;
 
     public async ValueTask WriteAsync(IngestDelivery delivery, CancellationToken cancellationToken)
     {
@@ -56,12 +67,14 @@ public sealed class BoundedIngestChannel : IIngestChannel
         // the one case ADR-0175's instrument exists to measure.
         if (channel.Writer.TryWrite(delivery))
         {
+            Interlocked.Exchange(ref lastWriteTimestamp, Stopwatch.GetTimestamp());
             return;
         }
 
         long start = Stopwatch.GetTimestamp();
         await channel.Writer.WriteAsync(delivery, cancellationToken);
         IngestChannelSaturation.RecordBlocked(Stopwatch.GetElapsedTime(start));
+        Interlocked.Exchange(ref lastWriteTimestamp, Stopwatch.GetTimestamp());
     }
 
     public async Task<IReadOnlyList<IngestDelivery>> ReadBatchAsync(
