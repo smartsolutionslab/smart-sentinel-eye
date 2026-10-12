@@ -83,20 +83,49 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     public async Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken)
     {
-        // Reads the MediaMTX paths list endpoint (items: [{ name, source, ... }]).
-        // Filters to canonical cam-{guid} names so manually-created MediaMTX
-        // paths are left alone.
-        using HttpResponseMessage response = await http.GetAsync("/v3/config/paths/list", cancellationToken);
-        response.EnsureSuccessStatusCode();
+        // GET /v3/config/paths/list is paginated the same way the runtime
+        // /v3/paths/list endpoint is (MediaMTX's internal/api/paginate.go
+        // defaults itemsPerPage to 100, sorted by Name ascending) — see
+        // GetAllPathsHealthAsync's own pagination loop above for why
+        // looping until pageCount is exhausted matters at the 250-camera
+        // target. Filters to canonical cam-{guid} names so manually-created
+        // MediaMTX paths are left alone.
+        List<MediaMtxPath> paths = [];
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-
-        if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
+        int page = 0;
+        bool hasMorePages = true;
+        while (hasMorePages)
         {
-            return Array.Empty<MediaMtxPath>();
+            using HttpResponseMessage response = await http.GetAsync(
+                $"/v3/config/paths/list?page={page}&itemsPerPage=100", cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            AddPageToPaths(payload, paths);
+
+            // Absent pageCount (an older MediaMTX, or a test double that
+            // never set it) reads as "one page" — the behaviour this
+            // method always had before pagination was accounted for.
+            int pageCount = payload.TryGetProperty("pageCount", out JsonElement pageCountElement)
+                && pageCountElement.ValueKind == JsonValueKind.Number
+                ? pageCountElement.GetInt32()
+                : 1;
+
+            page++;
+            hasMorePages = page < pageCount;
         }
 
-        List<MediaMtxPath> paths = new(items.GetArrayLength());
+        return paths;
+    }
+
+    private static void AddPageToPaths(JsonElement payload, List<MediaMtxPath> paths)
+    {
+        if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
         foreach (JsonElement item in items.EnumerateArray())
         {
             if (!item.TryGetProperty("name", out JsonElement name) ||
@@ -111,7 +140,6 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             }
             paths.Add(MediaMtxPath.From(raw));
         }
-        return paths;
     }
 
     public async Task<RtspPathHealth> GetPathHealthAsync(MediaMtxPath path, CancellationToken cancellationToken)
