@@ -159,6 +159,23 @@ jobs:
         # vulnerable package can never fail this job (#1125).
         run: dotnet restore SmartSentinelEye.slnx -p:Configuration=Release
 
+      # Nothing ran `dotnet format` here before this gate (ADR-0033/0034),
+      # mirroring the frontend's Prettier story (#1910): 177 violations had
+      # drifted in unnoticed and had to be fixed first (#2861). A format
+      # failure here skips Build and the tests below, same trade-off as the
+      # frontend step makes.
+      #
+      # `--exclude-diagnostics IDE1006` is deliberate, not a loophole: #2764
+      # decided the no-leading-underscore private-field naming rule stays an
+      # advisory warning, carved out of Release's TreatWarningsAsErrors. A
+      # default-severity `--verify-no-changes` reports and fails on fixable
+      # warnings too, including IDE1006, which would silently reverse that
+      # decision. The exclusion is scoped to that one diagnostic -- it does
+      # not blanket-disable the gate; any other violation (e.g. whitespace)
+      # still fails the step.
+      - name: Format check
+        run: dotnet format SmartSentinelEye.slnx --verify-no-changes --no-restore --exclude-diagnostics IDE1006
+
       - name: Build (Release)
         run: dotnet build SmartSentinelEye.slnx -c Release --no-restore
 
