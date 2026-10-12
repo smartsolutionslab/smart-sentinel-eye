@@ -54,8 +54,10 @@ async function signIn(page: Page): Promise<string> {
     const user = JSON.parse(window.localStorage.getItem(key) ?? '{}') as Record<string, string>;
     return user['refresh_token'] ?? null;
   });
-  expect(refresh, 'a screen should hold a grant it can refresh with').not.toBeNull();
-  return refresh as string;
+  if (refresh === null) {
+    throw new Error('a screen should hold a grant it can refresh with, but localStorage held no refresh token');
+  }
+  return refresh;
 }
 
 /** The session a grant belongs to, which is what withdrawal has to target. */

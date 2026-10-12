@@ -34,8 +34,10 @@ async function kioskBearerToken(page: import('@playwright/test').Page): Promise<
     return typeof accessToken === 'string' ? accessToken : null;
   });
 
-  expect(token, 'the kiosk should be holding an access token').not.toBeNull();
-  return token as string;
+  if (token === null) {
+    throw new Error('the kiosk should be holding an access token, but localStorage held none');
+  }
+  return token;
 }
 
 test('the kiosk-latency contract accepts its five names and refuses anything else', async ({ page }) => {
