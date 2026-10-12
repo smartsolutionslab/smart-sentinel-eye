@@ -143,10 +143,10 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
     private static async Task<(string ClientId, string ClientSecret)> EnrollKioskAsync(
         HttpClient identity, string prefix)
     {
-        string clientId = $"t269-{prefix}-{Guid.CreateVersion7():N}";
+        string name = $"t269-{prefix}-{Guid.CreateVersion7():N}";
 
         HttpResponseMessage enrolled = await identity.PostAsJsonAsync(
-            $"/kiosks/enroll?fabId={Fab}", new { clientId });
+            $"/kiosks/enroll?fabId={Fab}", new { name });
         enrolled.StatusCode.ShouldBe(HttpStatusCode.Created, await enrolled.Content.ReadAsStringAsync());
 
         JsonElement body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();

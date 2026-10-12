@@ -42,7 +42,7 @@ public sealed class RegisterDeviceCommandHandler(
         ClientId clientId;
         try
         {
-            clientId = ClientId.From($"{deviceType}-{deviceIdentifier}");
+            clientId = ClientId.From($"{deviceType}.{fab.Value}.{deviceIdentifier}");
         }
         catch (ArgumentException ex)
         {
@@ -50,7 +50,7 @@ public sealed class RegisterDeviceCommandHandler(
         }
 
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(clientId, cancellationToken);
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (existing.HasValue)
         {
             return Failure(RegisterDeviceFailures.DeviceAlreadyRegistered(clientId.Value));

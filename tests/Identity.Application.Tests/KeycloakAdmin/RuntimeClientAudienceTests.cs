@@ -158,8 +158,7 @@ public class RuntimeClientAudienceTests
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
         await handler.HandleAsync(
-            new EnrollKioskCommand(
-                ClientId.From("kiosk-3"), FabIdentifier.From("munich"), Operator),
+            new EnrollKioskCommand("3", FabIdentifier.From("munich"), Operator),
             CancellationToken.None);
 
         return keycloak.Created.ShouldHaveSingleItem();

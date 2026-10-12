@@ -19,10 +19,31 @@ public sealed class EnrollKioskCommandHandler(
         EnrollKioskCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (ClientId? clientId, FabIdentifier? fab, OperatorIdentifier enrolledBy) = command;
+        (string? name, FabIdentifier? fab, OperatorIdentifier enrolledBy) = command;
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return Failure(EnrollKioskFailures.InvalidName("must not be empty."));
+        }
+
+        if (!IsHyphenSeparatedAlphanumeric(name))
+        {
+            return Failure(EnrollKioskFailures.InvalidName(
+                "each hyphen-separated segment must be one or more letters or digits."));
+        }
+
+        ClientId clientId;
+        try
+        {
+            clientId = ClientId.From($"kiosk.{fab.Value}.{name}");
+        }
+        catch (ArgumentException ex)
+        {
+            return Failure(EnrollKioskFailures.InvalidName(ex.Message));
+        }
 
         Option<RegisteredClientAggregate> existing = await clients
-            .GetByClientIdAsync(clientId, cancellationToken);
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (existing.HasValue)
         {
             return Failure(EnrollKioskFailures.KioskAlreadyEnrolled(clientId.Value));
@@ -75,4 +96,7 @@ public sealed class EnrollKioskCommandHandler(
                 fab.Value,
                 credentials.ClientSecret));
     }
+
+    private static bool IsHyphenSeparatedAlphanumeric(string name) =>
+        name.Split('-').All(segment => segment.Length > 0 && segment.All(char.IsLetterOrDigit));
 }

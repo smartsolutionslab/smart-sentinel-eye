@@ -1,3 +1,3 @@
 namespace SmartSentinelEye.Identity.Api.Requests;
 
-public sealed record EnrollKioskRequest(string ClientId);
+public sealed record EnrollKioskRequest(string Name);

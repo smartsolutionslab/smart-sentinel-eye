@@ -456,10 +456,10 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     private async Task<(string ClientId, string ClientSecret)> EnrollKioskAsync()
     {
         using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string clientId = $"t258-wall-{Guid.CreateVersion7():N}";
+        string name = $"t258-wall-{Guid.CreateVersion7():N}";
 
         HttpResponseMessage enrolled = await identity.PostAsJsonAsync(
-            "/kiosks/enroll?fabId=munich", new { clientId });
+            "/kiosks/enroll?fabId=munich", new { name });
         enrolled.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(enrolled));
 
         JsonElement body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();

@@ -360,9 +360,10 @@ API uses to mint kiosk + device clients on demand.
    curl -X POST 'http://localhost:5046/kiosks/enroll?fabId=munich' \
      -H 'Authorization: Bearer <admin-token>' \
      -H 'Content-Type: application/json' \
-     -d '{"clientId":"kiosk-pilot"}'
+     -d '{"name":"pilot"}'
    ```
-   Response: `201` with `clientId`, `fab`, and the one-time
+   Response: `201` with `clientId` (server-composed, fab-qualified —
+   `kiosk.munich.pilot`, ADR-0172), `fab`, and the one-time
    `clientSecret`. The kiosk uses the secret in
    `client_credentials` to mint its own JWT.
 4. **Register a PLC device** (admin,
@@ -373,10 +374,10 @@ API uses to mint kiosk + device clients on demand.
      -H 'Content-Type: application/json' \
      -d '{"deviceType":"plc","deviceIdentifier":"station-4"}'
    ```
-   Response carries `clientId: plc-station-4` and the device's
-   one-time secret. The device authenticates over MQTT with a
-   Keycloak-minted JWT (see spec 006's quickstart for the JWT-mode
-   broker bring-up).
+   Response carries `clientId: plc.munich.station-4` (fab-qualified,
+   ADR-0172) and the device's one-time secret. The device
+   authenticates over MQTT with a Keycloak-minted JWT (see spec 006's
+   quickstart for the JWT-mode broker bring-up).
 5. **Rotate a webhook integration** off the legacy hash-compare
    bearer onto JWT validation (hard-cut migration, FR-016):
    ```bash

@@ -157,7 +157,8 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not disclose device one's secret under device two's name");
         (await ListDevicesAsync(identity)).EnumerateArray().ShouldNotContain(
-            row => string.Equals(row.GetProperty("clientId").GetString(), $"plc-{deviceTwo}", StringComparison.Ordinal),
+            row => string.Equals(
+                row.GetProperty("clientId").GetString(), $"plc.{Fab}.{deviceTwo}", StringComparison.Ordinal),
             "device two must never have been registered by the replayed request");
     }
 
@@ -184,7 +185,8 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not disclose kiosk one's secret under kiosk two's name");
         (await ListKiosksAsync(identity)).EnumerateArray().ShouldNotContain(
-            row => string.Equals(row.GetProperty("clientId").GetString(), kioskTwo, StringComparison.Ordinal),
+            row => string.Equals(
+                row.GetProperty("clientId").GetString(), $"kiosk.{Fab}.{kioskTwo}", StringComparison.Ordinal),
             "kiosk two must never have been enrolled by the replayed request");
     }
 
@@ -229,11 +231,11 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
         return identity.SendAsync(request);
     }
 
-    private static Task<HttpResponseMessage> EnrollKioskAsync(HttpClient identity, string clientId, string key)
+    private static Task<HttpResponseMessage> EnrollKioskAsync(HttpClient identity, string name, string key)
     {
         HttpRequestMessage request = new(HttpMethod.Post, $"/kiosks/enroll?fabId={Fab}")
         {
-            Content = JsonContent.Create(new { clientId }),
+            Content = JsonContent.Create(new { name }),
         };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", key);
 

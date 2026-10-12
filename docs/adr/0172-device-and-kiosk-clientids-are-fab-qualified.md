@@ -5,6 +5,32 @@
 **Supersedes:** —
 **Superseded by:** —
 
+## Addendum (2026-10-11, revised) — the separator is `.`, not `-`
+
+Security review of this implementation (#2756) found the first cut's
+`-`-separated composition (`plc-{fab}-{identifier}`, `kiosk-{fab}-{name}`,
+both below and in the addendum that follows) does not actually close the
+disclosure oracle this ADR exists to close: `FabIdentifier` and the
+caller-supplied identifier/name may themselves contain `-` (`FabIdentifier`'s
+own grammar permits it), so the composition is not injective.
+`(fab: "dresden", identifier: "2-press")` and `(fab: "dresden-2",
+identifier: "press")` both compose to `"plc-dresden-2-press"` — one fab
+could squat or probe another fab's client by choosing an identifier that
+shifts where the hyphen split falls, reopening this ADR's own problem in a
+new shape.
+
+**Corrected decision: `.` is the separator** — `plc.{fab}.{identifier}`,
+`kiosk.{fab}.{name}`. Neither a fab identifier nor a device
+identifier/kiosk name may contain `.` (both grammars only ever allowed
+letters, digits and `-`), so the composition is injective without
+restricting what either may contain — no ripple into the MQTT topic
+grammar or the `CrossFab*` tests' fab/identifier fixtures. `ClientId`'s own
+grammar already permitted `.` (and `_`), so this needed no change to that
+VO's validation, only to what the two handlers compose.
+
+Every literal in code, tests and this document below that still reads
+`-`-separated is the superseded first cut; read it with `.` in its place.
+
 ## Addendum (2026-10-11) — kiosk enrollment's wire contract changes
 
 The implementing work found a wire-contract question this ADR left as
