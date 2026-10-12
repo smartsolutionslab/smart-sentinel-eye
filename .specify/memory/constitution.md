@@ -111,7 +111,7 @@ Nine bounded contexts:
 - Boundaries are enforced by `NetArchTest` rules in the test project.
   A violating PR cannot merge.
 
-### IV. The Latency Budget Is Sacred (ADR-015)
+### IV. The Latency Budget Is Sacred (ADR-015, ADR-0176)
 
 End-to-end SLO: **event arrival → overlay rendered ≤ 800 ms**.
 
@@ -157,7 +157,7 @@ table is where that claim lives so it cannot be an unnoticed absence.
 | Camera → SFU | yes | yes (SFU metrics) | no |
 | SFU → kiosk decode | yes | **in part** — receive-to-decoded only; see below | no |
 | Presentation buffer (playout alignment) | yes | **recorded, not yet observed** — see below | no |
-| Event → overlay state | yes | **recorded, not yet readable** — see below | no |
+| Event → overlay state | yes | **82–234ms (dev) / 57.6–75ms (CI)** — a bracket for this leg + overlay composite+render together (250ms of the 800ms budget); the other four legs are unmeasured together or not serial with this pair per ADR-0129 — see below | no |
 | Overlay composite + render | yes | yes | no |
 | Headroom | n/a — arithmetic remainder | n/a | n/a |
 
@@ -257,12 +257,16 @@ the wall is not. It becomes *yes* when spec 045's T026 is walked and a
 figure is recorded, and not before: a leg marked measured on the strength
 of a passing unit test is a §VII discharge nobody earned.
 
-**"Recorded, not yet readable"** (spec 025): the event → overlay leg now
-emits a latency distribution from the service that applies the effect,
-but nothing outside that process can read it — there is no dashboard and
-no metrics readout (#1707). Measured in the sense that the number exists;
-not yet in the sense that anyone can consult it. §VII is **half**
-discharged for this leg, and the column says so rather than rounding up.
+**The event → overlay bracket is recorded, and its scope is stated
+explicitly** (ADR-0176, #1714, #1940). #1940 resolved in favour of
+readable-in-the-dev-sink discharging §VII's obligation, which cleared
+spec 108's measurement to be written here. **This is not the 800ms SLO
+verified end to end** — the bracket covers this leg plus overlay
+composite + render together, 250ms of the 800ms budget; the other four
+legs remain unmeasured as a single continuous path, and per ADR-0129
+the two halves are not even strictly serial any more. A leg recorded as
+the whole SLO when it is a fraction of it is the same defect as a leg
+recorded measured before anyone read its figure.
 
 ### V. Spec-Driven Development (ADR-003)
 
@@ -667,9 +671,16 @@ contradicting tribal knowledge.
 
 ---
 
-**Version:** 1.9.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-09-26
+**Version:** 1.10.0 | **Ratified:** 2026-05-25 | **Last Amended:** 2026-10-12
 
 **Amendment history.**
+1.10.0 — **§IV records the #1714 bracket, scoped explicitly as partial**
+(ADR-0176, #1714, #1940). The "event → overlay state" row's Measured
+column changes from "recorded, not yet readable" to the actual figure
+(82–234ms dev / 57.6–75ms CI), stated inline as covering only this leg
+plus overlay composite + render together — 250ms of the 800ms budget —
+not the SLO verified end to end. Cleared by ADR-0117's addendum
+resolving #1940 in favour of readable-in-the-dev-sink discharging §VII.
 1.9.0 — **"per fab" stops meaning the deployment** (ADR-0159, issue 2080).
 §I, §VI and §Operations described one installation per fab, which makes a
 principal holding two fabs impossible — yet the realm holds one realm with
