@@ -51,19 +51,16 @@ public static class AuthenticationDefaults
             .AddJwtBearer(options =>
             {
                 options.Authority = authority;
-                // Allow an http metadata authority (dev/test/Aspire). There is no
-                // Helm overlay enforcing https on Keycloak — deploy/helm/ holds
-                // only the Mosquitto chart and no Chart.yaml exists anywhere — and
-                // no production deployment for one to overlay (ADR-0130, #1015).
-                // This is a permissive default, not one backed by deployment
-                // config, and it applies to every service in the solution because
-                // it lives in ServiceDefaults. Enforcing https metadata is an
-                // obligation on whichever spec builds a production deployment.
-                // Do not flip it here: AspireFixture and CI dial Keycloak over
-                // http, so the default retriever would throw IDX20108 on discovery
-                // and 500 every authenticated request. WhepAuthValidator carries
-                // the same reasoning for its own retriever.
-                options.RequireHttpsMetadata = false;
+                // Spec 340 (#2238): strict everywhere except Development, where
+                // Aspire wires Keycloak over plain http by design. The policy is
+                // derived from the environment, not a literal, because a
+                // configuration knob here would just rebuild the old
+                // unconditional permissive default under a new name (spec 340
+                // §3.4). AddMetadataTransportCheck below makes a plaintext
+                // authority outside Development a startup failure instead of a
+                // 500 on the first authenticated request. WhepAuthValidator
+                // reads the same policy for its own retriever.
+                options.RequireHttpsMetadata = RequiresHttpsMetadata(builder.Environment);
                 // The audience arrives on the sse-audience client scope, which
                 // every client in the realm carries as a default scope; clients
                 // created at runtime get it from
@@ -114,6 +111,7 @@ public static class AuthenticationDefaults
                 };
             });
 
+        AddMetadataTransportCheck(builder);
         AddRevocationCheck(builder, keycloakBaseUrl, realm);
 
         builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
@@ -135,6 +133,44 @@ public static class AuthenticationDefaults
             .AddScopePolicies(Scope.All);
 
         return builder;
+    }
+
+    /// <summary>
+    /// Spec 340 (#2238): outside Development, the realm's discovery document
+    /// and JWKS must arrive over TLS, or an on-path attacker could substitute
+    /// the signing keys a token is checked against. The flag alone is not
+    /// enough — <c>JwtBearerPostConfigureOptions</c> only throws for an http
+    /// authority lazily, on the first authenticated request, and nothing
+    /// before this check caught a later <c>Configure&lt;JwtBearerOptions&gt;</c>
+    /// re-opening <see cref="JwtBearerOptions.RequireHttpsMetadata"/>.
+    /// <c>ValidateOnStart</c> moves the framework's own lazy throw to startup;
+    /// the explicit <see cref="OptionsBuilder{TOptions}.Validate"/> predicate
+    /// below exists only for that second case, since the framework's check
+    /// already passed by the time a later Configure runs.
+    /// </summary>
+    private static void AddMetadataTransportCheck(IHostApplicationBuilder builder)
+    {
+        builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+            .Validate(
+                options => options.RequireHttpsMetadata || !RequiresHttpsMetadata(builder.Environment),
+                $"RequireHttpsMetadata must stay true outside Development ('{builder.Environment.EnvironmentName}' "
+                + "here): the realm's discovery document and JWKS must be fetched over HTTPS, or serve "
+                + "Keycloak over TLS, or run under the Development environment.")
+            .ValidateOnStart();
+    }
+
+    /// <summary>
+    /// Spec 340 (#2238). Strict everywhere except Development — including an
+    /// environment that was never set, since .NET defaults that to
+    /// Production (assumption A1). Both the bearer pipeline here and
+    /// <c>WhepAuthValidator</c>'s own retriever read this single definition,
+    /// so the two cannot drift into asymmetric defaults.
+    /// </summary>
+    public static bool RequiresHttpsMetadata(IHostEnvironment environment)
+    {
+        Ensure.That(environment).IsNotNull();
+
+        return !environment.IsDevelopment();
     }
 
     /// <summary>
@@ -200,10 +236,10 @@ public static class AuthenticationDefaults
             // here: it resolved to Aspire's dev-mode HTTPS endpoint in CI, whose
             // self-signed certificate this HttpClient does not trust, and every
             // fetch failed with AuthenticationException: UntrustedRoot. Every
-            // other inter-service client in this codebase uses plain "http",
-            // matching AddBearerAuthentication's own RequireHttpsMetadata = false
-            // reasoning above: there is no Helm overlay or production deployment
-            // for an https default to be backed by.
+            // other inter-service client in this codebase uses plain "http" too.
+            // This is a different transport than the realm metadata fetch above
+            // — an inter-service call, not discovery/JWKS — and is out of scope
+            // for spec 340 (#2238); it belongs with #1015's TLS story.
 #pragma warning disable S1075, S5332
             client.BaseAddress = new Uri("http://identity");
 #pragma warning restore S1075, S5332

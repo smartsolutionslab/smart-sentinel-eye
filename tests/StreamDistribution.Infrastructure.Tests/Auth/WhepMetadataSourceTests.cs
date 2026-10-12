@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -25,11 +26,14 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
 /// </para>
 ///
 /// <para>
-/// <c>RequireHttps = false</c> is <b>not</b> asserted here. It is reachable only
-/// by reflecting on the <see cref="HttpDocumentRetriever"/> the manager holds,
-/// which is the reflection #2099 removed. It is load-bearing on the dev/CI http
-/// authority, so the Docker-backed <c>WhepAuthIntegrationTests</c> fails loudly
-/// if it is ever lost.
+/// <c>RequireHttps</c> is <b>not</b> asserted here. It is reachable only by
+/// reflecting on the <see cref="HttpDocumentRetriever"/> the manager holds,
+/// which is the reflection #2099 removed. Since spec 340 (#2238) it is
+/// environment-conditional — <c>false</c> in Development, <c>true</c>
+/// everywhere else — and is covered separately by
+/// <c>WhepMetadataTransportTests</c>. It stays load-bearing on the dev/CI
+/// http authority, so the Docker-backed <c>WhepAuthIntegrationTests</c> fails
+/// loudly if it is ever lost.
 /// </para>
 /// </summary>
 public sealed class WhepMetadataSourceTests
@@ -37,11 +41,19 @@ public sealed class WhepMetadataSourceTests
     [Fact]
     public void The_metadata_source_is_addressed_at_the_authoritys_discovery_document()
     {
+        // A Development environment, because this test binds the address only
+        // (see the class remarks above). The transport policy itself is covered
+        // separately, by the spec 340 suite.
+        IHostEnvironment environment = Host.CreateEmptyApplicationBuilder(
+            new HostApplicationBuilderSettings { EnvironmentName = Environments.Development }).Environment;
+
         ConfigurationManager<OpenIdConnectConfiguration> metadata =
-            WhepAuthValidator.MetadataSourceFor(Options.Create(new WhepAuthOptions
-            {
-                Authority = "https://keycloak.invalid/realms/smart-sentinel-eye/",
-            }));
+            WhepAuthValidator.MetadataSourceFor(
+                Options.Create(new WhepAuthOptions
+                {
+                    Authority = "https://keycloak.invalid/realms/smart-sentinel-eye/",
+                }),
+                environment);
 
         metadata.MetadataAddress.ShouldBe(
             "https://keycloak.invalid/realms/smart-sentinel-eye/.well-known/openid-configuration",

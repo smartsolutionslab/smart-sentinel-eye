@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
@@ -39,6 +40,13 @@ public sealed class WhepAuthValidatorResolutionTests
     {
         ServiceCollection services = [];
         services.AddLogging();
+        // Spec 340 (#2238): the public constructor now also takes IHostEnvironment,
+        // so it is satisfiable here for the same reason the metadata-manager and
+        // registry fakes below are — this test pins constructor selection, not the
+        // environment-conditional transport policy (covered by WhepMetadataTransportTests).
+        services.AddSingleton<IHostEnvironment>(
+            Host.CreateEmptyApplicationBuilder(
+                new HostApplicationBuilderSettings { EnvironmentName = Environments.Production }).Environment);
         services.AddSingleton(
             Options.Create(new WhepAuthOptions
             {

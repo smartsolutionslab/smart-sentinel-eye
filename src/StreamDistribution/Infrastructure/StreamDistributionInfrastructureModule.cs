@@ -265,7 +265,15 @@ public static class StreamDistributionInfrastructureModule
         }).AddHttpMessageHandler<CameraCatalogAuthorizationHandler>();
     }
 
-    private static void BindWhepAuthOptions(IHostApplicationBuilder builder)
+    /// <summary>
+    /// Spec 340 (#2238): outside Development, the WHEP metadata authority
+    /// must be an absolute https URI, or startup refuses. Without this, a
+    /// plaintext or malformed authority would surface only on the first WHEP
+    /// open, as <c>IdentityProviderUnavailable</c> — indistinguishable from an
+    /// unreachable realm. Same shape as <see cref="BindMediaMtxApiOptions"/>
+    /// directly above.
+    /// </summary>
+    internal static void BindWhepAuthOptions(IHostApplicationBuilder builder)
     {
         // Derive the Keycloak authority the same way AuthenticationDefaults does.
         string keycloakBaseUrl =
@@ -276,9 +284,19 @@ public static class StreamDistributionInfrastructureModule
 
         string realm = builder.Configuration["Keycloak:Realm"] ?? "smart-sentinel-eye";
 
-        builder.Services.Configure<WhepAuthOptions>(options =>
-        {
-            options.Authority = $"{keycloakBaseUrl.TrimEnd('/')}/realms/{realm}";
-        });
+        builder.Services.AddOptions<WhepAuthOptions>()
+            .Configure(options =>
+            {
+                options.Authority = $"{keycloakBaseUrl.TrimEnd('/')}/realms/{realm}";
+            })
+            .Validate(
+                options => !AuthenticationDefaults.RequiresHttpsMetadata(builder.Environment) || IsHttpsAbsolute(options.Authority),
+                $"WhepAuthOptions:Authority must be an absolute https URI outside Development "
+                + $"('{builder.Environment.EnvironmentName}' here): the WHEP hook's realm metadata must be "
+                + "fetched over HTTPS, or serve Keycloak over TLS, or run under the Development environment.")
+            .ValidateOnStart();
     }
+
+    private static bool IsHttpsAbsolute(string value) =>
+        Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps;
 }
