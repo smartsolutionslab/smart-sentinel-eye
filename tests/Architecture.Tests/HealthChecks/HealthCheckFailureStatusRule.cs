@@ -20,6 +20,15 @@ namespace SmartSentinelEye.Architecture.Tests.HealthChecks;
 /// offender; more than one registration named "self" makes every one of
 /// them an offender.
 /// </para>
+///
+/// <para>
+/// <b>Known limitation, accepted (backend-reviewer pass on PR #2872):</b>
+/// this is shape-matching, not behaviour-matching. A registration that is
+/// the only "self", tagged exactly <c>"live"</c>, and backed by a real
+/// <c>DelegateHealthCheck</c> is exempt even if the delegate itself probes a
+/// dependency and can return <see cref="HealthStatus.Unhealthy"/> — the
+/// rule has no way to inspect what a delegate does at runtime.
+/// </para>
 /// </summary>
 internal static class HealthCheckFailureStatusRule
 {

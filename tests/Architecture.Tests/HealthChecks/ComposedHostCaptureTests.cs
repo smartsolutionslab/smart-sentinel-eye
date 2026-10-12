@@ -58,6 +58,13 @@ public class ComposedHostCaptureTests
     /// recursive test run), which is exactly the "returned without building a
     /// host" shape this guards, and the probe outside the repository confirmed
     /// it returns in well under a second rather than hanging.
+    /// <para>
+    /// Safe under the pinned xUnit 2.9.3, whose SDK-generated <c>Main</c> is a
+    /// thin shim; revisit on a move to xunit.v3, where that <c>Main</c>
+    /// becomes the in-process test runner itself and invoking it directly
+    /// would no longer "return without building a host" — it would run the
+    /// suite.
+    /// </para>
     /// </summary>
     [Fact]
     public void An_entry_point_that_returns_without_building_a_host_fails_capture()

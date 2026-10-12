@@ -132,6 +132,59 @@ public class HealthCheckFailureStatusGuardTests
     }
 
     /// <summary>
+    /// Should-fix 1a (backend-reviewer pass on PR #2872). The real "self" is
+    /// removed and replaced, under the same name and the same exempt tag,
+    /// with a registration backed by <see cref="AlwaysHealthyCheck"/> rather
+    /// than the framework's own <c>DelegateHealthCheck</c> — proving
+    /// <see cref="HealthCheckFailureStatusRule"/>'s factory-type comparison
+    /// (lines 80-85) actually runs: name and tags alone are not enough to
+    /// borrow the exemption.
+    /// </summary>
+    [Fact]
+    public void A_check_named_self_backed_by_a_different_factory_type_does_not_inherit_the_exemption()
+    {
+        List<string> offenders = CaptureOffenders(
+            "SmartSentinelEye.ApiGateway",
+            configureServices: builder => builder.ConfigureServices(
+                services => services.Configure<HealthCheckServiceOptions>(options =>
+                {
+                    HealthCheckRegistration self = options.Registrations.Single(
+                        registration => registration.Name == "self");
+                    options.Registrations.Remove(self);
+                    options.Registrations.Add(new HealthCheckRegistration(
+                        "self", new AlwaysHealthyCheck(), failureStatus: null, tags: ["live"]));
+                })));
+
+        offenders.ShouldHaveSingleItem();
+        offenders[0].ShouldContain("self");
+        offenders[0].ShouldContain("factory type");
+    }
+
+    /// <summary>
+    /// Should-fix 1b (backend-reviewer pass on PR #2872). No registration
+    /// named "self" at all — proving the empty-<c>selfCandidates</c> branch
+    /// (lines 38-41) actually runs, rather than the shape check silently
+    /// never being reached for a host with no "self".
+    /// </summary>
+    [Fact]
+    public void No_check_named_self_at_all_is_reported_missing()
+    {
+        List<string> offenders = CaptureOffenders(
+            "SmartSentinelEye.ApiGateway",
+            configureServices: builder => builder.ConfigureServices(
+                services => services.Configure<HealthCheckServiceOptions>(options =>
+                {
+                    HealthCheckRegistration self = options.Registrations.Single(
+                        registration => registration.Name == "self");
+                    options.Registrations.Remove(self);
+                })));
+
+        offenders.ShouldHaveSingleItem();
+        offenders[0].ShouldContain("self");
+        offenders[0].ShouldContain("missing");
+    }
+
+    /// <summary>
     /// A trivial, always-healthy check used only to exercise the
     /// <c>AddCheck&lt;T&gt;(name, failureStatus, tags)</c> overload, which is the
     /// only one that accepts an explicit <see cref="HealthStatus"/>. The
