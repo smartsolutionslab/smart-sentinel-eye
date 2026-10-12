@@ -458,20 +458,28 @@ var streamDistribution = builder
 //     authorize calls = 21. This was the original motivation — 20 left zero
 //     headroom, so its 21st call was refused with 429 every run (#2284
 //     phase-5 verification.md §2.1).
-//   - WhepAuthIntegrationTests: 12 more authorize POSTs, one per [Fact], all
-//     from the same test host address. This was 6 when the ceiling below was
-//     first raised; three fab-attribution facts (ADR-0161) and, since
-//     ADR-0171, three `api`-action facts were added afterwards without this
-//     count being revisited — recorded as a sum rather than restated as a
-//     bare number for exactly that reason. Re-count with a search for
-//     `/streams/authorize` in that file before trusting this figure again.
+//   - WhepAuthIntegrationTests: 9 more authorize POSTs, all from the same
+//     test host address. This was 6 when the ceiling below was first raised,
+//     then 12 after three fab-attribution facts (ADR-0161) and three
+//     `api`-action facts (ADR-0171) were added without this count being
+//     revisited. It is 9, not 12, as of #2862 blocker 2: the three
+//     `api`-action facts now key the "whep-authorize" policy's partition by
+//     action as well as source address (Program.cs's
+//     WhepAuthorizeActionClassification), so they draw from a separate
+//     budget and no longer belong in this sum at all. Re-count with a search
+//     for `/streams/authorize` in that file before trusting this figure
+//     again.
 //   - WhepAuthorizeRateLimitTests' own ExhaustWindowAsync (PermitLimit + 1
 //     requests) needs the ceiling itself to still be a small, fast number.
-// 21 + 6 = 27 against a ceiling of 30 left only 3 requests of margin — tight
-// enough that the next person adding an authorize-related test could
-// reintroduce the exact bug this override exists to avoid, and it is why the
-// ceiling was raised to 50 in the first place. Today's real total is higher
-// still — 21 + 12 = 33 — and 50 still gives real margin over it. Keep
+//     Every request it sends carries a non-`api` action, so it too stays on
+//     this partition.
+// 21 + 9 = 30 against the ceiling of 50 below leaves comfortable margin.
+// #2862 blocker 2 is also why this sum no longer has to include the health
+// sweep's own batched control-API calls or this fixture's MediaMTX resets
+// (ResetMediaMtxAsync, MediaMtxControlApiAuthIntegrationTests,
+// MediaMtxReconcilerIntegrationTests, MediaMtxRtspGatewayIntegrationTests):
+// every one of those authorizes as the `api` action and now lands on its own
+// partition, so none of that traffic competes with this one any more. Keep
 // tests/Integration.Tests/StreamDistribution/WhepAuthorizeRateLimitTests.cs's
 // own `PermitLimit` literal in sync with this value.
 if (isE2ETests)
