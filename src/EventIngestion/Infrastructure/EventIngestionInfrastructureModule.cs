@@ -152,8 +152,26 @@ public static class EventIngestionInfrastructureModule
         builder.Services.AddScoped<ListEventTypesQueryHandler>();
         builder.Services.AddScoped<ListSourceModesQueryHandler>();
 
-        // Bounded channel + ingress.
-        builder.Services.AddSingleton<IIngestChannel>(_ => new BoundedIngestChannel());
+        // Bounded channel + ingress. Issue #2863: the gauge registration's
+        // IDisposable is its own singleton — rather than discarded — so the
+        // container disposes it when it disposes itself. That matters only
+        // if this factory ever runs more than once per process (e.g. a
+        // future WebApplicationFactory-style test); today's single
+        // registration is kept alive for the app's lifetime either way.
+        builder.Services.AddSingleton<BoundedIngestChannel>(_ => new BoundedIngestChannel());
+        builder.Services.AddSingleton<IDisposable>(
+            provider => IngestChannelSaturation.RegisterGauges(provider.GetRequiredService<BoundedIngestChannel>()));
+
+        // IIngestChannel's factory runs exactly once per app lifetime — the
+        // guarantee the gauges rely on to keep reading one channel instance —
+        // and forces the IDisposable singleton above to resolve, since
+        // nothing else in the container depends on a bare IDisposable.
+        builder.Services.AddSingleton<IIngestChannel>(provider =>
+        {
+            BoundedIngestChannel channel = provider.GetRequiredService<BoundedIngestChannel>();
+            _ = provider.GetRequiredService<IDisposable>();
+            return channel;
+        });
 
         // Spec 020: direct submissions store before answering, so they no longer
         // pass through the channel — and the 429 that used to mean "the channel
