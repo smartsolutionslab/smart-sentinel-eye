@@ -482,6 +482,29 @@ var streamDistribution = builder
 // partition, so none of that traffic competes with this one any more. Keep
 // tests/Integration.Tests/StreamDistribution/WhepAuthorizeRateLimitTests.cs's
 // own `PermitLimit` literal in sync with this value.
+//
+// #2871: "none of that traffic competes with this one any more" was true but
+// incomplete — it says the `api` partition stopped crowding the `whep`
+// partition, not that the `api` partition's OWN total was ever checked
+// against a ceiling. It wasn't, and under a full suite run it is not small:
+// the 2-second health sweep runs for the whole shard's lifetime, the
+// reconciler's startup pass adds a one-time burst, and every
+// StreamDistribution-touching test's own ResetMediaMtxAsync/add/list/delete/
+// repoint calls land in the same fixed window, all from this one test host
+// address. Before this fix `api` silently shared this exact
+// PermitLimit=50/Window=10s override (same policy, just a different
+// partition key), and that shared ceiling is what #2871 traced the
+// intermittent MediaMtxReconcilerIntegrationTests/StreamHealthTransitionTests
+// 401s to: MediaMTX reports ANY non-2xx answer from the authorize hook — a
+// 429 from us included — to its own caller as a flat 401 (confirmed by
+// hammering MediaMTX's control API with 150 concurrent, correctly-credentialed
+// calls under the old shared ceiling: 46 got through, 104 came back 401).
+// Deliberately NOT overridden here for `api`: Program.cs's
+// MediaMtxApiAuthorizeRateLimiting falls back to the same production
+// default as WhepAuthorizeRateLimiting (2000/min, appsettings.json), which
+// is already two orders of magnitude above the `api` partition's real
+// aggregate test-suite volume and needs no integration-lane-specific
+// ceiling the way the `whep` partition does.
 if (isE2ETests)
 {
     streamDistribution
