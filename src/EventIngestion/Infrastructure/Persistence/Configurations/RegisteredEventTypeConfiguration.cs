@@ -23,12 +23,12 @@ public sealed class RegisteredEventTypeConfiguration : IEntityTypeConfiguration<
         builder.ToTable("registered_event_types");
         builder.HasKey(eventType => eventType.Id);
 
-        ConfigureColumns(builder);
+        ConfigureIdentityAndStateColumns(builder);
         ConfigureRegistration(builder);
-        ConfigureVersionAndIndexes(builder);
+        ConfigureVersionIndexesAndIgnores(builder);
     }
 
-    private static void ConfigureColumns(EntityTypeBuilder<RegisteredEventType> builder)
+    private static void ConfigureIdentityAndStateColumns(EntityTypeBuilder<RegisteredEventType> builder)
     {
         builder.Property(eventType => eventType.Id)
             .HasColumnName("registered_event_type_id")
@@ -74,7 +74,7 @@ public sealed class RegisteredEventTypeConfiguration : IEntityTypeConfiguration<
         builder.Navigation(eventType => eventType.Registration).IsRequired();
     }
 
-    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<RegisteredEventType> builder)
+    private static void ConfigureVersionIndexesAndIgnores(EntityTypeBuilder<RegisteredEventType> builder)
     {
         builder.Property(eventType => eventType.Version)
             .HasColumnName("version")

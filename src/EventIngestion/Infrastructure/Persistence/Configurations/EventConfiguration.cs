@@ -29,11 +29,11 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<EventAggregate
         builder.ToTable("events");
         builder.HasKey(eventEntity => new { eventEntity.Fab, eventEntity.Id, eventEntity.IngestedAt });
 
-        ConfigureOriginColumns(builder);
-        ConfigureContentColumns(builder);
+        ConfigureIdentityAndOriginColumns(builder);
+        ConfigureTimePayloadVersionAndIgnores(builder);
     }
 
-    private static void ConfigureOriginColumns(EntityTypeBuilder<EventAggregate> builder)
+    private static void ConfigureIdentityAndOriginColumns(EntityTypeBuilder<EventAggregate> builder)
     {
         builder.Property(eventEntity => eventEntity.Id)
             .HasColumnName("event_id")
@@ -65,7 +65,7 @@ public sealed class EventConfiguration : IEntityTypeConfiguration<EventAggregate
             .IsRequired();
     }
 
-    private static void ConfigureContentColumns(EntityTypeBuilder<EventAggregate> builder)
+    private static void ConfigureTimePayloadVersionAndIgnores(EntityTypeBuilder<EventAggregate> builder)
     {
         builder.Property(eventEntity => eventEntity.OccurredAt)
             .HasColumnName("occurred_at")

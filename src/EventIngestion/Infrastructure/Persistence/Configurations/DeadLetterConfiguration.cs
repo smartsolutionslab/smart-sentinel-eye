@@ -16,13 +16,13 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
         builder.ToTable("dead_letters");
         builder.HasKey(deadLetter => deadLetter.Id);
 
-        ConfigureDeliveryColumns(builder);
+        ConfigureIdentityAndPayloadColumns(builder);
         ConfigureRejectionColumns(builder);
-        ConfigureHoldColumns(builder);
-        ConfigureIndexes(builder);
+        ConfigureStateAndVersionColumns(builder);
+        ConfigureIndexesAndIgnores(builder);
     }
 
-    private static void ConfigureDeliveryColumns(EntityTypeBuilder<DeadLetter> builder)
+    private static void ConfigureIdentityAndPayloadColumns(EntityTypeBuilder<DeadLetter> builder)
     {
         builder.Property(deadLetter => deadLetter.Id)
             .HasColumnName("dead_letter_id")
@@ -82,7 +82,7 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .IsRequired(false);
     }
 
-    private static void ConfigureHoldColumns(EntityTypeBuilder<DeadLetter> builder)
+    private static void ConfigureStateAndVersionColumns(EntityTypeBuilder<DeadLetter> builder)
     {
         // Spec 317 FR-003. Defaults to 'Held' at the database level too, so a
         // row inserted outside this mapping (the migration's back-fill) still
@@ -100,7 +100,7 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .IsRequired();
     }
 
-    private static void ConfigureIndexes(EntityTypeBuilder<DeadLetter> builder)
+    private static void ConfigureIndexesAndIgnores(EntityTypeBuilder<DeadLetter> builder)
     {
         builder.HasIndex(deadLetter => deadLetter.RejectedAt)
             .HasDatabaseName("ix_dead_letters_rejected_at");
