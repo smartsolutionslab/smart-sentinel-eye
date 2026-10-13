@@ -50,152 +50,23 @@ public sealed class RotateWebhookClientCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (var integrationName, var fab, var rotatedBy, var expectedVersion) = command;
+        (var integrationName, var fab, var rotatedBy, _) = command;
 
-        ClientId clientId;
-        try
+        var prepared = await PrepareAsync(command, cancellationToken);
+        if (prepared.IsFailure)
         {
-            clientId = ClientId.From($"webhook-{integrationName}");
-        }
-        catch (ArgumentException ex)
-        {
-            return Failure(RotateWebhookClientFailures.InvalidIntegrationName(ex.Message));
+            return Failure(prepared.Error);
         }
 
-        // Before anything else, including the local lookup and both Layer-1
-        // branches below: a revoked (or unverifiable) integration is refused
-        // whichever precondition the caller sent, so the rotate branch's
-        // aggregate.Rotate(clock) + SaveAsync can never run for it (plan §4).
-        var status = await integrationStatus
-            .GetStatusAsync(fab, integrationName, cancellationToken);
-        switch (status)
+        var (clientId, existing) = prepared.Value;
+
+        var rotation = await RotateOrRegisterAsync(command, clientId, existing, cancellationToken);
+        if (rotation.IsFailure)
         {
-            case WebhookIntegrationStatus.Revoked:
-                logger.RefusedRotationOfRevokedIntegration(integrationName, fab);
-                return Failure(RotateWebhookClientFailures.WebhookIntegrationRevoked(integrationName));
-            case WebhookIntegrationStatus.Unverifiable:
-                logger.RefusedRotationStatusUnavailable(integrationName, fab);
-                return Failure(RotateWebhookClientFailures.WebhookIntegrationStatusUnavailable());
+            return Failure(rotation.Error);
         }
 
-        // Scoped to fab: an unscoped lookup lets a caller who names their own
-        // fab (not the client's) resolve and rotate a client registered in a
-        // fab they hold no access to — AS-4, spec 182.
-        var existing = await clients
-            .GetWithinFabAsync(fab, clientId, cancellationToken);
-        var isCreate = !existing.HasValue;
-
-        // ADR-0113 Layer 1. The caller says which branch it intends, and a
-        // mismatch is refused rather than quietly resolved the other way:
-        // rotating for a caller who thought they were creating rolls a live
-        // secret, and creating for a caller who mistyped the name mints a
-        // Keycloak client nobody asked for.
-        if (existing.HasValue != expectedVersion.HasValue)
-        {
-            return Failure(existing.HasValue
-                ? RotateWebhookClientFailures.WebhookClientAlreadyExists(
-                    clientId.Value, existing.Value.Version)
-                : RotateWebhookClientFailures.WebhookClientNotFound(
-                    clientId.Value, expectedVersion.Value));
-        }
-
-        if (existing.HasValue && existing.Value.Version != expectedVersion.Value)
-        {
-            return Failure(RotateWebhookClientFailures.WebhookClientStale(
-                    clientId.Value, expectedVersion.Value, existing.Value.Version));
-        }
-
-        string clientSecret;
-        RegisteredClientAggregate aggregate;
-        try
-        {
-            if (existing.HasValue)
-            {
-                // Claim the write before rolling the secret. The version check
-                // above is a read-then-compare with no lock, so two callers
-                // holding the same version both pass it; only Layer 2 (the EF
-                // token on this save) picks a winner. Rolling first would let
-                // the loser invalidate the winner's live credential and then
-                // report 409 — the secret would belong to nobody.
-                //
-                // The residual failure is the inverse and much cheaper: if the
-                // save commits and Keycloak then fails, LastRotatedAt is early
-                // and the old secret still works, so the integration keeps
-                // running and the caller retries.
-                aggregate = existing.Value;
-                aggregate.Rotate(clock);
-                await clients.SaveAsync(cancellationToken);
-
-                var rolled = await keycloak
-                    .RotateClientSecretAsync(clientId.Value, cancellationToken);
-                clientSecret = rolled.ClientSecret;
-            }
-            else
-            {
-                KeycloakClientRepresentation representation = new(
-                    ClientId: clientId.Value,
-                    Name: $"Webhook {integrationName}",
-                    ServiceAccountsEnabled: true,
-                    StandardFlowEnabled: false,
-                    DirectAccessGrantsEnabled: false,
-                    PublicClient: false,
-                    DefaultClientScopes:
-                    [
-                        .. KeycloakScopeBundles.WebhookIntegration,
-                        KeycloakScopeBundles.AudienceScope,
-                        KeycloakScopeBundles.GroupsScope,
-                    ],
-                    OptionalClientScopes: Array.Empty<string>(),
-                    Attributes: new Dictionary<string, string>
-                    {
-                        ["sse.kind"] = "webhook",
-                        ["sse.integrationName"] = integrationName,
-                        ["sse.fab"] = fab.Value,
-                    });
-                var credentials = await keycloak.CreateClientAsync(
-                    representation,
-                    fabGroupPath: $"/fabs/{fab.Value}",
-                    cancellationToken);
-                clientSecret = credentials.ClientSecret;
-
-                aggregate = RegisteredClientAggregate.Register(
-                    clientId, ClientKind.WebhookIntegration,
-                    fab, rotatedBy, clock);
-                clients.Add(aggregate);
-
-                // The register branch keeps the opposite order on purpose. If
-                // the row were written first and CreateClientAsync then failed,
-                // GetWithinFabAsync would find it on the retry, which would
-                // take the rotate branch and try to roll a secret for a
-                // Keycloak client that was never created.
-                await clients.SaveAsync(cancellationToken);
-            }
-        }
-        catch (KeycloakClientAlreadyExistsException)
-        {
-            // The clientId is already taken — by another fab's webhook client
-            // this fab-scoped lookup above never saw. This refusal stays
-            // generic (see WebhookClientNameConflict) to avoid naming the
-            // clientId in the message. That closes the message-text leak
-            // only: the 409-vs-200 status code itself is still a cross-fab
-            // existence oracle, and RegisterDeviceCommandHandler /
-            // EnrollKioskCommandHandler have the identical property via the
-            // same unscoped GetByClientIdAsync lookup — see the tracked
-            // follow-up on this handler's own namespace-collision oracle.
-            return Failure(RotateWebhookClientFailures.WebhookClientNameConflict());
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException
-                                   and not InvalidOperationException
-                                   // A Layer-2 loser's DbUpdateConcurrencyException must propagate
-                                   // to ConcurrencyConflictExceptionHandler's 409
-                                   // AGGREGATE_VERSION_STALE (ADR-0113), not be swallowed here as
-                                   // 502 KEYCLOAK_UNAVAILABLE.
-                                   and not DbUpdateConcurrencyException)
-        {
-            return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
-        }
-
-        var disabledDuringRace = isCreate
+        var disabledDuringRace = !existing.HasValue
             && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName, cancellationToken);
 
         // A client this same call just disabled must not also be announced as
@@ -229,19 +100,242 @@ public sealed class RotateWebhookClientCommandHandler(
 
         logger.RotatedWebhookIntegration(integrationName, clientId);
 
-        // Read after SaveAsync: the interceptor bumps the version during the
-        // save, so this is the value the next rotation must send in If-Match.
-        // GET /webhook-integrations serves the same value, so a caller who
-        // loses this response is not locked out of rotating again.
-        return Success(
-            new WebhookClientCredentialsDto(
-                aggregate.Id.Value,
-                aggregate.Version,
-                clientId.Value,
-                integrationName,
-                fab.Value,
-                clientSecret));
+        return Success(CredentialsOf(rotation.Value, clientId, integrationName, fab));
     }
+
+    private async Task<Result<PreparedRotation, RotateWebhookClientError>> PrepareAsync(
+        RotateWebhookClientCommand command,
+        CancellationToken cancellationToken)
+    {
+        (var integrationName, var fab, _, var expectedVersion) = command;
+
+        var clientIdResult = ToClientId(integrationName);
+        if (clientIdResult.IsFailure)
+        {
+            return Failure(clientIdResult.Error);
+        }
+
+        var clientId = clientIdResult.Value;
+
+        var revoked = await RefuseIfRevokedAsync(fab, integrationName, cancellationToken);
+        if (revoked.HasValue)
+        {
+            return Failure(revoked.Value);
+        }
+
+        // Scoped to fab: an unscoped lookup lets a caller who names their own
+        // fab (not the client's) resolve and rotate a client registered in a
+        // fab they hold no access to — AS-4, spec 182.
+        var existing = await clients
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
+
+        var mismatch = RefuseOnVersionMismatch(existing, expectedVersion, clientId);
+        if (mismatch.HasValue)
+        {
+            return Failure(mismatch.Value);
+        }
+
+        return Success(new PreparedRotation(clientId, existing));
+    }
+
+    private static Result<ClientId, RotateWebhookClientError> ToClientId(string integrationName)
+    {
+        try
+        {
+            return Success(ClientId.From($"webhook-{integrationName}"));
+        }
+        catch (ArgumentException ex)
+        {
+            return Failure(RotateWebhookClientFailures.InvalidIntegrationName(ex.Message));
+        }
+    }
+
+    private async Task<Option<RotateWebhookClientError>> RefuseIfRevokedAsync(
+        FabIdentifier fab,
+        string integrationName,
+        CancellationToken cancellationToken)
+    {
+        // Before anything else, including the local lookup and both Layer-1
+        // branches below: a revoked (or unverifiable) integration is refused
+        // whichever precondition the caller sent, so the rotate branch's
+        // aggregate.Rotate(clock) + SaveAsync can never run for it (plan §4).
+        var status = await integrationStatus
+            .GetStatusAsync(fab, integrationName, cancellationToken);
+        switch (status)
+        {
+            case WebhookIntegrationStatus.Revoked:
+                logger.RefusedRotationOfRevokedIntegration(integrationName, fab);
+                return Option<RotateWebhookClientError>.Some(
+                    RotateWebhookClientFailures.WebhookIntegrationRevoked(integrationName));
+            case WebhookIntegrationStatus.Unverifiable:
+                logger.RefusedRotationStatusUnavailable(integrationName, fab);
+                return Option<RotateWebhookClientError>.Some(
+                    RotateWebhookClientFailures.WebhookIntegrationStatusUnavailable());
+        }
+
+        return Option<RotateWebhookClientError>.None;
+    }
+
+    private static Option<RotateWebhookClientError> RefuseOnVersionMismatch(
+        Option<RegisteredClientAggregate> existing,
+        Option<int> expectedVersion,
+        ClientId clientId)
+    {
+        // ADR-0113 Layer 1. The caller says which branch it intends, and a
+        // mismatch is refused rather than quietly resolved the other way:
+        // rotating for a caller who thought they were creating rolls a live
+        // secret, and creating for a caller who mistyped the name mints a
+        // Keycloak client nobody asked for.
+        if (existing.HasValue != expectedVersion.HasValue)
+        {
+            return Option<RotateWebhookClientError>.Some(existing.HasValue
+                ? RotateWebhookClientFailures.WebhookClientAlreadyExists(
+                    clientId.Value, existing.Value.Version)
+                : RotateWebhookClientFailures.WebhookClientNotFound(
+                    clientId.Value, expectedVersion.Value));
+        }
+
+        if (existing.HasValue && existing.Value.Version != expectedVersion.Value)
+        {
+            return Option<RotateWebhookClientError>.Some(RotateWebhookClientFailures.WebhookClientStale(
+                    clientId.Value, expectedVersion.Value, existing.Value.Version));
+        }
+
+        return Option<RotateWebhookClientError>.None;
+    }
+
+    private async Task<Result<RotationOutcome, RotateWebhookClientError>> RotateOrRegisterAsync(
+        RotateWebhookClientCommand command,
+        ClientId clientId,
+        Option<RegisteredClientAggregate> existing,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return Success(existing.HasValue
+                ? await RollSecretAsync(existing.Value, clientId, cancellationToken)
+                : await RegisterAsync(command, clientId, cancellationToken));
+        }
+        catch (KeycloakClientAlreadyExistsException)
+        {
+            // The clientId is already taken — by another fab's webhook client
+            // this fab-scoped lookup above never saw. This refusal stays
+            // generic (see WebhookClientNameConflict) to avoid naming the
+            // clientId in the message. That closes the message-text leak
+            // only: the 409-vs-200 status code itself is still a cross-fab
+            // existence oracle, and RegisterDeviceCommandHandler /
+            // EnrollKioskCommandHandler have the identical property via the
+            // same unscoped GetByClientIdAsync lookup — see the tracked
+            // follow-up on this handler's own namespace-collision oracle.
+            return Failure(RotateWebhookClientFailures.WebhookClientNameConflict());
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException
+                                   and not InvalidOperationException
+                                   // A Layer-2 loser's DbUpdateConcurrencyException must propagate
+                                   // to ConcurrencyConflictExceptionHandler's 409
+                                   // AGGREGATE_VERSION_STALE (ADR-0113), not be swallowed here as
+                                   // 502 KEYCLOAK_UNAVAILABLE.
+                                   and not DbUpdateConcurrencyException)
+        {
+            return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
+        }
+    }
+
+    private async Task<RotationOutcome> RollSecretAsync(
+        RegisteredClientAggregate aggregate,
+        ClientId clientId,
+        CancellationToken cancellationToken)
+    {
+        // Claim the write before rolling the secret. The version check
+        // above is a read-then-compare with no lock, so two callers
+        // holding the same version both pass it; only Layer 2 (the EF
+        // token on this save) picks a winner. Rolling first would let
+        // the loser invalidate the winner's live credential and then
+        // report 409 — the secret would belong to nobody.
+        //
+        // The residual failure is the inverse and much cheaper: if the
+        // save commits and Keycloak then fails, LastRotatedAt is early
+        // and the old secret still works, so the integration keeps
+        // running and the caller retries.
+        aggregate.Rotate(clock);
+        await clients.SaveAsync(cancellationToken);
+
+        var rolled = await keycloak
+            .RotateClientSecretAsync(clientId.Value, cancellationToken);
+        return new RotationOutcome(aggregate, rolled.ClientSecret);
+    }
+
+    private async Task<RotationOutcome> RegisterAsync(
+        RotateWebhookClientCommand command,
+        ClientId clientId,
+        CancellationToken cancellationToken)
+    {
+        (var integrationName, var fab, var rotatedBy, _) = command;
+
+        var credentials = await keycloak.CreateClientAsync(
+            WebhookRepresentation(clientId, integrationName, fab),
+            fabGroupPath: $"/fabs/{fab.Value}",
+            cancellationToken);
+
+        var aggregate = RegisteredClientAggregate.Register(
+            clientId, ClientKind.WebhookIntegration,
+            fab, rotatedBy, clock);
+        clients.Add(aggregate);
+
+        // The register branch keeps the opposite order on purpose. If
+        // the row were written first and CreateClientAsync then failed,
+        // GetWithinFabAsync would find it on the retry, which would
+        // take the rotate branch and try to roll a secret for a
+        // Keycloak client that was never created.
+        await clients.SaveAsync(cancellationToken);
+        return new RotationOutcome(aggregate, credentials.ClientSecret);
+    }
+
+    private static KeycloakClientRepresentation WebhookRepresentation(
+        ClientId clientId,
+        string integrationName,
+        FabIdentifier fab) =>
+        new(
+            ClientId: clientId.Value,
+            Name: $"Webhook {integrationName}",
+            ServiceAccountsEnabled: true,
+            StandardFlowEnabled: false,
+            DirectAccessGrantsEnabled: false,
+            PublicClient: false,
+            DefaultClientScopes:
+            [
+                .. KeycloakScopeBundles.WebhookIntegration,
+                KeycloakScopeBundles.AudienceScope,
+                KeycloakScopeBundles.GroupsScope,
+            ],
+            OptionalClientScopes: Array.Empty<string>(),
+            Attributes: new Dictionary<string, string>
+            {
+                ["sse.kind"] = "webhook",
+                ["sse.integrationName"] = integrationName,
+                ["sse.fab"] = fab.Value,
+            });
+
+    // Read after SaveAsync: the interceptor bumps the version during the
+    // save, so this is the value the next rotation must send in If-Match.
+    // GET /webhook-integrations serves the same value, so a caller who
+    // loses this response is not locked out of rotating again.
+    private static WebhookClientCredentialsDto CredentialsOf(
+        RotationOutcome rotation,
+        ClientId clientId,
+        string integrationName,
+        FabIdentifier fab) =>
+        new(
+            rotation.Aggregate.Id.Value,
+            rotation.Aggregate.Version,
+            clientId.Value,
+            integrationName,
+            fab.Value,
+            rotation.ClientSecret);
+
+    private readonly record struct PreparedRotation(ClientId ClientId, Option<RegisteredClientAggregate> Existing);
+
+    private readonly record struct RotationOutcome(RegisteredClientAggregate Aggregate, string ClientSecret);
 
     /// <summary>
     /// Create-branch TOCTOU: a revoke can land in the window
