@@ -27,8 +27,7 @@ public sealed class SwitchWallSceneCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (var fabs, var wallIdentifier, var expectedVersion,
-            var target, var by) = command;
+        (var fabs, var wallIdentifier, var expectedVersion, var target, var by) = command;
 
         var found = await walls.FindAsync(wallIdentifier, fabs, cancellationToken);
         if (!found.HasValue)
@@ -38,26 +37,17 @@ public sealed class SwitchWallSceneCommandHandler(
 
         var wall = found.Value;
 
-        if (wall.Version != expectedVersion)
-        {
-            return Failure(SwitchWallSceneFailures.Stale(wallIdentifier.Value, expectedVersion, wall.Version));
-        }
-
         LayoutIdentifier? namedLayout = target is SceneTarget.Layout layout ? layout.Value : null;
-        if (namedLayout is { } requested && !wall.Scenes.Contains(requested))
+        var refusal = RefuseBeforeLookup(wall, wallIdentifier, expectedVersion, namedLayout);
+        if (refusal.HasValue)
         {
-            return Failure(SwitchWallSceneFailures.SceneNotInSet(requested.Value));
+            return Failure(refusal.Value);
         }
 
-        if (namedLayout is { } already && already == wall.Showing)
+        var alreadyShowing = await CompleteIfAlreadyShowingAsync(wall, namedLayout, by, cancellationToken);
+        if (alreadyShowing.HasValue)
         {
-            // Already showing it: the same no-op success `Wall.SwitchTo` guarantees
-            // (Wall.cs's own Showing precedence) — whether the target is still
-            // Published is irrelevant to a switch that doesn't move `Showing` at
-            // all, so this must not depend on `publishable` below.
-            await walls.SaveAsync(cancellationToken);
-            logger.WallSceneSwitchWasNoOp(wall.Id, by);
-            return Success(GetWallQueryHandler.Map(wall));
+            return Success(alreadyShowing.Value);
         }
 
         var publishable =
@@ -72,7 +62,51 @@ public sealed class SwitchWallSceneCommandHandler(
             wall.SwitchTo(target, publishable, new SceneSwitchCause.Operator(by), clock);
         await walls.SaveAsync(cancellationToken);
 
-        if (switched.HasValue)
+        LogOutcome(wall, switched.HasValue, by);
+
+        return Success(GetWallQueryHandler.Map(wall));
+    }
+
+    private static Option<SwitchWallSceneError> RefuseBeforeLookup(
+        Wall wall,
+        WallIdentifier wallIdentifier,
+        int expectedVersion,
+        LayoutIdentifier? namedLayout)
+    {
+        if (wall.Version != expectedVersion)
+        {
+            return Option<SwitchWallSceneError>.Some(
+                SwitchWallSceneFailures.Stale(wallIdentifier.Value, expectedVersion, wall.Version));
+        }
+
+        return namedLayout is { } requested && !wall.Scenes.Contains(requested)
+            ? Option<SwitchWallSceneError>.Some(SwitchWallSceneFailures.SceneNotInSet(requested.Value))
+            : Option<SwitchWallSceneError>.None;
+    }
+
+    private async Task<Option<WallDto>> CompleteIfAlreadyShowingAsync(
+        Wall wall,
+        LayoutIdentifier? namedLayout,
+        OperatorIdentifier by,
+        CancellationToken cancellationToken)
+    {
+        if (namedLayout is not { } already || already != wall.Showing)
+        {
+            return Option<WallDto>.None;
+        }
+
+        // Already showing it: the same no-op success `Wall.SwitchTo` guarantees
+        // (Wall.cs's own Showing precedence) — whether the target is still
+        // Published is irrelevant to a switch that doesn't move `Showing` at
+        // all, so this must not depend on `publishable` in the caller.
+        await walls.SaveAsync(cancellationToken);
+        logger.WallSceneSwitchWasNoOp(wall.Id, by);
+        return Option<WallDto>.Some(GetWallQueryHandler.Map(wall));
+    }
+
+    private void LogOutcome(Wall wall, bool switched, OperatorIdentifier by)
+    {
+        if (switched)
         {
             logger.SwitchedWallScene(wall.Id, by);
         }
@@ -80,7 +114,5 @@ public sealed class SwitchWallSceneCommandHandler(
         {
             logger.WallSceneSwitchWasNoOp(wall.Id, by);
         }
-
-        return Success(GetWallQueryHandler.Map(wall));
     }
 }
