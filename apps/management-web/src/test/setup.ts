@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+vi.stubEnv('VITE_API_GATEWAY_URL', 'http://gateway.test');
 import '@testing-library/jest-dom/vitest';
 import { configure } from '@testing-library/react';
 import '@smart-sentinel-eye/shared/test/radixJsdom';
