@@ -39,8 +39,8 @@ public static partial class LayoutEndpoints
         try
         {
             name = LayoutName.From(body.Name);
-            grid = ParseGrid(body.Grid);
-            tiles = ParseTiles(body.Tiles);
+            grid = LayoutRequestParsing.ParseGrid(body.Grid);
+            tiles = LayoutRequestParsing.ParseTiles(body.Tiles);
         }
         catch (ArgumentException ex)
         {
@@ -255,8 +255,8 @@ public static partial class LayoutEndpoints
         try
         {
             number = LayoutRevisionNumber.From(revisionNumber);
-            grid = ParseGrid(body.Grid);
-            tiles = ParseTiles(body.Tiles);
+            grid = LayoutRequestParsing.ParseGrid(body.Grid);
+            tiles = LayoutRequestParsing.ParseTiles(body.Tiles);
         }
         catch (ArgumentException ex)
         {
@@ -338,29 +338,5 @@ public static partial class LayoutEndpoints
         return result.Match<IResult>(
             onSuccess: reverted => Results.Ok(reverted.Value),
             onFailure: error => error.ToProblem());
-    }
-
-    private static GridDimensions ParseGrid(GridRequest grid)
-    {
-        Ensure.That(grid).IsNotNull();
-        return GridDimensions.From(grid.Rows, grid.Cols);
-    }
-
-    private static List<Tile> ParseTiles(IReadOnlyList<TileRequest> requests)
-    {
-        Ensure.That(requests).IsNotNull();
-        return requests
-            .Select(tile =>
-            {
-                Ensure.That(tile).IsNotNull();
-                return new Tile(
-                    CameraIdentifier.From(tile.CameraIdentifier),
-                    tile.OverlayIdentifier is { } overlayId
-                        ? Option<OverlayIdentifier>.Some(OverlayIdentifier.From(overlayId))
-                        : Option<OverlayIdentifier>.None,
-                    GridPosition.From(tile.Row, tile.Col),
-                    TileSpan.From(tile.RowSpan, tile.ColSpan));
-            })
-            .ToList();
     }
 }
