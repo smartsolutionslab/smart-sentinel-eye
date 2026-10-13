@@ -67,7 +67,9 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
     }
 
     private static Option<IQueryable<Rule>> FilterByTrigger(
-        IQueryable<Rule> filtered, string? triggerSource, string? triggerKind)
+        IQueryable<Rule> filtered,
+        string? triggerSource,
+        string? triggerKind)
     {
         var bySource = FilterBySource(filtered, triggerSource);
         return bySource.HasValue ? FilterByKind(bySource.Value, triggerKind) : bySource;

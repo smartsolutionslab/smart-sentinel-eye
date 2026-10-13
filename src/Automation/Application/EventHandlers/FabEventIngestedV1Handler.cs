@@ -130,7 +130,10 @@ public sealed class FabEventIngestedV1Handler(
         using (document)
         {
             effects = evaluator.Evaluate(
-                parsedFab, message.Source, message.Kind, new EvaluationContext(document.RootElement));
+                parsedFab,
+                message.Source,
+                message.Kind,
+                new EvaluationContext(document.RootElement));
         }
 
         return true;
@@ -159,7 +162,10 @@ public sealed class FabEventIngestedV1Handler(
         var (requestedAt, eventIdentifier, metadata) = causation;
         return events.PublishAsync(
             new SystemVariableValueRequestedV1(
-                setVariableValue.Name, setVariableValue.Value, requestedAt, eventIdentifier,
+                setVariableValue.Name,
+                setVariableValue.Value,
+                requestedAt,
+                eventIdentifier,
                 Metadata: metadata),
             cancellationToken);
     }
@@ -172,7 +178,10 @@ public sealed class FabEventIngestedV1Handler(
         var (requestedAt, eventIdentifier, metadata) = causation;
         return events.PublishAsync(
             new OverlayHighlightRequestedV1(
-                highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, eventIdentifier,
+                highlightOverlay.Overlay,
+                highlightOverlay.DurationMs,
+                requestedAt,
+                eventIdentifier,
                 Metadata: metadata),
             cancellationToken);
     }
@@ -185,8 +194,12 @@ public sealed class FabEventIngestedV1Handler(
         var (requestedAt, eventIdentifier, metadata) = causation;
         return events.PublishAsync(
             new WallSceneSwitchRequestedV1(
-                switchWallScene.Wall, switchWallScene.Target, switchWallScene.Layout,
-                switchWallScene.Rule, requestedAt, eventIdentifier,
+                switchWallScene.Wall,
+                switchWallScene.Target,
+                switchWallScene.Layout,
+                switchWallScene.Rule,
+                requestedAt,
+                eventIdentifier,
                 Metadata: metadata),
             cancellationToken);
     }

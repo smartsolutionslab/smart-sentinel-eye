@@ -50,7 +50,9 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
     }
 
     private async Task<Result<Rule, DryRunRuleError>> FindRuleAsync(
-        IReadOnlyList<FabIdentifier> fabs, string name, CancellationToken cancellationToken)
+        IReadOnlyList<FabIdentifier> fabs,
+        string name,
+        CancellationToken cancellationToken)
     {
         if (!TryParseName(name, out var parsed))
         {
@@ -97,7 +99,9 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
     }
 
     private async Task<List<Rule>> FindMatchesAsync(
-        IReadOnlyList<FabIdentifier> fabs, RuleName parsed, CancellationToken cancellationToken)
+        IReadOnlyList<FabIdentifier> fabs,
+        RuleName parsed,
+        CancellationToken cancellationToken)
     {
         // Fab-scoped like the reads (spec 013 FR-006): a trial run must not
         // be usable as a side channel to discover how another fab's rule
