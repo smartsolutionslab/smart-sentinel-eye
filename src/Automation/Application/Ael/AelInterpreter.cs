@@ -128,15 +128,32 @@ public static class AelInterpreter
             BinaryOperator.Contains => EvalContains(left, right),
             BinaryOperator.Equal => new AelValue.BoolValue(AreEqual(left, right)),
             BinaryOperator.NotEqual => new AelValue.BoolValue(!AreEqual(left, right)),
-            BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply
-                or BinaryOperator.Divide or BinaryOperator.Modulo
-                => EvalArithmetic(binary.Operator, left, right),
-            BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
-                or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual
-                => EvalComparison(binary.Operator, left, right),
-            _ => throw new InvalidOperationException($"Unhandled BinaryOperator: {binary.Operator}"),
+            _ => EvalOrdered(binary.Operator, left, right),
         };
     }
+
+    private static AelValue EvalOrdered(BinaryOperator binaryOperator, AelValue left, AelValue right)
+    {
+        if (IsArithmetic(binaryOperator))
+        {
+            return EvalArithmetic(binaryOperator, left, right);
+        }
+
+        if (IsComparison(binaryOperator))
+        {
+            return EvalComparison(binaryOperator, left, right);
+        }
+
+        throw new InvalidOperationException($"Unhandled BinaryOperator: {binaryOperator}");
+    }
+
+    private static bool IsArithmetic(BinaryOperator binaryOperator) =>
+        binaryOperator is BinaryOperator.Add or BinaryOperator.Subtract or BinaryOperator.Multiply
+            or BinaryOperator.Divide or BinaryOperator.Modulo;
+
+    private static bool IsComparison(BinaryOperator binaryOperator) =>
+        binaryOperator is BinaryOperator.LessThan or BinaryOperator.LessThanOrEqual
+            or BinaryOperator.GreaterThan or BinaryOperator.GreaterThanOrEqual;
 
     private static AelValue.BoolValue EvalContains(AelValue left, AelValue right)
     {
