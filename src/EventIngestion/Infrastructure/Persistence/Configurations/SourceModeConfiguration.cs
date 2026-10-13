@@ -23,12 +23,12 @@ public sealed class SourceModeConfiguration : IEntityTypeConfiguration<SourceMod
         builder.ToTable("source_modes");
         builder.HasKey(sourceMode => sourceMode.Id);
 
-        ConfigureColumns(builder);
+        ConfigureIdentityAndModeColumns(builder);
         ConfigureDeclaration(builder);
-        ConfigureVersionAndIndexes(builder);
+        ConfigureVersionIndexesAndIgnores(builder);
     }
 
-    private static void ConfigureColumns(EntityTypeBuilder<SourceMode> builder)
+    private static void ConfigureIdentityAndModeColumns(EntityTypeBuilder<SourceMode> builder)
     {
         builder.Property(sourceMode => sourceMode.Id)
             .HasColumnName("source_mode_id")
@@ -74,7 +74,7 @@ public sealed class SourceModeConfiguration : IEntityTypeConfiguration<SourceMod
         builder.Navigation(sourceMode => sourceMode.Declaration).IsRequired();
     }
 
-    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<SourceMode> builder)
+    private static void ConfigureVersionIndexesAndIgnores(EntityTypeBuilder<SourceMode> builder)
     {
         builder.Property(sourceMode => sourceMode.Version)
             .HasColumnName("version")

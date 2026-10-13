@@ -17,9 +17,9 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.HasKey(integration => integration.Id);
 
         ConfigureIdentityColumns(builder);
-        ConfigureCredentialColumns(builder);
-        ConfigureValidationColumns(builder);
-        ConfigureVersionAndIndexes(builder);
+        ConfigureTokenAndLifecycleColumns(builder);
+        ConfigureValidationAndRotationColumns(builder);
+        ConfigureVersionIndexesAndIgnores(builder);
     }
 
     private static void ConfigureIdentityColumns(EntityTypeBuilder<WebhookIntegration> builder)
@@ -50,7 +50,7 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .IsRequired();
     }
 
-    private static void ConfigureCredentialColumns(EntityTypeBuilder<WebhookIntegration> builder)
+    private static void ConfigureTokenAndLifecycleColumns(EntityTypeBuilder<WebhookIntegration> builder)
     {
         builder.Property(integration => integration.TokenHash)
             .HasColumnName("token_hash")
@@ -68,7 +68,7 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .HasConversion(v => v!.Value, value => RevokedAt.From(value));
     }
 
-    private static void ConfigureValidationColumns(EntityTypeBuilder<WebhookIntegration> builder)
+    private static void ConfigureValidationAndRotationColumns(EntityTypeBuilder<WebhookIntegration> builder)
     {
         builder.Property(integration => integration.ValidationMode)
             .HasColumnName("validation_mode")
@@ -86,7 +86,7 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .HasConversion(v => v!.Value, value => RotatedAt.From(value));
     }
 
-    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<WebhookIntegration> builder)
+    private static void ConfigureVersionIndexesAndIgnores(EntityTypeBuilder<WebhookIntegration> builder)
     {
         builder.Property(integration => integration.Version)
             .HasColumnName("version")
