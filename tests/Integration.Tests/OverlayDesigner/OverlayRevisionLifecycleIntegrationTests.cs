@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
-using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 
@@ -36,9 +35,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Publish_a_new_revision_atomically_archives_the_previous_published_revision()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -46,39 +45,39 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         // v1 → Published.
-        HttpResponseMessage publishOne = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
+        var publishOne = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         publishOne.EnsureSuccessStatusCode();
 
         // Branch v2 (Draft, label inherited from v1).
-        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"draft");
+        var branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created);
-        int v2 = await branched.Content.ReadFromJsonAsync<int>();
+        var v2 = await branched.Content.ReadFromJsonAsync<int>();
         v2.ShouldBe(2);
 
         // Edit v2's label.
-        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+        var edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, $"revisions/{v2}",
             new { elements = new[] { SampleLabelBody("Updated label", 64) } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // Publish v2 → atomic swap: v1 becomes Archived, v2 becomes Published.
-        HttpResponseMessage publishTwo = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{v2}/publish");
+        var publishTwo = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{v2}/publish");
         publishTwo.EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
         fetched.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement revisions = payload.GetProperty("revisions");
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var revisions = payload.GetProperty("revisions");
         revisions.GetArrayLength().ShouldBe(2);
 
-        JsonElement r1 = revisions.EnumerateArray().Single(r => r.GetProperty("revisionNumber").GetInt32() == 1);
-        JsonElement r2 = revisions.EnumerateArray().Single(r => r.GetProperty("revisionNumber").GetInt32() == 2);
+        var r1 = revisions.EnumerateArray().Single(r => r.GetProperty("revisionNumber").GetInt32() == 1);
+        var r2 = revisions.EnumerateArray().Single(r => r.GetProperty("revisionNumber").GetInt32() == 2);
         r1.GetProperty("state").GetString().ShouldBe("Archived");
         r2.GetProperty("state").GetString().ShouldBe("Published");
-        JsonElement r2Label = r2.GetProperty("elements")[0];
+        var r2Label = r2.GetProperty("elements")[0];
         r2Label.GetProperty("text").GetString().ShouldBe("Updated label");
         r2Label.GetProperty("fontSizePx").GetInt32().ShouldBe(64);
     }
@@ -86,9 +85,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Revert_brings_a_Published_revision_back_to_Draft()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -96,17 +95,17 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage publish = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
+        var publish = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
-        HttpResponseMessage revert = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/revert");
+        var revert = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/revert");
         revert.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement revision = payload.GetProperty("revisions")[0];
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var revision = payload.GetProperty("revisions")[0];
         revision.GetProperty("state").GetString().ShouldBe("Draft");
         revision.GetProperty("publishedAt").ValueKind.ShouldBe(JsonValueKind.Null);
     }
@@ -132,9 +131,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task An_archived_overlay_can_be_branched_edited_and_published_again()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -142,7 +141,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody("Rolling Mill A", 64) },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         (await OverlayRequests.PostAsync(overlays, overlayIdentifier, "revisions/1/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -151,19 +150,19 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
 
         // Stranded before spec 037: no Published revision to branch from and no
         // Draft to publish.
-        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
+        var branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created);
-        int recovered = await branched.Content.ReadFromJsonAsync<int>();
+        var recovered = await branched.Content.ReadFromJsonAsync<int>();
         recovered.ShouldBe(2);
 
         // FR-002: the label came back with it, geometry included.
-        HttpResponseMessage afterBranch = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement branchedRevision = (await afterBranch.Content.ReadFromJsonAsync<JsonElement>())
+        var afterBranch = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var branchedRevision = (await afterBranch.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")
             .EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
         branchedRevision.GetProperty("state").GetString().ShouldBe("Draft");
-        JsonElement branchedLabel = branchedRevision.GetProperty("elements")[0];
+        var branchedLabel = branchedRevision.GetProperty("elements")[0];
         branchedLabel.GetProperty("text").GetString().ShouldBe("Rolling Mill A");
         branchedLabel.GetProperty("fontSizePx").GetInt32().ShouldBe(64);
 
@@ -177,15 +176,15 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
         // FR-003: same chain, same identifier, the archived revision still there.
-        HttpResponseMessage finished = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement payload = await finished.Content.ReadFromJsonAsync<JsonElement>();
+        var finished = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var payload = await finished.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("overlayIdentifier").GetGuid().ShouldBe(overlayIdentifier);
-        JsonElement revisions = payload.GetProperty("revisions");
+        var revisions = payload.GetProperty("revisions");
         revisions.GetArrayLength().ShouldBe(2);
         revisions.EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == 1)
             .GetProperty("state").GetString().ShouldBe("Archived");
-        JsonElement live = revisions.EnumerateArray()
+        var live = revisions.EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == recovered);
         live.GetProperty("state").GetString().ShouldBe("Published");
         live.GetProperty("elements")[0].GetProperty("text").GetString().ShouldBe("Rolling Mill B");
@@ -214,9 +213,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Branching_a_mixed_kind_revision_deep_copies_every_element_and_saves()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -229,7 +228,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         (await OverlayRequests.PostAsync(overlays, overlayIdentifier, "revisions/1/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
@@ -237,19 +236,19 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         // The failure this guards against surfaces here, as a 500 from EF's
         // SaveChanges inside BranchDraftRevisionCommandHandler — not as a
         // domain exception the API translates to a 4xx.
-        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
+        var branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created, await branched.Content.ReadAsStringAsync());
-        int draftNumber = await branched.Content.ReadFromJsonAsync<int>();
+        var draftNumber = await branched.Content.ReadFromJsonAsync<int>();
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement draft = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var draft = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")
             .EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == draftNumber);
-        JsonElement elements = draft.GetProperty("elements");
+        var elements = draft.GetProperty("elements");
         elements.GetArrayLength().ShouldBe(3);
 
-        JsonElement box = elements[0];
+        var box = elements[0];
         box.GetProperty("kind").GetString().ShouldBe("Box");
         box.GetProperty("color").GetString().ShouldBe("#1565C0FF");
         box.GetProperty("normalizedX").GetDecimal().ShouldBe(0.1m);
@@ -257,7 +256,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         box.GetProperty("text").ValueKind.ShouldBe(JsonValueKind.Null);
         box.GetProperty("fontSizePx").ValueKind.ShouldBe(JsonValueKind.Null);
 
-        JsonElement text = elements[1];
+        var text = elements[1];
         text.GetProperty("kind").GetString().ShouldBe("Text");
         text.GetProperty("color").GetString().ShouldBe("#FFFFFFD9");
         text.GetProperty("normalizedX").GetDecimal().ShouldBe(0.2m);
@@ -265,7 +264,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         text.GetProperty("text").GetString().ShouldBe("Second");
         text.GetProperty("fontSizePx").GetInt32().ShouldBe(20);
 
-        JsonElement ellipse = elements[2];
+        var ellipse = elements[2];
         ellipse.GetProperty("kind").GetString().ShouldBe("Ellipse");
         ellipse.GetProperty("color").GetString().ShouldBe("#2E7D32FF");
         ellipse.GetProperty("normalizedX").GetDecimal().ShouldBe(0.3m);
@@ -305,9 +304,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Replacing_one_label_returns_the_whole_set_in_ordinal_order()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -315,19 +314,19 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         // Only ordinal 0's row changes content; ordinal 1 and 2 are
         // resubmitted unchanged. If the read path relied on physical row
         // order instead of sorting by ordinal, this is exactly the shape
         // that scrambles it.
-        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+        var edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = new[] { SampleLabelBody("X"), SampleLabelBody("B"), SampleLabelBody("C") } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
             .GetProperty("elements");
 
@@ -343,9 +342,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Shrinking_the_label_set_returns_the_remaining_label_in_ordinal_order()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -353,15 +352,15 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+        var edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = new[] { SampleLabelBody("OnlyOne") } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
             .GetProperty("elements");
 
@@ -375,9 +374,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Growing_the_label_set_returns_every_label_in_ordinal_order()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -385,15 +384,15 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody("Solo") },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+        var edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = new[] { SampleLabelBody("One"), SampleLabelBody("Two"), SampleLabelBody("Three") } });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
             .GetProperty("elements");
 
@@ -438,9 +437,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task A_label_set_written_out_of_physical_order_still_reads_back_in_ordinal_order()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -448,15 +447,15 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody("A") },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         // Physically out of ordinal order: ordinal 2's row lands in the heap
         // before ordinal 1's.
         await InsertRawLabelAsync(overlayIdentifier, ordinal: 2, text: "C");
         await InsertRawLabelAsync(overlayIdentifier, ordinal: 1, text: "B");
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
             .GetProperty("elements");
 
@@ -481,9 +480,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Reordering_through_a_branch_PATCH_republishes_elements_in_the_new_order()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -496,14 +495,14 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         (await OverlayRequests.PostAsync(overlays, overlayIdentifier, "revisions/1/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        HttpResponseMessage branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
+        var branched = await OverlayRequests.PostAsync(overlays, overlayIdentifier, "draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created, await branched.Content.ReadAsStringAsync());
-        int draftNumber = await branched.Content.ReadFromJsonAsync<int>();
+        var draftNumber = await branched.Content.ReadFromJsonAsync<int>();
 
         // The SAME three elements as revision 1, reordered: [Ellipse, Text, Box].
         object[] reordered =
@@ -513,12 +512,12 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
             new { kind = "Box", color = "#1565C0FF", normalizedX = 0.1m, normalizedY = 0.1m, normalizedWidth = 0.2m, normalizedHeight = 0.2m },
         ];
 
-        HttpResponseMessage edited = await OverlayRequests.PatchAsync(
+        var edited = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, $"revisions/{draftNumber}", new { elements = reordered });
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await edited.Content.ReadAsStringAsync());
 
-        HttpResponseMessage fetchedDraft = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement draftElements = (await fetchedDraft.Content.ReadFromJsonAsync<JsonElement>())
+        var fetchedDraft = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var draftElements = (await fetchedDraft.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")
             .EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == draftNumber)
@@ -531,10 +530,10 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
         (await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/{draftNumber}/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        using HttpClient auditReader = await aspire.CreateAdminClientAsync("audit-observability");
-        JsonElement payload = await PollForPublishedElementsStartingWithAsync(auditReader, overlayIdentifier, firstElementKind: "Ellipse");
+        using var auditReader = await aspire.CreateAdminClientAsync("audit-observability");
+        var payload = await PollForPublishedElementsStartingWithAsync(auditReader, overlayIdentifier, firstElementKind: "Ellipse");
 
-        JsonElement publishedElements = payload.GetProperty("Elements");
+        var publishedElements = payload.GetProperty("Elements");
         publishedElements.GetArrayLength().ShouldBe(3);
         publishedElements[0].GetProperty("Kind").GetString().ShouldBe("Ellipse");
         publishedElements[1].GetProperty("Kind").GetString().ShouldBe("Text");
@@ -555,9 +554,9 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Two_reorders_under_the_same_stale_If_Match_the_second_is_refused_with_409_and_the_first_stands()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -565,26 +564,26 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
                 elements = new[] { SampleLabelBody("A"), SampleLabelBody("B"), SampleLabelBody("C") },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        int readAt = await OverlayRequests.VersionAsync(overlays, overlayIdentifier);
+        var readAt = await OverlayRequests.VersionAsync(overlays, overlayIdentifier);
 
-        HttpRequestMessage firstReorderRequest = OverlayRequests.Conditional(HttpMethod.Patch, overlayIdentifier, "revisions/1", readAt);
+        var firstReorderRequest = OverlayRequests.Conditional(HttpMethod.Patch, overlayIdentifier, "revisions/1", readAt);
         firstReorderRequest.Content = JsonContent.Create(new { elements = new[] { SampleLabelBody("C"), SampleLabelBody("B"), SampleLabelBody("A") } });
-        HttpResponseMessage firstReorder = await overlays.SendAsync(firstReorderRequest);
+        var firstReorder = await overlays.SendAsync(firstReorderRequest);
         firstReorder.StatusCode.ShouldBe(HttpStatusCode.OK, await firstReorder.Content.ReadAsStringAsync());
 
         // Same (now superseded) version as the first reorder.
-        HttpRequestMessage secondReorderRequest = OverlayRequests.Conditional(HttpMethod.Patch, overlayIdentifier, "revisions/1", readAt);
+        var secondReorderRequest = OverlayRequests.Conditional(HttpMethod.Patch, overlayIdentifier, "revisions/1", readAt);
         secondReorderRequest.Content = JsonContent.Create(new { elements = new[] { SampleLabelBody("B"), SampleLabelBody("A"), SampleLabelBody("C") } });
-        HttpResponseMessage secondReorder = await overlays.SendAsync(secondReorderRequest);
+        var secondReorder = await overlays.SendAsync(secondReorderRequest);
 
         secondReorder.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        JsonElement problem = await secondReorder.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await secondReorder.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_REVISION_STALE");
 
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
-        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
             .GetProperty("elements");
         elements.GetArrayLength().ShouldBe(3);
@@ -604,19 +603,19 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     private static async Task<JsonElement> PollForPublishedElementsStartingWithAsync(
         HttpClient auditReader, Guid overlayIdentifier, string firstElementKind)
     {
-        string query = $"/audit?eventKind=OverlayRevisionPublishedV3&resourceIdentifier={overlayIdentifier}&pageSize=10";
+        var query = $"/audit?eventKind=OverlayRevisionPublishedV3&resourceIdentifier={overlayIdentifier}&pageSize=10";
 
-        for (int attempt = 0; attempt < 40; attempt++)
+        for (var attempt = 0; attempt < 40; attempt++)
         {
-            HttpResponseMessage response = await auditReader.GetAsync(query);
+            var response = await auditReader.GetAsync(query);
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
-            JsonElement rows = page.GetProperty("rows");
-            foreach (JsonElement row in rows.EnumerateArray())
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var rows = page.GetProperty("rows");
+            foreach (var row in rows.EnumerateArray())
             {
-                JsonElement candidate = JsonDocument.Parse(row.GetProperty("payload").GetString()!).RootElement;
-                JsonElement candidateElements = candidate.GetProperty("Elements");
+                var candidate = JsonDocument.Parse(row.GetProperty("payload").GetString()!).RootElement;
+                var candidateElements = candidate.GetProperty("Elements");
                 if (candidateElements.GetArrayLength() > 0
                     && candidateElements[0].GetProperty("Kind").GetString() == firstElementKind)
                 {
@@ -642,7 +641,7 @@ public class OverlayRevisionLifecycleIntegrationTests(AspireFixture aspire) : IA
     /// </summary>
     private async Task InsertRawLabelAsync(Guid overlayIdentifier, int ordinal, string text)
     {
-        await using OverlayDesignerDbContext db = await aspire.CreateOverlayDesignerDbContextAsync();
+        await using var db = await aspire.CreateOverlayDesignerDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """

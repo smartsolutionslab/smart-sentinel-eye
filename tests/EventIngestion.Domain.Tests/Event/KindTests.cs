@@ -12,7 +12,7 @@ public class KindTests
     [InlineData("E")]
     public void Accepts_PascalCase_identifiers(string raw)
     {
-        Kind kind = Kind.From(raw);
+        var kind = Kind.From(raw);
         kind.Value.ShouldBe(raw);
     }
 
@@ -32,7 +32,7 @@ public class KindTests
     [Fact]
     public void Rejects_overlong_kind()
     {
-        string overlong = "A" + new string('b', Kind.MaximumLength);
+        var overlong = "A" + new string('b', Kind.MaximumLength);
         Action act = () => Kind.From(overlong);
         act.ShouldThrow<ArgumentException>();
     }

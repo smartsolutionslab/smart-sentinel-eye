@@ -167,13 +167,13 @@ internal static class RuleActionColumnConverter
     public static RuleAction FromColumn(string packed)
     {
         Ensure.That(packed).IsNotNull();
-        int firstSep = packed.IndexOf('|', StringComparison.Ordinal);
+        var firstSep = packed.IndexOf('|', StringComparison.Ordinal);
         if (firstSep < 0)
         {
             throw new ArgumentException($"Malformed packed RuleAction '{packed}'.", nameof(packed));
         }
-        string tag = packed[..firstSep];
-        string remainder = packed[(firstSep + 1)..];
+        var tag = packed[..firstSep];
+        var remainder = packed[(firstSep + 1)..];
 
         return tag switch
         {
@@ -186,7 +186,7 @@ internal static class RuleActionColumnConverter
 
     private static RuleAction.SetVariableValue ParseSetVariableValue(string remainder)
     {
-        int sep = remainder.IndexOf('|', StringComparison.Ordinal);
+        var sep = remainder.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0)
         {
             throw new ArgumentException("SetVariableValue requires `<name>|<expression>`.", nameof(remainder));
@@ -196,17 +196,17 @@ internal static class RuleActionColumnConverter
 
     private static RuleAction.HighlightOverlay ParseHighlightOverlay(string remainder)
     {
-        int sep = remainder.IndexOf('|', StringComparison.Ordinal);
+        var sep = remainder.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0)
         {
             throw new ArgumentException("HighlightOverlay requires `<guid>|<durationMs>`.", nameof(remainder));
         }
-        if (!Guid.TryParseExact(remainder[..sep], "D", out Guid overlay))
+        if (!Guid.TryParseExact(remainder[..sep], "D", out var overlay))
         {
             throw new ArgumentException($"Malformed overlay guid '{remainder[..sep]}'.", nameof(remainder));
         }
         if (!int.TryParse(
-            remainder[(sep + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out int duration))
+            remainder[(sep + 1)..], NumberStyles.Integer, CultureInfo.InvariantCulture, out var duration))
         {
             throw new ArgumentException($"Malformed durationMs '{remainder[(sep + 1)..]}'.", nameof(remainder));
         }
@@ -215,27 +215,27 @@ internal static class RuleActionColumnConverter
 
     private static RuleAction.SwitchWallScene ParseSwitchWallScene(string remainder)
     {
-        int sep = remainder.IndexOf('|', StringComparison.Ordinal);
+        var sep = remainder.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0)
         {
             throw new ArgumentException("SwitchWallScene requires `<wall>|<target>[|<layout>]`.", nameof(remainder));
         }
-        if (!Guid.TryParseExact(remainder[..sep], "D", out Guid wall))
+        if (!Guid.TryParseExact(remainder[..sep], "D", out var wall))
         {
             throw new ArgumentException($"Malformed wall guid '{remainder[..sep]}'.", nameof(remainder));
         }
 
-        string rest = remainder[(sep + 1)..];
+        var rest = remainder[(sep + 1)..];
         if (rest == SceneTarget.NextLiteral)
         {
             return RuleAction.SwitchWallScene.From(wall, SceneTarget.NextLiteral, null);
         }
 
-        string layoutPrefix = $"{SceneTarget.LayoutLiteral}|";
+        var layoutPrefix = $"{SceneTarget.LayoutLiteral}|";
         if (rest.StartsWith(layoutPrefix, StringComparison.Ordinal))
         {
-            string layoutSegment = rest[layoutPrefix.Length..];
-            if (!Guid.TryParseExact(layoutSegment, "D", out Guid layout))
+            var layoutSegment = rest[layoutPrefix.Length..];
+            if (!Guid.TryParseExact(layoutSegment, "D", out var layout))
             {
                 throw new ArgumentException($"Malformed layout guid '{layoutSegment}'.", nameof(remainder));
             }

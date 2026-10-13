@@ -42,7 +42,7 @@ public sealed class CameraCatalogTokenProvider(
 
     private static ClientCredentials Credentials(IOptions<StreamFabAttributionOptions> options)
     {
-        StreamFabAttributionOptions opts = options.Value;
+        var opts = options.Value;
         return new ClientCredentials(opts.KeycloakUrl, opts.Realm, opts.ClientIdentifier, opts.ClientSecret);
     }
 }

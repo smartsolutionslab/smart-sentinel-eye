@@ -101,8 +101,8 @@ public class DependencyHealthCheckGuardTests
     [MemberData(nameof(PostgresComposition.AllContexts), MemberType = typeof(PostgresComposition))]
     public void No_registered_health_check_names_or_reaches_postgres_or_any_other_dependency(string contextName)
     {
-        using ServiceProvider provider = PostgresComposition.Compose(contextName);
-        using IServiceScope scope = provider.CreateScope();
+        using var provider = PostgresComposition.Compose(contextName);
+        using var scope = provider.CreateScope();
 
         List<string> offenders = [.. Offenders(contextName, scope.ServiceProvider)];
 
@@ -115,23 +115,23 @@ public class DependencyHealthCheckGuardTests
 
     private static IEnumerable<string> Offenders(string contextName, IServiceProvider serviceProvider)
     {
-        HealthCheckServiceOptions? options = serviceProvider.GetService<IOptions<HealthCheckServiceOptions>>()?.Value;
+        var options = serviceProvider.GetService<IOptions<HealthCheckServiceOptions>>()?.Value;
         if (options is null)
         {
             yield break;
         }
 
-        Type dbContextType = PostgresComposition.DbContextTypeFor(contextName);
+        var dbContextType = PostgresComposition.DbContextTypeFor(contextName);
 
-        foreach (HealthCheckRegistration registration in options.Registrations)
+        foreach (var registration in options.Registrations)
         {
-            bool nameOffends =
+            var nameOffends =
                 DependencyVocabulary.Any(term => registration.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
                 || registration.Name.Equals(dbContextType.Name, StringComparison.OrdinalIgnoreCase);
 
             object instance = registration.Factory(serviceProvider);
-            string? assemblyName = instance.GetType().Assembly.GetName().Name;
-            bool typeOffends = assemblyName is not null
+            var assemblyName = instance.GetType().Assembly.GetName().Name;
+            var typeOffends = assemblyName is not null
                 && DependencyProbingAssemblyPrefixes.Any(
                     prefix => assemblyName.StartsWith(prefix, StringComparison.Ordinal));
 

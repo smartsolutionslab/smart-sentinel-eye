@@ -3,7 +3,6 @@ using System.Net;
 using System.Text;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
 
@@ -62,9 +61,9 @@ public sealed class CameraSimPathClientTests
     [Fact]
     public async Task A_ready_path_parses_to_Ready_and_its_readyTime()
     {
-        CameraSimPathClient client = ClientReturning(HttpStatusCode.OK, ReadyBody);
+        var client = ClientReturning(HttpStatusCode.OK, ReadyBody);
 
-        Option<PathState> state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
 
         state.HasValue.ShouldBeTrue();
         state.Value.Ready.ShouldBeTrue();
@@ -75,9 +74,9 @@ public sealed class CameraSimPathClientTests
     [Fact]
     public async Task A_path_with_no_reader_maps_to_not_ready()
     {
-        CameraSimPathClient client = ClientReturning(HttpStatusCode.OK, NotReadyBody);
+        var client = ClientReturning(HttpStatusCode.OK, NotReadyBody);
 
-        Option<PathState> state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
 
         state.HasValue.ShouldBeTrue();
         state.Value.Ready.ShouldBeFalse();
@@ -86,9 +85,9 @@ public sealed class CameraSimPathClientTests
     [Fact]
     public async Task A_404_for_an_unprovisioned_path_maps_to_None()
     {
-        CameraSimPathClient client = ClientReturning(HttpStatusCode.NotFound, string.Empty);
+        var client = ClientReturning(HttpStatusCode.NotFound, string.Empty);
 
-        Option<PathState> state = await client.GetAsync("no-such-path", CancellationToken.None);
+        var state = await client.GetAsync("no-such-path", CancellationToken.None);
 
         state.HasValue.ShouldBeFalse();
     }
@@ -96,9 +95,9 @@ public sealed class CameraSimPathClientTests
     [Fact]
     public async Task A_server_error_is_logged_and_returns_None_rather_than_throwing()
     {
-        CameraSimPathClient client = ClientReturning(HttpStatusCode.InternalServerError, "boom");
+        var client = ClientReturning(HttpStatusCode.InternalServerError, "boom");
 
-        Option<PathState> state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
 
         state.HasValue.ShouldBeFalse();
     }
@@ -118,9 +117,9 @@ public sealed class CameraSimPathClientTests
     {
         const string malformedBody =
             """{ "name": "station-4-roughing", "ready": true, "readyTime": "not-a-timestamp" }""";
-        CameraSimPathClient client = ClientReturning(HttpStatusCode.OK, malformedBody);
+        var client = ClientReturning(HttpStatusCode.OK, malformedBody);
 
-        Option<PathState> state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
 
         state.HasValue.ShouldBeFalse();
     }

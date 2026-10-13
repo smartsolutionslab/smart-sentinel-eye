@@ -50,7 +50,7 @@ public sealed class OverlayDesignerTokenProvider(
 
     private static ClientCredentials Credentials(IOptions<ReverseIndexSeederOptions> options)
     {
-        ReverseIndexSeederOptions opts = options.Value;
+        var opts = options.Value;
         return new ClientCredentials(opts.KeycloakUrl, opts.Realm, opts.ClientIdentifier, opts.ClientSecret);
     }
 }

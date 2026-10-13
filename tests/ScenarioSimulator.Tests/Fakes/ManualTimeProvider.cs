@@ -85,7 +85,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
     /// </summary>
     public async Task<bool> WaitForPendingTimersAsync(int count, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (true)
         {
@@ -101,7 +101,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
                 signal = timerRegistered.Task;
             }
 
-            TimeSpan remaining = deadline - DateTimeOffset.UtcNow;
+            var remaining = deadline - DateTimeOffset.UtcNow;
             if (remaining <= TimeSpan.Zero)
             {
                 return false;
@@ -128,7 +128,7 @@ internal sealed class ManualTimeProvider(DateTimeOffset start) : TimeProvider
             due = [.. timers.Where(t => !t.Disposed && !t.Fired && t.DueAt <= now).OrderBy(t => t.DueAt)];
         }
 
-        foreach (ScheduledTimer timer in due)
+        foreach (var timer in due)
         {
             timer.Fire();
         }

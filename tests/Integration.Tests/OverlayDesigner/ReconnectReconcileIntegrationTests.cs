@@ -111,11 +111,11 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconnected_client_reconciles_an_archived_layout_promptly()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
-        string accessToken = await aspire.GetAdminAccessTokenAsync();
+        using var admin = await aspire.CreateAdminClientAsync("layout-composition");
+        var accessToken = await aspire.GetAdminAccessTokenAsync();
 
         // Seed: a Published layout the client is "rendering".
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -124,13 +124,13 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
                 tiles = new[] { new { cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
             });
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publish = await LayoutRequests.PostAsync(
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var publish = await LayoutRequests.PostAsync(
             admin, layoutIdentifier, "revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
-        Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
-        await using HubConnection client = new HubConnectionBuilder()
+        var hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
+        await using var client = new HubConnectionBuilder()
             .WithUrl(hubUri, options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken);
@@ -151,7 +151,7 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
         await client.StopAsync();
 
         // While the client is disconnected, archive the layout.
-        HttpResponseMessage archived = await LayoutRequests.PostAsync(
+        var archived = await LayoutRequests.PostAsync(
             admin, layoutIdentifier, "revisions/1/archive");
         archived.EnsureSuccessStatusCode();
 
@@ -163,13 +163,13 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
         // does this on `onreconnected`; here we drive the HTTP equivalent
         // directly so the test stays independent of the React surface.
         using CancellationTokenSource window = new(ReconcileWindow);
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        string observedState = "Unknown";
+        var stopwatch = Stopwatch.StartNew();
+        var observedState = "Unknown";
         while (!window.IsCancellationRequested)
         {
-            HttpResponseMessage fetched = await admin.GetAsync($"/layouts/{layoutIdentifier}", window.Token);
-            JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>(window.Token);
-            JsonElement revision = payload.GetProperty("revisions")[0];
+            var fetched = await admin.GetAsync($"/layouts/{layoutIdentifier}", window.Token);
+            var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>(window.Token);
+            var revision = payload.GetProperty("revisions")[0];
             observedState = revision.GetProperty("state").GetString() ?? "Unknown";
             if (observedState == "Archived")
             {
@@ -178,7 +178,7 @@ public class ReconnectReconcileIntegrationTests(AspireFixture aspire) : IAsyncLi
 
             await Task.Delay(TimeSpan.FromMilliseconds(100), window.Token);
         }
-        long elapsedMs = stopwatch.ElapsedMilliseconds;
+        var elapsedMs = stopwatch.ElapsedMilliseconds;
 
         // The artefact. Recorded unconditionally so the figure survives a green
         // run rather than being computed only to be thrown away (spec 123's

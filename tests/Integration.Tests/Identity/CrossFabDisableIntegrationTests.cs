@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -59,11 +57,11 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_dresden_operator_naming_munichs_fab_cannot_disable_a_munich_kiosk()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string clientId = await EnrollKioskAsync(munich);
+        using var munich = await MunichClientAsync();
+        var clientId = await EnrollKioskAsync(munich);
 
-        using HttpClient dresden = await DresdenClientAsync();
-        HttpResponseMessage attack = await dresden.DeleteAsync($"/kiosks/{clientId}?fabId=munich");
+        using var dresden = await DresdenClientAsync();
+        var attack = await dresden.DeleteAsync($"/kiosks/{clientId}?fabId=munich");
 
         attack.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
@@ -79,11 +77,11 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_dresden_operator_naming_their_own_fab_cannot_disable_a_munich_kiosk()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string clientId = await EnrollKioskAsync(munich);
+        using var munich = await MunichClientAsync();
+        var clientId = await EnrollKioskAsync(munich);
 
-        using HttpClient dresden = await DresdenClientAsync();
-        HttpResponseMessage attack = await dresden.DeleteAsync($"/kiosks/{clientId}?fabId=dresden");
+        using var dresden = await DresdenClientAsync();
+        var attack = await dresden.DeleteAsync($"/kiosks/{clientId}?fabId=dresden");
 
         attack.StatusCode.ShouldBe(
             HttpStatusCode.NotFound,
@@ -97,18 +95,18 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_dresden_operator_cannot_disable_a_munich_device_naming_either_fab()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string clientId = await RegisterDeviceAsync(munich);
-        using HttpClient dresden = await DresdenClientAsync();
+        using var munich = await MunichClientAsync();
+        var clientId = await RegisterDeviceAsync(munich);
+        using var dresden = await DresdenClientAsync();
 
-        HttpResponseMessage namingVictim = await dresden.DeleteAsync($"/devices/{clientId}?fabId=munich");
+        var namingVictim = await dresden.DeleteAsync($"/devices/{clientId}?fabId=munich");
         namingVictim.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
             $"naming the victim's fab must be refused by the guard; got {(int)namingVictim.StatusCode} "
             + $"{await namingVictim.Content.ReadAsStringAsync()}");
         (await ProblemTitleAsync(namingVictim)).ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
 
-        HttpResponseMessage namingOwn = await dresden.DeleteAsync($"/devices/{clientId}?fabId=dresden");
+        var namingOwn = await dresden.DeleteAsync($"/devices/{clientId}?fabId=dresden");
         namingOwn.StatusCode.ShouldBe(
             HttpStatusCode.NotFound,
             $"naming the attacker's own fab must pass the guard and 404 at the fab-scoped lookup instead; "
@@ -125,10 +123,10 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_disables_its_own_fabs_kiosk()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string clientId = await EnrollKioskAsync(munich);
+        using var munich = await MunichClientAsync();
+        var clientId = await EnrollKioskAsync(munich);
 
-        HttpResponseMessage disabled = await munich.DeleteAsync($"/kiosks/{clientId}?fabId=munich");
+        var disabled = await munich.DeleteAsync($"/kiosks/{clientId}?fabId=munich");
 
         disabled.StatusCode.ShouldBe(
             HttpStatusCode.OK,
@@ -146,13 +144,13 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_victims_kiosk_stays_enabled_in_keycloak_after_a_cross_fab_disable_attempt()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string clientId = await EnrollKioskAsync(munich);
+        using var munich = await MunichClientAsync();
+        var clientId = await EnrollKioskAsync(munich);
 
-        using HttpClient dresden = await DresdenClientAsync();
+        using var dresden = await DresdenClientAsync();
         await dresden.DeleteAsync($"/kiosks/{clientId}?fabId=munich");
 
-        bool enabled = await IsEnabledInKeycloakAsync(clientId);
+        var enabled = await IsEnabledInKeycloakAsync(clientId);
 
         enabled.ShouldBeTrue(
             $"a refused cross-fab request must never reach Keycloak — '{clientId}' must still answer "
@@ -168,9 +166,9 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> EnrollKioskAsync(HttpClient munich)
     {
-        string name = $"t180-wall-{Guid.CreateVersion7():N}";
+        var name = $"t180-wall-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage enrolled = await munich.PostAsJsonAsync(
+        var enrolled = await munich.PostAsJsonAsync(
             "/kiosks/enroll?fabId=munich", new { name });
         enrolled.StatusCode.ShouldBe(
             HttpStatusCode.Created, await enrolled.Content.ReadAsStringAsync());
@@ -180,7 +178,7 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> RegisterDeviceAsync(HttpClient munich)
     {
-        HttpResponseMessage registered = await munich.PostAsJsonAsync(
+        var registered = await munich.PostAsJsonAsync(
             "/devices/register?fabId=munich",
             new { deviceType = "plc", deviceIdentifier = $"t180-{Guid.CreateVersion7():N}" });
         registered.StatusCode.ShouldBe(
@@ -194,9 +192,9 @@ public class CrossFabDisableIntegrationTests(AspireFixture aspire)
 
     private async Task<bool> IsEnabledInKeycloakAsync(string clientId)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
+        var clients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
             CancellationToken.None);

@@ -23,7 +23,7 @@ public static class StreamEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/streams")
+        var group = app.MapGroup("/streams")
             .WithTags("Streams");
 
         // 403 became reachable with spec 016 (T017): a caller may name a fab
@@ -172,16 +172,16 @@ public static class StreamEndpoints
         // spent travelling, so it goes to its own instrument. Recording it as a
         // latency segment would compile, pass, and file a spread under a name
         // that means a journey (ADR-0128).
-        bool isWallSkew = report.Measurement == "wall_skew";
+        var isWallSkew = report.Measurement == "wall_skew";
 
         // Spec 046: `label_delay` is routed away for a different reason. It is a
         // duration, so a segment would have been the tempting filing — but it
         // is a wait the kiosk added, not a leg or a fragment of one, and mixing
         // an intended figure into observed ones lets a p99 rise because the
         // mechanism worked (ADR-0129).
-        bool isLabelDelay = report.Measurement == "label_delay";
+        var isLabelDelay = report.Measurement == "label_delay";
 
-        LatencySegment? segment = report.Measurement switch
+        var segment = report.Measurement switch
         {
             "overlay_draw" => LatencySegment.KioskOverlayDraw,
             "receive_to_decoded" => LatencySegment.KioskReceiveToDecoded,
@@ -256,17 +256,17 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(httpContext.User, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
         GetStreamQuery query = new(fabs, CameraIdentifier.From(cameraIdentifier));
-        Result<StreamHealthDto, GetStreamError> result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -292,16 +292,16 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(httpContext.User, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result =
+        var result =
             await handler.HandleAsync(new ListStreamsQuery(fabs, parsed), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
@@ -325,11 +325,11 @@ public static class StreamEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> resolved =
+        var resolved =
             await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
 
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in resolved)
+        foreach (var candidate in resolved)
         {
             try
             {
@@ -370,7 +370,7 @@ public static class StreamEndpoints
         // action is ever inspected.
         if (string.Equals(body.Action, "api", StringComparison.Ordinal))
         {
-            Result<bool, AuthorizeMediaMtxApiError> apiResult = await apiHandler.HandleAsync(
+            var apiResult = await apiHandler.HandleAsync(
                 new AuthorizeMediaMtxApiCommand(body.Password), cancellationToken);
 
             return apiResult.Match<IResult>(onSuccess: _ => Results.Ok(), onFailure: error => error.ToProblem());
@@ -389,21 +389,21 @@ public static class StreamEndpoints
                 statusCode: StatusCodes.Status403Forbidden);
         }
 
-        Option<MediaMtxAction> parsedAction = MediaMtxAction.TryFrom(body.Action);
+        var parsedAction = MediaMtxAction.TryFrom(body.Action);
 
         // Parsed twice on purpose. The first collapses "absent" and "not one of
         // ours" into None, which is what the decision needs and what the refusal
         // cannot diagnose from; the second keeps what actually arrived, so the
         // refusal names it (spec 115). Neither decides anything here.
-        Option<ReportedMediaMtxAction> reportedAction = ReportedMediaMtxAction.TryFrom(body.Action);
+        var reportedAction = ReportedMediaMtxAction.TryFrom(body.Action);
 
-        string bearer = body.Token ?? string.Empty;
+        var bearer = body.Token ?? string.Empty;
         if (bearer.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
         {
             bearer = bearer["Bearer ".Length..].Trim();
         }
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer, parsedAction, reportedAction), cancellationToken);
+        var result = await handler.HandleAsync(new AuthorizeWhepCommand(parsedPath, bearer, parsedAction, reportedAction), cancellationToken);
 
         return result.Match<IResult>(onSuccess: _ => Results.Ok(), onFailure: error => error.ToProblem());
     }
@@ -415,11 +415,11 @@ public static class StreamEndpoints
             return Array.Empty<CameraIdentifier>();
         }
 
-        string[] parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var parts = raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         List<CameraIdentifier> result = new(parts.Length);
-        foreach (string part in parts)
+        foreach (var part in parts)
         {
-            if (!Guid.TryParse(part, out Guid value))
+            if (!Guid.TryParse(part, out var value))
             {
                 throw new ArgumentException($"'{part}' is not a valid Guid.");
             }

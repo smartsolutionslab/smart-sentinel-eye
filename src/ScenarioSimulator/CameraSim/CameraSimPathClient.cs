@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.CameraSim;
@@ -83,7 +82,7 @@ public sealed class CameraSimPathClient(HttpClient http, ILogger<CameraSimPathCl
 
         if (DateTimeOffset.TryParse(
                 body.ReadyTime, CultureInfo.InvariantCulture,
-                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTimeOffset parsed))
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var parsed))
         {
             return Option<PathState>.Some(new PathState(body.Ready, parsed));
         }

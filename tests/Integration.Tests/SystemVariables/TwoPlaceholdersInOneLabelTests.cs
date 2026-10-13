@@ -61,15 +61,15 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Two_placeholders_in_one_label_both_resolve()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string first = VariableRequests.UniqueName();
-        string second = VariableRequests.UniqueName();
+        var first = VariableRequests.UniqueName();
+        var second = VariableRequests.UniqueName();
         await DefineAsync(variables, first);
         await DefineAsync(variables, second);
 
-        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+        var overlay = await OverlayRequests.PublishWithLabelAsync(
             overlays, $"Line A: {{{{{first}}}}} / Line B: {{{{{second}}}}}", "Two");
 
         (await VariableRequests.SetValueAsync(variables, first, "82.5")).EnsureSuccessStatusCode();
@@ -85,8 +85,8 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         // the assertion below print the expected and actual strings.
         await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, first);
 
-        using HttpResponseMessage snapshot = await OverlaySnapshotReadiness.SnapshotAsync(variables, overlay);
-        string body = await snapshot.Content.ReadAsStringAsync();
+        using var snapshot = await OverlaySnapshotReadiness.SnapshotAsync(variables, overlay);
+        var body = await snapshot.Content.ReadAsStringAsync();
 
         snapshot.StatusCode.ShouldBe(HttpStatusCode.OK, body);
         OverlaySnapshotReadiness.ResolvedTextIn(body).ShouldBe("Line A: 82.5 / Line B: 91.5");
@@ -117,15 +117,15 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task An_unset_first_variable_leaves_only_its_own_placeholder_literal()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string unset = VariableRequests.UniqueName();
-        string valued = VariableRequests.UniqueName();
+        var unset = VariableRequests.UniqueName();
+        var valued = VariableRequests.UniqueName();
         await DefineAsync(variables, unset);
         await DefineAsync(variables, valued);
 
-        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+        var overlay = await OverlayRequests.PublishWithLabelAsync(
             overlays, $"Line A: {{{{{unset}}}}} / Line B: {{{{{valued}}}}}", "Two");
 
         (await VariableRequests.SetValueAsync(variables, valued, "82.5")).EnsureSuccessStatusCode();
@@ -134,8 +134,8 @@ public class TwoPlaceholdersInOneLabelTests(AspireFixture aspire) : IAsyncLifeti
         // expected output, so it is not part of the readiness signal.
         await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, valued);
 
-        using HttpResponseMessage snapshot = await OverlaySnapshotReadiness.SnapshotAsync(variables, overlay);
-        string body = await snapshot.Content.ReadAsStringAsync();
+        using var snapshot = await OverlaySnapshotReadiness.SnapshotAsync(variables, overlay);
+        var body = await snapshot.Content.ReadAsStringAsync();
 
         snapshot.StatusCode.ShouldBe(HttpStatusCode.OK, body);
         OverlaySnapshotReadiness.ResolvedTextIn(body).ShouldBe($"Line A: {{{{{unset}}}}} / Line B: 82.5");

@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -30,19 +28,19 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Reading_one_camera_returns_it_with_a_version_on_both_the_ETag_and_the_body()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid camera = await RegisterAsync(cameras, UniqueName());
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var camera = await RegisterAsync(cameras, UniqueName());
 
-        HttpResponseMessage response = await cameras.GetAsync($"/cameras/{camera}");
+        var response = await cameras.GetAsync($"/cameras/{camera}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera);
         body.GetProperty("fab").GetString().ShouldBe("munich");
         body.GetProperty("status").GetString().ShouldBe("Registered");
 
-        int version = body.GetProperty("version").GetInt32();
+        var version = body.GetProperty("version").GetInt32();
 
         // The two have to agree, because the caller may take either and the
         // edit will refuse a version that is not current.
@@ -58,13 +56,13 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_camera_is_still_readable_and_says_so()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid camera = await RegisterAsync(cameras, UniqueName());
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var camera = await RegisterAsync(cameras, UniqueName());
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        HttpResponseMessage response = await cameras.GetAsync($"/cameras/{camera}");
+        var response = await cameras.GetAsync($"/cameras/{camera}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
         (await response.Content.ReadFromJsonAsync<JsonElement>())
@@ -79,19 +77,19 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich, UniqueName());
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich, UniqueName());
 
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage crossFab = await dresden.GetAsync($"/cameras/{inMunich}");
-        HttpResponseMessage neverExisted = await dresden.GetAsync($"/cameras/{Guid.CreateVersion7()}");
+        var crossFab = await dresden.GetAsync($"/cameras/{inMunich}");
+        var neverExisted = await dresden.GetAsync($"/cameras/{Guid.CreateVersion7()}");
 
         crossFab.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         neverExisted.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        JsonElement crossFabProblem = await crossFab.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement unknownProblem = await neverExisted.Content.ReadFromJsonAsync<JsonElement>();
+        var crossFabProblem = await crossFab.Content.ReadFromJsonAsync<JsonElement>();
+        var unknownProblem = await neverExisted.Content.ReadFromJsonAsync<JsonElement>();
 
         crossFabProblem.GetProperty("title").GetString()
             .ShouldBe(unknownProblem.GetProperty("title").GetString());
@@ -100,13 +98,13 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Every_row_of_the_listing_carries_a_version()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         await RegisterAsync(cameras, UniqueName());
 
-        HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200");
+        var listed = await cameras.GetAsync("/cameras?limit=200");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         // The whole reason the version is on the body and not only the ETag:
         // an operator can correct a camera straight from the listing.
@@ -123,7 +121,7 @@ public class GetCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string name)
     {
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
+        var created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
             rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264",

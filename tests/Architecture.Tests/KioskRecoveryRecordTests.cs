@@ -30,7 +30,7 @@ public class KioskRecoveryRecordTests
     [Fact]
     public void The_record_and_the_kiosk_agree_on_whether_tokens_survive_a_restart()
     {
-        bool survivesRestart = KioskAuthSource().Contains("localStorage", StringComparison.Ordinal);
+        var survivesRestart = KioskAuthSource().Contains("localStorage", StringComparison.Ordinal);
 
         // The phrase is the claim itself, not decoration: this is the sentence a
         // reader would rely on. It changed once already when the decision was
@@ -63,9 +63,9 @@ public class KioskRecoveryRecordTests
     [Fact]
     public void Only_a_wall_display_asks_for_authority_beyond_coming_back()
     {
-        string source = KioskAuthSource();
+        var source = KioskAuthSource();
 
-        MatchCollection pairs = Regex.Matches(
+        var pairs = Regex.Matches(
             source,
             @"clientId:\s*'(?<client>[^']*)'\s*,\s*scope:\s*'(?<scope>[^']*)'");
 
@@ -73,8 +73,8 @@ public class KioskRecoveryRecordTests
 
         foreach (Match pair in pairs)
         {
-            string client = pair.Groups["client"].Value;
-            string[] requested = pair.Groups["scope"].Value
+            var client = pair.Groups["client"].Value;
+            var requested = pair.Groups["scope"].Value
                 .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
             if (client == "kiosk-wall")
@@ -115,7 +115,7 @@ public class KioskRecoveryRecordTests
     [Fact]
     public void The_decision_still_records_what_it_gave_up()
     {
-        string adr = ReadAdr0131();
+        var adr = ReadAdr0131();
 
         adr.ShouldContain("powered off", Case.Insensitive);
         adr.ShouldContain("yields a usable grant", Case.Insensitive);
@@ -129,7 +129,7 @@ public class KioskRecoveryRecordTests
     [Fact]
     public void The_superseded_kiosk_flow_is_still_readable_where_it_was_decided()
     {
-        string adr0080 = ReadRepositoryFile(Path.Combine("docs", "adr", "0080-browser-auth.md"));
+        var adr0080 = ReadRepositoryFile(Path.Combine("docs", "adr", "0080-browser-auth.md"));
 
         adr0080.ShouldContain("Amended by ADR-0131");
         adr0080.ShouldContain(
@@ -154,17 +154,17 @@ public class KioskRecoveryRecordTests
     [Fact]
     public void The_availability_target_records_why_the_credentials_cannot_be_used()
     {
-        string constitution = ReadRepositoryFile(Path.Combine(".specify", "memory", "constitution.md"));
+        var constitution = ReadRepositoryFile(Path.Combine(".specify", "memory", "constitution.md"));
 
-        int availability = constitution.IndexOf("20 kiosks rebooting", StringComparison.Ordinal);
+        var availability = constitution.IndexOf("20 kiosks rebooting", StringComparison.Ordinal);
         availability.ShouldBeGreaterThan(-1, "the availability target should still be stated");
 
         // Bounded by the next section rather than a character count. A fixed
         // window silently stops covering the entry the moment the entry grows,
         // which is exactly what happened when spec 050 rewrote it — the claim
         // was still there and the guard could no longer see it.
-        int nextSection = constitution.IndexOf("### ", availability, StringComparison.Ordinal);
-        string entry = nextSection < 0
+        var nextSection = constitution.IndexOf("### ", availability, StringComparison.Ordinal);
+        var entry = nextSection < 0
             ? constitution[availability..]
             : constitution[availability..nextSection];
 
@@ -173,7 +173,7 @@ public class KioskRecoveryRecordTests
         // substring check fails on a document that still says exactly this. A guard
         // that breaks when someone rewraps a paragraph is the prose-pinning defect
         // this file warns about, in its subtlest form.
-        string flattened = Regex.Replace(entry, @"\s+", " ");
+        var flattened = Regex.Replace(entry, @"\s+", " ");
 
         flattened.ShouldContain("cannot be used from a browser", Case.Insensitive);
     }
@@ -192,11 +192,11 @@ public class KioskRecoveryRecordTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, relativePath);
+        var path = Path.Combine(root.FullName, relativePath);
         File.Exists(path).ShouldBeTrue($"the guarded file should be at {path}");
         return File.ReadAllText(path);
     }

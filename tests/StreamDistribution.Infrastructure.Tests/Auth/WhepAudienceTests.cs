@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -85,8 +84,8 @@ public class WhepAudienceTests
     [Fact]
     public void The_whep_hook_validates_the_audience_exactly_as_the_bearer_pipeline_does()
     {
-        TokenValidationParameters whep = WhepAuthValidator.CreateParameters();
-        TokenValidationParameters bearer = BearerOptions().TokenValidationParameters;
+        var whep = WhepAuthValidator.CreateParameters();
+        var bearer = BearerOptions().TokenValidationParameters;
 
         whep.ValidateAudience.ShouldBe(
             bearer.ValidateAudience,
@@ -146,8 +145,8 @@ public class WhepAudienceTests
     [Fact]
     public void The_whep_hook_leaves_the_issuer_to_discovery_exactly_as_the_bearer_pipeline_does()
     {
-        TokenValidationParameters whep = WhepAuthValidator.CreateParameters();
-        TokenValidationParameters bearer = BearerOptions().TokenValidationParameters;
+        var whep = WhepAuthValidator.CreateParameters();
+        var bearer = BearerOptions().TokenValidationParameters;
 
         whep.ValidIssuer.ShouldBe(
             bearer.ValidIssuer,
@@ -195,11 +194,11 @@ public class WhepAudienceTests
     /// </summary>
     private static JwtBearerOptions BearerOptions()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
         return provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
             .Get(JwtBearerDefaults.AuthenticationScheme);
     }

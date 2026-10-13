@@ -31,7 +31,7 @@ public class FakeMqttClientCredentialContractTests
         client.RefuseNextConnects(1);
         MutableSlotCredentials credentials = new("first");
 
-        MqttClientConnectResult first = await client.ConnectAsync(OptionsWith(credentials));
+        var first = await client.ConnectAsync(OptionsWith(credentials));
 
         first.ResultCode.ShouldBe(
             MqttClientConnectResultCode.NotAuthorized,
@@ -40,7 +40,7 @@ public class FakeMqttClientCredentialContractTests
             + "longer be exercising a refused attempt followed by an accepted one.");
 
         credentials.Slot = "second";
-        MqttClientConnectResult second = await client.ConnectAsync(OptionsWith(credentials));
+        var second = await client.ConnectAsync(OptionsWith(credentials));
 
         second.ResultCode.ShouldBe(
             MqttClientConnectResultCode.Success,
@@ -97,9 +97,9 @@ public class FakeMqttClientCredentialContractTests
         client.GateConnect();
         SignallingCredentials credentials = new("before");
 
-        Task<MqttClientConnectResult> connecting = client.ConnectAsync(OptionsWith(credentials));
+        var connecting = client.ConnectAsync(OptionsWith(credentials));
 
-        bool read = await WaitForReadAsync(credentials, TimeSpan.FromSeconds(5));
+        var read = await WaitForReadAsync(credentials, TimeSpan.FromSeconds(5));
         read.ShouldBeTrue(
             "the fake never read the credential while the gate was held closed — the read must happen "
             + "before the gate, at the same point the real client reads the password to build the "
@@ -108,7 +108,7 @@ public class FakeMqttClientCredentialContractTests
         credentials.Slot = "after";
         client.AllowConnect();
 
-        MqttClientConnectResult result = await connecting;
+        var result = await connecting;
 
         result.ResultCode.ShouldBe(
             MqttClientConnectResultCode.Success,
@@ -174,7 +174,7 @@ public class FakeMqttClientCredentialContractTests
 
         public byte[] GetPassword(MqttClientOptions clientOptions)
         {
-            byte[] password = Encoding.UTF8.GetBytes(Slot);
+            var password = Encoding.UTF8.GetBytes(Slot);
             Read.TrySetResult();
             return password;
         }

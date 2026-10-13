@@ -12,14 +12,14 @@ public class WallNameTests
     [Fact]
     public void From_accepts_a_normal_name()
     {
-        WallName name = WallName.From("Line 3 rotation");
+        var name = WallName.From("Line 3 rotation");
         name.Value.ShouldBe("Line 3 rotation");
     }
 
     [Fact]
     public void From_trims_leading_and_trailing_whitespace()
     {
-        WallName name = WallName.From("  Line 3 rotation  ");
+        var name = WallName.From("  Line 3 rotation  ");
         name.Value.ShouldBe("Line 3 rotation");
     }
 
@@ -43,8 +43,8 @@ public class WallNameTests
     [Fact]
     public void Names_differing_only_in_case_are_not_equal()
     {
-        WallName upper = WallName.From("Line 3 Rotation");
-        WallName lower = WallName.From("line 3 rotation");
+        var upper = WallName.From("Line 3 Rotation");
+        var lower = WallName.From("line 3 rotation");
 
         upper.ShouldNotBe(lower);
     }

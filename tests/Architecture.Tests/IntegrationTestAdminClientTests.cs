@@ -49,7 +49,7 @@ public class IntegrationTestAdminClientTests
     [Fact]
     public void It_is_a_confidential_service_account_with_no_browser_or_password_flow()
     {
-        JsonElement client = RequireClient();
+        var client = RequireClient();
 
         client.GetProperty("publicClient").GetBoolean().ShouldBeFalse(
             customMessage: $"'{HarnessClientId}' must be confidential — a public client cannot "
@@ -68,9 +68,9 @@ public class IntegrationTestAdminClientTests
     [Fact]
     public void Its_default_scopes_equal_the_console_clients_in_both_directions()
     {
-        JsonElement harness = RequireClient();
-        IReadOnlyCollection<string> harnessScopes = DefaultScopesOf(harness);
-        IReadOnlyCollection<string> consoleScopes = DefaultScopesOf(RequireConsoleClient());
+        var harness = RequireClient();
+        var harnessScopes = DefaultScopesOf(harness);
+        var consoleScopes = DefaultScopesOf(RequireConsoleClient());
 
         harnessScopes.Except(consoleScopes, StringComparer.Ordinal).ShouldBeEmpty(
             customMessage: $"'{HarnessClientId}' grants a scope '{ConsoleClientId}' does not. Its "
@@ -85,9 +85,9 @@ public class IntegrationTestAdminClientTests
     [Fact]
     public void Its_service_account_is_in_exactly_the_admin_users_fab_groups()
     {
-        JsonElement serviceAccount = RequireServiceAccountUser();
-        IReadOnlyCollection<string> serviceAccountGroups = GroupsOf(serviceAccount);
-        IReadOnlyCollection<string> adminGroups = GroupsOf(RequireAdminUser());
+        var serviceAccount = RequireServiceAccountUser();
+        var serviceAccountGroups = GroupsOf(serviceAccount);
+        var adminGroups = GroupsOf(RequireAdminUser());
 
         serviceAccountGroups.Except(adminGroups, StringComparer.Ordinal).ShouldBeEmpty(
             customMessage: $"'{HarnessClientId}'s service account holds a fab group the "
@@ -102,9 +102,9 @@ public class IntegrationTestAdminClientTests
     [Fact]
     public void Its_service_account_holds_no_realm_management_role()
     {
-        JsonElement serviceAccount = RequireServiceAccountUser();
+        var serviceAccount = RequireServiceAccountUser();
 
-        if (serviceAccount.TryGetProperty("clientRoles", out JsonElement clientRoles)
+        if (serviceAccount.TryGetProperty("clientRoles", out var clientRoles)
             && clientRoles.ValueKind == JsonValueKind.Object)
         {
             clientRoles.TryGetProperty("realm-management", out _).ShouldBeFalse(
@@ -118,8 +118,8 @@ public class IntegrationTestAdminClientTests
     [Fact]
     public void Its_description_fits_keycloaks_255_character_limit()
     {
-        JsonElement client = RequireClient();
-        string description = client.TryGetProperty("description", out JsonElement value)
+        var client = RequireClient();
+        var description = client.TryGetProperty("description", out var value)
             ? value.GetString() ?? string.Empty
             : string.Empty;
 
@@ -131,7 +131,7 @@ public class IntegrationTestAdminClientTests
 
     private static JsonElement RequireClient()
     {
-        JsonElement[] matches = ClientsNamed(HarnessClientId);
+        var matches = ClientsNamed(HarnessClientId);
 
         matches.Length.ShouldBe(1,
             customMessage: $"expected exactly one client named '{HarnessClientId}' in the realm "
@@ -145,7 +145,7 @@ public class IntegrationTestAdminClientTests
 
     private static JsonElement RequireConsoleClient()
     {
-        JsonElement[] matches = ClientsNamed(ConsoleClientId);
+        var matches = ClientsNamed(ConsoleClientId);
 
         matches.Length.ShouldBe(1,
             customMessage: $"expected exactly one client named '{ConsoleClientId}' in the realm "
@@ -157,7 +157,7 @@ public class IntegrationTestAdminClientTests
     private static JsonElement RequireServiceAccountUser()
     {
         JsonElement[] matches = [.. Realm().GetProperty("users").EnumerateArray()
-            .Where(user => user.TryGetProperty("serviceAccountClientId", out JsonElement clientId)
+            .Where(user => user.TryGetProperty("serviceAccountClientId", out var clientId)
                 && clientId.ValueKind == JsonValueKind.String
                 && clientId.GetString() == HarnessClientId)];
 
@@ -173,7 +173,7 @@ public class IntegrationTestAdminClientTests
     private static JsonElement RequireAdminUser()
     {
         JsonElement[] matches = [.. Realm().GetProperty("users").EnumerateArray()
-            .Where(user => user.TryGetProperty("username", out JsonElement username)
+            .Where(user => user.TryGetProperty("username", out var username)
                 && username.ValueKind == JsonValueKind.String
                 && username.GetString() == AdminUsername)];
 
@@ -198,7 +198,7 @@ public class IntegrationTestAdminClientTests
             .Select(scope => scope.GetString() ?? string.Empty)];
 
     private static IReadOnlyCollection<string> GroupsOf(JsonElement user) =>
-        user.TryGetProperty("groups", out JsonElement groups) && groups.ValueKind == JsonValueKind.Array
+        user.TryGetProperty("groups", out var groups) && groups.ValueKind == JsonValueKind.Array
             ? [.. groups.EnumerateArray().Select(group => group.GetString() ?? string.Empty)]
             : [];
 
@@ -218,11 +218,11 @@ public class IntegrationTestAdminClientTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
         return JsonDocument.Parse(File.ReadAllText(path));
     }

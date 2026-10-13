@@ -1,11 +1,8 @@
 using System.Globalization;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Wall.Builders;
-using SmartSentinelEye.LayoutComposition.Domain.Wall;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Walls;
 
@@ -26,7 +23,7 @@ public class ListWallsQueryHandlerTests
         walls.Add(new WallBuilder().WithFab(Dresden).Named("In-Dresden").At(FixedMoment).Build());
         ListWallsQueryHandler handler = new(walls);
 
-        IReadOnlyList<WallDto> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListWallsQuery([Munich, Dresden]), CancellationToken.None);
 
         result.Select(dto => dto.Name).ShouldBe(["In-Munich", "In-Dresden"], ignoreOrder: true);
@@ -41,7 +38,7 @@ public class ListWallsQueryHandlerTests
         walls.Add(new WallBuilder().WithFab(Dresden).Named("In-Dresden").At(FixedMoment).Build());
         ListWallsQueryHandler handler = new(walls);
 
-        IReadOnlyList<WallDto> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListWallsQuery([Dresden]), CancellationToken.None);
 
         result.Select(dto => dto.Name).ShouldBe(["In-Dresden"]);

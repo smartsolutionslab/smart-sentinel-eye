@@ -26,7 +26,7 @@ public class CameraFabLifetimeTests
     [Fact]
     public void A_camera_carries_the_fab_it_was_registered_in()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithFab("dresden").Build();
+        var camera = new CameraBuilder().WithFab("dresden").Build();
 
         // dresden, not munich: the builder defaults to munich, so asserting
         // that would pass even if WithFab were ignored entirely.
@@ -36,8 +36,8 @@ public class CameraFabLifetimeTests
     [Fact]
     public void Two_cameras_registered_in_different_fabs_keep_their_own()
     {
-        Domain.Camera.Camera munich = new CameraBuilder().WithFab("munich").Build();
-        Domain.Camera.Camera dresden = new CameraBuilder().WithFab("dresden").Build();
+        var munich = new CameraBuilder().WithFab("munich").Build();
+        var dresden = new CameraBuilder().WithFab("dresden").Build();
 
         munich.Fab.Value.ShouldBe("munich");
         dresden.Fab.Value.ShouldBe("dresden");
@@ -54,7 +54,7 @@ public class CameraFabLifetimeTests
     [Fact]
     public void A_retired_camera_keeps_the_fab_it_was_registered_in()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithFab("dresden").Build();
+        var camera = new CameraBuilder().WithFab("dresden").Build();
 
         camera.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FixedClock());
 
@@ -84,7 +84,7 @@ public class CameraFabLifetimeTests
         // would silently change which plant's video an operator reaches.
         // Asserts the setter is not public rather than that no method mentions
         // "Fab", which would match the property getter and pass vacuously.
-        System.Reflection.PropertyInfo fab =
+        var fab =
             typeof(Domain.Camera.Camera).GetProperty("Fab")!;
 
         fab.ShouldNotBeNull();

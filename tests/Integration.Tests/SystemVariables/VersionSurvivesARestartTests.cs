@@ -1,9 +1,6 @@
 using System.Collections.Concurrent;
-using System.Net.Http.Json;
 using System.Text.Json;
-using Aspire.Hosting.ApplicationModel;
 using Microsoft.AspNetCore.SignalR.Client;
-using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 using Xunit.Abstractions;
@@ -72,24 +69,24 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
     [Fact]
     public async Task The_push_path_survives_a_restart()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
 
-        (HubConnection hub, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> frames) =
+        (var hub, var frames) =
             await ListenAsync();
 
         await using (hub)
         {
-            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+            using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-            long beforeRestart1 = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "1")).Version;
-            long beforeRestart2 = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "2")).Version;
-            long beforeRestart3 = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "3")).Version;
+            var beforeRestart1 = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "1")).Version;
+            var beforeRestart2 = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "2")).Version;
+            var beforeRestart3 = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "3")).Version;
             output.WriteLine($"versions before restart: {beforeRestart1}, {beforeRestart2}, {beforeRestart3}");
 
             await RestartAsync(ResourceName);
             output.WriteLine($"restarted {ResourceName}");
 
-            long afterRestart = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "4")).Version;
+            var afterRestart = (await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "4")).Version;
             output.WriteLine($"version after restart: {afterRestart}");
 
             // #2426 — a process-lifetime counter restarts at 1 here, which is
@@ -116,15 +113,15 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
     [Fact]
     public async Task The_snapshot_path_survives_a_restart()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
 
-        (HubConnection hub, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> frames) =
+        (var hub, var frames) =
             await ListenAsync();
 
         long highestBeforeRestart;
         await using (hub)
         {
-            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+            using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
             await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "1");
             await WriteAndAwaitFrameAsync(variables, frames, variableName, overlay, "2");
@@ -136,13 +133,13 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
         await RestartAsync(ResourceName);
         output.WriteLine($"restarted {ResourceName}");
 
-        using HttpClient readers = await aspire.CreateAdminClientAsync("system-variables");
-        HttpResponseMessage snapshot = await readers.GetAsync(
+        using var readers = await aspire.CreateAdminClientAsync("system-variables");
+        var snapshot = await readers.GetAsync(
             $"/system-variables/-/snapshot?overlayIdentifier={overlay}&fabId=munich");
         snapshot.EnsureSuccessStatusCode();
 
-        JsonElement payload = await snapshot.Content.ReadFromJsonAsync<JsonElement>();
-        long versionAfterRestart = payload.GetProperty("version").GetInt64();
+        var payload = await snapshot.Content.ReadFromJsonAsync<JsonElement>();
+        var versionAfterRestart = payload.GetProperty("version").GetInt64();
         output.WriteLine($"snapshot version after restart: {versionAfterRestart}");
 
         // #2426 Finding A — CurrentVersionFor resets to 0 on the same
@@ -183,9 +180,9 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
     private async Task<(HubConnection Connection, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> Frames)>
         ListenAsync()
     {
-        string accessToken = await aspire.GetAdminAccessTokenAsync();
+        var accessToken = await aspire.GetAdminAccessTokenAsync();
 
-        HubConnection connection = new HubConnectionBuilder()
+        var connection = new HubConnectionBuilder()
             .WithUrl(aspire.HubUri("layout-composition", LayoutLifecycleHub.Path), options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken);
@@ -223,11 +220,11 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
     /// </summary>
     private async Task RestartAsync(string resourceName)
     {
-        ResourceCommandService commands = aspire.App.Services.GetRequiredService<ResourceCommandService>();
+        var commands = aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
         try
         {
-            ExecuteCommandResult result = await commands.ExecuteCommandAsync(
+            var result = await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.RestartCommand, CancellationToken.None);
             result.Success.ShouldBeTrue($"could not restart {resourceName}: {result.Message}");
         }
@@ -269,10 +266,10 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
     /// </summary>
     private async Task<(string VariableName, Guid Overlay)> AMunichOverlayBoundToAVariableAsync()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string variableName = VariableRequests.UniqueName();
+        var variableName = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name = variableName,
@@ -282,7 +279,7 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+        var overlay = await OverlayRequests.PublishWithLabelAsync(
             overlays, $"Line 1: {{{{{variableName}}}}}", "Rst");
 
         await PublishAMunichLayoutReferencingAsync(overlay);
@@ -293,9 +290,9 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
 
     private async Task PublishAMunichLayoutReferencingAsync(Guid overlay)
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name = $"Wall-{Guid.NewGuid():N}"[..16],
             grid = new { rows = 1, cols = 1 },
@@ -312,7 +309,7 @@ public class VersionSurvivesARestartTests(AspireFixture aspire, ITestOutputHelpe
         });
         created.EnsureSuccessStatusCode();
 
-        Guid layout = await created.Content.ReadFromJsonAsync<Guid>();
+        var layout = await created.Content.ReadFromJsonAsync<Guid>();
         (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish")).EnsureSuccessStatusCode();
     }
 }

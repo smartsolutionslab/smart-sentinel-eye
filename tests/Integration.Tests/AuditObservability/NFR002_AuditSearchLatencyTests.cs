@@ -1,9 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -50,30 +47,30 @@ public class NFR002_AuditSearchLatencyTests(AspireFixture aspire, ITestOutputHel
     {
         await SeedHotTierAsync();
 
-        using HttpClient client = await aspire.CreateAdminClientAsync("audit-observability");
-        string since = DateTimeOffset.UtcNow.AddHours(-24).ToString("O", CultureInfo.InvariantCulture);
-        string query = $"/audit?fabId=munich&since={Uri.EscapeDataString(since)}&pageSize=50";
+        using var client = await aspire.CreateAdminClientAsync("audit-observability");
+        var since = DateTimeOffset.UtcNow.AddHours(-24).ToString("O", CultureInfo.InvariantCulture);
+        var query = $"/audit?fabId=munich&since={Uri.EscapeDataString(since)}&pageSize=50";
 
         // Warm up the connection pool, EF query plan, and the read path.
-        for (int i = 0; i < WarmupIterations; i++)
+        for (var i = 0; i < WarmupIterations; i++)
         {
-            using HttpResponseMessage warm = await client.GetAsync(query);
+            using var warm = await client.GetAsync(query);
             warm.StatusCode.ShouldBe(HttpStatusCode.OK);
         }
 
-        double[] elapsedMs = new double[MeasureIterations];
-        for (int i = 0; i < MeasureIterations; i++)
+        var elapsedMs = new double[MeasureIterations];
+        for (var i = 0; i < MeasureIterations; i++)
         {
-            long start = Stopwatch.GetTimestamp();
-            using HttpResponseMessage response = await client.GetAsync(query);
+            var start = Stopwatch.GetTimestamp();
+            using var response = await client.GetAsync(query);
             elapsedMs[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
         }
 
         Array.Sort(elapsedMs);
-        double p50 = elapsedMs[MeasureIterations / 2];
-        double p99 = elapsedMs[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
-        double max = elapsedMs[^1];
+        var p50 = elapsedMs[MeasureIterations / 2];
+        var p99 = elapsedMs[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
+        var max = elapsedMs[^1];
 
         // Reported on the success path as well as the failure path (#2149): the
         // customMessage below is built only when the assertion fails, so a green
@@ -89,11 +86,11 @@ public class NFR002_AuditSearchLatencyTests(AspireFixture aspire, ITestOutputHel
 
     private async Task SeedHotTierAsync()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
         context.Database.SetCommandTimeout(TimeSpan.FromMinutes(2));
 
-        string emptyJson = "{}";
+        var emptyJson = "{}";
         // One statement, server-side: spread occurred_at across the last 23h so
         // the rows fall inside the 24h query window and on the warm chunk(s).
         await context.Database.ExecuteSqlInterpolatedAsync($"""

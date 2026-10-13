@@ -29,7 +29,7 @@ public static class TextLegibility
     /// </summary>
     public static bool IsLegible(OverlayColor color)
     {
-        (double contrastLight, double contrastDark) = WorstCaseContrasts(color);
+        (var contrastLight, var contrastDark) = WorstCaseContrasts(color);
         return Math.Max(contrastLight, contrastDark) >= MinimumContrast;
     }
 
@@ -42,10 +42,10 @@ public static class TextLegibility
     /// </summary>
     public static byte MinimumAlpha(OverlayColor color)
     {
-        string rgb = color.Value.Substring(1, 6);
-        for (int alpha = 0; alpha <= 255; alpha++)
+        var rgb = color.Value.Substring(1, 6);
+        for (var alpha = 0; alpha <= 255; alpha++)
         {
-            OverlayColor candidate = OverlayColor.From($"#{rgb}{alpha:X2}");
+            var candidate = OverlayColor.From($"#{rgb}{alpha:X2}");
             if (IsLegible(candidate))
             {
                 return (byte)alpha;
@@ -58,24 +58,24 @@ public static class TextLegibility
 
     private static (double ContrastLight, double ContrastDark) WorstCaseContrasts(OverlayColor color)
     {
-        string hex = color.Value;
-        double r = Convert.ToInt32(hex.Substring(1, 2), 16) / 255.0;
-        double g = Convert.ToInt32(hex.Substring(3, 2), 16) / 255.0;
-        double b = Convert.ToInt32(hex.Substring(5, 2), 16) / 255.0;
-        double a = Convert.ToInt32(hex.Substring(7, 2), 16) / 255.0;
+        var hex = color.Value;
+        var r = Convert.ToInt32(hex.Substring(1, 2), 16) / 255.0;
+        var g = Convert.ToInt32(hex.Substring(3, 2), 16) / 255.0;
+        var b = Convert.ToInt32(hex.Substring(5, 2), 16) / 255.0;
+        var a = Convert.ToInt32(hex.Substring(7, 2), 16) / 255.0;
 
-        double ls = RelativeLuminance(r, g, b);
+        var ls = RelativeLuminance(r, g, b);
 
-        double lumEncodedOverWhite = RelativeLuminance(a * r + (1 - a), a * g + (1 - a), a * b + (1 - a));
-        double lumLinearOverWhite = a * ls + (1 - a);
-        double lighter = Math.Max(lumEncodedOverWhite, lumLinearOverWhite);
+        var lumEncodedOverWhite = RelativeLuminance(a * r + (1 - a), a * g + (1 - a), a * b + (1 - a));
+        var lumLinearOverWhite = a * ls + (1 - a);
+        var lighter = Math.Max(lumEncodedOverWhite, lumLinearOverWhite);
 
-        double lumEncodedOverBlack = RelativeLuminance(a * r, a * g, a * b);
-        double lumLinearOverBlack = a * ls;
-        double darker = Math.Min(lumEncodedOverBlack, lumLinearOverBlack);
+        var lumEncodedOverBlack = RelativeLuminance(a * r, a * g, a * b);
+        var lumLinearOverBlack = a * ls;
+        var darker = Math.Min(lumEncodedOverBlack, lumLinearOverBlack);
 
-        double contrastLight = 1.05 / (lighter + 0.05);
-        double contrastDark = (darker + 0.05) / 0.05;
+        var contrastLight = 1.05 / (lighter + 0.05);
+        var contrastDark = (darker + 0.05) / 0.05;
         return (contrastLight, contrastDark);
     }
 

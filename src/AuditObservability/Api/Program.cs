@@ -2,7 +2,7 @@ using SmartSentinelEye.AuditObservability.Api;
 using SmartSentinelEye.AuditObservability.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddBearerAuthentication();
@@ -10,7 +10,7 @@ builder.AddAuditObservabilityInfrastructure();
 builder.Services.AddAuditObservabilityApi();
 builder.Services.AddOpenApi();
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 app.MapDefaultEndpoints();
 

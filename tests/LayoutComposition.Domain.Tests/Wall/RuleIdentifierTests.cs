@@ -22,15 +22,15 @@ public class RuleIdentifierTests
     [Fact]
     public void From_round_trips_a_non_empty_Guid()
     {
-        Guid value = Guid.CreateVersion7();
-        RuleIdentifier id = RuleIdentifier.From(value);
+        var value = Guid.CreateVersion7();
+        var id = RuleIdentifier.From(value);
         id.Value.ShouldBe(value);
     }
 
     [Fact]
     public void Implicitly_unwraps_to_its_guid()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         Guid unwrapped = RuleIdentifier.From(guid);
         unwrapped.ShouldBe(guid);
     }
@@ -38,7 +38,7 @@ public class RuleIdentifierTests
     [Fact]
     public void Two_identifiers_with_the_same_guid_are_equal()
     {
-        Guid value = Guid.CreateVersion7();
+        var value = Guid.CreateVersion7();
         RuleIdentifier.From(value).ShouldBe(RuleIdentifier.From(value));
     }
 
@@ -51,8 +51,8 @@ public class RuleIdentifierTests
     [Fact]
     public void Comparison_operators_order_by_the_underlying_guid()
     {
-        RuleIdentifier earlier = RuleIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
-        RuleIdentifier later = RuleIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
+        var earlier = RuleIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
+        var later = RuleIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         (earlier < later).ShouldBeTrue();

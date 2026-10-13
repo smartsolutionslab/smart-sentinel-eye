@@ -64,7 +64,7 @@ public sealed class SystemVariablesClientTests
             _ => Respond(HttpStatusCode.OK),
         });
 
-        VariableSeedResult result = await EnsureAsync(variables, StringVariable);
+        var result = await EnsureAsync(variables, StringVariable);
 
         result.ShouldBeOfType<VariableSeedResult.Seeded>();
         variables.Calls.ShouldHaveSingleItem();
@@ -81,7 +81,7 @@ public sealed class SystemVariablesClientTests
             _ => Respond(HttpStatusCode.OK),
         });
 
-        VariableSeedResult result = await EnsureAsync(variables, StringVariable);
+        var result = await EnsureAsync(variables, StringVariable);
 
         result.ShouldBeOfType<VariableSeedResult.Seeded>();
         variables.Calls
@@ -102,9 +102,9 @@ public sealed class SystemVariablesClientTests
             _ => Respond(HttpStatusCode.OK),
         });
 
-        VariableSeedResult result = await EnsureAsync(variables, StringVariable);
+        var result = await EnsureAsync(variables, StringVariable);
 
-        VariableSeedResult.Refused refused = result.ShouldBeOfType<VariableSeedResult.Refused>();
+        var refused = result.ShouldBeOfType<VariableSeedResult.Refused>();
         refused.Reason.ShouldContain("String", Case.Insensitive);
         refused.Reason.ShouldContain("Number", Case.Insensitive);
     }
@@ -119,9 +119,9 @@ public sealed class SystemVariablesClientTests
                 Encoding.UTF8, "application/json"),
         });
 
-        VariableSeedResult result = await EnsureAsync(variables, StringVariable);
+        var result = await EnsureAsync(variables, StringVariable);
 
-        VariableSeedResult.Refused refused = result.ShouldBeOfType<VariableSeedResult.Refused>();
+        var refused = result.ShouldBeOfType<VariableSeedResult.Refused>();
         refused.Reason.ShouldBe("'Type' must be one of String, Number, Boolean.");
     }
 

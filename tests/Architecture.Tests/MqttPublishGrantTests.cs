@@ -37,8 +37,8 @@ public class MqttPublishGrantTests
     [Fact]
     public void Every_acl_write_grant_held_by_a_realm_client_carries_the_publish_scope()
     {
-        HashSet<string> writeGrantedUsers = AclWriteGrantedUsers();
-        Dictionary<string, IReadOnlyCollection<string>> realmClientScopes = RealmClientDefaultScopes();
+        var writeGrantedUsers = AclWriteGrantedUsers();
+        var realmClientScopes = RealmClientDefaultScopes();
 
         string[] qualifying = [.. writeGrantedUsers
             .Where(realmClientScopes.ContainsKey)
@@ -79,9 +79,9 @@ public class MqttPublishGrantTests
         HashSet<string> users = new(StringComparer.Ordinal);
         string? currentUser = null;
 
-        foreach (string rawLine in File.ReadAllLines(AclPath()))
+        foreach (var rawLine in File.ReadAllLines(AclPath()))
         {
-            string line = rawLine.Trim();
+            var line = rawLine.Trim();
             if (line.Length == 0 || line.StartsWith('#'))
             {
                 continue;

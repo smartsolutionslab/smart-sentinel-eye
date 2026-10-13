@@ -1,5 +1,4 @@
 using SmartSentinelEye.LayoutComposition.Application.Tiles;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 
@@ -29,7 +28,7 @@ public sealed class FakeCameraFabGuard : ICameraFabGuard
 
     public FakeCameraFabGuard With(FabIdentifier fab, params CameraIdentifier[] cameras)
     {
-        foreach (CameraIdentifier camera in cameras)
+        foreach (var camera in cameras)
         {
             fabsByCamera[camera.Value] = fab;
         }
@@ -50,7 +49,7 @@ public sealed class FakeCameraFabGuard : ICameraFabGuard
         IReadOnlyList<CameraIdentifier> outside =
         [
             .. cameras.Where(camera =>
-                !fabsByCamera.TryGetValue(camera.Value, out FabIdentifier? actual) || actual != fab)
+                !fabsByCamera.TryGetValue(camera.Value, out var actual) || actual != fab)
         ];
 
         return Task.FromResult(outside);

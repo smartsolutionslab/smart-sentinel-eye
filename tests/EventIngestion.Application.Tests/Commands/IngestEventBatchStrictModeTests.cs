@@ -49,12 +49,12 @@ public class IngestEventBatchStrictModeTests
         InMemoryEventRepository repo = new();
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(Dresden, Source.Manual);
-        EventEnvelope skewed = BuildEnvelope(occurredAt: Now.AddDays(30));
+        var skewed = BuildEnvelope(occurredAt: Now.AddDays(30));
 
-        IngestEventBatchResult result =
+        var result =
             await Handler(repo, source).HandleAsync(new IngestEventBatchCommand([skewed]), CancellationToken.None);
 
-        RefusedEnvelope refused = result.Refused.ShouldHaveSingleItem();
+        var refused = result.Refused.ShouldHaveSingleItem();
         refused.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>();
     }
 
@@ -66,14 +66,14 @@ public class IngestEventBatchStrictModeTests
         source.DeclareStrict(Dresden, Source.Manual);
         source.Register(RegisteredEventType.Register(
             Dresden, Kind.From("PlcCycleStart"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now)));
-        EventEnvelope registered = BuildEnvelope(kind: "PlcCycleStart");
-        EventEnvelope unregistered = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var registered = BuildEnvelope(kind: "PlcCycleStart");
+        var unregistered = BuildEnvelope(kind: "NobodyDeclaredThis");
 
-        IngestEventBatchResult result = await Handler(repo, source).HandleAsync(
+        var result = await Handler(repo, source).HandleAsync(
             new IngestEventBatchCommand([registered, unregistered]), CancellationToken.None);
 
         repo.Events.ShouldHaveSingleItem().Id.ShouldBe(registered.Identifier);
-        RefusedEnvelope refused = result.Refused.ShouldHaveSingleItem();
+        var refused = result.Refused.ShouldHaveSingleItem();
         refused.Envelope.Identifier.ShouldBe(unregistered.Identifier);
         refused.Reason.ShouldBeOfType<IngestEventError.EventTypeNotRegistered>();
     }

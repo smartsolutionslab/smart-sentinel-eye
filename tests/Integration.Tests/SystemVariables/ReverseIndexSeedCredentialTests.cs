@@ -59,10 +59,10 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
     [Fact]
     public async Task The_seeder_service_account_can_list_published_overlays()
     {
-        string token = await SeederTokenAsync();
-        using HttpClient overlays = aspire.CreateServiceClient("overlay-designer");
+        var token = await SeederTokenAsync();
+        using var overlays = aspire.CreateServiceClient("overlay-designer");
 
-        using HttpResponseMessage response =
+        using var response =
             await SendAsync(overlays, HttpMethod.Get, "/overlays?state=Published", token);
 
         response.StatusCode.ShouldBe(
@@ -70,7 +70,7 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
             "the seeder's service account cannot read the published overlays, so every cold start "
             + $"of system-variables begins with an empty reverse index (#2158). {await BodyAsync(response)}");
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
         payload.TryGetProperty("published", out _).ShouldBeTrue(
             "the seeder reads the 'published' array and nothing else; without that key it logs "
             + "SeedMissingPublishedKey and leaves the index empty");
@@ -85,10 +85,10 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
     [Fact]
     public async Task The_seeder_service_account_cannot_author_an_overlay()
     {
-        string token = await SeederTokenAsync();
-        using HttpClient overlays = aspire.CreateServiceClient("overlay-designer");
+        var token = await SeederTokenAsync();
+        using var overlays = aspire.CreateServiceClient("overlay-designer");
 
-        using HttpResponseMessage response = await SendAsync(
+        using var response = await SendAsync(
             overlays, HttpMethod.Post, "/overlays", token, DraftOverlayBody());
 
         response.StatusCode.ShouldBe(
@@ -116,10 +116,10 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
     [Fact]
     public async Task The_seeder_service_account_cannot_write_a_system_variable()
     {
-        string token = await SeederTokenAsync();
-        using HttpClient variables = aspire.CreateServiceClient("system-variables");
+        var token = await SeederTokenAsync();
+        using var variables = aspire.CreateServiceClient("system-variables");
 
-        using HttpResponseMessage response = await SendAsync(
+        using var response = await SendAsync(
             variables, HttpMethod.Post, "/system-variables", token, DefineVariableBody());
 
         response.StatusCode.ShouldBe(
@@ -143,7 +143,7 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
     /// </summary>
     private async Task<string> SeederTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -151,8 +151,8 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
             ["client_secret"] = SeederClientSecret,
         });
 
-        using HttpResponseMessage response = await keycloak.PostAsync(TokenEndpoint, form);
-        string body = await response.Content.ReadAsStringAsync();
+        using var response = await keycloak.PostAsync(TokenEndpoint, form);
+        var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
@@ -160,8 +160,8 @@ public class ReverseIndexSeedCredentialTests(AspireFixture aspire)
             + "such client, or it is not a confidential client with service accounts enabled "
             + $"(spec 126 T010). Keycloak answered {(int)response.StatusCode} {response.StatusCode}: {body}");
 
-        using JsonDocument payload = JsonDocument.Parse(body);
-        string? accessToken = payload.RootElement.GetProperty("access_token").GetString();
+        using var payload = JsonDocument.Parse(body);
+        var accessToken = payload.RootElement.GetProperty("access_token").GetString();
         accessToken.ShouldNotBeNullOrWhiteSpace();
 
         return accessToken;

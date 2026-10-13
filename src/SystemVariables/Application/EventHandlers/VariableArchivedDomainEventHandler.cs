@@ -42,7 +42,7 @@ public sealed class VariableArchivedDomainEventHandler(
 
         await events.PublishAsync(systemVariableArchivedEvent, cancellationToken);
 
-        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(variableName.Value);
+        var affectedOverlays = reverseIndex.LookupOverlays(variableName.Value);
         if (affectedOverlays.Count == 0)
         {
             return;
@@ -51,12 +51,12 @@ public sealed class VariableArchivedDomainEventHandler(
         // Issue #2426, plan.md §2 -- one round trip for the whole fan-out,
         // not one advance per overlay: the added cost on the
         // `event → overlay state` leg must stay constant in fan-out width.
-        IReadOnlyDictionary<Guid, long> versionsByOverlay =
+        var versionsByOverlay =
             await overlayTextVersions.AdvanceAsync(affectedOverlays, cancellationToken);
 
-        foreach (Guid overlayId in affectedOverlays)
+        foreach (var overlayId in affectedOverlays)
         {
-            IReadOnlyList<string>? labelTexts = reverseIndex.LookupLabelTexts(overlayId);
+            var labelTexts = reverseIndex.LookupLabelTexts(overlayId);
             if (labelTexts is null)
             {
                 continue;
@@ -67,7 +67,7 @@ public sealed class VariableArchivedDomainEventHandler(
             // so it resolves to its literal placeholder) — one snapshot
             // over the union, not one per label (spec 150).
             Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
-            foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
+            foreach (var name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
             {
                 if (string.Equals(name, variableName.Value, StringComparison.Ordinal))
                 {
@@ -80,7 +80,7 @@ public sealed class VariableArchivedDomainEventHandler(
                 catch (ArgumentException) { continue; }
 
                 // Siblings resolve in the fab that changed (ADR-0115).
-                Option<Variable> other = await variables.GetByNameAsync(
+                var other = await variables.GetByNameAsync(
                     fab, parsed, cancellationToken);
                 // None also covers an Archived sibling: GetByNameAsync excludes them (FR-005).
                 if (!other.HasValue)
@@ -88,7 +88,7 @@ public sealed class VariableArchivedDomainEventHandler(
                     continue;
                 }
 
-                Variable variable = other.Value;
+                var variable = other.Value;
                 if (variable.Value is VariableValue.Unset)
                 {
                     continue;
@@ -100,7 +100,7 @@ public sealed class VariableArchivedDomainEventHandler(
             IReadOnlyList<ResolvedOverlayTextV3> texts =
                 [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
                     .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
-            long version = versionsByOverlay[overlayId];
+            var version = versionsByOverlay[overlayId];
 
             ResolvedOverlayTextChangedV3 resolvedOverlayTextChangedEvent = new(
                 Overlay: overlayId,

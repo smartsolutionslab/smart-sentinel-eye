@@ -38,13 +38,13 @@ public sealed class ClipCueHostedServiceTests
     [Fact]
     public async Task A_ready_paths_cue_is_emitted_at_readyTime_plus_AtMs()
     {
-        string clipsDirectory = CreateClipsDirectory(("mill-roughing", 6_000, (5_000, "person", 0.9)));
+        var clipsDirectory = CreateClipsDirectory(("mill-roughing", 6_000, (5_000, "person", 0.9)));
         MutableCameraSimHandler pathResponses = new();
         pathResponses.SetReady("station-4-roughing", Start);
         FakeMqttClient client = new();
         ManualTimeProvider clock = new(Start);
 
-        await using Harness harness = Harness.Create(
+        await using var harness = Harness.Create(
             clipsDirectory, pathResponses, client, clock,
             OneAssetScenario("rolling-mill", "station-4-roughing", "mill-roughing.mp4"));
 
@@ -53,7 +53,7 @@ public sealed class ClipCueHostedServiceTests
 
         // Repeated 1s advances (the loop's own re-poll cadence), reaching the
         // 5_000ms cue.
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
             clock.Advance(TimeSpan.FromSeconds(1));
             await Task.Delay(20);
@@ -62,7 +62,7 @@ public sealed class ClipCueHostedServiceTests
         (await WaitUntilAsync(() => client.Published.Count >= 1)).ShouldBeTrue(
             "the cue never fired for a path that has been ready the whole time");
 
-        using JsonDocument document = JsonDocument.Parse(client.Published[0]);
+        using var document = JsonDocument.Parse(client.Published[0]);
         document.RootElement.GetProperty("payload").GetProperty("class").GetString().ShouldBe("person");
         document.RootElement.GetProperty("payload").GetProperty("clipOffsetMs").GetInt32().ShouldBe(5_000);
 
@@ -73,19 +73,19 @@ public sealed class ClipCueHostedServiceTests
     [Fact]
     public async Task A_path_with_no_reader_emits_no_cue()
     {
-        string clipsDirectory = CreateClipsDirectory(("mill-roughing", 6_000, (500, "person", 0.9)));
+        var clipsDirectory = CreateClipsDirectory(("mill-roughing", 6_000, (500, "person", 0.9)));
         MutableCameraSimHandler pathResponses = new();
         pathResponses.SetNotReady("station-4-roughing");
         FakeMqttClient client = new();
         ManualTimeProvider clock = new(Start);
 
-        await using Harness harness = Harness.Create(
+        await using var harness = Harness.Create(
             clipsDirectory, pathResponses, client, clock,
             OneAssetScenario("rolling-mill", "station-4-roughing", "mill-roughing.mp4"));
 
         await harness.Service.StartAsync(CancellationToken.None);
 
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
             clock.Advance(TimeSpan.FromSeconds(1));
             await Task.Delay(20);
@@ -112,13 +112,13 @@ public sealed class ClipCueHostedServiceTests
     [Fact]
     public async Task A_wake_up_a_few_milliseconds_past_the_cues_due_time_still_emits_it_rather_than_skipping_a_whole_loop()
     {
-        string clipsDirectory = CreateClipsDirectory(("mill-roughing", 6_000, (2_000, "person", 0.9)));
+        var clipsDirectory = CreateClipsDirectory(("mill-roughing", 6_000, (2_000, "person", 0.9)));
         MutableCameraSimHandler pathResponses = new();
         pathResponses.SetReady("station-4-roughing", Start);
         FakeMqttClient client = new();
         ManualTimeProvider clock = new(Start);
 
-        await using Harness harness = Harness.Create(
+        await using var harness = Harness.Create(
             clipsDirectory, pathResponses, client, clock,
             OneAssetScenario("rolling-mill", "station-4-roughing", "mill-roughing.mp4"));
 
@@ -149,13 +149,13 @@ public sealed class ClipCueHostedServiceTests
         // A cue far enough into the clip that the loop's 1s-capped wait polls
         // readiness (and so notices a changed readyTime) several times before
         // the cue would otherwise be due.
-        string clipsDirectory = CreateClipsDirectory(("mill-roughing", 10_000, (4_000, "person", 0.9)));
+        var clipsDirectory = CreateClipsDirectory(("mill-roughing", 10_000, (4_000, "person", 0.9)));
         MutableCameraSimHandler pathResponses = new();
         pathResponses.SetReady("station-4-roughing", Start);
         FakeMqttClient client = new();
         ManualTimeProvider clock = new(Start);
 
-        await using Harness harness = Harness.Create(
+        await using var harness = Harness.Create(
             clipsDirectory, pathResponses, client, clock,
             OneAssetScenario("rolling-mill", "station-4-roughing", "mill-roughing.mp4"));
 
@@ -170,7 +170,7 @@ public sealed class ClipCueHostedServiceTests
         clock.Advance(TimeSpan.FromSeconds(1));
         await Task.Delay(20);
 
-        DateTimeOffset restartedAt = clock.GetUtcNow();
+        var restartedAt = clock.GetUtcNow();
         pathResponses.SetReady("station-4-roughing", restartedAt);
 
         // Advance to where the cue would have fired under the OLD anchor
@@ -202,7 +202,7 @@ public sealed class ClipCueHostedServiceTests
     [Fact]
     public async Task A_camera_sim_failure_on_one_path_does_not_stop_cues_on_another()
     {
-        string clipsDirectory = CreateClipsDirectory(
+        var clipsDirectory = CreateClipsDirectory(
             ("mill-roughing", 6_000, (2_000, "person", 0.9)),
             ("paper-packaging", 6_000, (2_000, "carton", 0.9)));
 
@@ -230,7 +230,7 @@ public sealed class ClipCueHostedServiceTests
             },
         };
 
-        await using Harness harness = Harness.Create(clipsDirectory, pathResponses, client, clock, options);
+        await using var harness = Harness.Create(clipsDirectory, pathResponses, client, clock, options);
 
         await harness.Service.StartAsync(CancellationToken.None);
         (await WaitUntilAsync(() => client.IsConnected)).ShouldBeTrue();
@@ -240,7 +240,7 @@ public sealed class ClipCueHostedServiceTests
         // both to actually be pending before advancing — a fixed real-time
         // sleep here is reliable only when the thread pool happens to already
         // be warm (e.g. as part of a larger suite run) and flaky in isolation.
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             (await clock.WaitForPendingTimersAsync(2, TimeSpan.FromSeconds(5))).ShouldBeTrue(
                 "both path loops never simultaneously reached a wait — one of them is stuck or crashed "
@@ -259,7 +259,7 @@ public sealed class ClipCueHostedServiceTests
     [Fact]
     public async Task Cues_run_for_every_active_scenario_not_only_the_animated_one()
     {
-        string clipsDirectory = CreateClipsDirectory(
+        var clipsDirectory = CreateClipsDirectory(
             ("mill-roughing", 6_000, (2_000, "person", 0.9)),
             ("electronics-inspection", 6_000, (2_000, "defect", 0.9)));
 
@@ -290,7 +290,7 @@ public sealed class ClipCueHostedServiceTests
             },
         };
 
-        await using Harness harness = Harness.Create(clipsDirectory, pathResponses, client, clock, options);
+        await using var harness = Harness.Create(clipsDirectory, pathResponses, client, clock, options);
 
         await harness.Service.StartAsync(CancellationToken.None);
         (await WaitUntilAsync(() => client.IsConnected)).ShouldBeTrue();
@@ -298,7 +298,7 @@ public sealed class ClipCueHostedServiceTests
         // Two simultaneously-live per-path loops (one per scenario). Wait for
         // both to actually be pending before advancing — see the identical
         // comment on A_camera_sim_failure_on_one_path_does_not_stop_cues_on_another.
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             (await clock.WaitForPendingTimersAsync(2, TimeSpan.FromSeconds(5))).ShouldBeTrue(
                 "both path loops never simultaneously reached a wait — one of them is stuck or crashed "
@@ -335,10 +335,10 @@ public sealed class ClipCueHostedServiceTests
     /// <summary>Writes one <c>&lt;clip&gt;.cues.json</c> sidecar per tuple, each with a single cue.</summary>
     private static string CreateClipsDirectory(params (string ClipBaseName, int DurationMs, (int AtMs, string Class, double Confidence) Cue)[] clips)
     {
-        string directory = Path.Combine(Path.GetTempPath(), "sse-hosted-cues-" + Guid.NewGuid());
+        var directory = Path.Combine(Path.GetTempPath(), "sse-hosted-cues-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
 
-        foreach ((string clipBaseName, int durationMs, (int atMs, string @class, double confidence)) in clips)
+        foreach ((var clipBaseName, var durationMs, (var atMs, var @class, var confidence)) in clips)
         {
             File.WriteAllText(
                 Path.Combine(directory, $"{clipBaseName}.cues.json"),
@@ -356,7 +356,7 @@ public sealed class ClipCueHostedServiceTests
 
     private static async Task<bool> WaitUntilAsync(Func<bool> condition)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (condition())
@@ -461,7 +461,7 @@ public sealed class ClipCueHostedServiceTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string path = request.RequestUri!.AbsolutePath["/v3/paths/get/".Length..];
+            var path = request.RequestUri!.AbsolutePath["/v3/paths/get/".Length..];
 
             Func<HttpResponseMessage>? responder;
             lock (gate)

@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.Identity.Api.Requests;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
@@ -26,7 +23,7 @@ public static class DevicesEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/devices")
+        var group = app.MapGroup("/devices")
             .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Write)
             .WithTags("IdentityDevices");
 
@@ -61,7 +58,7 @@ public static class DevicesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        RouteGroupBuilder reads = app.MapGroup("/devices")
+        var reads = app.MapGroup("/devices")
             .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Read)
             .WithTags("IdentityDevices");
 
@@ -83,7 +80,7 @@ public static class DevicesEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await IdentityFabResolution.ResolveReadFabsAsync(
                 user, fabId, fabGuard, "DEVICE_INVALID_INPUT", cancellationToken);
         if (fabsResolution.IsFailure)
@@ -91,9 +88,9 @@ public static class DevicesEndpoints
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListDevicesQuery(fabs), cancellationToken);
 
         return result.Match<IResult>(
@@ -112,10 +109,10 @@ public static class DevicesEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
-        RegisterDeviceCommandHandler handler = services.Handler;
+        var fabGuard = services.FabGuard;
+        var handler = services.Handler;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -134,7 +131,7 @@ public static class DevicesEndpoints
 
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
@@ -148,7 +145,7 @@ public static class DevicesEndpoints
                 services.Clock),
             async token =>
             {
-                Result<DeviceCredentialsDto, RegisterDeviceError> result = await handler.HandleAsync(
+                var result = await handler.HandleAsync(
                     new RegisterDeviceCommand(body.DeviceType, body.DeviceIdentifier, fab, actingOperator), token);
 
                 // A refusal is recorded as a success of no registration: there is
@@ -161,7 +158,7 @@ public static class DevicesEndpoints
             },
             async (client, token) =>
             {
-                Result<ReplayedClientDto, ReplayRegistrationError> replayed =
+                var replayed =
                     await services.Replay.HandleAsync(
                         new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(client)), token);
 
@@ -231,7 +228,7 @@ public static class DevicesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableDeviceCommand(parsed, fab), cancellationToken);
 
         return result.Match<IResult>(

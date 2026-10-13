@@ -1,5 +1,4 @@
 using System.Globalization;
-using SmartSentinelEye.CameraCatalog.Application.DTOs;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
@@ -33,14 +32,14 @@ public class CameraNameFilterTests
     [Fact]
     public async Task A_filtered_total_counts_the_matches_and_not_the_catalogue()
     {
-        ListCamerasQueryHandler handler = NewHandler(
+        var handler = NewHandler(
             CameraNamed("Line 2 Furnace"),
             CameraNamed("Furnace 3"),
             CameraNamed("Bay 4 Inlet"),
             CameraNamed("Coiler"),
             CameraNamed("Cooling Bed"));
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "furn" },
             CancellationToken.None);
 
@@ -59,11 +58,11 @@ public class CameraNameFilterTests
     [Fact]
     public async Task A_fragment_matches_in_the_middle_of_a_name()
     {
-        ListCamerasQueryHandler handler = NewHandler(
+        var handler = NewHandler(
             CameraNamed("Line 2 Furnace"),
             CameraNamed("Bay 4 Inlet"));
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "furn" },
             CancellationToken.None);
 
@@ -87,9 +86,9 @@ public class CameraNameFilterTests
     [InlineData("\tfurn\n")]
     public async Task A_fragment_is_trimmed_and_case_folded_before_matching(string fragment)
     {
-        ListCamerasQueryHandler handler = NewHandler(CameraNamed("Line 2 Furnace"));
+        var handler = NewHandler(CameraNamed("Line 2 Furnace"));
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = fragment },
             CancellationToken.None);
 
@@ -107,11 +106,11 @@ public class CameraNameFilterTests
     [InlineData("   ")]
     public async Task An_absent_or_blank_fragment_returns_everything(string? fragment)
     {
-        ListCamerasQueryHandler handler = NewHandler(
+        var handler = NewHandler(
             CameraNamed("Line 2 Furnace"),
             CameraNamed("Bay 4 Inlet"));
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = fragment },
             CancellationToken.None);
 
@@ -128,9 +127,9 @@ public class CameraNameFilterTests
     [Fact]
     public async Task An_accented_name_is_not_matched_by_its_unaccented_fragment()
     {
-        ListCamerasQueryHandler handler = NewHandler(CameraNamed("Fuernace"), CameraNamed("Fürnace"));
+        var handler = NewHandler(CameraNamed("Fuernace"), CameraNamed("Fürnace"));
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "für" },
             CancellationToken.None);
 
@@ -146,11 +145,11 @@ public class CameraNameFilterTests
     [Fact]
     public async Task A_wildcard_character_matches_itself_and_not_everything()
     {
-        ListCamerasQueryHandler handler = NewHandler(
+        var handler = NewHandler(
             CameraNamed("50% Load"),
             CameraNamed("Bay 4 Inlet"));
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "%" },
             CancellationToken.None);
 
@@ -166,17 +165,17 @@ public class CameraNameFilterTests
     [Fact]
     public async Task Filtering_and_paging_compose()
     {
-        ListCamerasQueryHandler handler = NewHandler(
+        var handler = NewHandler(
             CameraNamed("Furnace A"),
             CameraNamed("Furnace B"),
             CameraNamed("Furnace C"),
             CameraNamed("Bay 4 Inlet"));
 
-        Result<CameraListPageDto, ListCamerasError> first = await handler.HandleAsync(
+        var first = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "furnace", Sort = "name", Order = "asc", Limit = 2 },
             CancellationToken.None);
 
-        Result<CameraListPageDto, ListCamerasError> second = await handler.HandleAsync(
+        var second = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "furnace", Sort = "name", Order = "asc", Limit = 2, Offset = 2 },
             CancellationToken.None);
 
@@ -196,13 +195,13 @@ public class CameraNameFilterTests
     [Fact]
     public async Task Filtering_does_not_reach_past_the_retired_exclusion()
     {
-        Camera staying = CameraNamed("Line 2 Furnace");
-        Camera going = CameraNamed("Old Furnace");
+        var staying = CameraNamed("Line 2 Furnace");
+        var going = CameraNamed("Old Furnace");
         going.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture)));
 
-        ListCamerasQueryHandler handler = NewHandler(staying, going);
+        var handler = NewHandler(staying, going);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { NameFragment = "furnace" },
             CancellationToken.None);
 

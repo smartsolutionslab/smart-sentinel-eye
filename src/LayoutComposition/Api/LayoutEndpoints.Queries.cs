@@ -1,13 +1,10 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;
 
@@ -31,16 +28,16 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<LayoutDto, GetLayoutError> result = await handler
+        var result = await handler
             .HandleAsync(new GetLayoutQuery(fabs, LayoutIdentifier.From(layoutIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
@@ -79,16 +76,16 @@ public static partial class LayoutEndpoints
             }
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<ListLayoutsResult, ListLayoutsError> result = await handler
+        var result = await handler
             .HandleAsync(new ListLayoutsQuery(fabs, filter), cancellationToken);
 
         return result.Match<IResult>(

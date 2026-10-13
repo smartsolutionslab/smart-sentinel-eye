@@ -1,12 +1,9 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 
@@ -44,11 +41,11 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task Correcting_a_cameras_address_repoints_the_SFU_without_changing_the_path()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        Guid camera = await RegisterAsync(cameras);
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var camera = await RegisterAsync(cameras);
 
-        Stream provisioned = await WaitForStreamAsync(camera, ProvisionTimeout);
-        string path = provisioned.Path.Value;
+        var provisioned = await WaitForStreamAsync(camera, ProvisionTimeout);
+        var path = provisioned.Path.Value;
 
         await PatchAddressAsync(cameras, camera, CorrectedUrl);
 
@@ -59,7 +56,7 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
         // keeps watching. A re-point that tore the path down and re-created it
         // under the same name would pass the source check and still break
         // anyone mid-stream.
-        Stream after = await WaitForStreamAsync(camera, RepointTimeout);
+        var after = await WaitForStreamAsync(camera, RepointTimeout);
         after.Path.Value.ShouldBe(path);
         after.Id.ShouldBe(provisioned.Id, "the same stream moved, rather than a new one appearing");
     }
@@ -72,15 +69,15 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task The_catalogue_is_corrected_even_before_the_stream_catches_up()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        Guid camera = await RegisterAsync(cameras);
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var camera = await RegisterAsync(cameras);
         await WaitForStreamAsync(camera, ProvisionTimeout);
 
         await PatchAddressAsync(cameras, camera, CorrectedUrl);
 
         // Immediately, without waiting for anything downstream: the catalogue
         // is the authority on the camera and does not consult the SFU.
-        HttpResponseMessage read = await cameras.GetAsync($"/cameras/{camera}");
+        var read = await cameras.GetAsync($"/cameras/{camera}");
         read.EnsureSuccessStatusCode();
 
         (await read.Content.ReadFromJsonAsync<JsonElement>())
@@ -89,9 +86,9 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras)
     {
-        string name = $"repoint-{Guid.CreateVersion7():N}"[..24];
+        var name = $"repoint-{Guid.CreateVersion7():N}"[..24];
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
+        var created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
             rtspUrl = "rtsp://camera-sim:8554/original",
@@ -104,9 +101,9 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
 
     private static async Task PatchAddressAsync(HttpClient cameras, Guid camera, string rtspUrl)
     {
-        HttpResponseMessage read = await cameras.GetAsync($"/cameras/{camera}");
+        var read = await cameras.GetAsync($"/cameras/{camera}");
         read.EnsureSuccessStatusCode();
-        int version = (await read.Content.ReadFromJsonAsync<JsonElement>())
+        var version = (await read.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("version").GetInt32();
 
         HttpRequestMessage request = new(HttpMethod.Patch, $"/cameras/{camera}")
@@ -120,15 +117,15 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
 
     private async Task<Stream> WaitForStreamAsync(Guid camera, TimeSpan timeout)
     {
-        CameraIdentifier cameraId = CameraIdentifier.From(camera);
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var cameraId = CameraIdentifier.From(camera);
+        var deadline = DateTime.UtcNow + timeout;
 
         while (DateTime.UtcNow < deadline)
         {
-            await using StreamDistributionDbContext context =
+            await using var context =
                 await aspire.CreateStreamDistributionDbContextAsync();
 
-            Stream? row = await context.Streams
+            var row = await context.Streams
                 .AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Camera == cameraId);
 
@@ -150,19 +147,19 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     /// </summary>
     private async Task WaitForMediaMtxSourceAsync(string path, string expectedSource)
     {
-        using HttpClient mediamtx = aspire.CreateMediaMtxApiClient();
-        DateTime deadline = DateTime.UtcNow + RepointTimeout;
-        string observed = "(never read)";
+        using var mediamtx = aspire.CreateMediaMtxApiClient();
+        var deadline = DateTime.UtcNow + RepointTimeout;
+        var observed = "(never read)";
 
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await mediamtx.GetAsync($"/v3/config/paths/get/{path}");
+            var response = await mediamtx.GetAsync($"/v3/config/paths/get/{path}");
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                JsonElement configured = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var configured = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-                if (configured.TryGetProperty("source", out JsonElement source))
+                if (configured.TryGetProperty("source", out var source))
                 {
                     observed = source.GetString() ?? "(null)";
 

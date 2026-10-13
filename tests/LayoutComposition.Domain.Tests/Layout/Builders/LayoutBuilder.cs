@@ -72,7 +72,7 @@ public sealed class LayoutBuilder
 
     public Domain.Layout.Layout Build()
     {
-        IReadOnlyList<Tile> resolvedTiles = tiles
+        var resolvedTiles = tiles
             ?? new[] { new Tile(camera, overlay, GridPosition.From(0, 0)) };
         return Domain.Layout.Layout.CreateDraft(fab, name, grid, resolvedTiles, createdBy, clock);
     }

@@ -1,5 +1,4 @@
 using System.Globalization;
-using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
@@ -38,7 +37,7 @@ public class ListSourceModesQueryHandlerTests
         ];
         ListSourceModesQueryHandler handler = new(new TestSourceModeQuerySource(seed));
 
-        Result<IReadOnlyList<SourceModeDto>, ListSourceModesError> result =
+        var result =
             await handler.HandleAsync(new ListSourceModesQuery([Dresden]), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -52,7 +51,7 @@ public class ListSourceModesQueryHandlerTests
         SourceMode[] seed = [BuildDeclared(Source.Manual, "dresden"), BuildDeclared(Source.Manual, "munich")];
         ListSourceModesQueryHandler handler = new(new TestSourceModeQuerySource(seed));
 
-        Result<IReadOnlyList<SourceModeDto>, ListSourceModesError> result =
+        var result =
             await handler.HandleAsync(new ListSourceModesQuery([Dresden]), CancellationToken.None);
 
         result.Value.ShouldHaveSingleItem().Fab.ShouldBe("dresden");
@@ -61,11 +60,11 @@ public class ListSourceModesQueryHandlerTests
     [Fact]
     public async Task Listing_carries_the_version_of_each_entry()
     {
-        SourceMode sourceMode = BuildDeclared(Source.Manual);
+        var sourceMode = BuildDeclared(Source.Manual);
         AggregateVersions.SetTo(sourceMode, 5);
         ListSourceModesQueryHandler handler = new(new TestSourceModeQuerySource([sourceMode]));
 
-        Result<IReadOnlyList<SourceModeDto>, ListSourceModesError> result =
+        var result =
             await handler.HandleAsync(new ListSourceModesQuery([Dresden]), CancellationToken.None);
 
         result.Value.ShouldHaveSingleItem().Version.ShouldBe(5);

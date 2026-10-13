@@ -3,7 +3,6 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Integration.Tests.Identity;
-using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
 
@@ -48,28 +47,28 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_hero_and_thumbnails_wall_is_accepted_and_its_spans_are_read_back()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(6);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(6);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", HeroWallBody(UniqueName(), cameras));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement revision = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var revision = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0];
         revision.GetProperty("gridRows").GetInt32().ShouldBe(3);
         revision.GetProperty("gridCols").GetInt32().ShouldBe(3);
 
-        JsonElement tiles = revision.GetProperty("tiles");
-        JsonElement hero = tiles.EnumerateArray().Single(
+        var tiles = revision.GetProperty("tiles");
+        var hero = tiles.EnumerateArray().Single(
             tile => tile.GetProperty("row").GetInt32() == 0 && tile.GetProperty("col").GetInt32() == 0);
         hero.GetProperty("rowSpan").GetInt32().ShouldBe(2);
         hero.GetProperty("colSpan").GetInt32().ShouldBe(2);
 
-        foreach (JsonElement tile in tiles.EnumerateArray())
+        foreach (var tile in tiles.EnumerateArray())
         {
             if (tile.GetProperty("row").GetInt32() == 0 && tile.GetProperty("col").GetInt32() == 0)
             {
@@ -84,10 +83,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_full_3x3_of_single_tiles_is_accepted_at_the_new_cap()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(9);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(9);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", FullGridBody(UniqueName(), cameras));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
@@ -100,10 +99,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Omitted_spans_mean_1x1()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -112,11 +111,11 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
                 tiles = new[] { new { cameraIdentifier = camera, overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
             });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement tile = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var tile = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0].GetProperty("tiles")[0];
 
         tile.GetProperty("rowSpan").GetInt32().ShouldBe(1);
@@ -126,26 +125,26 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Publishing_the_hero_wall_carries_its_spans_on_the_audited_LayoutRevisionPublishedV2()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(6);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(6);
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", HeroWallBody(UniqueName(), cameras));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
+        var published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
         published.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(published));
 
-        using HttpClient auditReader = await aspire.CreateAuthenticatedClientAsync(
+        using var auditReader = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "operator", SeededCredentials.Operator);
-        JsonElement row = await PollForPublishedAuditRowAsync(auditReader, layoutIdentifier);
+        var row = await PollForPublishedAuditRowAsync(auditReader, layoutIdentifier);
 
         // The raw audit payload column is JsonSerializer.Serialize(message, message.GetType())
         // with no options (IntegrationEventAuditHandler.AuditAsync) -- PascalCase, unlike the
         // live HTTP API's camelCase (ASP.NET default), confirmed by the established convention
         // in UnresolvedFabAuditRowIntegrationTests.ParsePayload(row).GetProperty("ToState").
-        JsonElement payload = JsonDocument.Parse(row.GetProperty("payload").GetString()!).RootElement;
-        JsonElement hero = payload.GetProperty("Tiles").EnumerateArray().Single(
+        var payload = JsonDocument.Parse(row.GetProperty("payload").GetString()!).RootElement;
+        var hero = payload.GetProperty("Tiles").EnumerateArray().Single(
             tile => tile.GetProperty("Row").GetInt32() == 0 && tile.GetProperty("Col").GetInt32() == 0);
         hero.GetProperty("RowSpan").GetInt32().ShouldBe(2);
         hero.GetProperty("ColSpan").GetInt32().ShouldBe(2);
@@ -154,23 +153,23 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Branching_a_published_hero_wall_keeps_its_spans()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(6);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(6);
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", HeroWallBody(UniqueName(), cameras));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
         (await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        HttpResponseMessage branched = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
+        var branched = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(branched));
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
-        JsonElement revisions = (await fetched.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("revisions");
-        JsonElement draftRevision = revisions.EnumerateArray()
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var revisions = (await fetched.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("revisions");
+        var draftRevision = revisions.EnumerateArray()
             .Single(revision => revision.GetProperty("revisionNumber").GetInt32() == 2);
-        JsonElement hero = draftRevision.GetProperty("tiles").EnumerateArray().Single(
+        var hero = draftRevision.GetProperty("tiles").EnumerateArray().Single(
             tile => tile.GetProperty("row").GetInt32() == 0 && tile.GetProperty("col").GetInt32() == 0);
         hero.GetProperty("rowSpan").GetInt32().ShouldBe(2);
         hero.GetProperty("colSpan").GetInt32().ShouldBe(2);
@@ -187,9 +186,9 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_tile_row_written_before_the_migration_reads_as_1x1()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid firstCamera = await LayoutRequests.RegisterCameraAsync(aspire);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var firstCamera = await LayoutRequests.RegisterCameraAsync(aspire);
+        var created = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -201,16 +200,16 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
                 },
             });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        Guid secondCamera = await LayoutRequests.RegisterCameraAsync(aspire);
+        var secondCamera = await LayoutRequests.RegisterCameraAsync(aspire);
         await InsertRawTileNamingNoSpanColumnAsync(layoutIdentifier, secondCamera, row: 0, col: 1);
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement tiles = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var tiles = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0].GetProperty("tiles");
-        JsonElement rawTile = tiles.EnumerateArray().Single(tile => tile.GetProperty("col").GetInt32() == 1);
+        var rawTile = tiles.EnumerateArray().Single(tile => tile.GetProperty("col").GetInt32() == 1);
 
         rawTile.GetProperty("rowSpan").GetInt32().ShouldBe(1);
         rawTile.GetProperty("colSpan").GetInt32().ShouldBe(1);
@@ -219,10 +218,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Two_intersecting_spans_are_refused_as_LAYOUT_TILE_OVERLAP()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(2);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(2);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
+        var response = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -236,7 +235,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_TILE_OVERLAP");
     }
 
@@ -249,10 +248,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Two_1x1_tiles_sharing_an_origin_are_refused_as_LAYOUT_TILE_OVERLAP()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(2);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(2);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
+        var response = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -266,17 +265,17 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_TILE_OVERLAP");
     }
 
     [Fact]
     public async Task A_span_that_runs_off_the_grid_is_refused_as_LAYOUT_TILE_OUT_OF_BOUNDS()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
+        var response = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -286,7 +285,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_TILE_OUT_OF_BOUNDS");
     }
 
@@ -295,10 +294,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [InlineData(1, -1)]
     public async Task A_zero_or_negative_span_is_refused_as_LAYOUT_INVALID_INPUT(int rowSpan, int colSpan)
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
+        var response = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -308,7 +307,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
     }
 
@@ -320,10 +319,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_2x5_grid_is_refused_as_LAYOUT_INVALID_INPUT()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
+        var response = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -333,7 +332,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
     }
 
@@ -341,10 +340,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_4x3_grid_is_refused_as_LAYOUT_INVALID_INPUT()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        HttpResponseMessage response = await layouts.PostAsJsonAsync(
+        var response = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -354,7 +353,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
     }
 
@@ -370,12 +369,12 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_stale_If_Match_on_the_hero_wall_is_refused_and_keeps_its_spans()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] cameras = await RegisterCamerasAsync(6);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var cameras = await RegisterCamerasAsync(6);
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", HeroWallBody(UniqueName(), cameras));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
         HttpRequestMessage patch = new(HttpMethod.Patch, $"/layouts/{layoutIdentifier}/revisions/1")
         {
@@ -386,12 +385,12 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             }),
         };
         patch.Headers.TryAddWithoutValidation("If-Match", "\"999\"");
-        HttpResponseMessage response = await layouts.SendAsync(patch);
+        var response = await layouts.SendAsync(patch);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(response));
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
-        JsonElement hero = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var hero = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0].GetProperty("tiles").EnumerateArray().Single(
                 tile => tile.GetProperty("row").GetInt32() == 0 && tile.GetProperty("col").GetInt32() == 0);
         hero.GetProperty("rowSpan").GetInt32().ShouldBe(2);
@@ -402,7 +401,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Anonymous_POST_returns_401()
     {
-        HttpResponseMessage response = await aspire.LayoutComposition.PostAsJsonAsync(
+        var response = await aspire.LayoutComposition.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -425,17 +424,17 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_caller_without_sse_layouts_write_is_refused_403()
     {
-        string clientId = $"tile-span-probe-{Guid.CreateVersion7():N}";
+        var clientId = $"tile-span-probe-{Guid.CreateVersion7():N}";
         await realm.PlantPasswordGrantClientAsync(clientId, ProbeScopes, CancellationToken.None);
 
         try
         {
-            string token = await aspire.GetAccessTokenForClientAsync(
+            var token = await aspire.GetAccessTokenForClientAsync(
                 clientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, "openid");
-            using HttpClient layouts = aspire.CreateServiceClient("layout-composition");
+            using var layouts = aspire.CreateServiceClient("layout-composition");
             layouts.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            HttpResponseMessage response = await layouts.PostAsJsonAsync(
+            var response = await layouts.PostAsJsonAsync(
                 "/layouts",
                 new
                 {
@@ -456,8 +455,8 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<Guid[]> RegisterCamerasAsync(int count)
     {
-        Guid[] cameras = new Guid[count];
-        for (int i = 0; i < count; i++)
+        var cameras = new Guid[count];
+        for (var i = 0; i < count; i++)
         {
             cameras[i] = await LayoutRequests.RegisterCameraAsync(aspire);
         }
@@ -483,10 +482,10 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     private static object FullGridBody(string name, Guid[] cameras)
     {
         List<object> tiles = [];
-        int index = 0;
-        for (int row = 0; row < 3; row++)
+        var index = 0;
+        for (var row = 0; row < 3; row++)
         {
-            for (int col = 0; col < 3; col++)
+            for (var col = 0; col < 3; col++)
             {
                 tiles.Add(Tile(cameras[index], row, col));
                 index++;
@@ -513,15 +512,15 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<JsonElement> PollForPublishedAuditRowAsync(HttpClient auditReader, Guid layoutIdentifier)
     {
-        string query = $"/audit?eventKind=LayoutRevisionPublishedV2&resourceIdentifier={layoutIdentifier}&pageSize=10";
+        var query = $"/audit?eventKind=LayoutRevisionPublishedV2&resourceIdentifier={layoutIdentifier}&pageSize=10";
 
-        for (int attempt = 0; attempt < 40; attempt++)
+        for (var attempt = 0; attempt < 40; attempt++)
         {
-            HttpResponseMessage response = await auditReader.GetAsync(query);
+            var response = await auditReader.GetAsync(query);
             response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
-            JsonElement rows = page.GetProperty("rows");
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var rows = page.GetProperty("rows");
             if (rows.GetArrayLength() >= 1)
             {
                 return rows[0];
@@ -542,7 +541,7 @@ public class TileSpanIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task InsertRawTileNamingNoSpanColumnAsync(Guid layoutIdentifier, Guid camera, int row, int col)
     {
-        await using LayoutCompositionDbContext db = await aspire.CreateLayoutCompositionDbContextAsync();
+        await using var db = await aspire.CreateLayoutCompositionDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """

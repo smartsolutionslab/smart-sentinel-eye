@@ -33,7 +33,7 @@ public sealed class GetCameraQueryHandler(ICameraQuerySource cameras)
         // in Application code over introducing one and checking it.
         // GetRuleQueryHandler resolves it the same way. At most one row can
         // match — the identifier is the primary key.
-        List<Camera> matches = await cameras.Cameras
+        var matches = await cameras.Cameras
             .Where(candidate => scopedFabs.Contains(candidate.Fab) && candidate.Id == camera)
             .Take(1)
             .ToListAsync(cancellationToken);
@@ -46,7 +46,7 @@ public sealed class GetCameraQueryHandler(ICameraQuerySource cameras)
         // No filter on status. A retired camera is returned with its status
         // (FR-002) — retirement removes a camera from the default listing, not
         // from existence.
-        Camera found = matches[0];
+        var found = matches[0];
 
         return Success(new CameraDto(
             found.Id.Value,

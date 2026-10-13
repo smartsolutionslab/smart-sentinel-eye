@@ -44,7 +44,7 @@ public class RealmIdentityTests
     [Fact]
     public void Every_client_holds_the_identity_scope()
     {
-        foreach (JsonElement client in Clients())
+        foreach (var client in Clients())
         {
             DefaultScopesOf(client).ShouldContain(IdentityScope,
                 customMessage: $"client '{ClientIdOf(client)}' cannot put a subject in its access "
@@ -85,7 +85,7 @@ public class RealmIdentityTests
             .. ProvidedByKeycloak,
         ];
 
-        foreach (JsonElement client in Clients())
+        foreach (var client in Clients())
         {
             DefaultScopesOf(client).Except(defined, StringComparer.Ordinal).ShouldBeEmpty(
                 customMessage: $"client '{ClientIdOf(client)}' names a scope this realm does not "
@@ -104,9 +104,9 @@ public class RealmIdentityTests
     [Fact]
     public void No_permission_scope_carries_an_identity_mapper()
     {
-        foreach (JsonElement scope in Realm().GetProperty("clientScopes").EnumerateArray())
+        foreach (var scope in Realm().GetProperty("clientScopes").EnumerateArray())
         {
-            string name = scope.GetProperty("name").GetString() ?? string.Empty;
+            var name = scope.GetProperty("name").GetString() ?? string.Empty;
             if (!name.StartsWith("sse.", StringComparison.Ordinal))
             {
                 continue;
@@ -126,7 +126,7 @@ public class RealmIdentityTests
     [Fact]
     public void No_client_carries_its_own_mapper()
     {
-        foreach (JsonElement client in Clients())
+        foreach (var client in Clients())
         {
             client.TryGetProperty("protocolMappers", out _).ShouldBeFalse(
                 customMessage: $"client '{ClientIdOf(client)}' carries its own protocol mapper. "
@@ -142,7 +142,7 @@ public class RealmIdentityTests
     [Fact]
     public void The_identity_scope_grants_nothing_and_says_so()
     {
-        JsonElement scope = Realm().GetProperty("clientScopes").EnumerateArray()
+        var scope = Realm().GetProperty("clientScopes").EnumerateArray()
             .FirstOrDefault(candidate => candidate.GetProperty("name").GetString() == IdentityScope);
 
         scope.ValueKind.ShouldBe(JsonValueKind.Object, $"the realm should define '{IdentityScope}'");
@@ -182,11 +182,11 @@ public class RealmIdentityTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
         return JsonDocument.Parse(File.ReadAllText(path));
     }

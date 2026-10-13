@@ -134,7 +134,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             return;
         }
 
-        RtspUrl previous = Url;
+        var previous = Url;
         Url = url;
 
         Raise(new CameraAddressChangedDomainEvent(
@@ -196,7 +196,7 @@ public sealed class Camera : AggregateRoot<CameraIdentifier>
             return;
         }
 
-        CameraName previous = Name;
+        var previous = Name;
         Name = name;
 
         Raise(new CameraRenamedDomainEvent(

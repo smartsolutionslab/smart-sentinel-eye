@@ -34,13 +34,13 @@ public sealed class IngestEventCommandHandler(
         IngestEventCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        EventEnvelope envelope = command.Envelope;
+        var envelope = command.Envelope;
 
         // Hybrid-idempotency check (FR-002). The unique
         // (fab_id, event_id) constraint in Postgres is the durable
         // backstop; this round-trip avoids raising
         // FabEventIngestedV1 twice on retry.
-        bool exists = await events
+        var exists = await events
             .ExistsAsync(envelope.Fab, envelope.Identifier, cancellationToken);
         if (exists)
         {
@@ -51,9 +51,9 @@ public sealed class IngestEventCommandHandler(
         // Spec 269 FR-007 / spec 317 FR-005: redelivery outranks it (above),
         // future skew outranks it (inside Build), a strict refusal outranks a
         // hold — the admission verdict is consulted last.
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], cancellationToken);
+        var verdicts = await admission.AssessAsync([envelope], cancellationToken);
 
-        Result<EventAggregate, IngestEventError> built = Build(envelope, verdicts);
+        var built = Build(envelope, verdicts);
         if (!built.IsSuccess)
         {
             return Failure(built.Error);

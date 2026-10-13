@@ -24,7 +24,7 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
         Ensure.That(labelText).IsNotNull();
 
         List<PlaceholderResolution> resolutions = [];
-        foreach (string name in PlaceholderParser.ExtractNames(labelText))
+        foreach (var name in PlaceholderParser.ExtractNames(labelText))
         {
             VariableName parsed;
             try
@@ -37,7 +37,7 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
             // and the caller holds several, the first by fab name wins —
             // arbitrary but stable. A caller who needs one plant's answer says
             // which; the kiosk does, from the wall it displays (ADR-0145).
-            (Option<Variable> found, FabIdentifier? answeringFab) =
+            (var found, var answeringFab) =
                 await FindInAnyFabAsync(fabs, parsed, cancellationToken);
             if (!found.HasValue)
             {
@@ -48,14 +48,14 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
                 // apart. Checked here rather than in the same call as the
                 // live lookup because that would let an archived row in an
                 // earlier-ordinal fab mask a live one in a later fab.
-                PlaceholderOutcome outcome = await ExistsArchivedInAnyFabAsync(fabs, parsed, cancellationToken)
+                var outcome = await ExistsArchivedInAnyFabAsync(fabs, parsed, cancellationToken)
                     ? PlaceholderOutcome.Archived
                     : PlaceholderOutcome.Unknown;
                 resolutions.Add(new PlaceholderResolution(name, outcome, null, null));
                 continue;
             }
 
-            Variable variable = found.Value;
+            var variable = found.Value;
             if (variable.Value is VariableValue.Unset)
             {
                 // The fab it was found in, same as a Resolved row (plan.md:170)
@@ -88,9 +88,9 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
     private async Task<(Option<Variable> Variable, FabIdentifier? Fab)> FindInAnyFabAsync(
         IReadOnlyList<FabIdentifier> fabs, VariableName name, CancellationToken cancellationToken)
     {
-        foreach (FabIdentifier fab in fabs.OrderBy(candidate => candidate.Value, StringComparer.Ordinal))
+        foreach (var fab in fabs.OrderBy(candidate => candidate.Value, StringComparer.Ordinal))
         {
-            Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
+            var found = await variables.GetByNameAsync(fab, name, cancellationToken);
             if (found.HasValue)
             {
                 return (found, fab);
@@ -111,7 +111,7 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
     private async Task<bool> ExistsArchivedInAnyFabAsync(
         IReadOnlyList<FabIdentifier> fabs, VariableName name, CancellationToken cancellationToken)
     {
-        foreach (FabIdentifier fab in fabs)
+        foreach (var fab in fabs)
         {
             if (await variables.ExistsIncludingArchivedAsync(fab, name, cancellationToken))
             {

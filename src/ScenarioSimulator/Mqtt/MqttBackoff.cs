@@ -57,7 +57,7 @@ internal sealed class MqttBackoff
             return servedDelay;
         }
 
-        double seconds = Math.Min(first.TotalSeconds * Math.Pow(2, attempts - 2), cap.TotalSeconds);
+        var seconds = Math.Min(first.TotalSeconds * Math.Pow(2, attempts - 2), cap.TotalSeconds);
         servedDelay = TimeSpan.FromSeconds(seconds * Jitter());
         return servedDelay;
     }
@@ -96,7 +96,7 @@ internal sealed class MqttBackoff
     /// </summary>
     public void ResetIfHeld(TimeSpan held)
     {
-        TimeSpan yardstick = (servedDelay > TimeSpan.Zero ? servedDelay : first) * 2;
+        var yardstick = (servedDelay > TimeSpan.Zero ? servedDelay : first) * 2;
 
         if (held >= yardstick)
         {

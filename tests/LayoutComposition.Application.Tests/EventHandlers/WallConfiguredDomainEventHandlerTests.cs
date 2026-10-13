@@ -1,7 +1,6 @@
 using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
@@ -28,17 +27,17 @@ public class WallConfiguredDomainEventHandlerTests
         FakeEventBus bus = new();
         WallConfiguredDomainEventHandler handler = new(bus);
 
-        WallIdentifier wall = WallIdentifier.New();
-        LayoutIdentifier a = LayoutIdentifier.New();
-        LayoutIdentifier b = LayoutIdentifier.New();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var wall = WallIdentifier.New();
+        var a = LayoutIdentifier.New();
+        var b = LayoutIdentifier.New();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         WallConfiguredDomainEvent domainEvent = new(
             Munich, wall, WallName.From("Line 3 rotation"), [a, b], a, FixedMoment, by);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
         bus.Published.ShouldHaveSingleItem();
-        WallConfiguredV1 v1 = bus.Published.Single().ShouldBeOfType<WallConfiguredV1>();
+        var v1 = bus.Published.Single().ShouldBeOfType<WallConfiguredV1>();
         v1.Wall.ShouldBe(wall.Value);
         v1.Name.ShouldBe("Line 3 rotation");
         v1.Scenes.ShouldBe([a.Value, b.Value]);
@@ -57,7 +56,7 @@ public class WallConfiguredDomainEventHandlerTests
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        WallConfiguredV1 v1 = bus.Published.Single().ShouldBeOfType<WallConfiguredV1>();
+        var v1 = bus.Published.Single().ShouldBeOfType<WallConfiguredV1>();
         v1.Metadata.Fab.ShouldBe("munich");
     }
 }

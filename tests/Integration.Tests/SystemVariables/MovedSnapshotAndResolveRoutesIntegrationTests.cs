@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -33,10 +31,10 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_overlay_snapshot_still_resolves_at_its_new_route()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string variableName = VariableRequests.UniqueName();
+        var variableName = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name = variableName,
@@ -46,7 +44,7 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+        var overlay = await OverlayRequests.PublishWithLabelAsync(
             overlays, $"Value: {{{{{variableName}}}}}", "Rst");
 
         await PublishAMunichLayoutReferencingAsync(overlay);
@@ -55,9 +53,9 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
         // the same path.
         await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName);
 
-        HttpResponseMessage response = await variables.GetAsync(
+        var response = await variables.GetAsync(
             $"/system-variables/-/snapshot?overlayIdentifier={overlay}&fabId=munich");
-        string body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             $"GET /system-variables/-/snapshot did not answer 200. Response: {body}");
@@ -68,8 +66,8 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_resolve_preview_still_resolves_at_its_new_route()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        string name = VariableRequests.UniqueName();
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        var name = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name,
@@ -79,9 +77,9 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        HttpResponseMessage response = await variables.GetAsync(
+        var response = await variables.GetAsync(
             $"/system-variables/-/resolve?text={Uri.EscapeDataString($"{{{{{name}}}}}")}&fabId=munich");
-        string body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync();
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             $"GET /system-variables/-/resolve did not answer 200. Response: {body}");
@@ -91,9 +89,9 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
 
     private async Task PublishAMunichLayoutReferencingAsync(Guid overlay)
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name = $"Wall-{Guid.NewGuid():N}"[..16],
             grid = new { rows = 1, cols = 1 },
@@ -110,7 +108,7 @@ public class MovedSnapshotAndResolveRoutesIntegrationTests(AspireFixture aspire)
         });
         created.EnsureSuccessStatusCode();
 
-        Guid layout = await created.Content.ReadFromJsonAsync<Guid>();
+        var layout = await created.Content.ReadFromJsonAsync<Guid>();
         (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish")).EnsureSuccessStatusCode();
     }
 }

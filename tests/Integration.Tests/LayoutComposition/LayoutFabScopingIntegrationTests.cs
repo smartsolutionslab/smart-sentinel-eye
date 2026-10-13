@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -39,10 +38,10 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_single_fab_operator_has_dresden_inferred_not_the_default()
     {
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
-        string name = UniqueName();
+        using var layouts = await LayoutsFor(DresdenOperator);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", Body(name, await RegisterCameraAsync("dresden")));
+        var created = await layouts.PostAsJsonAsync("/layouts", Body(name, await RegisterCameraAsync("dresden")));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
         (await FabOfAsync(layouts, await created.Content.ReadFromJsonAsync<Guid>()))
@@ -54,21 +53,21 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     {
         // Not inferred and not tie-broken: either would file the layout under a
         // fab the operator never chose (ADR-0114).
-        using HttpClient layouts = await LayoutsFor(MultiFabOperator);
+        using var layouts = await LayoutsFor(MultiFabOperator);
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync("/layouts", Body(UniqueName(), await RegisterCameraAsync("munich")));
+        var refused = await layouts.PostAsJsonAsync("/layouts", Body(UniqueName(), await RegisterCameraAsync("munich")));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_FAB_REQUIRED");
     }
 
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient layouts = await LayoutsFor(MultiFabOperator);
+        using var layouts = await LayoutsFor(MultiFabOperator);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts?fabId=dresden", Body(UniqueName(), await RegisterCameraAsync("dresden")));
+        var created = await layouts.PostAsJsonAsync("/layouts?fabId=dresden", Body(UniqueName(), await RegisterCameraAsync("dresden")));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
         (await FabOfAsync(layouts, await created.Content.ReadFromJsonAsync<Guid>())).ShouldBe("dresden");
@@ -81,9 +80,9 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_is_refused()
     {
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
+        using var layouts = await LayoutsFor(DresdenOperator);
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync("/layouts?fabId=munich", Body(UniqueName(), await RegisterCameraAsync("dresden")));
+        var refused = await layouts.PostAsJsonAsync("/layouts?fabId=munich", Body(UniqueName(), await RegisterCameraAsync("dresden")));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
     }
@@ -92,13 +91,13 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task The_same_name_is_usable_in_two_fabs()
     {
-        using HttpClient multi = await LayoutsFor(MultiFabOperator);
-        string name = UniqueName();
+        using var multi = await LayoutsFor(MultiFabOperator);
+        var name = UniqueName();
 
         (await multi.PostAsJsonAsync("/layouts?fabId=munich", Body(name, await RegisterCameraAsync("munich"))))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage second = await multi.PostAsJsonAsync("/layouts?fabId=dresden", Body(name, await RegisterCameraAsync("dresden")));
+        var second = await multi.PostAsJsonAsync("/layouts?fabId=dresden", Body(name, await RegisterCameraAsync("dresden")));
 
         second.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(second));
     }
@@ -106,12 +105,12 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task The_same_name_is_still_refused_within_one_fab()
     {
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
-        string name = UniqueName();
+        using var layouts = await LayoutsFor(DresdenOperator);
+        var name = UniqueName();
 
         (await layouts.PostAsJsonAsync("/layouts", Body(name, await RegisterCameraAsync("dresden")))).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage second = await layouts.PostAsJsonAsync("/layouts", Body(name, await RegisterCameraAsync("dresden")));
+        var second = await layouts.PostAsJsonAsync("/layouts", Body(name, await RegisterCameraAsync("dresden")));
 
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(second));
     }
@@ -121,10 +120,10 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_dresden_operator_sees_only_dresden_layouts()
     {
-        (string inMunich, string inDresden) = await OnePerFabAsync();
+        (var inMunich, var inDresden) = await OnePerFabAsync();
 
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
-        string[] names = await NamesAsync(layouts);
+        using var layouts = await LayoutsFor(DresdenOperator);
+        var names = await NamesAsync(layouts);
 
         names.ShouldContain(inDresden);
         names.ShouldNotContain(inMunich);
@@ -133,10 +132,10 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_multi_fab_operator_sees_both_plants()
     {
-        (string inMunich, string inDresden) = await OnePerFabAsync();
+        (var inMunich, var inDresden) = await OnePerFabAsync();
 
-        using HttpClient layouts = await LayoutsFor(MultiFabOperator);
-        string[] names = await NamesAsync(layouts);
+        using var layouts = await LayoutsFor(MultiFabOperator);
+        var names = await NamesAsync(layouts);
 
         names.ShouldContain(inMunich);
         names.ShouldContain(inDresden);
@@ -150,13 +149,13 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Another_fabs_layout_is_indistinguishable_from_one_that_never_existed()
     {
-        Guid inMunich = await CreateAsync(MultiFabOperator, "?fabId=munich", UniqueName());
-        Guid neverExisted = Guid.CreateVersion7();
+        var inMunich = await CreateAsync(MultiFabOperator, "?fabId=munich", UniqueName());
+        var neverExisted = Guid.CreateVersion7();
 
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
+        using var layouts = await LayoutsFor(DresdenOperator);
 
-        HttpResponseMessage hidden = await layouts.GetAsync($"/layouts/{inMunich}");
-        HttpResponseMessage absent = await layouts.GetAsync($"/layouts/{neverExisted}");
+        var hidden = await layouts.GetAsync($"/layouts/{inMunich}");
+        var absent = await layouts.GetAsync($"/layouts/{neverExisted}");
 
         hidden.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(hidden));
         absent.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(absent));
@@ -172,13 +171,13 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Publishing_another_fabs_layout_is_reported_as_not_found()
     {
-        Guid inMunich = await CreateAsync(MultiFabOperator, "?fabId=munich", UniqueName());
+        var inMunich = await CreateAsync(MultiFabOperator, "?fabId=munich", UniqueName());
 
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
+        using var layouts = await LayoutsFor(DresdenOperator);
         HttpRequestMessage publish = new(HttpMethod.Post, $"/layouts/{inMunich}/revisions/1/publish");
         publish.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
 
-        HttpResponseMessage refused = await layouts.SendAsync(publish);
+        var refused = await layouts.SendAsync(publish);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(refused));
     }
@@ -193,13 +192,13 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_tile_naming_another_fabs_camera_is_refused()
     {
-        Guid munichCamera = await RegisterCameraAsync("munich");
+        var munichCamera = await RegisterCameraAsync("munich");
 
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync("/layouts", BodyWithCamera(UniqueName(), munichCamera));
+        using var layouts = await LayoutsFor(DresdenOperator);
+        var refused = await layouts.PostAsJsonAsync("/layouts", BodyWithCamera(UniqueName(), munichCamera));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_TILE_CAMERA_OUTSIDE_FAB");
     }
 
@@ -210,23 +209,23 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_tile_naming_a_camera_that_does_not_exist_is_refused()
     {
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
+        using var layouts = await LayoutsFor(DresdenOperator);
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync(
+        var refused = await layouts.PostAsJsonAsync(
             "/layouts", BodyWithCamera(UniqueName(), Guid.CreateVersion7()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_TILE_CAMERA_OUTSIDE_FAB");
     }
 
     [Fact]
     public async Task A_tile_naming_a_camera_in_its_own_fab_is_accepted()
     {
-        Guid dresdenCamera = await RegisterCameraAsync("dresden");
+        var dresdenCamera = await RegisterCameraAsync("dresden");
 
-        using HttpClient layouts = await LayoutsFor(DresdenOperator);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await LayoutsFor(DresdenOperator);
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", BodyWithCamera(UniqueName(), dresdenCamera));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
@@ -234,10 +233,10 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private async Task<Guid> RegisterCameraAsync(string fab)
     {
-        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+        using var cameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", MultiFabOperator, MultiFabOperatorPassword);
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             $"/cameras?fabId={fab}",
             new
             {
@@ -256,8 +255,8 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private async Task<(string InMunich, string InDresden)> OnePerFabAsync()
     {
-        string inMunich = UniqueName();
-        string inDresden = UniqueName();
+        var inMunich = UniqueName();
+        var inDresden = UniqueName();
         await CreateAsync(MultiFabOperator, "?fabId=munich", inMunich);
         await CreateAsync(MultiFabOperator, "?fabId=dresden", inDresden);
         return (inMunich, inDresden);
@@ -267,10 +266,10 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     {
         // The camera goes in the same fab the layout is created in — FR-014
         // refuses a tile naming one from anywhere else.
-        string fab = fabQuery.Contains("dresden", StringComparison.Ordinal) ? "dresden" : "munich";
+        var fab = fabQuery.Contains("dresden", StringComparison.Ordinal) ? "dresden" : "munich";
 
-        using HttpClient layouts = await LayoutsFor(username);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await LayoutsFor(username);
+        var created = await layouts.PostAsJsonAsync(
             $"/layouts{fabQuery}", Body(name, await RegisterCameraAsync(fab)));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
         return await created.Content.ReadFromJsonAsync<Guid>();
@@ -298,9 +297,9 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<string[]> NamesAsync(HttpClient layouts)
     {
-        HttpResponseMessage listed = await layouts.GetAsync("/layouts");
+        var listed = await layouts.GetAsync("/layouts");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("chains").EnumerateArray()
             .Select(row => row.GetProperty("name").GetString()!)];
@@ -308,9 +307,9 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<string> FabOfAsync(HttpClient layouts, Guid layout)
     {
-        HttpResponseMessage read = await layouts.GetAsync($"/layouts/{layout}");
+        var read = await layouts.GetAsync($"/layouts/{layout}");
         read.EnsureSuccessStatusCode();
-        JsonElement payload = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await read.Content.ReadFromJsonAsync<JsonElement>();
         return payload.GetProperty("fab").GetString()!;
     }
 
@@ -322,7 +321,7 @@ public class LayoutFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     /// </summary>
     private static async Task<string> NormalisedProblemAsync(HttpResponseMessage response, Guid requested)
     {
-        JsonNode problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        var problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
         problem.AsObject().Remove("traceId");
 
         return problem.ToJsonString()

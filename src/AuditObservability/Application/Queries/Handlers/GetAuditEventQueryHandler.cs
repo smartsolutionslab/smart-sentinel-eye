@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 
@@ -14,7 +13,7 @@ public sealed class GetAuditEventQueryHandler(IAuditEventQuerySource events)
     {
         Ensure.That(query).IsNotNull();
 
-        AuditEventEntity? row = await events.AuditEvents
+        var row = await events.AuditEvents
             .FirstOrDefaultAsync(auditEvent => auditEvent.Id == query.AuditIdentifier, cancellationToken);
 
         return row is null

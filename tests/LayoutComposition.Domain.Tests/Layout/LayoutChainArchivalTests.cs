@@ -25,7 +25,7 @@ public class LayoutChainArchivalTests
     [Fact]
     public void A_new_chain_is_not_archived()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
+        var layout = new LayoutBuilder().At(Minted).Build();
 
         layout.ArchivedAt.ShouldBeNull();
     }
@@ -33,8 +33,8 @@ public class LayoutChainArchivalTests
     [Fact]
     public void Archiving_the_only_revision_archives_the_chain()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         layout.ArchiveRevision(
             LayoutRevisionNumber.One, by, new LayoutBuilder.TestClock(Later));
@@ -51,11 +51,11 @@ public class LayoutChainArchivalTests
     [Fact]
     public void Publishing_over_the_prior_Published_revision_leaves_the_chain_live()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(Minted);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
-        Revision second = layout.BranchDraft(by, clock);
+        var second = layout.BranchDraft(by, clock);
 
         layout.Publish(second.Number, by, clock);
 
@@ -66,11 +66,11 @@ public class LayoutChainArchivalTests
     [Fact]
     public void Archiving_the_last_live_revision_archives_the_chain()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(Minted);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
-        Revision second = layout.BranchDraft(by, clock);
+        var second = layout.BranchDraft(by, clock);
         layout.Publish(second.Number, by, clock);
 
         layout.ArchivedAt.ShouldBeNull();
@@ -88,8 +88,8 @@ public class LayoutChainArchivalTests
     [Fact]
     public void Branching_a_fully_archived_chain_revives_it()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         layout.ArchiveRevision(
             LayoutRevisionNumber.One, by, new LayoutBuilder.TestClock(Later));
         layout.ArchivedAt.ShouldNotBeNull();
@@ -106,8 +106,8 @@ public class LayoutChainArchivalTests
     [Fact]
     public void Reverting_a_Published_revision_leaves_the_chain_live()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(Minted);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
@@ -124,8 +124,8 @@ public class LayoutChainArchivalTests
     [Fact]
     public void The_marker_agrees_with_the_revisions_after_every_mutation()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(Later);
         Tile[] edited = [new Tile(
             CameraIdentifier.From(Guid.CreateVersion7()),
@@ -137,7 +137,7 @@ public class LayoutChainArchivalTests
         ShouldAgree(layout);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         ShouldAgree(layout);
-        Revision second = layout.BranchDraft(by, clock);
+        var second = layout.BranchDraft(by, clock);
         ShouldAgree(layout);
         layout.Publish(second.Number, by, clock);
         ShouldAgree(layout);
@@ -151,7 +151,7 @@ public class LayoutChainArchivalTests
 
     private static void ShouldAgree(Domain.Layout.Layout layout)
     {
-        bool everyRevisionArchived = layout.Revisions.All(
+        var everyRevisionArchived = layout.Revisions.All(
             revision => revision.State == LayoutRevisionState.Archived);
 
         (layout.ArchivedAt is not null).ShouldBe(

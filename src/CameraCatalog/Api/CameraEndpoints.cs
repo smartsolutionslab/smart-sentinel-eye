@@ -1,7 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.CameraCatalog.Api.Requests;
 using SmartSentinelEye.CameraCatalog.Application.Commands;
 using SmartSentinelEye.CameraCatalog.Application.Commands.Handlers;
@@ -29,7 +26,7 @@ public static class CameraEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder writes = app.MapGroup("/cameras")
+        var writes = app.MapGroup("/cameras")
             .WithTags("Cameras")
             .RequireAuthorization(Scope.Sse.Cameras.Write);
 
@@ -100,7 +97,7 @@ public static class CameraEndpoints
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
 
-        RouteGroupBuilder reads = app.MapGroup("/cameras")
+        var reads = app.MapGroup("/cameras")
             .WithTags("Cameras")
             .RequireAuthorization(Scope.Sse.Cameras.Read);
 
@@ -145,10 +142,10 @@ public static class CameraEndpoints
         Ensure.That(request).IsNotNull();
         Ensure.That(httpContext).IsNotNull();
 
-        RegisterCameraCommandHandler handler = services.Handler;
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        var handler = services.Handler;
+        var fabGuard = services.FabGuard;
 
-        if (!IdempotencyHeaders.TryRead(httpContext.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(httpContext.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -167,16 +164,16 @@ public static class CameraEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
-        OperatorIdentifier registeredBy = ResolveOperator(httpContext);
+        var registeredBy = ResolveOperator(httpContext);
 
         RegisterCameraCommand command = new(fab, name, url, registeredBy);
 
@@ -215,18 +212,18 @@ public static class CameraEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
         RetireCameraCommand command = new(fab, CameraIdentifier.From(camera), ResolveOperator(httpContext));
 
-        Result<CameraIdentifier, RetireCameraError> result =
+        var result =
             await handler.HandleAsync(command, cancellationToken);
 
         // 204 rather than 200: nothing useful comes back. The caller asked for
@@ -254,23 +251,23 @@ public static class CameraEndpoints
         // another fab's camera would confirm that camera exists, which is the
         // enumeration FR-006 exists to prevent. The cheap checks are the
         // tempting ones to hoist; they must stay below this.
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(
-                httpContext.Request, out int expectedVersion, out IResult? precondition))
+                httpContext.Request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        bool changingAddress = !string.IsNullOrWhiteSpace(request.RtspUrl);
-        bool changingName = !string.IsNullOrWhiteSpace(request.Name);
+        var changingAddress = !string.IsNullOrWhiteSpace(request.RtspUrl);
+        var changingName = !string.IsNullOrWhiteSpace(request.Name);
 
         // Exactly one. Each attribute has its own command and its own If-Match
         // check, so a request carrying both would need the second to see a
@@ -286,8 +283,8 @@ public static class CameraEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        CameraIdentifier identifier = CameraIdentifier.From(camera);
-        OperatorIdentifier actor = ResolveOperator(httpContext);
+        var identifier = CameraIdentifier.From(camera);
+        var actor = ResolveOperator(httpContext);
 
         if (changingName)
         {
@@ -304,7 +301,7 @@ public static class CameraEndpoints
                     statusCode: StatusCodes.Status400BadRequest);
             }
 
-            Result<CameraIdentifier, RenameCameraError> renamed = await renameHandler.HandleAsync(
+            var renamed = await renameHandler.HandleAsync(
                 new RenameCameraCommand(fab, identifier, name, expectedVersion, actor),
                 cancellationToken);
 
@@ -329,7 +326,7 @@ public static class CameraEndpoints
         ChangeCameraAddressCommand command = new(
             fab, identifier, url, expectedVersion, actor);
 
-        Result<CameraIdentifier, ChangeCameraAddressError> result =
+        var result =
             await addressHandler.HandleAsync(command, cancellationToken);
 
         // 204 rather than 200: the caller asked for the address to be a
@@ -352,18 +349,18 @@ public static class CameraEndpoints
         // Fab first, before anything else is evaluated (FR-007). Nothing about
         // the camera is looked at until the caller's fabs are known, so a
         // refusal cannot be shaped by whether the camera happens to exist.
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
         GetCameraQuery query = new(fabs, CameraIdentifier.From(camera));
 
-        Result<CameraDto, GetCameraError> result =
+        var result =
             await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(
@@ -393,14 +390,14 @@ public static class CameraEndpoints
         // error, and an operator needs to tell it from a request they got wrong.
         [FromQuery] string? name = null)
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
         ListCamerasQuery query = new(
             Fabs: fabs,
@@ -411,7 +408,7 @@ public static class CameraEndpoints
             IncludeRetired: includeRetired,
             NameFragment: name);
 
-        Result<CameraListPageDto, ListCamerasError> result =
+        var result =
             await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(
@@ -425,19 +422,19 @@ public static class CameraEndpoints
         // System.IdentityModel.Tokens.Jwt remapped it (MapInboundClaims=true ->
         // NameIdentifier URI; false -> raw "sub"). Try the common variants and,
         // as a last resort, the first Guid-valued claim on the principal.
-        string? subject =
+        var subject =
             httpContext.User.FindFirst("sub")?.Value
             ?? httpContext.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
             ?? httpContext.User.FindFirst("nameid")?.Value;
 
         if (subject is null)
         {
-            string allClaims = string.Join(", ", httpContext.User.Claims.Select(claim => $"{claim.Type}={claim.Value}"));
+            var allClaims = string.Join(", ", httpContext.User.Claims.Select(claim => $"{claim.Type}={claim.Value}"));
             throw new InvalidOperationException(
                 $"Authenticated principal is missing the subject claim. Available claims: {allClaims}");
         }
 
-        if (!Guid.TryParse(subject, out Guid subjectId))
+        if (!Guid.TryParse(subject, out var subjectId))
         {
             throw new InvalidOperationException($"Subject claim is not a valid Guid: {subject}.");
         }
@@ -457,7 +454,7 @@ public static class CameraEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "CAMERA_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
@@ -493,11 +490,11 @@ public static class CameraEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> resolved =
+        var resolved =
             await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
 
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in resolved)
+        foreach (var candidate in resolved)
         {
             try
             {

@@ -80,7 +80,7 @@ public sealed record IngestRunConditions(
         // a reader of a printed block cannot otherwise tell a level somebody
         // picked from one the appsettings happened to supply, and only one of
         // those two is a condition anybody chose to measure under.
-        string level = LogLevelWasChosen
+        var level = LogLevelWasChosen
             ? LogLevel
             : $"{LogLevel} (inherited from the appsettings; nobody chose it for this run)";
 

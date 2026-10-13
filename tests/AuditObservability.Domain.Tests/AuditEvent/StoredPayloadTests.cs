@@ -10,7 +10,7 @@ public class StoredPayloadTests
     [Fact]
     public void Derives_its_size_from_its_content()
     {
-        StoredPayload payload = StoredPayload.From(Multibyte);
+        var payload = StoredPayload.From(Multibyte);
 
         payload.Content.Value.ShouldBe(Multibyte);
         payload.Size.Value.ShouldBe(Encoding.UTF8.GetByteCount(Multibyte));

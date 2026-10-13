@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -47,12 +46,12 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task An_overlay_used_only_in_dresden_reaches_dresden_and_not_munich()
     {
-        Guid overlay = await CreatePublishedOverlayAsync();
+        var overlay = await CreatePublishedOverlayAsync();
         await ReferenceFromAPublishedLayoutAsync(overlay, DresdenOperator, "dresden");
 
-        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<Guid>> dresdenFrames) =
+        (var dresden, var dresdenFrames) =
             await ListenAsync(await TokenForAsync(DresdenOperator));
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<Guid>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
 
         await using (dresden)
@@ -77,11 +76,11 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task An_overlay_no_layout_references_reaches_nobody()
     {
-        Guid overlay = await CreatePublishedOverlayAsync();
+        var overlay = await CreatePublishedOverlayAsync();
 
-        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<Guid>> dresdenFrames) =
+        (var dresden, var dresdenFrames) =
             await ListenAsync(await TokenForAsync(DresdenOperator));
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<Guid>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
 
         await using (dresden)
@@ -102,10 +101,10 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task An_overlay_referenced_only_by_a_draft_reaches_nobody()
     {
-        Guid overlay = await CreatePublishedOverlayAsync();
+        var overlay = await CreatePublishedOverlayAsync();
         await ReferenceFromADraftLayoutAsync(overlay, DresdenOperator);
 
-        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<Guid>> dresdenFrames) =
+        (var dresden, var dresdenFrames) =
             await ListenAsync(await TokenForAsync(DresdenOperator));
 
         await using (dresden)
@@ -122,7 +121,7 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     private async Task<(HubConnection Connection, ConcurrentDictionary<Guid, TaskCompletionSource<Guid>> Frames)>
         ListenAsync(string accessToken)
     {
-        HubConnection connection = new HubConnectionBuilder()
+        var connection = new HubConnectionBuilder()
             .WithUrl(aspire.HubUri("layout-composition", LayoutLifecycleHub.Path), options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken);
@@ -134,7 +133,7 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
             nameof(ILayoutLifecycleClient.OverlayRevisionPublished),
             payload =>
             {
-                Guid overlay = payload.GetProperty("overlay").GetGuid();
+                var overlay = payload.GetProperty("overlay").GetGuid();
                 frames.GetOrAdd(overlay, _ => new()).TrySetResult(overlay);
             });
 
@@ -150,9 +149,9 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
 
     private async Task<Guid> CreatePublishedOverlayAsync()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
+        var created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"Ovl-{Guid.NewGuid():N}"[..16],
             elements = new[]
@@ -172,7 +171,7 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
         });
         created.EnsureSuccessStatusCode();
 
-        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlay = await created.Content.ReadFromJsonAsync<Guid>();
         (await OverlayRequests.PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
         return overlay;
     }
@@ -180,14 +179,14 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     /// <summary>Publishes a fresh revision, which is what emits the frame.</summary>
     private async Task PublishNextRevisionAsync(Guid overlay)
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
         (await OverlayRequests.PostAsync(overlays, overlay, "draft")).EnsureSuccessStatusCode();
         (await OverlayRequests.PostAsync(overlays, overlay, "revisions/2/publish")).EnsureSuccessStatusCode();
     }
 
     private async Task ReferenceFromAPublishedLayoutAsync(Guid overlay, string username, string fab)
     {
-        (HttpClient layouts, Guid layout) = await CreateReferencingDraftAsync(overlay, username, fab);
+        (var layouts, var layout) = await CreateReferencingDraftAsync(overlay, username, fab);
         using (layouts)
         {
             (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish")).EnsureSuccessStatusCode();
@@ -196,17 +195,17 @@ public class OverlayFrameFabScopingIntegrationTests(AspireFixture aspire) : IAsy
 
     private async Task ReferenceFromADraftLayoutAsync(Guid overlay, string username)
     {
-        (HttpClient layouts, _) = await CreateReferencingDraftAsync(overlay, username, "dresden");
+        (var layouts, _) = await CreateReferencingDraftAsync(overlay, username, "dresden");
         layouts.Dispose();
     }
 
     private async Task<(HttpClient Layouts, Guid Layout)> CreateReferencingDraftAsync(
         Guid overlay, string username, string fab)
     {
-        HttpClient layouts = await aspire.CreateAuthenticatedClientAsync(
+        var layouts = await aspire.CreateAuthenticatedClientAsync(
             "layout-composition", username, OperatorPassword);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name = $"Ref-{Guid.NewGuid():N}"[..16],
             grid = new { rows = 1, cols = 1 },

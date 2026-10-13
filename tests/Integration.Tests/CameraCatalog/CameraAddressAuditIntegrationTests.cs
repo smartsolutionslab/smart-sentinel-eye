@@ -1,10 +1,7 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
@@ -33,12 +30,12 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task A_correction_is_audited_once_and_names_the_operator()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
 
         await CorrectAsync(cameras, camera, CorrectedUrl);
 
-        (Guid Actor, string PreviousUrl, string Url) audited = await PollForAuditAsync(camera);
+        var audited = await PollForAuditAsync(camera);
 
         audited.Url.ShouldBe(CorrectedUrl);
         audited.PreviousUrl.ShouldNotBe(CorrectedUrl, "the trail records what changed, not merely that it did");
@@ -57,8 +54,8 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Re_submitting_the_same_address_adds_no_second_audit_row()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
 
         await CorrectAsync(cameras, camera, CorrectedUrl);
         await PollForAuditAsync(camera);
@@ -80,9 +77,9 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private static async Task CorrectAsync(HttpClient cameras, Guid camera, string rtspUrl)
     {
-        HttpResponseMessage read = await cameras.GetAsync($"/cameras/{camera}");
+        var read = await cameras.GetAsync($"/cameras/{camera}");
         read.EnsureSuccessStatusCode();
-        int version = (await read.Content.ReadFromJsonAsync<JsonElement>())
+        var version = (await read.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("version").GetInt32();
 
         HttpRequestMessage request = new(HttpMethod.Patch, $"/cameras/{camera}")
@@ -96,12 +93,12 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private async Task<(Guid Actor, string PreviousUrl, string Url)> PollForAuditAsync(Guid camera)
     {
-        for (int attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
-            await using AuditObservabilityDbContext context =
+            await using var context =
                 await aspire.CreateAuditObservabilityDbContextAsync();
 
-            List<string> rows = await context.Database
+            var rows = await context.Database
                 .SqlQuery<string>($"""
                     SELECT actor_identifier::text || '|' || (payload->>'PreviousUrl') || '|' || (payload->>'Url') AS "Value"
                     FROM audit_events
@@ -112,7 +109,7 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
             if (rows.Count > 0)
             {
-                string[] parts = rows[0].Split('|');
+                var parts = rows[0].Split('|');
                 return (Guid.Parse(parts[0]), parts[1], parts[2]);
             }
 
@@ -124,10 +121,10 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private async Task<int> CountAsync(Guid camera)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> rows = await context.Database
+        var rows = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM audit_events
@@ -141,9 +138,9 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras)
     {
-        string name = $"audit-{Guid.CreateVersion7():N}"[..24];
+        var name = $"audit-{Guid.CreateVersion7():N}"[..24];
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
+        var created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
             rtspUrl = "rtsp://10.0.5.12/h264",

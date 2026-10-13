@@ -43,7 +43,7 @@ public class StampedClientQueryTests
     {
         StubKeycloakHandler keycloak = new((_, _) => AllClients);
 
-        IReadOnlyList<StampedClient> stamped = await ClientOver(keycloak)
+        var stamped = await ClientOver(keycloak)
             .GetStampedClientsAsync(CancellationToken.None);
 
         stamped.ShouldBe(

@@ -7,7 +7,7 @@ public class RtspUrlTests
     [Fact]
     public void From_with_a_valid_rtsp_url_returns_the_value()
     {
-        RtspUrl url = RtspUrl.From("rtsp://10.0.5.12:554/h264");
+        var url = RtspUrl.From("rtsp://10.0.5.12:554/h264");
 
         url.Value.ShouldBe("rtsp://10.0.5.12:554/h264");
     }
@@ -36,7 +36,7 @@ public class RtspUrlTests
     [Fact]
     public void From_with_a_url_longer_than_the_maximum_fails()
     {
-        string tooLong = "rtsp://" + new string('x', RtspUrl.MaximumLength);
+        var tooLong = "rtsp://" + new string('x', RtspUrl.MaximumLength);
 
         Action act = () => RtspUrl.From(tooLong);
 
@@ -47,7 +47,7 @@ public class RtspUrlTests
     public void From_accepts_an_uppercase_scheme_prefix()
     {
         // RFC 7826 lets schemes be case-insensitive. We preserve original casing.
-        RtspUrl url = RtspUrl.From("RTSP://camera.local/stream");
+        var url = RtspUrl.From("RTSP://camera.local/stream");
 
         url.Value.ShouldBe("RTSP://camera.local/stream");
     }

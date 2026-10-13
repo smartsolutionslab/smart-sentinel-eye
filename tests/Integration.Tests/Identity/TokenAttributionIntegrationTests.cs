@@ -1,6 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Net.Http.Json;
-using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.Identity;
@@ -37,7 +35,7 @@ public class TokenAttributionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_minted_token_carries_a_subject()
     {
-        string token = await aspire.GetAccessTokenAsync(
+        var token = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         SubjectOf(token).ShouldNotBeNullOrWhiteSpace(
@@ -48,13 +46,13 @@ public class TokenAttributionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_write_made_with_a_minted_token_is_attributed_rather_than_refused()
     {
-        string token = await aspire.GetAccessTokenAsync(
+        var token = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
-        using HttpClient overlays = aspire.CreateServiceClient("overlay-designer");
+        using var overlays = aspire.CreateServiceClient("overlay-designer");
         overlays.DefaultRequestHeaders.Authorization = new("Bearer", token);
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
+        var created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"attribution-{Guid.NewGuid():N}"[..24],
             elements = new[]
@@ -87,10 +85,10 @@ public class TokenAttributionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_subject_is_shaped_like_an_operator_identifier()
     {
-        string token = await aspire.GetAccessTokenAsync(
+        var token = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
-        Guid.TryParse(SubjectOf(token), out Guid subject).ShouldBeTrue(
+        Guid.TryParse(SubjectOf(token), out var subject).ShouldBeTrue(
             "ToOperatorIdentifier parses sub as a Guid and throws when it cannot.");
         subject.ShouldNotBe(Guid.Empty);
     }

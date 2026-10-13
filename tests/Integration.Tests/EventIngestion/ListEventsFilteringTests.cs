@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -45,11 +44,11 @@ public class ListEventsFilteringTests(AspireFixture aspire)
     [Fact]
     public async Task Each_filter_narrows_to_the_events_it_names()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string kind = UniqueKind("Filter");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var kind = UniqueKind("Filter");
 
-        DateTimeOffset old = DateTimeOffset.UtcNow.AddHours(-2);
-        DateTimeOffset recent = DateTimeOffset.UtcNow.AddMinutes(-1);
+        var old = DateTimeOffset.UtcNow.AddHours(-2);
+        var recent = DateTimeOffset.UtcNow.AddMinutes(-1);
 
         await SeedAsync(events, kind, device: "press-01", occurredAt: old);
         await SeedAsync(events, kind, device: "press-01", occurredAt: recent);
@@ -60,7 +59,7 @@ public class ListEventsFilteringTests(AspireFixture aspire)
         (await ListAsync(events, $"kind={kind}")).Count.ShouldBe(3);
 
         // Device.
-        IReadOnlyList<JsonElement> press01 = await ListAsync(events, $"kind={kind}&deviceId=press-01");
+        var press01 = await ListAsync(events, $"kind={kind}&deviceId=press-01");
         press01.Count.ShouldBe(2, "the device filter did not narrow to the device it names");
         press01.ShouldAllBe(e => e.GetProperty("device").GetString() == "press-01");
 
@@ -70,11 +69,11 @@ public class ListEventsFilteringTests(AspireFixture aspire)
             0, "a kind no event carries returned events anyway");
 
         // Occurred-at window.
-        IReadOnlyList<JsonElement> since = await ListAsync(
+        var since = await ListAsync(
             events, $"kind={kind}&occurredAfter={Iso(old.AddMinutes(1))}");
         since.Count.ShouldBe(2, "the occurredAfter filter did not exclude the older event");
 
-        IReadOnlyList<JsonElement> before = await ListAsync(
+        var before = await ListAsync(
             events, $"kind={kind}&occurredBefore={Iso(old.AddMinutes(1))}");
         before.Count.ShouldBe(1, "the occurredBefore filter did not exclude the newer events");
 
@@ -99,35 +98,35 @@ public class ListEventsFilteringTests(AspireFixture aspire)
     [Fact]
     public async Task Paging_through_a_set_yields_every_event_exactly_once()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string kind = UniqueKind("Page");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var kind = UniqueKind("Page");
         const int seeded = 7;
         const int pageSize = 2;
 
-        for (int i = 0; i < seeded; i++)
+        for (var i = 0; i < seeded; i++)
         {
             await SeedAsync(events, kind, device: $"line-{i}", occurredAt: DateTimeOffset.UtcNow);
         }
 
         List<Guid> walked = [];
         string? cursor = null;
-        int pages = 0;
+        var pages = 0;
 
         do
         {
-            string query = $"kind={kind}&pageSize={pageSize}"
+            var query = $"kind={kind}&pageSize={pageSize}"
                 + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
 
-            HttpResponseMessage response = await events.GetAsync($"/events?fabId={Fab}&{query}");
+            var response = await events.GetAsync($"/events?fabId={Fab}&{query}");
             response.EnsureSuccessStatusCode();
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-            foreach (JsonElement item in page.GetProperty("items").EnumerateArray())
+            foreach (var item in page.GetProperty("items").EnumerateArray())
             {
                 walked.Add(item.GetProperty("eventIdentifier").GetGuid());
             }
 
-            cursor = page.TryGetProperty("nextCursor", out JsonElement next)
+            cursor = page.TryGetProperty("nextCursor", out var next)
                 && next.ValueKind == JsonValueKind.String
                     ? next.GetString()
                     : null;
@@ -164,7 +163,7 @@ public class ListEventsFilteringTests(AspireFixture aspire)
     private static async Task SeedAsync(
         HttpClient events, string kind, string device, DateTimeOffset occurredAt)
     {
-        HttpResponseMessage filed = await events.PostAsJsonAsync(
+        var filed = await events.PostAsJsonAsync(
             $"/events/manual?fabId={Fab}",
             new
             {
@@ -179,10 +178,10 @@ public class ListEventsFilteringTests(AspireFixture aspire)
 
     private static async Task<IReadOnlyList<JsonElement>> ListAsync(HttpClient events, string query)
     {
-        HttpResponseMessage response = await events.GetAsync($"/events?fabId={Fab}&{query}&pageSize=100");
+        var response = await events.GetAsync($"/events?fabId={Fab}&{query}&pageSize=100");
         response.EnsureSuccessStatusCode();
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         return [.. page.GetProperty("items").EnumerateArray()];
     }
 }

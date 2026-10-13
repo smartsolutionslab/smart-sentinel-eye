@@ -75,19 +75,19 @@ public class InteractionStateTests
     [Fact]
     public void Every_scanned_tree_exists_and_is_non_empty()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach (string tree in ScannedSrcTrees)
+        foreach (var tree in ScannedSrcTrees)
         {
-            string full = Path.Combine(root.FullName, tree);
+            var full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))
             {
                 problems.Add($"{tree} does not exist.");
                 continue;
             }
 
-            bool hasAnyFile = Directory
+            var hasAnyFile = Directory
                 .EnumerateFiles(full, "*", SearchOption.AllDirectories)
                 .Any(file => file.EndsWith(".ts", StringComparison.Ordinal) || file.EndsWith(".tsx", StringComparison.Ordinal));
 
@@ -113,12 +113,12 @@ public class InteractionStateTests
     [Fact]
     public void No_opacity_utility_behind_an_interaction_state_variant()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
-            string content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in OpacityBehindStateVariant.Matches(content))
             {
@@ -142,12 +142,12 @@ public class InteractionStateTests
     [Fact]
     public void No_triad_colour_draws_a_focus_indicator()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
-            string content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in TriadFocusIndicator.Matches(content))
             {
@@ -169,12 +169,12 @@ public class InteractionStateTests
     [Fact]
     public void No_box_shadow_draws_a_focus_ring()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
-            string content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in BoxShadowFocusRing.Matches(content))
             {
@@ -200,23 +200,23 @@ public class InteractionStateTests
     [Fact]
     public void Every_focus_outline_carries_the_full_recipe()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
-            string content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             // TypeScriptSource joins each source string literal on its own line;
             // re-joining with a space reconstructs one class "soup" per file, so
             // a recipe split across concatenated literals (Button.tsx's `base`,
             // built from three `'...' + '...' + '...'` segments) is still seen
             // as one utility list, exactly as it renders at runtime.
-            string classSoup = content.Replace('\n', ' ');
+            var classSoup = content.Replace('\n', ' ');
 
             HashSet<string> prefixes = [.. FocusOutlinePrefix.Matches(classSoup).Select(match => match.Groups["prefix"].Value)];
 
-            foreach (string prefix in prefixes)
+            foreach (var prefix in prefixes)
             {
                 string[] required = [$"{prefix}outline-2", $"{prefix}outline-offset-2", $"{prefix}outline-focus-ring"];
                 string[] missing = [.. required.Where(utility => !classSoup.Contains(utility, StringComparison.Ordinal))];
@@ -243,13 +243,13 @@ public class InteractionStateTests
     [Fact]
     public void Primitives_use_the_accent_not_the_triad_for_affordance()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        string primitivesRoot = Path.Combine(root.FullName, "apps/shared/src/ui/primitives");
+        var root = RepositorySource.Root();
+        var primitivesRoot = Path.Combine(root.FullName, "apps/shared/src/ui/primitives");
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFilesUnder(root, primitivesRoot))
+        foreach (var relativePath in ScannedFilesUnder(root, primitivesRoot))
         {
-            string content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var content = TypeScriptSource.StringLiteralContent(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in TriadAffordanceFill.Matches(content))
             {
@@ -283,23 +283,23 @@ public class InteractionStateTests
     [Fact]
     public void Fault_label_and_disabled_label_contrast_hold()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
         File.Exists(tokenFile.FullName).ShouldBeTrue($"expected {tokenFile.FullName}.");
 
-        string css = StripCssComments(File.ReadAllText(tokenFile.FullName));
-        List<Declaration> declarations = ParseDeclarations(css);
+        var css = StripCssComments(File.ReadAllText(tokenFile.FullName));
+        var declarations = ParseDeclarations(css);
 
-        Dictionary<string, string> rootMap = declarations
+        var rootMap = declarations
             .Where(declaration => declaration.Selector.Trim() == ":root")
             .ToDictionary(declaration => declaration.Name, declaration => declaration.Value, StringComparer.Ordinal);
 
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach (string fillName in new[] { "--color-accent-fault", "--color-accent-fault-hover", "--color-accent-fault-pressed" })
+        foreach (var fillName in new[] { "--color-accent-fault", "--color-accent-fault-hover", "--color-accent-fault-pressed" })
         {
             if (!rootMap.ContainsKey(fillName))
             {
@@ -313,7 +313,7 @@ public class InteractionStateTests
                 continue;
             }
 
-            double ratio = ContrastRatio(
+            var ratio = ContrastRatio(
                 ToSrgb(ResolveOklch("--color-fg-on-fault", rootMap, [])),
                 ToSrgb(ResolveOklch(fillName, rootMap, [])));
 
@@ -325,7 +325,7 @@ public class InteractionStateTests
             }
         }
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
@@ -338,7 +338,7 @@ public class InteractionStateTests
                 continue;
             }
 
-            foreach (string surface in new[] { "--color-bg-base", "--color-bg-elevated", "--color-bg-raised" })
+            foreach (var surface in new[] { "--color-bg-base", "--color-bg-elevated", "--color-bg-raised" })
             {
                 if (!map.ContainsKey(surface))
                 {
@@ -346,7 +346,7 @@ public class InteractionStateTests
                     continue;
                 }
 
-                double ratio = ContrastRatio(
+                var ratio = ContrastRatio(
                     ToSrgb(ResolveOklch("--color-fg-disabled", map, [])),
                     ToSrgb(ResolveOklch(surface, map, [])));
 
@@ -379,23 +379,23 @@ public class InteractionStateTests
     [Fact]
     public void Accent_text_on_accent_subtle_meets_contrast_in_every_theme()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
         File.Exists(tokenFile.FullName).ShouldBeTrue($"expected {tokenFile.FullName}.");
 
-        string css = StripCssComments(File.ReadAllText(tokenFile.FullName));
-        List<Declaration> declarations = ParseDeclarations(css);
+        var css = StripCssComments(File.ReadAllText(tokenFile.FullName));
+        var declarations = ParseDeclarations(css);
 
-        Dictionary<string, string> rootMap = declarations
+        var rootMap = declarations
             .Where(declaration => declaration.Selector.Trim() == ":root")
             .ToDictionary(declaration => declaration.Name, declaration => declaration.Value, StringComparer.Ordinal);
 
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
@@ -408,7 +408,7 @@ public class InteractionStateTests
                 continue;
             }
 
-            double ratio = ContrastRatio(
+            var ratio = ContrastRatio(
                 ToSrgb(ResolveOklch("--color-accent", map, [])),
                 ToSrgb(ResolveOklch("--color-accent-subtle", map, [])));
 
@@ -443,7 +443,7 @@ public class InteractionStateTests
     [Fact]
     public void Mixing_red_into_gray_950_in_oklch_matches_the_browser()
     {
-        (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+        (var lightness, var chroma, var hue) = OklchColorResolver.Mix(
             OklchColorResolver.MixSpace.Oklch, RedFiveHundred, 0.10, GrayNineFifty);
 
         OklchColorResolver.OklchToSrgb(lightness, chroma, hue).ShouldBe((20, 24, 37));
@@ -457,7 +457,7 @@ public class InteractionStateTests
     [Fact]
     public void Mixing_green_into_black_in_oklch_matches_the_browser()
     {
-        (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+        (var lightness, var chroma, var hue) = OklchColorResolver.Mix(
             OklchColorResolver.MixSpace.Oklch, GreenFiveHundred, 0.30, Black);
 
         OklchColorResolver.OklchToSrgb(lightness, chroma, hue).ShouldBe((48, 14, 0));
@@ -473,7 +473,7 @@ public class InteractionStateTests
     [Fact]
     public void Mixing_red_into_gray_950_in_oklab_matches_the_browser()
     {
-        (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+        (var lightness, var chroma, var hue) = OklchColorResolver.Mix(
             OklchColorResolver.MixSpace.Oklab, RedFiveHundred, 0.16, GrayNineFifty);
 
         OklchColorResolver.OklchToSrgb(lightness, chroma, hue).ShouldBe((44, 26, 27));
@@ -502,50 +502,50 @@ public class InteractionStateTests
     {
         const double HueTolerance = 0.5;
 
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        string css = StripCssComments(File.ReadAllText(tokenFile.FullName));
-        List<Declaration> declarations = ParseDeclarations(css);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var css = StripCssComments(File.ReadAllText(tokenFile.FullName));
+        var declarations = ParseDeclarations(css);
 
-        Dictionary<string, string> rootMap = declarations
+        var rootMap = declarations
             .Where(declaration => declaration.Selector.Trim() == ":root")
             .ToDictionary(declaration => declaration.Name, declaration => declaration.Value, StringComparer.Ordinal);
 
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            foreach ((string name, string value) in map)
+            foreach ((var name, var value) in map)
             {
                 if (!name.StartsWith("--color-", StringComparison.Ordinal))
                 {
                     continue;
                 }
 
-                Match mix = OpaqueColorMixDeclaration.Match(value.Trim());
+                var mix = OpaqueColorMixDeclaration.Match(value.Trim());
                 if (!mix.Success)
                 {
                     continue;
                 }
 
-                OklchTriple first = ResolveOklch(mix.Groups["a"].Value, map, []);
-                OklchTriple second = ResolveOklch(mix.Groups["b"].Value, map, []);
+                var first = ResolveOklch(mix.Groups["a"].Value, map, []);
+                var second = ResolveOklch(mix.Groups["b"].Value, map, []);
 
                 if (second.Chroma >= 1e-6)
                 {
                     continue;
                 }
 
-                OklchTriple mixed = ResolveOklch(name, map, []);
-                double diff = CircularHueDifference(mixed.Hue, first.Hue);
+                var mixed = ResolveOklch(name, map, []);
+                var diff = CircularHueDifference(mixed.Hue, first.Hue);
 
                 if (diff > HueTolerance)
                 {
@@ -571,9 +571,9 @@ public class InteractionStateTests
     /// <summary>Every non-test <c>.ts</c>/<c>.tsx</c> file under both apps' and shared's <c>src</c>.</summary>
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        foreach (string tree in ScannedSrcTrees)
+        foreach (var tree in ScannedSrcTrees)
         {
-            foreach (string relative in ScannedFilesUnder(root, Path.Combine(root.FullName, tree)))
+            foreach (var relative in ScannedFilesUnder(root, Path.Combine(root.FullName, tree)))
             {
                 yield return relative;
             }
@@ -588,14 +588,14 @@ public class InteractionStateTests
             yield break;
         }
 
-        foreach (string file in Directory.EnumerateFiles(absoluteDirectory, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(absoluteDirectory, "*", SearchOption.AllDirectories))
         {
             if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string relative = RepositorySource.RelativePath(root, file);
+            var relative = RepositorySource.RelativePath(root, file);
             if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
             {
                 continue;
@@ -617,7 +617,7 @@ public class InteractionStateTests
     {
         Dictionary<string, string> map = new(rootMap, StringComparer.Ordinal);
 
-        foreach (Declaration declaration in declarations.Where(declaration => isTheme(declaration.Selector)))
+        foreach (var declaration in declarations.Where(declaration => isTheme(declaration.Selector)))
         {
             map[declaration.Name] = declaration.Value;
         }
@@ -637,7 +637,7 @@ public class InteractionStateTests
 
         foreach (Match block in Regex.Matches(css, @"(?<sel>[^{}]+)\{(?<body>[^{}]*)\}", RegexOptions.Singleline))
         {
-            string selector = block.Groups["sel"].Value.Trim();
+            var selector = block.Groups["sel"].Value.Trim();
 
             foreach (Match declaration in Regex.Matches(
                          block.Groups["body"].Value,
@@ -679,24 +679,24 @@ public class InteractionStateTests
     /// <summary>The smaller of the two arcs between two hue angles, in [0, 180].</summary>
     private static double CircularHueDifference(double first, double second)
     {
-        double diff = Math.Abs(first - second) % 360.0;
+        var diff = Math.Abs(first - second) % 360.0;
         return diff > 180.0 ? 360.0 - diff : diff;
     }
 
     private static OklchTriple ResolveOklch(string name, Dictionary<string, string> map, HashSet<string> seen)
     {
-        map.TryGetValue(name, out string? value).ShouldBeTrue($"{name} has no declaration to resolve.");
-        string trimmed = value.ShouldNotBeNull().Trim();
+        map.TryGetValue(name, out var value).ShouldBeTrue($"{name} has no declaration to resolve.");
+        var trimmed = value.ShouldNotBeNull().Trim();
 
-        Match varOnly = Regex.Match(trimmed, @"^var\((?<name>--[A-Za-z0-9-]+)\)$");
+        var varOnly = Regex.Match(trimmed, @"^var\((?<name>--[A-Za-z0-9-]+)\)$");
         if (varOnly.Success)
         {
-            string next = varOnly.Groups["name"].Value;
+            var next = varOnly.Groups["name"].Value;
             seen.Add(name).ShouldBeTrue($"circular var() reference resolving {name} -> {next}.");
             return ResolveOklch(next, map, seen);
         }
 
-        Match mix = Regex.Match(
+        var mix = Regex.Match(
             trimmed,
             @"^color-mix\(in (?<space>oklab|oklch),\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+(?<pct>\d+(?:\.\d+)?)%,\s*"
             + @"(?:var\((?<b>--[A-Za-z0-9-]+)\)|(?<transparent>transparent))\)$");
@@ -708,25 +708,25 @@ public class InteractionStateTests
                     $"{name} mixes toward transparent — this resolver serves fact 6's opaque pairs only.");
             }
 
-            double fraction = double.Parse(mix.Groups["pct"].Value, CultureInfo.InvariantCulture) / 100.0;
-            OklchTriple a = ResolveOklch(mix.Groups["a"].Value, map, []);
-            OklchTriple b = ResolveOklch(mix.Groups["b"].Value, map, []);
+            var fraction = double.Parse(mix.Groups["pct"].Value, CultureInfo.InvariantCulture) / 100.0;
+            var a = ResolveOklch(mix.Groups["a"].Value, map, []);
+            var b = ResolveOklch(mix.Groups["b"].Value, map, []);
 
             // Evaluates the declared space exactly (spec 299 FR-003, issue
             // #2695) via OklchColorResolver.Mix — oklab componentwise, oklch
             // shorter-arc hue — rather than approximating the mixed hue from
             // whichever operand carries more chroma.
-            OklchColorResolver.MixSpace space = mix.Groups["space"].Value == "oklab"
+            var space = mix.Groups["space"].Value == "oklab"
                 ? OklchColorResolver.MixSpace.Oklab
                 : OklchColorResolver.MixSpace.Oklch;
 
-            (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+            (var lightness, var chroma, var hue) = OklchColorResolver.Mix(
                 space, (a.Lightness, a.Chroma, a.Hue), fraction, (b.Lightness, b.Chroma, b.Hue));
 
             return new OklchTriple(lightness, chroma, hue);
         }
 
-        Match literal = Regex.Match(trimmed, @"^oklch\(\s*(?<l>[\d.]+)%\s+(?<c>[\d.]+)\s+(?<h>[\d.]+)\s*\)$");
+        var literal = Regex.Match(trimmed, @"^oklch\(\s*(?<l>[\d.]+)%\s+(?<c>[\d.]+)\s+(?<h>[\d.]+)\s*\)$");
         literal.Success.ShouldBeTrue(
             $"cannot resolve '{name}' — its value '{trimmed}' is not a var(), an opaque color-mix(), or an "
             + "oklch() literal.");
@@ -745,7 +745,7 @@ public class InteractionStateTests
     {
         double Channel(int value8Bit)
         {
-            double c = value8Bit / 255.0;
+            var c = value8Bit / 255.0;
             return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
         }
 
@@ -755,10 +755,10 @@ public class InteractionStateTests
     /// <summary>WCAG contrast ratio (https://www.w3.org/TR/WCAG21/#dfn-contrast-ratio).</summary>
     private static double ContrastRatio((int R, int G, int B) a, (int R, int G, int B) b)
     {
-        double luminanceA = RelativeLuminance(a);
-        double luminanceB = RelativeLuminance(b);
-        double lighter = Math.Max(luminanceA, luminanceB);
-        double darker = Math.Min(luminanceA, luminanceB);
+        var luminanceA = RelativeLuminance(a);
+        var luminanceB = RelativeLuminance(b);
+        var lighter = Math.Max(luminanceA, luminanceB);
+        var darker = Math.Min(luminanceA, luminanceB);
 
         return (lighter + 0.05) / (darker + 0.05);
     }

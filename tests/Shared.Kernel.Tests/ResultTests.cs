@@ -1,5 +1,4 @@
 using System.Net;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Shared.Kernel.Tests;
 
@@ -14,7 +13,7 @@ public class ResultTests
     [Fact]
     public void Success_exposes_the_value_and_no_error()
     {
-        Result<int, SampleError> result = Result<int, SampleError>.Success(42);
+        var result = Result<int, SampleError>.Success(42);
 
         result.IsSuccess.ShouldBeTrue();
         result.IsFailure.ShouldBeFalse();
@@ -24,7 +23,7 @@ public class ResultTests
     [Fact]
     public void Accessing_Error_on_a_Success_throws()
     {
-        Result<int, SampleError> result = Result<int, SampleError>.Success(42);
+        var result = Result<int, SampleError>.Success(42);
 
         Should.Throw<InvalidOperationException>(() => _ = result.Error);
     }
@@ -32,7 +31,7 @@ public class ResultTests
     [Fact]
     public void Failure_exposes_the_error_and_no_value()
     {
-        Result<int, SampleError> result = Result<int, SampleError>.Failure(AnError);
+        var result = Result<int, SampleError>.Failure(AnError);
 
         result.IsFailure.ShouldBeTrue();
         result.IsSuccess.ShouldBeFalse();
@@ -42,7 +41,7 @@ public class ResultTests
     [Fact]
     public void Accessing_Value_on_a_Failure_throws()
     {
-        Result<int, SampleError> result = Result<int, SampleError>.Failure(AnError);
+        var result = Result<int, SampleError>.Failure(AnError);
 
         Should.Throw<InvalidOperationException>(() => _ = result.Value);
     }
@@ -50,9 +49,9 @@ public class ResultTests
     [Fact]
     public void Match_routes_to_the_success_branch()
     {
-        Result<int, SampleError> result = Result<int, SampleError>.Success(7);
+        var result = Result<int, SampleError>.Success(7);
 
-        string outcome = result.Match(v => $"ok:{v}", e => $"err:{e.Code}");
+        var outcome = result.Match(v => $"ok:{v}", e => $"err:{e.Code}");
 
         outcome.ShouldBe("ok:7");
     }
@@ -60,9 +59,9 @@ public class ResultTests
     [Fact]
     public void Match_routes_to_the_failure_branch()
     {
-        Result<int, SampleError> result = Result<int, SampleError>.Failure(AnError);
+        var result = Result<int, SampleError>.Failure(AnError);
 
-        string outcome = result.Match(v => $"ok:{v}", e => $"err:{e.Code}");
+        var outcome = result.Match(v => $"ok:{v}", e => $"err:{e.Code}");
 
         outcome.ShouldBe("err:SAMPLE_FAIL");
     }

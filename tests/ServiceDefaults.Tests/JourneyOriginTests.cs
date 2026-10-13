@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using SmartSentinelEye.Shared.CQRS;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 
@@ -41,7 +40,7 @@ public sealed class JourneyOriginTests : IDisposable
 
         using (origin.Begin("ingest plant-floor event"))
         {
-            Activity journey = Activity.Current.ShouldNotBeNull();
+            var journey = Activity.Current.ShouldNotBeNull();
             journey.OperationName.ShouldBe("ingest plant-floor event");
         }
     }
@@ -107,7 +106,7 @@ public sealed class JourneyOriginTests : IDisposable
     {
         using JourneyOrigin origin = new("nobody-is-listening-to-this");
 
-        IJourney journey = origin.Begin("ingest plant-floor event");
+        var journey = origin.Begin("ingest plant-floor event");
 
         journey.ShouldNotBeNull();
         Should.NotThrow(() => journey.Failed(new InvalidOperationException("refused")));
@@ -124,11 +123,11 @@ public sealed class JourneyOriginTests : IDisposable
     {
         using JourneyOrigin origin = new(ApplicationName);
 
-        using (IJourney journey = origin.Begin("ingest plant-floor event"))
+        using (var journey = origin.Begin("ingest plant-floor event"))
         {
             journey.Failed(new InvalidOperationException("the outbox refused the insert"));
 
-            Activity recorded = Activity.Current.ShouldNotBeNull();
+            var recorded = Activity.Current.ShouldNotBeNull();
             recorded.Status.ShouldBe(ActivityStatusCode.Error);
             recorded.StatusDescription.ShouldBe("the outbox refused the insert");
         }
@@ -159,7 +158,7 @@ public sealed class JourneyOriginTests : IDisposable
 
         using (origin.Begin("ingest plant-floor event"))
         {
-            Activity journey = Activity.Current.ShouldNotBeNull();
+            var journey = Activity.Current.ShouldNotBeNull();
             journey.Kind.ShouldBe(ActivityKind.Producer);
         }
     }
@@ -178,7 +177,7 @@ public sealed class JourneyOriginTests : IDisposable
 
         using (origin.Begin("ingest plant-floor event"))
         {
-            Activity journey = Activity.Current.ShouldNotBeNull();
+            var journey = Activity.Current.ShouldNotBeNull();
             journey.Source.Name.ShouldBe(ApplicationName);
         }
     }

@@ -7,8 +7,8 @@ public class OverlayIdentifierTests
     [Fact]
     public void New_returns_a_non_empty_sortable_Guid_v7()
     {
-        OverlayIdentifier a = OverlayIdentifier.New();
-        OverlayIdentifier b = OverlayIdentifier.New();
+        var a = OverlayIdentifier.New();
+        var b = OverlayIdentifier.New();
         a.Value.ShouldNotBe(Guid.Empty);
         a.ShouldNotBe(b);
     }
@@ -23,8 +23,8 @@ public class OverlayIdentifierTests
     [Fact]
     public void From_round_trips_a_non_empty_Guid()
     {
-        Guid value = Guid.CreateVersion7();
-        OverlayIdentifier id = OverlayIdentifier.From(value);
+        var value = Guid.CreateVersion7();
+        var id = OverlayIdentifier.From(value);
         id.Value.ShouldBe(value);
     }
 }

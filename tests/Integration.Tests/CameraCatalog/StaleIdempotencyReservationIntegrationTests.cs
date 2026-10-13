@@ -1,9 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
@@ -78,16 +75,16 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_reservation_older_than_the_bound_is_reclaimed_by_the_next_caller()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
-        string firstName = NewName();
-        string secondName = NewName();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
+        var firstName = NewName();
+        var secondName = NewName();
 
-        Guid firstIdentifier = await RegisterAsync(cameras, firstName, key);
+        var firstIdentifier = await RegisterAsync(cameras, firstName, key);
 
         await DamageToUnfinishedAsync(key, TimeSpan.FromMinutes(30));
 
-        using HttpResponseMessage response = await SendAsync(cameras, secondName, key);
+        using var response = await SendAsync(cameras, secondName, key);
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.Created,
@@ -95,7 +92,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
             + $" -- a reservation older than {IdempotencyReclamation.StaleAfter} with no "
             + "resource_identifier must be reclaimed by the next caller, not refused forever.");
 
-        Guid secondIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+        var secondIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
         secondIdentifier.ShouldNotBe(
             firstIdentifier,
             "a reclaim must do the work again, not replay the dead attempt's answer — a replay would "
@@ -150,15 +147,15 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Two_concurrent_reclaims_of_one_stale_reservation_only_one_wins()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
-        string name = NewName();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
+        var name = NewName();
 
         await SeedUnfinishedReservationAsync(key, name, TimeSpan.FromMinutes(30));
 
-        Task<HttpResponseMessage> requestA = SendAsync(cameras, name, key);
-        Task<HttpResponseMessage> requestB = SendAsync(cameras, name, key);
-        HttpResponseMessage[] responses = await Task.WhenAll(requestA, requestB);
+        var requestA = SendAsync(cameras, name, key);
+        var requestB = SendAsync(cameras, name, key);
+        var responses = await Task.WhenAll(requestA, requestB);
 
         try
         {
@@ -167,9 +164,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
                 $"both concurrent attempts must answer either 201 or 409, never an error: "
                 + $"{string.Join(", ", responses.Select(r => r.StatusCode))}");
 
-            Guid[] createdIdentifiers = new Guid[responses.Length];
-            int createdCount = 0;
-            foreach (HttpResponseMessage response in responses)
+            var createdIdentifiers = new Guid[responses.Length];
+            var createdCount = 0;
+            foreach (var response in responses)
             {
                 if (response.StatusCode == HttpStatusCode.Created)
                 {
@@ -178,7 +175,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
                 }
                 else
                 {
-                    JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+                    var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
                     problem.GetProperty("title").GetString().ShouldBe(
                         IdempotencyHeaders.InProgressErrorCode,
                         "the only legitimate 409 for the loser is the in-progress answer an ordinary "
@@ -196,7 +193,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
                 + "create ran twice, the exact double-application SET reserved_at = NOW() exists to "
                 + "prevent.");
 
-            string[] names = await NamesAsync(cameras);
+            var names = await NamesAsync(cameras);
             names.Count(registered => registered == name).ShouldBe(
                 1,
                 "exactly one concurrent reclaim must have run the create — the reservation was seeded "
@@ -205,7 +202,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         }
         finally
         {
-            foreach (HttpResponseMessage response in responses)
+            foreach (var response in responses)
             {
                 response.Dispose();
             }
@@ -220,9 +217,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_reservation_that_is_still_young_is_still_refused()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
-        string firstName = NewName();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
+        var firstName = NewName();
 
         await RegisterAsync(cameras, firstName, key);
 
@@ -234,10 +231,10 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
         // the seeded fingerprint, falls through to the in-progress check this
         // fact exists to exercise, and — because in-progress never re-runs the
         // create — never collides with firstName's already-registered camera.
-        using HttpResponseMessage response = await SendAsync(cameras, firstName, key);
+        using var response = await SendAsync(cameras, firstName, key);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Conflict, await response.Content.ReadAsStringAsync());
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe(IdempotencyHeaders.InProgressErrorCode);
     }
 
@@ -250,21 +247,21 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_completed_key_is_replayed_however_old_it_is()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
-        string firstName = NewName();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
+        var firstName = NewName();
 
-        Guid firstIdentifier = await RegisterAsync(cameras, firstName, key);
+        var firstIdentifier = await RegisterAsync(cameras, firstName, key);
 
         await AgeCompletedReservationAsync(key, TimeSpan.FromDays(30));
 
         // Spec 302 (#2424/#2492): the retry must present firstName, not a
         // different name, or the fingerprint mismatch would refuse it (422)
         // before the completed-replay logic this fact exercises ever runs.
-        using HttpResponseMessage response = await SendAsync(cameras, firstName, key);
+        using var response = await SendAsync(cameras, firstName, key);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
-        Guid replayedIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+        var replayedIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
         replayedIdentifier.ShouldBe(
             firstIdentifier,
             "a completed key must be replayed no matter how old its reservation is — reclaiming a "
@@ -279,25 +276,25 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_stale_reservation_is_not_another_callers_to_reclaim()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
+        using var admin = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var dresden = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", DresdenOperator, OperatorPassword);
-        string key = NewKey();
-        string firstName = NewName();
-        string secondName = NewName();
+        var key = NewKey();
+        var firstName = NewName();
+        var secondName = NewName();
 
-        Guid firstIdentifier = await RegisterAsync(admin, firstName, key);
+        var firstIdentifier = await RegisterAsync(admin, firstName, key);
 
         await DamageToUnfinishedAsync(key, TimeSpan.FromMinutes(30));
 
-        using HttpResponseMessage response = await SendAsync(dresden, secondName, key, fabId: "dresden");
+        using var response = await SendAsync(dresden, secondName, key, fabId: "dresden");
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.Created,
             await response.Content.ReadAsStringAsync()
             + " -- a different caller presenting the same key string owns none of the first caller's "
             + "reservation and must be free to claim its own.");
-        Guid secondIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
+        var secondIdentifier = (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
         secondIdentifier.ShouldNotBe(
             firstIdentifier,
             "the second operator must never receive the first operator's identifier — that is exactly "
@@ -324,12 +321,12 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_stale_unfinished_reservation_vanishes_after_the_sweep()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
         await RegisterAsync(cameras, NewName(), key);
         await DamageToUnfinishedAsync(key, TimeSpan.FromMinutes(30));
 
-        using IdempotencyReservationSweepHostedService<CameraCatalogDbContext> sweep = await CreateSweepAsync();
+        using var sweep = await CreateSweepAsync();
         await sweep.RunOnceAsync(CancellationToken.None);
 
         (await RowExistsAsync(key)).ShouldBeFalse(
@@ -344,12 +341,12 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_aged_completed_reservation_survives_the_sweep_with_its_identifier_intact()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
-        Guid identifier = await RegisterAsync(cameras, NewName(), key);
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
+        var identifier = await RegisterAsync(cameras, NewName(), key);
         await AgeCompletedReservationAsync(key, TimeSpan.FromDays(30));
 
-        using IdempotencyReservationSweepHostedService<CameraCatalogDbContext> sweep = await CreateSweepAsync();
+        using var sweep = await CreateSweepAsync();
         await sweep.RunOnceAsync(CancellationToken.None);
 
         (await IdentifierOfAsync(key)).ShouldBe(
@@ -360,12 +357,12 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_fresh_unfinished_reservation_survives_the_sweep()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = NewKey();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = NewKey();
         await RegisterAsync(cameras, NewName(), key);
         await DamageToUnfinishedAsync(key, TimeSpan.FromSeconds(10));
 
-        using IdempotencyReservationSweepHostedService<CameraCatalogDbContext> sweep = await CreateSweepAsync();
+        using var sweep = await CreateSweepAsync();
         await sweep.RunOnceAsync(CancellationToken.None);
 
         (await RowExistsAsync(key)).ShouldBeTrue(
@@ -394,7 +391,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string name, string key)
     {
-        using HttpResponseMessage response = await SendAsync(cameras, name, key);
+        using var response = await SendAsync(cameras, name, key);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
 
@@ -403,9 +400,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
 
     private static async Task<string[]> NamesAsync(HttpClient cameras)
     {
-        using HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200");
+        using var listed = await cameras.GetAsync("/cameras?limit=200");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("items").EnumerateArray()
             .Select(item => item.GetProperty("name").GetString()!)];
@@ -420,7 +417,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task DamageToUnfinishedAsync(string key, TimeSpan age)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """
@@ -473,18 +470,18 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task SeedUnfinishedReservationAsync(string key, string name, TimeSpan age)
     {
-        string token = await aspire.GetAdminAccessTokenAsync();
+        var token = await aspire.GetAdminAccessTokenAsync();
 
         // Guid.Parse + ToString(), not the raw claim string: CameraEndpoints'
         // ResolveOperator parses the subject into a Guid and stores
         // registeredBy.Value.ToString()'s canonical lowercase-hyphenated
         // format, which need not match the raw JWT claim's own casing.
-        string caller = Guid.Parse(SubjectOf(token)).ToString();
+        var caller = Guid.Parse(SubjectOf(token)).ToString();
 
         SeedRegisterCameraRequest request = new() { Name = name, RtspUrl = CameraRtspUrl };
-        string fingerprint = IdempotencyFingerprint.Of(request).Value;
+        var fingerprint = IdempotencyFingerprint.Of(request).Value;
 
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """
@@ -520,7 +517,7 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task AgeCompletedReservationAsync(string key, TimeSpan age)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """
@@ -533,9 +530,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
 
     private async Task<bool> RowExistsAsync(string key)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        int[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<int>("""SELECT 1 AS "Value" FROM idempotency_key WHERE key = {0};""", key)
             .ToArrayAsync();
 
@@ -549,9 +546,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<int> RowCountAsync(string key)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        int[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<int>("""SELECT 1 AS "Value" FROM idempotency_key WHERE key = {0};""", key)
             .ToArrayAsync();
 
@@ -565,9 +562,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<bool> UnfinishedRowSurvivesAsync(string key)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        int[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<int>(
                 """SELECT 1 AS "Value" FROM idempotency_key WHERE key = {0} AND resource_identifier IS NULL;""",
                 key)
@@ -578,9 +575,9 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
 
     private async Task<Guid?> IdentifierOfAsync(string key)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        Guid?[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<Guid?>(
                 """SELECT resource_identifier AS "Value" FROM idempotency_key WHERE key = {0};""", key)
             .ToArrayAsync();
@@ -595,12 +592,12 @@ public class StaleIdempotencyReservationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<IdempotencyReservationSweepHostedService<CameraCatalogDbContext>> CreateSweepAsync()
     {
-        string? connectionString =
+        var connectionString =
             await aspire.App.GetConnectionStringAsync(AspireFixture.CameraCatalogConnectionName);
 
         ServiceCollection services = new();
         services.AddDbContext<CameraCatalogDbContext>(options => options.UseNpgsql(connectionString));
-        ServiceProvider provider = services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
 
         return new IdempotencyReservationSweepHostedService<CameraCatalogDbContext>(
             provider.GetRequiredService<IServiceScopeFactory>(),

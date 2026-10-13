@@ -9,7 +9,7 @@ public sealed partial class AspireFixture
     /// </summary>
     public async Task<string> DiagnoseAsync(string resourceName, HttpResponseMessage response)
     {
-        string body = await response.Content.ReadAsStringAsync(CancellationToken.None);
+        var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
 
         return $"body: {body}{Environment.NewLine}{resourceName} log:{Environment.NewLine}{RecentLogs(resourceName)}";
     }

@@ -3,7 +3,6 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -68,8 +67,8 @@ public class BearerRevocationHookTests
     [Fact]
     public async Task A_refused_azp_fails_the_principal()
     {
-        JwtBearerOptions options = BuildOptions(RegistryDisabledAt(RevokedClientId, IssuedAt));
-        TokenValidatedContext context = ContextFor(options, RevokedClientId, IssuedAt);
+        var options = BuildOptions(RegistryDisabledAt(RevokedClientId, IssuedAt));
+        var context = ContextFor(options, RevokedClientId, IssuedAt);
 
         await options.Events.OnTokenValidated(context);
 
@@ -82,8 +81,8 @@ public class BearerRevocationHookTests
     [Fact]
     public async Task An_admitted_azp_sets_no_result()
     {
-        JwtBearerOptions options = BuildOptions(new CapturingRegistry(RevokedClientSnapshot.From([])));
-        TokenValidatedContext context = ContextFor(options, "kiosk-never-revoked", IssuedAt);
+        var options = BuildOptions(new CapturingRegistry(RevokedClientSnapshot.From([])));
+        var context = ContextFor(options, "kiosk-never-revoked", IssuedAt);
 
         await options.Events.OnTokenValidated(context);
 
@@ -103,12 +102,12 @@ public class BearerRevocationHookTests
     [Fact]
     public async Task A_later_issued_token_from_a_re_registered_client_sets_no_result()
     {
-        DateTimeOffset disabledAt = IssuedAt.AddMinutes(-10);
-        DateTimeOffset laterIssuedAt = disabledAt.AddMinutes(6);
+        var disabledAt = IssuedAt.AddMinutes(-10);
+        var laterIssuedAt = disabledAt.AddMinutes(6);
         CapturingRegistry registry = new(RevokedClientSnapshot.From(
             [new RevokedClientEntry(RevokedClientId, disabledAt)]));
-        JwtBearerOptions options = BuildOptions(registry);
-        TokenValidatedContext context = ContextFor(options, RevokedClientId, laterIssuedAt);
+        var options = BuildOptions(registry);
+        var context = ContextFor(options, RevokedClientId, laterIssuedAt);
 
         await options.Events.OnTokenValidated(context);
 
@@ -127,8 +126,8 @@ public class BearerRevocationHookTests
     public async Task The_hook_passes_the_tokens_own_azp_and_issued_at_to_the_registry()
     {
         CapturingRegistry registry = new(RevokedClientSnapshot.From([]));
-        JwtBearerOptions options = BuildOptions(registry);
-        TokenValidatedContext context = ContextFor(options, RevokedClientId, IssuedAt);
+        var options = BuildOptions(registry);
+        var context = ContextFor(options, RevokedClientId, IssuedAt);
 
         await options.Events.OnTokenValidated(context);
 
@@ -146,8 +145,8 @@ public class BearerRevocationHookTests
     [Fact]
     public async Task A_pre_existing_OnTokenValidated_configured_before_AddBearerAuthentication_still_runs()
     {
-        bool previousRan = false;
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var previousRan = false;
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.Services.AddSingleton<IRevokedClientRegistry>(new CapturingRegistry(RevokedClientSnapshot.From([])));
         builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, o =>
@@ -162,9 +161,9 @@ public class BearerRevocationHookTests
 
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        JwtBearerOptions options = ResolveOptions(provider);
-        TokenValidatedContext context = ContextFor(options, "kiosk-never-revoked", IssuedAt);
+        using var provider = builder.Services.BuildServiceProvider();
+        var options = ResolveOptions(provider);
+        var context = ContextFor(options, "kiosk-never-revoked", IssuedAt);
 
         await options.Events.OnTokenValidated(context);
 
@@ -186,7 +185,7 @@ public class BearerRevocationHookTests
     [Fact]
     public async Task A_later_configuration_that_only_sets_OnMessageReceived_leaves_OnTokenValidated_wired()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.Services.AddSingleton<IRevokedClientRegistry>(RegistryDisabledAt(RevokedClientId, IssuedAt));
 
@@ -195,7 +194,7 @@ public class BearerRevocationHookTests
         builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
         {
             options.Events ??= new JwtBearerEvents();
-            Func<MessageReceivedContext, Task>? existing = options.Events.OnMessageReceived;
+            var existing = options.Events.OnMessageReceived;
             options.Events.OnMessageReceived = async context =>
             {
                 if (existing is not null)
@@ -205,14 +204,14 @@ public class BearerRevocationHookTests
             };
         });
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        JwtBearerOptions options = ResolveOptions(provider);
+        using var provider = builder.Services.BuildServiceProvider();
+        var options = ResolveOptions(provider);
 
         options.Events.OnTokenValidated.ShouldNotBeNull(
             "a later Configure<JwtBearerOptions> that only assigns OnMessageReceived must not "
             + "clear OnTokenValidated (plan.md §4.3).");
 
-        TokenValidatedContext context = ContextFor(options, RevokedClientId, IssuedAt);
+        var context = ContextFor(options, RevokedClientId, IssuedAt);
         await options.Events.OnTokenValidated(context);
 
         context.Result.ShouldNotBeNull(
@@ -226,12 +225,12 @@ public class BearerRevocationHookTests
 
     private static JwtBearerOptions BuildOptions(IRevokedClientRegistry registry)
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.Services.AddSingleton(registry);
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
         return ResolveOptions(provider);
     }
 
@@ -271,7 +270,7 @@ public class BearerRevocationHookTests
                     ClaimValueTypes.Integer64),
             ]);
 
-        string encoded = new JwtSecurityTokenHandler().WriteToken(token);
+        var encoded = new JwtSecurityTokenHandler().WriteToken(token);
         return new JsonWebToken(encoded);
     }
 

@@ -27,9 +27,9 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     [InlineData("identity")]
     public async Task Gateway_forwards_the_health_route_to_each_context_service(string context)
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
 
-        HttpResponseMessage response = await gateway.GetAsync($"/{context}/health");
+        var response = await gateway.GetAsync($"/{context}/health");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }
@@ -37,9 +37,9 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Gateway_returns_404_for_a_path_with_no_configured_route()
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
 
-        HttpResponseMessage response = await gateway.GetAsync("/not-a-context/health");
+        var response = await gateway.GetAsync("/not-a-context/health");
 
         response.StatusCode.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -58,9 +58,9 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Gateway_does_not_forward_the_anonymous_whep_authorize_hook()
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
 
-        HttpResponseMessage response = await gateway.PostAsJsonAsync(
+        var response = await gateway.PostAsJsonAsync(
             "/stream-distribution/streams/authorize",
             new { token = (string?)null, path = "cam-anything", action = "read" });
 
@@ -76,12 +76,12 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Gateway_answers_the_cors_preflight_for_an_allowed_origin()
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
         using HttpRequestMessage preflight = new(HttpMethod.Options, "/camera-catalog/health");
         preflight.Headers.Add("Origin", "http://localhost:5173");
         preflight.Headers.Add("Access-Control-Request-Method", "GET");
 
-        HttpResponseMessage response = await gateway.SendAsync(preflight);
+        var response = await gateway.SendAsync(preflight);
 
         response.Headers.Contains("Access-Control-Allow-Origin").ShouldBeTrue();
         response.Headers.GetValues("Access-Control-Allow-Origin").ShouldContain("http://localhost:5173");
@@ -124,9 +124,9 @@ public class GatewayRoutingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Gateway_forwards_a_layout_composition_subpath_with_the_prefix_stripped()
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
 
-        HttpResponseMessage response = await gateway.GetAsync($"/layout-composition/layouts/{Guid.NewGuid()}");
+        var response = await gateway.GetAsync($"/layout-composition/layouts/{Guid.NewGuid()}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }

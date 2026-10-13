@@ -17,12 +17,12 @@ public sealed class CreateRuleCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (FabIdentifier? fab, RuleName? name, TriggerSource? triggerSource, TriggerKind? triggerKind, RulePredicate? predicate, RuleAction? action, OperatorIdentifier createdBy) = command;
+        (var fab, var name, var triggerSource, var triggerKind, var predicate, var action, var createdBy) = command;
 
         // Name uniqueness (FR-002). Archived names are released for
         // re-use; the repository's GetByNameAsync ignores Archived.
         // Scoped to the fab: the same name in another fab is not a clash.
-        Option<Rule> existing = await rules
+        var existing = await rules
             .GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
@@ -55,7 +55,7 @@ public sealed class CreateRuleCommandHandler(
             }
         }
 
-        Rule rule = Rule.Create(
+        var rule = Rule.Create(
             fab, name, triggerSource, triggerKind,
             predicate, action, createdBy, clock);
 

@@ -46,9 +46,9 @@ public static class ScenarioStoryCheck
 
         List<StoryFinding> findings = [];
 
-        foreach (AssetDefinition asset in assets)
+        foreach (var asset in assets)
         {
-            IReadOnlyList<CueDefinition> cues = ValidCuesFor(asset, manifestsByClip);
+            var cues = ValidCuesFor(asset, manifestsByClip);
 
             findings.AddRange(asset.Reactions
                 .Where(reaction => !EmitsSourceAndKind(asset, cues, reaction.When.Source, reaction.When.Kind))
@@ -92,7 +92,7 @@ public static class ScenarioStoryCheck
         Ensure.That(asset).IsNotNull();
         Ensure.That(manifestsByClip).IsNotNull();
 
-        return manifestsByClip.TryGetValue(asset.Camera.Clip, out ClipManifestLoadResult? result) && result.Manifest.HasValue
+        return manifestsByClip.TryGetValue(asset.Camera.Clip, out var result) && result.Manifest.HasValue
             ? result.Manifest.Value.Cues
             : [];
     }

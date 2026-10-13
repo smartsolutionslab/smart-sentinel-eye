@@ -32,18 +32,18 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_discovery_manual_source_holds_an_unregistered_kind_with_202()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
             await SetAsync(berlin, "manual", "discovery");
-            string kind = UniqueKind();
+            var kind = UniqueKind();
 
-            HttpResponseMessage held = await IngestManualAsync(berlin, kind);
+            var held = await IngestManualAsync(berlin, kind);
 
             held.StatusCode.ShouldBe(HttpStatusCode.Accepted, await Diagnose(held));
             (await CountStoredAsync(berlin, kind)).ShouldBe(0, "a held event must not be stored");
 
-            JsonElement row = await WaitForHeldRowAsync(berlin, kind, TimeSpan.FromMinutes(2));
+            var row = await WaitForHeldRowAsync(berlin, kind, TimeSpan.FromMinutes(2));
             row.GetProperty("fab").GetString().ShouldBe("berlin");
             row.GetProperty("reason").GetString().ShouldBe("UnknownEventType");
             row.GetProperty("state").GetString().ShouldBe("Held");
@@ -57,16 +57,16 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_discovery_manual_source_admits_a_registered_kind_with_201()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
-            string kind = UniqueKind();
-            HttpResponseMessage registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
+            var kind = UniqueKind();
+            var registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
             registered.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(registered));
 
             await SetAsync(berlin, "manual", "discovery");
 
-            HttpResponseMessage created = await IngestManualAsync(berlin, kind);
+            var created = await IngestManualAsync(berlin, kind);
 
             created.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(created));
             (await CountStoredAsync(berlin, kind)).ShouldBe(1);
@@ -86,22 +86,22 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_discovery_inference_source_holds_one_and_stores_the_other_in_a_mixed_MQTT_burst()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
             await SetAsync(berlin, "inference", "discovery");
-            string registeredKind = UniqueKind();
-            string unknownKind = UniqueKind();
-            HttpResponseMessage registered = await EventTypeRegistryApi.RegisterAsync(berlin, registeredKind);
+            var registeredKind = UniqueKind();
+            var unknownKind = UniqueKind();
+            var registered = await EventTypeRegistryApi.RegisterAsync(berlin, registeredKind);
             registered.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(registered));
 
             await PublishAsync($"fab/{Fab}/inference/discovery-mqtt-1", registeredKind);
             await PublishAsync($"fab/{Fab}/inference/discovery-mqtt-2", unknownKind);
 
-            int storedCount = await WaitForStoredCountAsync(berlin, registeredKind, TimeSpan.FromMinutes(2));
+            var storedCount = await WaitForStoredCountAsync(berlin, registeredKind, TimeSpan.FromMinutes(2));
             storedCount.ShouldBe(1, "the registered kind must be stored");
 
-            JsonElement heldRow = await WaitForHeldRowAsync(berlin, unknownKind, TimeSpan.FromMinutes(2));
+            var heldRow = await WaitForHeldRowAsync(berlin, unknownKind, TimeSpan.FromMinutes(2));
             heldRow.GetProperty("state").GetString().ShouldBe("Held");
             (await CountStoredAsync(berlin, unknownKind)).ShouldBe(0, "the held kind must not be stored");
         }
@@ -115,11 +115,11 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_undeclared_source_still_admits_an_unknown_kind_with_201()
     {
-        using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
+        using var dresden = await aspire.CreateAuthenticatedClientAsync(
             ResourceName, DresdenOperator, DresdenOperatorPassword);
-        string kind = UniqueKind();
+        var kind = UniqueKind();
 
-        HttpResponseMessage created = await IngestManualAsync(dresden, kind);
+        var created = await IngestManualAsync(dresden, kind);
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(created));
     }
@@ -135,18 +135,18 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
 
     private async Task<int> CountStoredAsync(HttpClient client, string kind)
     {
-        HttpResponseMessage listed = await client.GetAsync($"/events?fabId={Fab}&kind={kind}");
+        var listed = await client.GetAsync($"/events?fabId={Fab}&kind={kind}");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return page.GetProperty("items").GetArrayLength();
     }
 
     private async Task<int> WaitForStoredCountAsync(HttpClient client, string kind, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            int count = await CountStoredAsync(client, kind);
+            var count = await CountStoredAsync(client, kind);
             if (count > 0 || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -158,13 +158,13 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
 
     private async Task<JsonElement> WaitForHeldRowAsync(HttpClient client, string kind, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            HttpResponseMessage listed = await client.GetAsync("/events/dead-letters?reason=UnknownEventType&limit=1000");
+            var listed = await client.GetAsync("/events/dead-letters?reason=UnknownEventType&limit=1000");
             listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-            JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
-            foreach (JsonElement row in rows.EnumerateArray())
+            var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+            foreach (var row in rows.EnumerateArray())
             {
                 if (row.GetProperty("kind").GetString() == kind)
                 {
@@ -183,22 +183,22 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
 
     private async Task PublishAsync(string topic, string kind)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -208,7 +208,7 @@ public class DiscoverySourceHoldsIntegrationTests(AspireFixture aspire)
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        MqttClientPublishResult published = await client.PublishAsync(
+        var published = await client.PublishAsync(
             new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(JsonSerializer.Serialize(new

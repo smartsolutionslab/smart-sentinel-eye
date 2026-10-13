@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -25,12 +23,12 @@ public class IdempotentCameraRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_repeat_carrying_the_same_key_returns_the_original_camera()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string name = NewName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var name = NewName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        Guid first = await RegisterAsync(cameras, name, key, HttpStatusCode.Created);
-        Guid second = await RegisterAsync(cameras, name, key, HttpStatusCode.Created);
+        var first = await RegisterAsync(cameras, name, key, HttpStatusCode.Created);
+        var second = await RegisterAsync(cameras, name, key, HttpStatusCode.Created);
 
         second.ShouldBe(first, "a replay must return the camera the first attempt created, not a second one.");
     }
@@ -43,12 +41,12 @@ public class IdempotentCameraRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_repeat_without_a_key_is_still_refused_as_a_duplicate_name()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string name = NewName();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var name = NewName();
 
         await RegisterAsync(cameras, name, key: null, HttpStatusCode.Created);
 
-        using HttpResponseMessage repeat = await SendAsync(cameras, name, key: null);
+        using var repeat = await SendAsync(cameras, name, key: null);
 
         repeat.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
@@ -59,12 +57,12 @@ public class IdempotentCameraRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_different_key_for_the_same_name_is_still_a_duplicate()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string name = NewName();
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var name = NewName();
 
         await RegisterAsync(cameras, name, $"key-{Guid.CreateVersion7():N}", HttpStatusCode.Created);
 
-        using HttpResponseMessage other = await SendAsync(cameras, name, $"key-{Guid.CreateVersion7():N}");
+        using var other = await SendAsync(cameras, name, $"key-{Guid.CreateVersion7():N}");
 
         other.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
@@ -77,13 +75,13 @@ public class IdempotentCameraRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_whose_first_attempt_was_refused_can_be_used_again()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        using HttpResponseMessage refused = await SendAsync(cameras, name: "", key: key);
+        using var refused = await SendAsync(cameras, name: "", key: key);
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await refused.Content.ReadAsStringAsync());
 
-        Guid created = await RegisterAsync(cameras, NewName(), key, HttpStatusCode.Created);
+        var created = await RegisterAsync(cameras, NewName(), key, HttpStatusCode.Created);
 
         created.ShouldNotBe(Guid.Empty);
     }
@@ -93,7 +91,7 @@ public class IdempotentCameraRegistrationIntegrationTests(AspireFixture aspire)
     private static async Task<Guid> RegisterAsync(
         HttpClient cameras, string name, string? key, HttpStatusCode expected)
     {
-        using HttpResponseMessage response = await SendAsync(cameras, name, key);
+        using var response = await SendAsync(cameras, name, key);
 
         response.StatusCode.ShouldBe(expected, await response.Content.ReadAsStringAsync());
 

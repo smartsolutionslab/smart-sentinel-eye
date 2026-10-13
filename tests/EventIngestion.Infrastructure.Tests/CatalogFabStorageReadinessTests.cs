@@ -18,7 +18,7 @@ public class CatalogFabStorageReadinessTests
     [Fact]
     public async Task Reports_a_provisioned_fab_as_ready()
     {
-        (CatalogFabStorageReadiness readiness, _) = Readiness(Catalog("munich"));
+        (var readiness, _) = Readiness(Catalog("munich"));
 
         (await readiness.IsReadyAsync(Munich, CancellationToken.None)).ShouldBeTrue();
     }
@@ -26,7 +26,7 @@ public class CatalogFabStorageReadinessTests
     [Fact]
     public async Task Serves_a_repeat_positive_from_cache_without_reading_again()
     {
-        (CatalogFabStorageReadiness readiness, Counter reads) = Readiness(Catalog("munich"));
+        (var readiness, var reads) = Readiness(Catalog("munich"));
 
         await readiness.IsReadyAsync(Munich, CancellationToken.None);
         await readiness.IsReadyAsync(Munich, CancellationToken.None);
@@ -44,10 +44,10 @@ public class CatalogFabStorageReadinessTests
     public async Task Re_reads_before_answering_that_a_fab_is_not_ready()
     {
         HashSet<string> catalog = new(StringComparer.Ordinal) { "munich" };
-        (CatalogFabStorageReadiness readiness, Counter reads) = Readiness(catalog);
+        (var readiness, var reads) = Readiness(catalog);
 
         (await readiness.IsReadyAsync(Berlin, CancellationToken.None)).ShouldBeFalse();
-        int afterFirstMiss = reads.Count;
+        var afterFirstMiss = reads.Count;
 
         // Provisioning runs. No restart, no cache expiry — the next ask must
         // still see it, because the negative path does not trust the snapshot.

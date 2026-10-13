@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.AuditObservability;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests.AuditObservability;
@@ -22,7 +21,7 @@ public class AuditChunkArchivedV1Tests
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
-        Guid chunkId = Guid.CreateVersion7();
+        var chunkId = Guid.CreateVersion7();
         AuditChunkArchivedV1 evt = new(
             chunkId, "munich", 8_640_000, From, Until, ArchivedAt,
             "fab=munich/year=2026/month=02/chunk.ndjson.gz",
@@ -47,7 +46,7 @@ public class AuditChunkArchivedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
         AuditChunkArchivedV1 a = new(id, "munich", 1, From, Until, ArchivedAt, "k", "m", Metadata: TestMetadata);
         AuditChunkArchivedV1 b = new(id, "munich", 1, From, Until, ArchivedAt, "k", "m", Metadata: TestMetadata);
         a.ShouldBe(b);
@@ -61,7 +60,7 @@ public class AuditChunkArchivedV1Tests
             Guid.CreateVersion7(), "munich", 42, From, Until, ArchivedAt,
             "fab=munich/year=2026/month=02/chunk.ndjson.gz",
             "deadbeefcafef00d1234567890abcdef", Metadata: TestMetadata);
-        string json = JsonSerializer.Serialize(original);
+        var json = JsonSerializer.Serialize(original);
         JsonSerializer.Deserialize<AuditChunkArchivedV1>(json).ShouldBe(original);
     }
 

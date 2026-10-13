@@ -45,7 +45,7 @@ public class IngestVolumeRegistrationTests
     [Fact]
     public void The_ingest_volume_meter_is_registered_with_the_meter_provider()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(Configuration);
 
         builder.AddEventIngestionInfrastructure();
@@ -54,8 +54,8 @@ public class IngestVolumeRegistrationTests
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics.AddReader(new BaseExportingMetricReader(exporter)));
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        MeterProvider meterProvider = provider.GetRequiredService<MeterProvider>();
+        using var provider = builder.Services.BuildServiceProvider();
+        var meterProvider = provider.GetRequiredService<MeterProvider>();
 
         IngestVolume.Record(Source.Plc);
         meterProvider.ForceFlush();
@@ -72,7 +72,7 @@ public class IngestVolumeRegistrationTests
     [Fact]
     public void The_ingest_channel_saturation_meter_is_registered_with_the_meter_provider()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(Configuration);
 
         builder.AddEventIngestionInfrastructure();
@@ -81,8 +81,8 @@ public class IngestVolumeRegistrationTests
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics.AddReader(new BaseExportingMetricReader(exporter)));
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        MeterProvider meterProvider = provider.GetRequiredService<MeterProvider>();
+        using var provider = builder.Services.BuildServiceProvider();
+        var meterProvider = provider.GetRequiredService<MeterProvider>();
 
         IngestChannelSaturation.RecordBlocked(TimeSpan.FromMilliseconds(5));
         meterProvider.ForceFlush();
@@ -103,7 +103,7 @@ public class IngestVolumeRegistrationTests
     [Fact]
     public void The_ingest_channel_gauges_are_registered_when_the_ingest_channel_is_resolved()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(Configuration);
 
         builder.AddEventIngestionInfrastructure();
@@ -112,8 +112,8 @@ public class IngestVolumeRegistrationTests
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics.AddReader(new BaseExportingMetricReader(exporter)));
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        MeterProvider meterProvider = provider.GetRequiredService<MeterProvider>();
+        using var provider = builder.Services.BuildServiceProvider();
+        var meterProvider = provider.GetRequiredService<MeterProvider>();
 
         provider.GetRequiredService<IIngestChannel>();
         meterProvider.ForceFlush();
@@ -151,7 +151,7 @@ public class IngestVolumeRegistrationTests
 
         public override ExportResult Export(in Batch<Metric> batch)
         {
-            foreach (Metric metric in batch)
+            foreach (var metric in batch)
             {
                 Names.Add(metric.Name);
             }

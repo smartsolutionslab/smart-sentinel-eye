@@ -132,19 +132,19 @@ public class DesignTokenLayerTests
     [Fact]
     public void Every_scanned_tree_exists_and_is_non_empty()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach (string tree in PrimitiveCitationScannedTrees)
+        foreach (var tree in PrimitiveCitationScannedTrees)
         {
-            string full = Path.Combine(root.FullName, tree);
+            var full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))
             {
                 problems.Add($"{tree} does not exist.");
                 continue;
             }
 
-            bool hasAnyFile = Directory
+            var hasAnyFile = Directory
                 .EnumerateFiles(full, "*", SearchOption.AllDirectories)
                 .Any(file =>
                     file.EndsWith(".ts", StringComparison.Ordinal)
@@ -168,13 +168,13 @@ public class DesignTokenLayerTests
     [Fact]
     public void Both_surfaces_import_the_same_token_file_first()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
 
-        FileInfo management = TokenFileImportedBy(root, ManagementIndexCss);
-        FileInfo kiosk = TokenFileImportedBy(root, KioskIndexCss);
+        var management = TokenFileImportedBy(root, ManagementIndexCss);
+        var kiosk = TokenFileImportedBy(root, KioskIndexCss);
 
-        string managementRelative = RepositorySource.RelativePath(root, management.FullName);
-        string kioskRelative = RepositorySource.RelativePath(root, kiosk.FullName);
+        var managementRelative = RepositorySource.RelativePath(root, management.FullName);
+        var kioskRelative = RepositorySource.RelativePath(root, kiosk.FullName);
 
         kioskRelative.ShouldBe(
             managementRelative,
@@ -186,9 +186,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void The_token_file_declares_every_category()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        Dictionary<string, string> rootMap = RootMap(ParseDeclarations(ReadCss(tokenFile)));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var rootMap = RootMap(ParseDeclarations(ReadCss(tokenFile)));
 
         string[] missing =
         [
@@ -210,9 +210,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void Every_name_is_a_token_a_primitive_or_a_named_bridge()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         Declaration[] unclassified =
         [
@@ -235,9 +235,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void Primitives_are_oklch_literals_declared_only_in_root()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         Declaration[] primitives = [.. declarations.Where(declaration => PrimitiveName.IsMatch(declaration.Name))];
 
@@ -267,9 +267,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void Semantic_colours_cite_the_scale_never_a_literal()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         Declaration[] semanticColours =
         [
@@ -300,17 +300,17 @@ public class DesignTokenLayerTests
     [Fact]
     public void Every_colour_mix_in_the_token_file_mixes_in_oklab()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         List<string> problems = [];
 
-        foreach (Declaration declaration in declarations)
+        foreach (var declaration in declarations)
         {
             foreach (Match occurrence in AnyColorMixOccurrence.Matches(declaration.Value))
             {
-                string space = occurrence.Groups["space"].Value;
+                var space = occurrence.Groups["space"].Value;
                 if (space != "oklab")
                 {
                     problems.Add(
@@ -334,9 +334,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void A_theme_redeclares_only_semantic_names_root_already_has()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         HashSet<string> rootNames = [.. RootMap(declarations).Keys];
 
@@ -349,7 +349,7 @@ public class DesignTokenLayerTests
         highContrast.ShouldNotBeEmpty(
             $"{tokenFile.Name} has no [data-theme='high-contrast'] block — same as the light theme.");
 
-        foreach ((Declaration[] themeDeclarations, string themeName) in new[]
+        foreach ((var themeDeclarations, var themeName) in new[]
                  {
                      (light, "light"),
                      (highContrast, "high-contrast"),
@@ -403,14 +403,14 @@ public class DesignTokenLayerTests
     [Fact]
     public void Content_roles_are_pinned_across_themes()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         HashSet<string> rootNames = [.. RootMap(declarations).Keys];
         List<string> problems = [];
 
-        foreach (string name in PinnedContentRoles)
+        foreach (var name in PinnedContentRoles)
         {
             if (!rootNames.Contains(name))
             {
@@ -452,9 +452,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void Content_roles_keep_their_rendered_values()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        Dictionary<string, string> map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
 
         AssertResolvesTo(map, "--color-bg-video", VideoLetterbox, tokenFile);
         AssertResolvesTo(map, "--color-bg-video-inverse", VideoInverse, tokenFile);
@@ -472,9 +472,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void The_triad_keeps_its_rendered_values()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        Dictionary<string, string> map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
 
         AssertResolvesTo(map, "--color-accent-active", GreenAccentActive, tokenFile);
         AssertResolvesTo(map, "--color-accent-fault", RedAccentFault, tokenFile);
@@ -485,9 +485,9 @@ public class DesignTokenLayerTests
     [Fact]
     public void The_dark_ground_keeps_its_rendered_values()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        Dictionary<string, string> map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var map = RootMap(ParseDeclarations(ReadCss(tokenFile)));
 
         AssertResolvesTo(map, "--color-bg-base", DarkGroundBase, tokenFile);
         AssertResolvesTo(map, "--color-bg-elevated", DarkGroundElevated, tokenFile);
@@ -497,10 +497,10 @@ public class DesignTokenLayerTests
     [Fact]
     public void No_blur_token_exists()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        string css = ReadCss(tokenFile);
-        List<Declaration> declarations = ParseDeclarations(css);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var css = ReadCss(tokenFile);
+        var declarations = ParseDeclarations(css);
 
         Declaration[] blurNames =
             [.. declarations.Where(declaration => declaration.Name.StartsWith("--blur", StringComparison.Ordinal))];
@@ -523,20 +523,20 @@ public class DesignTokenLayerTests
     [Fact]
     public void Nothing_outside_the_token_file_cites_a_primitive()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        string tokenFileRelative = RepositorySource.RelativePath(root, tokenFile.FullName);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var tokenFileRelative = RepositorySource.RelativePath(root, tokenFile.FullName);
 
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root, tokenFileRelative))
+        foreach (var relativePath in ScannedFiles(root, tokenFileRelative))
         {
-            string path = Path.Combine(root.FullName, relativePath);
-            string text = StripComments(File.ReadAllText(path), relativePath.EndsWith(".css", StringComparison.Ordinal) ? CommentStyle.CssOnly : CommentStyle.TsAndBlock);
+            var path = Path.Combine(root.FullName, relativePath);
+            var text = StripComments(File.ReadAllText(path), relativePath.EndsWith(".css", StringComparison.Ordinal) ? CommentStyle.CssOnly : CommentStyle.TsAndBlock);
 
             foreach (Match match in VarReference.Matches(text))
             {
-                string name = match.Groups["name"].Value;
+                var name = match.Groups["name"].Value;
                 if (PrimitiveName.IsMatch(name))
                 {
                     violations.Add($"{relativePath}: var({name})");
@@ -558,21 +558,21 @@ public class DesignTokenLayerTests
     [Fact]
     public void Both_configs_import_the_shared_theme_and_map_nothing_locally()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach (string config in new[]
+        foreach (var config in new[]
                  {
                      ManagementTailwindConfig, KioskTailwindConfig, ManagementCamerasTailwindConfig,
                      ManagementEventIngestionTailwindConfig,
                  })
         {
-            string path = Path.Combine(root.FullName, config);
+            var path = Path.Combine(root.FullName, config);
             File.Exists(path).ShouldBeTrue($"expected {config} at {path}.");
 
-            string source = StripComments(File.ReadAllText(path), CommentStyle.TsAndBlock);
+            var source = StripComments(File.ReadAllText(path), CommentStyle.TsAndBlock);
 
-            bool importsSharedTheme = Regex.IsMatch(
+            var importsSharedTheme = Regex.IsMatch(
                 source,
                 @"import\s*\{[^}]*\btailwindTheme\b[^}]*\}\s*from\s*['""][^'""]*shared/src/ui/tokens/tailwindTheme['""]");
 
@@ -602,24 +602,24 @@ public class DesignTokenLayerTests
     [Fact]
     public void Every_token_the_theme_cites_is_declared_and_semantic()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        string themePath = Path.Combine(root.FullName, SharedTailwindThemeModule);
+        var root = RepositorySource.Root();
+        var themePath = Path.Combine(root.FullName, SharedTailwindThemeModule);
 
         File.Exists(themePath).ShouldBeTrue(
             $"expected {SharedTailwindThemeModule} — the one theme object both tailwind.config.ts files "
             + "import (plan.md §4.1). It does not exist yet.");
 
-        string source = StripComments(File.ReadAllText(themePath), CommentStyle.TsAndBlock);
+        var source = StripComments(File.ReadAllText(themePath), CommentStyle.TsAndBlock);
         HashSet<string> citedNames =
             [.. VarReference.Matches(source).Select(match => match.Groups["name"].Value)];
 
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
         HashSet<string> declaredNames = [.. declarations.Select(declaration => declaration.Name)];
 
         List<string> problems = [];
 
-        foreach (string name in citedNames)
+        foreach (var name in citedNames)
         {
             if (!declaredNames.Contains(name))
             {
@@ -646,8 +646,8 @@ public class DesignTokenLayerTests
     {
         map.ContainsKey(name).ShouldBeTrue($"{name} is not declared in {tokenFile.Name}'s :root.");
 
-        (int r, int g, int b) = ResolveToSrgb(name, map, []);
-        string actualHex = $"#{r:x2}{g:x2}{b:x2}";
+        (var r, var g, var b) = ResolveToSrgb(name, map, []);
+        var actualHex = $"#{r:x2}{g:x2}{b:x2}";
 
         actualHex.ShouldBe(
             expectedHex,
@@ -656,14 +656,14 @@ public class DesignTokenLayerTests
 
     private static (int R, int G, int B) ResolveToSrgb(string name, Dictionary<string, string> map, HashSet<string> seen)
     {
-        map.TryGetValue(name, out string? value).ShouldBeTrue($"{name} has no declaration to resolve.");
+        map.TryGetValue(name, out var value).ShouldBeTrue($"{name} has no declaration to resolve.");
 
-        string trimmed = value.ShouldNotBeNull().Trim();
-        Match varMatch = SimpleVarValue.IsMatch(trimmed) ? VarReference.Match(trimmed) : Match.Empty;
+        var trimmed = value.ShouldNotBeNull().Trim();
+        var varMatch = SimpleVarValue.IsMatch(trimmed) ? VarReference.Match(trimmed) : Match.Empty;
 
         if (varMatch.Success)
         {
-            string next = varMatch.Groups["name"].Value;
+            var next = varMatch.Groups["name"].Value;
             seen.Add(name).ShouldBeTrue($"circular var() reference resolving {name} → {next}.");
             return ResolveToSrgb(next, map, seen);
         }
@@ -700,7 +700,7 @@ public class DesignTokenLayerTests
 
         foreach (Match block in Regex.Matches(css, @"(?<sel>[^{}]+)\{(?<body>[^{}]*)\}", RegexOptions.Singleline))
         {
-            string selector = block.Groups["sel"].Value.Trim();
+            var selector = block.Groups["sel"].Value.Trim();
 
             foreach (Match declaration in Regex.Matches(
                          block.Groups["body"].Value,
@@ -726,7 +726,7 @@ public class DesignTokenLayerTests
 
     private static string StripComments(string text, CommentStyle style)
     {
-        string withoutBlockComments = Regex.Replace(text, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+        var withoutBlockComments = Regex.Replace(text, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
 
         return style == CommentStyle.TsAndBlock
             ? Regex.Replace(withoutBlockComments, @"//[^\n]*", string.Empty)
@@ -741,15 +741,15 @@ public class DesignTokenLayerTests
     /// </summary>
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root, string excludeRelative)
     {
-        foreach (string tree in PrimitiveCitationScannedTrees)
+        foreach (var tree in PrimitiveCitationScannedTrees)
         {
-            string full = Path.Combine(root.FullName, tree);
+            var full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))
             {
                 continue;
             }
 
-            foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
             {
                 if (!file.EndsWith(".ts", StringComparison.Ordinal)
                     && !file.EndsWith(".tsx", StringComparison.Ordinal)
@@ -758,7 +758,7 @@ public class DesignTokenLayerTests
                     continue;
                 }
 
-                string relative = RepositorySource.RelativePath(root, file);
+                var relative = RepositorySource.RelativePath(root, file);
                 if (relative == excludeRelative)
                 {
                     continue;
@@ -785,17 +785,17 @@ public class DesignTokenLayerTests
     /// </summary>
     private static FileInfo TokenFileImportedBy(DirectoryInfo root, string appIndexCssRelativePath)
     {
-        string indexCssPath = Path.Combine(root.FullName, appIndexCssRelativePath);
+        var indexCssPath = Path.Combine(root.FullName, appIndexCssRelativePath);
         File.Exists(indexCssPath).ShouldBeTrue($"expected {appIndexCssRelativePath} at {indexCssPath}.");
 
-        string css = StripComments(File.ReadAllText(indexCssPath), CommentStyle.CssOnly);
-        Match import = Regex.Match(css, @"@import\s+'(?<path>[^']+)'\s*;");
+        var css = StripComments(File.ReadAllText(indexCssPath), CommentStyle.CssOnly);
+        var import = Regex.Match(css, @"@import\s+'(?<path>[^']+)'\s*;");
 
         import.Success.ShouldBeTrue(
             $"{appIndexCssRelativePath} has no `@import '...'` as its first statement — the token file "
             + "is located by following this import, not by a hard-coded name.");
 
-        string importPath = import.Groups["path"].Value;
+        var importPath = import.Groups["path"].Value;
         const string SharedPrefix = "@smart-sentinel-eye/shared/";
 
         if (importPath.StartsWith(SharedPrefix, StringComparison.Ordinal))
@@ -803,43 +803,43 @@ public class DesignTokenLayerTests
             return ResolveSharedExport(root, importPath[SharedPrefix.Length..], appIndexCssRelativePath, importPath);
         }
 
-        string directory = Path.GetDirectoryName(indexCssPath)!;
+        var directory = Path.GetDirectoryName(indexCssPath)!;
         return new FileInfo(Path.GetFullPath(Path.Combine(directory, importPath)));
     }
 
     private static FileInfo ResolveSharedExport(DirectoryInfo root, string subpath, string appIndexCssRelativePath, string importPath)
     {
-        string packageJsonPath = Path.Combine(root.FullName, SharedPackageJson);
+        var packageJsonPath = Path.Combine(root.FullName, SharedPackageJson);
         File.Exists(packageJsonPath).ShouldBeTrue($"expected {SharedPackageJson} at {packageJsonPath}.");
 
-        JsonNode package = JsonNode.Parse(File.ReadAllText(packageJsonPath))
+        var package = JsonNode.Parse(File.ReadAllText(packageJsonPath))
             ?? throw new InvalidOperationException($"{SharedPackageJson} did not parse as JSON.");
-        JsonObject exports = package["exports"]?.AsObject()
+        var exports = package["exports"]?.AsObject()
             ?? throw new InvalidOperationException($"{SharedPackageJson} has no \"exports\" map.");
 
-        foreach ((string key, JsonNode? value) in exports)
+        foreach ((var key, var value) in exports)
         {
             if (!key.StartsWith("./", StringComparison.Ordinal) || !key.EndsWith("/*", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string exportPrefix = key[2..^2];
+            var exportPrefix = key[2..^2];
             if (!subpath.StartsWith(exportPrefix + "/", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string target = value?.GetValue<string>()
+            var target = value?.GetValue<string>()
                 ?? throw new InvalidOperationException($"{SharedPackageJson}'s export \"{key}\" has no string target.");
             target.StartsWith("./", StringComparison.Ordinal).ShouldBeTrue(
                 $"{SharedPackageJson}'s export \"{key}\" → \"{target}\" is not a relative path this resolver understands.");
             target.EndsWith("/*", StringComparison.Ordinal).ShouldBeTrue(
                 $"{SharedPackageJson}'s export \"{key}\" → \"{target}\" is not a wildcard export this resolver understands.");
 
-            string suffix = subpath[(exportPrefix.Length + 1)..];
-            string targetPrefix = target[2..^2];
-            string resolvedRelative = $"apps/shared/{targetPrefix}/{suffix}";
+            var suffix = subpath[(exportPrefix.Length + 1)..];
+            var targetPrefix = target[2..^2];
+            var resolvedRelative = $"apps/shared/{targetPrefix}/{suffix}";
 
             return new FileInfo(Path.Combine(root.FullName, resolvedRelative));
         }

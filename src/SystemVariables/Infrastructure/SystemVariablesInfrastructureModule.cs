@@ -117,7 +117,7 @@ public static class SystemVariablesInfrastructureModule
     /// </summary>
     private static void BindReverseIndexSeeder(IHostApplicationBuilder builder)
     {
-        string keycloakBaseUrl =
+        var keycloakBaseUrl =
             builder.Configuration.GetConnectionString("keycloak")
             ?? builder.Configuration["services:keycloak:http:0"]
             ?? builder.Configuration["services:keycloak:https:0"]

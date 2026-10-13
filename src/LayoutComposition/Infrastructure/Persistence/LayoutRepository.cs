@@ -19,7 +19,7 @@ public sealed class LayoutRepository(
         // fab therefore comes back as None, exactly like an identifier that
         // matches nothing — and it does so before any caller can read a
         // precondition off the aggregate.
-        Layout? found = await dbContext.Layouts.FirstOrDefaultAsync(
+        var found = await dbContext.Layouts.FirstOrDefaultAsync(
             candidate => candidate.Id == layout && fabs.Contains(candidate.Fab),
             cancellationToken);
         return found is null ? Option<Layout>.None : Option<Layout>.Some(found);
@@ -40,7 +40,7 @@ public sealed class LayoutRepository(
         // Fab first: a name is unique only within one (spec 017 FR-019), so
         // without it this returns another fab's layout — and the caller turns
         // that into a 409 that confirms the layout exists.
-        Layout? found = await dbContext.Layouts
+        var found = await dbContext.Layouts
             .Where(candidate => candidate.Fab == fab)
             .Where(candidate => candidate.Name == name)
             .Where(candidate => candidate.ArchivedAt == null)
@@ -57,7 +57,7 @@ public sealed class LayoutRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Layout[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<Layout>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -72,9 +72,9 @@ public sealed class LayoutRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (Layout layout in tracked)
+        foreach (var layout in tracked)
         {
-            IDomainEvent[] events = layout.PendingEvents.ToArray();
+            var events = layout.PendingEvents.ToArray();
             layout.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

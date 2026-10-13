@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
@@ -111,22 +110,22 @@ public sealed record RunModeStackAddress(string SystemVariables, string Keycloak
             ["scope"] = "openid",
         };
 
-        using HttpResponseMessage response = await keycloak.PostAsync(
+        using var response = await keycloak.PostAsync(
             $"/realms/{Realm}/protocol/openid-connect/token",
             new FormUrlEncodedContent(form),
             cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
-            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
             throw new InvalidOperationException(
                 $"Keycloak password grant failed against '{Keycloak}': {response.StatusCode} {body}. "
                 + "If this is a 401 or the issuer looks wrong, check the address is Aspire's proxied "
                 + "endpoint rather than the container's mapped port.");
         }
 
-        JsonElement json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-        string token = json.GetProperty("access_token").GetString()!;
+        var json = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var token = json.GetProperty("access_token").GetString()!;
 
         // The same certificate handling as the Keycloak call above. The dashboard
         // shows both an http and an https endpoint for the service, and an

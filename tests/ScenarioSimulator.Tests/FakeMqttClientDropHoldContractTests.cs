@@ -31,7 +31,7 @@ public class FakeMqttClientDropHoldContractTests
             return Task.CompletedTask;
         };
 
-        MqttClientConnectResult result = await client.ConnectAsync(new MqttClientOptions());
+        var result = await client.ConnectAsync(new MqttClientOptions());
 
         result.ResultCode.ShouldBe(
             MqttClientConnectResultCode.Success,
@@ -54,14 +54,14 @@ public class FakeMqttClientDropHoldContractTests
     {
         FakeMqttClient client = new() { DropEveryConnectionImmediately = true };
         client.RefuseNextConnects(1);
-        int disconnects = 0;
+        var disconnects = 0;
         client.DisconnectedAsync += _ =>
         {
             disconnects++;
             return Task.CompletedTask;
         };
 
-        MqttClientConnectResult result = await client.ConnectAsync(new MqttClientOptions());
+        var result = await client.ConnectAsync(new MqttClientOptions());
 
         result.ResultCode.ShouldBe(
             MqttClientConnectResultCode.NotAuthorized,
@@ -78,7 +78,7 @@ public class FakeMqttClientDropHoldContractTests
     [Fact]
     public async Task A_held_connection_is_up_until_the_hold_ends_and_then_drops()
     {
-        TimeSpan hold = TimeSpan.FromMilliseconds(150);
+        var hold = TimeSpan.FromMilliseconds(150);
         FakeMqttClient client = new();
         client.HoldEveryConnectionFor(hold);
         List<MqttClientDisconnectedEventArgs> disconnects = [];
@@ -88,8 +88,8 @@ public class FakeMqttClientDropHoldContractTests
             return Task.CompletedTask;
         };
 
-        long connectedAt = Stopwatch.GetTimestamp();
-        MqttClientConnectResult result = await client.ConnectAsync(new MqttClientOptions());
+        var connectedAt = Stopwatch.GetTimestamp();
+        var result = await client.ConnectAsync(new MqttClientOptions());
 
         result.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
         client.IsConnected.ShouldBeTrue(
@@ -99,7 +99,7 @@ public class FakeMqttClientDropHoldContractTests
         (await WaitUntilAsync(() => disconnects.Count == 1)).ShouldBeTrue(
             "the held connection never dropped");
 
-        TimeSpan elapsed = Stopwatch.GetElapsedTime(connectedAt);
+        var elapsed = Stopwatch.GetElapsedTime(connectedAt);
 
         disconnects[0].ClientWasConnected.ShouldBeTrue("the drop follows a connection that was up.");
         client.IsConnected.ShouldBeFalse("the hold ended and the connection went with it.");
@@ -116,7 +116,7 @@ public class FakeMqttClientDropHoldContractTests
 
     private static async Task<bool> WaitUntilAsync(Func<bool> condition)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (condition())

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests.LayoutComposition;
@@ -23,10 +22,10 @@ public class WallSceneSwitchRequestedV1Tests
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid targetLayout = Guid.CreateVersion7();
-        Guid rule = Guid.CreateVersion7();
-        Guid causingEvent = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var targetLayout = Guid.CreateVersion7();
+        var rule = Guid.CreateVersion7();
+        var causingEvent = Guid.CreateVersion7();
         WallSceneSwitchRequestedV1 evt = new(
             wall, "Layout", targetLayout, rule, Moment, causingEvent, Metadata: TestMetadata);
 
@@ -51,9 +50,9 @@ public class WallSceneSwitchRequestedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid rule = Guid.CreateVersion7();
-        Guid causingEvent = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var rule = Guid.CreateVersion7();
+        var causingEvent = Guid.CreateVersion7();
         WallSceneSwitchRequestedV1 a = new(
             wall, "Next", null, rule, Moment, causingEvent, Metadata: TestMetadata);
         WallSceneSwitchRequestedV1 b = new(
@@ -70,8 +69,8 @@ public class WallSceneSwitchRequestedV1Tests
             Guid.CreateVersion7(), "Layout", Guid.CreateVersion7(), Guid.CreateVersion7(), Moment,
             Guid.CreateVersion7(), Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        WallSceneSwitchRequestedV1 deserialized = JsonSerializer.Deserialize<WallSceneSwitchRequestedV1>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<WallSceneSwitchRequestedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }
@@ -86,7 +85,7 @@ public class WallSceneSwitchRequestedV1Tests
     [Fact]
     public void When_Target_is_Layout_TargetLayout_is_set()
     {
-        Guid targetLayout = Guid.CreateVersion7();
+        var targetLayout = Guid.CreateVersion7();
         WallSceneSwitchRequestedV1 evt = new(
             Guid.CreateVersion7(), "Layout", targetLayout, Guid.CreateVersion7(), Moment,
             Guid.CreateVersion7(), Metadata: TestMetadata);

@@ -24,7 +24,7 @@ public class CreateOverlayDraftCommandHandlerTests
         CreateOverlayDraftCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<CreateOverlayDraftCommandHandler>.Instance);
 
-        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
                 OverlayName.From("Line-1 Title"),
                 [SampleLabel()],
@@ -33,7 +33,7 @@ public class CreateOverlayDraftCommandHandlerTests
 
         result.IsSuccess.ShouldBeTrue();
         overlays.Overlays.Count.ShouldBe(1);
-        Overlay created = overlays.Overlays[0];
+        var created = overlays.Overlays[0];
         created.Id.ShouldBe(result.Value);
         created.Name.Value.ShouldBe("Line-1 Title");
         created.Revisions.Single().State.ShouldBe(OverlayRevisionState.Draft);
@@ -44,7 +44,7 @@ public class CreateOverlayDraftCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay existing = new OverlayBuilder()
+        var existing = new OverlayBuilder()
             .At(clock.UtcNow)
             .WithLabel(SampleLabel())
             .Build();
@@ -52,7 +52,7 @@ public class CreateOverlayDraftCommandHandlerTests
 
         CreateOverlayDraftCommandHandler handler = new(
             overlays, clock, NullLogger<CreateOverlayDraftCommandHandler>.Instance);
-        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
                 OverlayName.From("Line-1 Title"),
                 [SampleLabel()],
@@ -71,7 +71,7 @@ public class CreateOverlayDraftCommandHandlerTests
         CreateOverlayDraftCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<CreateOverlayDraftCommandHandler>.Instance);
 
-        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
                 OverlayName.From("Line-1 Title"),
                 [],
@@ -89,9 +89,9 @@ public class CreateOverlayDraftCommandHandlerTests
         InMemoryOverlayRepository overlays = new();
         CreateOverlayDraftCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<CreateOverlayDraftCommandHandler>.Instance);
-        List<OverlayElement> tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1).Select(_ => SampleLabel()).ToList();
+        var tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1).Select(_ => SampleLabel()).ToList();
 
-        Result<OverlayIdentifier, CreateOverlayDraftError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateOverlayDraftCommand(
                 OverlayName.From("Line-1 Title"),
                 tooMany,

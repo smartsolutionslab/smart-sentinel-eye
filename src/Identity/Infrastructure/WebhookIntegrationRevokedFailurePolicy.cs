@@ -61,7 +61,7 @@ public sealed class WebhookIntegrationRevokedFailurePolicy : IHandlerPolicy
 {
     public void Apply(IReadOnlyList<HandlerChain> chains, GenerationRules rules, IServiceContainer container)
     {
-        HandlerChain? chain = chains.FirstOrDefault(
+        var chain = chains.FirstOrDefault(
             candidate => candidate.MessageType == typeof(WebhookIntegrationRevokedV1));
 
         TimeSpan[] ladder =

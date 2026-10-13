@@ -1,8 +1,5 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
-using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 
@@ -30,15 +27,15 @@ public sealed class ScenarioSeeder(
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        ScenarioOptions scenarios = scenarioOptions.Value;
-        int failed = 0;
+        var scenarios = scenarioOptions.Value;
+        var failed = 0;
 
         // Every active scenario gets its cameras, overlays and rules. One missing
         // key skips only itself, so a typo in the list costs one plant and not
         // the run.
-        foreach (string key in scenarios.Active)
+        foreach (var key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
+            if (!scenarios.Scenarios.TryGetValue(key, out var scenario))
             {
                 logger.ScenarioNotFound(key);
                 continue;
@@ -66,7 +63,7 @@ public sealed class ScenarioSeeder(
                 continue;
             }
 
-            foreach (AssetDefinition asset in scenario.Assets)
+            foreach (var asset in scenario.Assets)
             {
                 // Scoped, not swallowed. This is a `BackgroundService`, so an
                 // exception escaping here trips
@@ -95,7 +92,7 @@ public sealed class ScenarioSeeder(
                     // one. Null means the read-back could not determine it (logged
                     // there); the wall simply stays incomplete rather than the seed
                     // failing.
-                    Guid? camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
+                    var camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
                     if (camera.HasValue)
                     {
                         correlation.RecordCamera(asset.Camera.Path, camera.Value);
@@ -151,7 +148,7 @@ public sealed class ScenarioSeeder(
         // Variables first (plan.md §5.4): a SetVariableValue reaction needs
         // to know, before any rule is seeded, which of this asset's declared
         // variables actually exist server-side.
-        HashSet<string> seededVariables = await SeedVariablesAsync(asset, cancellationToken);
+        var seededVariables = await SeedVariablesAsync(asset, cancellationToken);
 
         if (asset.Overlay is null || asset.Tile is null)
         {
@@ -163,7 +160,7 @@ public sealed class ScenarioSeeder(
             return;
         }
 
-        string assetKey = asset.Camera.Path;
+        var assetKey = asset.Camera.Path;
         OverlayLabel label = new(
             asset.Overlay.Label,
             (decimal)asset.Overlay.X,
@@ -172,7 +169,7 @@ public sealed class ScenarioSeeder(
             (decimal)asset.Overlay.Height,
             (int)asset.Overlay.FontSize);
 
-        Guid overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", [label], cancellationToken);
+        var overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", [label], cancellationToken);
         correlation.RecordOverlay(scenario, assetKey, overlay, asset.Tile.Row, asset.Tile.Col);
 
         if (asset.Highlight is null)
@@ -181,14 +178,14 @@ public sealed class ScenarioSeeder(
         }
         else
         {
-            IReadOnlyList<CueDefinition> cues = ScenarioStoryCheck.ValidCuesFor(asset, manifestsByClip);
+            var cues = ScenarioStoryCheck.ValidCuesFor(asset, manifestsByClip);
             switch (HighlightRuleSeed.From(scenario, asset, overlay, cues))
             {
                 case HighlightSeedResult.Refused refused:
                     logger.HighlightRuleRefused(asset.Key, refused.Reason);
                     break;
                 case HighlightSeedResult.Valid valid:
-                    RuleSeedResult highlightResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
+                    var highlightResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
                     if (highlightResult is RuleSeedResult.Refused highlightRefused)
                     {
                         logger.HighlightRuleRefused(asset.Key, highlightRefused.Reason);
@@ -224,7 +221,7 @@ public sealed class ScenarioSeeder(
     {
         HashSet<string> seeded = new(StringComparer.Ordinal);
 
-        foreach (VariableDefinition variable in asset.Variables)
+        foreach (var variable in asset.Variables)
         {
             VariableSeedResult result;
             try
@@ -280,17 +277,17 @@ public sealed class ScenarioSeeder(
         }
 
         // Loaded once per scenario by the caller, not reloaded here.
-        ClipManifestLoadResult clip = manifestsByClip[asset.Camera.Clip];
-        bool clipRefused = clip.Violations.Count > 0;
+        var clip = manifestsByClip[asset.Camera.Clip];
+        var clipRefused = clip.Violations.Count > 0;
 
-        foreach (ReactionDefinition reaction in asset.Reactions)
+        foreach (var reaction in asset.Reactions)
         {
-            (string source, string kind) = (reaction.When.Source, reaction.When.Kind);
+            (var source, var kind) = (reaction.When.Source, reaction.When.Kind);
 
-            bool sensorSatisfiesTrigger = asset.Sensors.Any(sensor =>
+            var sensorSatisfiesTrigger = asset.Sensors.Any(sensor =>
                 string.Equals(sensor.Source, source, StringComparison.Ordinal)
                 && string.Equals(sensor.Kind, kind, StringComparison.Ordinal));
-            bool cueSatisfiesTrigger = clip.Manifest.HasValue && clip.Manifest.Value.Cues.Any(cue =>
+            var cueSatisfiesTrigger = clip.Manifest.HasValue && clip.Manifest.Value.Cues.Any(cue =>
                 string.Equals(cue.Source, source, StringComparison.Ordinal)
                 && string.Equals(cue.Kind, kind, StringComparison.Ordinal));
 
@@ -300,7 +297,7 @@ public sealed class ScenarioSeeder(
                 continue;
             }
 
-            ReactionSeedResult result = ReactionRuleSeed.From(scenario, asset, reaction, overlay);
+            var result = ReactionRuleSeed.From(scenario, asset, reaction, overlay);
             switch (result)
             {
                 case ReactionSeedResult.Valid { Seed.Action: RuleSeedAction.SetVariableValue setVariable }
@@ -308,7 +305,7 @@ public sealed class ScenarioSeeder(
                     logger.ReactionSkippedVariableRefused(asset.Key, reaction.Name, setVariable.VariableName);
                     break;
                 case ReactionSeedResult.Valid valid:
-                    RuleSeedResult ruleResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
+                    var ruleResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
                     if (ruleResult is RuleSeedResult.Refused ruleRefused)
                     {
                         logger.ReactionRefused(asset.Key, reaction.Name, ruleRefused.Reason);
@@ -326,7 +323,7 @@ public sealed class ScenarioSeeder(
     private void ReportUnreachableTriggers(
         string scenario, List<AssetDefinition> assets, IReadOnlyDictionary<string, ClipManifestLoadResult> manifestsByClip)
     {
-        foreach (StoryFinding finding in ScenarioStoryCheck.Find(scenario, assets, manifestsByClip))
+        foreach (var finding in ScenarioStoryCheck.Find(scenario, assets, manifestsByClip))
         {
             logger.ScenarioReactionUnreachable(finding.Scenario, finding.Asset, finding.Reaction, finding.Trigger);
         }

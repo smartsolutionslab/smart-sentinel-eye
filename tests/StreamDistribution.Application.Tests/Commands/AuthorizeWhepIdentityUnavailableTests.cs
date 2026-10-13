@@ -25,7 +25,7 @@ public class AuthorizeWhepIdentityUnavailableTests
     [Fact]
     public async Task Authorize_when_the_realm_is_unreachable_is_refused_with_401()
     {
-        Result<MediaMtxPath, AuthorizeWhepError> result = await AuthorizeWithAnUnreachableRealm();
+        var result = await AuthorizeWithAnUnreachableRealm();
 
         result.IsFailure.ShouldBeTrue(
             customMessage: "the WHEP hook admitted a viewer while the realm that vouches for it was "
@@ -46,7 +46,7 @@ public class AuthorizeWhepIdentityUnavailableTests
     [Fact]
     public async Task Authorize_when_the_realm_is_unreachable_does_not_blame_the_token()
     {
-        Result<MediaMtxPath, AuthorizeWhepError> result = await AuthorizeWithAnUnreachableRealm();
+        var result = await AuthorizeWithAnUnreachableRealm();
 
         result.Error.Code.ShouldNotBe(
             "WHEP_UNAUTHORIZED",
@@ -62,7 +62,7 @@ public class AuthorizeWhepIdentityUnavailableTests
     [Fact]
     public async Task Authorize_with_a_rejected_token_is_still_WHEP_UNAUTHORIZED()
     {
-        Result<MediaMtxPath, AuthorizeWhepError> result =
+        var result =
             await Authorize(WhepAuthFailure.TokenRejected);
 
         result.Error.ShouldBeOfType<AuthorizeWhepError.Unauthorized>();

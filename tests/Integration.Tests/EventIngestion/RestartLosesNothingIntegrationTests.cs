@@ -1,13 +1,9 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
-using Aspire.Hosting.ApplicationModel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -53,7 +49,7 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
     [Fact]
     public async Task A_restart_mid_drain_stores_every_event_exactly_once()
     {
-        string kind = $"Restart{Guid.CreateVersion7():N}"[..20];
+        var kind = $"Restart{Guid.CreateVersion7():N}"[..20];
 
         await PublishAsync("fab/munich/plc/station-4", kind, Published);
         output.WriteLine($"published {Published} events");
@@ -63,7 +59,7 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
         await RestartAsync("event-ingestion");
         output.WriteLine("restarted event-ingestion mid-drain");
 
-        (long total, long distinct) = await WaitForAsync(kind, Published, TimeSpan.FromMinutes(3));
+        (var total, var distinct) = await WaitForAsync(kind, Published, TimeSpan.FromMinutes(3));
         output.WriteLine($"after restart: count={total} distinct={distinct}");
 
         total.ShouldBe(Published, "an event still in the buffer at restart was lost");
@@ -83,12 +79,12 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
     /// </summary>
     private async Task RestartAsync(string resourceName)
     {
-        ResourceCommandService commands =
+        var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
         try
         {
-            ExecuteCommandResult result = await commands.ExecuteCommandAsync(
+            var result = await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.RestartCommand, CancellationToken.None);
             result.Success.ShouldBeTrue($"could not restart {resourceName}: {result.Message}");
         }
@@ -160,7 +156,7 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
     private async Task<(long Total, long Distinct)> WaitForAsync(
         string kind, long expected, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
         (long total, long distinct) = (0, 0);
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -183,11 +179,11 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
 
     private async Task<(long Total, long Distinct)> CountAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-        long total = await database.Database
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
+        var total = await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
-        long distinct = await database.Database
+        var distinct = await database.Database
             .SqlQueryRaw<long>(
                 "SELECT count(DISTINCT event_id) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -196,22 +192,22 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
 
     private async Task PublishAsync(string topic, string kind, int count)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -221,9 +217,9 @@ public class RestartLosesNothingIntegrationTests(AspireFixture aspire, ITestOutp
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
-            MqttClientPublishResult published = await client.PublishAsync(
+            var published = await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
                     .WithPayload(Payload(kind))

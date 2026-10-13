@@ -245,7 +245,7 @@ public class PreconditionDeclarationTests
     public static TheoryData<string> EndpointFiles()
     {
         TheoryData<string> data = [];
-        foreach (string file in TheSurface.Value.EndpointSources)
+        foreach (var file in TheSurface.Value.EndpointSources)
         {
             data.Add(file);
         }
@@ -264,14 +264,14 @@ public class PreconditionDeclarationTests
     [Fact]
     public void Every_route_mapping_resolves_to_one_handler_body_the_guard_can_read()
     {
-        IReadOnlyList<ResolvedMapping> mappings = TheSurface.Value.Routes;
+        var mappings = TheSurface.Value.Routes;
 
         mappings.Count.ShouldBeGreaterThan(
             0,
             "no route mappings were found under src/*/Api. That is the reader failing, not the product: "
             + "every later assertion in this file would then pass over an empty set.");
 
-        string[] unresolved = mappings
+        var unresolved = mappings
             .Where(m => m.Failure is not null)
             .Select(m => $"{Describe(m.Mapping)}: {m.Failure}")
             .ToArray();
@@ -303,7 +303,7 @@ public class PreconditionDeclarationTests
         string className,
         int expected)
     {
-        string[] files = TheSurface.Value.Classes
+        var files = TheSurface.Value.Classes
             .Where(c => string.Equals(c.Name, className, StringComparison.Ordinal))
             .Select(c => c.File)
             .Distinct(StringComparer.Ordinal)
@@ -329,7 +329,7 @@ public class PreconditionDeclarationTests
     [Fact]
     public void The_layout_write_mappings_bind_to_the_handlers_in_their_partial_file()
     {
-        ResolvedMapping[] bound = TheSurface.Value.Routes
+        var bound = TheSurface.Value.Routes
             .Where(m => m.Mapping.File.EndsWith("LayoutComposition/Api/LayoutEndpoints.cs", StringComparison.Ordinal))
             .Where(RequiresPrecondition)
             .ToArray();
@@ -341,7 +341,7 @@ public class PreconditionDeclarationTests
             + "being bound across the partial's files, and the omission assertion below is then measuring "
             + "the reader rather than the product.");
 
-        string[] elsewhere = bound
+        var elsewhere = bound
             .Select(m => m.Handler!.File)
             .Where(file => !file.EndsWith("LayoutEndpoints.Commands.cs", StringComparison.Ordinal))
             .ToArray();
@@ -360,14 +360,14 @@ public class PreconditionDeclarationTests
     [Fact]
     public void Every_endpoint_that_requires_If_Match_declares_the_428_it_answers()
     {
-        ResolvedMapping[] requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
+        var requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
 
         requiring.Length.ShouldBeGreaterThan(
             0,
             "no endpoint under src/*/Api was read as requiring If-Match, which cannot be true while "
             + "ConcurrencyHeaders exists. The body reader has stopped finding the helper calls.");
 
-        string[] offenders = requiring
+        var offenders = requiring
             .Where(m => !Declares428(m.Mapping))
             .Select(m => $"{Describe(m.Mapping)} -> {m.Mapping.ContainingClass}.{m.Mapping.HandlerArgument} "
                 + $"[{string.Join(", ", m.Calls.Select(c => $"{c.File}:{c.Line} ConcurrencyHeaders.TryRead{c.Helper}"))}]")
@@ -400,14 +400,14 @@ public class PreconditionDeclarationTests
     [Fact]
     public void Every_endpoint_that_reads_If_Match_declares_the_400_it_answers_for_a_malformed_one()
     {
-        ResolvedMapping[] requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
+        var requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
 
         requiring.Length.ShouldBeGreaterThan(
             0,
             "no endpoint under src/*/Api was read as requiring If-Match, which cannot be true while "
             + "ConcurrencyHeaders exists. The body reader has stopped finding the helper calls.");
 
-        string[] offenders = requiring
+        var offenders = requiring
             .Where(m => !DeclaresMalformed(m.Mapping))
             .Select(m => $"{Describe(m.Mapping)} -> {m.Mapping.ContainingClass}.{m.Mapping.HandlerArgument} "
                 + $"[{string.Join(", ", m.Calls.Select(c => $"{c.File}:{c.Line} ConcurrencyHeaders.TryRead{c.Helper}"))}]")
@@ -437,14 +437,14 @@ public class PreconditionDeclarationTests
     [Fact]
     public void No_endpoint_declares_428_without_requiring_If_Match()
     {
-        IReadOnlyList<ResolvedMapping> mappings = TheSurface.Value.Routes;
+        var mappings = TheSurface.Value.Routes;
 
         mappings.Count(m => Declares428(m.Mapping)).ShouldBeGreaterThan(
             0,
             "no chain under src/*/Api declares 428, so this assertion is passing over an empty set. "
             + "Either the chain reader is broken or the declarations have been removed wholesale.");
 
-        string[] offenders = mappings
+        var offenders = mappings
             .Where(m => Declares428(m.Mapping) && !RequiresPrecondition(m))
             .Select(m => $"{Describe(m.Mapping)} -> {m.Mapping.ContainingClass}.{m.Mapping.HandlerArgument}")
             .ToArray();
@@ -471,9 +471,9 @@ public class PreconditionDeclarationTests
     [Fact]
     public void Every_If_Match_call_site_under_the_api_directories_sits_in_a_mapped_handler()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Files.Sum(file => HelperCall.Count(surface.Masked[file]));
-        int walked = surface.Routes
+        var surface = TheSurface.Value;
+        var swept = surface.Files.Sum(file => HelperCall.Count(surface.Masked[file]));
+        var walked = surface.Routes
             .Where(m => m.Handler is not null)
             .DistinctBy(m => (m.Handler!.File, m.Handler.BodyStart))
             .Sum(m => m.Calls.Count);
@@ -506,9 +506,9 @@ public class PreconditionDeclarationTests
     [Fact]
     public void Every_428_declaration_under_the_api_directories_sits_in_a_mapping_chain()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Files.Sum(file => Occurrences(surface.Masked[file], DeclarationToken));
-        int walked = surface.Routes.Sum(m => Occurrences(m.Mapping.Chain, DeclarationToken));
+        var surface = TheSurface.Value;
+        var swept = surface.Files.Sum(file => Occurrences(surface.Masked[file], DeclarationToken));
+        var walked = surface.Routes.Sum(m => Occurrences(m.Mapping.Chain, DeclarationToken));
 
         swept.ShouldBeGreaterThan(
             0,
@@ -538,9 +538,9 @@ public class PreconditionDeclarationTests
     [Fact]
     public void Every_400_declaration_under_the_api_directories_sits_in_a_mapping_chain()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Files.Sum(file => MalformedDeclaration.Count(surface.Masked[file]));
-        int walked = surface.Routes.Sum(m => MalformedDeclaration.Count(m.Mapping.Chain));
+        var surface = TheSurface.Value;
+        var swept = surface.Files.Sum(file => MalformedDeclaration.Count(surface.Masked[file]));
+        var walked = surface.Routes.Sum(m => MalformedDeclaration.Count(m.Mapping.Chain));
 
         swept.ShouldBeGreaterThan(
             0,
@@ -568,8 +568,8 @@ public class PreconditionDeclarationTests
     [Fact]
     public void The_precondition_corpus_is_twenty_one_endpoints_across_ten_files()
     {
-        ResolvedMapping[] requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
-        string[] files = requiring
+        var requiring = TheSurface.Value.Routes.Where(RequiresPrecondition).ToArray();
+        var files = requiring
             .Select(m => m.Mapping.File)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -600,7 +600,7 @@ public class PreconditionDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_endpoint_file_contributes_at_least_one_mapping(string file)
     {
-        ResolvedMapping[] mappings = TheSurface.Value.Routes
+        var mappings = TheSurface.Value.Routes
             .Where(m => string.Equals(m.Mapping.File, file, StringComparison.Ordinal))
             .ToArray();
 
@@ -619,7 +619,7 @@ public class PreconditionDeclarationTests
     [Fact]
     public void The_endpoint_file_glob_still_finds_sixteen_files()
     {
-        IReadOnlyList<string> files = TheSurface.Value.EndpointSources;
+        var files = TheSurface.Value.EndpointSources;
 
         files.Count.ShouldBe(
             EndpointFileCount,
@@ -657,9 +657,9 @@ public class PreconditionDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string source = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, GuardSource));
+        var source = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, GuardSource));
 
-        string[] offenders = source.Split('\n')
+        var offenders = source.Split('\n')
             .Select(line => line.TrimStart())
             .Where(line => !line.StartsWith("//", StringComparison.Ordinal) && !line.StartsWith('['))
             .Select(line => StringLiteral.Replace(line, "\"\""))
@@ -702,7 +702,7 @@ public class PreconditionDeclarationTests
             (cleanFile, cleanText),
         ];
 
-        string[] offenders = FormsThisReaderCannotMask(sources);
+        var offenders = FormsThisReaderCannotMask(sources);
 
         offenders.Length.ShouldBe(
             1,
@@ -733,8 +733,8 @@ public class PreconditionDeclarationTests
     [Fact]
     public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
         files.ShouldNotBeEmpty(
             "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
 
@@ -742,7 +742,7 @@ public class PreconditionDeclarationTests
             "the list of forms this reader's masker cannot handle is empty, so this guard would pass "
             + "against nothing to look for.");
 
-        string[] offenders = FormsThisReaderCannotMask(files.Select(file => (
+        var offenders = FormsThisReaderCannotMask(files.Select(file => (
             file,
             File.ReadAllText(Path.Combine(root.FullName, file)).Replace("\r", string.Empty, StringComparison.Ordinal))));
 
@@ -776,14 +776,14 @@ public class PreconditionDeclarationTests
     /// </summary>
     private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
     {
-        (string Form, string Why)[] bannedForms = BannedForms();
+        var bannedForms = BannedForms();
 
         List<string> offenders = [];
-        foreach ((string file, string text) in sources)
+        foreach ((var file, var text) in sources)
         {
-            foreach ((string form, string why) in bannedForms)
+            foreach ((var form, var why) in bannedForms)
             {
-                int at = text.IndexOf(form, StringComparison.Ordinal);
+                var at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
                 {
                     offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
@@ -809,8 +809,8 @@ public class PreconditionDeclarationTests
 
     private static int Occurrences(string text, string token)
     {
-        int count = 0;
-        int index = text.IndexOf(token, StringComparison.Ordinal);
+        var count = 0;
+        var index = text.IndexOf(token, StringComparison.Ordinal);
         while (index >= 0)
         {
             count++;
@@ -822,21 +822,21 @@ public class PreconditionDeclarationTests
 
     private static Surface Read()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
 
         Dictionary<string, string> masked = new(StringComparer.Ordinal);
         Dictionary<string, string> text = new(StringComparer.Ordinal);
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string body = File.ReadAllText(Path.Combine(root.FullName, file))
+            var body = File.ReadAllText(Path.Combine(root.FullName, file))
                 .Replace("\r", string.Empty, StringComparison.Ordinal);
             text[file] = body;
             masked[file] = SourceMask.Apply(body, MaskStrictness.CommentsAndLiteralInteriors);
         }
 
-        List<RouteChainReader.ClassSpan> classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
-        List<ResolvedMapping> mappings = files
+        var classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
+        var mappings = files
             .SelectMany(file => Mappings(file, text[file], masked[file], classes))
             .Select(mapping => Resolve(mapping, classes, masked))
             .ToList();
@@ -851,7 +851,7 @@ public class PreconditionDeclarationTests
 
     private static List<string> ApiSourceFiles(DirectoryInfo root)
     {
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateDirectories(src)
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
@@ -871,13 +871,13 @@ public class PreconditionDeclarationTests
     {
         foreach (Match declaration in ClassDeclaration.Matches(masked))
         {
-            int open = masked.IndexOf('{', declaration.Index + declaration.Length);
+            var open = masked.IndexOf('{', declaration.Index + declaration.Length);
             if (open < 0)
             {
                 continue;
             }
 
-            int close = RouteChainReader.Balanced(masked, open, '{', '}');
+            var close = RouteChainReader.Balanced(masked, open, '{', '}');
             if (close > 0)
             {
                 yield return new RouteChainReader.ClassSpan(file, declaration.Groups["name"].Value, open, close);
@@ -899,20 +899,20 @@ public class PreconditionDeclarationTests
     {
         foreach (Match call in MappingCall.Matches(masked))
         {
-            int open = call.Index + call.Length - 1;
-            int close = RouteChainReader.Balanced(masked, open, '(', ')');
+            var open = call.Index + call.Length - 1;
+            var close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = RouteChainReader.StatementEnd(
+            var end = RouteChainReader.StatementEnd(
                 masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
-            string chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
+            var chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
 
-            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            string route = arguments.Count > 0 ? text[arguments[0].Start..arguments[0].End].Trim() : string.Empty;
-            string handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
+            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            var route = arguments.Count > 0 ? text[arguments[0].Start..arguments[0].End].Trim() : string.Empty;
+            var handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
 
             yield return new RouteMapping(
                 file,
@@ -948,7 +948,7 @@ public class PreconditionDeclarationTests
             return Unreadable(mapping, "the mapping is not inside a class declaration this reader can find");
         }
 
-        RouteChainReader.HandlerResolution resolution = RouteChainReader.HandlerBodyFor(
+        var resolution = RouteChainReader.HandlerBodyFor(
             mapping.ContainingClass, mapping.HandlerArgument, mapping.File, classes, masked);
 
         if (!resolution.IsBareMethodGroupName)
@@ -960,7 +960,7 @@ public class PreconditionDeclarationTests
 
         if (resolution.Body is null)
         {
-            string project = ProjectOf(mapping.File);
+            var project = ProjectOf(mapping.File);
             if (resolution.Candidates.Count == 0)
             {
                 return Unreadable(
@@ -976,8 +976,8 @@ public class PreconditionDeclarationTests
                 + $"({string.Join(", ", resolution.Candidates.Select(c => $"{c.File}:{c.Line}"))})");
         }
 
-        RouteChainReader.HandlerBody body = resolution.Body;
-        List<PreconditionCall> calls = HelperCall.Matches(body.Body)
+        var body = resolution.Body;
+        var calls = HelperCall.Matches(body.Body)
             .Select(match => new PreconditionCall(
                 match.Groups["helper"].Value,
                 body.File,
@@ -997,7 +997,7 @@ public class PreconditionDeclarationTests
     /// </summary>
     private static string ProjectOf(string file)
     {
-        int marker = file.IndexOf("/Api/", StringComparison.Ordinal);
+        var marker = file.IndexOf("/Api/", StringComparison.Ordinal);
         return marker < 0 ? file : file[..(marker + 4)];
     }
 

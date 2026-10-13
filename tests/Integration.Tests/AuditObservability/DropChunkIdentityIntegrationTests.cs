@@ -56,17 +56,17 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Dropping_a_chunk_leaves_the_older_unarchived_chunk_in_place()
     {
-        Guid olderAuditId = await SeedBackdatedRowAsync(OlderOccurredAt);
-        Guid newerAuditId = await SeedBackdatedRowAsync(NewerOccurredAt);
+        var olderAuditId = await SeedBackdatedRowAsync(OlderOccurredAt);
+        var newerAuditId = await SeedBackdatedRowAsync(NewerOccurredAt);
 
         // Assert the premise before acting (plan.md R1): if the two seeded
         // instants happened to land in one chunk, nothing could be
         // over-dropped and this test would pass on today's code for the
         // wrong reason — reading as "already fixed" when it is not.
-        IReadOnlyList<ChunkRow> beforeDrop = await ReadChunksAsync();
-        ChunkRow olderChunk = ChunkContaining(beforeDrop, OlderOccurredAt,
+        var beforeDrop = await ReadChunksAsync();
+        var olderChunk = ChunkContaining(beforeDrop, OlderOccurredAt,
             "the older seeded instant");
-        ChunkRow newerChunk = ChunkContaining(beforeDrop, NewerOccurredAt,
+        var newerChunk = ChunkContaining(beforeDrop, NewerOccurredAt,
             "the newer seeded instant");
 
         olderChunk.ChunkName.ShouldNotBe(newerChunk.ChunkName,
@@ -93,7 +93,7 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
         // Re-read fresh from the database rather than from `beforeDrop` or
         // anything else this test wrote (plan.md R2) — otherwise the
         // assertion would be checking its own input and could not fail.
-        IReadOnlyList<ChunkRow> afterDrop = await ReadChunksAsync();
+        var afterDrop = await ReadChunksAsync();
 
         afterDrop.Select(row => row.ChunkName).ShouldContain(olderChunk.ChunkName,
             "chunk A was never archived, so dropping chunk B must not take it with it — "
@@ -110,7 +110,7 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
     private static ChunkRow ChunkContaining(
         IReadOnlyList<ChunkRow> chunks, DateTimeOffset instant, string label)
     {
-        ChunkRow? match = chunks.FirstOrDefault(
+        var match = chunks.FirstOrDefault(
             row => instant >= row.RangeStart && instant < row.RangeEnd);
 
         return match ?? throw new Xunit.Sdk.XunitException(
@@ -121,11 +121,11 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
 
     private async Task<Guid> SeedBackdatedRowAsync(DateTimeOffset occurredAt)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        Guid auditId = Guid.CreateVersion7();
-        string emptyJson = "{}";
+        var auditId = Guid.CreateVersion7();
+        var emptyJson = "{}";
         await context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO audit_events (
                 audit_id, occurred_at, received_at, fab_id, event_kind,
@@ -143,7 +143,7 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
 
     private async Task<IReadOnlyList<ChunkRow>> ReadChunksAsync()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
         return await context.Database
@@ -162,10 +162,10 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
 
     private async Task<int> CountRowsWithAuditIdAsync(Guid auditId)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> result = await context.Database
+        var result = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM audit_events
@@ -177,7 +177,7 @@ public class DropChunkIdentityIntegrationTests(AspireFixture aspire)
 
     private async Task<string> ConnectionStringAsync()
     {
-        string? connectionString = await aspire.App
+        var connectionString = await aspire.App
             .GetConnectionStringAsync(AspireFixture.AuditObservabilityConnectionName);
 
         return connectionString

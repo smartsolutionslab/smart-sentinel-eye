@@ -128,8 +128,8 @@ internal static class SourceMask
 
     private static string CommentsAndLiteralInteriorsMask(string text)
     {
-        char[] masked = text.ToCharArray();
-        int i = 0;
+        var masked = text.ToCharArray();
+        var i = 0;
         while (i < text.Length)
         {
             if (text[i] == '/' && Next(text, i) == '/')
@@ -162,7 +162,7 @@ internal static class SourceMask
 
     private static int MaskBlockComment(string text, char[] masked, int from)
     {
-        int i = from;
+        var i = from;
         while (i < text.Length && !(text[i] == '*' && Next(text, i) == '/'))
         {
             masked[i] = text[i] == '\n' ? '\n' : ' ';
@@ -174,7 +174,7 @@ internal static class SourceMask
 
     private static int MaskVerbatim(string text, char[] masked, int from)
     {
-        int i = from + 2;
+        var i = from + 2;
         while (i < text.Length)
         {
             if (text[i] == '"' && Next(text, i) == '"')
@@ -199,8 +199,8 @@ internal static class SourceMask
 
     private static int MaskLiteral(string text, char[] masked, int from)
     {
-        char quote = text[from];
-        int i = from + 1;
+        var quote = text[from];
+        var i = from + 1;
         while (i < text.Length && text[i] != quote && text[i] != '\n')
         {
             masked[i] = ' ';
@@ -218,7 +218,7 @@ internal static class SourceMask
 
     private static int Blank(char[] masked, int from, int count)
     {
-        for (int i = from; i < from + count && i < masked.Length; i++)
+        for (var i = from; i < from + count && i < masked.Length; i++)
         {
             masked[i] = ' ';
         }
@@ -233,8 +233,8 @@ internal static class SourceMask
 
     private static string CommentsOnlyLiteralsIntactMask(string text)
     {
-        char[] masked = text.ToCharArray();
-        int index = 0;
+        var masked = text.ToCharArray();
+        var index = 0;
         while (index < text.Length)
         {
             if (text[index] == '"')
@@ -264,7 +264,7 @@ internal static class SourceMask
 
     private static int EndOfStringLiteralCommentsOnly(string t, int open)
     {
-        for (int i = open + 1; i < t.Length; i++)
+        for (var i = open + 1; i < t.Length; i++)
         {
             if (t[i] is '"' or '\n')
             {
@@ -277,9 +277,9 @@ internal static class SourceMask
 
     private static int BlankBlockCommentCommentsOnly(string t, char[] masked, int start)
     {
-        int close = t.IndexOf("*/", start + 2, StringComparison.Ordinal);
-        int end = close < 0 ? t.Length : close + 2;
-        for (int i = start; i < end; i++)
+        var close = t.IndexOf("*/", start + 2, StringComparison.Ordinal);
+        var end = close < 0 ? t.Length : close + 2;
+        for (var i = start; i < end; i++)
         {
             if (t[i] != '\n')
             {
@@ -302,11 +302,11 @@ internal static class SourceMask
 
     private static string CommentsBlankedLiteralsIntactMask(string source)
     {
-        char[] result = source.ToCharArray();
-        int index2 = 0;
+        var result = source.ToCharArray();
+        var index2 = 0;
         while (index2 < source.Length)
         {
-            char current = source[index2];
+            var current = source[index2];
 
             if (current == '/' && Next(source, index2) == '/')
             {
@@ -330,7 +330,7 @@ internal static class SourceMask
                     index2++;
                 }
 
-                for (int blank = 0; blank < 2 && index2 < source.Length; blank++)
+                for (var blank = 0; blank < 2 && index2 < source.Length; blank++)
                 {
                     result[index2++] = ' ';
                 }
@@ -358,8 +358,8 @@ internal static class SourceMask
 
     private static string LiteralInteriorsOnlyMask(string text)
     {
-        char[] result = text.ToCharArray();
-        int index2 = 0;
+        var result = text.ToCharArray();
+        var index2 = 0;
         while (index2 < text.Length)
         {
             int start;
@@ -381,7 +381,7 @@ internal static class SourceMask
                 continue;
             }
 
-            for (int inner = start + 1; inner < end - 1 && inner < text.Length; inner++)
+            for (var inner = start + 1; inner < end - 1 && inner < text.Length; inner++)
             {
                 if (result[inner] != '\n')
                 {
@@ -397,11 +397,11 @@ internal static class SourceMask
 
     private static int EndOfLiteral(string t, int start, bool verbatim)
     {
-        char quote = t[start];
-        int index = start + 1;
+        var quote = t[start];
+        var index = start + 1;
         while (index < t.Length)
         {
-            char current = t[index];
+            var current = t[index];
             if (verbatim)
             {
                 if (current == quote)

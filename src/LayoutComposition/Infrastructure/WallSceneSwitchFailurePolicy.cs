@@ -29,7 +29,7 @@ public sealed class WallSceneSwitchFailurePolicy : IHandlerPolicy
 {
     public void Apply(IReadOnlyList<HandlerChain> chains, GenerationRules rules, IServiceContainer container)
     {
-        HandlerChain? chain = chains.FirstOrDefault(
+        var chain = chains.FirstOrDefault(
             candidate => candidate.MessageType == typeof(WallSceneSwitchRequestedV1));
 
         chain?.OnException<DbUpdateConcurrencyException>().MoveToErrorQueue();

@@ -12,7 +12,7 @@ public sealed class AuditObservabilityMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

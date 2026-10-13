@@ -34,7 +34,7 @@ public class AuditEventTests
     [Fact]
     public void From_stamps_a_fresh_audit_id_and_received_at_from_the_clock()
     {
-        AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
+        var row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
 
         row.Id.Value.ShouldNotBe(Guid.Empty);
         row.Id.Value.Version.ShouldBe(7);
@@ -44,7 +44,7 @@ public class AuditEventTests
     [Fact]
     public void From_copies_every_envelope_field_onto_the_row()
     {
-        AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
+        var row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
 
         row.OccurredAt.Value.ShouldBe(Occurred);
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
@@ -62,7 +62,7 @@ public class AuditEventTests
     [Fact]
     public void From_pipes_the_resource_mapping_through_to_the_row()
     {
-        AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
+        var row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
 
         row.ResourceKind.ShouldBe(ResourceKind.Camera);
         row.ResourceIdentifier!.Value.ShouldBe("33333333-3333-3333-3333-333333333333");
@@ -71,7 +71,7 @@ public class AuditEventTests
     [Fact]
     public void From_stores_an_unmapped_V1_with_null_resource_fields_but_still_records_the_event_kind()
     {
-        AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), V1Mapping.Unmapped, new FakeClock(Received));
+        var row = AuditEventEntity.From(SampleEnvelope(), V1Mapping.Unmapped, new FakeClock(Received));
 
         row.ResourceKind.ShouldBeNull();
         row.ResourceIdentifier.ShouldBeNull();
@@ -81,8 +81,8 @@ public class AuditEventTests
     [Fact]
     public void From_accepts_a_cross_fab_envelope_with_no_fab()
     {
-        V1Envelope crossFab = SampleEnvelope() with { Fab = Option<FabIdentifier>.None };
-        AuditEventEntity row = AuditEventEntity.From(crossFab, V1Mapping.Unmapped, new FakeClock(Received));
+        var crossFab = SampleEnvelope() with { Fab = Option<FabIdentifier>.None };
+        var row = AuditEventEntity.From(crossFab, V1Mapping.Unmapped, new FakeClock(Received));
 
         row.Fab.ShouldBeNull();
     }
@@ -90,12 +90,12 @@ public class AuditEventTests
     [Fact]
     public void From_records_a_system_actor_when_the_envelope_carries_one()
     {
-        V1Envelope systemEvt = SampleEnvelope() with
+        var systemEvt = SampleEnvelope() with
         {
             Actor = ActorIdentifier.System,
             ActorUsername = Option<string>.None,
         };
-        AuditEventEntity row = AuditEventEntity.From(systemEvt, V1Mapping.Unmapped, new FakeClock(Received));
+        var row = AuditEventEntity.From(systemEvt, V1Mapping.Unmapped, new FakeClock(Received));
 
         row.Actor.IsSystem.ShouldBeTrue();
         row.ActorUsername.ShouldBeNull();
@@ -105,9 +105,9 @@ public class AuditEventTests
     public void Payload_size_counts_utf8_bytes_not_chars()
     {
         // Multi-byte chars must contribute their full UTF-8 byte count.
-        string payloadWithMultibyte = "{\"note\":\"Größenänderung\"}";
-        V1Envelope envelope = SampleEnvelope() with { Payload = payloadWithMultibyte };
-        AuditEventEntity row = AuditEventEntity.From(envelope, V1Mapping.Unmapped, new FakeClock(Received));
+        var payloadWithMultibyte = "{\"note\":\"Größenänderung\"}";
+        var envelope = SampleEnvelope() with { Payload = payloadWithMultibyte };
+        var row = AuditEventEntity.From(envelope, V1Mapping.Unmapped, new FakeClock(Received));
 
         row.Payload.Size.Value.ShouldBe(
             System.Text.Encoding.UTF8.GetByteCount(payloadWithMultibyte));
@@ -119,7 +119,7 @@ public class AuditEventTests
     [Fact]
     public void From_marks_a_row_with_a_fab_as_resolved()
     {
-        AuditEventEntity row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
+        var row = AuditEventEntity.From(SampleEnvelope(), SampleMapping(), new FakeClock(Received));
 
         row.FabAttribution.ShouldBe(FabAttribution.Resolved);
     }
@@ -127,8 +127,8 @@ public class AuditEventTests
     [Fact]
     public void From_marks_a_fab_owned_event_with_no_fab_as_unresolved()
     {
-        V1Envelope noFab = SampleEnvelope() with { Fab = Option<FabIdentifier>.None };
-        AuditEventEntity row = AuditEventEntity.From(noFab, SampleMapping(), new FakeClock(Received));
+        var noFab = SampleEnvelope() with { Fab = Option<FabIdentifier>.None };
+        var row = AuditEventEntity.From(noFab, SampleMapping(), new FakeClock(Received));
 
         row.FabAttribution.ShouldBe(FabAttribution.Unresolved);
     }
@@ -136,12 +136,12 @@ public class AuditEventTests
     [Fact]
     public void From_marks_a_fab_neutral_event_with_no_fab_as_not_applicable()
     {
-        V1Envelope neutralNoFab = SampleEnvelope() with
+        var neutralNoFab = SampleEnvelope() with
         {
             Fab = Option<FabIdentifier>.None,
             FabScope = FabScope.Neutral,
         };
-        AuditEventEntity row = AuditEventEntity.From(neutralNoFab, SampleMapping(), new FakeClock(Received));
+        var row = AuditEventEntity.From(neutralNoFab, SampleMapping(), new FakeClock(Received));
 
         row.FabAttribution.ShouldBe(FabAttribution.NotApplicable);
     }
@@ -151,8 +151,8 @@ public class AuditEventTests
     {
         // SC-5: the fab is evidence; a non-null fab is never discarded or
         // relabelled just because the event type is registered neutral.
-        V1Envelope neutralWithFab = SampleEnvelope() with { FabScope = FabScope.Neutral };
-        AuditEventEntity row = AuditEventEntity.From(neutralWithFab, SampleMapping(), new FakeClock(Received));
+        var neutralWithFab = SampleEnvelope() with { FabScope = FabScope.Neutral };
+        var row = AuditEventEntity.From(neutralWithFab, SampleMapping(), new FakeClock(Received));
 
         row.FabAttribution.ShouldBe(FabAttribution.Resolved);
         row.Fab!.Value.ShouldBe("munich");
@@ -171,7 +171,7 @@ public class AuditEventTests
             ActorUsername: Option<string>.None,
             EventIdentifier: EventIdentifier.From(EventGuid),
             Payload: PayloadJson);
-        AuditEventEntity row = AuditEventEntity.From(undeclaredScope, V1Mapping.Unmapped, new FakeClock(Received));
+        var row = AuditEventEntity.From(undeclaredScope, V1Mapping.Unmapped, new FakeClock(Received));
 
         row.FabAttribution.ShouldBe(FabAttribution.Unresolved);
     }

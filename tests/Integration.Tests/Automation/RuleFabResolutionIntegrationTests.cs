@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -35,28 +34,28 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     {
         // Not inferred, and not tie-broken: either would place the rule in a
         // fab the operator never chose (ADR-0114).
-        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        using var rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
-        HttpResponseMessage refused = await rules.PostAsJsonAsync("/rules", RuleBody(UniqueName()));
+        var refused = await rules.PostAsJsonAsync("/rules", RuleBody(UniqueName()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RULE_FAB_REQUIRED");
     }
 
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string name = UniqueName();
+        using var rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId=dresden", RuleBody(name));
+        var created = await rules.PostAsJsonAsync($"/rules?fabId=dresden", RuleBody(name));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        HttpResponseMessage read = await rules.GetAsync($"/rules/{name}?fabId=dresden");
+        var read = await rules.GetAsync($"/rules/{name}?fabId=dresden");
         read.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(read));
-        JsonElement rule = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var rule = await read.Content.ReadFromJsonAsync<JsonElement>();
         rule.GetProperty("fab").GetString().ShouldBe("dresden");
     }
 
@@ -66,9 +65,9 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
         // The dresden-only operator against munich: 403, not 404. Nothing is
         // being hidden here — the caller named a fab, and the answer is about
         // the fab, not about whether a rule exists in it.
-        using HttpClient rules = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var rules = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage refused = await rules.PostAsJsonAsync("/rules?fabId=munich", RuleBody(UniqueName()));
+        var refused = await rules.PostAsJsonAsync("/rules?fabId=munich", RuleBody(UniqueName()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
     }
@@ -78,14 +77,14 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     {
         // The row that already worked, re-asserted from a second fab: it must
         // infer dresden, not the munich that everything else defaults to.
-        using HttpClient rules = await ClientFor(DresdenOperator, DresdenOperatorPassword);
-        string name = UniqueName();
+        using var rules = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await rules.PostAsJsonAsync("/rules", RuleBody(name));
+        var created = await rules.PostAsJsonAsync("/rules", RuleBody(name));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        HttpResponseMessage read = await rules.GetAsync($"/rules/{name}");
-        JsonElement rule = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var read = await rules.GetAsync($"/rules/{name}");
+        var rule = await read.Content.ReadFromJsonAsync<JsonElement>();
         rule.GetProperty("fab").GetString().ShouldBe("dresden");
     }
 
@@ -98,21 +97,21 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_name_held_in_two_of_the_callers_fabs_is_refused_as_ambiguous()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string shared = UniqueName();
+        using var rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var shared = UniqueName();
 
         (await rules.PostAsJsonAsync($"/rules?fabId=munich", RuleBody(shared)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
         (await rules.PostAsJsonAsync($"/rules?fabId=dresden", RuleBody(shared)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage ambiguous = await rules.GetAsync($"/rules/{shared}");
+        var ambiguous = await rules.GetAsync($"/rules/{shared}");
 
         ambiguous.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(ambiguous));
-        JsonElement problem = await ambiguous.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await ambiguous.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RULE_FAB_AMBIGUOUS");
         // Names the candidates, so the caller can retry without guessing.
-        string detail = problem.GetProperty("detail").GetString()!;
+        var detail = problem.GetProperty("detail").GetString()!;
         detail.ShouldContain("dresden");
         detail.ShouldContain("munich");
     }
@@ -120,33 +119,33 @@ public class RuleFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task Naming_the_fab_resolves_the_ambiguity()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string shared = UniqueName();
+        using var rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var shared = UniqueName();
 
         await rules.PostAsJsonAsync($"/rules?fabId=munich", RuleBody(shared));
         await rules.PostAsJsonAsync($"/rules?fabId=dresden", RuleBody(shared));
 
-        HttpResponseMessage resolved = await rules.GetAsync($"/rules/{shared}?fabId=munich");
+        var resolved = await rules.GetAsync($"/rules/{shared}?fabId=munich");
 
         resolved.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(resolved));
-        JsonElement rule = await resolved.Content.ReadFromJsonAsync<JsonElement>();
+        var rule = await resolved.Content.ReadFromJsonAsync<JsonElement>();
         rule.GetProperty("fab").GetString().ShouldBe("munich");
     }
 
     [Fact]
     public async Task The_listing_spans_every_fab_the_caller_holds()
     {
-        using HttpClient rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string inMunich = UniqueName();
-        string inDresden = UniqueName();
+        using var rules = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var inMunich = UniqueName();
+        var inDresden = UniqueName();
 
         await rules.PostAsJsonAsync($"/rules?fabId=munich", RuleBody(inMunich));
         await rules.PostAsJsonAsync($"/rules?fabId=dresden", RuleBody(inDresden));
 
-        HttpResponseMessage listed = await rules.GetAsync("/rules");
+        var listed = await rules.GetAsync("/rules");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         string[] names = [.. page.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
 
         names.ShouldContain(inMunich);

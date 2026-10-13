@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.CameraCatalog.Domain.Camera;
-using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 using CameraAggregate = SmartSentinelEye.CameraCatalog.Domain.Camera.Camera;
@@ -42,14 +41,14 @@ public class CrossFabCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task The_same_camera_name_is_accepted_in_two_fabs()
     {
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedAsync("munich", name);
         await SeedAsync("dresden", name);
 
-        await using CameraCatalogDbContext context = await aspire.CreateCameraCatalogDbContextAsync();
-        CameraName parsed = CameraName.From(name);
+        await using var context = await aspire.CreateCameraCatalogDbContextAsync();
+        var parsed = CameraName.From(name);
 
-        List<CameraAggregate> stored = await context.Cameras
+        var stored = await context.Cameras
             .Where(camera => camera.Name == parsed)
             .ToListAsync();
 
@@ -64,7 +63,7 @@ public class CrossFabCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task The_same_camera_name_is_still_refused_within_one_fab()
     {
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedAsync("munich", name);
 
         await Should.ThrowAsync<DbUpdateException>(() => SeedAsync("munich", name));
@@ -95,7 +94,7 @@ public class CrossFabCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task A_name_differing_only_in_case_is_refused_within_one_fab()
     {
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedAsync("munich", name.ToUpperInvariant());
 
         await Should.ThrowAsync<DbUpdateException>(() => SeedAsync("munich", name.ToLowerInvariant()));
@@ -114,20 +113,20 @@ public class CrossFabCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         // Case-insensitivity, once enforced, must be scoped to the fab like
         // everything else — it must not leak across plants and re-create the
         // collision spec 015 removes.
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedAsync("munich", name.ToUpperInvariant());
 
         await SeedAsync("dresden", name.ToLowerInvariant());
 
-        await using CameraCatalogDbContext context = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var context = await aspire.CreateCameraCatalogDbContextAsync();
         (await context.Cameras.CountAsync()).ShouldBe(2);
     }
 
     private async Task SeedAsync(string fab, string name)
     {
-        await using CameraCatalogDbContext context = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var context = await aspire.CreateCameraCatalogDbContextAsync();
 
-        CameraAggregate camera = CameraAggregate.Register(
+        var camera = CameraAggregate.Register(
             FabIdentifier.From(fab),
             CameraName.From(name),
             RtspUrl.From($"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264"),

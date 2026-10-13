@@ -13,7 +13,7 @@ public class DeadLetterTests
     [Fact]
     public void Capture_stores_the_topic_payload_and_error_with_the_clock_moment()
     {
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("fab/munich/plc/station-4"),
             FabIdentifier.From("munich"),
             RawPayload.From("<not-json>"),
@@ -37,7 +37,7 @@ public class DeadLetterTests
     [Fact]
     public void Capture_records_the_fab_it_is_given()
     {
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("fab/dresden/plc/station-9"),
             FabIdentifier.From("dresden"),
             RawPayload.From("<not-json>"),
@@ -57,7 +57,7 @@ public class DeadLetterTests
     [Fact]
     public void Capture_leaves_the_fab_unset_when_none_was_established()
     {
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("fab/NOT-A-FAB/plc/station-4"),
             null,
             RawPayload.From("<not-json>"),
@@ -73,7 +73,7 @@ public class DeadLetterTests
     public void Capture_rejects_empty_topic_or_error()
     {
         FakeClock clock = new(Now);
-        FabIdentifier fab = FabIdentifier.From("munich");
+        var fab = FabIdentifier.From("munich");
         Action emptyTopic = () =>
             Domain.DeadLetter.DeadLetter.Capture(
                 DeliveryTopic.From(""), fab, RawPayload.From("raw"), RejectionReason.From("err"),
@@ -90,7 +90,7 @@ public class DeadLetterTests
     [Fact]
     public void Capture_sets_the_hold_state_to_Held()
     {
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("fab/munich/plc/station-4"),
             FabIdentifier.From("munich"),
             RawPayload.From("<not-json>"),
@@ -106,7 +106,7 @@ public class DeadLetterTests
     [Fact]
     public void Capture_records_the_reason_it_is_given()
     {
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("event/munich/manual/station-4"),
             FabIdentifier.From("munich"),
             RawPayload.From("{}"),
@@ -122,9 +122,9 @@ public class DeadLetterTests
     [Fact]
     public void Capture_records_the_kind_when_one_is_given()
     {
-        Kind kind = Kind.From("NobodyDeclaredThis");
+        var kind = Kind.From("NobodyDeclaredThis");
 
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("event/munich/manual/station-4"),
             FabIdentifier.From("munich"),
             RawPayload.From("{}"),
@@ -140,7 +140,7 @@ public class DeadLetterTests
     [Fact]
     public void Capture_leaves_the_kind_unset_when_none_is_given()
     {
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("fab/munich/plc/station-4"),
             FabIdentifier.From("munich"),
             RawPayload.From("<not-json>"),
@@ -190,10 +190,10 @@ public class DeadLetterTests
     [Fact]
     public void Capture_accepts_UnknownEventType_with_both_fab_and_kind()
     {
-        Kind kind = Kind.From("NobodyDeclaredThis");
-        FabIdentifier fab = FabIdentifier.From("munich");
+        var kind = Kind.From("NobodyDeclaredThis");
+        var fab = FabIdentifier.From("munich");
 
-        Domain.DeadLetter.DeadLetter deadLetter = Domain.DeadLetter.DeadLetter.Capture(
+        var deadLetter = Domain.DeadLetter.DeadLetter.Capture(
             DeliveryTopic.From("event/munich/manual/station-4"),
             fab,
             RawPayload.From("{}"),

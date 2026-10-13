@@ -3,7 +3,6 @@ using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
-using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 
@@ -25,7 +24,7 @@ public sealed class ListEventsTranslationTests
 {
     private static EventIngestionDbContext NewContext()
     {
-        DbContextOptions<EventIngestionDbContext> options =
+        var options =
             new DbContextOptionsBuilder<EventIngestionDbContext>()
                 .UseNpgsql("Host=localhost;Database=translation-check")
                 .Options;
@@ -35,7 +34,7 @@ public sealed class ListEventsTranslationTests
     [Fact]
     public void Unfiltered_list_query_translates_to_sql()
     {
-        using EventIngestionDbContext context = NewContext();
+        using var context = NewContext();
         ListEventsQuery query = new(
             Fabs: [FabIdentifier.From("munich")],
             Source: null,
@@ -48,10 +47,10 @@ public sealed class ListEventsTranslationTests
             PageSize: 100,
             Cursor: null);
 
-        IQueryable<EventAggregate> queryable =
+        var queryable =
             ListEventsQueryHandler.BuildPagedQuery(context.Events, query, cursor: null, pageSize: 100);
 
-        string sql = queryable.ToQueryString();
+        var sql = queryable.ToQueryString();
 
         sql.ShouldContain("ORDER BY");
         sql.ShouldContain("ingested_at");
@@ -61,7 +60,7 @@ public sealed class ListEventsTranslationTests
     [Fact]
     public void Fully_filtered_and_cursored_query_translates_to_sql()
     {
-        using EventIngestionDbContext context = NewContext();
+        using var context = NewContext();
         DateTimeOffset anchor = new(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
         ListEventsQuery query = new(
             Fabs: [FabIdentifier.From("munich")],
@@ -77,12 +76,12 @@ public sealed class ListEventsTranslationTests
 
         (DateTimeOffset Ingested, Guid EventId) cursor = (anchor.AddMinutes(30), Guid.CreateVersion7());
 
-        IQueryable<EventAggregate> queryable =
+        var queryable =
             ListEventsQueryHandler.BuildPagedQuery(context.Events, query, cursor, pageSize: 50);
 
         // Throws "could not be translated" if any filter/order touches a
         // converted property via `.Value` instead of the value object itself.
-        string sql = queryable.ToQueryString();
+        var sql = queryable.ToQueryString();
 
         sql.ShouldContain("occurred_at");
         sql.ShouldContain("ingested_at");
@@ -98,7 +97,7 @@ public sealed class ListEventsTranslationTests
         // be translated, so the query throws at execution time. If EF Core ever
         // starts supporting this, the comparison form stays correct — but this
         // documents why the read handler must not reintroduce `.Value`.
-        using EventIngestionDbContext context = NewContext();
+        using var context = NewContext();
 
         Should.Throw<InvalidOperationException>(() =>
             context.Events

@@ -51,10 +51,10 @@ internal sealed class AuditEventBuilder
             Payload: payload,
             FabScope: fabScope);
 
-        Option<ResourceIdentifier> identifier = resourceIdentifier is null
+        var identifier = resourceIdentifier is null
             ? Option<ResourceIdentifier>.None
             : Option<ResourceIdentifier>.Some(ResourceIdentifier.From(resourceIdentifier));
-        V1Mapping mapping = resourceKind is null
+        var mapping = resourceKind is null
             ? V1Mapping.Unmapped
             : new V1Mapping(Option<ResourceKind>.Some(ResourceKind.From(resourceKind)), identifier);
 

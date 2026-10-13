@@ -77,7 +77,7 @@ public abstract record RuleAction : IValueObject
         /// </summary>
         public static SwitchWallScene From(Guid wall, string target, Guid? layout)
         {
-            WallIdentifier wallIdentifier = WallIdentifier.From(wall);
+            var wallIdentifier = WallIdentifier.From(wall);
 
             return target switch
             {

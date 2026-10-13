@@ -14,7 +14,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
     {
         Ensure.That(query).IsNotNull();
 
-        IQueryable<Variable> source = variables.Variables
+        var source = variables.Variables
             .Where(variable => query.Fabs.Contains(variable.Fab));
 
         if (query.State is not null)
@@ -33,7 +33,7 @@ public sealed class ListVariablesQueryHandler(IVariableQuerySource variables)
             source = source.Where(variable => variable.State != VariableState.Archived);
         }
 
-        List<Variable> rows = await source.ToListAsync(cancellationToken);
+        var rows = await source.ToListAsync(cancellationToken);
 
         // Fab breaks the tie: a multi-fab listing can now hold two rows of one
         // name, and ordering by name alone leaves their relative order to the

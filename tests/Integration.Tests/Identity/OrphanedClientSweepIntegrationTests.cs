@@ -1,8 +1,5 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure;
@@ -70,23 +67,23 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I0a_a_planted_orphan_device_makes_registration_answer_409_device_already_registered()
     {
-        string deviceIdentifier = NewSuffix("orphan");
+        var deviceIdentifier = NewSuffix("orphan");
         // Must equal the exact clientId RegisterDeviceCommandHandler composes
         // (ADR-0172's fab-qualified, `.`-separated form) for this to actually
         // collide — a bare `plc-{deviceIdentifier}` no longer matches anything
         // the handler would ever compose.
-        string clientId = $"plc.{Fab}.{deviceIdentifier}";
-        CancellationToken cancellationToken = CancellationToken.None;
+        var clientId = $"plc.{Fab}.{deviceIdentifier}";
+        var cancellationToken = CancellationToken.None;
 
         await realm.PlantAsync(clientId, DeviceAttributes(deviceIdentifier), cancellationToken);
         try
         {
-            using HttpClient munich = await MunichClientAsync();
-            HttpResponseMessage response = await RegisterDeviceAsync(munich, deviceIdentifier);
+            using var munich = await MunichClientAsync();
+            var response = await RegisterDeviceAsync(munich, deviceIdentifier);
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.Conflict, await aspire.DiagnoseAsync("identity", response));
-            string body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
             body.ShouldContain(
                 "DEVICE_ALREADY_REGISTERED",
                 customMessage: "the control: a cancellation between creating the Keycloak client and "
@@ -101,29 +98,29 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I0b_a_planted_clients_service_account_carries_a_createdTimestamp_near_the_test_clock()
     {
-        string clientId = $"plc-{NewSuffix("pinned-version-check")}";
-        CancellationToken cancellationToken = CancellationToken.None;
-        DateTimeOffset before = DateTimeOffset.UtcNow;
+        var clientId = $"plc-{NewSuffix("pinned-version-check")}";
+        var cancellationToken = CancellationToken.None;
+        var before = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(clientId, DeviceAttributes("whatever"), cancellationToken);
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
-            JsonElement clients = await RealmProbe.ReadJsonAsync(
+            using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+            var clients = await RealmProbe.ReadJsonAsync(
                 admin, $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
                 cancellationToken);
-            string uuid = clients.EnumerateArray().Single().GetProperty("id").GetString()!;
+            var uuid = clients.EnumerateArray().Single().GetProperty("id").GetString()!;
 
-            JsonElement serviceAccount = await RealmProbe.ReadJsonAsync(
+            var serviceAccount = await RealmProbe.ReadJsonAsync(
                 admin, $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/service-account-user", cancellationToken);
 
-            serviceAccount.TryGetProperty("createdTimestamp", out JsonElement createdTimestampProperty).ShouldBeTrue(
+            serviceAccount.TryGetProperty("createdTimestamp", out var createdTimestampProperty).ShouldBeTrue(
                 "plan §3's whole premise — the only creation time Keycloak records for a client "
                 + "belongs to its service-account user — is false on this pinned server if the "
                 + "property is absent. Escalate rather than work around (plan §3's risk table).");
 
-            DateTimeOffset createdAt = DateTimeOffset.FromUnixTimeMilliseconds(createdTimestampProperty.GetInt64());
-            DateTimeOffset after = DateTimeOffset.UtcNow;
+            var createdAt = DateTimeOffset.FromUnixTimeMilliseconds(createdTimestampProperty.GetInt64());
+            var after = DateTimeOffset.UtcNow;
 
             createdAt.ShouldBeGreaterThanOrEqualTo(
                 before - TimeSpan.FromMinutes(2),
@@ -143,14 +140,14 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I1_an_orphan_device_past_grace_is_disabled_and_re_registration_then_succeeds()
     {
-        string deviceIdentifier = NewSuffix("orphan");
+        var deviceIdentifier = NewSuffix("orphan");
         // Must equal the exact clientId RegisterDeviceCommandHandler composes
         // (ADR-0172's fab-qualified, `.`-separated form): re-registration's
         // delete-and-recreate-on-disabled-hit path (#2728) only fires when the
         // disabled Keycloak client's own id is the one it is about to create.
-        string clientId = $"plc.{Fab}.{deviceIdentifier}";
-        CancellationToken cancellationToken = CancellationToken.None;
-        DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
+        var clientId = $"plc.{Fab}.{deviceIdentifier}";
+        var cancellationToken = CancellationToken.None;
+        var plantedAt = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(clientId, DeviceAttributes(deviceIdentifier), cancellationToken);
         try
@@ -160,15 +157,15 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
             (await IsEnabledAsync(clientId, cancellationToken)).ShouldBeFalse(
                 "a pass past the grace window must disable the orphan (spec 320 §2 US1)");
 
-            using HttpClient munich = await MunichClientAsync();
-            HttpResponseMessage response = await RegisterDeviceAsync(munich, deviceIdentifier);
+            using var munich = await MunichClientAsync();
+            var response = await RegisterDeviceAsync(munich, deviceIdentifier);
             response.StatusCode.ShouldBe(
                 HttpStatusCode.Created,
                 "disabling the orphan must unblock #2728's replace path for the same identifier "
                 + $"in the same fab: {await aspire.DiagnoseAsync("identity", response)}");
 
-            JsonElement created = await response.Content.ReadFromJsonAsync<JsonElement>();
-            string secret = created.GetProperty("clientSecret").GetString()!;
+            var created = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var secret = created.GetProperty("clientSecret").GetString()!;
 
             (await CanAuthenticateAsync(clientId, secret)).ShouldBeTrue(
                 "the fresh secret from the healed registration must actually work");
@@ -182,14 +179,14 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I1k_an_orphan_kiosk_past_grace_is_disabled_and_re_enrollment_then_succeeds()
     {
-        string name = NewSuffix("orphan");
+        var name = NewSuffix("orphan");
         // Must equal the exact clientId EnrollKioskCommandHandler composes
         // (ADR-0172's fab-qualified, `.`-separated form): re-enrollment's
         // delete-and-recreate-on-disabled-hit path (#2728) only fires when the
         // disabled Keycloak client's own id is the one it is about to create.
-        string clientId = $"kiosk.{Fab}.{name}";
-        CancellationToken cancellationToken = CancellationToken.None;
-        DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
+        var clientId = $"kiosk.{Fab}.{name}";
+        var cancellationToken = CancellationToken.None;
+        var plantedAt = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(clientId, KioskAttributes, cancellationToken);
         try
@@ -199,19 +196,19 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
             (await IsEnabledAsync(clientId, cancellationToken)).ShouldBeFalse(
                 "a pass past the grace window must disable the orphaned kiosk too (spec 320 §2 US1)");
 
-            using HttpClient munich = await MunichClientAsync();
-            HttpResponseMessage response = await EnrollKioskAsync(munich, name);
+            using var munich = await MunichClientAsync();
+            var response = await EnrollKioskAsync(munich, name);
             response.StatusCode.ShouldBe(
                 HttpStatusCode.Created,
                 $"enrollment must succeed once the orphan is disabled: {await aspire.DiagnoseAsync("identity", response)}");
 
-            JsonElement created = await response.Content.ReadFromJsonAsync<JsonElement>();
-            string enrolledClientId = created.GetProperty("clientId").GetString()!;
+            var created = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var enrolledClientId = created.GetProperty("clientId").GetString()!;
             enrolledClientId.ShouldBe(
                 clientId,
                 "re-enrollment under the same name in the same fab must compose the identical "
                 + "clientId the orphan held");
-            string secret = created.GetProperty("clientSecret").GetString()!;
+            var secret = created.GetProperty("clientSecret").GetString()!;
 
             (await CanAuthenticateAsync(enrolledClientId, secret)).ShouldBeTrue(
                 "the fresh secret from the healed enrollment must actually work");
@@ -225,10 +222,10 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I2_a_stamped_client_younger_than_the_grace_window_stays_enabled()
     {
-        string deviceIdentifier = NewSuffix("too-young");
-        string clientId = $"plc.{Fab}.{deviceIdentifier}";
-        CancellationToken cancellationToken = CancellationToken.None;
-        DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
+        var deviceIdentifier = NewSuffix("too-young");
+        var clientId = $"plc.{Fab}.{deviceIdentifier}";
+        var cancellationToken = CancellationToken.None;
+        var plantedAt = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(clientId, DeviceAttributes(deviceIdentifier), cancellationToken);
         try
@@ -248,19 +245,19 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I3_a_device_registered_through_the_endpoint_stays_enabled_after_a_pass_a_day_later()
     {
-        string deviceIdentifier = NewSuffix("registered");
-        CancellationToken cancellationToken = CancellationToken.None;
+        var deviceIdentifier = NewSuffix("registered");
+        var cancellationToken = CancellationToken.None;
 
-        using HttpClient munich = await MunichClientAsync();
-        HttpResponseMessage registered = await RegisterDeviceAsync(munich, deviceIdentifier);
+        using var munich = await MunichClientAsync();
+        var registered = await RegisterDeviceAsync(munich, deviceIdentifier);
         registered.StatusCode.ShouldBe(
             HttpStatusCode.Created, await aspire.DiagnoseAsync("identity", registered));
 
         // Read the composed clientId back rather than assume its shape
         // (ADR-0172 fab-qualifies it; the exact `.`-separated form is the
         // handler's own composition, not something this test should repeat).
-        JsonElement registeredBody = await registered.Content.ReadFromJsonAsync<JsonElement>();
-        string clientId = registeredBody.GetProperty("clientId").GetString()!;
+        var registeredBody = await registered.Content.ReadFromJsonAsync<JsonElement>();
+        var clientId = registeredBody.GetProperty("clientId").GetString()!;
 
         try
         {
@@ -278,9 +275,9 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I4_an_unstamped_client_stays_enabled()
     {
-        string unstamped = $"unstamped-{NewSuffix("bystander")}";
-        CancellationToken cancellationToken = CancellationToken.None;
-        DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
+        var unstamped = $"unstamped-{NewSuffix("bystander")}";
+        var cancellationToken = CancellationToken.None;
+        var plantedAt = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(unstamped, NoAttributes, cancellationToken);
         try
@@ -299,10 +296,10 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task I5_a_webhook_stamped_client_with_no_row_is_now_disabled_and_rotation_then_succeeds()
     {
-        string integrationName = NewSuffix("joined-the-sweep");
-        string clientId = $"webhook-{integrationName}";
-        CancellationToken cancellationToken = CancellationToken.None;
-        DateTimeOffset plantedAt = DateTimeOffset.UtcNow;
+        var integrationName = NewSuffix("joined-the-sweep");
+        var clientId = $"webhook-{integrationName}";
+        var cancellationToken = CancellationToken.None;
+        var plantedAt = DateTimeOffset.UtcNow;
 
         await realm.PlantAsync(clientId, WebhookAttributes(integrationName), cancellationToken);
         try
@@ -315,8 +312,8 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
                 + "for device/kiosk, so a cancelled RotateWebhookClientCommandHandler create is now "
                 + "disabled the same way");
 
-            using HttpClient munich = await MunichClientAsync();
-            HttpResponseMessage response = await RotateWebhookClientAsync(munich, integrationName, Fab);
+            using var munich = await MunichClientAsync();
+            var response = await RotateWebhookClientAsync(munich, integrationName, Fab);
             response.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
                 "disabling the orphan must unblock the next create-branch rotate for the same "
@@ -324,8 +321,8 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
                 + "orphan left RotateWebhookClientCommandHandler's create branch answering 409 "
                 + $"WebhookClientNameConflict forever: {await aspire.DiagnoseAsync("identity", response)}");
 
-            JsonElement created = await response.Content.ReadFromJsonAsync<JsonElement>();
-            string secret = created.GetProperty("clientSecret").GetString()!;
+            var created = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var secret = created.GetProperty("clientSecret").GetString()!;
 
             (await CanAuthenticateAsync(clientId, secret)).ShouldBeTrue(
                 "the fresh secret from the healed rotation must actually work");
@@ -392,8 +389,8 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
 
     private async Task<bool> IsEnabledAsync(string clientId, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
+        using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        var clients = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
             cancellationToken);
         return clients.EnumerateArray().Single().GetProperty("enabled").GetBoolean();
@@ -401,7 +398,7 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
 
     private async Task<bool> CanAuthenticateAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -409,7 +406,7 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token", form);
 
         return token.IsSuccessStatusCode;
@@ -427,13 +424,13 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
     private async Task<OrphanedClientSweepOutcome> RunSweepAsync(
         DateTimeOffset asOf, CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
-        string? identityDb = await aspire.App.GetConnectionStringAsync("identity-db", cancellationToken);
+        using var keycloak = aspire.CreateKeycloakClient();
+        var identityDb = await aspire.App.GetConnectionStringAsync("identity-db", cancellationToken);
         identityDb.ShouldNotBeNullOrEmpty(
             "identity-db must be provisioned by Aspire — without the real connection string this "
             + "test cannot exercise S3's Postgres read at all (plan §8.1).");
 
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
 
         // Keycloak and identity-db are the real ones behind the fixture.
         // RabbitMQ is read while AddIdentityInfrastructure registers and
@@ -465,11 +462,11 @@ public class OrphanedClientSweepIntegrationTests(AspireFixture aspire)
         // test's own clock rather than a real 10-minute wait.
         builder.Services.AddSingleton<IClock>(new FixedClock(asOf));
 
-        await using ServiceProvider provider = builder.Services
+        await using var provider = builder.Services
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
-        await using AsyncServiceScope scope = provider.CreateAsyncScope();
+        await using var scope = provider.CreateAsyncScope();
 
-        OrphanedClientSweep sweep = scope.ServiceProvider.GetRequiredService<OrphanedClientSweep>();
+        var sweep = scope.ServiceProvider.GetRequiredService<OrphanedClientSweep>();
         return await sweep.SweepAsync(cancellationToken);
     }
 

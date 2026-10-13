@@ -1,5 +1,4 @@
 using System.Reflection;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 
@@ -38,7 +37,7 @@ public class RunModeDriverTests
     [Fact]
     public void The_run_mode_test_cannot_acquire_the_fixture()
     {
-        CollectionAttribute? collection = typeof(RunModeIngestAttributionTests)
+        var collection = typeof(RunModeIngestAttributionTests)
             .GetCustomAttribute<CollectionAttribute>();
 
         collection.ShouldBeNull(
@@ -53,7 +52,7 @@ public class RunModeDriverTests
     [Fact]
     public void The_run_mode_test_takes_no_fixture_as_a_dependency()
     {
-        bool takesFixture = typeof(RunModeIngestAttributionTests)
+        var takesFixture = typeof(RunModeIngestAttributionTests)
             .GetConstructors()
             .SelectMany(constructor => constructor.GetParameters())
             .Any(parameter => parameter.ParameterType.Name.Contains("AspireFixture", StringComparison.Ordinal));
@@ -88,7 +87,7 @@ public class RunModeDriverTests
     public void Any_absent_setting_yields_no_address_rather_than_a_default(
         string? systemVariables, string? keycloak, string? auditDb)
     {
-        Option<RunModeStackAddress> configured =
+        var configured =
             RunModeStackAddress.From(systemVariables, keycloak, auditDb);
 
         configured.HasValue.ShouldBeFalse(
@@ -99,7 +98,7 @@ public class RunModeDriverTests
     [Fact]
     public void A_fully_configured_stack_yields_an_address()
     {
-        Option<RunModeStackAddress> configured =
+        var configured =
             RunModeStackAddress.From("http://variables", "https://keycloak", "Host=db");
 
         configured.HasValue.ShouldBeTrue(
@@ -113,7 +112,7 @@ public class RunModeDriverTests
     [Fact]
     public void The_refusal_names_what_it_needed()
     {
-        string missing = RunModeStackAddress.Missing;
+        var missing = RunModeStackAddress.Missing;
 
         missing.ShouldContain(RunModeStackAddress.SystemVariablesVariable);
         missing.ShouldContain(RunModeStackAddress.KeycloakVariable);
@@ -135,7 +134,7 @@ public class RunModeDriverTests
     [Fact]
     public void Neither_run_can_supply_a_shape_of_its_own()
     {
-        MethodInfo run = typeof(IngestSpanMeasurement)
+        var run = typeof(IngestSpanMeasurement)
             .GetMethod(nameof(IngestSpanMeasurement.RunAsync))
             .ShouldNotBeNull();
 
@@ -144,7 +143,7 @@ public class RunModeDriverTests
         // reads IngestRunShape and nothing else can tell it otherwise. A numeric
         // parameter here would be the door through which the two runs drift
         // apart, so its absence is the guard.
-        string[] numericParameters = run
+        var numericParameters = run
             .GetParameters()
             .Where(parameter => parameter.ParameterType == typeof(int)
                 || parameter.ParameterType == typeof(double)
@@ -197,7 +196,7 @@ public class RunModeDriverTests
             RowsMeasured: 1_000,
             RowsMissingStamps: 0);
 
-        string described = conditions.Describe();
+        var described = conditions.Describe();
 
         described.ShouldContain("http://localhost:1234/");
         described.ShouldContain("run mode (AppHost)");

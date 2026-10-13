@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.AuditObservability.Infrastructure;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Automation.Infrastructure;
@@ -24,7 +23,7 @@ using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 // MigrationRunner orchestrates all bounded-context database migrations and exits (ADR-0067).
 // Each IMigrator runs sequentially before any Api service starts.
 
-HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+var builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
 
 builder.Services.AddSingleton<PostgresNoticeLoggingInterceptor>();
@@ -69,12 +68,12 @@ builder.Services.AddScoped<IMigrator, EventPartitionRolloverMigrator>();
 // so StopAsync has nothing to stop. It is not what delivers the Critical
 // below: that reaches a reader over stdout, which Aspire's
 // ResourceLoggerService tails and which needs no flush.
-using IHost host = builder.Build();
-ILogger<Program> logger = host.Services.GetRequiredService<ILogger<Program>>();
+using var host = builder.Build();
+var logger = host.Services.GetRequiredService<ILogger<Program>>();
 
 await host.StartAsync();
 
-int exitCode = await MigrationRun.ExecuteAsync(
+var exitCode = await MigrationRun.ExecuteAsync(
     host.Services,
     logger,
     host.Services.GetRequiredService<IHostApplicationLifetime>().ApplicationStopping);

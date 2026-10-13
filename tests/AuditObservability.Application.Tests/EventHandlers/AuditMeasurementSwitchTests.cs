@@ -58,7 +58,7 @@ public class AuditMeasurementSwitchTests
     private static async Task<AuditEventEntity> WriteOneAsync(AuditMeasurementOptions options)
     {
         InMemoryAuditEventRepository repository = new();
-        CameraRegisteredV1 message = AnEvent();
+        var message = AnEvent();
 
         await Build(repository, options)
             .HandleAsync(typeof(CameraRegisteredV1), message, EnvelopeFor(message), CancellationToken.None);
@@ -79,7 +79,7 @@ public class AuditMeasurementSwitchTests
     [Fact]
     public async Task With_nothing_configured_a_row_carries_no_measurement_stamp()
     {
-        AuditEventEntity row = await WriteOneAsync(new AuditMeasurementOptions());
+        var row = await WriteOneAsync(new AuditMeasurementOptions());
 
         row.HandlerEnteredAt.ShouldBeNull(
             "the apparatus sits on a path every change passes through; absent is what an ordinary row looks like");
@@ -104,7 +104,7 @@ public class AuditMeasurementSwitchTests
     [Fact]
     public async Task With_the_switch_on_a_row_carries_the_stamp()
     {
-        AuditEventEntity row = await WriteOneAsync(new AuditMeasurementOptions { RecordIngestBreakdown = true });
+        var row = await WriteOneAsync(new AuditMeasurementOptions { RecordIngestBreakdown = true });
 
         row.HandlerEnteredAt.ShouldNotBeNull();
     }
@@ -122,7 +122,7 @@ public class AuditMeasurementSwitchTests
     [Fact]
     public async Task The_entry_stamp_is_not_after_the_arrival_stamp()
     {
-        AuditEventEntity row = await WriteOneAsync(new AuditMeasurementOptions { RecordIngestBreakdown = true });
+        var row = await WriteOneAsync(new AuditMeasurementOptions { RecordIngestBreakdown = true });
 
         row.HandlerEnteredAt!.Value.ShouldBeLessThanOrEqualTo(
             row.ReceivedAt,
@@ -137,8 +137,8 @@ public class AuditMeasurementSwitchTests
     [Fact]
     public async Task The_switch_changes_nothing_else_about_the_row()
     {
-        AuditEventEntity off = await WriteOneAsync(new AuditMeasurementOptions());
-        AuditEventEntity on = await WriteOneAsync(new AuditMeasurementOptions { RecordIngestBreakdown = true });
+        var off = await WriteOneAsync(new AuditMeasurementOptions());
+        var on = await WriteOneAsync(new AuditMeasurementOptions { RecordIngestBreakdown = true });
 
         on.EventKind.ShouldBe(off.EventKind);
         on.Fab.ShouldBe(off.Fab);

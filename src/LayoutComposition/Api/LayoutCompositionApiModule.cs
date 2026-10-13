@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.Shared.Kernel;

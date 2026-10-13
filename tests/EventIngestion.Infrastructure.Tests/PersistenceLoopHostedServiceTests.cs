@@ -222,7 +222,7 @@ public class PersistenceLoopHostedServiceTests
 
         await harness.RunUntilAsync(() => completion.Abandoned == 1, TimeSpan.FromSeconds(10));
 
-        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        var deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
         deadLetter.Error.Value.ShouldContain("EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE");
         deadLetter.Error.Value.ShouldContain("more than 5 minutes in the future");
         deadLetter.Error.Value.ShouldNotContain("of retrying");
@@ -248,7 +248,7 @@ public class PersistenceLoopHostedServiceTests
     [Fact]
     public async Task A_delivery_that_only_fails_transiently_still_names_the_retry_window_it_exhausted()
     {
-        TimeSpan window = TimeSpan.FromMilliseconds(500);
+        var window = TimeSpan.FromMilliseconds(500);
         RecordingCompletion completion = new();
         Harness harness = new(Delivery("a", completion))
         {
@@ -258,7 +258,7 @@ public class PersistenceLoopHostedServiceTests
 
         await harness.RunUntilAsync(() => completion.Abandoned == 1, TimeSpan.FromSeconds(30));
 
-        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        var deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
         deadLetter.Error.Value.ShouldContain("not storable after");
         deadLetter.Error.Value.ShouldContain(window.ToString());
     }
@@ -287,7 +287,7 @@ public class PersistenceLoopHostedServiceTests
     {
         IngestEventError overlong = new OverlongTestReason();
 
-        RejectionReason reason = PersistenceLoopHostedService.Because(overlong);
+        var reason = PersistenceLoopHostedService.Because(overlong);
 
         reason.Value.Length.ShouldBeLessThanOrEqualTo(RejectionReason.MaximumLength);
         reason.Value.ShouldStartWith(overlong.Code);
@@ -329,7 +329,7 @@ public class PersistenceLoopHostedServiceTests
 
         await harness.RunUntilAsync(() => skewed.Abandoned == 1, TimeSpan.FromSeconds(10));
 
-        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        var deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
         deadLetter.Error.Value.ShouldContain("EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE");
         deadLetter.Error.Value.ShouldNotContain("of retrying");
         skewed.Abandoned.ShouldBe(1);
@@ -367,7 +367,7 @@ public class PersistenceLoopHostedServiceTests
         RecordingCompletion poison = new();
         RecordingCompletion redelivered = new();
 
-        IngestDelivery first = Delivery("dup", original);
+        var first = Delivery("dup", original);
 
         BoundedIngestChannel channel = new(capacity: 10);
         await channel.WriteAsync(first, CancellationToken.None);
@@ -433,7 +433,7 @@ public class PersistenceLoopHostedServiceTests
 
         completion.Stored.ShouldBe(1);
         completion.Abandoned.ShouldBe(0);
-        DeadLetter held = harness.DeadLetters.ShouldHaveSingleItem(
+        var held = harness.DeadLetters.ShouldHaveSingleItem(
             "the handler's own hold write, and no second row from RecordRejectionAsync");
         held.Reason.ShouldBe(DeadLetterReason.UnknownEventType);
         held.Kind.ShouldBe(Kind.From("PlcCycleStart"));
@@ -453,7 +453,7 @@ public class PersistenceLoopHostedServiceTests
 
         completion.Stored.ShouldBe(0);
         completion.Abandoned.ShouldBe(1);
-        DeadLetter deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
+        var deadLetter = harness.DeadLetters.ShouldHaveSingleItem();
         deadLetter.Reason.ShouldBe(DeadLetterReason.Refused);
         deadLetter.Kind.ShouldBe(Kind.From("PlcCycleStart"));
     }
@@ -560,7 +560,7 @@ public class PersistenceLoopHostedServiceTests
             services.AddScoped<IngestEventCommandHandler>();
             services.AddScoped<IngestEventBatchCommandHandler>();
 
-            await using ServiceProvider provider = services.BuildServiceProvider();
+            await using var provider = services.BuildServiceProvider();
 
             PersistenceLoopHostedService loop = new(
                 ChannelOverride ?? new OneBatchChannel(batch),
@@ -579,7 +579,7 @@ public class PersistenceLoopHostedServiceTests
             using CancellationTokenSource cts = new(timeout ?? TimeSpan.FromSeconds(10));
             await loop.StartAsync(cts.Token);
 
-            Task arrivals = onStarted is null ? Task.CompletedTask : onStarted();
+            var arrivals = onStarted is null ? Task.CompletedTask : onStarted();
 
             while (!condition() && !cts.IsCancellationRequested)
             {
@@ -659,7 +659,7 @@ public class PersistenceLoopHostedServiceTests
         {
             Attempts++;
 
-            bool poisoned = PoisonPayload is not null
+            var poisoned = PoisonPayload is not null
                 && pending.Exists(@event =>
                     @event.Payload.Value.Contains(PoisonPayload, StringComparison.Ordinal));
 

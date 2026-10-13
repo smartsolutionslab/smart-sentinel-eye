@@ -50,24 +50,24 @@ public class KioskPrivilegeSweepBoundTests
     {
         // Spec 317 §4's value, owned by the test rather than read from
         // production: the production constant does not exist on this tree yet.
-        TimeSpan bound = TimeSpan.FromSeconds(5);
+        var bound = TimeSpan.FromSeconds(5);
 
         SilentKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<KioskPrivilegeSweepHostedService> logger = new();
-        using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        using var provider = Compose(keycloak, timeProvider, logger);
 
-        KioskPrivilegeSweepHostedService service = BuildHostedService(provider);
+        var service = BuildHostedService(provider);
 
         using CancellationTokenSource hostStart = new();
-        Task startTask = service.StartAsync(hostStart.Token);
+        var startTask = service.StartAsync(hostStart.Token);
 
         try
         {
             // Event-driven, not a fixed sleep: a real-time cap only to stop a
             // regression hanging the suite. Today's StartAsync never asks this
             // provider for a timer at all, so this is where the red happens.
-            bool timerRequested = await timeProvider.WaitForPendingTimersAsync(1, TimeSpan.FromSeconds(2));
+            var timerRequested = await timeProvider.WaitForPendingTimersAsync(1, TimeSpan.FromSeconds(2));
             timerRequested.ShouldBeTrue(
                 "today's StartAsync never asks the TimeProvider for a bound timer, so a "
                 + "black-holed Keycloak holds the host's start for however long the resilience "
@@ -93,13 +93,13 @@ public class KioskPrivilegeSweepBoundTests
                 1,
                 "the pass must actually have asked the provider once before giving up.");
 
-            IReadOnlyList<LoggedEntry> timedOutEntries = logger.Named("KioskPrivilegeSweepTimedOut");
+            var timedOutEntries = logger.Named("KioskPrivilegeSweepTimedOut");
             timedOutEntries.Count.ShouldBe(
                 1,
                 "abandoning at the bound must log exactly one distinct Warning naming it "
                 + "(FR-003).");
 
-            LoggedEntry timedOut = timedOutEntries[0];
+            var timedOut = timedOutEntries[0];
 
             timedOut.Field("Bound").ShouldBe(
                 bound.ToString(),
@@ -146,12 +146,12 @@ public class KioskPrivilegeSweepBoundTests
         SilentKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<KioskPrivilegeSweepHostedService> logger = new();
-        using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        using var provider = Compose(keycloak, timeProvider, logger);
 
-        KioskPrivilegeSweepHostedService service = BuildHostedService(provider);
+        var service = BuildHostedService(provider);
 
         using CancellationTokenSource hostStart = new();
-        Task startTask = service.StartAsync(hostStart.Token);
+        var startTask = service.StartAsync(hostStart.Token);
 
         // The sweep is already parked on the black hole by the time this
         // line runs — GetEnrolledKioskClientIdsAsync increments its counter
@@ -188,7 +188,7 @@ public class KioskPrivilegeSweepBoundTests
     private static ServiceProvider Compose(
         IKeycloakAdminClient keycloak, TimeProvider timeProvider, ILogger<KioskPrivilegeSweepHostedService> logger)
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
 
         // Read while registering, and never connected to: the host is not
         // started, so Wolverine's broker and the DbContext's server are only

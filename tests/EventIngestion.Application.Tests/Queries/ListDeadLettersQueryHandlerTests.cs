@@ -1,5 +1,4 @@
 using System.Globalization;
-using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
@@ -28,7 +27,7 @@ public class ListDeadLettersQueryHandlerTests
         ];
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource(seed));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Munich], 10), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -40,13 +39,13 @@ public class ListDeadLettersQueryHandlerTests
     public async Task Caps_at_MaximumLimit_when_caller_asks_for_more()
     {
         List<DeadLetter> seed = [];
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
             seed.Add(Captured($"fab/munich/plc/{i}", Munich, BaseMoment.AddSeconds(i)));
         }
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource(seed));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Munich], 10_000), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -64,7 +63,7 @@ public class ListDeadLettersQueryHandlerTests
         ];
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource(seed));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Dresden], 10), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -81,7 +80,7 @@ public class ListDeadLettersQueryHandlerTests
         ];
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource(seed));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Munich, Dresden], 10), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -104,7 +103,7 @@ public class ListDeadLettersQueryHandlerTests
         ];
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource(seed));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Munich, Dresden], 10), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -122,7 +121,7 @@ public class ListDeadLettersQueryHandlerTests
         ];
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource(seed));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             Query([Munich], 10, reason: DeadLetterReason.UnknownEventType), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -142,10 +141,10 @@ public class ListDeadLettersQueryHandlerTests
     [Fact]
     public async Task Filtering_by_state_Held_includes_a_held_row()
     {
-        DeadLetter held = Held("event/munich/manual/a", Munich, BaseMoment, Kind.From("StillHeld"));
+        var held = Held("event/munich/manual/a", Munich, BaseMoment, Kind.From("StillHeld"));
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource([held]));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             Query([Munich], 10, state: HoldState.Held), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -159,11 +158,11 @@ public class ListDeadLettersQueryHandlerTests
     [Fact]
     public async Task Filtering_by_both_reason_and_state_combines_them()
     {
-        DeadLetter parseFailure = Captured("fab/munich/plc/a", Munich, BaseMoment, DeadLetterReason.ParseFailure);
-        DeadLetter held = Held("event/munich/manual/b", Munich, BaseMoment.AddMinutes(1), Kind.From("StillHeld"));
+        var parseFailure = Captured("fab/munich/plc/a", Munich, BaseMoment, DeadLetterReason.ParseFailure);
+        var held = Held("event/munich/manual/b", Munich, BaseMoment.AddMinutes(1), Kind.From("StillHeld"));
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource([parseFailure, held]));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             Query([Munich], 10, reason: DeadLetterReason.UnknownEventType, state: HoldState.Held),
             CancellationToken.None);
 
@@ -175,11 +174,11 @@ public class ListDeadLettersQueryHandlerTests
     [Fact]
     public async Task No_filter_returns_every_row_regardless_of_reason_or_state()
     {
-        DeadLetter parseFailure = Captured("fab/munich/plc/a", Munich, BaseMoment, DeadLetterReason.ParseFailure);
-        DeadLetter held = Held("event/munich/manual/b", Munich, BaseMoment.AddMinutes(1), Kind.From("StillHeld"));
+        var parseFailure = Captured("fab/munich/plc/a", Munich, BaseMoment, DeadLetterReason.ParseFailure);
+        var held = Held("event/munich/manual/b", Munich, BaseMoment.AddMinutes(1), Kind.From("StillHeld"));
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource([parseFailure, held]));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Munich], 10), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -190,13 +189,13 @@ public class ListDeadLettersQueryHandlerTests
     [Fact]
     public async Task The_dto_carries_fab_reason_kind_and_state()
     {
-        DeadLetter held = Held("event/munich/manual/a", Munich, BaseMoment, Kind.From("NobodyDeclaredThis"));
+        var held = Held("event/munich/manual/a", Munich, BaseMoment, Kind.From("NobodyDeclaredThis"));
         ListDeadLettersQueryHandler handler = new(new TestDeadLetterQuerySource([held]));
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(Query([Munich], 10), CancellationToken.None);
 
-        DeadLetterDto dto = result.Value.ShouldHaveSingleItem();
+        var dto = result.Value.ShouldHaveSingleItem();
         dto.Fab.ShouldBe("munich");
         dto.Reason.ShouldBe("UnknownEventType");
         dto.Kind.ShouldBe("NobodyDeclaredThis");

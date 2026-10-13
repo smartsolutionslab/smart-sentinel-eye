@@ -68,11 +68,11 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task Overlay_republish_pushes_to_connected_clients_within_one_second()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string accessToken = await aspire.GetAdminAccessTokenAsync();
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var accessToken = await aspire.GetAdminAccessTokenAsync();
 
         // Seed an overlay with a Published revision so revision 2 can branch.
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -80,24 +80,24 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
                 elements = new[] { SampleLabelBody() },
             });
         created.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publishOne = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
+        var overlayIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var publishOne = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         publishOne.EnsureSuccessStatusCode();
 
         // Connect two clients to the layout-composition SignalR hub
         // (spec 004 plan: overlay events fan out over the same hub).
-        Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
-        await using HubConnection alpha = BuildClient(hubUri, accessToken);
-        await using HubConnection beta = BuildClient(hubUri, accessToken);
+        var hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
+        await using var alpha = BuildClient(hubUri, accessToken);
+        await using var beta = BuildClient(hubUri, accessToken);
 
         // Capture frames per overlay id, so the warmup publish below and the
         // measured publish never race on a shared completion source.
         ConcurrentDictionary<Guid, TaskCompletionSource<OverlayRevisionPublishedHubMessage>> alphaFrames = new();
         ConcurrentDictionary<Guid, TaskCompletionSource<OverlayRevisionPublishedHubMessage>> betaFrames = new();
         alpha.On<JsonElement>(nameof(ILayoutLifecycleClient.OverlayRevisionPublished),
-            payload => { OverlayRevisionPublishedHubMessage f = Parse(payload); alphaFrames.GetOrAdd(f.Overlay, _ => new()).TrySetResult(f); });
+            payload => { var f = Parse(payload); alphaFrames.GetOrAdd(f.Overlay, _ => new()).TrySetResult(f); });
         beta.On<JsonElement>(nameof(ILayoutLifecycleClient.OverlayRevisionPublished),
-            payload => { OverlayRevisionPublishedHubMessage f = Parse(payload); betaFrames.GetOrAdd(f.Overlay, _ => new()).TrySetResult(f); });
+            payload => { var f = Parse(payload); betaFrames.GetOrAdd(f.Overlay, _ => new()).TrySetResult(f); });
 
         await alpha.StartAsync();
         await beta.StartAsync();
@@ -108,7 +108,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
         // SignalR negotiation) of ~2 s that does not reflect steady state. The
         // ≤1 s budget is a steady-state SLO, so warm the path with a throwaway
         // publish, wait for both clients to receive it, then measure the next.
-        Guid warmupIdentifier = await CreateOverlayAsync(overlays);
+        var warmupIdentifier = await CreateOverlayAsync(overlays);
         await ReferenceFromAPublishedLayoutAsync(warmupIdentifier);
         (await OverlayRequests.PostAsync(overlays, warmupIdentifier, $"revisions/1/publish"))
             .EnsureSuccessStatusCode();
@@ -121,21 +121,21 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
 
         // Measured publish over the now-warm path (a fresh sibling overlay
         // exercises the same Published broadcast).
-        Guid siblingIdentifier = await CreateOverlayAsync(overlays);
+        var siblingIdentifier = await CreateOverlayAsync(overlays);
         await ReferenceFromAPublishedLayoutAsync(siblingIdentifier);
 
         // Version read before the clock starts: this window measures
         // publish→push, not the lookup.
-        HttpRequestMessage publishRequest = OverlayRequests.Conditional(
+        var publishRequest = OverlayRequests.Conditional(
             HttpMethod.Post, siblingIdentifier, "revisions/1/publish",
             await OverlayRequests.VersionAsync(overlays, siblingIdentifier));
 
-        Stopwatch sw = Stopwatch.StartNew();
-        HttpResponseMessage publishSibling = await overlays.SendAsync(publishRequest);
+        var sw = Stopwatch.StartNew();
+        var publishSibling = await overlays.SendAsync(publishRequest);
         publishSibling.EnsureSuccessStatusCode();
 
         using CancellationTokenSource budget = new(TimeSpan.FromSeconds(5));
-        OverlayRevisionPublishedHubMessage[] both = await Task.WhenAll(
+        var both = await Task.WhenAll(
             alphaFrames.GetOrAdd(siblingIdentifier, _ => new()).Task.WaitAsync(budget.Token),
             betaFrames.GetOrAdd(siblingIdentifier, _ => new()).Task.WaitAsync(budget.Token));
         sw.Stop();
@@ -152,7 +152,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
             $"publish→push took {sw.Elapsed.TotalMilliseconds:F0} ms");
 
         both[0].Overlay.ShouldBe(siblingIdentifier);
-        OverlayElementHubEntry label = both[0].Elements.ShouldHaveSingleItem();
+        var label = both[0].Elements.ShouldHaveSingleItem();
         label.Kind.ShouldBe("Text");
         label.Text.ShouldBe("Production Line 1");
         // The frame is parsed off all four geometry fields above and, until
@@ -169,7 +169,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
 
     private static async Task<Guid> CreateOverlayAsync(HttpClient overlays)
     {
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -195,9 +195,9 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
     /// </summary>
     private async Task ReferenceFromAPublishedLayoutAsync(Guid overlay)
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name = $"Ref-{Guid.NewGuid():N}"[..16],
             grid = new { rows = 1, cols = 1 },
@@ -214,7 +214,7 @@ public class OverlayPushIntegrationTests(AspireFixture aspire, ITestOutputHelper
         });
         created.EnsureSuccessStatusCode();
 
-        Guid layout = await created.Content.ReadFromJsonAsync<Guid>();
+        var layout = await created.Content.ReadFromJsonAsync<Guid>();
         (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish"))
             .EnsureSuccessStatusCode();
     }

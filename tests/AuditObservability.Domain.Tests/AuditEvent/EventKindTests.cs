@@ -10,7 +10,7 @@ public class EventKindTests
     [InlineData("AuditChunkArchivedV1")]
     public void Accepts_valid_kinds(string input)
     {
-        EventKind kind = EventKind.From(input);
+        var kind = EventKind.From(input);
         kind.Value.ShouldBe(input);
     }
 

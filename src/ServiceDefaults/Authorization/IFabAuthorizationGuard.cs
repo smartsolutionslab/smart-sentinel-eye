@@ -57,13 +57,13 @@ public sealed class DefaultFabAuthorizationGuard : IFabAuthorizationGuard
 
         cancellationToken.ThrowIfCancellationRequested();
 
-        string targetGroup = FabGroupPrefix + fabId;
-        foreach (Claim claim in user.FindAll(GroupClaimType))
+        var targetGroup = FabGroupPrefix + fabId;
+        foreach (var claim in user.FindAll(GroupClaimType))
         {
             // Keycloak emits group memberships as either repeated
             // single-value claims or one space-separated claim; split
             // defensively.
-            string[] tokens = claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
+            var tokens = claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries);
             if (tokens.Contains(targetGroup, StringComparer.Ordinal))
             {
                 return Task.CompletedTask;

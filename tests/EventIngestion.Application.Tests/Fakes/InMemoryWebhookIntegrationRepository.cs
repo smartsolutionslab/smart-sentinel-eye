@@ -41,7 +41,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
         WebhookIntegrationName name, CancellationToken cancellationToken)
     {
         Ensure.That(name).IsNotNull();
-        WebhookIntegration? found = integrations.SingleOrDefault(i => i.Name == name);
+        var found = integrations.SingleOrDefault(i => i.Name == name);
         return Task.FromResult(found is null
             ? Option<WebhookIntegration>.None
             : Option<WebhookIntegration>.Some(found));
@@ -58,7 +58,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        WebhookIntegration? found = integrations.SingleOrDefault(i => i.Name == name && i.Fab == fab);
+        var found = integrations.SingleOrDefault(i => i.Name == name && i.Fab == fab);
         return Task.FromResult(found is null
             ? Option<WebhookIntegration>.None
             : Option<WebhookIntegration>.Some(found));
@@ -73,7 +73,7 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
         KeycloakClientIdentifier keycloakClientId, CancellationToken cancellationToken)
     {
         Ensure.That(keycloakClientId).IsNotNull();
-        bool revoked = integrations.Any(
+        var revoked = integrations.Any(
             i => i.KeycloakClientId == keycloakClientId && i.IsRevoked);
         return Task.FromResult(revoked);
     }
@@ -86,13 +86,13 @@ public sealed class InMemoryWebhookIntegrationRepository : IWebhookIntegrationRe
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (WebhookIntegration i in integrations)
+        foreach (var i in integrations)
         {
             // Mirrors AggregateVersionInterceptor.RequiresBump: an Added root
             // starts at 0 and is not bumped; an already-persisted root with
             // changes is. Pending events stand in for the change tracker's
             // Modified state — every mutator on this aggregate raises one.
-            bool wasAlreadyPersisted = !persisted.Add(i.Id.Value);
+            var wasAlreadyPersisted = !persisted.Add(i.Id.Value);
             if (wasAlreadyPersisted && i.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(i);

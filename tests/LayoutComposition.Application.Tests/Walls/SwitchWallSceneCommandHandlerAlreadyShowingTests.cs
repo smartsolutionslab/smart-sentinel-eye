@@ -2,12 +2,9 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Wall.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Walls;
 
@@ -36,20 +33,20 @@ public class SwitchWallSceneCommandHandlerAlreadyShowingTests
     [Fact]
     public async Task Switching_to_the_already_Showing_scene_succeeds_even_once_it_lost_its_Published_revision()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
         // `a` (Showing) is archived without any wall switch: it no longer has a
         // Published revision, but the wall was never told to switch away from it.
-        FakeLayoutPublicationLookup lookup = new FakeLayoutPublicationLookup()
+        var lookup = new FakeLayoutPublicationLookup()
             .WithLayout(a, Munich, isPublished: false)
             .WithLayout(b, Munich);
-        SwitchWallSceneCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Layout(a), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
 using MQTTnet;
 using MQTTnet.Formatter;
@@ -53,11 +52,11 @@ public sealed class PlantFloor(AspireFixture aspire)
     /// </summary>
     public async Task PublishRawAsync(string payload, string? topic = null)
     {
-        string jwt = await SimulatorTokenAsync();
+        var jwt = await SimulatorTokenAsync();
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -67,7 +66,7 @@ public sealed class PlantFloor(AspireFixture aspire)
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        MqttClientPublishResult published = await client.PublishAsync(
+        var published = await client.PublishAsync(
             new MqttApplicationMessageBuilder()
                 .WithTopic(topic ?? Topic)
                 .WithPayload(payload)
@@ -80,7 +79,7 @@ public sealed class PlantFloor(AspireFixture aspire)
 
     private async Task<string> SimulatorTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -88,7 +87,7 @@ public sealed class PlantFloor(AspireFixture aspire)
             ["client_secret"] = SimulatorClientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
 

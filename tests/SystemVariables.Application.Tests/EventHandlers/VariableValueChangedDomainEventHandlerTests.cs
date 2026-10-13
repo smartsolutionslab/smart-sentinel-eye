@@ -24,14 +24,14 @@ public class VariableValueChangedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
             bus, index, versions, repo, new Resolver(),
             NullLogger<VariableValueChangedDomainEventHandler>.Instance);
 
-        VariableIdentifier id = VariableIdentifier.New();
+        var id = VariableIdentifier.New();
         await handler.Handle(
             new VariableValueChangedDomainEvent(
                 id, FabIdentifier.From("munich"), VariableName.From("oeeLine1"), VariableType.Number,
@@ -39,15 +39,15 @@ public class VariableValueChangedDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        SystemVariableValueChangedV1 v1 = bus.Published.OfType<SystemVariableValueChangedV1>()
+        var v1 = bus.Published.OfType<SystemVariableValueChangedV1>()
             .ShouldHaveSingleItem();
         v1.Name.ShouldBe("oeeLine1");
         v1.Value.ShouldBe("82.5");
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
-        ResolvedOverlayTextV3 pair = push.Texts.ShouldHaveSingleItem();
+        var pair = push.Texts.ShouldHaveSingleItem();
         pair.Template.ShouldBe("OEE: {{oeeLine1}}%");
         pair.Resolved.ShouldBe("OEE: 82.5%");
         // #2426 -- the version comes from the durable store (a first-ever
@@ -101,8 +101,8 @@ public class VariableValueChangedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        Guid overlayA = Guid.CreateVersion7();
-        Guid overlayB = Guid.CreateVersion7();
+        var overlayA = Guid.CreateVersion7();
+        var overlayB = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlayA, ["A: {{oeeLine1}}%"]);
         index.UpsertOverlayReferences(overlayB, ["B: {{oeeLine1}}%"]);
 
@@ -139,19 +139,19 @@ public class VariableValueChangedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        VariableBuilder archivedShiftBuilder = new VariableBuilder()
+        var archivedShiftBuilder = new VariableBuilder()
             .Named("shift").OfType(VariableType.String)
             .WithInitialValue(new VariableValue.StringValue("A"));
-        Variable archivedShift = archivedShiftBuilder.Build();
+        var archivedShift = archivedShiftBuilder.Build();
         archivedShift.Archive(OperatorIdentifier.From(Guid.CreateVersion7()), archivedShiftBuilder.Clock);
         repo.Add(archivedShift);
 
-        Variable redefinedShift = new VariableBuilder()
+        var redefinedShift = new VariableBuilder()
             .Named("shift").OfType(VariableType.String)
             .WithInitialValue(new VariableValue.StringValue("B")).Build();
         repo.Add(redefinedShift);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["{{shift}} / {{oee}}"]);
 
         VariableValueChangedDomainEventHandler handler = new(
@@ -165,7 +165,7 @@ public class VariableValueChangedDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Texts.Single().Resolved.ShouldBe("B / 82.5");
     }
@@ -189,7 +189,7 @@ public class VariableValueChangedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, [string.Empty, "OEE: {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
@@ -203,9 +203,9 @@ public class VariableValueChangedDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7()), BooleanLabels: null, RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
-        ResolvedOverlayTextV3 pair = push.Texts.ShouldHaveSingleItem("the Box must contribute no entry at all, not an empty one");
+        var pair = push.Texts.ShouldHaveSingleItem("the Box must contribute no entry at all, not an empty one");
         pair.Template.ShouldBe("OEE: {{oeeLine1}}%");
         pair.Resolved.ShouldBe("OEE: 82.5%");
     }

@@ -67,16 +67,16 @@ public class AppHostParameterOverrideTests
     [Fact]
     public async Task A_parameter_argument_overrides_the_declared_default()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(
                     [$"Parameters:{MigrationRunnerClientSecretName}={DeliberatelyWrongOverride}"]);
 
-        ParameterResource parameter = builder.Resources
+        var parameter = builder.Resources
             .OfType<ParameterResource>()
             .Single(candidate => candidate.Name == MigrationRunnerClientSecretName);
 
-        string? value = await ValueAsync(parameter);
+        var value = await ValueAsync(parameter);
 
         value.ShouldBe(
             DeliberatelyWrongOverride,
@@ -103,7 +103,7 @@ public class AppHostParameterOverrideTests
     [Fact]
     public async Task Every_declared_parameter_honours_its_own_override()
     {
-        string[] declaredNames = await DeclaredParameterNamesAsync();
+        var declaredNames = await DeclaredParameterNamesAsync();
 
         declaredNames.ShouldNotBeEmpty(
             "the composed AppHost model contained no ParameterResource at all — the scan is "
@@ -114,18 +114,18 @@ public class AppHostParameterOverrideTests
             .. declaredNames.Select(name => $"Parameters:{name}={OverrideValueFor(name)}"),
         ];
 
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(overrideArguments);
 
         Dictionary<string, string> resolved = [];
 
-        foreach (ParameterResource parameter in builder.Resources.OfType<ParameterResource>())
+        foreach (var parameter in builder.Resources.OfType<ParameterResource>())
         {
             resolved[parameter.Name] = await ValueAsync(parameter) ?? string.Empty;
         }
 
-        foreach (string name in declaredNames)
+        foreach (var name in declaredNames)
         {
             resolved.ShouldContainKey(name);
 
@@ -148,7 +148,7 @@ public class AppHostParameterOverrideTests
     [Fact]
     public async Task A_parameter_with_no_argument_keeps_its_default()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>([]);
 
@@ -163,9 +163,9 @@ public class AppHostParameterOverrideTests
             + "declared parameters — either a parameter was added or removed, or this test's "
             + "transcription of AppHost.cs is stale.");
 
-        foreach (ParameterResource parameter in parameters)
+        foreach (var parameter in parameters)
         {
-            string? value = await ValueAsync(parameter);
+            var value = await ValueAsync(parameter);
 
             value.ShouldBe(
                 DeclaredDefaults[parameter.Name],
@@ -186,16 +186,16 @@ public class AppHostParameterOverrideTests
     [Fact]
     public async Task An_empty_parameter_argument_keeps_its_default()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(
                     [$"Parameters:{MigrationRunnerClientSecretName}="]);
 
-        ParameterResource parameter = builder.Resources
+        var parameter = builder.Resources
             .OfType<ParameterResource>()
             .Single(candidate => candidate.Name == MigrationRunnerClientSecretName);
 
-        string? value = await ValueAsync(parameter);
+        var value = await ValueAsync(parameter);
 
         value.ShouldBe(
             MigrationRunnerClientSecretDefault,
@@ -217,7 +217,7 @@ public class AppHostParameterOverrideTests
         string[] namesWithoutOverrides;
         string[] declaredParameterNames;
 
-        using (IDistributedApplicationTestingBuilder withoutOverrides =
+        using (var withoutOverrides =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>([]))
         {
@@ -233,7 +233,7 @@ public class AppHostParameterOverrideTests
             .. declaredParameterNames.Select(name => $"Parameters:{name}={OverrideValueFor(name)}"),
         ];
 
-        using IDistributedApplicationTestingBuilder withOverrides =
+        using var withOverrides =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(overrideArguments);
 
@@ -255,7 +255,7 @@ public class AppHostParameterOverrideTests
     /// </summary>
     private static async Task<string[]> DeclaredParameterNamesAsync()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>([]);
 

@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 using Xunit.Abstractions;
 
@@ -88,12 +87,12 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
     [Fact]
     public async Task The_sfu_exposes_named_per_path_ingest_counters_and_no_timing_family()
     {
-        string path = await PublishingPathAsync();
-        string exposition = await ScrapeUntilIngestAsync(path);
+        var path = await PublishingPathAsync();
+        var exposition = await ScrapeUntilIngestAsync(path);
 
-        foreach (string family in IngestCounters)
+        foreach (var family in IngestCounters)
         {
-            string? sample = Sample(exposition, family, path);
+            var sample = Sample(exposition, family, path);
 
             sample.ShouldNotBeNull(
                 $"the SFU exposed no '{family}' sample for '{path}', a path it is ingesting. "
@@ -124,9 +123,9 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
     [Fact]
     public async Task Turning_metrics_on_did_not_disturb_the_media_path()
     {
-        string path = await PublishingPathAsync();
+        var path = await PublishingPathAsync();
 
-        JsonElement state = await PathStateAsync(path);
+        var state = await PathStateAsync(path);
 
         state.GetProperty("ready").GetBoolean().ShouldBeTrue(
             $"the SFU lists '{path}' but is not ingesting it, so metrics are on and the media path is dead");
@@ -150,10 +149,10 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
     [Fact]
     public async Task A_path_whose_source_does_not_answer_is_not_reported_as_ingesting()
     {
-        string path = await ProvisionedPathAsync(UnreachableRtspUrl, "Degraded");
+        var path = await ProvisionedPathAsync(UnreachableRtspUrl, "Degraded");
 
-        JsonElement state = await PathStateAsync(path);
-        string exposition = await ScrapeAsync();
+        var state = await PathStateAsync(path);
+        var exposition = await ScrapeAsync();
 
         state.GetProperty("ready").GetBoolean().ShouldBeFalse($"nothing serves '{UnreachableRtspUrl}'");
         state.GetProperty("inboundBytes").GetInt64().ShouldBe(0, "a path nothing feeds received bytes");
@@ -167,7 +166,7 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private void AssertNoTimingFamily(string exposition)
     {
-        IReadOnlyList<string> families = PathFamilies(exposition);
+        var families = PathFamilies(exposition);
 
         output.WriteLine($"paths families: {string.Join(", ", families)}");
 
@@ -212,14 +211,14 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private async Task<string> ProvisionedPathAsync(string rtspUrl, string expectedState)
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streams = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var streams = await aspire.CreateAdminClientAsync("stream-distribution");
 
-        HttpResponseMessage registered = await cameras.PostAsJsonAsync(
+        var registered = await cameras.PostAsJsonAsync(
             "/cameras", new { name = $"Cam-Sfu-Ingest-{Guid.NewGuid():N}", rtspUrl });
         registered.EnsureSuccessStatusCode();
 
-        Guid camera = await registered.Content.ReadFromJsonAsync<Guid>();
+        var camera = await registered.Content.ReadFromJsonAsync<Guid>();
         await WaitForStateAsync(streams, camera, expectedState);
 
         return MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
@@ -227,12 +226,12 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private static async Task WaitForStateAsync(HttpClient streams, Guid camera, string expectedState)
     {
-        DateTime deadline = DateTime.UtcNow + SettleTimeout;
-        string lastObserved = "<no response yet>";
+        var deadline = DateTime.UtcNow + SettleTimeout;
+        var lastObserved = "<no response yet>";
 
         while (DateTime.UtcNow < deadline)
         {
-            JsonElement items = await streams.GetFromJsonAsync<JsonElement>(
+            var items = await streams.GetFromJsonAsync<JsonElement>(
                 $"/streams?cameraIdentifiers={camera}");
 
             lastObserved = items.GetArrayLength() == 1
@@ -255,9 +254,9 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private async Task<JsonElement> PathStateAsync(string path)
     {
-        using HttpClient api = aspire.CreateMediaMtxApiClient();
+        using var api = aspire.CreateMediaMtxApiClient();
 
-        HttpResponseMessage response = await api.GetAsync($"/v3/paths/get/{path}");
+        var response = await api.GetAsync($"/v3/paths/get/{path}");
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -265,9 +264,9 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private async Task<string> ScrapeAsync()
     {
-        using HttpClient metrics = aspire.App.CreateHttpClient("mediamtx", "metrics");
+        using var metrics = aspire.App.CreateHttpClient("mediamtx", "metrics");
 
-        HttpResponseMessage response = await metrics.GetAsync("/metrics");
+        var response = await metrics.GetAsync("/metrics");
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadAsStringAsync();
@@ -275,12 +274,12 @@ public class SfuIngestMetricsTests(AspireFixture aspire, ITestOutputHelper outpu
 
     private async Task<string> ScrapeUntilIngestAsync(string path)
     {
-        DateTime deadline = DateTime.UtcNow + ScrapeTimeout;
-        string exposition = await ScrapeAsync();
+        var deadline = DateTime.UtcNow + ScrapeTimeout;
+        var exposition = await ScrapeAsync();
 
         while (DateTime.UtcNow < deadline)
         {
-            string? bytes = Sample(exposition, "paths_inbound_bytes", path);
+            var bytes = Sample(exposition, "paths_inbound_bytes", path);
             if (bytes is not null && Value(bytes) > 0)
             {
                 break;

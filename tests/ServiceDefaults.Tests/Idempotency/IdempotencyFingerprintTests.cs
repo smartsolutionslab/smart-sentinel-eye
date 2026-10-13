@@ -23,8 +23,8 @@ public class IdempotencyFingerprintTests
     {
         SampleRequest request = new("alpha", 1);
 
-        IdempotencyFingerprint first = IdempotencyFingerprint.Of(request);
-        IdempotencyFingerprint second = IdempotencyFingerprint.Of(new SampleRequest("alpha", 1));
+        var first = IdempotencyFingerprint.Of(request);
+        var second = IdempotencyFingerprint.Of(new SampleRequest("alpha", 1));
 
         second.ShouldBe(first);
     }
@@ -32,8 +32,8 @@ public class IdempotencyFingerprintTests
     [Fact]
     public void A_different_body_field_produces_a_different_fingerprint()
     {
-        IdempotencyFingerprint first = IdempotencyFingerprint.Of(new SampleRequest("alpha", 1));
-        IdempotencyFingerprint second = IdempotencyFingerprint.Of(new SampleRequest("beta", 1));
+        var first = IdempotencyFingerprint.Of(new SampleRequest("alpha", 1));
+        var second = IdempotencyFingerprint.Of(new SampleRequest("beta", 1));
 
         second.ShouldNotBe(first);
     }
@@ -43,8 +43,8 @@ public class IdempotencyFingerprintTests
     {
         SampleRequest request = new("alpha", 1);
 
-        IdempotencyFingerprint first = IdempotencyFingerprint.Of(request, "name-one");
-        IdempotencyFingerprint second = IdempotencyFingerprint.Of(request, "name-two");
+        var first = IdempotencyFingerprint.Of(request, "name-one");
+        var second = IdempotencyFingerprint.Of(request, "name-two");
 
         second.ShouldNotBe(first);
     }
@@ -59,8 +59,8 @@ public class IdempotencyFingerprintTests
     {
         SampleRequest request = new("alpha", 1);
 
-        IdempotencyFingerprint first = IdempotencyFingerprint.Of(request, "ab", "c");
-        IdempotencyFingerprint second = IdempotencyFingerprint.Of(request, "a", "bc");
+        var first = IdempotencyFingerprint.Of(request, "ab", "c");
+        var second = IdempotencyFingerprint.Of(request, "a", "bc");
 
         second.ShouldNotBe(
             first,
@@ -71,7 +71,7 @@ public class IdempotencyFingerprintTests
     [Fact]
     public void The_value_is_sixty_four_lowercase_hex_characters()
     {
-        IdempotencyFingerprint fingerprint = IdempotencyFingerprint.Of(new SampleRequest("alpha", 1));
+        var fingerprint = IdempotencyFingerprint.Of(new SampleRequest("alpha", 1));
 
         fingerprint.Value.Length.ShouldBe(IdempotencyFingerprint.Length);
         fingerprint.Value.ShouldBe(fingerprint.Value.ToLowerInvariant());
@@ -91,11 +91,11 @@ public class IdempotencyFingerprintTests
     [Fact]
     public void The_same_values_bound_from_two_different_wire_property_orders_still_match()
     {
-        SampleRequest inOneOrder = JsonSerializer.Deserialize<SampleRequest>("""{"Name":"alpha","Version":1}""")!;
-        SampleRequest inAnotherOrder = JsonSerializer.Deserialize<SampleRequest>("""{"Version":1,"Name":"alpha"}""")!;
+        var inOneOrder = JsonSerializer.Deserialize<SampleRequest>("""{"Name":"alpha","Version":1}""")!;
+        var inAnotherOrder = JsonSerializer.Deserialize<SampleRequest>("""{"Version":1,"Name":"alpha"}""")!;
 
-        IdempotencyFingerprint first = IdempotencyFingerprint.Of(inOneOrder);
-        IdempotencyFingerprint second = IdempotencyFingerprint.Of(inAnotherOrder);
+        var first = IdempotencyFingerprint.Of(inOneOrder);
+        var second = IdempotencyFingerprint.Of(inAnotherOrder);
 
         second.ShouldBe(
             first,

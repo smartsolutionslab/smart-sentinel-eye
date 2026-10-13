@@ -3,9 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
@@ -21,13 +19,13 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
+        var layout = new LayoutBuilder().At(FixedMoment).Build();
         layout.Publish(LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
         layouts.Add(layout);
 
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], layout.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -43,7 +41,7 @@ public class BranchDraftRevisionCommandHandlerTests
         BranchDraftRevisionCommandHandler handler = new(
             layouts, new FakeClock(FixedMoment), NullLogger<BranchDraftRevisionCommandHandler>.Instance);
 
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], LayoutIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -56,12 +54,12 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draftOnly = new LayoutBuilder().At(FixedMoment).Build();
+        var draftOnly = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(draftOnly);
 
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], draftOnly.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
 
@@ -80,15 +78,15 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        Layout stranded = new LayoutBuilder().At(FixedMoment).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var stranded = new LayoutBuilder().At(FixedMoment).Build();
         stranded.Publish(LayoutRevisionNumber.One, by, clock);
         stranded.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
         layouts.Add(stranded);
 
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], stranded.Id, by, 0),
             CancellationToken.None);
 
@@ -109,8 +107,8 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        Layout stranded = new LayoutBuilder().Named("rolling-mill").At(FixedMoment).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var stranded = new LayoutBuilder().Named("rolling-mill").At(FixedMoment).Build();
         stranded.Publish(LayoutRevisionNumber.One, by, clock);
         stranded.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
         layouts.Add(stranded);
@@ -121,7 +119,7 @@ public class BranchDraftRevisionCommandHandlerTests
 
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], stranded.Id, by, 0),
             CancellationToken.None);
 
@@ -146,14 +144,14 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        Layout live = new LayoutBuilder().Named("rolling-mill").At(FixedMoment).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var live = new LayoutBuilder().Named("rolling-mill").At(FixedMoment).Build();
         live.Publish(LayoutRevisionNumber.One, by, clock);
         layouts.Add(live);
 
         BranchDraftRevisionCommandHandler handler = new(
             layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], live.Id, by, 0),
             CancellationToken.None);
 

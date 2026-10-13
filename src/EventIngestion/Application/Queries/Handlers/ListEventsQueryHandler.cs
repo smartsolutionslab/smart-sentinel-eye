@@ -24,7 +24,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         // paging inputs are handled here.
         var (_, _, _, _, _, _, _, _, rawPageSize, rawCursor) = query;
 
-        int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
+        var pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
             return Failure(ListEventsFailures.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
@@ -40,18 +40,18 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             }
         }
 
-        List<EventAggregate> rows = await BuildPagedQuery(events.Events, query, cursor, pageSize)
+        var rows = await BuildPagedQuery(events.Events, query, cursor, pageSize)
             .ToListAsync(cancellationToken);
 
         string? nextCursor = null;
         if (rows.Count > pageSize)
         {
-            EventAggregate last = rows[pageSize - 1];
+            var last = rows[pageSize - 1];
             nextCursor = EncodeCursor(last.IngestedAt.Value, last.Id.Value);
             rows = rows.Take(pageSize).ToList();
         }
 
-        EventDto[] items = rows.Select(GetEventQueryHandler.Map).ToArray();
+        var items = rows.Select(GetEventQueryHandler.Map).ToArray();
         return Success(
             new EventPageDto(items, nextCursor));
     }
@@ -77,7 +77,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         // The sort key is untouched: the cursor pages on (ingestedAt, eventId),
         // which is fab-independent, and adding fab to it would invalidate every
         // cursor already issued.
-        IQueryable<EventAggregate> source =
+        var source =
             events.Where(eventEntity => query.Fabs.Contains(eventEntity.Fab));
 
         if (query.Source is not null)
@@ -132,7 +132,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
 
     private static string EncodeCursor(DateTimeOffset ingested, Guid eventId)
     {
-        string raw = $"{ingested.UtcTicks:D19}.{eventId:N}";
+        var raw = $"{ingested.UtcTicks:D19}.{eventId:N}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
     }
 
@@ -140,15 +140,15 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
     {
         try
         {
-            string raw = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-            int dot = raw.IndexOf('.', StringComparison.Ordinal);
+            var raw = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var dot = raw.IndexOf('.', StringComparison.Ordinal);
             if (dot < 0)
             {
                 return null;
             }
 
-            long ticks = long.Parse(raw[..dot], CultureInfo.InvariantCulture);
-            Guid id = Guid.ParseExact(raw[(dot + 1)..], "N");
+            var ticks = long.Parse(raw[..dot], CultureInfo.InvariantCulture);
+            var id = Guid.ParseExact(raw[(dot + 1)..], "N");
             return (new DateTimeOffset(ticks, TimeSpan.Zero), id);
         }
         catch (Exception ex) when (ex is FormatException or ArgumentException)

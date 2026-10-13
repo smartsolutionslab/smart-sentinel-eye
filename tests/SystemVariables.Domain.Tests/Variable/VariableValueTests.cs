@@ -13,7 +13,7 @@ public class VariableValueTests
     [Fact]
     public void From_String_returns_a_StringValue()
     {
-        VariableValue value = VariableValue.From(VariableType.String, "hello");
+        var value = VariableValue.From(VariableType.String, "hello");
         value.ShouldBeOfType<VariableValue.StringValue>().Value.ShouldBe("hello");
     }
 
@@ -24,7 +24,7 @@ public class VariableValueTests
     [InlineData("1000000", 1_000_000.0)]
     public void From_Number_parses_culture_invariantly(string wire, double expected)
     {
-        VariableValue value = VariableValue.From(VariableType.Number, wire);
+        var value = VariableValue.From(VariableType.Number, wire);
         value.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(expected);
     }
 
@@ -40,7 +40,7 @@ public class VariableValueTests
     [InlineData("false", false)]
     public void From_Boolean_parses_lowercase_literals(string wire, bool expected)
     {
-        VariableValue value = VariableValue.From(VariableType.Boolean, wire);
+        var value = VariableValue.From(VariableType.Boolean, wire);
         value.ShouldBeOfType<VariableValue.BooleanValue>().Value.ShouldBe(expected);
     }
 
@@ -66,7 +66,7 @@ public class VariableValueTests
     {
         VariableValue v = new VariableValue.NumberValue(82.4);
         // Round trip via From + ToWireString preserves the value.
-        VariableValue back = VariableValue.From(VariableType.Number, v.ToWireString());
+        var back = VariableValue.From(VariableType.Number, v.ToWireString());
         back.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(82.4);
     }
 
@@ -94,7 +94,7 @@ public class VariableValueTests
     [Fact]
     public void Render_Boolean_uses_the_supplied_labels()
     {
-        BooleanLabels labels = BooleanLabels.From("Running", "Stopped");
+        var labels = BooleanLabels.From("Running", "Stopped");
         new VariableValue.BooleanValue(true).Render(labels).ShouldBe("Running");
         new VariableValue.BooleanValue(false).Render(labels).ShouldBe("Stopped");
     }

@@ -37,8 +37,8 @@ public class FoundingDecisionRecordTests
     [InlineData("IAuthorizationDecisionPoint", "authorization")]
     public void Section_nine_agrees_with_the_code_about_its_strategy_interfaces(string symbol, string row)
     {
-        bool existsInCode = DeclaredInSource(symbol);
-        bool recordedAbsent = ReadConstitution().Contains($"`{symbol}` — absent", StringComparison.Ordinal);
+        var existsInCode = DeclaredInSource(symbol);
+        var recordedAbsent = ReadConstitution().Contains($"`{symbol}` — absent", StringComparison.Ordinal);
 
         RecordMustAgree(
             existsInCode,
@@ -62,8 +62,8 @@ public class FoundingDecisionRecordTests
     [Fact]
     public void The_expression_language_row_names_the_language_that_exists()
     {
-        bool aelExists = DeclaredInSource("AelInterpreter");
-        bool recordsAel = ReadInitialDecisions()
+        var aelExists = DeclaredInSource("AelInterpreter");
+        var recordsAel = ReadInitialDecisions()
             .Contains("The language is AEL, not CEL", StringComparison.Ordinal);
 
         RecordMustAgree(
@@ -83,14 +83,14 @@ public class FoundingDecisionRecordTests
     [Fact]
     public void The_constitution_does_not_claim_a_metrics_stack_that_was_never_built()
     {
-        string appHost = ReadRepositoryFile(Path.Combine("src", "AppHost", "AppHost.cs"));
+        var appHost = ReadRepositoryFile(Path.Combine("src", "AppHost", "AppHost.cs"));
 
         // Any declaration shape, not one literal: AppHost adds resources through
         // AddContainer, AddDockerfile and per-integration helpers alike, so
         // matching a single call would miss a Prometheus added another way.
-        bool prometheusDeclared = appHost.Contains("prometheus", StringComparison.OrdinalIgnoreCase);
-        string constitution = ReadConstitution();
-        bool constitutionClaimsIt =
+        var prometheusDeclared = appHost.Contains("prometheus", StringComparison.OrdinalIgnoreCase);
+        var constitution = ReadConstitution();
+        var constitutionClaimsIt =
             constitution.Contains("**Prometheus** for metrics", StringComparison.Ordinal)
             || constitution.Contains("**30 days** in Prometheus", StringComparison.Ordinal);
 
@@ -118,11 +118,11 @@ public class FoundingDecisionRecordTests
     [InlineData("Json", "`json` does not exist")]
     public void The_variable_type_row_agrees_with_the_types_that_exist(string type, string sentinel)
     {
-        string variableType = ReadRepositoryFile(Path.Combine(
+        var variableType = ReadRepositoryFile(Path.Combine(
             "src", "SystemVariables", "Domain", "Variable", "VariableType.cs"));
 
-        bool typeExists = variableType.Contains($"VariableType {type} {{", StringComparison.Ordinal);
-        bool recordedAbsent = ReadInitialDecisions().Contains(sentinel, StringComparison.Ordinal);
+        var typeExists = variableType.Contains($"VariableType {type} {{", StringComparison.Ordinal);
+        var recordedAbsent = ReadInitialDecisions().Contains(sentinel, StringComparison.Ordinal);
 
         RecordMustAgree(
             typeExists,
@@ -141,7 +141,7 @@ public class FoundingDecisionRecordTests
     [Fact]
     public void Every_amended_row_still_shows_what_was_originally_decided()
     {
-        string[] amendedRows = ReadInitialDecisions()
+        var amendedRows = ReadInitialDecisions()
             .Split('\n')
             .Where(line => line.Contains("**Amended by ADR-", StringComparison.Ordinal))
             .ToArray();
@@ -149,9 +149,9 @@ public class FoundingDecisionRecordTests
         amendedRows.ShouldNotBeEmpty("rows 014, 026 and spec 047's six are amended; finding none means "
             + "the annotations were lost.");
 
-        foreach (string row in amendedRows)
+        foreach (var row in amendedRows)
         {
-            string id = row.Length > 7 ? row[..7] : row;
+            var id = row.Length > 7 ? row[..7] : row;
             row.ShouldContain(
                 "Originally",
                 customMessage: $"amended row '{id}…' does not keep its original wording. Overwriting a "
@@ -177,8 +177,8 @@ public class FoundingDecisionRecordTests
     /// </remarks>
     private static bool DeclaredInSource(string symbol)
     {
-        string root = RepositoryRoot().FullName;
-        foreach (string file in Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories))
+        var root = RepositoryRoot().FullName;
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(root, "src"), "*.cs", SearchOption.AllDirectories))
         {
             if (file.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 || file.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
@@ -186,9 +186,9 @@ public class FoundingDecisionRecordTests
                 continue;
             }
 
-            foreach (string line in File.ReadLines(file))
+            foreach (var line in File.ReadLines(file))
             {
-                string code = line.TrimStart();
+                var code = line.TrimStart();
                 if (code.StartsWith("//", StringComparison.Ordinal)
                     || code.StartsWith('*')
                     || code.StartsWith("///", StringComparison.Ordinal))
@@ -214,7 +214,7 @@ public class FoundingDecisionRecordTests
 
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        var path = Path.Combine(RepositoryRoot().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path);

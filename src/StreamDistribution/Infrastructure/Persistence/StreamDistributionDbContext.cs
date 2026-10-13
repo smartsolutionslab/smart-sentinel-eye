@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 

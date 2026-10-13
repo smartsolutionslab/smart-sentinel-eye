@@ -31,7 +31,7 @@ public static class ClipManifestLoader
             return new ClipManifestLoadResult(Option<ClipManifest>.None, []);
         }
 
-        string sidecar = Path.Combine(clipsDirectory, Path.GetFileNameWithoutExtension(clip) + ".cues.json");
+        var sidecar = Path.Combine(clipsDirectory, Path.GetFileNameWithoutExtension(clip) + ".cues.json");
         if (!File.Exists(sidecar))
         {
             return new ClipManifestLoadResult(Option<ClipManifest>.None, []);
@@ -40,7 +40,7 @@ public static class ClipManifestLoader
         ClipManifest? manifest;
         try
         {
-            string json = File.ReadAllText(sidecar);
+            var json = File.ReadAllText(sidecar);
             manifest = JsonSerializer.Deserialize<ClipManifest>(json, JsonOptions);
         }
         catch (JsonException exception)
@@ -60,7 +60,7 @@ public static class ClipManifestLoader
                 Option<ClipManifest>.None, [new CueViolation(null, $"'{sidecar}' did not deserialize to a manifest.")]);
         }
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, clip);
+        var violations = ClipManifestValidation.Validate(manifest, clip);
         return violations.Count > 0
             ? new ClipManifestLoadResult(Option<ClipManifest>.None, violations)
             : new ClipManifestLoadResult(Option<ClipManifest>.Some(manifest), []);

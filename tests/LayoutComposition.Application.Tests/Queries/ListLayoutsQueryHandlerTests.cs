@@ -2,9 +2,7 @@ using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Queries;
 
@@ -24,7 +22,7 @@ public class ListLayoutsQueryHandlerTests
         repository.Add(NewChain("Line-2"));
 
         ListLayoutsQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<ListLayoutsResult, ListLayoutsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListLayoutsQuery([Munich], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -37,16 +35,16 @@ public class ListLayoutsQueryHandlerTests
     {
         InMemoryLayoutRepository repository = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
+        var op = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Layout draftOnly = NewChain("Drf");
-        Layout published = NewChain("Pub");
+        var draftOnly = NewChain("Drf");
+        var published = NewChain("Pub");
         published.Publish(LayoutRevisionNumber.One, op, clock);
         repository.Add(draftOnly);
         repository.Add(published);
 
         ListLayoutsQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<ListLayoutsResult, ListLayoutsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListLayoutsQuery([Munich], State: LayoutRevisionState.Published), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -64,7 +62,7 @@ public class ListLayoutsQueryHandlerTests
         repository.Add(NewChain(Dresden, "In-Dresden"));
 
         ListLayoutsQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<ListLayoutsResult, ListLayoutsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListLayoutsQuery([Dresden], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -79,7 +77,7 @@ public class ListLayoutsQueryHandlerTests
         repository.Add(NewChain(Dresden, "In-Dresden"));
 
         ListLayoutsQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<ListLayoutsResult, ListLayoutsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListLayoutsQuery([Munich, Dresden], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -95,16 +93,16 @@ public class ListLayoutsQueryHandlerTests
     public async Task The_published_picker_omits_a_fab_the_caller_does_not_hold()
     {
         InMemoryLayoutRepository repository = new();
-        Layout inMunich = NewChain(Munich, "Pub-Munich");
-        LayoutBuilder builder = new LayoutBuilder().WithFab(Dresden).Named("Pub-Dresden").At(FixedMoment);
-        Layout inDresden = builder.Build();
+        var inMunich = NewChain(Munich, "Pub-Munich");
+        var builder = new LayoutBuilder().WithFab(Dresden).Named("Pub-Dresden").At(FixedMoment);
+        var inDresden = builder.Build();
         inMunich.Publish(LayoutRevisionNumber.One, builder.Operator, builder.Clock);
         inDresden.Publish(LayoutRevisionNumber.One, builder.Operator, builder.Clock);
         repository.Add(inMunich);
         repository.Add(inDresden);
 
         ListLayoutsQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<ListLayoutsResult, ListLayoutsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListLayoutsQuery([Dresden], State: LayoutRevisionState.Published), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

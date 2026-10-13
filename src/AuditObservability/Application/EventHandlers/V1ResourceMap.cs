@@ -55,12 +55,12 @@ public sealed partial class V1ResourceMap
     public V1Mapping Lookup(Type integrationEventType, object payloadInstance)
     {
         Ensure.That(integrationEventType).IsNotNull();
-        if (!entries.TryGetValue(integrationEventType, out V1MappingEntry? entry))
+        if (!entries.TryGetValue(integrationEventType, out var entry))
         {
             return V1Mapping.Unmapped;
         }
 
-        ResourceIdentifier? identifier = entry.PickIdentifier(payloadInstance);
+        var identifier = entry.PickIdentifier(payloadInstance);
         return new V1Mapping(
             Kind: Option<DomainResourceKind>.Some(entry.Kind),
             ResourceIdentifier: identifier is null
@@ -85,10 +85,10 @@ public sealed partial class V1ResourceMap
 
     private static V1ResourceMap BuildDefault()
     {
-        Assembly contractsAssembly = typeof(IIntegrationEvent).Assembly;
+        var contractsAssembly = typeof(IIntegrationEvent).Assembly;
         Dictionary<Type, V1MappingEntry> entries = [];
 
-        foreach (Type type in contractsAssembly.GetTypes())
+        foreach (var type in contractsAssembly.GetTypes())
         {
             if (type.IsAbstract || type.IsInterface)
             {
@@ -100,13 +100,13 @@ public sealed partial class V1ResourceMap
                 continue;
             }
 
-            if (Conventions.HandTweaks.TryGetValue(type, out V1MappingEntry? tweak))
+            if (Conventions.HandTweaks.TryGetValue(type, out var tweak))
             {
                 entries[type] = tweak;
                 continue;
             }
 
-            DomainResourceKind? kind = ResolveResourceKind(type);
+            var kind = ResolveResourceKind(type);
             if (kind is null)
             {
                 continue;
@@ -122,20 +122,20 @@ public sealed partial class V1ResourceMap
     {
         // Convention: the namespace tail maps to a canonical
         // resource — e.g. "Shared.Contracts.CameraCatalog" → "camera".
-        string? leaf = type.Namespace?.Split('.').LastOrDefault();
+        var leaf = type.Namespace?.Split('.').LastOrDefault();
         if (leaf is null)
         {
             return null;
         }
 
-        return Conventions.NamespaceToResource.TryGetValue(leaf, out DomainResourceKind? mapped)
+        return Conventions.NamespaceToResource.TryGetValue(leaf, out var mapped)
             ? mapped
             : null;
     }
 
     private static Func<object, ResourceIdentifier?> BuildConventionPicker(Type type)
     {
-        PropertyInfo[] props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var props = type.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
         // Prefer the first Guid-typed property — every aggregate root in
         // the platform identifies itself with a Guid v7 (ADR-0039 / 0090),
@@ -143,7 +143,7 @@ public sealed partial class V1ResourceMap
         // no name-based fallback: a contract whose first Guid is the wrong
         // one, or that has no Guid at all, needs a hand-tweak instead,
         // registered in Conventions.HandTweaks.
-        PropertyInfo? pick = Array.Find(props, property => property.PropertyType == typeof(Guid));
+        var pick = Array.Find(props, property => property.PropertyType == typeof(Guid));
 
         if (pick is null)
         {
@@ -152,7 +152,7 @@ public sealed partial class V1ResourceMap
 
         return instance =>
         {
-            object? raw = pick.GetValue(instance);
+            var raw = pick.GetValue(instance);
             return raw is null ? null : ResourceIdentifier.From(raw.ToString()!);
         };
     }

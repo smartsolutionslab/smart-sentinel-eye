@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
-using SmartSentinelEye.ServiceDefaults;
 using Wolverine;
 using Wolverine.EntityFrameworkCore;
 

@@ -73,7 +73,7 @@ public sealed class Rule : AggregateRoot<RuleIdentifier>
         Ensure.That(triggerSource).IsNotNull();
         Ensure.That(triggerKind).IsNotNull();
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         Rule rule = new()
         {
             Id = RuleIdentifier.New(),

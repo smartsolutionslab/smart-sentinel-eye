@@ -60,12 +60,12 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
     private async Task PollOnceAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
 
-        IDbContextFactory<StreamDistributionDbContext> factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
-        IRtspGateway gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
+        var factory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
+        var gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
 
-        await using StreamDistributionDbContext context = await factory.CreateDbContextAsync(cancellationToken);
+        await using var context = await factory.CreateDbContextAsync(cancellationToken);
 
         // Retired streams are excluded from the sweep, not merely reported on
         // (spec 028, research §4). Their MediaMTX path has been removed, so a
@@ -94,7 +94,7 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
         IRtspGateway gateway,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
 
         // A handful of calls for the whole sweep (one per MediaMTX page of
         // paths, not one per stream). Every MediaMTX control-API call now
@@ -116,7 +116,7 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
             return;
         }
 
-        foreach ((Guid cameraGuid, MediaMtxPath path, StreamState state) in streams)
+        foreach ((var cameraGuid, var path, var state) in streams)
         {
             // Before the lookup, so a retired stream costs no scope. The
             // listing query already excludes these; this is the half that a
@@ -130,11 +130,11 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
 
             // A path absent from the batch reads the same way a 404 from the
             // old per-path probe did: not registered, not a probe failure.
-            RtspPathHealth observation = observed.TryGetValue(path, out RtspPathHealth? found)
+            var observation = observed.TryGetValue(path, out var found)
                 ? found
                 : new RtspPathHealth(IsReady: false, LastError: "path not registered", LastFrameAt: null, DetectedMode: TranscodeMode.Unknown);
 
-            bool declareOffline = ShouldDeclareOffline(cameraGuid, observation, state, now);
+            var declareOffline = ShouldDeclareOffline(cameraGuid, observation, state, now);
             ReportStreamHealthCommand command = new(CameraIdentifier.From(cameraGuid), observation, declareOffline);
 
             // A scope per camera, not one for the sweep (#1801). The handler's
@@ -147,8 +147,8 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
             //
             // PersistenceLoopHostedService has always opened a scope per command
             // for this reason, which is why event ingestion never showed it.
-            await using AsyncServiceScope perCamera = scopeFactory.CreateAsyncScope();
-            ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>> handler =
+            await using var perCamera = scopeFactory.CreateAsyncScope();
+            var handler =
                 perCamera.ServiceProvider.GetRequiredService<ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>>();
 
             await handler.HandleAsync(command, cancellationToken);
@@ -169,7 +169,7 @@ public sealed class StreamHealthWatcher(IServiceScopeFactory scopeFactory, ICloc
             return false;
         }
 
-        if (!degradedSince.TryGetValue(camera, out DateTimeOffset degradedAt))
+        if (!degradedSince.TryGetValue(camera, out var degradedAt))
         {
             degradedSince[camera] = now;
             return false;

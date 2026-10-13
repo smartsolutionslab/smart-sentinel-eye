@@ -1,6 +1,5 @@
 using System.Net;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Http.Resilience;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests.Resilience;
@@ -23,9 +22,9 @@ public class IdempotentRetryTests
     [Fact]
     public async Task A_failing_GET_is_still_retried()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.GetAsync("https://x.test/thing", CancellationToken.None);
+        using var response = await client.GetAsync("https://x.test/thing", CancellationToken.None);
 
         server.Attempts.ShouldBe(4, "one attempt plus the standard handler's three retries.");
     }
@@ -38,9 +37,9 @@ public class IdempotentRetryTests
     [Fact]
     public async Task A_failing_POST_is_not_retried()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.PostAsync(
+        using var response = await client.PostAsync(
             "https://x.test/thing", new StringContent("{}"), CancellationToken.None);
 
         server.Attempts.ShouldBe(1, "a POST gets one attempt; retrying it can duplicate the effect.");
@@ -49,9 +48,9 @@ public class IdempotentRetryTests
     [Fact]
     public async Task A_failing_PATCH_is_not_retried()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.PatchAsync(
+        using var response = await client.PatchAsync(
             "https://x.test/thing", new StringContent("{}"), CancellationToken.None);
 
         server.Attempts.ShouldBe(1, "RFC 9110 does not make PATCH idempotent, whatever a given endpoint does.");
@@ -60,9 +59,9 @@ public class IdempotentRetryTests
     [Fact]
     public async Task A_failing_PUT_is_retried_because_PUT_is_idempotent()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.PutAsync(
+        using var response = await client.PutAsync(
             "https://x.test/thing", new StringContent("{}"), CancellationToken.None);
 
         server.Attempts.ShouldBe(4);
@@ -77,7 +76,7 @@ public class IdempotentRetryTests
     [Fact]
     public async Task The_method_is_still_known_when_the_transport_throws()
     {
-        (HttpClient client, CountingHandler server) = Build(throwInstead: true);
+        (var client, var server) = Build(throwInstead: true);
 
         await Should.ThrowAsync<HttpRequestException>(
             () => client.GetAsync("https://x.test/thing", CancellationToken.None));
@@ -88,7 +87,7 @@ public class IdempotentRetryTests
     [Fact]
     public async Task A_thrown_POST_is_not_retried_either()
     {
-        (HttpClient client, CountingHandler server) = Build(throwInstead: true);
+        (var client, var server) = Build(throwInstead: true);
 
         await Should.ThrowAsync<HttpRequestException>(
             () => client.PostAsync("https://x.test/thing", new StringContent("{}"), CancellationToken.None));
@@ -103,9 +102,9 @@ public class IdempotentRetryTests
     [Fact]
     public async Task A_client_that_opts_back_in_retries_its_POSTs_again()
     {
-        (HttpClient client, CountingHandler server) = Build(optBackIn: true);
+        (var client, var server) = Build(optBackIn: true);
 
-        using HttpResponseMessage response = await client.PostAsync(
+        using var response = await client.PostAsync(
             "https://x.test/thing", new StringContent("{}"), CancellationToken.None);
 
         server.Attempts.ShouldBe(4);
@@ -117,7 +116,7 @@ public class IdempotentRetryTests
         CountingHandler server = new(throwInstead);
         ServiceCollection services = new();
 
-        IHttpClientBuilder builder = services
+        var builder = services
             .AddHttpClient(Client)
             .ConfigurePrimaryHttpMessageHandler(() => server);
 

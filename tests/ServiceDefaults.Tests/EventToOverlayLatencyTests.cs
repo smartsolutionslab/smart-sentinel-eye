@@ -1,5 +1,4 @@
 using System.Diagnostics.Metrics;
-using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
@@ -22,7 +21,7 @@ public class EventToOverlayLatencyTests
     [Fact]
     public void A_negative_duration_is_not_recorded()
     {
-        List<double> recorded = Listen();
+        var recorded = Listen();
         EventToOverlayLatency latency = new(new FixedClock(Now));
 
         latency.RecordEventToOverlayState(Now.AddSeconds(5));
@@ -34,7 +33,7 @@ public class EventToOverlayLatencyTests
     [Fact]
     public void An_absent_moment_is_not_recorded()
     {
-        List<double> recorded = Listen();
+        var recorded = Listen();
         EventToOverlayLatency latency = new(new FixedClock(Now));
 
         latency.RecordEventToOverlayState(null);
@@ -46,7 +45,7 @@ public class EventToOverlayLatencyTests
     [Fact]
     public void A_real_duration_is_recorded_against_the_whole_leg()
     {
-        List<double> recorded = Listen();
+        var recorded = Listen();
         EventToOverlayLatency latency = new(new FixedClock(Now));
 
         latency.RecordEventToOverlayState(Now.AddMilliseconds(-180));
@@ -86,7 +85,7 @@ public class EventToOverlayLatencyTests
 
         listener.SetMeasurementEventCallback<double>((_, measurement, tags, _) =>
         {
-            foreach (KeyValuePair<string, object?> tag in tags)
+            foreach (var tag in tags)
             {
                 if (tag.Key == "segment"
                     && string.Equals(tag.Value?.ToString(), LatencySegment.EventToOverlayState.Name, StringComparison.Ordinal))

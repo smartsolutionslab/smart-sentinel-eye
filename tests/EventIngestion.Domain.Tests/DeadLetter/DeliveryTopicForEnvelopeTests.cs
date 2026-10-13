@@ -14,7 +14,7 @@ public class DeliveryTopicForEnvelopeTests
     [Fact]
     public void ForEnvelope_composes_the_event_topic_grammar()
     {
-        DeliveryTopic topic = DeliveryTopic.ForEnvelope(
+        var topic = DeliveryTopic.ForEnvelope(
             FabIdentifier.From("berlin"), Source.Manual, DeviceIdentifier.From("station-4"));
 
         topic.Value.ShouldBe("event/berlin/manual/station-4");
@@ -23,7 +23,7 @@ public class DeliveryTopicForEnvelopeTests
     [Fact]
     public void ForEnvelope_varies_with_each_segment()
     {
-        DeliveryTopic topic = DeliveryTopic.ForEnvelope(
+        var topic = DeliveryTopic.ForEnvelope(
             FabIdentifier.From("dresden"), Source.Inference, DeviceIdentifier.From("cam-7"));
 
         topic.Value.ShouldBe("event/dresden/inference/cam-7");

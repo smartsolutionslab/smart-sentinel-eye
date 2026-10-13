@@ -24,9 +24,9 @@ public class SensorBehaviourTests
         SensorDefinition sensor = new() { Behaviour = "decay", Start = 980d, Floor = 580d };
         DecayBehaviour behaviour = new();
 
-        double atStart = behaviour.Sample(sensor, 0d, Any);
-        double atMid = behaviour.Sample(sensor, 0.5d, Any);
-        double atEnd = behaviour.Sample(sensor, 1d, Any);
+        var atStart = behaviour.Sample(sensor, 0d, Any);
+        var atMid = behaviour.Sample(sensor, 0.5d, Any);
+        var atEnd = behaviour.Sample(sensor, 1d, Any);
 
         atStart.ShouldBe(980d);
         atMid.ShouldBeLessThan(atStart);
@@ -52,9 +52,9 @@ public class SensorBehaviourTests
         SteadyBehaviour behaviour = new();
         Random random = new(7);
 
-        for (int i = 0; i < 100; i++)
+        for (var i = 0; i < 100; i++)
         {
-            double value = behaviour.Sample(sensor, i / 100d, random);
+            var value = behaviour.Sample(sensor, i / 100d, random);
             value.ShouldBeInRange(9.2d - 0.4d, 9.2d + 0.4d);
         }
     }
@@ -66,11 +66,11 @@ public class SensorBehaviourTests
         BurstBehaviour behaviour = new();
         Random random = new(3);
 
-        for (int i = 0; i < 200; i++)
+        for (var i = 0; i < 200; i++)
         {
-            double value = behaviour.Sample(sensor, i / 200d, random);
-            bool baseline = value is >= 90d and <= 110d;
-            bool spike = Math.Abs(value - 500d) < 1e-9d;
+            var value = behaviour.Sample(sensor, i / 200d, random);
+            var baseline = value is >= 90d and <= 110d;
+            var spike = Math.Abs(value - 500d) < 1e-9d;
             (baseline || spike).ShouldBeTrue();
         }
     }

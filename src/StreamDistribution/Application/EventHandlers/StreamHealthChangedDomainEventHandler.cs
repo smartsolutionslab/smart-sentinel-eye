@@ -39,7 +39,7 @@ public sealed class StreamHealthChangedDomainEventHandler(IEventBus events, IJou
         // Audit retention takes the opposite placement from the same rule: it
         // has no domain event handler, so its journey goes inside its loop. One
         // journey per announcement, both times.
-        using IJourney journey = journeys.Begin(OriginName);
+        using var journey = journeys.Begin(OriginName);
 
         StreamHealthChangedV1 @event = new(
             Camera: domainEvent.Camera.Value,

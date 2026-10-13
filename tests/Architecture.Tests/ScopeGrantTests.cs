@@ -43,9 +43,9 @@ public class ScopeGrantTests
     [Fact]
     public void Every_catalogued_scope_is_defined_in_the_realm()
     {
-        IReadOnlyCollection<string> defined = DefinedScopes();
+        var defined = DefinedScopes();
 
-        foreach (string scope in Scope.All)
+        foreach (var scope in Scope.All)
         {
             defined.ShouldContain(scope,
                 customMessage: $"'{scope}' has a policy registered by AddScopePolicies and no client "
@@ -78,7 +78,7 @@ public class ScopeGrantTests
             .. KeycloakScopeBundles.WebhookIntegration,
         ];
 
-        foreach (string scope in Scope.All)
+        foreach (var scope in Scope.All)
         {
             granted.ShouldContain(scope,
                 customMessage: $"'{scope}' is defined and held by nobody. Every caller is refused, and "
@@ -237,11 +237,11 @@ public class ScopeGrantTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
 
         return JsonDocument.Parse(File.ReadAllText(path));

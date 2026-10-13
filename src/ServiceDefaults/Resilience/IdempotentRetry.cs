@@ -59,7 +59,7 @@ public static class IdempotentRetry
         {
             // The response carries its request; a transport exception has none,
             // so the context is the fallback the handler populates either way.
-            HttpRequestMessage? request =
+            var request =
                 arguments.Outcome.Result?.RequestMessage ?? arguments.Context.GetRequestMessage();
 
             // Unknown method, no retry. Failing closed is the whole point: the

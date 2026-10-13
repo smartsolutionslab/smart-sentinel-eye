@@ -28,15 +28,15 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_registered_event_type_is_listed_back()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage created = await RegisterAsync(dresden, kind);
+        var created = await RegisterAsync(dresden, kind);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
         created.Headers.Location?.ToString().ShouldBe($"/event-types/{kind}");
 
-        JsonElement listed = await ListAsync(dresden);
-        JsonElement row = listed.EnumerateArray().Single(r => r.GetProperty("kind").GetString() == kind);
+        var listed = await ListAsync(dresden);
+        var row = listed.EnumerateArray().Single(r => r.GetProperty("kind").GetString() == kind);
         row.GetProperty("fab").GetString().ShouldBe("dresden");
         row.GetProperty("state").GetString().ShouldBe("Registered");
     }
@@ -44,45 +44,45 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_same_kind_twice_in_one_fab_is_refused_with_409()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, kind)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage refused = await RegisterAsync(dresden, kind);
+        var refused = await RegisterAsync(dresden, kind);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("EVENT_TYPE_ALREADY_REGISTERED");
 
-        JsonElement listed = await ListAsync(dresden);
+        var listed = await ListAsync(dresden);
         listed.EnumerateArray().Count(r => r.GetProperty("kind").GetString() == kind).ShouldBe(1);
     }
 
     [Fact]
     public async Task The_same_kind_in_two_fabs_is_two_entries()
     {
-        string kind = UniqueKind();
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var kind = UniqueKind();
+        using var multi = await ClientFor(MultiFabOperator);
 
         (await RegisterAsync(multi, kind, fabId: "dresden")).StatusCode.ShouldBe(HttpStatusCode.Created);
         (await RegisterAsync(multi, kind, fabId: "munich")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        JsonElement listed = await ListAsync(multi);
+        var listed = await ListAsync(multi);
         listed.EnumerateArray().Count(r => r.GetProperty("kind").GetString() == kind).ShouldBe(2);
     }
 
     [Fact]
     public async Task A_malformed_kind_is_refused_with_400()
     {
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage badBody = await dresden.PostAsJsonAsync(
+        var badBody = await dresden.PostAsJsonAsync(
             "/event-types", new { kind = "person in restricted zone" });
         badBody.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(badBody));
         (await badBody.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("title").GetString().ShouldBe("EVENT_TYPE_INVALID_INPUT");
 
-        HttpResponseMessage badRoute = await SendDeleteAsync(dresden, "not%20a%20kind", expectedVersion: 0);
+        var badRoute = await SendDeleteAsync(dresden, "not%20a%20kind", expectedVersion: 0);
         badRoute.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(badRoute));
         (await badRoute.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("title").GetString().ShouldBe("EVENT_TYPE_INVALID_INPUT");
@@ -91,9 +91,9 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_multi_fab_caller_that_names_no_fab_is_refused_with_400()
     {
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        using var multi = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage refused = await RegisterAsync(multi, UniqueKind());
+        var refused = await RegisterAsync(multi, UniqueKind());
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>())
@@ -107,23 +107,23 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_registers_nothing()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await RegisterAsync(dresden, kind, fabId: "munich");
+        var refused = await RegisterAsync(dresden, kind, fabId: "munich");
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
 
-        using HttpClient multi = await ClientFor(MultiFabOperator);
-        JsonElement listed = await ListAsync(multi);
+        using var multi = await ClientFor(MultiFabOperator);
+        var listed = await ListAsync(multi);
         listed.EnumerateArray().Count(r => r.GetProperty("kind").GetString() == kind).ShouldBe(0);
     }
 
     [Fact]
     public async Task An_anonymous_caller_is_refused_with_401()
     {
-        using HttpClient anonymous = aspire.CreateServiceClient("event-ingestion");
+        using var anonymous = aspire.CreateServiceClient("event-ingestion");
 
-        HttpResponseMessage refused = await anonymous.PostAsJsonAsync(
+        var refused = await anonymous.PostAsJsonAsync(
             "/event-types", new { kind = UniqueKind() });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -145,15 +145,15 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Retiring_without_If_Match_is_refused_with_428()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, kind)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage refused = await dresden.DeleteAsync($"/event-types/{kind}");
+        var refused = await dresden.DeleteAsync($"/event-types/{kind}");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired, await BodyAsync(refused));
 
-        JsonElement listed = await ListAsync(dresden);
+        var listed = await ListAsync(dresden);
         listed.EnumerateArray().Single(r => r.GetProperty("kind").GetString() == kind)
             .GetProperty("state").GetString().ShouldBe("Registered");
     }
@@ -161,11 +161,11 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Retiring_with_a_stale_If_Match_is_refused_with_409()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, kind)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage refused = await SendDeleteAsync(dresden, kind, expectedVersion: 99);
+        var refused = await SendDeleteAsync(dresden, kind, expectedVersion: 99);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(refused));
         // ADR-0119 (StaleCodeConventionTests): the wire code ends "_STALE", not
@@ -178,16 +178,16 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Retiring_a_type_of_another_fab_is_reported_as_404()
     {
-        string kind = UniqueKind();
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var kind = UniqueKind();
+        using var multi = await ClientFor(MultiFabOperator);
         (await RegisterAsync(multi, kind, fabId: "munich")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        HttpResponseMessage refused = await SendDeleteAsync(dresden, kind, expectedVersion: 0);
+        using var dresden = await ClientFor(DresdenOperator);
+        var refused = await SendDeleteAsync(dresden, kind, expectedVersion: 0);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(refused));
 
-        JsonElement listed = await ListAsync(multi);
+        var listed = await ListAsync(multi);
         listed.EnumerateArray().Single(r => r.GetProperty("kind").GetString() == kind)
             .GetProperty("state").GetString().ShouldBe("Registered");
     }
@@ -195,17 +195,17 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_retired_kind_can_be_registered_again()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, kind)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
         (await SendDeleteAsync(dresden, kind, expectedVersion: 0))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        HttpResponseMessage reregistered = await RegisterAsync(dresden, kind);
+        var reregistered = await RegisterAsync(dresden, kind);
 
         reregistered.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(reregistered));
-        JsonElement listed = await ListAsync(dresden);
+        var listed = await ListAsync(dresden);
         listed.EnumerateArray()
             .Count(r => r.GetProperty("kind").GetString() == kind && r.GetProperty("state").GetString() == "Registered")
             .ShouldBe(1);
@@ -214,12 +214,12 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_repeated_register_with_the_same_idempotency_key_replays_the_same_201()
     {
-        string kind = UniqueKind();
-        string key = $"key-{Guid.CreateVersion7():N}";
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        var key = $"key-{Guid.CreateVersion7():N}";
+        using var dresden = await ClientFor(DresdenOperator);
 
-        Guid first = await RegisterWithKeyAsync(dresden, kind, key);
-        Guid second = await RegisterWithKeyAsync(dresden, kind, key);
+        var first = await RegisterWithKeyAsync(dresden, kind, key);
+        var second = await RegisterWithKeyAsync(dresden, kind, key);
 
         second.ShouldBe(first, "a replay must return the identifier the first attempt created, not a second one");
     }
@@ -233,10 +233,10 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_unknown_kind_is_still_ingested()
     {
-        string kind = $"NothingDeclared{Guid.NewGuid():N}"[..32];
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = $"NothingDeclared{Guid.NewGuid():N}"[..32];
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage created = await dresden.PostAsJsonAsync("/events/manual", new
+        var created = await dresden.PostAsJsonAsync("/events/manual", new
         {
             deviceId = "registry-quiet-check",
             kind,
@@ -250,13 +250,13 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
 
     private static async Task<int> WaitForCountAsync(HttpClient reader, string kind)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (true)
         {
-            HttpResponseMessage listed = await reader.GetAsync($"/events?fabId=dresden&kind={kind}");
+            var listed = await reader.GetAsync($"/events?fabId=dresden&kind={kind}");
             listed.StatusCode.ShouldBe(HttpStatusCode.OK);
-            JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
-            int count = page.GetProperty("items").GetArrayLength();
+            var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+            var count = page.GetProperty("items").GetArrayLength();
             if (count > 0 || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -277,7 +277,7 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
         };
         request.Headers.TryAddWithoutValidation("Idempotency-Key", key);
 
-        HttpResponseMessage response = await client.SendAsync(request);
+        var response = await client.SendAsync(request);
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(response));
 
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetGuid();
@@ -292,7 +292,7 @@ public class EventTypeRegistryIntegrationTests(AspireFixture aspire)
 
     private async Task<JsonElement> ListAsync(HttpClient client)
     {
-        HttpResponseMessage listed = await client.GetAsync("/event-types");
+        var listed = await client.GetAsync("/event-types");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
     }

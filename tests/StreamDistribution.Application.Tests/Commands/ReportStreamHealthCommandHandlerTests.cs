@@ -21,8 +21,8 @@ public class ReportStreamHealthCommandHandlerTests
     public async Task Report_healthy_after_provisioning_transitions_the_stream_to_Healthy()
     {
         InMemoryStreamRepository streams = new();
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = new StreamBuilder()
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var existing = new StreamBuilder()
             .ForCamera(camera)
             .ProvisionedBy(AnAdmin)
             .At(FixedMoment)
@@ -30,8 +30,8 @@ public class ReportStreamHealthCommandHandlerTests
         streams.Add(existing);
         await streams.SaveAsync(CancellationToken.None);
 
-        ReportStreamHealthCommandHandler handler = NewHandler(streams);
-        Result<StreamState, ReportStreamHealthError> result = await handler.HandleAsync(
+        var handler = NewHandler(streams);
+        var result = await handler.HandleAsync(
             new ReportStreamHealthCommand(
                 camera,
                 Healthy(TranscodeMode.Passthrough),
@@ -47,8 +47,8 @@ public class ReportStreamHealthCommandHandlerTests
     public async Task Report_degraded_after_healthy_publishes_with_correct_from_to()
     {
         InMemoryStreamRepository streams = new();
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = new StreamBuilder()
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var existing = new StreamBuilder()
             .ForCamera(camera)
             .ProvisionedBy(AnAdmin)
             .At(FixedMoment)
@@ -58,7 +58,7 @@ public class ReportStreamHealthCommandHandlerTests
         await streams.SaveAsync(CancellationToken.None);
         existing.ClearPendingEvents();
 
-        ReportStreamHealthCommandHandler handler = NewHandler(streams);
+        var handler = NewHandler(streams);
         await handler.HandleAsync(
             new ReportStreamHealthCommand(
                 camera,
@@ -74,8 +74,8 @@ public class ReportStreamHealthCommandHandlerTests
     public async Task Report_offline_directly_from_healthy_returns_InvalidStateTransition()
     {
         InMemoryStreamRepository streams = new();
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = new StreamBuilder()
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var existing = new StreamBuilder()
             .ForCamera(camera)
             .ProvisionedBy(AnAdmin)
             .At(FixedMoment)
@@ -84,8 +84,8 @@ public class ReportStreamHealthCommandHandlerTests
         streams.Add(existing);
         await streams.SaveAsync(CancellationToken.None);
 
-        ReportStreamHealthCommandHandler handler = NewHandler(streams);
-        Result<StreamState, ReportStreamHealthError> result = await handler.HandleAsync(
+        var handler = NewHandler(streams);
+        var result = await handler.HandleAsync(
             new ReportStreamHealthCommand(
                 camera,
                 Unhealthy("exhausted"),
@@ -100,8 +100,8 @@ public class ReportStreamHealthCommandHandlerTests
     public async Task Report_healthy_when_already_healthy_does_not_change_state()
     {
         InMemoryStreamRepository streams = new();
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Stream.Stream existing = new StreamBuilder()
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var existing = new StreamBuilder()
             .ForCamera(camera)
             .ProvisionedBy(AnAdmin)
             .At(FixedMoment)
@@ -111,8 +111,8 @@ public class ReportStreamHealthCommandHandlerTests
         await streams.SaveAsync(CancellationToken.None);
         existing.ClearPendingEvents();
 
-        ReportStreamHealthCommandHandler handler = NewHandler(streams);
-        Result<StreamState, ReportStreamHealthError> result = await handler.HandleAsync(
+        var handler = NewHandler(streams);
+        var result = await handler.HandleAsync(
             new ReportStreamHealthCommand(
                 camera,
                 Healthy(TranscodeMode.Passthrough),
@@ -127,9 +127,9 @@ public class ReportStreamHealthCommandHandlerTests
     public async Task Report_for_an_unknown_camera_returns_StreamNotFound()
     {
         InMemoryStreamRepository streams = new();
-        ReportStreamHealthCommandHandler handler = NewHandler(streams);
+        var handler = NewHandler(streams);
 
-        Result<StreamState, ReportStreamHealthError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ReportStreamHealthCommand(
                 CameraIdentifier.From(Guid.CreateVersion7()),
                 Healthy(TranscodeMode.Passthrough),

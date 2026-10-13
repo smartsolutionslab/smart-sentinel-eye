@@ -8,7 +8,7 @@ public class ScopeTests
     public void Every_scope_string_is_unique()
     {
         HashSet<string> seen = new(StringComparer.Ordinal);
-        foreach (string scope in Scope.All)
+        foreach (var scope in Scope.All)
         {
             seen.Add(scope).ShouldBeTrue($"duplicate scope: {scope}");
         }
@@ -30,9 +30,9 @@ public class ScopeTests
     [Fact]
     public void Every_scope_follows_the_sse_resource_verb_shape()
     {
-        foreach (string scope in Scope.All)
+        foreach (var scope in Scope.All)
         {
-            string[] parts = scope.Split('.');
+            var parts = scope.Split('.');
             parts.Length.ShouldBeGreaterThanOrEqualTo(3,
                 $"scope '{scope}' must have at least sse.<resource>.<verb>");
             parts[0].ShouldBe("sse");

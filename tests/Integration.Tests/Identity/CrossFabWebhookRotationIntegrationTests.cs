@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -34,13 +32,13 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_naming_its_own_fab_cannot_rotate_a_dresden_webhook_client()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        (string name, int version, _) = await RegisterAndRotateAsync(dresden);
+        using var dresden = await DresdenClientAsync();
+        (var name, var version, _) = await RegisterAndRotateAsync(dresden);
 
-        using HttpClient munich = await aspire.CreateAdminClientAsync("identity");
-        HttpResponseMessage attack = await munich.SendAsync(Conditional(name, version, "munich"));
+        using var munich = await aspire.CreateAdminClientAsync("identity");
+        var attack = await munich.SendAsync(Conditional(name, version, "munich"));
 
-        string body = await attack.Content.ReadAsStringAsync();
+        var body = await attack.Content.ReadAsStringAsync();
         attack.StatusCode.ShouldBe(
             HttpStatusCode.PreconditionFailed,
             $"a munich-only operator naming its own fab must find no client to rotate; got "
@@ -61,13 +59,13 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Dresdens_keycloak_secret_is_unchanged_after_a_cross_fab_rotation_attempt()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        (string name, int version, string originalSecret) = await RegisterAndRotateAsync(dresden);
+        using var dresden = await DresdenClientAsync();
+        (var name, var version, var originalSecret) = await RegisterAndRotateAsync(dresden);
 
-        using HttpClient munich = await aspire.CreateAdminClientAsync("identity");
+        using var munich = await aspire.CreateAdminClientAsync("identity");
         await munich.SendAsync(Conditional(name, version, "munich"));
 
-        string currentSecret = await ReadKeycloakSecretAsync($"webhook-{name}");
+        var currentSecret = await ReadKeycloakSecretAsync($"webhook-{name}");
 
         currentSecret.ShouldBe(
             originalSecret,
@@ -80,11 +78,11 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_naming_dresdens_fab_cannot_rotate_a_dresden_webhook_client()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        (string name, int version, _) = await RegisterAndRotateAsync(dresden);
+        using var dresden = await DresdenClientAsync();
+        (var name, var version, _) = await RegisterAndRotateAsync(dresden);
 
-        using HttpClient munich = await aspire.CreateAdminClientAsync("identity");
-        HttpResponseMessage attack = await munich.SendAsync(Conditional(name, version, "dresden"));
+        using var munich = await aspire.CreateAdminClientAsync("identity");
+        var attack = await munich.SendAsync(Conditional(name, version, "dresden"));
 
         attack.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
@@ -97,16 +95,16 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_dresden_operator_rotates_its_own_webhook_client()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        (string name, int version, string originalSecret) = await RegisterAndRotateAsync(dresden);
+        using var dresden = await DresdenClientAsync();
+        (var name, var version, var originalSecret) = await RegisterAndRotateAsync(dresden);
 
-        HttpResponseMessage rotated = await dresden.SendAsync(Conditional(name, version, "dresden"));
+        var rotated = await dresden.SendAsync(Conditional(name, version, "dresden"));
 
         rotated.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             $"a caller who genuinely holds the target's fab must still be able to rotate it; got "
             + $"{(int)rotated.StatusCode} {await rotated.Content.ReadAsStringAsync()}");
-        JsonElement body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("clientSecret").GetString().ShouldNotBe(originalSecret);
         body.GetProperty("version").GetInt32().ShouldBeGreaterThan(version);
     }
@@ -122,7 +120,7 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
     private static async Task<(string Name, int Version, string Secret)> RegisterAndRotateAsync(
         HttpClient dresden)
     {
-        string name = $"t182-{Guid.CreateVersion7():N}";
+        var name = $"t182-{Guid.CreateVersion7():N}";
 
         HttpRequestMessage request = new(HttpMethod.Post, $"/webhook-integrations/{name}/rotate")
         {
@@ -130,10 +128,10 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
         };
         request.Headers.TryAddWithoutValidation("If-None-Match", "*");
 
-        HttpResponseMessage created = await dresden.SendAsync(request);
+        var created = await dresden.SendAsync(request);
         created.StatusCode.ShouldBe(HttpStatusCode.OK, await created.Content.ReadAsStringAsync());
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
         return (name, body.GetProperty("version").GetInt32(), body.GetProperty("clientSecret").GetString()!);
     }
 
@@ -153,15 +151,15 @@ public class CrossFabWebhookRotationIntegrationTests(AspireFixture aspire)
 
     private async Task<string> ReadKeycloakSecretAsync(string clientId)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
+        var clients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
             CancellationToken.None);
-        string uuid = clients.EnumerateArray().Single().GetProperty("id").GetString()!;
+        var uuid = clients.EnumerateArray().Single().GetProperty("id").GetString()!;
 
-        JsonElement secret = await RealmProbe.ReadJsonAsync(
+        var secret = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret",
             CancellationToken.None);

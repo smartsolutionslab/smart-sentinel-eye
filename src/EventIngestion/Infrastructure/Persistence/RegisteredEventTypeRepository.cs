@@ -17,7 +17,7 @@ public sealed class RegisteredEventTypeRepository(
         Ensure.That(fab).IsNotNull();
         Ensure.That(kind).IsNotNull();
 
-        RegisteredEventType? found = await dbContext.RegisteredEventTypes
+        var found = await dbContext.RegisteredEventTypes
             .Where(eventType => eventType.Fab == fab && eventType.Kind == kind
                 && eventType.State == RegistrationState.Registered)
             .FirstOrDefaultAsync(cancellationToken);
@@ -33,7 +33,7 @@ public sealed class RegisteredEventTypeRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        RegisteredEventType[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<RegisteredEventType>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -44,9 +44,9 @@ public sealed class RegisteredEventTypeRepository(
         // subscribes to either domain event this aggregate raises (FR-012),
         // so this loop dispatches to no handler — the same position
         // WebhookIntegration's register is already in.
-        foreach (RegisteredEventType eventType in tracked)
+        foreach (var eventType in tracked)
         {
-            IDomainEvent[] events = eventType.PendingEvents.ToArray();
+            var events = eventType.PendingEvents.ToArray();
             eventType.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

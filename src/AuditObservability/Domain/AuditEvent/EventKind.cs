@@ -33,7 +33,7 @@ public sealed record EventKind : StringValueObject
             return false;
         }
 
-        for (int i = 1; i < s.Length; i++)
+        for (var i = 1; i < s.Length; i++)
         {
             if (!char.IsLetterOrDigit(s[i]))
             {

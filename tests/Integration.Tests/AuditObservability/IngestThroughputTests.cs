@@ -118,24 +118,24 @@ public class IngestThroughputTests(AspireFixture aspire, ITestOutputHelper outpu
     [Fact]
     public async Task Publish_throughput_at_the_unpaced_fifty_writer_shape()
     {
-        LoggingArm arm = LoggingArm.Read();
+        var arm = LoggingArm.Read();
         output.WriteLine(arm.Describe());
         output.WriteLine(
             $"shape: {IngestRunShape.Writers} writers, unpaced, {IngestRunShape.MeasuredEvents} events "
             + $"after {IngestRunShape.WarmupEvents} warm-up — ADR-0135's \"50 writers, unpaced\" row");
 
-        using HttpClient variables = await aspire.CreateAdminClientAsync(Driver);
+        using var variables = await aspire.CreateAdminClientAsync(Driver);
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
         output.WriteLine(await WarmAsync(variables, CancellationToken.None));
 
         List<Drive> drives = [];
 
-        for (int position = 1; position <= Drives; position++)
+        for (var position = 1; position <= Drives; position++)
         {
-            Drive drive = await DriveOnceAsync(variables, context, CancellationToken.None);
+            var drive = await DriveOnceAsync(variables, context, CancellationToken.None);
             drives.Add(drive);
 
             output.WriteLine(drive.Describe(position));
@@ -175,9 +175,9 @@ public class IngestThroughputTests(AspireFixture aspire, ITestOutputHelper outpu
     /// </summary>
     private async Task<string> WarmAsync(HttpClient variables, CancellationToken cancellationToken)
     {
-        DateTimeOffset started = DateTimeOffset.UtcNow;
-        DateTimeOffset deadline = started + ColdStartDeadline;
-        int attempts = 0;
+        var started = DateTimeOffset.UtcNow;
+        var deadline = started + ColdStartDeadline;
+        var attempts = 0;
 
         while (true)
         {
@@ -185,7 +185,7 @@ public class IngestThroughputTests(AspireFixture aspire, ITestOutputHelper outpu
 
             try
             {
-                string name = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
+                var name = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
                 await VariableRequests.ArchiveAllAsync(variables, [name], cancellationToken);
 
                 return string.Create(
@@ -213,24 +213,24 @@ public class IngestThroughputTests(AspireFixture aspire, ITestOutputHelper outpu
         // A separate warm-up variable, as everywhere else here: the warm-up's
         // rows would otherwise sit in the same result set with no way to tell
         // them apart.
-        string warmName = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
+        var warmName = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
         await IngestSpanMeasurement.SetRepeatedlyAsync(
             variables, warmName, IngestRunShape.WarmupEvents, IngestSpanMeasurement.NoPacing, cancellationToken);
 
-        string[] names = new string[IngestRunShape.Writers];
-        for (int writer = 0; writer < IngestRunShape.Writers; writer++)
+        var names = new string[IngestRunShape.Writers];
+        for (var writer = 0; writer < IngestRunShape.Writers; writer++)
         {
             names[writer] = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
         }
 
-        DateTimeOffset started = DateTimeOffset.UtcNow;
-        string[] measured = await Task.WhenAll(names.Select(name => IngestSpanMeasurement.SetRepeatedlyAsync(
+        var started = DateTimeOffset.UtcNow;
+        var measured = await Task.WhenAll(names.Select(name => IngestSpanMeasurement.SetRepeatedlyAsync(
             variables, name, IngestRunShape.EventsPerWriter, IngestSpanMeasurement.NoPacing, cancellationToken)));
-        TimeSpan drove = DateTimeOffset.UtcNow - started;
+        var drove = DateTimeOffset.UtcNow - started;
 
-        DateTimeOffset draining = DateTimeOffset.UtcNow;
-        int landed = await IngestSpanMeasurement.WaitForRowsAsync(context, measured, cancellationToken);
-        TimeSpan drained = DateTimeOffset.UtcNow - draining;
+        var draining = DateTimeOffset.UtcNow;
+        var landed = await IngestSpanMeasurement.WaitForRowsAsync(context, measured, cancellationToken);
+        var drained = DateTimeOffset.UtcNow - draining;
 
         // The run takes its own variables away again (#2004), after every read
         // above so nothing measured here is measured with these writes in flight.
@@ -252,11 +252,11 @@ public class IngestThroughputTests(AspireFixture aspire, ITestOutputHelper outpu
     /// </summary>
     private string LogEvidence()
     {
-        string[] lines = aspire
+        var lines = aspire
             .RecentLogs(Driver, lines: 400)
             .Split('\n', StringSplitOptions.RemoveEmptyEntries);
 
-        string counted = string.Join(
+        var counted = string.Join(
             Environment.NewLine,
             ArmMarkers.Select(marker =>
                 $"    {Count(lines, marker.Marker),4} × '{marker.Marker}' — {marker.Evidences}"));

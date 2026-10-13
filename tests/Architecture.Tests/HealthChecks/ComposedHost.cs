@@ -75,8 +75,8 @@ internal static class ComposedHost
         Ensure.That(contentRoot).IsNotNull();
         Ensure.That(configuration).IsNotNull();
 
-        MethodInfo entryPoint = ResolveEntryPoint(entryAssemblyName);
-        string[] args = BuildArgs(configuration, contentRoot);
+        var entryPoint = ResolveEntryPoint(entryAssemblyName);
+        var args = BuildArgs(configuration, contentRoot);
         TaskCompletionSource<IHost> captured = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         Thread captureThread = new(() => RunEntryPoint(entryPoint, args, entryAssemblyName, captured))
@@ -85,7 +85,7 @@ internal static class ComposedHost
             Name = $"ComposedHost.Capture({entryAssemblyName})",
         };
 
-        CompositeDisposable subscription = SubscribeToHostingEvents(captureThread, configureServices, captured);
+        var subscription = SubscribeToHostingEvents(captureThread, configureServices, captured);
 
         captureThread.Start();
 
@@ -114,7 +114,7 @@ internal static class ComposedHost
 
     private static MethodInfo ResolveEntryPoint(string entryAssemblyName)
     {
-        Assembly assembly = Assembly.Load(entryAssemblyName);
+        var assembly = Assembly.Load(entryAssemblyName);
 
         return assembly.EntryPoint
             ?? throw new InvalidOperationException($"{entryAssemblyName} has no entry point ({nameof(Assembly.EntryPoint)} is null).");
@@ -123,7 +123,7 @@ internal static class ComposedHost
     private static string[] BuildArgs(IReadOnlyDictionary<string, string?> configuration, string contentRoot)
     {
         List<string> args = [];
-        foreach (KeyValuePair<string, string?> entry in configuration)
+        foreach (var entry in configuration)
         {
             args.Add($"--{entry.Key}={entry.Value}");
         }
@@ -145,7 +145,7 @@ internal static class ComposedHost
         Thread captureThread, Action<IHostBuilder>? configureServices, TaskCompletionSource<IHost> captured)
     {
         HostingEventObserver observer = new(captureThread, configureServices, captured);
-        IDisposable outer = DiagnosticListener.AllListeners.Subscribe(observer);
+        var outer = DiagnosticListener.AllListeners.Subscribe(observer);
 
         return new CompositeDisposable(outer, observer);
     }
@@ -155,7 +155,7 @@ internal static class ComposedHost
     {
         try
         {
-            object? result = entryPoint.Invoke(null, [args]);
+            var result = entryPoint.Invoke(null, [args]);
 
             if (result is Task task)
             {
@@ -170,7 +170,7 @@ internal static class ComposedHost
         }
         catch (Exception exception)
         {
-            Exception real = Unwrap(exception);
+            var real = Unwrap(exception);
             if (real is CaptureCompleteException)
             {
                 return;
@@ -184,7 +184,7 @@ internal static class ComposedHost
     {
         while (true)
         {
-            Exception? inner = exception switch
+            var inner = exception switch
             {
                 TargetInvocationException { InnerException: { } wrapped } => wrapped,
                 AggregateException { InnerException: { } wrapped } => wrapped,

@@ -24,7 +24,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<Prov
 
         var (cameraId, _, url, _, registeredBy, metadata) = message;
 
-        CameraIdentifier camera = CameraIdentifier.From(cameraId);
+        var camera = CameraIdentifier.From(cameraId);
 
         if (string.IsNullOrWhiteSpace(metadata.Fab))
         {
@@ -39,7 +39,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<Prov
             return;
         }
 
-        OperatorIdentifier provisionedBy = OperatorIdentifier.From(registeredBy);
+        var provisionedBy = OperatorIdentifier.From(registeredBy);
 
         ProvisionStreamCommand command = new(
             Fab: FabIdentifier.From(metadata.Fab),
@@ -47,7 +47,7 @@ public sealed class CameraRegisteredIntegrationEventHandler(ICommandHandler<Prov
             RtspSourceUrl: url,
             ProvisionedBy: provisionedBy);
 
-        Result<StreamIdentifier, ProvisionStreamError> result = await handler.HandleAsync(command, cancellationToken);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
         if (result.IsFailure)
         {

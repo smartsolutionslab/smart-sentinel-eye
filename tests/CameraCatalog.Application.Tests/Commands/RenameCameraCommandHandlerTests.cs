@@ -28,10 +28,10 @@ public class RenameCameraCommandHandlerTests
     public async Task Renaming_stores_the_new_name_and_keeps_the_identifier()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
-        CameraIdentifier before = camera.Id;
+        var camera = Seed(cameras, "munich", OriginalName);
+        var before = camera.Id;
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -49,9 +49,9 @@ public class RenameCameraCommandHandlerTests
     public async Task Renaming_to_the_name_it_already_has_succeeds_and_announces_nothing()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
+        var camera = Seed(cameras, "munich", OriginalName);
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(
                 CommandFor(camera, "munich") with { Name = CameraName.From(OriginalName) },
                 CancellationToken.None);
@@ -84,9 +84,9 @@ public class RenameCameraCommandHandlerTests
     public async Task Renaming_only_the_letter_case_succeeds_and_is_stored()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", "Line-3-Inlet");
+        var camera = Seed(cameras, "munich", "Line-3-Inlet");
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(
                 CommandFor(camera, "munich") with { Name = CameraName.From("line-3-inlet") },
                 CancellationToken.None);
@@ -107,10 +107,10 @@ public class RenameCameraCommandHandlerTests
     public async Task Renaming_onto_another_active_cameras_name_in_the_same_fab_is_refused()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
+        var camera = Seed(cameras, "munich", OriginalName);
         Seed(cameras, "munich", CorrectedName);
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -128,10 +128,10 @@ public class RenameCameraCommandHandlerTests
     public async Task Renaming_onto_a_name_differing_only_in_case_is_refused()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
+        var camera = Seed(cameras, "munich", OriginalName);
         Seed(cameras, "munich", "LINE-4-INLET");
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -146,10 +146,10 @@ public class RenameCameraCommandHandlerTests
     public async Task A_camera_in_another_fab_holding_the_name_does_not_block_the_rename()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
+        var camera = Seed(cameras, "munich", OriginalName);
         Seed(cameras, "dresden", CorrectedName);
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -164,11 +164,11 @@ public class RenameCameraCommandHandlerTests
     public async Task A_retired_camera_holding_the_name_does_not_block_the_rename()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
-        Camera gone = Seed(cameras, "munich", CorrectedName);
+        var camera = Seed(cameras, "munich", OriginalName);
+        var gone = Seed(cameras, "munich", CorrectedName);
         gone.Retire(AnAdmin, new FixedClock(FixedMoment));
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -191,13 +191,13 @@ public class RenameCameraCommandHandlerTests
     public async Task A_taken_name_and_a_stale_version_are_never_the_same_refusal()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
+        var camera = Seed(cameras, "munich", OriginalName);
         Seed(cameras, "munich", CorrectedName);
 
-        RenameCameraError taken = (await NewHandler(cameras).HandleAsync(
+        var taken = (await NewHandler(cameras).HandleAsync(
             CommandFor(camera, "munich"), CancellationToken.None)).Error;
 
-        RenameCameraError stale = (await NewHandler(cameras).HandleAsync(
+        var stale = (await NewHandler(cameras).HandleAsync(
             CommandFor(camera, "munich") with { ExpectedVersion = camera.Version + 7 },
             CancellationToken.None)).Error;
 
@@ -231,10 +231,10 @@ public class RenameCameraCommandHandlerTests
     public async Task A_retired_camera_cannot_be_renamed()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", OriginalName);
+        var camera = Seed(cameras, "munich", OriginalName);
         camera.Retire(AnAdmin, new FixedClock(FixedMoment));
 
-        Result<CameraIdentifier, RenameCameraError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(
                 CommandFor(camera, "munich") with { ExpectedVersion = camera.Version },
                 CancellationToken.None);
@@ -255,9 +255,9 @@ public class RenameCameraCommandHandlerTests
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
         InMemoryCameraRepository cameras = new();
-        Camera inMunich = Seed(cameras, "munich", OriginalName);
+        var inMunich = Seed(cameras, "munich", OriginalName);
 
-        Result<CameraIdentifier, RenameCameraError> crossFab =
+        var crossFab =
             await NewHandler(cameras).HandleAsync(CommandFor(inMunich, "dresden"), CancellationToken.None);
 
         crossFab.IsFailure.ShouldBeTrue();
@@ -272,7 +272,7 @@ public class RenameCameraCommandHandlerTests
     {
         InMemoryCameraRepository cameras = new();
 
-        Result<CameraIdentifier, RenameCameraError> result = await NewHandler(cameras).HandleAsync(
+        var result = await NewHandler(cameras).HandleAsync(
             new RenameCameraCommand(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(Guid.CreateVersion7()),
@@ -295,7 +295,7 @@ public class RenameCameraCommandHandlerTests
     {
         InMemoryCameraRepository cameras = new();
 
-        Camera camera = Camera.Register(
+        var camera = Camera.Register(
             FabIdentifier.From("munich"),
             CameraName.From(OriginalName),
             RtspUrl.From("rtsp://10.0.7.12/h264"),
@@ -306,13 +306,13 @@ public class RenameCameraCommandHandlerTests
 
         await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
-        CameraRegisteredDomainEvent registered = camera.PendingEvents
+        var registered = camera.PendingEvents
             .OfType<CameraRegisteredDomainEvent>()
             .Single();
 
         registered.Name.Value.ShouldBe(OriginalName);
 
-        CameraRenamedDomainEvent renamed = camera.PendingEvents
+        var renamed = camera.PendingEvents
             .OfType<CameraRenamedDomainEvent>()
             .Single();
 
@@ -330,7 +330,7 @@ public class RenameCameraCommandHandlerTests
 
     private static Camera Seed(InMemoryCameraRepository cameras, string fab, string name)
     {
-        Camera camera = Camera.Register(
+        var camera = Camera.Register(
             FabIdentifier.From(fab),
             CameraName.From(name),
             RtspUrl.From("rtsp://10.0.7.12/h264"),

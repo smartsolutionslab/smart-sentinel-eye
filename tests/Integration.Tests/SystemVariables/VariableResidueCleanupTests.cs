@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -35,17 +34,17 @@ public class VariableResidueCleanupTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_swept_variable_is_archived_and_gone_from_the_listing()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
         string[] names = [UniqueName(), UniqueName(), UniqueName()];
-        foreach (string name in names)
+        foreach (var name in names)
         {
             (await DefineAsync(variables, name)).EnsureSuccessStatusCode();
         }
 
-        int archived = await VariableRequests.ArchiveAllAsync(variables, names, CancellationToken.None);
+        var archived = await VariableRequests.ArchiveAllAsync(variables, names, CancellationToken.None);
 
         archived.ShouldBe(names.Length);
-        foreach (string name in names)
+        foreach (var name in names)
         {
             (await StateAsync(variables, name)).ShouldBe("Archived");
         }
@@ -61,8 +60,8 @@ public class VariableResidueCleanupTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_variable_that_cannot_be_archived_fails_the_sweep_rather_than_shrinking_the_count()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        string defined = UniqueName();
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        var defined = UniqueName();
         (await DefineAsync(variables, defined)).EnsureSuccessStatusCode();
 
         await Should.ThrowAsync<HttpRequestException>(() =>
@@ -86,9 +85,9 @@ public class VariableResidueCleanupTests(AspireFixture aspire) : IAsyncLifetime
     // non-Archived rows, so a by-name read can no longer answer for it.
     private static async Task<string?> StateAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage listed = await variables.GetAsync("/system-variables?state=Archived");
+        var listed = await variables.GetAsync("/system-variables?state=Archived");
         listed.EnsureSuccessStatusCode();
-        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.EnumerateArray()
             .Where(row => row.GetProperty("name").GetString() == name)
@@ -98,9 +97,9 @@ public class VariableResidueCleanupTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<IReadOnlyList<string?>> NamesAsync(HttpClient variables)
     {
-        HttpResponseMessage listed = await variables.GetAsync("/system-variables");
+        var listed = await variables.GetAsync("/system-variables");
         listed.EnsureSuccessStatusCode();
-        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.EnumerateArray().Select(row => row.GetProperty("name").GetString()).ToArray();
     }

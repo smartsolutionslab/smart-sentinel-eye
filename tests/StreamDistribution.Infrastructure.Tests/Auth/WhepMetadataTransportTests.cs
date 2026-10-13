@@ -1,8 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
@@ -40,11 +38,11 @@ public sealed class WhepMetadataTransportTests
     public async Task The_metadata_source_fails_with_IDX20108_before_connecting_outside_Development(
         string environmentName)
     {
-        ConfigurationManager<OpenIdConnectConfiguration> metadata = WhepAuthValidator.MetadataSourceFor(
+        var metadata = WhepAuthValidator.MetadataSourceFor(
             Options.Create(new WhepAuthOptions { Authority = UnreachableAuthority }),
             EnvironmentFor(environmentName));
 
-        InvalidOperationException exception = await Should.ThrowAsync<InvalidOperationException>(
+        var exception = await Should.ThrowAsync<InvalidOperationException>(
             () => metadata.GetConfigurationAsync(CancellationToken.None));
 
         exception.InnerException.ShouldNotBeNull().Message.ShouldContain(
@@ -58,9 +56,9 @@ public sealed class WhepMetadataTransportTests
     [MemberData(nameof(NonDevelopmentEnvironments))]
     public void Startup_validation_throws_when_the_whep_authority_is_http(string environmentName)
     {
-        using ServiceProvider provider = WhepOptionsProvider(environmentName, authority: "http://keycloak.invalid");
+        using var provider = WhepOptionsProvider(environmentName, authority: "http://keycloak.invalid");
 
-        Exception exception = Should.Throw<Exception>(
+        var exception = Should.Throw<Exception>(
             () => provider.GetRequiredService<IStartupValidator>().Validate());
 
         exception.Message.ShouldContain(
@@ -76,7 +74,7 @@ public sealed class WhepMetadataTransportTests
     [MemberData(nameof(NonDevelopmentEnvironments))]
     public void Startup_validation_throws_when_the_whep_authority_is_malformed(string environmentName)
     {
-        using ServiceProvider provider = WhepOptionsProvider(environmentName, authority: "not a uri at all");
+        using var provider = WhepOptionsProvider(environmentName, authority: "not a uri at all");
 
         Should.Throw<Exception>(
             () => provider.GetRequiredService<IStartupValidator>().Validate(),
@@ -88,11 +86,11 @@ public sealed class WhepMetadataTransportTests
     [Fact]
     public async Task Development_metadata_source_fails_with_a_connection_error_not_IDX20108()
     {
-        ConfigurationManager<OpenIdConnectConfiguration> metadata = WhepAuthValidator.MetadataSourceFor(
+        var metadata = WhepAuthValidator.MetadataSourceFor(
             Options.Create(new WhepAuthOptions { Authority = UnreachableAuthority }),
             EnvironmentFor(Environments.Development));
 
-        InvalidOperationException exception = await Should.ThrowAsync<InvalidOperationException>(
+        var exception = await Should.ThrowAsync<InvalidOperationException>(
             () => metadata.GetConfigurationAsync(CancellationToken.None));
 
         exception.InnerException.ShouldNotBeNull().Message.ShouldNotContain(
@@ -105,7 +103,7 @@ public sealed class WhepMetadataTransportTests
     [Fact]
     public void Development_startup_validation_passes_with_an_http_whep_authority()
     {
-        using ServiceProvider provider = WhepOptionsProvider(
+        using var provider = WhepOptionsProvider(
             Environments.Development, authority: "http://keycloak.invalid");
 
         Should.NotThrow(
@@ -123,7 +121,7 @@ public sealed class WhepMetadataTransportTests
     /// </summary>
     private static ServiceProvider WhepOptionsProvider(string environmentName, string authority)
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(
+        var builder = Host.CreateEmptyApplicationBuilder(
             new HostApplicationBuilderSettings { EnvironmentName = environmentName });
 
         if (!string.Equals(builder.Environment.EnvironmentName, environmentName, StringComparison.Ordinal))

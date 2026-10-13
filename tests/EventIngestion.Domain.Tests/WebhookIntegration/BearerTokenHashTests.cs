@@ -7,7 +7,7 @@ public class BearerTokenHashTests
     [Fact]
     public void Generate_returns_a_plaintext_and_a_hash_that_matches_it()
     {
-        (BearerTokenHash hash, string plaintext) = BearerTokenHash.Generate();
+        (var hash, var plaintext) = BearerTokenHash.Generate();
 
         hash.Matches(plaintext).ShouldBeTrue();
         hash.Value.ShouldNotBeEmpty();
@@ -17,7 +17,7 @@ public class BearerTokenHashTests
     [Fact]
     public void Matches_rejects_the_wrong_plaintext()
     {
-        (BearerTokenHash hash, string _) = BearerTokenHash.Generate();
+        (var hash, var _) = BearerTokenHash.Generate();
         hash.Matches("not-the-token").ShouldBeFalse();
         hash.Matches(string.Empty).ShouldBeFalse();
     }
@@ -25,16 +25,16 @@ public class BearerTokenHashTests
     [Fact]
     public void FromPlaintext_is_deterministic_for_the_same_input()
     {
-        BearerTokenHash a = BearerTokenHash.FromPlaintext("secret");
-        BearerTokenHash b = BearerTokenHash.FromPlaintext("secret");
+        var a = BearerTokenHash.FromPlaintext("secret");
+        var b = BearerTokenHash.FromPlaintext("secret");
         a.Value.ShouldBe(b.Value);
     }
 
     [Fact]
     public void FromStored_round_trips_a_known_hash_value()
     {
-        BearerTokenHash original = BearerTokenHash.FromPlaintext("secret");
-        BearerTokenHash restored = BearerTokenHash.FromStored(original.Value);
+        var original = BearerTokenHash.FromPlaintext("secret");
+        var restored = BearerTokenHash.FromStored(original.Value);
         restored.Value.ShouldBe(original.Value);
         restored.Matches("secret").ShouldBeTrue();
     }
@@ -42,7 +42,7 @@ public class BearerTokenHashTests
     [Fact]
     public void ToString_does_not_leak_the_hash()
     {
-        BearerTokenHash hash = BearerTokenHash.FromPlaintext("secret");
+        var hash = BearerTokenHash.FromPlaintext("secret");
         hash.ToString().ShouldNotContain(hash.Value);
     }
 }

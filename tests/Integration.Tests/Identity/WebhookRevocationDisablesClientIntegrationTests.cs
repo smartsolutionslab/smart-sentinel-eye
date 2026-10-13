@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -47,12 +45,12 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task A_rotated_webhook_integrations_client_is_disabled_once_it_is_revoked()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueName("revoke-disable");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueName("revoke-disable");
 
         await RegisterAsync(events, name);
-        (string clientId, string clientSecret) = await RotateAsync(identity, name);
+        (var clientId, var clientSecret) = await RotateAsync(identity, name);
 
         // Controls, asserted before the revoke: the closing assertions below
         // can only fail because of the revoke, not because the client was
@@ -66,8 +64,8 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
 
         await RevokeAsync(events, name);
 
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
-        bool enabled = await IsEnabledInKeycloakAsync(clientId);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+        var enabled = await IsEnabledInKeycloakAsync(clientId);
         while (enabled && DateTime.UtcNow < deadline)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(500));
@@ -94,14 +92,14 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task Revoking_a_never_rotated_integration_still_succeeds()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName("never-rotated");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName("never-rotated");
 
         await RegisterAsync(events, name);
         await RevokeAsync(events, name);
 
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        var clients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString($"webhook-{name}")}",
             CancellationToken.None);
@@ -113,7 +111,7 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
 
     private static async Task RegisterAsync(HttpClient events, string name)
     {
-        HttpResponseMessage registered = await events.PostAsJsonAsync(
+        var registered = await events.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         registered.StatusCode.ShouldBe(
             HttpStatusCode.Created, await registered.Content.ReadAsStringAsync());
@@ -127,10 +125,10 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
         };
         request.Headers.TryAddWithoutValidation("If-None-Match", "*");
 
-        HttpResponseMessage rotated = await identity.SendAsync(request);
+        var rotated = await identity.SendAsync(request);
         rotated.StatusCode.ShouldBe(HttpStatusCode.OK, await rotated.Content.ReadAsStringAsync());
 
-        JsonElement body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("clientId").GetString()!, body.GetProperty("clientSecret").GetString()!);
     }
 
@@ -140,21 +138,21 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
     /// </summary>
     private static async Task RevokeAsync(HttpClient events, string name)
     {
-        int version = (await FindAsync(events, name)).GetProperty("version").GetInt32();
+        var version = (await FindAsync(events, name)).GetProperty("version").GetInt32();
 
         HttpRequestMessage request = new(HttpMethod.Delete, $"/webhook-integrations/{name}");
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
 
-        HttpResponseMessage revoked = await events.SendAsync(request);
+        var revoked = await events.SendAsync(request);
         revoked.StatusCode.ShouldBe(HttpStatusCode.OK, await revoked.Content.ReadAsStringAsync());
     }
 
     private static async Task<JsonElement> FindAsync(HttpClient events, string name)
     {
-        HttpResponseMessage listed = await events.GetAsync("/webhook-integrations?includeRevoked=false");
+        var listed = await events.GetAsync("/webhook-integrations?includeRevoked=false");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.EnumerateArray().Single(row =>
             string.Equals(row.GetProperty("name").GetString(), name, StringComparison.Ordinal));
@@ -162,9 +160,9 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
 
     private async Task<bool> IsEnabledInKeycloakAsync(string clientId)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
+        var clients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
             CancellationToken.None);
@@ -180,7 +178,7 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
     /// </summary>
     private async Task<bool> ClientCredentialsGrantSucceedsAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -188,7 +186,7 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token", form);
 
         if (!response.IsSuccessStatusCode)
@@ -196,8 +194,8 @@ public class WebhookRevocationDisablesClientIntegrationTests(AspireFixture aspir
             return false;
         }
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
-        return body.TryGetProperty("access_token", out JsonElement token)
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return body.TryGetProperty("access_token", out var token)
             && !string.IsNullOrEmpty(token.GetString());
     }
 

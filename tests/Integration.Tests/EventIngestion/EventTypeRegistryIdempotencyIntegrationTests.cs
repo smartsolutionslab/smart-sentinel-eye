@@ -1,4 +1,3 @@
-using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using static SmartSentinelEye.Integration.Tests.EventIngestion.EventTypeRegistryApi;
 
@@ -47,16 +46,16 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_one_caller_used_is_not_a_replay_for_another_caller()
     {
-        string shared = $"shared-{Guid.NewGuid():N}";
-        string dresdenKind = UniqueKind();
-        string multiKind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var shared = $"shared-{Guid.NewGuid():N}";
+        var dresdenKind = UniqueKind();
+        var multiKind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
+        using var multi = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage first = await RegisterWithKeyAsync(dresden, dresdenKind, shared);
+        var first = await RegisterWithKeyAsync(dresden, dresdenKind, shared);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
 
-        HttpResponseMessage second = await RegisterWithKeyAsync(multi, multiKind, shared, fabId: "dresden");
+        var second = await RegisterWithKeyAsync(multi, multiKind, shared, fabId: "dresden");
 
         second.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(second));
         (await IdentifierOfAsync(second)).ShouldNotBe(
@@ -91,15 +90,15 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_for_a_different_kind_is_refused_and_registers_nothing()
     {
-        string key = $"reused-{Guid.NewGuid():N}";
-        string firstKind = UniqueKind();
-        string secondKind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var key = $"reused-{Guid.NewGuid():N}";
+        var firstKind = UniqueKind();
+        var secondKind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage first = await RegisterWithKeyAsync(dresden, firstKind, key);
+        var first = await RegisterWithKeyAsync(dresden, firstKind, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
 
-        HttpResponseMessage second = await RegisterWithKeyAsync(dresden, secondKind, key);
+        var second = await RegisterWithKeyAsync(dresden, secondKind, key);
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -107,7 +106,7 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
             + await Diagnose(second));
         (await TitleOfAsync(second)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
-        JsonElement rows = await ListRowsAsync(dresden, await Diagnose(second));
+        var rows = await ListRowsAsync(dresden, await Diagnose(second));
         CountOf(rows, secondKind).ShouldBe(
             0, "the second kind must never have been registered by the refused request");
     }
@@ -121,14 +120,14 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_retry_that_names_the_fab_it_first_left_implicit_still_replays()
     {
-        string key = $"resolved-fab-{Guid.NewGuid():N}";
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var key = $"resolved-fab-{Guid.NewGuid():N}";
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage first = await RegisterWithKeyAsync(dresden, kind, key);
+        var first = await RegisterWithKeyAsync(dresden, kind, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
 
-        HttpResponseMessage second = await RegisterWithKeyAsync(dresden, kind, key, fabId: "dresden");
+        var second = await RegisterWithKeyAsync(dresden, kind, key, fabId: "dresden");
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.Created,
@@ -149,15 +148,15 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_malformed_key_is_refused_rather_than_ignored()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await RegisterWithKeyAsync(dresden, kind, "has a space");
+        var refused = await RegisterWithKeyAsync(dresden, kind, "has a space");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(refused));
         (await TitleOfAsync(refused)).ShouldBe("IDEMPOTENCY_KEY_MALFORMED");
 
-        JsonElement rows = await ListRowsAsync(dresden, await Diagnose(refused));
+        var rows = await ListRowsAsync(dresden, await Diagnose(refused));
         CountOf(rows, kind).ShouldBe(0, "a refused request writes nothing");
     }
 
@@ -175,9 +174,9 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_one_character_past_the_length_boundary_is_refused()
     {
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await RegisterWithKeyAsync(dresden, UniqueKind(), new string('k', 129));
+        var refused = await RegisterWithKeyAsync(dresden, UniqueKind(), new string('k', 129));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(refused));
         (await TitleOfAsync(refused)).ShouldBe("IDEMPOTENCY_KEY_MALFORMED");
@@ -191,9 +190,9 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_of_exactly_the_maximum_length_is_accepted()
     {
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage accepted = await RegisterWithKeyAsync(
+        var accepted = await RegisterWithKeyAsync(
             dresden, UniqueKind(), $"{Guid.NewGuid():N}".PadRight(128, 'k'));
 
         accepted.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(accepted));
@@ -210,16 +209,16 @@ public class EventTypeRegistryIdempotencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_whose_first_attempt_was_refused_can_be_used_again()
     {
-        string key = $"released-{Guid.NewGuid():N}";
-        string taken = UniqueKind();
-        string fresh = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var key = $"released-{Guid.NewGuid():N}";
+        var taken = UniqueKind();
+        var fresh = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, taken)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage duplicate = await RegisterWithKeyAsync(dresden, taken, key);
+        var duplicate = await RegisterWithKeyAsync(dresden, taken, key);
         duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict, await Diagnose(duplicate));
 
-        HttpResponseMessage retried = await RegisterWithKeyAsync(dresden, fresh, key);
+        var retried = await RegisterWithKeyAsync(dresden, fresh, key);
 
         retried.StatusCode.ShouldBe(
             HttpStatusCode.Created,

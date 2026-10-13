@@ -17,13 +17,13 @@ public class SetVariableValueCommandHandlerTests
     private static (InMemoryVariableRepository repo, IClock clock, Variable v) Seed(VariableType type)
     {
         InMemoryVariableRepository repo = new();
-        VariableBuilder builder = new VariableBuilder().Named("oeeLine1").OfType(type);
+        var builder = new VariableBuilder().Named("oeeLine1").OfType(type);
         if (type == VariableType.Boolean)
         {
             builder.WithBooleanLabels(BooleanLabels.Default);
         }
 
-        Variable v = builder.Build();
+        var v = builder.Build();
         repo.Add(v);
         return (repo, builder.Clock, v);
     }
@@ -31,11 +31,11 @@ public class SetVariableValueCommandHandlerTests
     [Fact]
     public async Task Setting_a_Number_value_succeeds_and_updates_the_value()
     {
-        (InMemoryVariableRepository repo, IClock clock, Variable v) = Seed(VariableType.Number);
+        (var repo, var clock, var v) = Seed(VariableType.Number);
 
         SetVariableValueCommandHandler handler = new(
             repo, clock, NullLogger<SetVariableValueCommandHandler>.Instance);
-        Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SetVariableValueCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"), "82.4",
@@ -53,7 +53,7 @@ public class SetVariableValueCommandHandlerTests
         SetVariableValueCommandHandler handler = new(
             repo, new FakeClock(FixedMoment), NullLogger<SetVariableValueCommandHandler>.Instance);
 
-        Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SetVariableValueCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("ghost"), "1.0",
@@ -67,11 +67,11 @@ public class SetVariableValueCommandHandlerTests
     [Fact]
     public async Task Type_mismatched_value_returns_VariableTypeMismatch()
     {
-        (InMemoryVariableRepository repo, IClock clock, _) = Seed(VariableType.Number);
+        (var repo, var clock, _) = Seed(VariableType.Number);
 
         SetVariableValueCommandHandler handler = new(
             repo, clock, NullLogger<SetVariableValueCommandHandler>.Instance);
-        Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SetVariableValueCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"), "not-a-number",

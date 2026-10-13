@@ -70,7 +70,7 @@ public class TextLegibilityTests
     [Fact]
     public void MinimumAlpha_is_always_legible_when_applied_back_to_the_same_colour()
     {
-        OverlayColor atMinimum = OverlayColor.From(
+        var atMinimum = OverlayColor.From(
             "#D32F2F" + TextLegibility.MinimumAlpha(OverlayColor.From("#D32F2FFF")).ToString("X2", CultureInfo.InvariantCulture));
         TextLegibility.IsLegible(atMinimum).ShouldBeTrue();
     }

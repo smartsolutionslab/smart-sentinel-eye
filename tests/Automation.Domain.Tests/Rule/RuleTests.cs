@@ -2,7 +2,6 @@ using System.Globalization;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Rule.Events;
 using SmartSentinelEye.Shared.Kernel;
-using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Domain.Tests.Rule;
 
@@ -14,7 +13,7 @@ public class RuleTests
     [Fact]
     public void Create_starts_the_rule_in_Draft_with_the_given_envelope()
     {
-        RuleAggregate rule = new RuleBuilder().WithClock(Now).Build();
+        var rule = new RuleBuilder().WithClock(Now).Build();
 
         rule.State.ShouldBe(RuleState.Draft);
         rule.Name.Value.ShouldBe("high-oee-on-fast-cycle");
@@ -28,9 +27,9 @@ public class RuleTests
     [Fact]
     public void Create_records_when_it_happened_and_who_did_it()
     {
-        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        RuleAggregate rule = new RuleBuilder().WithClock(Now).WithCreatedBy(createdBy).Build();
+        var rule = new RuleBuilder().WithClock(Now).WithCreatedBy(createdBy).Build();
 
         rule.Creation.At.Value.ShouldBe(Now);
         rule.Creation.By.ShouldBe(createdBy);
@@ -39,9 +38,9 @@ public class RuleTests
     [Fact]
     public void Create_raises_a_RuleCreatedDomainEvent_carrying_the_envelope()
     {
-        RuleAggregate rule = new RuleBuilder().WithClock(Now).Build();
+        var rule = new RuleBuilder().WithClock(Now).Build();
 
-        RuleCreatedDomainEvent raised = rule.PendingEvents
+        var raised = rule.PendingEvents
             .OfType<RuleCreatedDomainEvent>()
             .ShouldHaveSingleItem();
         raised.Rule.ShouldBe(rule.Id);

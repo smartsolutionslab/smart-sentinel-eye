@@ -44,7 +44,7 @@ public sealed class KioskPrivilegeSweepHostedService(
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         using CancellationTokenSource boundSource = new(Bound, timeProvider);
-        using CancellationTokenSource linked =
+        using var linked =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, boundSource.Token);
 
         try
@@ -82,9 +82,9 @@ public sealed class KioskPrivilegeSweepHostedService(
     /// </summary>
     private async Task SweepOnceAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
 
-        KioskPrivilegeSweep sweep = scope.ServiceProvider.GetRequiredService<KioskPrivilegeSweep>();
+        var sweep = scope.ServiceProvider.GetRequiredService<KioskPrivilegeSweep>();
 
         await sweep.SweepAsync(cancellationToken);
     }

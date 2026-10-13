@@ -1,5 +1,4 @@
 using System.Net;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Shared.Kernel.Tests;
 

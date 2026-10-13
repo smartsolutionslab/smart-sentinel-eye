@@ -28,13 +28,13 @@ public class WebhookIntegrationRevokedDomainEventHandlerTests
         WebhookIntegrationRevokedDomainEventHandler handler = new(
             bus, NullLogger<WebhookIntegrationRevokedDomainEventHandler>.Instance);
 
-        WebhookIntegrationName name = WebhookIntegrationName.From("w");
-        FabIdentifier fab = FabIdentifier.From("munich");
+        var name = WebhookIntegrationName.From("w");
+        var fab = FabIdentifier.From("munich");
         WebhookIntegrationRevokedDomainEvent domainEvent = new(name, fab, RevokedAtMoment);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        WebhookIntegrationRevokedV1 v1 = bus.Published.OfType<WebhookIntegrationRevokedV1>().ShouldHaveSingleItem();
+        var v1 = bus.Published.OfType<WebhookIntegrationRevokedV1>().ShouldHaveSingleItem();
         v1.IntegrationName.ShouldBe("w");
         v1.RevokedAt.ShouldBe(RevokedAtMoment);
         v1.Metadata.Fab.ShouldBe("munich");

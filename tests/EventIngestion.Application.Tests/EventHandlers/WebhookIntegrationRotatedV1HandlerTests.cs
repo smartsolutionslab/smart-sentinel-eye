@@ -28,7 +28,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
     public async Task Flips_a_registered_integration_to_JWT_validation()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"),
             FabIdentifier.From("munich"),
             Kind.From("QaResult"),
@@ -66,7 +66,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
     public async Task Replay_against_already_rotated_integration_is_idempotent()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"),
             FabIdentifier.From("munich"),
             Kind.From("QaResult"),
@@ -95,7 +95,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
     public async Task A_rotation_naming_another_fab_does_not_flip_the_integration_to_JWT_validation()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("dresden-line-3"),
             FabIdentifier.From("dresden"),
             Kind.From("QaResult"),
@@ -131,7 +131,7 @@ public class WebhookIntegrationRotatedV1HandlerTests
     public async Task A_rotation_with_no_fab_at_all_does_not_flip_the_integration_to_JWT_validation()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("dresden-line-3"),
             FabIdentifier.From("dresden"),
             Kind.From("QaResult"),

@@ -65,7 +65,7 @@ public static class PostgresComposition
     public static TheoryData<string> AllContexts()
     {
         TheoryData<string> data = [];
-        foreach (string name in ContextNames)
+        foreach (var name in ContextNames)
         {
             data.Add(name);
         }
@@ -89,7 +89,7 @@ public static class PostgresComposition
     /// </summary>
     public static ServiceProvider Compose(string contextName, Action<IHostApplicationBuilder>? configureMore)
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(ConfigurationFor(contextName));
         AddInfrastructure(contextName, builder);
         configureMore?.Invoke(builder);

@@ -38,7 +38,7 @@ public class MqttPublisherDropAccountingTests
     [Fact]
     public async Task A_sample_published_while_disconnected_is_counted_and_nothing_is_thrown()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
 
         await Should.NotThrowAsync(() => publisher.Publisher.PublishAsync(Topic, "{}", CancellationToken.None));
 
@@ -57,14 +57,14 @@ public class MqttPublisherDropAccountingTests
     [Fact]
     public async Task An_outage_is_reported_once_on_reconnect_not_once_per_dropped_sample()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
 
         // Held open rather than timed: the outage window is exactly the interval
         // between these two lines, so nothing here races the reconnect.
         publisher.Client.GateConnect();
         await publisher.Publisher.StartAsync(CancellationToken.None);
 
-        for (int i = 0; i < 20; i++)
+        for (var i = 0; i < 20; i++)
         {
             await publisher.Publisher.PublishAsync(Topic, "{}", CancellationToken.None);
         }
@@ -95,7 +95,7 @@ public class MqttPublisherDropAccountingTests
     [Fact]
     public async Task A_disconnect_racing_the_publish_is_counted_rather_than_swallowed_broadly()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
 
         await publisher.StartAndSettleAsync();
 
@@ -128,10 +128,10 @@ public class MqttPublisherDropAccountingTests
     [Fact]
     public async Task A_refused_connect_neither_announces_a_connection_nor_ends_the_outage()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
         publisher.Client.RefuseEveryConnect();
 
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             await publisher.Publisher.PublishAsync(Topic, "{}", CancellationToken.None);
         }
@@ -174,7 +174,7 @@ public class MqttPublisherDropAccountingTests
     [Fact]
     public async Task A_publish_whose_acknowledgement_never_arrives_is_counted_rather_than_stopping_the_host()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
 
         await publisher.StartAndSettleAsync();
 
@@ -211,7 +211,7 @@ public class MqttPublisherDropAccountingTests
     [Fact]
     public async Task A_stale_disconnect_landing_mid_connect_does_not_end_the_connection_it_landed_in()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
         publisher.Client.RaiseStaleDisconnectDuringNextConnect();
 
         await publisher.Publisher.StartAsync(CancellationToken.None);
@@ -341,7 +341,7 @@ public class MqttPublisherDropAccountingTests
 
         public static async Task<bool> WaitUntilAsync(Func<bool> condition)
         {
-            DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
             while (DateTimeOffset.UtcNow < deadline)
             {
                 if (condition())

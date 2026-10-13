@@ -124,13 +124,13 @@ public sealed record OverlayElement : IValueObject
 
         if (!TextLegibility.IsLegible(color))
         {
-            byte minimumAlpha = TextLegibility.MinimumAlpha(color);
+            var minimumAlpha = TextLegibility.MinimumAlpha(color);
             throw new ArgumentException(
                 $"A text surface coloured {color.Value[..7]} needs alpha of at least {minimumAlpha:X2} to stay readable over any video.",
                 nameof(color));
         }
 
-        TextContent content = TextContent.From(text, fontSizePx);
+        var content = TextContent.From(text, fontSizePx);
         OverlayElement element = new(ElementKind.Text, position, size, color, content);
         element.RequireConsistent();
         return element;
@@ -199,8 +199,8 @@ public sealed record OverlayElement : IValueObject
     /// </summary>
     private void RequireConsistent()
     {
-        bool isText = Kind == ElementKind.Text;
-        bool hasText = Text is not null;
+        var isText = Kind == ElementKind.Text;
+        var hasText = Text is not null;
         if (isText != hasText)
         {
             throw new InvalidOperationException(

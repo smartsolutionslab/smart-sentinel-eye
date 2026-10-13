@@ -1,8 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.OverlayDesigner.Application.DTOs;
-using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -24,7 +20,7 @@ public static partial class OverlayEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/overlays")
+        var group = app.MapGroup("/overlays")
             .WithTags("Overlays");
 
         // 403 is declared on every mapping below because the scope itself produces

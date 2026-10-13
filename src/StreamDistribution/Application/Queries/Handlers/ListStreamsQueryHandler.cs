@@ -13,7 +13,7 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
     {
         Ensure.That(query).IsNotNull();
 
-        (IReadOnlyList<FabIdentifier> fabs, IReadOnlyList<CameraIdentifier> cameras) = query;
+        (var fabs, var cameras) = query;
 
         if (cameras.Count > ListStreamsDefaults.MaximumBatchSize)
         {
@@ -33,7 +33,7 @@ public sealed class ListStreamsQueryHandler(IStreamQuerySource streams, IStreamW
         // FR-005 + FR-006: a stream in a fab the caller does not hold drops out
         // of the batch exactly like one that was never provisioned. FR-009 comes
         // free — an unattributed stream satisfies no IN clause.
-        List<Stream> matches = await streams.Streams
+        var matches = await streams.Streams
             .Where(stream => wanted.Contains(stream.Camera) && fabs.Contains(stream.Fab))
             .ToListAsync(cancellationToken);
 

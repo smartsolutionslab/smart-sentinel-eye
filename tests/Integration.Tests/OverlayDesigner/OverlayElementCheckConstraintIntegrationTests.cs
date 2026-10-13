@@ -2,7 +2,6 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SmartSentinelEye.Integration.Tests.Fixtures;
-using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
 
@@ -34,9 +33,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_box_carrying_both_text_and_font_size_violates_the_presence_check()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
-        PostgresException ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
+        var ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Box", color: "#D32F2FFF", text: "'x'", fontSizePx: "16"));
         ex.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);
     }
@@ -45,9 +44,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_box_carrying_text_with_no_font_size_violates_the_presence_check()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
-        PostgresException ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
+        var ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Box", color: "#D32F2FFF", text: "'x'", fontSizePx: "NULL"));
         ex.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);
     }
@@ -56,9 +55,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_box_carrying_a_font_size_with_no_text_violates_the_presence_check()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
-        PostgresException ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
+        var ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Box", color: "#D32F2FFF", text: "NULL", fontSizePx: "24"));
         ex.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);
     }
@@ -66,9 +65,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_lower_case_colour_violates_the_format_check()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
-        PostgresException ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
+        var ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Text", color: "#d32f2fff", text: "'x'", fontSizePx: "16"));
         ex.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);
     }
@@ -76,9 +75,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_six_digit_colour_violates_the_format_check()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
-        PostgresException ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
+        var ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Text", color: "#D32F2F", text: "'x'", fontSizePx: "16"));
         ex.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);
     }
@@ -86,9 +85,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_text_element_at_alpha_74_violates_the_alpha_floor_check()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
-        PostgresException ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
+        var ex = await Should.ThrowAsync<PostgresException>(() => InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Text", color: "#FFFFFF74", text: "'x'", fontSizePx: "16"));
         ex.SqlState.ShouldBe(PostgresErrorCodes.CheckViolation);
     }
@@ -97,7 +96,7 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_box_at_alpha_00_is_accepted()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
         await InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Box", color: "#FFFFFF00", text: "NULL", fontSizePx: "NULL");
@@ -111,16 +110,16 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_pre_migration_shaped_row_reads_back_as_Text_at_the_default_colour()
     {
-        Guid overlayIdentifier = await CreateDraftAsync();
+        var overlayIdentifier = await CreateDraftAsync();
 
         await InsertRawElementAsync(
             overlayIdentifier, ordinal: 1, kind: "Text", color: "#FFFFFFD9", text: "'Legacy'", fontSizePx: "16");
 
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
         fetched.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var elements = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("revisions")[0]
             .GetProperty("elements");
         elements.GetArrayLength().ShouldBe(2);
@@ -131,9 +130,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
 
     private async Task<Guid> CreateDraftAsync()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -170,9 +169,9 @@ public class OverlayElementCheckConstraintIntegrationTests(AspireFixture aspire)
     private async Task InsertRawElementAsync(
         Guid overlayIdentifier, int ordinal, string kind, string color, string text, string fontSizePx)
     {
-        await using OverlayDesignerDbContext db = await aspire.CreateOverlayDesignerDbContextAsync();
+        await using var db = await aspire.CreateOverlayDesignerDbContextAsync();
 
-        string sql =
+        var sql =
             "INSERT INTO overlay_revision_elements " +
             "(revision_id, ordinal, kind, color, text, x, y, width, height, font_size_px) " +
             $"SELECT revision_id, {{0}}, '{kind}', '{color}', {text}, 0.1, 0.1, 0.2, 0.2, {fontSizePx} " +

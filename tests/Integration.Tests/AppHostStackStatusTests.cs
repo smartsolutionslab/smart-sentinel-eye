@@ -70,7 +70,7 @@ public class AppHostStackStatusTests
     [Fact]
     public void The_e2e_boot_line_sets_the_stack_status_file_switch()
     {
-        string command = BootLine().Split('>', 2)[0];
+        var command = BootLine().Split('>', 2)[0];
 
         command.ShouldContain(
             StatusFileArgument,
@@ -88,11 +88,11 @@ public class AppHostStackStatusTests
     [Fact]
     public async Task The_expected_resource_set_is_the_composition_minus_the_lifetime_less_resources()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(E2EJobArguments);
 
-        IReadOnlyList<string> names = StackStatusReport.ExpectedResourceNames(builder.Resources);
+        var names = StackStatusReport.ExpectedResourceNames(builder.Resources);
 
         // The resource named in the issue's own evidence (#2264), a container
         // it WaitFors, and the one-shot project resource the migration probe

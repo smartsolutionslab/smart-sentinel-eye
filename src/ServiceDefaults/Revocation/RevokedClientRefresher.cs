@@ -63,7 +63,7 @@ public sealed class RevokedClientRefresher(
     {
         get
         {
-            long ticks = Volatile.Read(ref lastSuccessAtUtcTicks);
+            var ticks = Volatile.Read(ref lastSuccessAtUtcTicks);
             return ticks == NeverTicks ? null : new DateTimeOffset(ticks, TimeSpan.Zero);
         }
     }
@@ -117,7 +117,7 @@ public sealed class RevokedClientRefresher(
         registry.Replace(RevokedClientSnapshot.From(entries));
         Volatile.Write(ref lastSuccessAtUtcTicks, clock.GetUtcNow().UtcTicks);
 
-        bool wasFailing = Interlocked.Exchange(ref failing, 0) == 1;
+        var wasFailing = Interlocked.Exchange(ref failing, 0) == 1;
         if (Interlocked.Exchange(ref loadedOnce, 1) == 0)
         {
             logger.FirstRevokedClientSnapshotLoaded(entries.Count);

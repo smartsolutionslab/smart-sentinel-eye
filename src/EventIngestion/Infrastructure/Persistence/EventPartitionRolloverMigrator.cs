@@ -1,4 +1,3 @@
-using System.Data.Common;
 using System.Globalization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -32,7 +31,7 @@ public sealed class EventPartitionRolloverMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using EventIngestionDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         // Spec 019 FR-002/FR-004, and the order is the requirement. Every fab
@@ -44,22 +43,22 @@ public sealed class EventPartitionRolloverMigrator(
         await provisioner.ProvisionAsync(
             context, await fabs.GetFabsAsync(cancellationToken), cancellationToken);
 
-        string[] fabPartitions = await DiscoverFabPartitionsAsync(context, cancellationToken);
+        var fabPartitions = await DiscoverFabPartitionsAsync(context, cancellationToken);
         if (fabPartitions.Length == 0)
         {
             logger.NoFabPartitions();
             return;
         }
 
-        DateTime nowUtc = DateTime.UtcNow;
-        foreach (DateTime month in NextTwoMonths(nowUtc))
+        var nowUtc = DateTime.UtcNow;
+        foreach (var month in NextTwoMonths(nowUtc))
         {
-            foreach (string fabPartition in fabPartitions)
+            foreach (var fabPartition in fabPartitions)
             {
-                string monthlyTable = $"{fabPartition}_{month:yyyyMM}";
-                string fromBound = month.ToString("yyyy-MM-01", CultureInfo.InvariantCulture);
-                DateTime nextMonth = month.AddMonths(1);
-                string toBound = nextMonth.ToString("yyyy-MM-01", CultureInfo.InvariantCulture);
+                var monthlyTable = $"{fabPartition}_{month:yyyyMM}";
+                var fromBound = month.ToString("yyyy-MM-01", CultureInfo.InvariantCulture);
+                var nextMonth = month.AddMonths(1);
+                var toBound = nextMonth.ToString("yyyy-MM-01", CultureInfo.InvariantCulture);
 
                 // S2077 flags the interpolated DDL. Suppressed: table and
                 // partition names cannot be parameterised in Postgres, and
@@ -77,7 +76,7 @@ public sealed class EventPartitionRolloverMigrator(
                 // unquoted is a syntax error, and one such fab would fail the run
                 // for every fab. The catalog stores the unquoted name, so the
                 // quoting belongs here rather than in what discovery returns.
-                string ddl =
+                var ddl =
                     $"CREATE TABLE IF NOT EXISTS \"{monthlyTable}\" PARTITION OF \"{fabPartition}\" " +
                     $"FOR VALUES FROM ('{fromBound}') TO ('{toBound}');";
 #pragma warning disable S2077
@@ -103,12 +102,12 @@ public sealed class EventPartitionRolloverMigrator(
               AND child.relkind = 'p';
             """;
 
-        await using DbCommand command = context.Database.GetDbConnection().CreateCommand();
+        await using var command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = discoverySql;
         await context.Database.OpenConnectionAsync(cancellationToken);
         try
         {
-            await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             List<string> names = [];
             while (await reader.ReadAsync(cancellationToken))
             {

@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Api.Requests;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
@@ -33,7 +32,7 @@ public static partial class LayoutEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "LAYOUT_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
@@ -86,11 +85,11 @@ public static partial class LayoutEndpoints
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> resolved =
+        var resolved =
             await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
 
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in resolved)
+        foreach (var candidate in resolved)
         {
             try
             {
@@ -126,10 +125,10 @@ public static partial class LayoutEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        CreateLayoutDraftCommandHandler handler = services.Handler;
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        var handler = services.Handler;
+        var fabGuard = services.FabGuard;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -151,16 +150,16 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
@@ -209,28 +208,28 @@ public static partial class LayoutEndpoints
         if (!BoundaryParse.TryParse(
             () => LayoutRevisionNumber.From(revisionNumber),
             "LAYOUT_INVALID_INPUT",
-            out LayoutRevisionNumber number,
-            out IResult? problem))
+            out var number,
+            out var problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var actingOperator = user.ToOperatorIdentifier();
+        var fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler
+        var result = await handler
             .HandleAsync(
                 new PublishRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
@@ -259,28 +258,28 @@ public static partial class LayoutEndpoints
         if (!BoundaryParse.TryParse(
             () => LayoutRevisionNumber.From(revisionNumber),
             "LAYOUT_INVALID_INPUT",
-            out LayoutRevisionNumber number,
-            out IResult? problem))
+            out var number,
+            out var problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var actingOperator = user.ToOperatorIdentifier();
+        var fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler
+        var result = await handler
             .HandleAsync(
                 new ArchiveRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);
@@ -306,22 +305,22 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var actingOperator = user.ToOperatorIdentifier();
+        var fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler
+        var result = await handler
             .HandleAsync(
                 new BranchDraftRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), actingOperator, expectedVersion),
                 cancellationToken);
@@ -367,21 +366,21 @@ public static partial class LayoutEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler
+        var result = await handler
             .HandleAsync(
                 new EditDraftRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, grid, tiles, expectedVersion),
                 cancellationToken);
@@ -410,28 +409,28 @@ public static partial class LayoutEndpoints
         if (!BoundaryParse.TryParse(
             () => LayoutRevisionNumber.From(revisionNumber),
             "LAYOUT_INVALID_INPUT",
-            out LayoutRevisionNumber number,
-            out IResult? problem))
+            out var number,
+            out var problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var actingOperator = user.ToOperatorIdentifier();
+        var fabsResolution =
             await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<LayoutRevisionNumber, RevertRevisionError> result = await handler
+        var result = await handler
             .HandleAsync(
                 new RevertRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
                 cancellationToken);

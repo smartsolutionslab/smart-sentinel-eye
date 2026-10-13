@@ -36,7 +36,7 @@ public class OverlayChainArchivalTests
     [Fact]
     public void A_new_chain_is_not_archived()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
+        var overlay = new OverlayBuilder().At(Minted).Build();
 
         overlay.ArchivedAt.ShouldBeNull();
     }
@@ -44,8 +44,8 @@ public class OverlayChainArchivalTests
     [Fact]
     public void Archiving_the_only_revision_archives_the_chain()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         overlay.ArchiveRevision(
             OverlayRevisionNumber.One, by, new OverlayBuilder.TestClock(Later));
@@ -62,11 +62,11 @@ public class OverlayChainArchivalTests
     [Fact]
     public void Publishing_over_the_prior_Published_revision_leaves_the_chain_live()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(Minted);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
-        Revision second = overlay.BranchDraft(by, clock);
+        var second = overlay.BranchDraft(by, clock);
 
         overlay.Publish(second.Number, by, clock);
 
@@ -77,11 +77,11 @@ public class OverlayChainArchivalTests
     [Fact]
     public void Archiving_the_last_live_revision_archives_the_chain()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(Minted);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
-        Revision second = overlay.BranchDraft(by, clock);
+        var second = overlay.BranchDraft(by, clock);
         overlay.Publish(second.Number, by, clock);
 
         overlay.ArchivedAt.ShouldBeNull();
@@ -99,8 +99,8 @@ public class OverlayChainArchivalTests
     [Fact]
     public void Branching_a_fully_archived_chain_revives_it()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         overlay.ArchiveRevision(
             OverlayRevisionNumber.One, by, new OverlayBuilder.TestClock(Later));
         overlay.ArchivedAt.ShouldNotBeNull();
@@ -117,8 +117,8 @@ public class OverlayChainArchivalTests
     [Fact]
     public void Reverting_a_Published_revision_leaves_the_chain_live()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(Minted);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
@@ -135,17 +135,17 @@ public class OverlayChainArchivalTests
     [Fact]
     public void The_marker_agrees_with_the_revisions_after_every_mutation()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().At(Minted).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().At(Minted).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(Later);
-        OverlayElement edited = OverlayElement.TextElement("Rolling Mill B", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.05m), OverlayColor.Default);
+        var edited = OverlayElement.TextElement("Rolling Mill B", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.05m), OverlayColor.Default);
 
         ShouldAgree(overlay);
         overlay.EditDraft(OverlayRevisionNumber.One, [edited], clock);
         ShouldAgree(overlay);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
         ShouldAgree(overlay);
-        Revision second = overlay.BranchDraft(by, clock);
+        var second = overlay.BranchDraft(by, clock);
         ShouldAgree(overlay);
         overlay.Publish(second.Number, by, clock);
         ShouldAgree(overlay);
@@ -159,7 +159,7 @@ public class OverlayChainArchivalTests
 
     private static void ShouldAgree(Domain.Overlay.Overlay overlay)
     {
-        bool everyRevisionArchived = overlay.Revisions.All(
+        var everyRevisionArchived = overlay.Revisions.All(
             revision => revision.State == OverlayRevisionState.Archived);
 
         (overlay.ArchivedAt is not null).ShouldBe(

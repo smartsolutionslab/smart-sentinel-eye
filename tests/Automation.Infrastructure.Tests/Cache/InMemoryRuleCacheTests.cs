@@ -1,5 +1,4 @@
 using System.Globalization;
-using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Tests.Rule;
 using SmartSentinelEye.Automation.Infrastructure.Cache;
@@ -28,14 +27,14 @@ public class InMemoryRuleCacheTests
     private static RuleAggregate ActiveRule(
         string fab, string name, string source = "plc", string kind = "PlcCycleStart", int minutesLate = 0)
     {
-        RuleBuilder builder = new RuleBuilder()
+        var builder = new RuleBuilder()
             .WithFab(fab)
             .WithName(name)
             .WithTriggerSource(source)
             .WithTriggerKind(kind)
             .WithClock(Moment.AddMinutes(minutesLate));
 
-        RuleAggregate rule = builder.Build();
+        var rule = builder.Build();
         rule.Publish(builder.Clock);
 
         return rule;
@@ -44,7 +43,7 @@ public class InMemoryRuleCacheTests
     private static RuleAggregate HighlightRule(
         string name, Guid overlay, int durationMs, int minutesLate = 0)
     {
-        RuleBuilder builder = new RuleBuilder()
+        var builder = new RuleBuilder()
             .WithFab("munich")
             .WithName(name)
             .WithTriggerSource("plc")
@@ -52,7 +51,7 @@ public class InMemoryRuleCacheTests
             .WithAction(RuleAction.HighlightOverlay.From(overlay, durationMs))
             .WithClock(Moment.AddMinutes(minutesLate));
 
-        RuleAggregate rule = builder.Build();
+        var rule = builder.Build();
         rule.Publish(builder.Clock);
 
         return rule;
@@ -67,7 +66,7 @@ public class InMemoryRuleCacheTests
         cache.Upsert(ActiveRule("munich", "munich-rule"));
         cache.Upsert(ActiveRule("dresden", "dresden-rule"));
 
-        IReadOnlyList<CompiledRule> munich =
+        var munich =
             cache.LookupActive(FabIdentifier.From("munich"), "plc", "PlcCycleStart");
 
         munich.Count.ShouldBe(1);
@@ -103,13 +102,13 @@ public class InMemoryRuleCacheTests
         // FR-012: the evaluator emits effects in this order, so a bucket that
         // came back unsorted would silently invert which value survives.
         InMemoryRuleCache cache = new();
-        RuleAggregate later = ActiveRule("munich", "later", minutesLate: 10);
-        RuleAggregate earlier = ActiveRule("munich", "earlier");
+        var later = ActiveRule("munich", "later", minutesLate: 10);
+        var earlier = ActiveRule("munich", "earlier");
 
         cache.Upsert(later);
         cache.Upsert(earlier);
 
-        IReadOnlyList<CompiledRule> bucket =
+        var bucket =
             cache.LookupActive(FabIdentifier.From("munich"), "plc", "PlcCycleStart");
 
         bucket.Select(rule => rule.Identifier).ShouldBe([earlier.Id, later.Id]);
@@ -124,21 +123,21 @@ public class InMemoryRuleCacheTests
         // if both frames carry the same duration. The cache keeps both rather
         // than picking one (#2214).
         InMemoryRuleCache cache = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         cache.Upsert(HighlightRule("highlight-a", overlay, 5_000));
         cache.Upsert(HighlightRule("highlight-b", overlay, 12_000, minutesLate: 5));
 
-        IReadOnlyList<CompiledRule> bucket =
+        var bucket =
             cache.LookupActive(FabIdentifier.From("munich"), "plc", "PlcCycleStart");
 
         bucket.Count.ShouldBe(2);
 
-        RuleAction.HighlightOverlay first = bucket[0].Action.ShouldBeOfType<RuleAction.HighlightOverlay>();
+        var first = bucket[0].Action.ShouldBeOfType<RuleAction.HighlightOverlay>();
         first.Overlay.Value.ShouldBe(overlay);
         first.Duration.Value.ShouldBe(5_000);
 
-        RuleAction.HighlightOverlay second = bucket[1].Action.ShouldBeOfType<RuleAction.HighlightOverlay>();
+        var second = bucket[1].Action.ShouldBeOfType<RuleAction.HighlightOverlay>();
         second.Overlay.Value.ShouldBe(overlay);
         second.Duration.Value.ShouldBe(12_000);
     }
@@ -147,7 +146,7 @@ public class InMemoryRuleCacheTests
     public void Re_upserting_a_rule_replaces_it_rather_than_duplicating_it()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate rule = ActiveRule("munich", "repeated");
+        var rule = ActiveRule("munich", "repeated");
 
         cache.Upsert(rule);
         cache.Upsert(rule);
@@ -172,7 +171,7 @@ public class InMemoryRuleCacheTests
     public void Removing_a_rule_leaves_the_other_fabs_bucket_alone()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate munich = ActiveRule("munich", "munich-rule");
+        var munich = ActiveRule("munich", "munich-rule");
         cache.Upsert(munich);
         cache.Upsert(ActiveRule("dresden", "dresden-rule"));
 
@@ -202,7 +201,7 @@ public class InMemoryRuleCacheTests
         InMemoryRuleCache cache = new();
         cache.Upsert(ActiveRule("munich", "first"));
 
-        IReadOnlyList<CompiledRule> snapshot =
+        var snapshot =
             cache.LookupActive(FabIdentifier.From("munich"), "plc", "PlcCycleStart");
         cache.Upsert(ActiveRule("munich", "second", minutesLate: 5));
 

@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -78,22 +77,22 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_token_holding_neither_the_bundle_nor_variables_read_is_refused()
     {
-        string clientId = $"console-scope-probe-{Guid.CreateVersion7():N}";
+        var clientId = $"console-scope-probe-{Guid.CreateVersion7():N}";
         await realm.PlantPasswordGrantClientAsync(clientId, ProbeScopes, CancellationToken.None);
 
         try
         {
-            string jwt = await aspire.GetAccessTokenForClientAsync(
+            var jwt = await aspire.GetAccessTokenForClientAsync(
                 clientId, Operator, OperatorPassword, "openid");
 
-            string[] granted = ScopesOf(jwt);
+            var granted = ScopesOf(jwt);
             granted.ShouldNotContain(
                 "sse.management",
                 customMessage: "probe-shape control: the planted client must not somehow carry the "
                 + $"legacy bundle. Scopes: {string.Join(" ", granted)}");
 
-            using HttpClient client = ClientFor(SystemVariablesResource, jwt);
-            HttpResponseMessage response = await client.GetAsync(SystemVariablesRoute);
+            using var client = ClientFor(SystemVariablesResource, jwt);
+            var response = await client.GetAsync(SystemVariablesRoute);
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.Forbidden,
@@ -115,16 +114,16 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_same_refused_token_still_reads_audit()
     {
-        string clientId = $"console-scope-probe-{Guid.CreateVersion7():N}";
+        var clientId = $"console-scope-probe-{Guid.CreateVersion7():N}";
         await realm.PlantPasswordGrantClientAsync(clientId, ProbeScopes, CancellationToken.None);
 
         try
         {
-            string jwt = await aspire.GetAccessTokenForClientAsync(
+            var jwt = await aspire.GetAccessTokenForClientAsync(
                 clientId, Operator, OperatorPassword, "openid");
 
-            using HttpClient client = ClientFor(AuditResource, jwt);
-            HttpResponseMessage response = await client.GetAsync(AuditRoute);
+            using var client = ClientFor(AuditResource, jwt);
+            var response = await client.GetAsync(AuditRoute);
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
@@ -146,11 +145,11 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_management_web_token_is_not_refused_the_same_call()
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             "management-web", Operator, OperatorPassword, "openid");
 
-        using HttpClient client = ClientFor(SystemVariablesResource, jwt);
-        HttpResponseMessage response = await client.GetAsync(SystemVariablesRoute);
+        using var client = ClientFor(SystemVariablesResource, jwt);
+        var response = await client.GetAsync(SystemVariablesRoute);
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
@@ -166,10 +165,10 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_management_web_token_names_its_scopes_and_not_the_bundle()
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             "management-web", Operator, OperatorPassword, "openid");
 
-        string[] granted = ScopesOf(jwt);
+        var granted = ScopesOf(jwt);
 
         granted.ShouldContain("sse.cameras.write");
         granted.ShouldContain("sse.layouts.write");
@@ -189,9 +188,9 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_unauthenticated_caller_is_refused_with_401_not_403()
     {
-        using HttpClient client = aspire.CreateServiceClient(SystemVariablesResource);
+        using var client = aspire.CreateServiceClient(SystemVariablesResource);
 
-        HttpResponseMessage response = await client.GetAsync(SystemVariablesRoute);
+        var response = await client.GetAsync(SystemVariablesRoute);
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized,
@@ -211,20 +210,20 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_retired_client_cannot_mint_a_token()
     {
-        (HttpStatusCode status, JsonElement body) = await RawPasswordGrantAsync(
+        (var status, var body) = await RawPasswordGrantAsync(
             "smart-sentinel-eye-web", Operator, OperatorPassword);
 
         status.ShouldBe(
             HttpStatusCode.Unauthorized,
             "smart-sentinel-eye-web is retired (spec 286 / #2488) and must no longer mint a token. "
             + $"Observed: {(int)status} {body}");
-        body.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
+        body.TryGetProperty("error", out var error).ShouldBeTrue(
             $"expected an 'error' field on the refusal. Observed: {(int)status} {body}");
         error.GetString().ShouldBe(
             "invalid_client",
             $"the refusal must be about the client, not the credentials. Observed: {(int)status} {body}");
 
-        (HttpStatusCode controlStatus, JsonElement controlBody) = await RawPasswordGrantAsync(
+        (var controlStatus, var controlBody) = await RawPasswordGrantAsync(
             "management-web", Operator, OperatorPassword);
 
         controlStatus.ShouldBe(
@@ -239,7 +238,7 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     private async Task<(HttpStatusCode Status, JsonElement Body)> RawPasswordGrantAsync(
         string clientId, string username, string password)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
@@ -249,17 +248,17 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
             ["scope"] = "openid",
         };
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token",
             new FormUrlEncodedContent(form));
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (response.StatusCode, body);
     }
 
     private HttpClient ClientFor(string resourceName, string jwt)
     {
-        HttpClient client = aspire.CreateServiceClient(resourceName);
+        var client = aspire.CreateServiceClient(resourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
         return client;
     }
@@ -277,15 +276,15 @@ public class ConsoleScopeGrantIntegrationTests(AspireFixture aspire)
     /// </summary>
     private static string[] ScopesOf(string jwt)
     {
-        string[] parts = jwt.Split('.');
+        var parts = jwt.Split('.');
         parts.Length.ShouldBe(3, "a bearer token should have three segments");
 
-        string payload = parts[1].Replace('-', '+').Replace('_', '/');
-        string padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
+        var payload = parts[1].Replace('-', '+').Replace('_', '/');
+        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
 
-        using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(padded)));
+        using var document = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(padded)));
 
-        return document.RootElement.TryGetProperty("scope", out JsonElement scope)
+        return document.RootElement.TryGetProperty("scope", out var scope)
             ? scope.GetString()?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? []
             : [];
     }

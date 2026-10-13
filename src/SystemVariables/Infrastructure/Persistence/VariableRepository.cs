@@ -13,7 +13,7 @@ public sealed class VariableRepository(
     public async Task<Option<Variable>> GetByIdentifierAsync(
         VariableIdentifier variable, CancellationToken cancellationToken)
     {
-        Variable? found = await dbContext.Variables
+        var found = await dbContext.Variables
             .FirstOrDefaultAsync(candidate => candidate.Id == variable, cancellationToken);
         return found is null ? Option<Variable>.None : Option<Variable>.Some(found);
     }
@@ -26,7 +26,7 @@ public sealed class VariableRepository(
         // FR-005: archived names are released for re-use; only return non-Archived
         // rows. See IVariableRepository.GetByNameAsync — a command resolving by
         // name therefore treats an archived variable as not-found, not a conflict.
-        Variable? found = await dbContext.Variables
+        var found = await dbContext.Variables
             .Where(variable => variable.Fab == fab)
             .Where(variable => variable.Name == name)
             .Where(variable => variable.State != VariableState.Archived)
@@ -53,7 +53,7 @@ public sealed class VariableRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Variable[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<Variable>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -69,9 +69,9 @@ public sealed class VariableRepository(
         // not written by this transaction. Where a sibling ever were, the read
         // goes through the same DbContext and would see the pending change
         // rather than a stale one.
-        foreach (Variable variable in tracked)
+        foreach (var variable in tracked)
         {
-            IDomainEvent[] events = variable.PendingEvents.ToArray();
+            var events = variable.PendingEvents.ToArray();
             variable.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

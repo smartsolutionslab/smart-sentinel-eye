@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
@@ -51,7 +50,7 @@ public sealed class RotateWebhookClientCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (string? integrationName, FabIdentifier? fab, OperatorIdentifier rotatedBy, Option<int> expectedVersion) = command;
+        (var integrationName, var fab, var rotatedBy, var expectedVersion) = command;
 
         ClientId clientId;
         try
@@ -67,7 +66,7 @@ public sealed class RotateWebhookClientCommandHandler(
         // branches below: a revoked (or unverifiable) integration is refused
         // whichever precondition the caller sent, so the rotate branch's
         // aggregate.Rotate(clock) + SaveAsync can never run for it (plan §4).
-        WebhookIntegrationStatus status = await integrationStatus
+        var status = await integrationStatus
             .GetStatusAsync(fab, integrationName, cancellationToken);
         switch (status)
         {
@@ -82,9 +81,9 @@ public sealed class RotateWebhookClientCommandHandler(
         // Scoped to fab: an unscoped lookup lets a caller who names their own
         // fab (not the client's) resolve and rotate a client registered in a
         // fab they hold no access to — AS-4, spec 182.
-        Option<RegisteredClientAggregate> existing = await clients
+        var existing = await clients
             .GetWithinFabAsync(fab, clientId, cancellationToken);
-        bool isCreate = !existing.HasValue;
+        var isCreate = !existing.HasValue;
 
         // ADR-0113 Layer 1. The caller says which branch it intends, and a
         // mismatch is refused rather than quietly resolved the other way:
@@ -127,7 +126,7 @@ public sealed class RotateWebhookClientCommandHandler(
                 aggregate.Rotate(clock);
                 await clients.SaveAsync(cancellationToken);
 
-                KeycloakClientCredentials rolled = await keycloak
+                var rolled = await keycloak
                     .RotateClientSecretAsync(clientId.Value, cancellationToken);
                 clientSecret = rolled.ClientSecret;
             }
@@ -153,7 +152,7 @@ public sealed class RotateWebhookClientCommandHandler(
                         ["sse.integrationName"] = integrationName,
                         ["sse.fab"] = fab.Value,
                     });
-                KeycloakClientCredentials credentials = await keycloak.CreateClientAsync(
+                var credentials = await keycloak.CreateClientAsync(
                     representation,
                     fabGroupPath: $"/fabs/{fab.Value}",
                     cancellationToken);
@@ -196,7 +195,7 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
 
-        bool disabledDuringRace = isCreate
+        var disabledDuringRace = isCreate
             && await DisableIfRevokedSinceCommitAsync(clientId, fab, integrationName, cancellationToken);
 
         // A client this same call just disabled must not also be announced as
@@ -283,7 +282,7 @@ public sealed class RotateWebhookClientCommandHandler(
         string integrationName,
         CancellationToken cancellationToken)
     {
-        WebhookIntegrationStatus postCommitStatus = await integrationStatus
+        var postCommitStatus = await integrationStatus
             .GetStatusAsync(fab, integrationName, cancellationToken);
         if (postCommitStatus is not (WebhookIntegrationStatus.Revoked or WebhookIntegrationStatus.Unverifiable))
         {
@@ -304,7 +303,7 @@ public sealed class RotateWebhookClientCommandHandler(
             // (the caller skips its own final commit for exactly this
             // reason), but detaching anyway means a later save on this scope
             // cannot replay the identical failing UPDATE by accident.
-            foreach (EntityEntry entry in ex.Entries)
+            foreach (var entry in ex.Entries)
             {
                 entry.State = EntityState.Detached;
             }

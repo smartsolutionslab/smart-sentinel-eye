@@ -35,7 +35,7 @@ public sealed class RevocationListTokenProvider(
 
     private static ClientCredentials Credentials(IOptions<RevocationListOptions> options)
     {
-        RevocationListOptions opts = options.Value;
+        var opts = options.Value;
         return new ClientCredentials(opts.KeycloakUrl, opts.Realm, opts.ClientId, opts.ClientSecret);
     }
 }

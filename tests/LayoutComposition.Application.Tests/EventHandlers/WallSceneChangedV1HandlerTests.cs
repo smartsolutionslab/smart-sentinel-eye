@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
@@ -30,8 +29,8 @@ public class WallSceneChangedV1HandlerTests
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         WallSceneChangedV1Handler handler = new(broadcaster, NullLogger<WallSceneChangedV1Handler>.Instance);
 
-        Guid wall = Guid.CreateVersion7();
-        Guid current = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var current = Guid.CreateVersion7();
         WallSceneChangedV1 message = new(
             Wall: wall,
             PreviousLayout: Guid.CreateVersion7(),
@@ -45,7 +44,7 @@ public class WallSceneChangedV1HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        WallSceneChangedNotification notification = broadcaster.WallSceneChanged.ShouldHaveSingleItem();
+        var notification = broadcaster.WallSceneChanged.ShouldHaveSingleItem();
         notification.Fab.ShouldBe(FabIdentifier.From("munich"));
         notification.Wall.ShouldBe(WallIdentifier.From(wall));
         notification.Showing.ShouldBe(LayoutIdentifier.From(current));

@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -42,22 +41,22 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     {
         // Not inferred, and not tie-broken: either would file the camera under
         // a fab the operator never chose (ADR-0114).
-        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        using var cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
-        HttpResponseMessage refused = await cameras.PostAsJsonAsync("/cameras", Body(UniqueName()));
+        var refused = await cameras.PostAsJsonAsync("/cameras", Body(UniqueName()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("CAMERA_FAB_REQUIRED");
     }
 
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string name = UniqueName();
+        using var cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras?fabId=dresden", Body(name));
+        var created = await cameras.PostAsJsonAsync("/cameras?fabId=dresden", Body(name));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
         (await FabOfAsync(cameras, name)).ShouldBe("dresden");
@@ -68,9 +67,9 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     {
         // The dresden-only operator against munich: 403, not 404. Nothing is
         // hidden — the caller named a fab, and the answer is about the fab.
-        using HttpClient cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage refused = await cameras.PostAsJsonAsync("/cameras?fabId=munich", Body(UniqueName()));
+        var refused = await cameras.PostAsJsonAsync("/cameras?fabId=munich", Body(UniqueName()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
     }
@@ -78,10 +77,10 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_single_fab_operator_has_dresden_inferred_not_the_default()
     {
-        using HttpClient cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
-        string name = UniqueName();
+        using var cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", Body(name));
+        var created = await cameras.PostAsJsonAsync("/cameras", Body(name));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
         // dresden, not munich. Everything else in the system defaults to
@@ -95,16 +94,16 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     {
         // FR-005, and the asymmetry with the write path: a read does not have
         // to choose.
-        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string inMunich = UniqueName();
-        string inDresden = UniqueName();
+        using var cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var inMunich = UniqueName();
+        var inDresden = UniqueName();
 
         (await cameras.PostAsJsonAsync("/cameras?fabId=munich", Body(inMunich)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
         (await cameras.PostAsJsonAsync("/cameras?fabId=dresden", Body(inDresden)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        string[] names = await NamesAsync(cameras);
+        var names = await NamesAsync(cameras);
 
         names.ShouldContain(inMunich);
         names.ShouldContain(inDresden);
@@ -113,12 +112,12 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task The_listing_omits_a_fab_the_caller_does_not_hold()
     {
-        using HttpClient owner = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string inMunich = UniqueName();
+        using var owner = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var inMunich = UniqueName();
         (await owner.PostAsJsonAsync("/cameras?fabId=munich", Body(inMunich)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient outsider = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var outsider = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         (await NamesAsync(outsider)).ShouldNotContain(inMunich);
     }
@@ -134,9 +133,9 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private static async Task<string[]> NamesAsync(HttpClient cameras)
     {
-        HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200");
+        var listed = await cameras.GetAsync("/cameras?limit=200");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("items").EnumerateArray()
             .Select(row => row.GetProperty("name").GetString()!)];
@@ -148,9 +147,9 @@ public class CameraFabResolutionIntegrationTests(AspireFixture aspire) : IAsyncL
     /// </summary>
     private static async Task<string> FabOfAsync(HttpClient cameras, string name)
     {
-        HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200");
+        var listed = await cameras.GetAsync("/cameras?limit=200");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return page.GetProperty("items").EnumerateArray()
             .Single(row => row.GetProperty("name").GetString() == name)

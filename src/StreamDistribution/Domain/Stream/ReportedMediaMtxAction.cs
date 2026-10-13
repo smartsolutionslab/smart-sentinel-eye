@@ -91,9 +91,9 @@ public sealed record ReportedMediaMtxAction : StringValueObject
     private static string Bounded(string value)
     {
         StringBuilder bounded = new(MaximumLength + 1);
-        int taken = 0;
+        var taken = 0;
 
-        foreach (Rune rune in value.EnumerateRunes())
+        foreach (var rune in value.EnumerateRunes())
         {
             if (taken == MaximumLength)
             {

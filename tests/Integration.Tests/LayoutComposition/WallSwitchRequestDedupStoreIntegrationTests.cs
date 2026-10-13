@@ -22,15 +22,15 @@ public class WallSwitchRequestDedupStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_redelivery_with_the_same_rule_and_causing_event_does_not_reserve_twice()
     {
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
         WallSwitchRequestDedupStore store = new(context);
 
-        RuleIdentifier rule = RuleIdentifier.From(Guid.CreateVersion7());
-        CausingEventIdentifier causing = CausingEventIdentifier.From(Guid.CreateVersion7());
-        WallIdentifier wall = WallIdentifier.New();
+        var rule = RuleIdentifier.From(Guid.CreateVersion7());
+        var causing = CausingEventIdentifier.From(Guid.CreateVersion7());
+        var wall = WallIdentifier.New();
 
-        bool first = await store.TryReserveAsync(rule, causing, wall, CancellationToken.None);
-        bool redelivery = await store.TryReserveAsync(rule, causing, wall, CancellationToken.None);
+        var first = await store.TryReserveAsync(rule, causing, wall, CancellationToken.None);
+        var redelivery = await store.TryReserveAsync(rule, causing, wall, CancellationToken.None);
 
         first.ShouldBeTrue();
         redelivery.ShouldBeFalse();
@@ -43,15 +43,15 @@ public class WallSwitchRequestDedupStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Two_different_rules_firing_on_the_same_causing_event_both_reserve()
     {
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
         WallSwitchRequestDedupStore store = new(context);
 
-        CausingEventIdentifier causing = CausingEventIdentifier.From(Guid.CreateVersion7());
-        WallIdentifier wall = WallIdentifier.New();
+        var causing = CausingEventIdentifier.From(Guid.CreateVersion7());
+        var wall = WallIdentifier.New();
 
-        bool ruleA = await store.TryReserveAsync(
+        var ruleA = await store.TryReserveAsync(
             RuleIdentifier.From(Guid.CreateVersion7()), causing, wall, CancellationToken.None);
-        bool ruleB = await store.TryReserveAsync(
+        var ruleB = await store.TryReserveAsync(
             RuleIdentifier.From(Guid.CreateVersion7()), causing, wall, CancellationToken.None);
 
         ruleA.ShouldBeTrue();
@@ -61,15 +61,15 @@ public class WallSwitchRequestDedupStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_same_rule_firing_on_two_different_causing_events_reserves_independently()
     {
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
         WallSwitchRequestDedupStore store = new(context);
 
-        RuleIdentifier rule = RuleIdentifier.From(Guid.CreateVersion7());
-        WallIdentifier wall = WallIdentifier.New();
+        var rule = RuleIdentifier.From(Guid.CreateVersion7());
+        var wall = WallIdentifier.New();
 
-        bool first = await store.TryReserveAsync(
+        var first = await store.TryReserveAsync(
             rule, CausingEventIdentifier.From(Guid.CreateVersion7()), wall, CancellationToken.None);
-        bool second = await store.TryReserveAsync(
+        var second = await store.TryReserveAsync(
             rule, CausingEventIdentifier.From(Guid.CreateVersion7()), wall, CancellationToken.None);
 
         first.ShouldBeTrue();

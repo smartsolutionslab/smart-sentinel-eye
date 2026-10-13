@@ -3,10 +3,8 @@ using System.IO;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
-using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 
@@ -83,23 +81,23 @@ public class InferencePayloadRoundTripIntegrationTests(AspireFixture aspire, ITe
     [Fact]
     public async Task Inference_payload_with_nested_arrays_survives_the_round_trip()
     {
-        string fixtureJson = ReadFixture(FixtureName);
+        var fixtureJson = ReadFixture(FixtureName);
         // Trimmed: the checked-in file ends with a newline, as text files here
         // do. Canonical JSON has no leading or trailing whitespace of its own,
         // so this removes the editor's byte and none of the payload's.
-        string expectedCanonical = ReadFixture(ExpectedName).Trim();
+        var expectedCanonical = ReadFixture(ExpectedName).Trim();
 
-        Guid identifier = Guid.CreateVersion7();
-        string kind = $"Inference{identifier:N}"[..24];
+        var identifier = Guid.CreateVersion7();
+        var kind = $"Inference{identifier:N}"[..24];
         output.WriteLine($"publishing {identifier} as kind {kind} to {Topic}");
 
         await new PlantFloor(aspire).PublishRawAsync(Envelope(identifier, kind, fixtureJson), Topic);
 
-        Payload stored = await WaitForPayloadAsync(identifier, TimeSpan.FromSeconds(120));
+        var stored = await WaitForPayloadAsync(identifier, TimeSpan.FromSeconds(120));
         output.WriteLine($"stored payload is {stored.Value.Length} chars");
 
-        using JsonDocument sent = JsonDocument.Parse(fixtureJson);
-        using JsonDocument readBack = JsonDocument.Parse(stored.Value);
+        using var sent = JsonDocument.Parse(fixtureJson);
+        using var readBack = JsonDocument.Parse(stored.Value);
 
         // Half A — the meaning survived, and a failure says where.
         AssertSameJson(sent.RootElement, readBack.RootElement, "$");
@@ -139,7 +137,7 @@ public class InferencePayloadRoundTripIntegrationTests(AspireFixture aspire, ITe
     {
         readBack.GetRawText().ShouldNotBe("{}", "the stored payload is the empty object");
 
-        JsonElement detections = readBack.GetProperty("detections");
+        var detections = readBack.GetProperty("detections");
         detections.GetArrayLength().ShouldBe(11, "the stored payload lost or gained detections");
         sent.GetProperty("detections").GetArrayLength().ShouldBe(
             11, "the fixture itself changed — the literals below no longer describe it");
@@ -187,7 +185,7 @@ public class InferencePayloadRoundTripIntegrationTests(AspireFixture aspire, ITe
         string[] readBackKeys = [.. readBack.EnumerateObject().Select(property => property.Name).Order(StringComparer.Ordinal)];
         readBackKeys.ShouldBe(sentKeys, $"key set differs at {path}");
 
-        foreach (JsonProperty property in sent.EnumerateObject())
+        foreach (var property in sent.EnumerateObject())
         {
             AssertSameJson(property.Value, readBack.GetProperty(property.Name), $"{path}.{property.Name}");
         }
@@ -197,8 +195,8 @@ public class InferencePayloadRoundTripIntegrationTests(AspireFixture aspire, ITe
     {
         readBack.GetArrayLength().ShouldBe(sent.GetArrayLength(), $"array length differs at {path}");
 
-        int index = 0;
-        foreach (JsonElement item in sent.EnumerateArray())
+        var index = 0;
+        foreach (var item in sent.EnumerateArray())
         {
             AssertSameJson(item, readBack[index], $"{path}[{index}]");
             index++;
@@ -230,14 +228,14 @@ public class InferencePayloadRoundTripIntegrationTests(AspireFixture aspire, ITe
     /// </summary>
     private async Task<Payload> WaitForPayloadAsync(Guid identifier, TimeSpan timeout)
     {
-        FabIdentifier fab = FabIdentifier.From(Fab);
-        EventIdentifier eventIdentifier = EventIdentifier.From(identifier);
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var fab = FabIdentifier.From(Fab);
+        var eventIdentifier = EventIdentifier.From(identifier);
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-            EventAggregate? found = await database.Events
+            await using var database = await aspire.CreateEventIngestionDbContextAsync();
+            var found = await database.Events
                 .Where(candidate => candidate.Fab == fab && candidate.Id == eventIdentifier)
                 .FirstOrDefaultAsync();
 

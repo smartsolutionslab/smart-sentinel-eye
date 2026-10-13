@@ -20,14 +20,14 @@ public sealed class PublishRuleCommandHandler(
 
         var (fab, name, expectedVersion) = command;
 
-        Option<Rule> found = await rules
+        var found = await rules
             .GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(PublishRuleFailures.RuleNotFound(name.Value));
         }
 
-        Rule rule = found.Value;
+        var rule = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the rule that has
         // since moved. Checked before any mutation so nothing is applied on top

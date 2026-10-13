@@ -58,7 +58,7 @@ public class AppHostMediaMtxImageTests
     [Fact]
     public async Task A_run_mode_stack_resolves_every_media_mtx_container_to_one_image()
     {
-        Container[] containers = await MediaMtxContainersAsync(RunModeArguments);
+        var containers = await MediaMtxContainersAsync(RunModeArguments);
 
         Named(containers).ShouldContain("mediamtx");
         Named(containers).ShouldContain("fixture-video");
@@ -75,7 +75,7 @@ public class AppHostMediaMtxImageTests
     [Fact]
     public async Task The_integration_fixture_shape_resolves_every_media_mtx_container_to_one_image()
     {
-        Container[] containers = await MediaMtxContainersAsync(FixtureArguments);
+        var containers = await MediaMtxContainersAsync(FixtureArguments);
 
         Named(containers).ShouldContain("mediamtx");
         Named(containers).ShouldContain("fixture-video");
@@ -106,7 +106,7 @@ public class AppHostMediaMtxImageTests
 
     private static async Task<Container[]> MediaMtxContainersAsync(string[] arguments)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 

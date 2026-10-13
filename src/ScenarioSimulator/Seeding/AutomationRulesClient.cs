@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
@@ -26,9 +25,9 @@ public sealed class AutomationRulesClient(
     {
         Ensure.That(seed).IsNotNull();
 
-        (string name, string triggerSource, string triggerKind, string predicate, RuleSeedAction action) = seed;
+        (var name, var triggerSource, var triggerKind, var predicate, var action) = seed;
 
-        CreateRuleBody body = action switch
+        var body = action switch
         {
             RuleSeedAction.HighlightOverlay highlight => new CreateRuleBody(
                 name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, highlight.Overlay, highlight.DurationMs),
@@ -37,9 +36,9 @@ public sealed class AutomationRulesClient(
             _ => throw new NotSupportedException($"Unsupported rule seed action '{action.GetType().Name}'."),
         };
 
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
+        var token = await tokens.GetAccessTokenAsync(cancellationToken);
 
-        (int? expectedVersion, string? refusedReason) = await CreateOrResolveVersionAsync(name, body, token, cancellationToken);
+        (var expectedVersion, var refusedReason) = await CreateOrResolveVersionAsync(name, body, token, cancellationToken);
         if (refusedReason is not null)
         {
             return new RuleSeedResult.Refused(refusedReason);
@@ -54,7 +53,7 @@ public sealed class AutomationRulesClient(
         publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         publish.Headers.TryAddWithoutValidation(
             "If-Match", ConcurrencyHeaders.ETag(expectedVersion.Value));
-        using HttpResponseMessage published = await http.SendAsync(publish, cancellationToken);
+        using var published = await http.SendAsync(publish, cancellationToken);
         published.EnsureSuccessStatusCode();
 
         switch (action)
@@ -104,11 +103,11 @@ public sealed class AutomationRulesClient(
             Content = JsonContent.Create(body),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
+        using var created = await http.SendAsync(create, cancellationToken);
 
         if (created.StatusCode == HttpStatusCode.BadRequest)
         {
-            string reason = await ReadRefusalReasonAsync(created, cancellationToken);
+            var reason = await ReadRefusalReasonAsync(created, cancellationToken);
             logger.RuleRefused(name, reason);
             return (null, reason);
         }
@@ -119,7 +118,7 @@ public sealed class AutomationRulesClient(
             return (0, null);
         }
 
-        Option<RuleSummary> existing = await ReadRuleAsync(name, token, cancellationToken);
+        var existing = await ReadRuleAsync(name, token, cancellationToken);
         if (!existing.HasValue || existing.Value.State != DraftState)
         {
             logger.RuleAlreadyExists(name);
@@ -138,7 +137,7 @@ public sealed class AutomationRulesClient(
     {
         try
         {
-            ProblemDetailsBody? problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
             return problem?.Detail ?? "the request was rejected (400) with no problem detail.";
         }
         catch (JsonException)
@@ -158,14 +157,14 @@ public sealed class AutomationRulesClient(
     {
         using HttpRequestMessage read = new(HttpMethod.Get, $"/rules/{name}?fabId={FabId}");
         read.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage response = await http.SendAsync(read, cancellationToken);
+        using var response = await http.SendAsync(read, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
             return Option<RuleSummary>.None;
         }
 
-        RuleSummary? summary = await response.Content
+        var summary = await response.Content
             .ReadFromJsonAsync<RuleSummary>(cancellationToken);
 
         return summary is null ? Option<RuleSummary>.None : Option<RuleSummary>.Some(summary);

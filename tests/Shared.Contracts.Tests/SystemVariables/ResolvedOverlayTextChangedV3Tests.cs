@@ -1,7 +1,5 @@
 using System.Globalization;
-using System.Reflection;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests.SystemVariables;
@@ -25,7 +23,7 @@ public class ResolvedOverlayTextChangedV3Tests
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         IReadOnlyList<ResolvedOverlayTextV3> texts =
             [new ResolvedOverlayTextV3("OEE: {{oee}}%", "OEE: 82.5%"), new ResolvedOverlayTextV3("{{shift}}", "Line 1")];
         ResolvedOverlayTextChangedV3 evt = new(overlay, texts, 7, Metadata: TestMetadata);
@@ -54,7 +52,7 @@ public class ResolvedOverlayTextChangedV3Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         IReadOnlyList<ResolvedOverlayTextV3> texts = [new ResolvedOverlayTextV3("{{v}}", "v")];
         ResolvedOverlayTextChangedV3 a = new(overlay, texts, 3, Metadata: TestMetadata);
         ResolvedOverlayTextChangedV3 b = new(overlay, texts, 3, Metadata: TestMetadata);
@@ -80,8 +78,8 @@ public class ResolvedOverlayTextChangedV3Tests
         ResolvedOverlayTextChangedV3 original =
             new(Guid.CreateVersion7(), [new ResolvedOverlayTextV3("OEE: {{oee}}%", "OEE: 82.5%"), new ResolvedOverlayTextV3("{{shift}}", "Line 1")], 9, Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        ResolvedOverlayTextChangedV3 deserialized =
+        var json = JsonSerializer.Serialize(original);
+        var deserialized =
             JsonSerializer.Deserialize<ResolvedOverlayTextChangedV3>(json)!;
 
         deserialized.Overlay.ShouldBe(original.Overlay);
@@ -104,7 +102,7 @@ public class ResolvedOverlayTextChangedV3Tests
     [Fact]
     public void ResolvedOverlayTextChangedV2_no_longer_exists_in_the_assembly()
     {
-        Assembly assembly = typeof(ResolvedOverlayTextChangedV3).Assembly;
+        var assembly = typeof(ResolvedOverlayTextChangedV3).Assembly;
 
         assembly.GetType("SmartSentinelEye.Shared.Contracts.SystemVariables.ResolvedOverlayTextChangedV2")
             .ShouldBeNull("V2 is deleted in the same commit as the V3 cut — no dual-publish window (plan.md 'Why no ADR' item 3)");

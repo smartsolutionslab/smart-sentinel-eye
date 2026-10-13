@@ -1,10 +1,8 @@
 using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
@@ -22,15 +20,15 @@ public class LayoutRevisionArchivedDomainEventHandlerTests
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         LayoutRevisionArchivedDomainEventHandler handler = new(bus, broadcaster);
 
-        LayoutIdentifier layout = LayoutIdentifier.New();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = LayoutIdentifier.New();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         LayoutRevisionArchivedDomainEvent domainEvent = new(
             Munich, layout, LayoutRevisionNumber.One, FixedMoment, by);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
         bus.Published.ShouldHaveSingleItem();
-        LayoutRevisionArchivedV1 v1 = bus.Published.Single().ShouldBeOfType<LayoutRevisionArchivedV1>();
+        var v1 = bus.Published.Single().ShouldBeOfType<LayoutRevisionArchivedV1>();
         v1.Layout.ShouldBe(layout.Value);
         v1.RevisionNumber.ShouldBe(1);
         v1.ArchivedAt.ShouldBe(FixedMoment);
@@ -56,7 +54,7 @@ public class LayoutRevisionArchivedDomainEventHandlerTests
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        LayoutRevisionArchivedV1 v1 = bus.Published.Single().ShouldBeOfType<LayoutRevisionArchivedV1>();
+        var v1 = bus.Published.Single().ShouldBeOfType<LayoutRevisionArchivedV1>();
         v1.Metadata.Fab.ShouldBe("munich");
     }
 }

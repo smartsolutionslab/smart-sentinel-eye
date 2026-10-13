@@ -1,8 +1,6 @@
-using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 
@@ -49,11 +47,11 @@ public class StreamFabDerivationIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_stream_carries_the_fab_of_the_camera_it_serves()
     {
-        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+        using var cameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", MultiFabOperator, OperatorPassword);
 
-        Guid inMunich = await RegisterAsync(cameras, "munich");
-        Guid inDresden = await RegisterAsync(cameras, "dresden");
+        var inMunich = await RegisterAsync(cameras, "munich");
+        var inDresden = await RegisterAsync(cameras, "dresden");
 
         (await WaitForFabAsync(inMunich)).ShouldBe("munich");
         (await WaitForFabAsync(inDresden)).ShouldBe("dresden");
@@ -61,7 +59,7 @@ public class StreamFabDerivationIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string fab)
     {
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             $"/cameras?fabId={fab}",
             new
             {
@@ -77,15 +75,15 @@ public class StreamFabDerivationIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<string> WaitForFabAsync(Guid camera)
     {
-        CameraIdentifier cameraId = CameraIdentifier.From(camera);
-        DateTime deadline = DateTime.UtcNow + ProvisionTimeout;
+        var cameraId = CameraIdentifier.From(camera);
+        var deadline = DateTime.UtcNow + ProvisionTimeout;
 
         while (DateTime.UtcNow < deadline)
         {
-            await using StreamDistributionDbContext context =
+            await using var context =
                 await aspire.CreateStreamDistributionDbContextAsync();
 
-            Stream? provisioned = await context.Streams
+            var provisioned = await context.Streams
                 .AsNoTracking()
                 .SingleOrDefaultAsync(stream => stream.Camera == cameraId);
 

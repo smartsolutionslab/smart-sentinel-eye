@@ -1,6 +1,4 @@
 using System.Net.Http.Json;
-using Microsoft.Extensions.Logging;
-using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.CameraSim;
@@ -91,7 +89,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
 
         // Deterministic per camera, so a restart does not recolour the wall. The
         // spread is what matters, not the value — 360 buckets off the identifier.
-        int hue = (int)((uint)camera.GetHashCode() % 360);
+        var hue = (int)((uint)camera.GetHashCode() % 360);
 
         await ProvisionAsync(path, DefaultClip, LabelledCommand(DefaultClip, label, hue), cancellationToken);
 
@@ -119,7 +117,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
             RunOnDemandRestart: true,
             RunOnDemandCloseAfter: "10s");
 
-        using HttpResponseMessage response = await http
+        using var response = await http
             .PostAsJsonAsync($"/v3/config/paths/add/{path}", body, cancellationToken);
 
         if (response.IsSuccessStatusCode)
@@ -136,13 +134,13 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
         //
         // Replace instead. It is idempotent for the unchanged case and correct for
         // the changed one, which makes the distinction stop mattering.
-        string detail = await response.Content.ReadAsStringAsync(cancellationToken);
+        var detail = await response.Content.ReadAsStringAsync(cancellationToken);
         if (!detail.Contains("already exists", StringComparison.OrdinalIgnoreCase))
         {
             response.EnsureSuccessStatusCode();
         }
 
-        using HttpResponseMessage replaced = await http
+        using var replaced = await http
             .PostAsJsonAsync($"/v3/config/paths/replace/{path}", body, cancellationToken);
 
         replaced.EnsureSuccessStatusCode();

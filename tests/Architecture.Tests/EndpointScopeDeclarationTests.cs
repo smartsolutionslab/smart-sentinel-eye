@@ -531,7 +531,7 @@ public class EndpointScopeDeclarationTests
     public static TheoryData<string> EndpointFiles()
     {
         TheoryData<string> data = [];
-        foreach (string file in EndpointSourceFiles())
+        foreach (var file in EndpointSourceFiles())
         {
             data.Add(file);
         }
@@ -564,9 +564,9 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_route_handler_mapping_under_the_api_projects_is_enumerated()
     {
-        string[] endpointFiles = EndpointSourceFiles();
-        int swept = ApiSourceFiles().Sum(file => MappingSite.Count(Masked(ReadRepositoryFile(file))));
-        int enumerated = endpointFiles.Sum(file => Read(file).Mappings.Length);
+        var endpointFiles = EndpointSourceFiles();
+        var swept = ApiSourceFiles().Sum(file => MappingSite.Count(Masked(ReadRepositoryFile(file))));
+        var enumerated = endpointFiles.Sum(file => Read(file).Mappings.Length);
 
         endpointFiles.Length.ShouldBe(
             EndpointFileCount,
@@ -638,7 +638,7 @@ public class EndpointScopeDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_mapping_in_an_endpoint_file_is_read_rather_than_skipped(string file)
     {
-        EndpointFileReading reading = Read(file);
+        var reading = Read(file);
 
         reading.Mappings.ShouldNotBeEmpty(
             $"{file} matches {EndpointGlob} but yielded no route-handler mapping. Either it registers none "
@@ -667,7 +667,7 @@ public class EndpointScopeDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_scope_an_endpoint_enforces_resolves_against_the_catalogue(string file)
     {
-        string[] unresolved = Read(file).Mappings
+        var unresolved = Read(file).Mappings
             .Where(mapping => mapping.Kind == AuthorizationKind.Scoped)
             .Where(mapping => !ScopeLiterals.ContainsKey(mapping.ScopeConstant))
             .Select(mapping => $"{Where(mapping)} cites {mapping.ScopeConstant}")
@@ -696,7 +696,7 @@ public class EndpointScopeDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_scoped_endpoint_names_the_scope_it_enforces_in_its_summary(string file)
     {
-        string[] silent = ScopedWithLiteral(file)
+        var silent = ScopedWithLiteral(file)
             .Where(pair => ClaimedScopes(pair.Mapping.Summary).Length == 0)
             .Select(pair => Omission(pair.Mapping, pair.Literal))
             .ToArray();
@@ -725,7 +725,7 @@ public class EndpointScopeDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void No_summary_names_a_scope_other_than_the_one_the_endpoint_enforces(string file)
     {
-        string[] misinforming = ScopedWithLiteral(file)
+        var misinforming = ScopedWithLiteral(file)
             .SelectMany(pair => ClaimedScopes(pair.Mapping.Summary)
                 .Where(claimed => !string.Equals(claimed, pair.Literal, StringComparison.Ordinal))
                 .Select(claimed => Mismatch(pair.Mapping, pair.Literal, claimed)))
@@ -754,7 +754,7 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_endpoint_that_enforces_no_scope_is_registered_against_an_open_issue()
     {
-        string[] unregistered = AllMappings()
+        var unregistered = AllMappings()
             .Where(mapping => mapping.Kind == AuthorizationKind.Bare)
             .Where(mapping => !UnenforcedByDesign.Any(row => Matches(row, mapping)))
             .Select(mapping => $"{Where(mapping)} — .RequireAuthorization() names no scope")
@@ -781,9 +781,9 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_registered_route_still_enforces_no_scope()
     {
-        EndpointMapping[] mappings = AllMappings();
+        var mappings = AllMappings();
 
-        string[] stale = UnenforcedByDesign
+        var stale = UnenforcedByDesign
             .Where(row => !mappings.Any(mapping => mapping.Kind == AuthorizationKind.Bare && Matches(row, mapping)))
             .Select(row => $"{row.Verb} {row.Route} (issue {row.Issue})")
             .ToArray();
@@ -809,7 +809,7 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_anonymous_endpoint_says_what_authenticates_it_instead()
     {
-        string[] silent = AllMappings()
+        var silent = AllMappings()
             .Where(mapping => mapping.Kind == AuthorizationKind.Anonymous)
             .Where(mapping => mapping.Summary is null
                 || !mapping.Summary.Contains(AnonymousLabel, StringComparison.Ordinal))
@@ -844,9 +844,9 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void The_whep_hook_summary_names_the_one_scope_its_handler_accepts()
     {
-        string required = PrivateConstant(typeof(AuthorizeWhepCommandHandler), "RequiredScope");
-        EndpointMapping hook = AnonymousMapping("POST", "/streams/authorize");
-        string summary = SummaryOf(hook);
+        var required = PrivateConstant(typeof(AuthorizeWhepCommandHandler), "RequiredScope");
+        var hook = AnonymousMapping("POST", "/streams/authorize");
+        var summary = SummaryOf(hook);
 
         summary.ShouldContain(
             required,
@@ -870,8 +870,8 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void The_webhook_ingest_summary_describes_the_validation_mode_that_is_actually_the_default()
     {
-        EndpointMapping ingest = AnonymousMapping("POST", "/events/webhook/{integrationName}");
-        string summary = SummaryOf(ingest);
+        var ingest = AnonymousMapping("POST", "/events/webhook/{integrationName}");
+        var summary = SummaryOf(ingest);
 
         default(BearerValidationMode).ShouldBe(
             BearerValidationMode.StaticHash,
@@ -913,7 +913,7 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_route_mapped_outside_the_readable_shapes_is_registered()
     {
-        string[] unregistered = OutsideTheChainSites()
+        var unregistered = OutsideTheChainSites()
             .Where(site => !MappedOutsideTheChain.Any(row => Matches(row, site)))
             .Select(site => $"{site.File}:{site.Line}  .{site.Call}(…)")
             .ToArray();
@@ -936,9 +936,9 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_route_mapped_outside_the_readable_shapes_still_exists()
     {
-        OutsideTheChainMapping[] sites = OutsideTheChainSites();
+        var sites = OutsideTheChainSites();
 
-        string[] stale = MappedOutsideTheChain
+        var stale = MappedOutsideTheChain
             .Where(row => !sites.Any(site => Matches(row, site)))
             .Select(row => $"{row.File}  .{row.Call}(…)  {row.Route}")
             .ToArray();
@@ -971,9 +971,9 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void Every_route_mapped_outside_the_readable_shapes_declares_a_catalogue_scope()
     {
-        foreach (RouteOutsideTheChain row in MappedOutsideTheChain)
+        foreach (var row in MappedOutsideTheChain)
         {
-            string policy = DeclaredPolicy(row.Handler);
+            var policy = DeclaredPolicy(row.Handler);
 
             policy.ShouldNotBeNullOrEmpty(
                 $"{row.Route} is mapped by {row.Handler.Name}, and that type carries no "
@@ -1022,7 +1022,7 @@ public class EndpointScopeDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_scoped_endpoint_declares_the_refusal_its_scope_produces(string file)
     {
-        string[] undeclared = ScopedWithLiteral(file)
+        var undeclared = ScopedWithLiteral(file)
             .Where(pair => pair.Mapping.ForbiddenDeclarations == 0)
             .Select(pair => Undeclared(pair.Mapping, pair.Literal))
             .ToArray();
@@ -1057,7 +1057,7 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void No_route_group_declares_the_refusal_its_members_must_declare()
     {
-        string[] declaring = EndpointSourceFiles()
+        var declaring = EndpointSourceFiles()
             .SelectMany(file => Read(file).Groups)
             .Where(group => group.ForbiddenDeclarations > 0)
             .Select(group => $"{group.File}:{group.Line}  MapGroup(\"{group.Prefix}\") on '{group.Name}'")
@@ -1115,10 +1115,10 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void The_refusal_declarations_the_walk_finds_are_all_the_ones_there_are()
     {
-        int swept = ApiSourceFiles()
+        var swept = ApiSourceFiles()
             .Sum(file => ForbiddenDeclaration.Count(Masked(ReadRepositoryFile(file))));
-        EndpointFileReading[] readings = EndpointSourceFiles().Select(Read).ToArray();
-        int walked = readings.Sum(reading =>
+        var readings = EndpointSourceFiles().Select(Read).ToArray();
+        var walked = readings.Sum(reading =>
             reading.Mappings.Sum(mapping => mapping.ForbiddenDeclarations)
             + reading.Groups.Sum(group => group.ForbiddenDeclarations));
 
@@ -1176,7 +1176,7 @@ public class EndpointScopeDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string[] offenders = SharedSourceScanFiles.Prepend(GuardSource)
+        var offenders = SharedSourceScanFiles.Prepend(GuardSource)
             .SelectMany(file => RepositorySource.ExecutableLines(ReadRepositoryFile(file)))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
@@ -1218,8 +1218,8 @@ public class EndpointScopeDeclarationTests
             + "group.MapPost(\"/other\", Other)\n"
             + "    .ProducesProblem(StatusCodes.Status404NotFound);\n";
 
-        string masked = Masked(source);
-        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
+        var masked = Masked(source);
+        var end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
 
         end.ShouldBeLessThan(
             masked.Length,
@@ -1227,7 +1227,7 @@ public class EndpointScopeDeclarationTests
             + "to its not-found contract, masked.Length — so this mapping would be reported as "
             + "unreadable outright rather than merely truncated.");
 
-        string chain = masked[..end];
+        var chain = masked[..end];
 
         chain.ShouldContain(
             "RequireAuthorization",
@@ -1291,8 +1291,8 @@ public class EndpointScopeDeclarationTests
             + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
             + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n";
 
-        string masked = Masked(source);
-        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
+        var masked = Masked(source);
+        var end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
 
         end.ShouldBe(
             masked.Length,
@@ -1303,7 +1303,7 @@ public class EndpointScopeDeclarationTests
             + "masker was taught to read a raw string, delete the ban this test justifies — do not edit "
             + "this assertion to match a new number.");
 
-        int ownSemicolon = masked.IndexOf(';', StringComparison.Ordinal);
+        var ownSemicolon = masked.IndexOf(';', StringComparison.Ordinal);
         end.ShouldBeGreaterThan(
             ownSemicolon,
             "the probe chain has its own terminating semicolon in the masked text, so a StatementEnd "
@@ -1311,7 +1311,7 @@ public class EndpointScopeDeclarationTests
             + "differently-shaped fixture) pins the raw string as the cause: an ordinary escaped-string "
             + "chain of this same shape stops at its own semicolon, not at EndOfText.");
 
-        string chain = masked[..end];
+        var chain = masked[..end];
 
         chain.ShouldContain(
             "RequireAuthorization",
@@ -1358,7 +1358,7 @@ public class EndpointScopeDeclarationTests
             (cleanFile, cleanText),
         ];
 
-        string[] offenders = FormsThisReaderCannotMask(sources);
+        var offenders = FormsThisReaderCannotMask(sources);
 
         offenders.Length.ShouldBe(
             1,
@@ -1386,7 +1386,7 @@ public class EndpointScopeDeclarationTests
     [Fact]
     public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
     {
-        string[] files = ApiSourceFiles();
+        var files = ApiSourceFiles();
         files.ShouldNotBeEmpty(
             "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
 
@@ -1394,7 +1394,7 @@ public class EndpointScopeDeclarationTests
             "the list of forms this reader's two stages cannot mask is empty, so this guard would pass "
             + "against nothing to look for.");
 
-        string[] offenders = FormsThisReaderCannotMask(files.Select(file => (file, ReadRepositoryFile(file))));
+        var offenders = FormsThisReaderCannotMask(files.Select(file => (file, ReadRepositoryFile(file))));
 
         offenders.ShouldBeEmpty(
             $"{offenders.Length} source file(s) under src/*/Api use a literal form this reader's masker "
@@ -1436,8 +1436,8 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static EndpointFileReading Read(string file)
     {
-        string text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
-        string masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
+        var text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
+        var masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
 
         Dictionary<string, RouteGroup> groups = new(StringComparer.Ordinal);
         List<GroupDeclaration> declared = [];
@@ -1446,17 +1446,17 @@ public class EndpointScopeDeclarationTests
 
         foreach (Match declaration in LocalDeclaration.Matches(masked))
         {
-            int end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
-            string statement = masked[declaration.Index..end];
+            var end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
+            var statement = masked[declaration.Index..end];
             if (!GroupSite.IsMatch(statement))
             {
                 continue;
             }
 
-            string name = declaration.Groups["name"].Value;
+            var name = declaration.Groups["name"].Value;
             declarations.Add((declaration.Index, end));
-            int forbidden = ForbiddenDeclarationsIn(masked, declaration.Index, end);
-            string prefix = FirstLiteral(text, masked, declaration.Index, end);
+            var forbidden = ForbiddenDeclarationsIn(masked, declaration.Index, end);
+            var prefix = FirstLiteral(text, masked, declaration.Index, end);
             declared.Add(new GroupDeclaration(
                 file,
                 LineAt(text, declaration.Index),
@@ -1505,7 +1505,7 @@ public class EndpointScopeDeclarationTests
         List<EndpointMapping> mappings = [];
         foreach (Match site in MappingSite.Matches(masked))
         {
-            EndpointMapping mapping = ReadMapping(file, text, masked, site, groups);
+            var mapping = ReadMapping(file, text, masked, site, groups);
             mappings.Add(mapping);
             if (mapping.Problem is not null)
             {
@@ -1523,29 +1523,29 @@ public class EndpointScopeDeclarationTests
         Match site,
         Dictionary<string, RouteGroup> groups)
     {
-        int start = site.Index;
-        int end = RouteChainReader.StatementEnd(masked, start, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
-        string receiver = site.Groups["receiver"].Value;
-        string verb = site.Groups["verb"].Value.ToUpperInvariant();
+        var start = site.Index;
+        var end = RouteChainReader.StatementEnd(masked, start, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
+        var receiver = site.Groups["receiver"].Value;
+        var verb = site.Groups["verb"].Value.ToUpperInvariant();
 
-        int open = masked.IndexOf('(', site.Index + site.Length - 1);
-        string route = FirstLiteralIn(text, masked, open, end);
+        var open = masked.IndexOf('(', site.Index + site.Length - 1);
+        var route = FirstLiteralIn(text, masked, open, end);
 
-        groups.TryGetValue(receiver, out RouteGroup? group);
-        string fullRoute = JoinRoute(group?.Prefix ?? string.Empty, route);
-        int line = LineAt(text, start);
+        groups.TryGetValue(receiver, out var group);
+        var fullRoute = JoinRoute(group?.Prefix ?? string.Empty, route);
+        var line = LineAt(text, start);
 
-        (string? summary, bool summaryUnreadable) = DeclaredSummary(text, masked, start, end);
-        EnforcedAuthorization? own = DeclaredAuthorization(text, masked, start, end);
-        EnforcedAuthorization effective = own ?? group?.Authorization
+        (var summary, var summaryUnreadable) = DeclaredSummary(text, masked, start, end);
+        var own = DeclaredAuthorization(text, masked, start, end);
+        var effective = own ?? group?.Authorization
             ?? new EnforcedAuthorization(AuthorizationKind.Unreadable, ReceiverProblem(receiver, group));
 
-        string? unreadableSummary = summaryUnreadable
+        var unreadableSummary = summaryUnreadable
             ? "its .WithSummary argument is not a plain string literal or a concatenation of them, so "
                 + "the sentence it declares cannot be read"
             : null;
 
-        string? problem = effective.Kind == AuthorizationKind.Unreadable
+        var problem = effective.Kind == AuthorizationKind.Unreadable
             ? effective.Detail
             : unreadableSummary;
 
@@ -1592,7 +1592,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static EnforcedAuthorization? DeclaredAuthorization(string text, string masked, int start, int end)
     {
-        int require = FirstAuthorizationCall(masked, start, end);
+        var require = FirstAuthorizationCall(masked, start, end);
         if (require >= 0)
         {
             if (FirstAuthorizationCall(masked, require + 1, end) >= 0)
@@ -1603,9 +1603,9 @@ public class EndpointScopeDeclarationTests
                         + "so no single call names what the endpoint enforces");
             }
 
-            int open = masked.IndexOf('(', require);
-            (int from, int to) = ArgumentSpan(masked, open);
-            string argument = text[from..to].Trim();
+            var open = masked.IndexOf('(', require);
+            (var from, var to) = ArgumentSpan(masked, open);
+            var argument = text[from..to].Trim();
 
             if (argument.Length == 0)
             {
@@ -1631,8 +1631,8 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static int FirstAuthorizationCall(string masked, int start, int end)
     {
-        int authorization = IndexOfCall(masked, ".RequireAuthorization", start, end);
-        int scope = IndexOfCall(masked, ".RequireScope", start, end);
+        var authorization = IndexOfCall(masked, ".RequireAuthorization", start, end);
+        var scope = IndexOfCall(masked, ".RequireScope", start, end);
 
         if (authorization < 0)
         {
@@ -1653,16 +1653,16 @@ public class EndpointScopeDeclarationTests
         int start,
         int end)
     {
-        int call = IndexOfCall(masked, ".WithSummary", start, end);
+        var call = IndexOfCall(masked, ".WithSummary", start, end);
         if (call < 0)
         {
             return (null, false);
         }
 
-        int open = masked.IndexOf('(', call);
-        (int from, int to) = ArgumentSpan(masked, open);
+        var open = masked.IndexOf('(', call);
+        (var from, var to) = ArgumentSpan(masked, open);
 
-        return TryJoinLiterals(text[from..to], out string joined) ? (joined, false) : (null, true);
+        return TryJoinLiterals(text[from..to], out var joined) ? (joined, false) : (null, true);
     }
 
     /// <summary>
@@ -1670,7 +1670,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string FirstLiteral(string text, string masked, int start, int end)
     {
-        int call = IndexOfCall(masked, ".MapGroup", start, end);
+        var call = IndexOfCall(masked, ".MapGroup", start, end);
         return call < 0 ? string.Empty : FirstLiteralIn(text, masked, masked.IndexOf('(', call), end);
     }
 
@@ -1681,15 +1681,15 @@ public class EndpointScopeDeclarationTests
             return string.Empty;
         }
 
-        (int from, int to) = ArgumentSpan(masked, open);
-        int quote = masked.IndexOf('"', from);
+        (var from, var to) = ArgumentSpan(masked, open);
+        var quote = masked.IndexOf('"', from);
 
         if (quote < 0 || quote >= to)
         {
             return string.Empty;
         }
 
-        int close = EndOfLiteral(masked, quote, verbatim: false);
+        var close = EndOfLiteral(masked, quote, verbatim: false);
         return Unescape(text[(quote + 1)..(close - 1)]);
     }
 
@@ -1724,7 +1724,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static EndpointMapping AnonymousMapping(string verb, string route)
     {
-        EndpointMapping[] found = AllMappings()
+        var found = AllMappings()
             .Where(mapping => mapping.Kind == AuthorizationKind.Anonymous)
             .Where(mapping => string.Equals(mapping.Verb, verb, StringComparison.Ordinal)
                 && string.Equals(mapping.Route, route, StringComparison.Ordinal))
@@ -1741,7 +1741,7 @@ public class EndpointScopeDeclarationTests
 
     private static string SummaryOf(EndpointMapping mapping)
     {
-        string? summary = mapping.Summary;
+        var summary = mapping.Summary;
 
         summary.ShouldNotBeNull(
             $"{Where(mapping)} declares no .WithSummary, so the sentence this asserts about does not "
@@ -1760,15 +1760,15 @@ public class EndpointScopeDeclarationTests
     {
         List<OutsideTheChainMapping> found = [];
 
-        foreach (string file in ApiSourceFiles())
+        foreach (var file in ApiSourceFiles())
         {
-            string text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
-            string masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
-            HashSet<string> builders = RouteBuilderNames(masked);
+            var text = SourceMask.Apply(ReadRepositoryFile(file), MaskStrictness.CommentsBlankedLiteralsIntact);
+            var masked = SourceMask.Apply(text, MaskStrictness.LiteralInteriorsOnly);
+            var builders = RouteBuilderNames(masked);
 
             foreach (Match site in OutsideTheChainSite.Matches(masked))
             {
-                string kind = site.Groups["kind"].Value;
+                var kind = site.Groups["kind"].Value;
                 if (kind.Length == 0 && !builders.Contains(site.Groups["receiver"].Value))
                 {
                     continue;
@@ -1792,7 +1792,7 @@ public class EndpointScopeDeclarationTests
 
         foreach (Match declaration in LocalDeclaration.Matches(masked))
         {
-            int end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
+            var end = RouteChainReader.StatementEnd(masked, declaration.Index, ChainEndSentinel.EndOfText, ChainLiteralHandling.AlreadyMasked);
             if (GroupSite.IsMatch(masked[declaration.Index..end]))
             {
                 names.Add(declaration.Groups["name"].Value);
@@ -1809,14 +1809,14 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string DeclaredPolicy(Type handler)
     {
-        CustomAttributeData[] authorize = handler.GetCustomAttributesData()
+        var authorize = handler.GetCustomAttributesData()
             .Where(attribute => string.Equals(
                 attribute.AttributeType.Name,
                 "AuthorizeAttribute",
                 StringComparison.Ordinal))
             .ToArray();
 
-        string named = authorize
+        var named = authorize
             .SelectMany(attribute => attribute.NamedArguments)
             .Where(argument => string.Equals(argument.MemberName, "Policy", StringComparison.Ordinal))
             .Select(argument => argument.TypedValue.Value as string ?? string.Empty)
@@ -1836,7 +1836,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string DeclaredPath(Type handler)
     {
-        FieldInfo? path = handler.GetField("Path", BindingFlags.Public | BindingFlags.Static);
+        var path = handler.GetField("Path", BindingFlags.Public | BindingFlags.Static);
 
         return path is { IsLiteral: true }
             ? (string?)path.GetRawConstantValue() ?? string.Empty
@@ -1849,7 +1849,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string PrivateConstant(Type type, string name)
     {
-        FieldInfo? constant = type.GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
+        var constant = type.GetField(name, BindingFlags.NonPublic | BindingFlags.Static);
 
         constant.ShouldNotBeNull(
             $"{type.Name} no longer declares a constant named {name}, so what this endpoint requires "
@@ -1915,17 +1915,17 @@ public class EndpointScopeDeclarationTests
 
     private static void Collect(Type type, string path, Dictionary<string, List<string>> candidates)
     {
-        foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
+        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
         {
             if (!field.IsLiteral || field.FieldType != typeof(string))
             {
                 continue;
             }
 
-            string literal = (string)field.GetRawConstantValue()!;
-            foreach (string key in CatalogueKeys($"{path}.{field.Name}"))
+            var literal = (string)field.GetRawConstantValue()!;
+            foreach (var key in CatalogueKeys($"{path}.{field.Name}"))
             {
-                if (!candidates.TryGetValue(key, out List<string>? found))
+                if (!candidates.TryGetValue(key, out var found))
                 {
                     found = [];
                     candidates[key] = found;
@@ -1935,7 +1935,7 @@ public class EndpointScopeDeclarationTests
             }
         }
 
-        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public))
+        foreach (var nested in type.GetNestedTypes(BindingFlags.Public))
         {
             Collect(nested, $"{path}.{nested.Name}", candidates);
         }
@@ -1958,7 +1958,7 @@ public class EndpointScopeDeclarationTests
     {
         yield return path;
 
-        int shortened = path.IndexOf($"{nameof(Scope.Sse)}.", StringComparison.Ordinal);
+        var shortened = path.IndexOf($"{nameof(Scope.Sse)}.", StringComparison.Ordinal);
         if (shortened > 0)
         {
             yield return path[shortened..];
@@ -1974,7 +1974,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string[] ApiSourceFiles()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
 
         return ContextApiDirectories()
             .SelectMany(directory => Directory.EnumerateFiles(directory, "*.cs", SearchOption.AllDirectories))
@@ -1986,7 +1986,7 @@ public class EndpointScopeDeclarationTests
 
     private static string[] EndpointSourceFiles()
     {
-        string[] files = ApiSourceFiles()
+        var files = ApiSourceFiles()
             .Where(path => path.EndsWith("Endpoints.cs", StringComparison.Ordinal))
             .ToArray();
 
@@ -2015,7 +2015,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositorySource.Root().FullName, relativePath);
+        var path = Path.Combine(RepositorySource.Root().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path).Replace("\r", string.Empty, StringComparison.Ordinal);
@@ -2054,14 +2054,14 @@ public class EndpointScopeDeclarationTests
 
     private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
     {
-        (string Form, string Why)[] bannedForms = BannedForms();
+        var bannedForms = BannedForms();
 
         List<string> offenders = [];
-        foreach ((string file, string text) in sources)
+        foreach ((var file, var text) in sources)
         {
-            foreach ((string form, string why) in bannedForms)
+            foreach ((var form, var why) in bannedForms)
             {
-                int at = text.IndexOf(form, StringComparison.Ordinal);
+                var at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
                 {
                     offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
@@ -2077,12 +2077,12 @@ public class EndpointScopeDeclarationTests
 
     private static int EndOfLiteral(string text, int start, bool verbatim)
     {
-        char quote = text[start];
-        int index = start + 1;
+        var quote = text[start];
+        var index = start + 1;
 
         while (index < text.Length)
         {
-            char current = text[index];
+            var current = text[index];
 
             if (verbatim)
             {
@@ -2126,7 +2126,7 @@ public class EndpointScopeDeclarationTests
 
     private static int IndexOfCall(string masked, string call, int start, int end)
     {
-        int found = masked.IndexOf(call, start, StringComparison.Ordinal);
+        var found = masked.IndexOf(call, start, StringComparison.Ordinal);
         return found >= 0 && found < end ? found : -1;
     }
 
@@ -2136,9 +2136,9 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static (int From, int To) ArgumentSpan(string masked, int open)
     {
-        int depth = 0;
+        var depth = 0;
 
-        for (int index = open; index < masked.Length; index++)
+        for (var index = open; index < masked.Length; index++)
         {
             if (masked[index] == '(')
             {
@@ -2167,13 +2167,13 @@ public class EndpointScopeDeclarationTests
     {
         StringBuilder value = new();
         StringBuilder residue = new();
-        int index = 0;
+        var index = 0;
 
         while (index < argument.Length)
         {
             if (argument[index] == '@' && Next(argument, index) == '"')
             {
-                int end = EndOfLiteral(argument, index + 1, verbatim: true);
+                var end = EndOfLiteral(argument, index + 1, verbatim: true);
                 value.Append(argument[(index + 2)..(end - 1)].Replace("\"\"", "\"", StringComparison.Ordinal));
                 index = end;
                 continue;
@@ -2181,7 +2181,7 @@ public class EndpointScopeDeclarationTests
 
             if (argument[index] == '"')
             {
-                int end = EndOfLiteral(argument, index, verbatim: false);
+                var end = EndOfLiteral(argument, index, verbatim: false);
                 value.Append(Unescape(argument[(index + 1)..(end - 1)]));
                 index = end;
                 continue;
@@ -2210,7 +2210,7 @@ public class EndpointScopeDeclarationTests
     /// </summary>
     private static string JoinRoute(string prefix, string route)
     {
-        string joined = $"{prefix.TrimEnd('/')}/{route.TrimStart('/')}";
+        var joined = $"{prefix.TrimEnd('/')}/{route.TrimStart('/')}";
         return joined.Length > 1 ? joined.TrimEnd('/') : joined;
     }
 

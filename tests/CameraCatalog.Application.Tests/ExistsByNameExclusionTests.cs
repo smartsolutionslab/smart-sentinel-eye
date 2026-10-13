@@ -41,9 +41,9 @@ public class ExistsByNameExclusionTests
     public async Task A_camera_does_not_count_as_holding_its_own_name()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", "line-3-inlet");
+        var camera = Seed(cameras, "munich", "line-3-inlet");
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("line-3-inlet"),
             Option<CameraIdentifier>.Some(camera.Id),
@@ -61,9 +61,9 @@ public class ExistsByNameExclusionTests
     public async Task A_camera_does_not_count_when_only_the_letter_case_differs()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = Seed(cameras, "munich", "Line-3-Inlet");
+        var camera = Seed(cameras, "munich", "Line-3-Inlet");
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("line-3-inlet"),
             Option<CameraIdentifier>.Some(camera.Id),
@@ -80,10 +80,10 @@ public class ExistsByNameExclusionTests
     public async Task Another_active_camera_in_the_same_fab_does_count()
     {
         InMemoryCameraRepository cameras = new();
-        Camera renaming = Seed(cameras, "munich", "line-3-inlet");
+        var renaming = Seed(cameras, "munich", "line-3-inlet");
         Seed(cameras, "munich", "line-4-inlet");
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("line-4-inlet"),
             Option<CameraIdentifier>.Some(renaming.Id),
@@ -96,10 +96,10 @@ public class ExistsByNameExclusionTests
     public async Task Another_camera_in_the_same_fab_counts_ignoring_letter_case()
     {
         InMemoryCameraRepository cameras = new();
-        Camera renaming = Seed(cameras, "munich", "line-3-inlet");
+        var renaming = Seed(cameras, "munich", "line-3-inlet");
         Seed(cameras, "munich", "Line-4-Inlet");
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("line-4-inlet"),
             Option<CameraIdentifier>.Some(renaming.Id),
@@ -113,11 +113,11 @@ public class ExistsByNameExclusionTests
     public async Task A_retired_camera_does_not_count()
     {
         InMemoryCameraRepository cameras = new();
-        Camera renaming = Seed(cameras, "munich", "line-3-inlet");
-        Camera gone = Seed(cameras, "munich", "line-4-inlet");
+        var renaming = Seed(cameras, "munich", "line-3-inlet");
+        var gone = Seed(cameras, "munich", "line-4-inlet");
         gone.Retire(AnAdmin, new FixedClock(FixedMoment));
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("line-4-inlet"),
             Option<CameraIdentifier>.Some(renaming.Id),
@@ -131,10 +131,10 @@ public class ExistsByNameExclusionTests
     public async Task A_camera_in_another_fab_does_not_count()
     {
         InMemoryCameraRepository cameras = new();
-        Camera renaming = Seed(cameras, "munich", "line-3-inlet");
+        var renaming = Seed(cameras, "munich", "line-3-inlet");
         Seed(cameras, "dresden", "line-4-inlet");
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("line-4-inlet"),
             Option<CameraIdentifier>.Some(renaming.Id),
@@ -154,7 +154,7 @@ public class ExistsByNameExclusionTests
         InMemoryCameraRepository cameras = new();
         Seed(cameras, "munich", "line-3-inlet");
 
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             FabIdentifier.From("munich"),
             CameraName.From("LINE-3-INLET"),
             Option<CameraIdentifier>.None,
@@ -165,7 +165,7 @@ public class ExistsByNameExclusionTests
 
     private static Camera Seed(InMemoryCameraRepository cameras, string fab, string name)
     {
-        Camera camera = Camera.Register(
+        var camera = Camera.Register(
             FabIdentifier.From(fab),
             CameraName.From(name),
             RtspUrl.From("rtsp://10.0.7.12/h264"),

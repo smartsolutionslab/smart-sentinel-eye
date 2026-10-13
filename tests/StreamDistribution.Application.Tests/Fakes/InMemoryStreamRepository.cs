@@ -48,7 +48,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = streams.FirstOrDefault(candidate => candidate.Id.Equals(stream));
+        var found = streams.FirstOrDefault(candidate => candidate.Id.Equals(stream));
         RecordLoad(found);
         return Task.FromResult(found is null
             ? Option<Domain.Stream.Stream>.None
@@ -57,7 +57,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task<Option<Domain.Stream.Stream>> GetByCameraAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = streams.FirstOrDefault(candidate => candidate.Camera.Equals(camera));
+        var found = streams.FirstOrDefault(candidate => candidate.Camera.Equals(camera));
         RecordLoad(found);
         return Task.FromResult(found is null
             ? Option<Domain.Stream.Stream>.None
@@ -66,7 +66,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
 
     public Task<Option<Domain.Stream.Stream>> GetByPathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = streams.FirstOrDefault(candidate => candidate.Path.Equals(path));
+        var found = streams.FirstOrDefault(candidate => candidate.Path.Equals(path));
         RecordLoad(found);
         return Task.FromResult(found is null
             ? Option<Domain.Stream.Stream>.None
@@ -79,9 +79,9 @@ public sealed class InMemoryStreamRepository : IStreamRepository
     {
         OnSave();
 
-        HashSet<StreamIdentifier> justAdded = pendingAdds.Select(stream => stream.Id).ToHashSet();
+        var justAdded = pendingAdds.Select(stream => stream.Id).ToHashSet();
 
-        foreach (Domain.Stream.Stream stream in pendingAdds)
+        foreach (var stream in pendingAdds)
         {
             committedVersions[stream.Id] = 0;
             loadedVersions[stream.Id] = 0;
@@ -90,7 +90,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
         streams.AddRange(pendingAdds);
         pendingAdds.Clear();
 
-        foreach (StreamIdentifier id in loadedSinceSave)
+        foreach (var id in loadedSinceSave)
         {
             if (justAdded.Contains(id))
             {
@@ -112,8 +112,8 @@ public sealed class InMemoryStreamRepository : IStreamRepository
     /// </summary>
     public Task<bool> IsUnchangedSinceLoadAsync(Domain.Stream.Stream stream, CancellationToken cancellationToken)
     {
-        bool unchanged = loadedVersions.TryGetValue(stream.Id, out int loaded)
-            && committedVersions.TryGetValue(stream.Id, out int committed)
+        var unchanged = loadedVersions.TryGetValue(stream.Id, out var loaded)
+            && committedVersions.TryGetValue(stream.Id, out var committed)
             && loaded == committed;
 
         return Task.FromResult(unchanged);
@@ -125,7 +125,7 @@ public sealed class InMemoryStreamRepository : IStreamRepository
     /// </summary>
     public Task<StreamState> ReadCommittedStateAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream found = streams.Single(candidate => candidate.Id.Equals(stream));
+        var found = streams.Single(candidate => candidate.Id.Equals(stream));
         return Task.FromResult(found.State);
     }
 

@@ -44,7 +44,7 @@ public class WallClientDeclarationTests
     [Fact]
     public void A_wall_display_carries_no_write_authority()
     {
-        JsonElement wall = Client(WallClient);
+        var wall = Client(WallClient);
 
         Scopes(wall, "defaultClientScopes").ShouldNotContain(WriteScope);
         Scopes(wall, "optionalClientScopes").ShouldNotContain(WriteScope);
@@ -58,9 +58,9 @@ public class WallClientDeclarationTests
     [Fact]
     public void A_wall_display_can_still_read_what_a_wall_needs()
     {
-        string[] declared = Scopes(Client(WallClient), "defaultClientScopes");
+        var declared = Scopes(Client(WallClient), "defaultClientScopes");
 
-        foreach (string needed in new[]
+        foreach (var needed in new[]
                  {
                      "sse-identity", "sse-groups", "sse.cameras.read", "sse.streams.read",
                      "sse.layouts.read", "sse.overlays.read", "sse.variables.read",
@@ -83,7 +83,7 @@ public class WallClientDeclarationTests
     [Fact]
     public void The_long_lived_credential_scope_is_offered_and_never_forced()
     {
-        JsonElement wall = Client(WallClient);
+        var wall = Client(WallClient);
 
         Scopes(wall, "optionalClientScopes").ShouldContain(LongLivedCredentialScope);
         Scopes(wall, "defaultClientScopes").ShouldNotContain(
@@ -99,7 +99,7 @@ public class WallClientDeclarationTests
     [Fact]
     public void The_ordinary_kiosk_client_does_not_offer_a_long_lived_credential()
     {
-        JsonElement kiosk = Client(KioskClient);
+        var kiosk = Client(KioskClient);
 
         Scopes(kiosk, "defaultClientScopes").ShouldNotContain(LongLivedCredentialScope);
         Scopes(kiosk, "optionalClientScopes").ShouldNotContain(LongLivedCredentialScope);
@@ -127,7 +127,7 @@ public class WallClientDeclarationTests
     [InlineData(WallClient, "5175")]
     public void A_client_names_the_origin_it_is_served_from(string clientId, string port)
     {
-        string[] redirectUris = Strings(Client(clientId), "redirectUris");
+        var redirectUris = Strings(Client(clientId), "redirectUris");
 
         redirectUris.ShouldContain(
             uri => uri.Contains($"localhost:{port}", StringComparison.Ordinal),
@@ -156,14 +156,14 @@ public class WallClientDeclarationTests
     {
         const int columnWidth = 255;
 
-        foreach (JsonElement client in Realm().GetProperty("clients").EnumerateArray())
+        foreach (var client in Realm().GetProperty("clients").EnumerateArray())
         {
-            if (!client.TryGetProperty("description", out JsonElement description))
+            if (!client.TryGetProperty("description", out var description))
             {
                 continue;
             }
 
-            string text = description.GetString() ?? string.Empty;
+            var text = description.GetString() ?? string.Empty;
             text.Length.ShouldBeLessThanOrEqualTo(
                 columnWidth,
                 $"'{client.GetProperty("clientId").GetString()}' has a {text.Length}-character description; "
@@ -174,7 +174,7 @@ public class WallClientDeclarationTests
     private static string[] Scopes(JsonElement client, string property) => Strings(client, property);
 
     private static string[] Strings(JsonElement element, string property) =>
-        element.TryGetProperty(property, out JsonElement value)
+        element.TryGetProperty(property, out var value)
             ? value.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToArray()
             : [];
 
@@ -191,10 +191,10 @@ public class WallClientDeclarationTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException($"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
 
         // The file carries a byte-order mark, which the JSON reader rejects.

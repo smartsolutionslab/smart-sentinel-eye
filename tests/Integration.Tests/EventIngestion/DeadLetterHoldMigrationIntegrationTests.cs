@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -47,14 +46,14 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_migration_backfills_reasons_by_topic_prefix_and_resets_discovery_declarations()
     {
-        string scratchDatabase = $"event_ingestion_migration_scratch_{Guid.CreateVersion7():N}";
-        string? baseConnectionString = await aspire.App.GetConnectionStringAsync(
+        var scratchDatabase = $"event_ingestion_migration_scratch_{Guid.CreateVersion7():N}";
+        var baseConnectionString = await aspire.App.GetConnectionStringAsync(
             AspireFixture.EventIngestionConnectionName);
         baseConnectionString.ShouldNotBeNull(
             $"connection string '{AspireFixture.EventIngestionConnectionName}' was not provisioned by Aspire");
 
         NpgsqlConnectionStringBuilder scratchBuilder = new(baseConnectionString) { Database = scratchDatabase };
-        string scratchConnectionString = scratchBuilder.ConnectionString;
+        var scratchConnectionString = scratchBuilder.ConnectionString;
 
         await CreateScratchDatabaseAsync(baseConnectionString, scratchDatabase);
         try
@@ -65,16 +64,16 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
 
             // Step 1: migrate only as far as today's latest migration — the
             // schema as it exists before this spec's migration is written.
-            IMigrator migrator = context.GetInfrastructure().GetRequiredService<IMigrator>();
+            var migrator = context.GetInfrastructure().GetRequiredService<IMigrator>();
             await migrator.MigrateAsync(LastMigrationBeforeThisSpec);
 
             // Step 2: seed rows in the pre-migration shape. Both an "event/"
             // and a "fab/" topic for dead_letters (spec.md's back-fill rule),
             // and a discovery + a strict source_modes row (FR-014).
-            Guid refusedRowId = Guid.CreateVersion7();
-            Guid parseFailureRowId = Guid.CreateVersion7();
-            Guid discoveryRowId = Guid.CreateVersion7();
-            Guid strictRowId = Guid.CreateVersion7();
+            var refusedRowId = Guid.CreateVersion7();
+            var parseFailureRowId = Guid.CreateVersion7();
+            var discoveryRowId = Guid.CreateVersion7();
+            var strictRowId = Guid.CreateVersion7();
             // Scratch database — no risk of colliding with another test run —
             // so plain, short, distinguishable literals rather than a Guid
             // suffix that a 16-char column truncation then collapses to a
@@ -103,7 +102,7 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
             await context.Database.MigrateAsync();
 
             // Step 4: assert the back-fill (FR-004) and the discovery reset (FR-014).
-            BackfilledDeadLetterRow refusedRow = await context.Database
+            var refusedRow = await context.Database
                 .SqlQueryRaw<BackfilledDeadLetterRow>(
                     "SELECT reason AS \"Reason\", kind AS \"Kind\", state AS \"State\" "
                     + "FROM dead_letters WHERE dead_letter_id = {0}", refusedRowId)
@@ -112,7 +111,7 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
             refusedRow.Kind.ShouldBeNull("a back-filled row has no recoverable kind (A4)");
             refusedRow.State.ShouldBe("Held");
 
-            BackfilledDeadLetterRow parseFailureRow = await context.Database
+            var parseFailureRow = await context.Database
                 .SqlQueryRaw<BackfilledDeadLetterRow>(
                     "SELECT reason AS \"Reason\", kind AS \"Kind\", state AS \"State\" "
                     + "FROM dead_letters WHERE dead_letter_id = {0}", parseFailureRowId)
@@ -120,12 +119,12 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
             parseFailureRow.Reason.ShouldBe("ParseFailure", "a 'fab/' topic never reached a parsed envelope");
             parseFailureRow.State.ShouldBe("Held");
 
-            int discoveryRowCount = await context.Database.SqlQueryRaw<int>(
+            var discoveryRowCount = await context.Database.SqlQueryRaw<int>(
                 "SELECT count(*)::int AS \"Value\" FROM source_modes WHERE source_mode_id = {0}", discoveryRowId)
                 .SingleAsync();
             discoveryRowCount.ShouldBe(0, "FR-014: every discovery declaration must be deleted by the migration");
 
-            int strictVersion = await context.Database.SqlQueryRaw<int>(
+            var strictVersion = await context.Database.SqlQueryRaw<int>(
                 "SELECT version AS \"Value\" FROM source_modes WHERE source_mode_id = {0}", strictRowId)
                 .SingleAsync();
             strictVersion.ShouldBe(3, "a strict row must survive the migration untouched, at its prior version");
@@ -141,7 +140,7 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
         NpgsqlConnectionStringBuilder adminBuilder = new(baseConnectionString) { Database = "postgres" };
         await using NpgsqlConnection admin = new(adminBuilder.ConnectionString);
         await admin.OpenAsync();
-        await using NpgsqlCommand create = admin.CreateCommand();
+        await using var create = admin.CreateCommand();
         create.CommandText = $"CREATE DATABASE \"{scratchDatabase}\"";
         await create.ExecuteNonQueryAsync();
     }
@@ -163,7 +162,7 @@ public class DeadLetterHoldMigrationIntegrationTests(AspireFixture aspire)
             NpgsqlConnectionStringBuilder adminBuilder = new(baseConnectionString) { Database = "postgres" };
             await using NpgsqlConnection admin = new(adminBuilder.ConnectionString);
             await admin.OpenAsync();
-            await using NpgsqlCommand drop = admin.CreateCommand();
+            await using var drop = admin.CreateCommand();
             drop.CommandText = $"DROP DATABASE IF EXISTS \"{scratchDatabase}\" WITH (FORCE)";
             await drop.ExecuteNonQueryAsync();
         }

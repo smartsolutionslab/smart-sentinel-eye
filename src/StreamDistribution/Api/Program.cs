@@ -1,13 +1,12 @@
 using System.Text.Json;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Api;
 using SmartSentinelEye.StreamDistribution.Infrastructure;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddBearerAuthentication();
@@ -19,9 +18,9 @@ builder.Services.AddOpenApi();
 // hook and otherwise accepts requests without limit. Limits come from config
 // so the production default and the integration lane's small ceiling
 // (AppHost.cs, isE2ETests) both apply without a recompile.
-int whepAuthorizePermitLimit =
+var whepAuthorizePermitLimit =
     builder.Configuration.GetValue<int?>("WhepAuthorizeRateLimiting:PermitLimit") ?? 2000;
-TimeSpan whepAuthorizeWindow =
+var whepAuthorizeWindow =
     builder.Configuration.GetValue<TimeSpan?>("WhepAuthorizeRateLimiting:Window") ?? TimeSpan.FromMinutes(1);
 
 // #2871: the `api` partition used to share this same ceiling (see the
@@ -41,9 +40,9 @@ TimeSpan whepAuthorizeWindow =
 // verification), a failed `api` attempt costs one cheap SHA-256 compare
 // (MediaMtxApiAuthenticator), so a higher ceiling does not reopen the
 // CPU-exhaustion finding ADR-0171 closed.
-int mediaMtxApiAuthorizePermitLimit =
+var mediaMtxApiAuthorizePermitLimit =
     builder.Configuration.GetValue<int?>("MediaMtxApiAuthorizeRateLimiting:PermitLimit") ?? 2000;
-TimeSpan mediaMtxApiAuthorizeWindow =
+var mediaMtxApiAuthorizeWindow =
     builder.Configuration.GetValue<TimeSpan?>("MediaMtxApiAuthorizeRateLimiting:Window") ?? TimeSpan.FromMinutes(1);
 
 // Spec 208 review S13: a misconfigured PermitLimit <= 0 or a zero/negative
@@ -54,10 +53,10 @@ TimeSpan mediaMtxApiAuthorizeWindow =
 // TotalMilliseconds rather than Ticks because it stays well within int range
 // for any realistic window (the production default is 60 000 ms).
 Ensure.That(whepAuthorizePermitLimit).AtLeast(1);
-int whepAuthorizeWindowMilliseconds = (int)whepAuthorizeWindow.TotalMilliseconds;
+var whepAuthorizeWindowMilliseconds = (int)whepAuthorizeWindow.TotalMilliseconds;
 Ensure.That(whepAuthorizeWindowMilliseconds).AtLeast(1);
 Ensure.That(mediaMtxApiAuthorizePermitLimit).AtLeast(1);
-int mediaMtxApiAuthorizeWindowMilliseconds = (int)mediaMtxApiAuthorizeWindow.TotalMilliseconds;
+var mediaMtxApiAuthorizeWindowMilliseconds = (int)mediaMtxApiAuthorizeWindow.TotalMilliseconds;
 Ensure.That(mediaMtxApiAuthorizeWindowMilliseconds).AtLeast(1);
 
 builder.Services.AddMemoryCache();
@@ -91,11 +90,11 @@ static async Task PeekMediaMtxActionAsync(HttpContext context)
 
     context.Request.EnableBuffering();
 
-    string action = WhepActionPartition;
+    var action = WhepActionPartition;
     try
     {
-        using JsonDocument body = await JsonDocument.ParseAsync(context.Request.Body);
-        if (body.RootElement.TryGetProperty("action", out JsonElement actionElement) &&
+        using var body = await JsonDocument.ParseAsync(context.Request.Body);
+        if (body.RootElement.TryGetProperty("action", out var actionElement) &&
             actionElement.ValueKind == JsonValueKind.String &&
             string.Equals(actionElement.GetString(), "api", StringComparison.Ordinal))
         {
@@ -119,7 +118,7 @@ static async Task PeekMediaMtxActionAsync(HttpContext context)
 // regression to a fixed/global bucket) — hiding that behind a helper call
 // would pass this file's own tests while defeating that guard.
 static string WhepAuthorizeActionClassification(HttpContext context) =>
-    context.Items.TryGetValue(MediaMtxActionPartitionItemKey, out object? value) && value is string classified
+    context.Items.TryGetValue(MediaMtxActionPartitionItemKey, out var value) && value is string classified
         ? classified
         : WhepActionPartition;
 
@@ -168,12 +167,12 @@ builder.Services.AddRateLimiter(options =>
         // Same "ip:{RemoteIpAddress}:action:{classification}" spelling as the
         // policy's own partition key below, so a transition log record names
         // exactly the partition the limiter itself keyed on.
-        string classification = WhepAuthorizeActionClassification(context.HttpContext);
-        string partition =
+        var classification = WhepAuthorizeActionClassification(context.HttpContext);
+        var partition =
             $"ip:{context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"
             + $":action:{classification}";
-        (int permitLimit, TimeSpan window) = RateLimitBudgetFor(classification);
-        IMemoryCache cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
+        (var permitLimit, var window) = RateLimitBudgetFor(classification);
+        var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
         if (IsNewWhepAuthorizeThrottleTransition(cache, partition, window))
         {
             context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
@@ -214,7 +213,7 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 app.MapDefaultEndpoints();
 

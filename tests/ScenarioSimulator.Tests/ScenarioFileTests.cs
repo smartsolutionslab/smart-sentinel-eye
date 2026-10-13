@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Configuration;
-using Shouldly;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
@@ -21,9 +19,9 @@ public sealed class ScenarioFileTests
     [InlineData("electronics")]
     public void Every_asset_in_a_scenario_plays_a_different_clip(string key)
     {
-        ScenarioDefinition scenario = Load().Scenarios[key];
+        var scenario = Load().Scenarios[key];
 
-        string[] clips = scenario.Assets.Select(asset => asset.Camera.Clip).ToArray();
+        var clips = scenario.Assets.Select(asset => asset.Camera.Clip).ToArray();
 
         clips.Length.ShouldBeGreaterThan(0);
         clips.Distinct(StringComparer.OrdinalIgnoreCase).Count().ShouldBe(clips.Length);
@@ -42,7 +40,7 @@ public sealed class ScenarioFileTests
     {
         ClipLibrary clips = new(ClipsDirectory());
 
-        foreach (AssetDefinition asset in Load().Scenarios[key].Assets)
+        foreach (var asset in Load().Scenarios[key].Assets)
         {
             clips.Exists(asset.Camera.Clip)
                 .ShouldBeTrue($"{key}/{asset.Key} names {asset.Camera.Clip}, which is not in the clips directory");
@@ -57,11 +55,11 @@ public sealed class ScenarioFileTests
     [Fact]
     public void Every_clip_in_the_repository_has_an_attribution_file()
     {
-        string directory = ClipsDirectory();
+        var directory = ClipsDirectory();
 
-        foreach (string clip in Directory.EnumerateFiles(directory, "*.mp4"))
+        foreach (var clip in Directory.EnumerateFiles(directory, "*.mp4"))
         {
-            string attribution = Path.ChangeExtension(clip, null) + ".ATTRIBUTION.txt";
+            var attribution = Path.ChangeExtension(clip, null) + ".ATTRIBUTION.txt";
             File.Exists(attribution).ShouldBeTrue($"{Path.GetFileName(clip)} has no ATTRIBUTION.txt beside it");
             File.ReadAllText(attribution).ShouldContain("creativecommons.org");
         }
@@ -74,7 +72,7 @@ public sealed class ScenarioFileTests
     [Fact]
     public void Three_scenarios_are_active_and_exactly_one_of_them_animates()
     {
-        ScenarioOptions options = Load();
+        var options = Load();
 
         options.Active.Count.ShouldBe(3);
         options.Animated.ShouldBe(options.Active[0]);
@@ -83,12 +81,12 @@ public sealed class ScenarioFileTests
 
     private static ScenarioOptions Load()
     {
-        string scenarios = Path.Combine(AppContext.BaseDirectory, "Scenarios");
+        var scenarios = Path.Combine(AppContext.BaseDirectory, "Scenarios");
 
-        IConfigurationBuilder builder = new ConfigurationBuilder()
+        var builder = new ConfigurationBuilder()
             .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: true);
 
-        foreach (string file in Directory.EnumerateFiles(scenarios, "*.json"))
+        foreach (var file in Directory.EnumerateFiles(scenarios, "*.json"))
         {
             builder.AddJsonFile(file, optional: false);
         }
@@ -107,16 +105,16 @@ public sealed class ScenarioFileTests
     [Fact]
     public void Every_cues_json_sidecar_names_a_clip_that_exists_and_is_itself_valid()
     {
-        string directory = ClipsDirectory();
+        var directory = ClipsDirectory();
 
-        foreach (string sidecar in Directory.EnumerateFiles(directory, "*.cues.json"))
+        foreach (var sidecar in Directory.EnumerateFiles(directory, "*.cues.json"))
         {
-            string clip = Path.GetFileName(sidecar).Replace(".cues.json", ".mp4", StringComparison.Ordinal);
+            var clip = Path.GetFileName(sidecar).Replace(".cues.json", ".mp4", StringComparison.Ordinal);
 
             File.Exists(Path.Combine(directory, clip))
                 .ShouldBeTrue($"{Path.GetFileName(sidecar)} names a clip that is not in the clips directory");
 
-            ClipManifestLoadResult result = ClipManifestLoader.Load(directory, clip);
+            var result = ClipManifestLoader.Load(directory, clip);
 
             result.Violations.ShouldBeEmpty(
                 $"{Path.GetFileName(sidecar)}: " + string.Join("; ", result.Violations.Select(v => v.Message)));
@@ -137,24 +135,24 @@ public sealed class ScenarioFileTests
     [Fact]
     public void Every_cues_json_sidecars_DurationMs_matches_its_clips_actual_duration_within_1ms()
     {
-        string directory = ClipsDirectory();
+        var directory = ClipsDirectory();
 
-        foreach (string sidecar in Directory.EnumerateFiles(directory, "*.cues.json"))
+        foreach (var sidecar in Directory.EnumerateFiles(directory, "*.cues.json"))
         {
-            string clipName = Path.GetFileName(sidecar).Replace(".cues.json", ".mp4", StringComparison.Ordinal);
-            string clipPath = Path.Combine(directory, clipName);
+            var clipName = Path.GetFileName(sidecar).Replace(".cues.json", ".mp4", StringComparison.Ordinal);
+            var clipPath = Path.Combine(directory, clipName);
             if (!File.Exists(clipPath))
             {
                 continue; // named-but-missing is already asserted by the sibling fact above
             }
 
-            ClipManifestLoadResult result = ClipManifestLoader.Load(directory, clipName);
+            var result = ClipManifestLoader.Load(directory, clipName);
             if (!result.Manifest.HasValue)
             {
                 continue; // an invalid sidecar is already asserted by the sibling fact above
             }
 
-            double? actualDurationMs = Mp4Duration.ReadMs(clipPath);
+            var actualDurationMs = Mp4Duration.ReadMs(clipPath);
             actualDurationMs.ShouldNotBeNull($"{clipName} has no mvhd box to read a duration from");
 
             ((double)result.Manifest.Value.DurationMs).ShouldBe(

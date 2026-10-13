@@ -40,7 +40,7 @@ public class MetadataTransportTests
     [MemberData(nameof(NonDevelopmentEnvironments))]
     public void The_effective_RequireHttpsMetadata_is_true_outside_Development(string environmentName)
     {
-        JwtBearerOptions options = BearerOptionsFor(environmentName, authority: "https://keycloak.invalid");
+        var options = BearerOptionsFor(environmentName, authority: "https://keycloak.invalid");
 
         options.RequireHttpsMetadata.ShouldBeTrue(
             $"outside Development ('{environmentName}' here) the realm's discovery document and "
@@ -52,12 +52,12 @@ public class MetadataTransportTests
     [MemberData(nameof(NonDevelopmentEnvironments))]
     public void Startup_validation_throws_when_the_authority_is_http(string environmentName)
     {
-        using ServiceProvider provider = BuildProvider(
+        using var provider = BuildProvider(
             environmentName,
             authority: "http://keycloak.invalid",
             withRevocationCredentials: true);
 
-        Exception exception = Should.Throw<Exception>(
+        var exception = Should.Throw<Exception>(
             () => provider.GetRequiredService<IStartupValidator>().Validate());
 
         // Not asserted as a specific exception type (plan §3.2): in the pinned
@@ -78,7 +78,7 @@ public class MetadataTransportTests
     [MemberData(nameof(NonDevelopmentEnvironments))]
     public void Startup_validation_throws_when_a_later_configure_reopens_plaintext(string environmentName)
     {
-        HostApplicationBuilder builder = EmptyBuilder(
+        var builder = EmptyBuilder(
             environmentName,
             authority: "https://keycloak.invalid",
             withRevocationCredentials: true);
@@ -91,9 +91,9 @@ public class MetadataTransportTests
             JwtBearerDefaults.AuthenticationScheme,
             options => options.RequireHttpsMetadata = false);
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
 
-        OptionsValidationException exception = Should.Throw<OptionsValidationException>(
+        var exception = Should.Throw<OptionsValidationException>(
             () => provider.GetRequiredService<IStartupValidator>().Validate(),
             $"a later Configure<JwtBearerOptions> flipping the flag back to false must still fail "
             + $"startup outside Development ('{environmentName}' here) — the policy is derived from "
@@ -110,7 +110,7 @@ public class MetadataTransportTests
         // runs every registered ValidateOnStart check, including spec 270's
         // unrelated revocation one, so leaving it unset would fail this test for
         // the wrong reason (plan §4).
-        using ServiceProvider provider = BuildProvider(
+        using var provider = BuildProvider(
             Environments.Development,
             authority: "http://keycloak.invalid",
             withRevocationCredentials: true);
@@ -120,7 +120,7 @@ public class MetadataTransportTests
             "Aspire wires Keycloak over plain HTTP by design in Development; this must stay "
             + "byte-for-byte unchanged (spec 340 FR-007).");
 
-        JwtBearerOptions options = provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+        var options = provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
             .Get(JwtBearerDefaults.AuthenticationScheme);
         options.RequireHttpsMetadata.ShouldBeFalse(
             "Development stays permissive; no new validation may fail for an http:// authority "
@@ -137,7 +137,7 @@ public class MetadataTransportTests
     /// </summary>
     private static JwtBearerOptions BearerOptionsFor(string environmentName, string authority)
     {
-        using ServiceProvider provider = BuildProvider(
+        using var provider = BuildProvider(
             environmentName, authority, withRevocationCredentials: false);
         return provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
             .Get(JwtBearerDefaults.AuthenticationScheme);
@@ -146,7 +146,7 @@ public class MetadataTransportTests
     private static ServiceProvider BuildProvider(
         string environmentName, string authority, bool withRevocationCredentials)
     {
-        HostApplicationBuilder builder = EmptyBuilder(environmentName, authority, withRevocationCredentials);
+        var builder = EmptyBuilder(environmentName, authority, withRevocationCredentials);
         builder.AddBearerAuthentication();
         return builder.Services.BuildServiceProvider();
     }
@@ -160,7 +160,7 @@ public class MetadataTransportTests
     private static HostApplicationBuilder EmptyBuilder(
         string environmentName, string authority, bool withRevocationCredentials)
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(
+        var builder = Host.CreateEmptyApplicationBuilder(
             new HostApplicationBuilderSettings { EnvironmentName = environmentName });
 
         if (!string.Equals(builder.Environment.EnvironmentName, environmentName, StringComparison.Ordinal))

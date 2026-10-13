@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -38,21 +36,21 @@ public class ShadowedVariableNameIntegrationTests(AspireFixture aspire) : IAsync
     [MemberData(nameof(FormerLiteralRouteSegments))]
     public async Task A_variable_named_after_a_former_literal_route_segment_is_readable_by_name(string name)
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
         try
         {
             (await DefineIfAbsentAsync(variables, name)).Dispose();
 
-            HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}?fabId=munich");
-            string body = await fetched.Content.ReadAsStringAsync();
+            var fetched = await variables.GetAsync($"/system-variables/{name}?fabId=munich");
+            var body = await fetched.Content.ReadAsStringAsync();
             fetched.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
                 $"GET /system-variables/{name} did not answer 200 with the variable itself — the literal "
                 + $"route '/{name}' shadows the parameterized GET /system-variables/{{name}} (issue #2358). "
                 + $"Response: {body}");
 
-            JsonElement payload = JsonDocument.Parse(body).RootElement;
+            var payload = JsonDocument.Parse(body).RootElement;
             payload.GetProperty("name").GetString().ShouldBe(name);
             fetched.Headers.ETag.ShouldNotBeNull(
                 "a successful GET /system-variables/{name} response carries the concurrency ETag (ADR-0113), "
@@ -73,7 +71,7 @@ public class ShadowedVariableNameIntegrationTests(AspireFixture aspire) : IAsync
     /// </summary>
     private static async Task<HttpResponseMessage> DefineIfAbsentAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables?fabId=munich", new
+        var defined = await variables.PostAsJsonAsync("/system-variables?fabId=munich", new
         {
             name,
             type = "String",

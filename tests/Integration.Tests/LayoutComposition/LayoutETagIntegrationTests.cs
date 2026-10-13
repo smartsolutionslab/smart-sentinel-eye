@@ -21,14 +21,14 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Reading_a_layout_returns_an_ETag_matching_the_version_in_the_body()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid layoutIdentifier = await CreateDraftAsync(layouts);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var layoutIdentifier = await CreateDraftAsync(layouts);
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
 
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        int version = payload.GetProperty("version").GetInt32();
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var version = payload.GetProperty("version").GetInt32();
 
         fetched.Headers.ETag.ShouldNotBeNull();
         fetched.Headers.ETag.Tag.ShouldBe($"\"{version}\"");
@@ -38,19 +38,19 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task The_list_endpoint_carries_a_version_on_every_chain()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
         await CreateDraftAsync(layouts);
 
-        HttpResponseMessage listed = await layouts.GetAsync("/layouts");
+        var listed = await layouts.GetAsync("/layouts");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement chains = payload.GetProperty("chains");
+        var payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var chains = payload.GetProperty("chains");
 
         chains.GetArrayLength().ShouldBeGreaterThan(0);
-        foreach (JsonElement chain in chains.EnumerateArray())
+        foreach (var chain in chains.EnumerateArray())
         {
-            chain.TryGetProperty("version", out JsonElement version).ShouldBeTrue();
+            chain.TryGetProperty("version", out var version).ShouldBeTrue();
             version.GetInt32().ShouldBeGreaterThanOrEqualTo(0);
         }
     }
@@ -58,10 +58,10 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_mutation_without_If_Match_is_refused_with_428()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid layoutIdentifier = await CreateDraftAsync(layouts);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var layoutIdentifier = await CreateDraftAsync(layouts);
 
-        HttpResponseMessage published = await layouts.PostAsync(
+        var published = await layouts.PostAsync(
             $"/layouts/{layoutIdentifier}/revisions/1/publish", content: null);
 
         published.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
@@ -72,34 +72,34 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_mutation_carrying_a_superseded_version_is_refused_with_409()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid layoutIdentifier = await CreateDraftAsync(layouts);
-        int readAt = await LayoutRequests.VersionAsync(layouts, layoutIdentifier);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var layoutIdentifier = await CreateDraftAsync(layouts);
+        var readAt = await LayoutRequests.VersionAsync(layouts, layoutIdentifier);
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(
+        var published = await LayoutRequests.PostAsync(
             layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
 
         HttpRequestMessage stale = new(HttpMethod.Post, $"/layouts/{layoutIdentifier}/revisions/1/archive");
         stale.Headers.TryAddWithoutValidation("If-Match", $"\"{readAt}\"");
-        HttpResponseMessage refused = await layouts.SendAsync(stale);
+        var refused = await layouts.SendAsync(stale);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_REVISION_STALE");
     }
 
     [Fact]
     public async Task The_same_mutation_succeeds_once_the_caller_re_reads()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid layoutIdentifier = await CreateDraftAsync(layouts);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var layoutIdentifier = await CreateDraftAsync(layouts);
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(
+        var published = await LayoutRequests.PostAsync(
             layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
 
-        HttpResponseMessage archived = await LayoutRequests.PostAsync(
+        var archived = await LayoutRequests.PostAsync(
             layouts, layoutIdentifier, "revisions/1/archive");
 
         archived.EnsureSuccessStatusCode();
@@ -107,13 +107,13 @@ public class LayoutETagIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<Guid> CreateDraftAsync(HttpClient layouts)
     {
-        string name = $"Etag-{Guid.NewGuid():N}"[..16];
+        var name = $"Etag-{Guid.NewGuid():N}"[..16];
 
         // A real camera, in the layout's fab: since spec 017 FR-014 a tile
         // cannot name one that does not exist.
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire);
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name,
             grid = new { rows = 1, cols = 1 },

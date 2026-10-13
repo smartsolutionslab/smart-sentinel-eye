@@ -26,7 +26,7 @@ public class SceneVersionTests
     [Fact]
     public void Next_advances_by_exactly_one_each_call()
     {
-        SceneVersion version = SceneVersion.Initial.Next().Next().Next();
+        var version = SceneVersion.Initial.Next().Next().Next();
         version.Value.ShouldBe(3L);
     }
 

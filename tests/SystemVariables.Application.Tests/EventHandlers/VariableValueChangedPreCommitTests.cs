@@ -53,7 +53,7 @@ public class VariableValueChangedPreCommitTests
             OperatorIdentifier.From(Guid.CreateVersion7()),
             clock));
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
@@ -73,7 +73,7 @@ public class VariableValueChangedPreCommitTests
                 RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
 
         push.Texts.Single().Resolved.ShouldBe(
@@ -104,7 +104,7 @@ public class VariableValueChangedPreCommitTests
             OperatorIdentifier.From(Guid.CreateVersion7()),
             clock));
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["{{shift}} — OEE {{oeeLine1}}%"]);
 
         VariableValueChangedDomainEventHandler handler = new(
@@ -124,7 +124,7 @@ public class VariableValueChangedPreCommitTests
                 RootIngestedAt: Option<DateTimeOffset>.None),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
 
         push.Texts.Single().Resolved.ShouldBe("Nights — OEE 82.5%");

@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
-using SmartSentinelEye.SystemVariables.Infrastructure.Persistence;
 using VariableAggregate = SmartSentinelEye.SystemVariables.Domain.Variable.Variable;
 
 namespace SmartSentinelEye.Integration.Tests.SystemVariables;
@@ -48,15 +47,15 @@ public class CrossFabVariableIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task The_same_variable_name_is_accepted_in_two_fabs()
     {
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedNumberAsync("munich", name, 41);
         await SeedNumberAsync("dresden", name, 7);
 
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
-        VariableName parsed = VariableName.From(name);
+        var parsed = VariableName.From(name);
 
-        List<VariableAggregate> stored = await context.Variables
+        var stored = await context.Variables
             .Where(variable => variable.Name == parsed)
             .ToListAsync();
 
@@ -73,25 +72,25 @@ public class CrossFabVariableIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Setting_one_fabs_value_leaves_the_other_untouched()
     {
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedNumberAsync("munich", name, 41);
         await SeedNumberAsync("dresden", name, 7);
 
         // The API resolves to munich until T023, which is what makes this the
         // munich row and not an arbitrary one of the two.
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        HttpResponseMessage updated = await VariableRequests.SetValueAsync(variables, name, "99");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        var updated = await VariableRequests.SetValueAsync(variables, name, "99");
         updated.EnsureSuccessStatusCode();
 
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
-        VariableName parsed = VariableName.From(name);
-        FabIdentifier munichFab = FabIdentifier.From("munich");
-        FabIdentifier dresdenFab = FabIdentifier.From("dresden");
+        var parsed = VariableName.From(name);
+        var munichFab = FabIdentifier.From("munich");
+        var dresdenFab = FabIdentifier.From("dresden");
 
-        VariableAggregate munich = await context.Variables
+        var munich = await context.Variables
             .SingleAsync(variable => variable.Name == parsed && variable.Fab == munichFab);
-        VariableAggregate dresden = await context.Variables
+        var dresden = await context.Variables
             .SingleAsync(variable => variable.Name == parsed && variable.Fab == dresdenFab);
 
         munich.Value.ToWireString().ShouldBe("99");
@@ -106,26 +105,26 @@ public class CrossFabVariableIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task An_archived_name_is_free_for_reuse_within_the_same_fab()
     {
-        string name = UniqueName();
+        var name = UniqueName();
         await SeedNumberAsync("munich", name, 41, archived: true);
 
         await SeedNumberAsync("munich", name, 5);
 
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
-        VariableName parsed = VariableName.From(name);
+        var parsed = VariableName.From(name);
 
         (await context.Variables.CountAsync(variable => variable.Name == parsed)).ShouldBe(2);
     }
 
     private async Task SeedNumberAsync(string fab, string name, double value, bool archived = false)
     {
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
 
         SystemClock clock = new();
-        OperatorIdentifier author = OperatorIdentifier.From(Guid.CreateVersion7());
-        VariableAggregate variable = VariableAggregate.Define(
+        var author = OperatorIdentifier.From(Guid.CreateVersion7());
+        var variable = VariableAggregate.Define(
             FabIdentifier.From(fab),
             VariableName.From(name),
             VariableType.Number,

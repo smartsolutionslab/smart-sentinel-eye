@@ -7,14 +7,14 @@ public class OverlayNameTests
     [Fact]
     public void From_accepts_a_normal_name()
     {
-        OverlayName name = OverlayName.From("Line-1 Title");
+        var name = OverlayName.From("Line-1 Title");
         name.Value.ShouldBe("Line-1 Title");
     }
 
     [Fact]
     public void From_trims_leading_and_trailing_whitespace()
     {
-        OverlayName name = OverlayName.From("  Line-1  ");
+        var name = OverlayName.From("  Line-1  ");
         name.Value.ShouldBe("Line-1");
     }
 
@@ -55,8 +55,8 @@ public class OverlayNameTests
     [Fact]
     public void Names_differing_only_in_case_are_not_equal()
     {
-        OverlayName upper = OverlayName.From("Wall A");
-        OverlayName lower = OverlayName.From("wall a");
+        var upper = OverlayName.From("Wall A");
+        var lower = OverlayName.From("wall a");
 
         upper.ShouldNotBe(lower);
         upper.Value.ShouldBe("Wall A");

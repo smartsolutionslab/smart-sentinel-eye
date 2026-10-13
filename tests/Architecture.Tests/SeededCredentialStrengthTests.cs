@@ -99,7 +99,7 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void The_realm_seeds_twelve_human_credential_blocks_with_twelve_distinct_passwords()
     {
-        SeededAccount[] accounts = HumanAccounts();
+        var accounts = HumanAccounts();
         string[] distinctPasswords = [.. accounts.Select(account => account.Password).Distinct(StringComparer.Ordinal)];
 
         accounts.Length.ShouldBe(
@@ -119,12 +119,12 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void Every_seeded_password_satisfies_the_realms_own_declared_policy()
     {
-        string declared = DeclaredPolicy();
-        PolicyPredicate policy = ParsePolicy(declared);
-        SeededAccount[] accounts = HumanAccounts();
-        int distinctCount = accounts.Select(account => account.Password).Distinct(StringComparer.Ordinal).Count();
+        var declared = DeclaredPolicy();
+        var policy = ParsePolicy(declared);
+        var accounts = HumanAccounts();
+        var distinctCount = accounts.Select(account => account.Password).Distinct(StringComparer.Ordinal).Count();
 
-        foreach (SeededAccount account in accounts)
+        foreach (var account in accounts)
         {
             policy.IsSatisfiedBy(account.Password, new Candidate(account.Username, account.Email)).ShouldBeTrue(
                 customMessage: $"'{account.Username}' carries a password that does not satisfy the "
@@ -146,8 +146,8 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void The_parsed_policy_refuses_a_password_that_breaks_each_clause()
     {
-        string declared = DeclaredPolicy();
-        PolicyPredicate policy = ParsePolicy(declared);
+        var declared = DeclaredPolicy();
+        var policy = ParsePolicy(declared);
         Candidate probe = new(ProbeUsername, ProbeEmail);
         Candidate emailProbe = new(ProbeUsername, EmailOnlyCounterfactualPassword);
 
@@ -162,13 +162,13 @@ public class SeededCredentialStrengthTests
             (EmailOnlyCounterfactualPassword, emailProbe, "notEmail"),
         ];
 
-        foreach ((string password, Candidate candidate, string expectedClause) in counterfactuals)
+        foreach ((var password, var candidate, var expectedClause) in counterfactuals)
         {
             policy.IsSatisfiedBy(password, candidate).ShouldBeFalse(
                 customMessage: $"'{password}' should be refused by the realm's declared policy "
                 + $"'{declared}', or the policy predicate is vacuously true");
 
-            PolicyClause? failed = policy.FirstUnsatisfiedClause(password, candidate);
+            var failed = policy.FirstUnsatisfiedClause(password, candidate);
 
             failed.ShouldNotBeNull(customMessage: $"'{password}' was refused but no clause reported why");
             failed.Name.ShouldBe(
@@ -187,7 +187,7 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void None_of_the_twelve_seeded_accounts_have_a_username_derived_password()
     {
-        SeededAccount[] accounts = HumanAccounts();
+        var accounts = HumanAccounts();
         SeededAccount[] derived = [.. accounts.Where(IsUsernameDerived)];
         string[] derivedUsernames = [.. derived.Select(account => account.Username)];
 
@@ -211,7 +211,7 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void No_seeded_password_is_held_by_more_than_one_account()
     {
-        SeededAccount[] accounts = HumanAccounts();
+        var accounts = HumanAccounts();
 
         var duplicates = accounts
             .GroupBy(account => account.Password, StringComparer.Ordinal)
@@ -253,14 +253,14 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void Every_retired_seeded_password_is_refused_by_the_realms_declared_policy()
     {
-        string declared = DeclaredPolicy();
-        PolicyPredicate policy = ParsePolicy(declared);
-        SeededAccount[] accounts = HumanAccounts();
+        var declared = DeclaredPolicy();
+        var policy = ParsePolicy(declared);
+        var accounts = HumanAccounts();
 
-        foreach ((string username, string suffix) in RetiredSeededCredentials)
+        foreach ((var username, var suffix) in RetiredSeededCredentials)
         {
-            string password = Capitalise(username) + suffix;
-            SeededAccount account = accounts.First(candidate => candidate.Username == username);
+            var password = Capitalise(username) + suffix;
+            var account = accounts.First(candidate => candidate.Username == username);
             Candidate retiredCandidate = new(account.Username, account.Email);
 
             policy.IsSatisfiedBy(password, retiredCandidate).ShouldBeFalse(
@@ -278,7 +278,7 @@ public class SeededCredentialStrengthTests
     [Fact]
     public void The_declared_policy_requires_at_least_fifteen_characters_and_the_three_new_clauses()
     {
-        string declared = DeclaredPolicy();
+        var declared = DeclaredPolicy();
         (string Name, string Argument)[] rawClauses =
             [.. declared.Split(" and ", StringSplitOptions.TrimEntries).Select(SplitClause)];
         string[] clauseNames = [.. rawClauses.Select(clause => clause.Name)];
@@ -286,7 +286,7 @@ public class SeededCredentialStrengthTests
         rawClauses.ShouldContain(
             clause => clause.Name == "length",
             customMessage: $"expected a 'length(...)' clause in the declared policy '{declared}'.");
-        int declaredMinimumLength = ParseInt(rawClauses.First(clause => clause.Name == "length").Argument);
+        var declaredMinimumLength = ParseInt(rawClauses.First(clause => clause.Name == "length").Argument);
 
         declaredMinimumLength.ShouldBeGreaterThanOrEqualTo(
             15,
@@ -306,7 +306,7 @@ public class SeededCredentialStrengthTests
 
     private static bool IsUsernameDerived(SeededAccount account)
     {
-        string capitalisedLocalPart = Capitalise(LocalPart(account.Username));
+        var capitalisedLocalPart = Capitalise(LocalPart(account.Username));
 
         return DerivationSuffixes.Any(suffix =>
             string.Equals(account.Password, capitalisedLocalPart + suffix, StringComparison.Ordinal));
@@ -314,7 +314,7 @@ public class SeededCredentialStrengthTests
 
     private static string LocalPart(string username)
     {
-        int at = username.IndexOf('@', StringComparison.Ordinal);
+        var at = username.IndexOf('@', StringComparison.Ordinal);
         return at >= 0 ? username[..at] : username;
     }
 
@@ -327,15 +327,15 @@ public class SeededCredentialStrengthTests
     {
         List<SeededAccount> accounts = [];
 
-        foreach (JsonElement user in Realm().GetProperty("users").EnumerateArray())
+        foreach (var user in Realm().GetProperty("users").EnumerateArray())
         {
-            string username = user.GetProperty("username").GetString() ?? string.Empty;
+            var username = user.GetProperty("username").GetString() ?? string.Empty;
             if (username.StartsWith("service-account-", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string email = user.TryGetProperty("email", out JsonElement emailProperty)
+            var email = user.TryGetProperty("email", out var emailProperty)
                 ? emailProperty.GetString() ?? string.Empty
                 : string.Empty;
 
@@ -356,7 +356,7 @@ public class SeededCredentialStrengthTests
             .GetProperty("value").GetString() ?? string.Empty;
 
     private static string[] Strings(JsonElement element, string property) =>
-        element.TryGetProperty(property, out JsonElement value)
+        element.TryGetProperty(property, out var value)
             ? [.. value.EnumerateArray().Select(item => item.GetString() ?? string.Empty)]
             : [];
 
@@ -412,7 +412,7 @@ public class SeededCredentialStrengthTests
     /// </summary>
     private static PolicyClause ParseClause(string raw)
     {
-        (string name, string argument) = SplitClause(raw);
+        (var name, var argument) = SplitClause(raw);
 
         return name switch
         {
@@ -440,9 +440,9 @@ public class SeededCredentialStrengthTests
 
     private static (string Name, string Argument) SplitClause(string raw)
     {
-        int open = raw.IndexOf('(', StringComparison.Ordinal);
-        string name = open >= 0 ? raw[..open] : raw;
-        string argument = open >= 0 && raw.EndsWith(')') ? raw[(open + 1)..^1] : string.Empty;
+        var open = raw.IndexOf('(', StringComparison.Ordinal);
+        var name = open >= 0 ? raw[..open] : raw;
+        var argument = open >= 0 && raw.EndsWith(')') ? raw[(open + 1)..^1] : string.Empty;
         return (name, argument);
     }
 
@@ -460,13 +460,13 @@ public class SeededCredentialStrengthTests
 
     private static JsonDocument ReadRealm()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
 
         // The file carries a byte-order mark, which the JSON reader rejects.
-        string text = File.ReadAllText(path).TrimStart('﻿');
+        var text = File.ReadAllText(path).TrimStart('﻿');
         return JsonDocument.Parse(text);
     }
 }

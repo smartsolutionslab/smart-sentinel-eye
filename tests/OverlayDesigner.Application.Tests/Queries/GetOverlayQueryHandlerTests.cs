@@ -1,11 +1,9 @@
 using System.Globalization;
-using SmartSentinelEye.OverlayDesigner.Application.DTOs;
 using SmartSentinelEye.OverlayDesigner.Application.Queries;
 using SmartSentinelEye.OverlayDesigner.Application.Queries.Handlers;
 using SmartSentinelEye.OverlayDesigner.Application.Tests.Fakes;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.OverlayDesigner.Domain.Tests.Overlay.Builders;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Application.Tests.Queries;
 
@@ -19,7 +17,7 @@ public class GetOverlayQueryHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -28,7 +26,7 @@ public class GetOverlayQueryHandlerTests
         IOverlayQuerySource source = new InMemoryOverlayQuerySource(overlays);
 
         GetOverlayQueryHandler handler = new(source);
-        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -44,7 +42,7 @@ public class GetOverlayQueryHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-2")
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -52,7 +50,7 @@ public class GetOverlayQueryHandlerTests
         overlays.Add(overlay);
 
         GetOverlayQueryHandler handler = new(new InMemoryOverlayQuerySource(overlays));
-        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -68,7 +66,7 @@ public class GetOverlayQueryHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-3")
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.11m, 0.22m), NormalizedSize.From(0.33m, 0.44m), OverlayColor.Default))
@@ -76,11 +74,11 @@ public class GetOverlayQueryHandlerTests
         overlays.Add(overlay);
 
         GetOverlayQueryHandler handler = new(new InMemoryOverlayQuerySource(overlays));
-        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        OverlayElementDto element = result.Value.Revisions.Single().Elements.Single();
+        var element = result.Value.Revisions.Single().Elements.Single();
         element.NormalizedX.ShouldBe(0.11m);
         element.NormalizedY.ShouldBe(0.22m);
         element.NormalizedWidth.ShouldBe(0.33m);
@@ -93,9 +91,9 @@ public class GetOverlayQueryHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        OverlayElement first = OverlayElement.TextElement("First", 16, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
-        OverlayElement second = OverlayElement.TextElement("Second", 20, NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
-        Overlay overlay = new OverlayBuilder()
+        var first = OverlayElement.TextElement("First", 16, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
+        var second = OverlayElement.TextElement("Second", 20, NormalizedPosition.From(0.2m, 0.2m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-4")
             .WithLabels([first, second])
@@ -103,11 +101,11 @@ public class GetOverlayQueryHandlerTests
         overlays.Add(overlay);
 
         GetOverlayQueryHandler handler = new(new InMemoryOverlayQuerySource(overlays));
-        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlayQuery(overlay.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        IReadOnlyList<OverlayElementDto> elements = result.Value.Revisions.Single().Elements;
+        var elements = result.Value.Revisions.Single().Elements;
         elements.Count.ShouldBe(2);
         elements[0].Text.ShouldBe("First");
         elements[1].Text.ShouldBe("Second");
@@ -120,7 +118,7 @@ public class GetOverlayQueryHandlerTests
         IOverlayQuerySource source = new InMemoryOverlayQuerySource(overlays);
         GetOverlayQueryHandler handler = new(source);
 
-        Result<OverlayDto, GetOverlayError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlayQuery(OverlayIdentifier.New()), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

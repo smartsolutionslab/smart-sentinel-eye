@@ -24,7 +24,7 @@ public sealed class GetOverlaySnapshotQueryHandler(
     {
         Ensure.That(query).IsNotNull();
 
-        IReadOnlyList<string>? labelTexts = reverseIndex.LookupLabelTexts(query.OverlayIdentifier);
+        var labelTexts = reverseIndex.LookupLabelTexts(query.OverlayIdentifier);
         if (labelTexts is null)
         {
             return Failure(GetOverlaySnapshotFailures.OverlayNotInReverseIndex(query.OverlayIdentifier));
@@ -36,17 +36,17 @@ public sealed class GetOverlaySnapshotQueryHandler(
         // carries a strictly higher version, and the kiosk accepts it. Read
         // after, the snapshot could stamp stale text with the newer push's
         // version and the kiosk would drop that push as not-newer.
-        long version = await overlayTextVersions.CurrentAsync(query.OverlayIdentifier, cancellationToken);
+        var version = await overlayTextVersions.CurrentAsync(query.OverlayIdentifier, cancellationToken);
 
         // One snapshot over the union of every label's placeholders
         // (spec 150) — BuildAsync only extracts placeholder *names* from
         // its input, so joining the set is equivalent to and cheaper than
         // building per-label and merging.
-        IReadOnlyList<PlaceholderResolution> resolutions = await builder.BuildAsync(
+        var resolutions = await builder.BuildAsync(
             query.Fabs, string.Join(' ', labelTexts), cancellationToken);
 
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
-        foreach (PlaceholderResolution resolution in resolutions)
+        foreach (var resolution in resolutions)
         {
             if (resolution is { Outcome: PlaceholderOutcome.Resolved, Entry: { } entry })
             {

@@ -18,7 +18,7 @@ public class MediaMtxApiAuthenticatorTests
     [Fact]
     public void Authorizes_returns_true_for_the_matching_secret()
     {
-        MediaMtxApiAuthenticator authenticator = MakeAuthenticator();
+        var authenticator = MakeAuthenticator();
 
         authenticator.Authorizes(ConfiguredSecret).ShouldBeTrue();
     }
@@ -30,7 +30,7 @@ public class MediaMtxApiAuthenticatorTests
     [InlineData("the-configured-secret ")]
     public void Authorizes_returns_false_for_anything_else(string? presented)
     {
-        MediaMtxApiAuthenticator authenticator = MakeAuthenticator();
+        var authenticator = MakeAuthenticator();
 
         authenticator.Authorizes(presented).ShouldBeFalse();
     }
@@ -44,7 +44,7 @@ public class MediaMtxApiAuthenticatorTests
     [Fact]
     public void Authorizes_returns_false_for_a_whep_bearer_token()
     {
-        MediaMtxApiAuthenticator authenticator = MakeAuthenticator();
+        var authenticator = MakeAuthenticator();
 
         authenticator.Authorizes("Bearer.xyz").ShouldBeFalse();
     }
@@ -57,7 +57,7 @@ public class MediaMtxApiAuthenticatorTests
     [Fact]
     public void Authorizes_returns_false_when_no_secret_is_configured()
     {
-        MediaMtxApiAuthenticator authenticator = MakeAuthenticator(secret: string.Empty);
+        var authenticator = MakeAuthenticator(secret: string.Empty);
 
         authenticator.Authorizes(string.Empty).ShouldBeFalse();
     }

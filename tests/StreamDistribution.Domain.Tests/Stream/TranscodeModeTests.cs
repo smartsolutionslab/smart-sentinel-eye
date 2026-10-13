@@ -10,7 +10,7 @@ public class TranscodeModeTests
     [InlineData("Unknown")]
     public void From_known_value_returns_the_matching_singleton(string value)
     {
-        TranscodeMode result = TranscodeMode.From(value);
+        var result = TranscodeMode.From(value);
 
         result.Value.ShouldBe(value);
         result.ShouldBeSameAs(TranscodeMode.From(value));

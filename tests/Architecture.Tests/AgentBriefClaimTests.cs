@@ -419,7 +419,7 @@ public class AgentBriefClaimTests
     public static TheoryData<string> Briefs()
     {
         TheoryData<string> data = [];
-        foreach (string brief in BriefFiles())
+        foreach (var brief in BriefFiles())
         {
             data.Add(brief);
         }
@@ -441,9 +441,9 @@ public class AgentBriefClaimTests
     [MemberData(nameof(Briefs))]
     public void Every_decision_a_brief_cites_exists(string brief)
     {
-        HashSet<int> register = AdrRegister();
+        var register = AdrRegister();
 
-        string[] unresolved = AdrClaims(brief)
+        var unresolved = AdrClaims(brief)
             .Where(claim => !register.Contains(claim.Number))
             .Select(claim => $"{claim.File}:{claim.Line} '{claim.Token}'")
             .Distinct(StringComparer.Ordinal)
@@ -472,7 +472,7 @@ public class AgentBriefClaimTests
     [Fact]
     public void Every_ADR_shaped_token_in_the_briefs_is_a_recognised_citation()
     {
-        string[] unreadable = BriefFiles()
+        var unreadable = BriefFiles()
             .SelectMany(UnreadableAdrTokens)
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -499,9 +499,9 @@ public class AgentBriefClaimTests
     [MemberData(nameof(Briefs))]
     public void Every_repository_path_a_brief_quotes_resolves(string brief)
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
-        string[] unresolved = PathClaims(brief)
+        var unresolved = PathClaims(brief)
             .Where(claim => !Resolves(root, claim.Span))
             .Select(claim => $"{claim.File}:{claim.Line} `{claim.Span}`")
             .Distinct(StringComparer.Ordinal)
@@ -530,7 +530,7 @@ public class AgentBriefClaimTests
     {
         string[] actual = [.. WorkflowJobs().Keys.Order(StringComparer.Ordinal)];
 
-        string[] disagreeing = EnumeratingBlocks()
+        var disagreeing = EnumeratingBlocks()
             .Where(block => !EnumeratedJobs(block).SequenceEqual(actual, StringComparer.Ordinal))
             .Select(block => $"{block.File}:{block.Line} names [{string.Join(", ", EnumeratedJobs(block))}]")
             .Order(StringComparer.Ordinal)
@@ -557,9 +557,9 @@ public class AgentBriefClaimTests
     [Fact]
     public void Every_CI_job_attribute_a_brief_claims_agrees_with_the_workflow()
     {
-        Dictionary<string, WorkflowJob> jobs = WorkflowJobs();
+        var jobs = WorkflowJobs();
 
-        string[] wrong = BriefBlocks()
+        var wrong = BriefBlocks()
             .SelectMany(JobClaims)
             .Where(claim => jobs.ContainsKey(claim.Job))
             .SelectMany(claim => Disagreements(claim, jobs[claim.Job]))
@@ -650,7 +650,7 @@ public class AgentBriefClaimTests
     [Fact]
     public void Every_brief_block_that_enumerates_CI_jobs_can_be_parsed()
     {
-        string[] unreadable = EnumeratingBlocks()
+        var unreadable = EnumeratingBlocks()
             .Where(block => EnumeratedJobs(block).Length == 0)
             .Select(block => $"{block.File}:{block.Line}")
             .Order(StringComparer.Ordinal)
@@ -683,7 +683,7 @@ public class AgentBriefClaimTests
     {
         HashSet<string> swept = [.. BriefFiles()];
 
-        string[] unscanned = DiscoveredBriefFiles()
+        var unscanned = DiscoveredBriefFiles()
             .Where(brief => !swept.Contains(brief))
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -716,7 +716,7 @@ public class AgentBriefClaimTests
     [Fact]
     public void The_briefs_yield_a_claim_count_large_enough_to_hold_a_violation()
     {
-        int claims = DecisionClaimCount() + PathClaimCount() + JobClaimCount();
+        var claims = DecisionClaimCount() + PathClaimCount() + JobClaimCount();
 
         claims.ShouldBeGreaterThanOrEqualTo(
             SmallestPlausibleClaimCount,
@@ -732,7 +732,7 @@ public class AgentBriefClaimTests
     [Fact]
     public void The_briefs_yield_enough_decision_citations_to_hold_a_violation()
     {
-        int claims = DecisionClaimCount();
+        var claims = DecisionClaimCount();
 
         claims.ShouldBeGreaterThanOrEqualTo(
             SmallestPlausibleDecisionCount,
@@ -747,7 +747,7 @@ public class AgentBriefClaimTests
     [Fact]
     public void The_briefs_yield_enough_anchored_paths_to_hold_a_violation()
     {
-        int claims = PathClaimCount();
+        var claims = PathClaimCount();
 
         claims.ShouldBeGreaterThanOrEqualTo(
             SmallestPlausiblePathCount,
@@ -763,7 +763,7 @@ public class AgentBriefClaimTests
     [Fact]
     public void The_briefs_yield_enough_CI_job_claims_to_hold_a_violation()
     {
-        int claims = JobClaimCount();
+        var claims = JobClaimCount();
 
         claims.ShouldBeGreaterThanOrEqualTo(
             SmallestPlausibleJobCount,
@@ -810,7 +810,7 @@ public class AgentBriefClaimTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_a_brief(string mechanism)
     {
-        string[] offenders = ExecutableLines(ReadRepositoryFile(GuardSource))
+        var offenders = ExecutableLines(ReadRepositoryFile(GuardSource))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
@@ -830,12 +830,12 @@ public class AgentBriefClaimTests
     {
         HashSet<int> register = [];
 
-        foreach (string file in Directory.EnumerateFiles(
+        foreach (var file in Directory.EnumerateFiles(
             Path.Combine(RepositoryRoot().FullName, AdrDirectory), "*.md"))
         {
-            string name = Path.GetFileName(file);
+            var name = Path.GetFileName(file);
             if (name.Length >= 4
-                && int.TryParse(name[..4], NumberStyles.None, CultureInfo.InvariantCulture, out int number))
+                && int.TryParse(name[..4], NumberStyles.None, CultureInfo.InvariantCulture, out var number))
             {
                 register.Add(number);
             }
@@ -865,7 +865,7 @@ public class AgentBriefClaimTests
     {
         foreach (Match citation in AdrCitation.Matches(text))
         {
-            foreach (string digits in citation.Groups["numbers"].Value.Split('/'))
+            foreach (var digits in citation.Groups["numbers"].Value.Split('/'))
             {
                 yield return new AdrClaim(
                     brief,
@@ -900,7 +900,7 @@ public class AgentBriefClaimTests
 
         foreach (Match shaped in AdrShaped.Matches(text))
         {
-            bool covered = recognised.Any(range =>
+            var covered = recognised.Any(range =>
                 shaped.Index >= range.Start && shaped.Index < range.End);
 
             if (!covered)
@@ -918,7 +918,7 @@ public class AgentBriefClaimTests
     /// </summary>
     private static PathClaim[] PathClaims(string brief)
     {
-        HashSet<string> anchors = RootEntries();
+        var anchors = RootEntries();
 
         return Lines(brief)
             .SelectMany(line => CodeSpan.Matches(line.Text)
@@ -959,7 +959,7 @@ public class AgentBriefClaimTests
     /// </summary>
     private static bool Resolves(DirectoryInfo root, string span)
     {
-        string[] segments = span.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
+        var segments = span.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
 
         return segments.Length > 0 && Matches(root.FullName, segments, 0);
     }
@@ -971,12 +971,12 @@ public class AgentBriefClaimTests
             return true;
         }
 
-        string segment = segments[index];
-        bool last = index == segments.Length - 1;
+        var segment = segments[index];
+        var last = index == segments.Length - 1;
 
         if (!HasGlob(segment))
         {
-            string next = Path.Combine(current, segment);
+            var next = Path.Combine(current, segment);
             return last
                 ? File.Exists(next) || Directory.Exists(next)
                 : Directory.Exists(next) && Matches(next, segments, index + 1);
@@ -1036,14 +1036,14 @@ public class AgentBriefClaimTests
     /// </summary>
     private static string Enumeration(Block block)
     {
-        Match jobs = JobsWord.Match(block.Text);
+        var jobs = JobsWord.Match(block.Text);
         if (!jobs.Success)
         {
             return block.Text;
         }
 
-        int end = 0;
-        foreach (string sentence in Sentences(block.Text))
+        var end = 0;
+        foreach (var sentence in Sentences(block.Text))
         {
             end += sentence.Length;
             if (end > jobs.Index)
@@ -1069,7 +1069,7 @@ public class AgentBriefClaimTests
     /// </summary>
     private static JobClaim[] EnumerationClaims(Block block)
     {
-        string enumeration = Enumeration(block);
+        var enumeration = Enumeration(block);
         Span[] spans = [.. SpansByDepth(enumeration).Where(span => span.Depth == 0 && JobName.IsMatch(span.Text))];
 
         return [.. spans.Select((span, position) => new JobClaim(
@@ -1110,12 +1110,12 @@ public class AgentBriefClaimTests
     private static IEnumerable<string> Sentences(string text)
     {
         const string terminators = ".!?";
-        int start = 0;
-        bool inSpan = false;
+        var start = 0;
+        var inSpan = false;
 
-        for (int index = 0; index < text.Length; index++)
+        for (var index = 0; index < text.Length; index++)
         {
-            char character = text[index];
+            var character = text[index];
             if (character == '`')
             {
                 inSpan = !inSpan;
@@ -1148,8 +1148,8 @@ public class AgentBriefClaimTests
     /// </summary>
     private static IEnumerable<string> Disagreements(JobClaim claim, WorkflowJob job)
     {
-        string clause = Emphasis.Replace(claim.Clause, string.Empty);
-        string where = $"{claim.Block.File}:{claim.Block.Line} '{claim.Job}'";
+        var clause = Emphasis.Replace(claim.Clause, string.Empty);
+        var where = $"{claim.Block.File}:{claim.Block.Line} '{claim.Job}'";
 
         if (!ClaimsBlocking(clause) && ClaimsNonBlocking(clause) && !job.ContinueOnError)
         {
@@ -1164,7 +1164,7 @@ public class AgentBriefClaimTests
 
         if (Enumerates(claim.Block) && NeedsWord.IsMatch(clause))
         {
-            string[] claimed = ClaimedNeeds(clause);
+            var claimed = ClaimedNeeds(clause);
             if (!claimed.SequenceEqual(job.Needs, StringComparer.Ordinal))
             {
                 yield return $"{where} is described as needing [{string.Join(", ", claimed)}], but "
@@ -1195,7 +1195,7 @@ public class AgentBriefClaimTests
     private static string[] ClaimedNeeds(string clause)
     {
         HashSet<string> jobs = [.. WorkflowJobs().Keys];
-        string text = CodeSpan.Replace(clause[NeedsWord.Match(clause).Index..], " ");
+        var text = CodeSpan.Replace(clause[NeedsWord.Match(clause).Index..], " ");
 
         return [.. ProseToken.Matches(text)
             .Select(token => token.Value)
@@ -1215,9 +1215,9 @@ public class AgentBriefClaimTests
     {
         Dictionary<string, List<string>> lines = new(StringComparer.Ordinal);
         string? current = null;
-        bool inJobs = false;
+        var inJobs = false;
 
-        foreach (string line in ReadRepositoryFile(Workflow).Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
+        foreach (var line in ReadRepositoryFile(Workflow).Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n'))
         {
             if (line.StartsWith("jobs:", StringComparison.Ordinal))
             {
@@ -1230,7 +1230,7 @@ public class AgentBriefClaimTests
                 continue;
             }
 
-            Match key = Regex.Match(line, @"^  (?<name>[A-Za-z0-9_-]+):\s*$", RegexOptions.None, TimeSpan.FromSeconds(5));
+            var key = Regex.Match(line, @"^  (?<name>[A-Za-z0-9_-]+):\s*$", RegexOptions.None, TimeSpan.FromSeconds(5));
             if (key.Success)
             {
                 current = key.Groups["name"].Value;
@@ -1242,7 +1242,7 @@ public class AgentBriefClaimTests
             }
         }
 
-        Dictionary<string, WorkflowJob> jobs = lines.ToDictionary(
+        var jobs = lines.ToDictionary(
             job => job.Key,
             job => new WorkflowJob(job.Key, JobNeeds(job.Value), HasContinueOnError(job.Value)),
             StringComparer.Ordinal);
@@ -1256,7 +1256,7 @@ public class AgentBriefClaimTests
 
     private static string[] JobNeeds(List<string> body)
     {
-        string? needs = body
+        var needs = body
             .Select(line => Regex.Match(line, @"^    needs:\s*(?<value>.+)$", RegexOptions.None, TimeSpan.FromSeconds(5)))
             .Where(match => match.Success)
             .Select(match => match.Groups["value"].Value)
@@ -1281,9 +1281,9 @@ public class AgentBriefClaimTests
     private static Block[] Blocks(string brief, string text)
     {
         List<Block> blocks = [];
-        string[] lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
+        var lines = text.Replace("\r\n", "\n", StringComparison.Ordinal).Split('\n');
 
-        for (int index = 0; index < lines.Length;)
+        for (var index = 0; index < lines.Length;)
         {
             if (lines[index].Trim().Length == 0)
             {
@@ -1291,7 +1291,7 @@ public class AgentBriefClaimTests
                 continue;
             }
 
-            int start = index;
+            var start = index;
             List<string> body = [lines[index++]];
             while (index < lines.Length && IsContinuation(lines[index]))
             {
@@ -1317,14 +1317,14 @@ public class AgentBriefClaimTests
     /// </summary>
     private static IEnumerable<Span> SpansByDepth(string text)
     {
-        int depth = 0;
+        var depth = 0;
 
-        for (int index = 0; index < text.Length;)
+        for (var index = 0; index < text.Length;)
         {
-            char character = text[index];
+            var character = text[index];
             if (character == '`')
             {
-                int close = text.IndexOf('`', index + 1);
+                var close = text.IndexOf('`', index + 1);
                 if (close < 0)
                 {
                     yield break;
@@ -1354,7 +1354,7 @@ public class AgentBriefClaimTests
     /// </summary>
     private static string[] BriefFiles()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return [.. BriefFolders
             .Select(folder => Path.Combine(root.FullName, BriefRoot, folder))
@@ -1372,7 +1372,7 @@ public class AgentBriefClaimTests
     /// </summary>
     private static string[] DiscoveredBriefFiles()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return [.. Directory
             .EnumerateDirectories(Path.Combine(root.FullName, BriefRoot), "*", SearchOption.AllDirectories)
@@ -1403,7 +1403,7 @@ public class AgentBriefClaimTests
     private static string ReadRepositoryFile(string relativePath)
     {
         string[] parts = [RepositoryRoot().FullName, .. relativePath.Split('/')];
-        string path = Path.Combine(parts);
+        var path = Path.Combine(parts);
 
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");

@@ -69,7 +69,7 @@ public class AppHostE2ESwitchTests
     [Fact]
     public async Task E2ETests_argument_excludes_the_dev_only_resources()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(FixtureArguments);
 
@@ -90,11 +90,11 @@ public class AppHostE2ESwitchTests
     [Fact]
     public async Task E2ETests_argument_leaves_postgres_without_a_data_volume()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(FixtureArguments);
 
-        IResource postgres = builder.Resources.Single(resource => resource.Name == "postgres");
+        var postgres = builder.Resources.Single(resource => resource.Name == "postgres");
 
         postgres.Annotations.OfType<ContainerMountAnnotation>()
             .Where(mount => mount.Type == ContainerMountType.Volume)
@@ -110,7 +110,7 @@ public class AppHostE2ESwitchTests
     [Fact]
     public async Task ScenarioSimulator_argument_excludes_the_simulator_from_a_run_mode_stack()
     {
-        IReadOnlyList<string> names = await ResourceNamesAsync(SimulatorDisabledArguments);
+        var names = await ResourceNamesAsync(SimulatorDisabledArguments);
 
         names.ShouldNotContain("camera-sim");
         names.ShouldNotContain("scenario-simulator");
@@ -123,7 +123,7 @@ public class AppHostE2ESwitchTests
     [Fact]
     public async Task A_run_mode_stack_without_the_argument_still_composes_the_simulator()
     {
-        IReadOnlyList<string> names = await ResourceNamesAsync(RunModeArguments);
+        var names = await ResourceNamesAsync(RunModeArguments);
 
         names.ShouldContain("camera-sim");
         names.ShouldContain("scenario-simulator");
@@ -139,7 +139,7 @@ public class AppHostE2ESwitchTests
     [Fact]
     public async Task The_simulator_argument_leaves_the_web_apps_and_the_fixture_video_in_place()
     {
-        IReadOnlyList<string> names = await ResourceNamesAsync(SimulatorDisabledArguments);
+        var names = await ResourceNamesAsync(SimulatorDisabledArguments);
 
         names.ShouldContain("management-web");
         names.ShouldContain("kiosk-web");
@@ -167,7 +167,7 @@ public class AppHostE2ESwitchTests
     [Fact]
     public void The_e2e_boot_line_disables_the_scenario_simulator()
     {
-        string command = BootLine().Split('>', 2)[0];
+        var command = BootLine().Split('>', 2)[0];
 
         command.ShouldContain(
             SimulatorArgument,
@@ -179,7 +179,7 @@ public class AppHostE2ESwitchTests
 
     private static async Task<IReadOnlyList<string>> ResourceNamesAsync(string[] arguments)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 

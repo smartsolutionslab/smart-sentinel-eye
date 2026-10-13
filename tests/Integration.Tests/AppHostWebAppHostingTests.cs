@@ -149,12 +149,12 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(WebApps))]
     public async Task The_app_runs_npm_run_dev(string name)
     {
-        IResource resource = await ResourceAsync(name);
-        ExecutableResource executable = (ExecutableResource)resource;
+        var resource = await ResourceAsync(name);
+        var executable = (ExecutableResource)resource;
 
         executable.Command.ShouldBe("npm");
 
-        IReadOnlyList<string> arguments = await ArgumentValuesAsync(executable);
+        var arguments = await ArgumentValuesAsync(executable);
 
         arguments.ShouldBe(["run", "dev"]);
     }
@@ -163,10 +163,10 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(WebApps))]
     public async Task The_app_s_working_directory_is_its_app_folder(string name)
     {
-        (string workingDirectorySuffix, _) = ExpectedShape(name);
+        (var workingDirectorySuffix, _) = ExpectedShape(name);
 
-        IResource resource = await ResourceAsync(name);
-        ExecutableResource executable = (ExecutableResource)resource;
+        var resource = await ResourceAsync(name);
+        var executable = (ExecutableResource)resource;
 
         NormalizeSeparators(executable.WorkingDirectory).ShouldEndWith(
             NormalizeSeparators(workingDirectorySuffix),
@@ -184,7 +184,7 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(WebApps))]
     public async Task Nothing_waits_on_an_installer_resource(string name)
     {
-        IResource resource = await ResourceAsync(name);
+        var resource = await ResourceAsync(name);
 
         resource.Annotations.OfType<WaitAnnotation>().ShouldNotContain(
             wait => wait.Resource.Name.EndsWith("-installer", StringComparison.Ordinal),
@@ -204,11 +204,11 @@ public class AppHostWebAppHostingTests
     [Fact]
     public async Task The_expected_resource_set_names_no_installer()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(SimulatorDisabledArguments);
 
-        IReadOnlyList<string> names = SmartSentinelEye.AppHost.StackStatusReport.ExpectedResourceNames(builder.Resources);
+        var names = SmartSentinelEye.AppHost.StackStatusReport.ExpectedResourceNames(builder.Resources);
 
         names.ShouldNotContain(
             name => name.EndsWith("-installer", StringComparison.Ordinal),
@@ -219,9 +219,9 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(WebApps))]
     public async Task The_app_exposes_exactly_one_fixed_unproxied_http_endpoint(string name)
     {
-        (_, int port) = ExpectedShape(name);
+        (_, var port) = ExpectedShape(name);
 
-        IResource resource = await ResourceAsync(name);
+        var resource = await ResourceAsync(name);
 
         EndpointAnnotation[] endpoints = [.. resource.Annotations.OfType<EndpointAnnotation>()];
 
@@ -237,7 +237,7 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(WebApps))]
     public async Task The_app_is_a_child_of_the_api_gateway(string name)
     {
-        IResource resource = await ResourceAsync(name);
+        var resource = await ResourceAsync(name);
 
         ResourceRelationshipAnnotation[] parents =
         [
@@ -265,9 +265,9 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(WebApps))]
     public async Task The_app_s_environment_carries_the_common_keys(string name)
     {
-        IResource resource = await ResourceAsync(name);
+        var resource = await ResourceAsync(name);
 
-        Dictionary<string, object> environment = await RawEnvironmentAsync(resource);
+        var environment = await RawEnvironmentAsync(resource);
 
         environment.Keys.ShouldContain("VITE_API_GATEWAY_URL");
         environment.Keys.ShouldContain("VITE_KEYCLOAK_URL");
@@ -279,9 +279,9 @@ public class AppHostWebAppHostingTests
     [MemberData(nameof(KioskApps))]
     public async Task The_kiosk_app_s_environment_carries_the_layout_hub_origin(string name)
     {
-        IResource resource = await ResourceAsync(name);
+        var resource = await ResourceAsync(name);
 
-        Dictionary<string, object> environment = await RawEnvironmentAsync(resource);
+        var environment = await RawEnvironmentAsync(resource);
 
         environment.Keys.ShouldContain("VITE_LAYOUT_HUB_ORIGIN");
     }
@@ -296,16 +296,16 @@ public class AppHostWebAppHostingTests
     [Fact]
     public async Task The_wall_app_s_environment_sets_kiosk_mode_to_wall()
     {
-        IResource resource = await ResourceAsync("kiosk-wall");
+        var resource = await ResourceAsync("kiosk-wall");
 
-        Dictionary<string, object> environment = await RawEnvironmentAsync(resource);
+        var environment = await RawEnvironmentAsync(resource);
 
         environment.ShouldContainKeyAndValue("VITE_KIOSK_MODE", "wall");
     }
 
     private static async Task<IResource> ResourceAsync(string name)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(SimulatorDisabledArguments);
 
@@ -335,7 +335,7 @@ public class AppHostWebAppHostingTests
             Logger = NullLogger.Instance,
         };
 
-        foreach (CommandLineArgsCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }
@@ -355,7 +355,7 @@ public class AppHostWebAppHostingTests
     {
         using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(15));
 
-        if (!resource.TryGetEnvironmentVariables(out IEnumerable<EnvironmentCallbackAnnotation>? annotations))
+        if (!resource.TryGetEnvironmentVariables(out var annotations))
         {
             return new Dictionary<string, object>(StringComparer.Ordinal);
         }
@@ -370,7 +370,7 @@ public class AppHostWebAppHostingTests
             Logger = NullLogger.Instance,
         };
 
-        foreach (EnvironmentCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }

@@ -204,7 +204,7 @@ public class LayoutCompositionClientTests
     [Fact]
     public async Task Each_re_tiling_step_sends_the_version_it_just_read()
     {
-        int version = 7;
+        var version = 7;
         StubHandler layouts = new(request => request switch
         {
             { Method: "POST", Path: "/layouts" } => Respond(HttpStatusCode.Conflict),
@@ -317,7 +317,7 @@ public class LayoutCompositionClientTests
                 request.Method.Method,
                 request.RequestUri!.AbsolutePath,
                 request.RequestUri.PathAndQuery,
-                request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values)
                     : string.Empty);
 

@@ -73,16 +73,16 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
     [MemberData(nameof(Reads))]
     public async Task A_caller_without_the_variables_read_scope_is_refused(string route)
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("system-variables");
-        HttpResponseMessage control = await admin.GetAsync(Listing);
+        using var admin = await aspire.CreateAdminClientAsync("system-variables");
+        var control = await admin.GetAsync(Listing);
         control.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             "the positive control failed: a caller who does hold sse.variables.read cannot read the "
             + $"listing either, so the refusal below would prove nothing. {await BodyAsync(control)}");
 
-        using HttpClient unscoped = await ServiceAccountClientAsync();
+        using var unscoped = await ServiceAccountClientAsync();
 
-        HttpResponseMessage refused = await unscoped.GetAsync(route);
+        var refused = await unscoped.GetAsync(route);
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
@@ -102,7 +102,7 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_refused_service_account_holds_a_fab_but_not_the_read_scope()
     {
-        string token = await ServiceAccountTokenAsync();
+        var token = await ServiceAccountTokenAsync();
 
         Claims(token, "scope").ShouldNotContain(scope => scope.Contains("sse.variables.read", StringComparison.Ordinal));
         Claims(token, "groups").ShouldContain("/fabs/munich");
@@ -116,7 +116,7 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<string> ServiceAccountTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
 
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
@@ -125,18 +125,18 @@ public class VariableReadScopeIntegrationTests(AspireFixture aspire)
             ["client_secret"] = ServiceAccountSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(response));
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("access_token").GetString()!;
     }
 
     private async Task<HttpClient> ServiceAccountClientAsync()
     {
-        HttpClient client = aspire.CreateServiceClient("system-variables");
+        var client = aspire.CreateServiceClient("system-variables");
         client.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", await ServiceAccountTokenAsync());
         return client;

@@ -24,7 +24,7 @@ public class SceneTargetTests
     [Fact]
     public void Layout_carries_its_target_identifier()
     {
-        LayoutIdentifier target = LayoutIdentifier.From(Guid.CreateVersion7());
+        var target = LayoutIdentifier.From(Guid.CreateVersion7());
         SceneTarget.Layout layout = new(target);
 
         layout.Value.ShouldBe(target);
@@ -33,7 +33,7 @@ public class SceneTargetTests
     [Fact]
     public void Layout_instances_with_the_same_identifier_are_equal()
     {
-        LayoutIdentifier target = LayoutIdentifier.From(Guid.CreateVersion7());
+        var target = LayoutIdentifier.From(Guid.CreateVersion7());
         SceneTarget.Layout a = new(target);
         SceneTarget.Layout b = new(target);
 

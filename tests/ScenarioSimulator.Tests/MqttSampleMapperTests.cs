@@ -18,17 +18,17 @@ public class MqttSampleMapperTests
         };
         SensorDefinition sensor = new() { Kind = "temperature", Unit = "degC", Source = "plc" };
 
-        MqttSample sample = mapper.Map(asset, sensor, 1180d);
+        var sample = mapper.Map(asset, sensor, 1180d);
 
         sample.Topic.ShouldBe("fab/munich/plc/station-4-roughing");
 
-        using JsonDocument document = JsonDocument.Parse(sample.Payload);
-        JsonElement root = document.RootElement;
+        using var document = JsonDocument.Parse(sample.Payload);
+        var root = document.RootElement;
         root.GetProperty("kind").GetString().ShouldBe("temperature");
         root.TryGetProperty("eventId", out _).ShouldBeTrue();
         root.TryGetProperty("occurredAt", out _).ShouldBeTrue();
 
-        JsonElement payload = root.GetProperty("payload");
+        var payload = root.GetProperty("payload");
         payload.GetProperty("value").GetDouble().ShouldBe(1180d);
         payload.GetProperty("unit").GetString().ShouldBe("degC");
         payload.GetProperty("station").GetString().ShouldBe("station-4-roughing");
@@ -72,17 +72,17 @@ public class MqttSampleMapperTests
             Box: new CueBox(X: 0.61, Y: 0.40, Width: 0.08, Height: 0.31),
             TrackIdentifier: "p-1");
 
-        MqttSample sample = mapper.Map(asset, cue, clipOffsetMs: 12_000);
+        var sample = mapper.Map(asset, cue, clipOffsetMs: 12_000);
 
         sample.Topic.ShouldBe("fab/munich/inference/station-4-roughing");
 
-        using JsonDocument document = JsonDocument.Parse(sample.Payload);
-        JsonElement root = document.RootElement;
+        using var document = JsonDocument.Parse(sample.Payload);
+        var root = document.RootElement;
         root.GetProperty("kind").GetString().ShouldBe("ObjectDetected");
         root.TryGetProperty("eventId", out _).ShouldBeTrue();
         root.TryGetProperty("occurredAt", out _).ShouldBeTrue();
 
-        JsonElement payload = root.GetProperty("payload");
+        var payload = root.GetProperty("payload");
         payload.GetProperty("class").GetString().ShouldBe("person");
         payload.GetProperty("confidence").GetDouble().ShouldBe(0.92);
         payload.GetProperty("station").GetString().ShouldBe("station-4-roughing");
@@ -91,7 +91,7 @@ public class MqttSampleMapperTests
         payload.GetProperty("trackIdentifier").GetString().ShouldBe("p-1");
         payload.GetProperty("clipOffsetMs").GetInt32().ShouldBe(12_000);
 
-        JsonElement box = payload.GetProperty("box");
+        var box = payload.GetProperty("box");
         box.GetProperty("x").GetDouble().ShouldBe(0.61);
         box.GetProperty("y").GetDouble().ShouldBe(0.40);
         box.GetProperty("width").GetDouble().ShouldBe(0.08);
@@ -114,10 +114,10 @@ public class MqttSampleMapperTests
         };
         CueDefinition cue = new(AtMs: 4_000, Class: "person", Confidence: 0.55);
 
-        MqttSample sample = mapper.Map(asset, cue, clipOffsetMs: 4_000);
+        var sample = mapper.Map(asset, cue, clipOffsetMs: 4_000);
 
-        using JsonDocument document = JsonDocument.Parse(sample.Payload);
-        JsonElement payload = document.RootElement.GetProperty("payload");
+        using var document = JsonDocument.Parse(sample.Payload);
+        var payload = document.RootElement.GetProperty("payload");
 
         payload.TryGetProperty("label", out _).ShouldBeFalse();
         payload.TryGetProperty("zone", out _).ShouldBeFalse();

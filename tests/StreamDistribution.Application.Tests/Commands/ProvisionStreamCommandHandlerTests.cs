@@ -24,12 +24,12 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand command = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
 
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -53,15 +53,15 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> firstResult =
+        var firstResult =
             await handler.HandleAsync(first, CancellationToken.None);
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> secondResult =
+        var secondResult =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         secondResult.IsSuccess.ShouldBeTrue();
@@ -84,7 +84,7 @@ public class ProvisionStreamCommandHandlerTests
         {
             OnAddPath = (_, _) => throw new HttpRequestException("connection refused"),
         };
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
         ProvisionStreamCommand command = new(
             Munich,
@@ -92,11 +92,11 @@ public class ProvisionStreamCommandHandlerTests
             "rtsp://10.0.5.1/h264",
             AnAdmin);
 
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ProvisionStreamError.RtspGatewayUnavailable err =
+        var err =
             result.Error.ShouldBeOfType<ProvisionStreamError.RtspGatewayUnavailable>();
         err.Status.ShouldBe(HttpStatusCode.ServiceUnavailable);
         streams.SaveCallCount.ShouldBe(1);
@@ -117,7 +117,7 @@ public class ProvisionStreamCommandHandlerTests
             OnSave = () => throw new InvalidOperationException("save failed"),
         };
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
         ProvisionStreamCommand command = new(
             Munich,
@@ -143,7 +143,7 @@ public class ProvisionStreamCommandHandlerTests
         FakeRtspGateway gateway = new();
         int? streamCountWhenPathWasAdded = null;
         gateway.OnAddPath = (_, _) => streamCountWhenPathWasAdded = streams.Streams.Count;
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
         ProvisionStreamCommand command = new(
             Munich,
@@ -151,7 +151,7 @@ public class ProvisionStreamCommandHandlerTests
             "rtsp://10.0.5.1/h264",
             AnAdmin);
 
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -172,12 +172,12 @@ public class ProvisionStreamCommandHandlerTests
         {
             OnAddPath = (_, _) => throw new HttpRequestException("connection refused"),
         };
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand command = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
 
-        Result<StreamIdentifier, ProvisionStreamError> firstResult =
+        var firstResult =
             await handler.HandleAsync(command, CancellationToken.None);
 
         firstResult.IsFailure.ShouldBeTrue();
@@ -187,7 +187,7 @@ public class ProvisionStreamCommandHandlerTests
         gateway.OnAddPath = (_, _) => { };
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> secondResult =
+        var secondResult =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         secondResult.IsSuccess.ShouldBeTrue();
@@ -207,17 +207,17 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> firstResult =
+        var firstResult =
             await handler.HandleAsync(first, CancellationToken.None);
 
         streams.Streams.Single().Retire(new FixedClock(FixedMoment));
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> secondResult =
+        var secondResult =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         secondResult.IsSuccess.ShouldBeTrue();
@@ -238,13 +238,13 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
-        Domain.Stream.Stream stream = streams.Streams.Single();
+        var stream = streams.Streams.Single();
         stream.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
         await streams.SaveAsync(CancellationToken.None);
         stream.ClearPendingEvents();
@@ -260,7 +260,7 @@ public class ProvisionStreamCommandHandlerTests
                 .GetAwaiter().GetResult();
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -281,7 +281,7 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
 
         RetireStreamCommandHandler retireHandler = new(
             streams, gateway, new FixedClock(FixedMoment), NullLogger<RetireStreamCommandHandler>.Instance);
@@ -290,13 +290,13 @@ public class ProvisionStreamCommandHandlerTests
             retireHandler.HandleAsync(new RetireStreamCommand(camera), CancellationToken.None)
                 .GetAwaiter().GetResult();
 
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
         ProvisionStreamCommand command = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
 
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
-        Domain.Stream.Stream stream = streams.Streams.Single();
+        var stream = streams.Streams.Single();
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ShouldBe(stream.Id);
@@ -318,13 +318,13 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
-        Domain.Stream.Stream stream = streams.Streams.Single();
+        var stream = streams.Streams.Single();
         stream.ReportHealthy(TranscodeMode.Passthrough, new FixedClock(FixedMoment));
         await streams.SaveAsync(CancellationToken.None);
         stream.ClearPendingEvents();
@@ -343,7 +343,7 @@ public class ProvisionStreamCommandHandlerTests
                 .GetAwaiter().GetResult();
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -361,16 +361,16 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
         RetireStreamCommandHandler retireHandler = new(
             streams, gateway, new FixedClock(FixedMoment), NullLogger<RetireStreamCommandHandler>.Instance);
 
-        int removeCallCount = 0;
+        var removeCallCount = 0;
         gateway.OnRemovePath = _ =>
         {
             removeCallCount++;
@@ -384,11 +384,11 @@ public class ProvisionStreamCommandHandlerTests
                 .GetAwaiter().GetResult();
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ProvisionStreamError.RtspGatewayUnavailable err =
+        var err =
             result.Error.ShouldBeOfType<ProvisionStreamError.RtspGatewayUnavailable>();
         err.Status.ShouldBe(HttpStatusCode.ServiceUnavailable);
         gateway.RemoveCalls.Count.ShouldBe(1, "the retire's own removal succeeded; only the compensation failed");
@@ -403,12 +403,12 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand command = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
 
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -425,23 +425,23 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
-        Domain.Stream.Stream stream = streams.Streams.Single();
+        var stream = streams.Streams.Single();
         stream.Retire(new FixedClock(FixedMoment));
         stream.ClearPendingEvents();
 
         // A leftover path MediaMTX still holds for the now-retired stream —
         // e.g. a compensation that failed on an earlier delivery (spec 318 §1.4).
         await gateway.AddPathAsync(stream.Path, stream.SourceUrl.Value, CancellationToken.None);
-        int addCallsBeforeRedelivery = gateway.AddCalls.Count;
+        var addCallsBeforeRedelivery = gateway.AddCalls.Count;
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -460,24 +460,24 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         ProvisionStreamCommand first = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
-        Domain.Stream.Stream stream = streams.Streams.Single();
+        var stream = streams.Streams.Single();
         stream.Retire(new FixedClock(FixedMoment));
         stream.ClearPendingEvents();
 
         gateway.OnRemovePath = _ => throw new HttpRequestException("MediaMTX unreachable");
 
         ProvisionStreamCommand redelivery = new(Munich, camera, "rtsp://10.0.5.1/h264", AnAdmin);
-        Result<StreamIdentifier, ProvisionStreamError> result =
+        var result =
             await handler.HandleAsync(redelivery, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ProvisionStreamError.RtspGatewayUnavailable err =
+        var err =
             result.Error.ShouldBeOfType<ProvisionStreamError.RtspGatewayUnavailable>();
         err.Status.ShouldBe(HttpStatusCode.ServiceUnavailable);
     }
@@ -489,9 +489,9 @@ public class ProvisionStreamCommandHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
-        Result<StreamIdentifier, ProvisionStreamError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ProvisionStreamCommand(
                 Munich, CameraIdentifier.From(Guid.CreateVersion7()), source, AnAdmin),
             CancellationToken.None);

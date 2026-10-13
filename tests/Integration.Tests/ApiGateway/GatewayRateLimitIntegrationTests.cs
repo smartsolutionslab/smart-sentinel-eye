@@ -33,14 +33,14 @@ public class GatewayRateLimitIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_caller_rotating_X_Fab_is_still_refused_once_over_its_limit()
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
 
         try
         {
-            int admitted = 0;
-            for (int attempt = 0; attempt <= PermitLimit; attempt++)
+            var admitted = 0;
+            for (var attempt = 0; attempt <= PermitLimit; attempt++)
             {
-                HttpStatusCode status = await SendOnceAsync(gateway, $"rot-{attempt}");
+                var status = await SendOnceAsync(gateway, $"rot-{attempt}");
                 if (status != HttpStatusCode.TooManyRequests)
                 {
                     admitted++;
@@ -62,20 +62,20 @@ public class GatewayRateLimitIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Gateway_refuses_a_source_over_its_limit_whatever_fab_header_it_sends()
     {
-        using HttpClient gateway = await CreateGatewayClientAsync();
+        using var gateway = await CreateGatewayClientAsync();
 
         try
         {
-            HttpStatusCode busySource = await SendUntilAsync(gateway, "rl-fab-a", HttpStatusCode.TooManyRequests);
+            var busySource = await SendUntilAsync(gateway, "rl-fab-a", HttpStatusCode.TooManyRequests);
             busySource.ShouldBe(HttpStatusCode.TooManyRequests);
 
-            HttpStatusCode otherFabHeader = await SendOnceAsync(gateway, "rl-fab-b");
+            var otherFabHeader = await SendOnceAsync(gateway, "rl-fab-b");
             otherFabHeader.ShouldBe(
                 HttpStatusCode.TooManyRequests,
                 "the same source, over its limit, sent a different X-Fab value and was admitted — "
                 + "the header selected a fresh partition.");
 
-            using HttpResponseMessage health = await gateway.GetAsync("/health");
+            using var health = await gateway.GetAsync("/health");
             health.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
                 "the gateway's own /health carries no rate-limit policy and must answer even while "
@@ -89,8 +89,8 @@ public class GatewayRateLimitIntegrationTests(AspireFixture aspire)
 
     private static async Task<HttpStatusCode> SendUntilAsync(HttpClient gateway, string fab, HttpStatusCode target)
     {
-        HttpStatusCode status = HttpStatusCode.OK;
-        for (int attempt = 0; attempt < 250 && status != target; attempt++)
+        var status = HttpStatusCode.OK;
+        for (var attempt = 0; attempt < 250 && status != target; attempt++)
         {
             status = await SendOnceAsync(gateway, fab);
         }
@@ -106,7 +106,7 @@ public class GatewayRateLimitIntegrationTests(AspireFixture aspire)
             request.Headers.Add("X-Fab", fab);
         }
 
-        using HttpResponseMessage response = await gateway.SendAsync(request);
+        using var response = await gateway.SendAsync(request);
         return response.StatusCode;
     }
 
@@ -118,7 +118,7 @@ public class GatewayRateLimitIntegrationTests(AspireFixture aspire)
     /// </summary>
     private static async Task WaitForWindowToRecoverAsync(HttpClient gateway)
     {
-        DateTime deadline = DateTime.UtcNow + RecoveryBound;
+        var deadline = DateTime.UtcNow + RecoveryBound;
         while (DateTime.UtcNow < deadline)
         {
             if (await SendOnceAsync(gateway, fab: null) != HttpStatusCode.TooManyRequests)

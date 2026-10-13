@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Mqtt;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
@@ -25,7 +23,7 @@ public sealed class BilletTimelineHostedService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        ScenarioOptions options = scenarioOptions.Value;
+        var options = scenarioOptions.Value;
 
         // The animated scenario only — the first of Active. This timeline walks a
         // billet through one plant's stations and publishes its sensor samples,
@@ -36,7 +34,7 @@ public sealed class BilletTimelineHostedService(
         // Deliberate, not an oversight: quickstart §3 tells the verifier to
         // expect exactly one wall animating, so two static walls are not
         // diagnosed as a bug.
-        if (!options.Scenarios.TryGetValue(options.Animated, out ScenarioDefinition? scenario)
+        if (!options.Scenarios.TryGetValue(options.Animated, out var scenario)
             || scenario.Timeline is null
             || scenario.Assets.Count == 0)
         {
@@ -45,12 +43,12 @@ public sealed class BilletTimelineHostedService(
 
         await publisher.StartAsync(stoppingToken);
 
-        TimelineDefinition timeline = scenario.Timeline;
+        var timeline = scenario.Timeline;
         while (!stoppingToken.IsCancellationRequested)
         {
             logger.BilletRunStarted(scenario.Assets.Count, timeline.DwellMs, timeline.TickMs);
 
-            foreach (AssetDefinition asset in scenario.Assets)
+            foreach (var asset in scenario.Assets)
             {
                 if (stoppingToken.IsCancellationRequested)
                 {
@@ -69,22 +67,22 @@ public sealed class BilletTimelineHostedService(
     {
         logger.BilletEnteredStation(asset.Key, asset.Camera.Path);
 
-        int tick = Math.Max(timeline.TickMs, 1);
-        int dwell = Math.Max(timeline.DwellMs, tick);
+        var tick = Math.Max(timeline.TickMs, 1);
+        var dwell = Math.Max(timeline.DwellMs, tick);
 
-        for (int elapsed = 0; elapsed < dwell && !cancellationToken.IsCancellationRequested; elapsed += tick)
+        for (var elapsed = 0; elapsed < dwell && !cancellationToken.IsCancellationRequested; elapsed += tick)
         {
-            double fraction = (double)elapsed / dwell;
+            var fraction = (double)elapsed / dwell;
 
-            foreach (SensorDefinition sensor in asset.Sensors)
+            foreach (var sensor in asset.Sensors)
             {
-                if (!behaviours.TryGetValue(sensor.Behaviour, out ISensorBehaviour? behaviour))
+                if (!behaviours.TryGetValue(sensor.Behaviour, out var behaviour))
                 {
                     continue;
                 }
 
-                double value = behaviour.Sample(sensor, fraction, random);
-                MqttSample sample = mapper.Map(asset, sensor, value);
+                var value = behaviour.Sample(sensor, fraction, random);
+                var sample = mapper.Map(asset, sensor, value);
                 await publisher.PublishAsync(sample.Topic, sample.Payload, cancellationToken);
                 logger.BilletSampleEmitted(sample.Topic, value, sensor.Unit, sensor.Kind);
             }

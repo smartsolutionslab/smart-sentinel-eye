@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ServiceDefaults;
 
@@ -29,14 +28,14 @@ public sealed class OverlayDesignerClient(
 {
     public async Task<Guid> EnsureOverlayAsync(string name, IReadOnlyList<OverlayLabel> elements, CancellationToken cancellationToken)
     {
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
+        var token = await tokens.GetAccessTokenAsync(cancellationToken);
 
         using HttpRequestMessage create = new(HttpMethod.Post, "/overlays")
         {
             Content = JsonContent.Create(new CreateOverlayBody(name, elements)),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
+        using var created = await http.SendAsync(create, cancellationToken);
 
         // On 409 the chain is already there but its first revision may still be
         // Draft: every run between ADR-0113 making If-Match mandatory and this
@@ -44,7 +43,7 @@ public sealed class OverlayDesignerClient(
         // publish it, so an existing database holds overlays that never render.
         if (created.StatusCode == HttpStatusCode.Conflict)
         {
-            OverlayListItem existing = await ReadBackAsync(name, token, cancellationToken);
+            var existing = await ReadBackAsync(name, token, cancellationToken);
 
             // The list projection always carries revisions, so null means the
             // read model changed shape and this recovery has gone blind. Say
@@ -68,7 +67,7 @@ public sealed class OverlayDesignerClient(
         }
 
         created.EnsureSuccessStatusCode();
-        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+        var overlay = await created.Content.ReadFromJsonAsync<Guid>(cancellationToken);
         await PublishAsync(overlay, FreshChainVersion, token, cancellationToken);
         logger.OverlaySeeded(name, overlay);
         return overlay;
@@ -81,7 +80,7 @@ public sealed class OverlayDesignerClient(
         publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         publish.Headers.TryAddWithoutValidation(
             "If-Match", ConcurrencyHeaders.ETag(expectedVersion));
-        using HttpResponseMessage response = await http.SendAsync(publish, cancellationToken);
+        using var response = await http.SendAsync(publish, cancellationToken);
         response.EnsureSuccessStatusCode();
     }
 
@@ -91,11 +90,11 @@ public sealed class OverlayDesignerClient(
         // branch empties Chains), so omit state to recover the existing id.
         using HttpRequestMessage list = new(HttpMethod.Get, "/overlays");
         list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
+        using var response = await http.SendAsync(list, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        OverlayListResponse? payload = await response.Content.ReadFromJsonAsync<OverlayListResponse>(cancellationToken);
-        OverlayListItem? match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+        var payload = await response.Content.ReadFromJsonAsync<OverlayListResponse>(cancellationToken);
+        var match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
         return match
             ?? throw new InvalidOperationException($"Overlay '{name}' conflicted but could not be read back.");
     }

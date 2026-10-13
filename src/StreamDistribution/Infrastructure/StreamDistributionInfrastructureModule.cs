@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Options;
 using Polly;
 using Polly.Telemetry;
 using SmartSentinelEye.ServiceDefaults;
@@ -115,9 +114,9 @@ public static class StreamDistributionInfrastructureModule
         // here does not reinforce it, it nests a second pipeline inside the
         // first. That is what this call site used to do: four attempts became
         // sixteen, and the two-second health sweep inherited both budgets.
-        IHttpClientBuilder builder = services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
+        var builder = services.AddHttpClient<IRtspGateway, MediaMtxRtspGateway>((sp, client) =>
         {
-            MediaMtxOptions options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>().Value;
             client.BaseAddress = new Uri(options.ManagementUrl);
 
             // ADR-0171: mediamtx.yml no longer excludes the `api` action from
@@ -127,7 +126,7 @@ public static class StreamDistributionInfrastructureModule
             // auth this client presents as the hook's user and password. The
             // username carries no security meaning for a shared-secret scheme,
             // so it is a fixed, readable label.
-            string apiSecret = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxApiOptions>>().Value.Secret;
+            var apiSecret = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<MediaMtxApiOptions>>().Value.Secret;
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue(
                     "Basic",
@@ -154,12 +153,12 @@ public static class StreamDistributionInfrastructureModule
         services.AddOptions<TelemetryOptions>()
             .Configure<Microsoft.Extensions.Options.IOptions<MediaMtxOptions>>((options, mediaMtxOptions) =>
             {
-                Func<SeverityProviderArguments, ResilienceEventSeverity>? previousProvider = options.SeverityProvider;
-                string mediaMtxHost = new Uri(mediaMtxOptions.Value.ManagementUrl).Host;
+                var previousProvider = options.SeverityProvider;
+                var mediaMtxHost = new Uri(mediaMtxOptions.Value.ManagementUrl).Host;
 
                 options.SeverityProvider = arguments =>
                 {
-                    bool isRoutineMediaMtxProbe =
+                    var isRoutineMediaMtxProbe =
                         arguments.Event.EventName == "ExecutionAttempt"
                         && arguments.Event.Severity == ResilienceEventSeverity.Information
                         && string.Equals(
@@ -184,11 +183,11 @@ public static class StreamDistributionInfrastructureModule
         // Aspire injects MediaMTX endpoints as `services:mediamtx:api:0`
         // (HTTP control plane) and `services:mediamtx:whep:0` (browser WHEP).
         // Fallback through ConnectionStrings:mediamtx for non-Aspire hosts.
-        string managementUrl =
+        var managementUrl =
             builder.Configuration["services:mediamtx:api:0"]
             ?? builder.Configuration.GetConnectionString("mediamtx-api")
             ?? throw new InvalidOperationException("MediaMTX management URL not configured (services:mediamtx:api:0).");
-        string whepBaseUrl =
+        var whepBaseUrl =
             builder.Configuration["services:mediamtx:whep:0"]
             ?? builder.Configuration.GetConnectionString("mediamtx-whep")
             ?? throw new InvalidOperationException("MediaMTX WHEP URL not configured (services:mediamtx:whep:0).");
@@ -232,7 +231,7 @@ public static class StreamDistributionInfrastructureModule
     /// </summary>
     private static void BindStreamFabAttribution(IHostApplicationBuilder builder)
     {
-        string keycloakBaseUrl =
+        var keycloakBaseUrl =
             builder.Configuration.GetConnectionString("keycloak")
             ?? builder.Configuration["services:keycloak:http:0"]
             ?? builder.Configuration["services:keycloak:https:0"]
@@ -276,13 +275,13 @@ public static class StreamDistributionInfrastructureModule
     internal static void BindWhepAuthOptions(IHostApplicationBuilder builder)
     {
         // Derive the Keycloak authority the same way AuthenticationDefaults does.
-        string keycloakBaseUrl =
+        var keycloakBaseUrl =
             builder.Configuration.GetConnectionString("keycloak")
             ?? builder.Configuration["services:keycloak:http:0"]
             ?? builder.Configuration["services:keycloak:https:0"]
             ?? throw new InvalidOperationException("Keycloak base URL not configured for WHEP auth validator.");
 
-        string realm = builder.Configuration["Keycloak:Realm"] ?? "smart-sentinel-eye";
+        var realm = builder.Configuration["Keycloak:Realm"] ?? "smart-sentinel-eye";
 
         builder.Services.AddOptions<WhepAuthOptions>()
             .Configure(options =>
@@ -298,5 +297,5 @@ public static class StreamDistributionInfrastructureModule
     }
 
     private static bool IsHttpsAbsolute(string value) =>
-        Uri.TryCreate(value, UriKind.Absolute, out Uri? uri) && uri.Scheme == Uri.UriSchemeHttps;
+        Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.Scheme == Uri.UriSchemeHttps;
 }

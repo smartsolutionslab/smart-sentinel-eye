@@ -21,7 +21,7 @@ public sealed class RegisterDeviceCommandHandler(
         RegisterDeviceCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (string? deviceType, string? deviceIdentifier, FabIdentifier? fab, OperatorIdentifier registeredBy) = command;
+        (var deviceType, var deviceIdentifier, var fab, var registeredBy) = command;
 
         if (!AllowedDeviceTypes.Contains(deviceType, StringComparer.Ordinal))
         {
@@ -49,7 +49,7 @@ public sealed class RegisterDeviceCommandHandler(
             return Failure(RegisterDeviceFailures.InvalidDeviceIdentifier(ex.Message));
         }
 
-        Option<RegisteredClientAggregate> existing = await clients
+        var existing = await clients
             .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (existing.HasValue)
         {
@@ -91,7 +91,7 @@ public sealed class RegisterDeviceCommandHandler(
             return Failure(RegisterDeviceFailures.KeycloakUnavailable(ex.Message));
         }
 
-        RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
+        var registered = RegisteredClientAggregate.Register(
             clientId, ClientKind.Device, fab, registeredBy, clock);
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken);

@@ -70,7 +70,7 @@ public sealed record Payload : IValueObject<string>
         }
         try
         {
-            using JsonDocument parsed = JsonDocument.Parse(rawJson);
+            using var parsed = JsonDocument.Parse(rawJson);
             return From(parsed);
         }
         catch (JsonException ex)

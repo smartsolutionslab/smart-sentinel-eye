@@ -1,6 +1,4 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -45,13 +43,13 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Reading_another_fabs_camera_is_byte_identical_to_reading_one_that_never_existed()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich);
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage crossFab = await dresden.GetAsync($"/cameras/{inMunich}");
-        HttpResponseMessage neverExisted = await dresden.GetAsync($"/cameras/{Guid.CreateVersion7()}");
+        var crossFab = await dresden.GetAsync($"/cameras/{inMunich}");
+        var neverExisted = await dresden.GetAsync($"/cameras/{Guid.CreateVersion7()}");
 
         await BothRefusalsMustMatchAsync(crossFab, neverExisted, HttpStatusCode.NotFound);
     }
@@ -64,13 +62,13 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Correcting_another_fabs_camera_is_byte_identical_to_correcting_one_that_never_existed()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich);
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage crossFab = await PatchAsync(dresden, inMunich, expectedVersion: 0);
-        HttpResponseMessage neverExisted = await PatchAsync(dresden, Guid.CreateVersion7(), expectedVersion: 0);
+        var crossFab = await PatchAsync(dresden, inMunich, expectedVersion: 0);
+        var neverExisted = await PatchAsync(dresden, Guid.CreateVersion7(), expectedVersion: 0);
 
         await BothRefusalsMustMatchAsync(crossFab, neverExisted, HttpStatusCode.NotFound);
     }
@@ -100,17 +98,17 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_correction_with_no_If_Match_is_refused_identically_whichever_camera_it_names()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich);
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
         HttpRequestMessage crossFab = new(HttpMethod.Patch, $"/cameras/{inMunich}") { Content = Body() };
         HttpRequestMessage neverExisted =
             new(HttpMethod.Patch, $"/cameras/{Guid.CreateVersion7()}") { Content = Body() };
 
-        HttpResponseMessage crossFabResponse = await dresden.SendAsync(crossFab);
-        HttpResponseMessage unknownResponse = await dresden.SendAsync(neverExisted);
+        var crossFabResponse = await dresden.SendAsync(crossFab);
+        var unknownResponse = await dresden.SendAsync(neverExisted);
 
         // The status is the same for both, so it says nothing about which
         // cameras exist — that is the guarantee, not the number itself.
@@ -126,13 +124,13 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_correction_with_a_valid_If_Match_is_refused_identically_whichever_camera_it_names()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich);
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage crossFab = await PatchAsync(dresden, inMunich, expectedVersion: 1);
-        HttpResponseMessage neverExisted = await PatchAsync(dresden, Guid.CreateVersion7(), expectedVersion: 1);
+        var crossFab = await PatchAsync(dresden, inMunich, expectedVersion: 1);
+        var neverExisted = await PatchAsync(dresden, Guid.CreateVersion7(), expectedVersion: 1);
 
         // Not 412, even though the version is certainly wrong for a camera that
         // does not exist: the camera is refused before its version is compared,
@@ -147,18 +145,18 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task An_operator_holding_both_fabs_can_read_and_correct_the_camera()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich);
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich);
 
-        using HttpClient multiFab = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        using var multiFab = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
-        HttpResponseMessage read = await multiFab.GetAsync($"/cameras/{inMunich}?fabId=munich");
+        var read = await multiFab.GetAsync($"/cameras/{inMunich}?fabId=munich");
         read.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement body = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await read.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("fab").GetString().ShouldBe("munich");
 
-        HttpResponseMessage corrected = await PatchAsync(
+        var corrected = await PatchAsync(
             multiFab, inMunich, body.GetProperty("version").GetInt32(), fabId: "munich");
 
         corrected.StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -192,15 +190,15 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
         crossFab.StatusCode.ShouldBe(expected);
         neverExisted.StatusCode.ShouldBe(expected);
 
-        Dictionary<string, string> crossFabFields = await ProblemFieldsAsync(crossFab);
-        Dictionary<string, string> unknownFields = await ProblemFieldsAsync(neverExisted);
+        var crossFabFields = await ProblemFieldsAsync(crossFab);
+        var unknownFields = await ProblemFieldsAsync(neverExisted);
 
         crossFabFields.ShouldBe(unknownFields);
     }
 
     private static async Task<Dictionary<string, string>> ProblemFieldsAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return problem.EnumerateObject()
             .Where(field => !string.Equals(field.Name, "traceId", StringComparison.OrdinalIgnoreCase)
@@ -230,7 +228,7 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
     private static async Task<HttpResponseMessage> PatchAsync(
         HttpClient cameras, Guid camera, int expectedVersion, string fabId = "")
     {
-        string url = fabId.Length == 0 ? $"/cameras/{camera}" : $"/cameras/{camera}?fabId={fabId}";
+        var url = fabId.Length == 0 ? $"/cameras/{camera}" : $"/cameras/{camera}?fabId={fabId}";
 
         HttpRequestMessage request = new(HttpMethod.Patch, url) { Content = Body() };
         request.Headers.IfMatch.Add(new EntityTagHeaderValue($"\"{expectedVersion}\""));
@@ -240,9 +238,9 @@ public class CameraNonEnumerationIntegrationTests(AspireFixture aspire) : IAsync
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras)
     {
-        string name = $"hidden-{Guid.CreateVersion7():N}"[..24];
+        var name = $"hidden-{Guid.CreateVersion7():N}"[..24];
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
+        var created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
             rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264",

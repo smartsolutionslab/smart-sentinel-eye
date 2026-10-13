@@ -1,7 +1,5 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
-using SmartSentinelEye.Shared.Kernel;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
@@ -43,27 +41,27 @@ public class RunModeVariableResidueSweep(ITestOutputHelper output)
     [Fact]
     public async Task Archive_the_measurement_variables_a_run_mode_stack_still_holds()
     {
-        Option<RunModeStackAddress> configured = RunModeStackAddress.FromEnvironment();
+        var configured = RunModeStackAddress.FromEnvironment();
         configured.HasValue.ShouldBeTrue(RunModeStackAddress.Missing);
 
-        RunModeStackAddress address = configured.Value;
+        var address = configured.Value;
         output.WriteLine($"endpoint reached                      : {address.Describe()}");
 
-        using HttpClient variables = await address.CreateAuthenticatedClientAsync(CancellationToken.None);
+        using var variables = await address.CreateAuthenticatedClientAsync(CancellationToken.None);
 
         // The default listing, which since #2015 is the un-archived rows. So a
         // second run of this sweep finds nothing left to do rather than trying
         // to archive what it archived the first time.
-        string[] residue = await ResidueAsync(variables);
+        var residue = await ResidueAsync(variables);
         output.WriteLine($"residue found                         : {residue.Length}");
 
-        int archived = await VariableRequests.ArchiveAllAsync(variables, residue, CancellationToken.None);
+        var archived = await VariableRequests.ArchiveAllAsync(variables, residue, CancellationToken.None);
         output.WriteLine($"archived                              : {archived}");
 
         // Asked of the server again rather than inferred from the count, because
         // the count is what this sweep believes and the listing is what an
         // operator will actually open.
-        string[] remaining = await ResidueAsync(variables);
+        var remaining = await ResidueAsync(variables);
         output.WriteLine($"residue remaining                     : {remaining.Length}");
 
         remaining.ShouldBeEmpty();
@@ -71,9 +69,9 @@ public class RunModeVariableResidueSweep(ITestOutputHelper output)
 
     private static async Task<string[]> ResidueAsync(HttpClient variables)
     {
-        HttpResponseMessage listed = await variables.GetAsync("/system-variables");
+        var listed = await variables.GetAsync("/system-variables");
         listed.EnsureSuccessStatusCode();
-        JsonElement payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.EnumerateArray()
             .Select(row => row.GetProperty("name").GetString())

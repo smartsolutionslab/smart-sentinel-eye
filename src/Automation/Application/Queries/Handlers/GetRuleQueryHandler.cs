@@ -52,7 +52,7 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         // predicate makes the read agree. Value object, not .Value: RuleState
         // is value-converted, same trap as RuleName and Fab above.
         FabIdentifier[] scopedFabs = [.. fabs];
-        List<Rule> matches = await rules.Rules
+        var matches = await rules.Rules
             .Where(candidate => scopedFabs.Contains(candidate.Fab)
                 && candidate.Name == parsed
                 && candidate.State != RuleState.Archived)
@@ -67,7 +67,7 @@ public sealed class GetRuleQueryHandler(IRuleQuerySource rules)
         // ux_rules_fab_name_active allows at most one match per fab, so more
         // than one distinct fab is the only way this can be reached — the
         // message's claim is true by construction.
-        IReadOnlyList<string> fabsHolding = RuleFabCandidates.Fabs(matches);
+        var fabsHolding = RuleFabCandidates.Fabs(matches);
         if (fabsHolding.Count > 1)
         {
             return Failure(GetRuleFailures.FabAmbiguous(name, fabsHolding));

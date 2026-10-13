@@ -77,10 +77,10 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
                 "BooleanLabels can only be set on Boolean variables.");
         }
 
-        VariableValue value = initialValue ?? VariableValue.Unset.Instance;
+        var value = initialValue ?? VariableValue.Unset.Instance;
         EnsureValueMatchesType(type, value);
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         Variable variable = new()
         {
             Id = VariableIdentifier.New(),
@@ -149,7 +149,7 @@ public sealed class Variable : AggregateRoot<VariableIdentifier>
             return;
         }
 
-        bool matches = (type, value) switch
+        var matches = (type, value) switch
         {
             _ when type == VariableType.String && value is VariableValue.StringValue => true,
             _ when type == VariableType.Number && value is VariableValue.NumberValue => true,

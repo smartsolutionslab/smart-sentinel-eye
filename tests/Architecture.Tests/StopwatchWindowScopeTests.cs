@@ -78,13 +78,16 @@ public class StopwatchWindowScopeTests
         RegexOptions.Compiled);
 
     /// <summary>
-    /// Every one of the fifteen declarations in the suite is spelled
-    /// <c>Stopwatch &lt;ident&gt; = Stopwatch.StartNew();</c>, so the identifier is
-    /// always readable from the declaration and there is no <c>var</c> case to
-    /// infer.
+    /// Every declaration in the suite is spelled
+    /// <c>var &lt;ident&gt; = Stopwatch.StartNew();</c> (or, equivalently,
+    /// <c>Stopwatch &lt;ident&gt; = Stopwatch.StartNew();</c>), so the identifier is
+    /// always readable from the declaration and the type never has to be inferred.
+    /// Both spellings are matched because the house rule makes <c>var</c> the
+    /// canonical one — a pattern that knew only the explicit type found no windows
+    /// the day the rule was enforced.
     /// </summary>
     private static readonly Regex WindowOpen = new(
-        @"\bStopwatch\s+(?<variable>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*Stopwatch\s*\.\s*StartNew\s*\(\s*\)\s*;",
+        @"\b(?:var|Stopwatch)\s+(?<variable>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*Stopwatch\s*\.\s*StartNew\s*\(\s*\)\s*;",
         RegexOptions.Compiled);
 
     private static readonly Regex Provisioning = new(
@@ -94,7 +97,7 @@ public class StopwatchWindowScopeTests
     [Fact]
     public void A_closed_budget_window_does_not_provision_inside_the_clock()
     {
-        Window[] windows = ScannedWindows();
+        var windows = ScannedWindows();
 
         windows.Length.ShouldBeGreaterThan(
             0,
@@ -102,7 +105,7 @@ public class StopwatchWindowScopeTests
             + "code. A source-scanning guard that matches nothing passes, and a passing guard that "
             + "checks nothing is indistinguishable from one that holds.");
 
-        Violation[] violations = Ordered(windows.SelectMany(Violations)).ToArray();
+        var violations = Ordered(windows.SelectMany(Violations)).ToArray();
 
         violations.ShouldBeEmpty(Explain(violations, windows.Length));
     }
@@ -129,7 +132,7 @@ public class StopwatchWindowScopeTests
             }
             """;
 
-        Violation[] violations = Violations("synthetic/ProvisioningInsideTests.cs", source);
+        var violations = Violations("synthetic/ProvisioningInsideTests.cs", source);
 
         violations.Length.ShouldBe(
             1,
@@ -250,7 +253,7 @@ public class StopwatchWindowScopeTests
 
     private static Window[] ClosedWindows(string path, string source)
     {
-        string scanned = StripComments(source);
+        var scanned = StripComments(source);
 
         return WindowOpen
             .Matches(scanned)
@@ -266,10 +269,10 @@ public class StopwatchWindowScopeTests
     /// </summary>
     private static Window? Close(string path, string scanned, Match open)
     {
-        string variable = open.Groups["variable"].Value;
-        int from = open.Index + open.Length;
+        var variable = open.Groups["variable"].Value;
+        var from = open.Index + open.Length;
 
-        Match close = Regex.Match(
+        var close = Regex.Match(
             scanned[from..],
             $@"\b{Regex.Escape(variable)}\s*\.\s*Stop\s*\(\s*\)\s*;");
 
@@ -302,7 +305,7 @@ public class StopwatchWindowScopeTests
 
     private static Window[] ScannedWindows()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return Directory
             .EnumerateFiles(Path.Combine(root.FullName, ScannedTree), "*.cs", SearchOption.AllDirectories)

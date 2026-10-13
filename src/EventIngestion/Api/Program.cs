@@ -2,7 +2,7 @@ using SmartSentinelEye.EventIngestion.Api;
 using SmartSentinelEye.EventIngestion.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddBearerAuthentication();
@@ -14,7 +14,7 @@ builder.Services.AddOpenApi();
 // (EventsEndpoints.Writes.cs, spec 302 review finding on #2205).
 builder.Services.AddMemoryCache();
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 app.MapDefaultEndpoints();
 

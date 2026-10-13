@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 
@@ -76,7 +75,7 @@ public sealed partial class AspireFixture
     /// </summary>
     public HttpClient CreateMediaMtxApiClient()
     {
-        HttpClient client = App.CreateHttpClient("mediamtx", "api");
+        var client = App.CreateHttpClient("mediamtx", "api");
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Basic",
             Convert.ToBase64String(Encoding.UTF8.GetBytes($"stream-distribution:{MediaMtxApiSecret}")));
@@ -96,8 +95,8 @@ public sealed partial class AspireFixture
     public async Task<HttpClient> CreateAdminClientAsync(
         string resourceName, CancellationToken cancellationToken = default)
     {
-        string token = await GetAdminAccessTokenAsync(cancellationToken);
-        HttpClient client = CreateServiceClient(resourceName);
+        var token = await GetAdminAccessTokenAsync(cancellationToken);
+        var client = CreateServiceClient(resourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
@@ -109,14 +108,14 @@ public sealed partial class AspireFixture
     /// </summary>
     public async Task<string> GetAdminAccessTokenAsync(CancellationToken cancellationToken = default)
     {
-        string cacheKey = $"client_credentials|{HarnessClientId}";
-        if (tokenCache.TryGetValue(cacheKey, out CachedToken? cached) &&
+        var cacheKey = $"client_credentials|{HarnessClientId}";
+        if (tokenCache.TryGetValue(cacheKey, out var cached) &&
             cached.ExpiresAt > DateTimeOffset.UtcNow + ExpirySafetyMargin)
         {
             return cached.AccessToken;
         }
 
-        CachedToken token = await FetchClientCredentialsTokenAsync(cancellationToken);
+        var token = await FetchClientCredentialsTokenAsync(cancellationToken);
         tokenCache[cacheKey] = token;
         return token.AccessToken;
     }
@@ -124,8 +123,8 @@ public sealed partial class AspireFixture
     public async Task<HttpClient> CreateAuthenticatedClientAsync(
         string resourceName, string username, string password, CancellationToken cancellationToken = default)
     {
-        string token = await GetAccessTokenAsync(username, password, cancellationToken).ConfigureAwait(false);
-        HttpClient client = CreateServiceClient(resourceName);
+        var token = await GetAccessTokenAsync(username, password, cancellationToken).ConfigureAwait(false);
+        var client = CreateServiceClient(resourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
@@ -133,14 +132,14 @@ public sealed partial class AspireFixture
     public async Task<string> GetAccessTokenAsync(
         string username, string password, CancellationToken cancellationToken = default)
     {
-        string cacheKey = $"{username}|{password}";
-        if (tokenCache.TryGetValue(cacheKey, out CachedToken? cached) &&
+        var cacheKey = $"{username}|{password}";
+        if (tokenCache.TryGetValue(cacheKey, out var cached) &&
             cached.ExpiresAt > DateTimeOffset.UtcNow + ExpirySafetyMargin)
         {
             return cached.AccessToken;
         }
 
-        CachedToken token = await FetchAccessTokenAsync(username, password, cancellationToken)
+        var token = await FetchAccessTokenAsync(username, password, cancellationToken)
             .ConfigureAwait(false);
         tokenCache[cacheKey] = token;
         return token.AccessToken;
@@ -162,7 +161,7 @@ public sealed partial class AspireFixture
         string clientId, string username, string password, string scope,
         CancellationToken cancellationToken = default)
     {
-        CachedToken token = await FetchAccessTokenAsync(username, password, clientId, scope, cancellationToken)
+        var token = await FetchAccessTokenAsync(username, password, clientId, scope, cancellationToken)
             .ConfigureAwait(false);
         return token.AccessToken;
     }
@@ -209,22 +208,22 @@ public sealed partial class AspireFixture
     private async Task<CachedToken> RequestTokenAsync(
         Dictionary<string, string> form, string describe, CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = CreateKeycloakClient();
-        HttpResponseMessage response = await keycloak.PostAsync(
+        using var keycloak = CreateKeycloakClient();
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token",
             new FormUrlEncodedContent(form), cancellationToken).ConfigureAwait(false);
 
         if (!response.IsSuccessStatusCode)
         {
-            string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
             throw new InvalidOperationException(
                 $"Keycloak {describe}: {response.StatusCode} {body}");
         }
 
-        JsonElement tokenJson = await response.Content
+        var tokenJson = await response.Content
             .ReadFromJsonAsync<JsonElement>(cancellationToken).ConfigureAwait(false);
-        string accessToken = tokenJson.GetProperty("access_token").GetString()!;
-        int expiresIn = tokenJson.TryGetProperty("expires_in", out JsonElement expiresProperty)
+        var accessToken = tokenJson.GetProperty("access_token").GetString()!;
+        var expiresIn = tokenJson.TryGetProperty("expires_in", out var expiresProperty)
             ? expiresProperty.GetInt32() : 60;
 
         return new CachedToken(accessToken, DateTimeOffset.UtcNow.AddSeconds(expiresIn));

@@ -25,9 +25,9 @@ public class MqttBackoffTests
         backoff.Next().ShouldBe(TimeSpan.Zero, "the first attempt is made immediately");
 
         double[] expected = [1, 2, 4, 8, 16, 30, 30, 30];
-        foreach (double seconds in expected)
+        foreach (var seconds in expected)
         {
-            TimeSpan delay = backoff.Next();
+            var delay = backoff.Next();
 
             delay.TotalSeconds.ShouldBeInRange(
                 seconds * 0.8,
@@ -65,7 +65,7 @@ public class MqttBackoffTests
     {
         MqttBackoff backoff = new();
 
-        for (int i = 0; i < 200; i++)
+        for (var i = 0; i < 200; i++)
         {
             backoff.Next().TotalSeconds.ShouldBeLessThanOrEqualTo(30 * 1.2);
         }

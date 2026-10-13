@@ -21,12 +21,12 @@ public sealed class RevocationListOptionsValidationTests
     [Fact]
     public void Resolving_the_options_throws_when_the_http_source_is_in_use_and_the_secret_is_unset()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
 
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
 
         Should.Throw<OptionsValidationException>(
             () => provider.GetRequiredService<IOptions<RevocationListOptions>>().Value,
@@ -46,13 +46,13 @@ public sealed class RevocationListOptionsValidationTests
     [Fact]
     public void Resolving_the_options_does_not_validate_when_the_source_is_not_the_http_one()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.Services.AddSingleton<IRevokedClientSource>(new NeverCalledSource());
 
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
 
         Should.NotThrow(
             () => provider.GetRequiredService<IOptions<RevocationListOptions>>().Value,

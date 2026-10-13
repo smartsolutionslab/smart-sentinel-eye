@@ -7,7 +7,6 @@ using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
-using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Commands;
 
@@ -26,7 +25,7 @@ public class DisableWebhookClientCommandHandlerTests
     private static void Seed(
         InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId, string fab = "munich")
     {
-        RegisteredClientAggregate aggregate = new RegisteredClientBuilder()
+        var aggregate = new RegisteredClientBuilder()
             .WithClientId(clientId)
             .WithKind(kind)
             .WithFab(fab)
@@ -46,7 +45,7 @@ public class DisableWebhookClientCommandHandlerTests
             repo, keycloak, new FakeClock(Now.AddHours(1)),
             NullLogger<DisableWebhookClientCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
 
@@ -64,7 +63,7 @@ public class DisableWebhookClientCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<DisableWebhookClientCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-ghost"), FabIdentifier.From("munich")),
             CancellationToken.None);
 
@@ -88,7 +87,7 @@ public class DisableWebhookClientCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<DisableWebhookClientCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
 
@@ -112,7 +111,7 @@ public class DisableWebhookClientCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<DisableWebhookClientCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
 
@@ -132,7 +131,7 @@ public class DisableWebhookClientCommandHandlerTests
             repo, keycloak, new FakeClock(Now.AddHours(1)),
             NullLogger<DisableWebhookClientCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
 
@@ -186,12 +185,12 @@ public class DisableWebhookClientCommandHandlerTests
         await first.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
-        DateTimeOffset firstDisabledAt = repo.Clients[0].DisabledAt!.Value;
+        var firstDisabledAt = repo.Clients[0].DisabledAt!.Value;
 
         DisableWebhookClientCommandHandler second = new(
             repo, keycloak, new FakeClock(Now.AddHours(2)),
             NullLogger<DisableWebhookClientCommandHandler>.Instance);
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await second.HandleAsync(
+        var result = await second.HandleAsync(
             new DisableWebhookClientCommand(ClientId.From("webhook-w"), FabIdentifier.From("munich")),
             CancellationToken.None);
 

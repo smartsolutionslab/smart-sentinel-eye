@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
 using SmartSentinelEye.SystemVariables.Application.EventHandlers;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
@@ -65,7 +64,7 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task First_delivery_dispatches_SetVariableValue_against_the_existing_handler()
     {
         InMemoryVariableRepository repo = new();
-        Variable oeeLine1 = new VariableBuilder()
+        var oeeLine1 = new VariableBuilder()
             .Named("oeeLine1").OfType(VariableType.Number).At(Moment).Build();
         repo.Add(oeeLine1);
 
@@ -85,7 +84,7 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task Second_delivery_with_the_same_causing_event_is_a_no_op()
     {
         InMemoryVariableRepository repo = new();
-        Variable oeeLine1 = new VariableBuilder()
+        var oeeLine1 = new VariableBuilder()
             .Named("oeeLine1").OfType(VariableType.Number).At(Moment).Build();
         repo.Add(oeeLine1);
 
@@ -94,7 +93,7 @@ public class SystemVariableValueRequestedV1HandlerTests
             dedup, BuildSetHandler(repo),
             NullLogger<SystemVariableValueRequestedV1Handler>.Instance);
 
-        Guid causing = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
         await handler.Handle(
             new SystemVariableValueRequestedV1("oeeLine1", "82.5", Moment, causing, Metadata: TestMetadata),
             CancellationToken.None);
@@ -145,7 +144,7 @@ public class SystemVariableValueRequestedV1HandlerTests
             new SystemVariableValueRequestedV1("1bad", "1", Moment, Guid.CreateVersion7(), Metadata: TestMetadata),
             CancellationToken.None);
 
-        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        var entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Message.ShouldContain(
             "1bad",
@@ -164,10 +163,10 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task A_munich_request_changes_munichs_variable_and_leaves_dresdens_alone()
     {
         InMemoryVariableRepository repo = new();
-        Variable munich = Seed(repo, "munich", 1);
-        Variable dresden = Seed(repo, "dresden", 2);
+        var munich = Seed(repo, "munich", 1);
+        var dresden = Seed(repo, "dresden", 2);
 
-        SystemVariableValueRequestedV1Handler handler = BuildHandler(repo);
+        var handler = BuildHandler(repo);
 
         await handler.Handle(
             new SystemVariableValueRequestedV1(
@@ -185,9 +184,9 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task A_request_carrying_no_fab_changes_nothing()
     {
         InMemoryVariableRepository repo = new();
-        Variable munich = Seed(repo, "munich", 1);
+        var munich = Seed(repo, "munich", 1);
 
-        SystemVariableValueRequestedV1Handler handler = BuildHandler(repo);
+        var handler = BuildHandler(repo);
 
         await handler.Handle(
             new SystemVariableValueRequestedV1(
@@ -201,9 +200,9 @@ public class SystemVariableValueRequestedV1HandlerTests
     public async Task A_request_naming_another_fabs_variable_changes_nothing()
     {
         InMemoryVariableRepository repo = new();
-        Variable munich = Seed(repo, "munich", 1);
+        var munich = Seed(repo, "munich", 1);
 
-        SystemVariableValueRequestedV1Handler handler = BuildHandler(repo);
+        var handler = BuildHandler(repo);
 
         // dresden holds no oeeLine1; munich's must not stand in for it.
         await handler.Handle(
@@ -222,11 +221,11 @@ public class SystemVariableValueRequestedV1HandlerTests
         // is swallowed — the normal case once both fabs run rules on one
         // trigger, not an edge one.
         InMemoryVariableRepository repo = new();
-        Variable munich = Seed(repo, "munich", 1);
-        Variable dresden = Seed(repo, "dresden", 2);
+        var munich = Seed(repo, "munich", 1);
+        var dresden = Seed(repo, "dresden", 2);
 
-        SystemVariableValueRequestedV1Handler handler = BuildHandler(repo);
-        Guid causing = Guid.CreateVersion7();
+        var handler = BuildHandler(repo);
+        var causing = Guid.CreateVersion7();
 
         await handler.Handle(
             new SystemVariableValueRequestedV1("oeeLine1", "10", Moment, causing, MetadataFor("munich")),
@@ -259,7 +258,7 @@ public class SystemVariableValueRequestedV1HandlerTests
         // The handler fails closed either way, so "nothing changed" cannot
         // tell this from a typo. Both identifiers must be present or the
         // operator cannot tell which fab was missing what.
-        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        var entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Message.ShouldContain("dresden");
         entry.Message.ShouldContain("oeeLine1");
@@ -293,7 +292,7 @@ public class SystemVariableValueRequestedV1HandlerTests
 
     private static Variable Seed(InMemoryVariableRepository repo, string fab, double value)
     {
-        Variable variable = new VariableBuilder()
+        var variable = new VariableBuilder()
             .WithFab(fab)
             .Named("oeeLine1")
             .OfType(VariableType.Number)
@@ -326,7 +325,7 @@ public class SystemVariableValueRequestedV1HandlerTests
         InMemoryVariableRepository repo = new();
         Seed(repo, "munich", 1);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryReverseIndex index = new();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
@@ -347,7 +346,7 @@ public class SystemVariableValueRequestedV1HandlerTests
                 "oeeLine1", "82.5", Moment, Guid.CreateVersion7(), MetadataFor("munich", Accepted)),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push = bus.Published
+        var push = bus.Published
             .OfType<ResolvedOverlayTextChangedV3>()
             .ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);

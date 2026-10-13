@@ -42,7 +42,7 @@ public sealed class ReplayRegisteredClientQueryHandler(
     {
         Ensure.That(query).IsNotNull();
 
-        Option<RegisteredClient> found = await clients.GetByIdentifierAsync(query.Client, cancellationToken);
+        var found = await clients.GetByIdentifierAsync(query.Client, cancellationToken);
 
         if (!found.HasValue)
         {
@@ -50,7 +50,7 @@ public sealed class ReplayRegisteredClientQueryHandler(
                 new ReplayedRegistrationMissing(query.Client.Value));
         }
 
-        RegisteredClient registered = found.Value;
+        var registered = found.Value;
 
         KeycloakClientCredentials credentials;
         try

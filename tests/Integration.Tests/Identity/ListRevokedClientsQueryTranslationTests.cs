@@ -29,7 +29,7 @@ public sealed class ListRevokedClientsQueryTranslationTests
 {
     private static IdentityDbContext NewContext()
     {
-        DbContextOptions<IdentityDbContext> options =
+        var options =
             new DbContextOptionsBuilder<IdentityDbContext>()
                 .UseNpgsql("Host=localhost;Database=translation-check")
                 .Options;
@@ -39,11 +39,11 @@ public sealed class ListRevokedClientsQueryTranslationTests
     [Fact]
     public void The_grouped_revocation_query_translates_to_sql()
     {
-        using IdentityDbContext context = NewContext();
+        using var context = NewContext();
 
-        IQueryable<RevokedClientEntry> queryable = ListRevokedClientsQueryHandler.BuildQuery(context.RegisteredClients);
+        var queryable = ListRevokedClientsQueryHandler.BuildQuery(context.RegisteredClients);
 
-        string sql = queryable.ToQueryString();
+        var sql = queryable.ToQueryString();
 
         sql.ShouldContain("GROUP BY");
         sql.ShouldContain("client_id");
@@ -59,7 +59,7 @@ public sealed class ListRevokedClientsQueryTranslationTests
         // at execution time. If EF Core ever starts supporting this, the
         // value-object grouping form stays correct — but this documents why
         // BuildQuery must not reintroduce `.Value` inside GroupBy.
-        using IdentityDbContext context = NewContext();
+        using var context = NewContext();
 
         Should.Throw<InvalidOperationException>(() =>
             context.RegisteredClients

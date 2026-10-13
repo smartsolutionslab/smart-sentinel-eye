@@ -1,11 +1,9 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -42,8 +40,8 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
     [Fact]
     public async Task One_unstorable_delivery_is_recorded_and_released_without_delaying_the_rest()
     {
-        string poisonKind = $"Poison{Guid.CreateVersion7():N}"[..20];
-        string healthyKind = $"Healthy{Guid.CreateVersion7():N}"[..20];
+        var poisonKind = $"Poison{Guid.CreateVersion7():N}"[..20];
+        var healthyKind = $"Healthy{Guid.CreateVersion7():N}"[..20];
 
         await ExecuteAsync($"DROP TABLE IF EXISTS events_{PoisonFab};");
         output.WriteLine($"dropped events_{PoisonFab} — one delivery can now never be stored");
@@ -51,7 +49,7 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
         try
         {
             await PublishAsync($"fab/{PoisonFab}/plc/dev-1", poisonKind, 1);
-            DateTimeOffset publishedAt = DateTimeOffset.UtcNow;
+            var publishedAt = DateTimeOffset.UtcNow;
             await PublishAsync($"fab/{HealthyFab}/plc/station-4", healthyKind, HealthyCount);
             output.WriteLine($"published 1 poisoned + {HealthyCount} healthy");
 
@@ -59,15 +57,15 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
             // window is far longer than this, so the healthy events can only be
             // here on time if the loop moved past the failure rather than
             // waiting it out.
-            long healthy = await WaitForCountAsync(healthyKind, HealthyCount, TimeSpan.FromSeconds(45));
-            TimeSpan took = DateTimeOffset.UtcNow - publishedAt;
+            var healthy = await WaitForCountAsync(healthyKind, HealthyCount, TimeSpan.FromSeconds(45));
+            var took = DateTimeOffset.UtcNow - publishedAt;
             output.WriteLine($"healthy stored: {healthy} after {took.TotalSeconds:F1}s");
             healthy.ShouldBe(
                 HealthyCount, "one unstorable delivery held up the fabs behind it — spec 018's defect, back");
 
             // FR-007/FR-008. Recorded before it is released, so the delivery is
             // never merely gone.
-            string error = await WaitForDeadLetterAsync(poisonKind, TimeSpan.FromMinutes(4));
+            var error = await WaitForDeadLetterAsync(poisonKind, TimeSpan.FromMinutes(4));
             output.WriteLine($"dead letter: {error}");
             error.ShouldNotBeNullOrEmpty("the poisoned delivery was released without being recorded");
             error.ShouldContain("not storable");
@@ -82,7 +80,7 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
 
     private async Task<long> WaitForCountAsync(string kind, long expected, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
         long count = 0;
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -106,13 +104,13 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
     /// </summary>
     private async Task<string> WaitForDeadLetterAsync(string kind, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            await using EventIngestionDbContext database =
+            await using var database =
                 await aspire.CreateEventIngestionDbContextAsync();
-            string[] found = await database.Database
+            var found = await database.Database
                 .SqlQueryRaw<string>(
                     "SELECT error AS \"Value\" FROM dead_letters WHERE raw_payload LIKE {0}",
                     $"%{kind}%")
@@ -131,7 +129,7 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
 
     private async Task<long> CountAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -139,7 +137,7 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
 
     private async Task RestoreStorageAsync()
     {
-        DateTime now = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
         await ExecuteAsync($"""
             CREATE TABLE IF NOT EXISTS events_{PoisonFab} PARTITION OF events
                 FOR VALUES IN ('{PoisonFab}') PARTITION BY RANGE (ingested_at);
@@ -152,7 +150,7 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
 
     private async Task ExecuteAsync(string sql)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
 #pragma warning disable EF1002
         await database.Database.ExecuteSqlRawAsync(sql);
 #pragma warning restore EF1002
@@ -160,22 +158,22 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
 
     private async Task PublishAsync(string topic, string kind, int count)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -185,9 +183,9 @@ public class PoisonDeliveryEscapeIntegrationTests(AspireFixture aspire, ITestOut
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
-            MqttClientPublishResult published = await client.PublishAsync(
+            var published = await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
                     .WithPayload(Payload(kind))

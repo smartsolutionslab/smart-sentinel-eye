@@ -76,8 +76,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Ensure.That(sourceUrl).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        MediaMtxPath path = MediaMtxPath.For(camera);
-        DateTimeOffset now = clock.UtcNow;
+        var path = MediaMtxPath.For(camera);
+        var now = clock.UtcNow;
         Stream stream = new()
         {
             Id = StreamIdentifier.New(),
@@ -149,8 +149,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             return;
         }
 
-        StreamState previous = State;
-        DateTimeOffset now = clock.UtcNow;
+        var previous = State;
+        var now = clock.UtcNow;
 
         LastError = null;
         State = StreamState.Retired;
@@ -205,8 +205,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(ReportHealthy));
 
-        StreamState previous = State;
-        DateTimeOffset now = clock.UtcNow;
+        var previous = State;
+        var now = clock.UtcNow;
 
         TranscodeMode = detectedMode;
         LastSuccessAt = LastSuccessAt.From(now);
@@ -232,8 +232,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(ReportDegraded));
 
-        StreamState previous = State;
-        DateTimeOffset now = clock.UtcNow;
+        var previous = State;
+        var now = clock.UtcNow;
 
         LastError = error;
         State = StreamState.Degraded;
@@ -262,8 +262,8 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
             throw new InvalidOperationException($"Stream {Id} cannot transition from {State} directly to Offline; must pass through Degraded.");
         }
 
-        StreamState previous = State;
-        DateTimeOffset now = clock.UtcNow;
+        var previous = State;
+        var now = clock.UtcNow;
 
         LastError = error;
         State = StreamState.Offline;

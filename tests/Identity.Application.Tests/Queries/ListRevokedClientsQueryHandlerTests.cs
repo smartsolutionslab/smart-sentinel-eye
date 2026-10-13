@@ -4,8 +4,6 @@ using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
-using SmartSentinelEye.Shared.Contracts.Identity;
-using SmartSentinelEye.Shared.Kernel;
 using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Queries;
@@ -55,10 +53,10 @@ public class ListRevokedClientsQueryHandlerTests
     [Fact]
     public async Task Active_rows_are_excluded()
     {
-        RegisteredClientAggregate active = Build(ClientKind.Kiosk, "kiosk-active", "munich");
-        ListRevokedClientsQueryHandler handler = HandlerFor(active);
+        var active = Build(ClientKind.Kiosk, "kiosk-active", "munich");
+        var handler = HandlerFor(active);
 
-        Result<IReadOnlyList<RevokedClientEntry>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListRevokedClientsQuery(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -68,13 +66,13 @@ public class ListRevokedClientsQueryHandlerTests
     [Fact]
     public async Task Disabled_kiosk_device_and_webhook_rows_are_all_included()
     {
-        RegisteredClientAggregate kiosk = Disable(Build(ClientKind.Kiosk, "kiosk-1", "munich"), Now.AddHours(1));
-        RegisteredClientAggregate device = Disable(Build(ClientKind.Device, "device-1", "munich"), Now.AddHours(1));
-        RegisteredClientAggregate webhook =
+        var kiosk = Disable(Build(ClientKind.Kiosk, "kiosk-1", "munich"), Now.AddHours(1));
+        var device = Disable(Build(ClientKind.Device, "device-1", "munich"), Now.AddHours(1));
+        var webhook =
             Disable(Build(ClientKind.WebhookIntegration, "hook-1", "munich"), Now.AddHours(1));
-        ListRevokedClientsQueryHandler handler = HandlerFor(kiosk, device, webhook);
+        var handler = HandlerFor(kiosk, device, webhook);
 
-        Result<IReadOnlyList<RevokedClientEntry>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListRevokedClientsQuery(), CancellationToken.None);
 
         result.Value.Select(entry => entry.ClientId).ShouldBe(
@@ -84,13 +82,13 @@ public class ListRevokedClientsQueryHandlerTests
     [Fact]
     public async Task Rows_from_two_fabs_are_both_included()
     {
-        RegisteredClientAggregate munich =
+        var munich =
             Disable(Build(ClientKind.Kiosk, "kiosk-munich", "munich"), Now.AddHours(1));
-        RegisteredClientAggregate dresden =
+        var dresden =
             Disable(Build(ClientKind.Kiosk, "kiosk-dresden", "dresden"), Now.AddHours(1));
-        ListRevokedClientsQueryHandler handler = HandlerFor(munich, dresden);
+        var handler = HandlerFor(munich, dresden);
 
-        Result<IReadOnlyList<RevokedClientEntry>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListRevokedClientsQuery(), CancellationToken.None);
 
         result.Value.Select(entry => entry.ClientId).ShouldBe(
@@ -105,16 +103,16 @@ public class ListRevokedClientsQueryHandlerTests
     [Fact]
     public async Task The_same_client_id_disabled_twice_yields_one_entry_with_the_later_DisabledAt()
     {
-        RegisteredClientAggregate firstRegistration =
+        var firstRegistration =
             Disable(Build(ClientKind.Kiosk, "kiosk-269", "munich"), Now.AddMinutes(30));
-        RegisteredClientAggregate secondRegistration =
+        var secondRegistration =
             Disable(Build(ClientKind.Kiosk, "kiosk-269", "munich"), Now.AddDays(1));
-        ListRevokedClientsQueryHandler handler = HandlerFor(firstRegistration, secondRegistration);
+        var handler = HandlerFor(firstRegistration, secondRegistration);
 
-        Result<IReadOnlyList<RevokedClientEntry>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListRevokedClientsQuery(), CancellationToken.None);
 
-        RevokedClientEntry entry = result.Value.ShouldHaveSingleItem();
+        var entry = result.Value.ShouldHaveSingleItem();
         entry.ClientId.ShouldBe("kiosk-269");
         entry.DisabledAt.ShouldBe(
             Now.AddDays(1),

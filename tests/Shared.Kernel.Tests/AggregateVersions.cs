@@ -1,5 +1,4 @@
 using System.Reflection;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.Shared.Kernel.Tests;
@@ -50,7 +49,7 @@ public static class AggregateVersions
         // Resolved from the instance, not a hardcoded aggregate type: the
         // property is declared on AggregateRoot<TIdentifier>, which is an open
         // generic and cannot be named here.
-        MethodInfo setter =
+        var setter =
             aggregate.GetType()
                 .GetProperty(nameof(IVersionedAggregate.Version), BindingFlags.Public | BindingFlags.Instance)
                 ?.GetSetMethod(nonPublic: true)

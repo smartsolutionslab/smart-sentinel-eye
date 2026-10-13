@@ -125,16 +125,16 @@ public class EventMetadataFabDeclarationTests
     [Fact]
     public void A_handler_whose_record_carries_a_fab_never_passes_a_literal_null_fab_to_EventMetadata()
     {
-        Dictionary<string, string> sources = ReadSources();
+        var sources = ReadSources();
         Dictionary<string, RecordHeader> records = new(StringComparer.Ordinal);
-        MetadataShape shape = ShapeOf(sources, records);
+        var shape = ShapeOf(sources, records);
 
         List<string> failures = [];
-        int checkedCount = 0;
+        var checkedCount = 0;
 
-        foreach ((string path, string text) in sources)
+        foreach ((var path, var text) in sources)
         {
-            foreach ((string typeName, string body, int offset) in Handlers(text))
+            foreach ((var typeName, var body, var offset) in Handlers(text))
             {
                 foreach (Match construction in Construction.Matches(body))
                 {
@@ -168,8 +168,8 @@ public class EventMetadataFabDeclarationTests
     /// </summary>
     private static IEnumerable<string> Unscanned(string path, string text)
     {
-        int declared = Construction.Count(text);
-        int reached = Handlers(text).Sum(handler => Construction.Count(handler.Body));
+        var declared = Construction.Count(text);
+        var reached = Handlers(text).Sum(handler => Construction.Count(handler.Body));
         if (declared == reached || !AnyHandlerMention.IsMatch(text))
         {
             yield break;
@@ -190,7 +190,7 @@ public class EventMetadataFabDeclarationTests
         IReadOnlyDictionary<string, string> sources,
         Dictionary<string, RecordHeader> records)
     {
-        string? arguments = Balanced(body, construction.Index + construction.Length - 1, '(', ')');
+        var arguments = Balanced(body, construction.Index + construction.Length - 1, '(', ')');
         if (arguments is null)
         {
             yield return $"{where}: an EventMetadata argument list has no closing parenthesis.";
@@ -219,7 +219,7 @@ public class EventMetadataFabDeclarationTests
             yield break;
         }
 
-        RecordHeader header = HeaderFor(typeName, sources, records);
+        var header = HeaderFor(typeName, sources, records);
         if (header.Matches > 1)
         {
             yield return $"{where}: '{typeName}' names {header.Matches} distinct positional record headers in "
@@ -229,7 +229,7 @@ public class EventMetadataFabDeclarationTests
             yield break;
         }
 
-        IReadOnlyList<string>? components = header.Components;
+        var components = header.Components;
         if (components is null)
         {
             yield return $"{where}: the record '{typeName}' this handler receives could not be found, so "
@@ -239,7 +239,7 @@ public class EventMetadataFabDeclarationTests
 
         // The derivation: no Fab component on the source record means the event
         // genuinely has no fab, and a null here is correct. No exemption list.
-        string fab = passed[shape.FabPosition];
+        var fab = passed[shape.FabPosition];
         if (fab is not ("null" or "default") || !components.Contains("Fab", StringComparer.Ordinal))
         {
             yield break;
@@ -260,21 +260,21 @@ public class EventMetadataFabDeclarationTests
         List<(string, string, int)> handlers = [];
         foreach (Match signature in HandlerSignature.Matches(text))
         {
-            int open = signature.Index + signature.Length - 1;
-            string? parameters = Balanced(text, open, '(', ')');
+            var open = signature.Index + signature.Length - 1;
+            var parameters = Balanced(text, open, '(', ')');
             if (parameters is null)
             {
                 continue;
             }
 
-            string first = SplitTopLevel(parameters).First().Trim();
-            string[] words = first.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var first = SplitTopLevel(parameters).First().Trim();
+            var words = first.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (words.Length < 2)
             {
                 continue;
             }
 
-            (string Body, int Offset)? body = BodyAfter(text, open + parameters.Length + 2);
+            var body = BodyAfter(text, open + parameters.Length + 2);
             if (body is not null)
             {
                 handlers.Add((words[^2], body.Value.Body, body.Value.Offset));
@@ -293,7 +293,7 @@ public class EventMetadataFabDeclarationTests
     /// </summary>
     private static (string Body, int Offset)? BodyAfter(string text, int afterParameters)
     {
-        int i = afterParameters;
+        var i = afterParameters;
         while (i < text.Length && char.IsWhiteSpace(text[i]))
         {
             i++;
@@ -301,7 +301,7 @@ public class EventMetadataFabDeclarationTests
 
         if (i < text.Length && text[i] == '{')
         {
-            string? block = Balanced(text, i, '{', '}');
+            var block = Balanced(text, i, '{', '}');
             return block is null ? null : (block, i + 1);
         }
 
@@ -310,18 +310,18 @@ public class EventMetadataFabDeclarationTests
             return null;
         }
 
-        int start = i + 2;
-        int end = EndOfStatement(text, start);
+        var start = i + 2;
+        var end = EndOfStatement(text, start);
         return end < 0 ? null : (text[start..end], start);
     }
 
     /// <summary>Index of the semicolon closing an expression body, or -1.</summary>
     private static int EndOfStatement(string text, int start)
     {
-        int depth = 0;
-        for (int i = start; i < text.Length; i++)
+        var depth = 0;
+        for (var i = start; i < text.Length; i++)
         {
-            char c = text[i];
+            var c = text[i];
             if (c is '(' or '[' or '{')
             {
                 depth++;
@@ -348,17 +348,17 @@ public class EventMetadataFabDeclarationTests
     private static MetadataShape ShapeOf(
         IReadOnlyDictionary<string, string> sources, Dictionary<string, RecordHeader> records)
     {
-        List<string> headers = HeadersOf("EventMetadata", sources);
+        var headers = HeadersOf("EventMetadata", sources);
         headers.Count.ShouldBe(
             1, "EventMetadata's record header could not be found exactly once — the scan is broken.");
 
-        string header = headers[0];
+        var header = headers[0];
         string[] parameters = [.. SplitTopLevel(header).Select(p => p.Trim()).Where(p => p.Length > 0)];
-        List<string> names = Names(header);
+        var names = Names(header);
         records["EventMetadata"] = new RecordHeader(names, 1);
 
-        int fab = -1;
-        for (int i = 0; i < names.Count; i++)
+        var fab = -1;
+        for (var i = 0; i < names.Count; i++)
         {
             if (string.Equals(names[i], "Fab", StringComparison.Ordinal))
             {
@@ -380,12 +380,12 @@ public class EventMetadataFabDeclarationTests
         IReadOnlyDictionary<string, string> sources,
         Dictionary<string, RecordHeader> cache)
     {
-        if (cache.TryGetValue(typeName, out RecordHeader cached))
+        if (cache.TryGetValue(typeName, out var cached))
         {
             return cached;
         }
 
-        List<string> headers = HeadersOf(typeName, sources);
+        var headers = HeadersOf(typeName, sources);
         RecordHeader header = new(headers.Count == 1 ? Names(headers[0]) : null, headers.Count);
         cache[typeName] = header;
         return header;
@@ -413,17 +413,17 @@ public class EventMetadataFabDeclarationTests
     {
         Regex declaration = new(@"\brecord\s+(?:class\s+|struct\s+)?" + Regex.Escape(typeName) + @"\s*\(");
         List<string> headers = [];
-        foreach (string text in sources.Values)
+        foreach (var text in sources.Values)
         {
             foreach (Match match in declaration.Matches(text))
             {
-                string? header = Balanced(text, match.Index + match.Length - 1, '(', ')');
+                var header = Balanced(text, match.Index + match.Length - 1, '(', ')');
                 if (header is null)
                 {
                     continue;
                 }
 
-                string collapsed = Whitespace.Replace(header, " ").Trim();
+                var collapsed = Whitespace.Replace(header, " ").Trim();
                 if (!headers.Contains(collapsed, StringComparer.Ordinal))
                 {
                     headers.Add(collapsed);
@@ -445,11 +445,11 @@ public class EventMetadataFabDeclarationTests
     /// <summary>Splits an argument list on commas that are not nested.</summary>
     private static IEnumerable<string> SplitTopLevel(string arguments)
     {
-        int depth = 0;
-        int start = 0;
-        for (int i = 0; i < arguments.Length; i++)
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i < arguments.Length; i++)
         {
-            char c = arguments[i];
+            var c = arguments[i];
             if (c is '<' or '(' or '[' or '{')
             {
                 depth++;
@@ -471,8 +471,8 @@ public class EventMetadataFabDeclarationTests
     /// <summary>Contents between <paramref name="openIndex"/> and its match.</summary>
     private static string? Balanced(string text, int openIndex, char open, char close)
     {
-        int depth = 0;
-        for (int i = openIndex; i < text.Length; i++)
+        var depth = 0;
+        for (var i = openIndex; i < text.Length; i++)
         {
             if (text[i] == open)
             {
@@ -502,11 +502,11 @@ public class EventMetadataFabDeclarationTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

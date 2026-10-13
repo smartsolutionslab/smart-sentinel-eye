@@ -1,6 +1,3 @@
-using Shouldly;
-using Xunit;
-
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 /// <summary>
@@ -84,7 +81,7 @@ public class AspireFixtureReportSelectionTests
 
         AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBe(["automation"]);
 
-        string cause = AspireFixture.FormatLikelyCause(states, exitCodes);
+        var cause = AspireFixture.FormatLikelyCause(states, exitCodes);
 
         cause.ShouldStartWith("Likely cause: ");
         cause.ShouldContain("automation");
@@ -121,7 +118,7 @@ public class AspireFixtureReportSelectionTests
             ["camera-catalog"] = null,
         };
 
-        string cause = AspireFixture.FormatLikelyCause(states, exitCodes);
+        var cause = AspireFixture.FormatLikelyCause(states, exitCodes);
 
         cause.ShouldStartWith("Likely cause: ");
         cause.ShouldContain("automation");
@@ -172,7 +169,7 @@ public class AspireFixtureReportSelectionTests
         };
         Dictionary<string, int?> exitCodes = new(StringComparer.Ordinal) { ["migrations"] = 134 };
 
-        string cause = AspireFixture.FormatLikelyCause(states, exitCodes);
+        var cause = AspireFixture.FormatLikelyCause(states, exitCodes);
 
         cause.ShouldContain("migrations exited with code 134");
         AspireFixture.SelectResourcesToReport(states, exitCodes).ShouldBe(["migrations"]);
@@ -203,7 +200,7 @@ public class AspireFixtureReportSelectionTests
             ["automation-rebuilder"] = null,
         };
 
-        string cause = AspireFixture.FormatLikelyCause(states, exitCodes);
+        var cause = AspireFixture.FormatLikelyCause(states, exitCodes);
 
         cause.ShouldStartWith("Likely cause: ");
         cause.ShouldContain("automation reached Finished");
@@ -293,7 +290,7 @@ public class AspireFixtureReportSelectionTests
             ["camera-catalog"] = null,
         };
 
-        string report = AspireFixture.FormatResourceStates(states, exitCodes);
+        var report = AspireFixture.FormatResourceStates(states, exitCodes);
 
         report.ShouldContain("automation: Finished (exit code 139)");
         report.ShouldContain("camera-catalog: Running");
@@ -324,7 +321,7 @@ public class AspireFixtureReportSelectionTests
         // Run 33623647778's failed-resource section listed nine services and
         // omitted `migrations`, which had exited 134. The section whose whole
         // job is to say which resource broke did not contain the one that did.
-        string report = AspireFixture.FormatFailedResourceReport(
+        var report = AspireFixture.FormatFailedResourceReport(
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis(),
             new(StringComparer.Ordinal));
@@ -335,7 +332,7 @@ public class AspireFixtureReportSelectionTests
     [Fact]
     public void A_resource_that_ran_and_died_is_distinguishable_from_one_that_never_launched()
     {
-        string report = AspireFixture.FormatFailedResourceReport(
+        var report = AspireFixture.FormatFailedResourceReport(
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis(),
             new(StringComparer.Ordinal));
@@ -349,7 +346,7 @@ public class AspireFixtureReportSelectionTests
     [Fact]
     public void The_report_names_a_likely_cause_when_a_resource_exited_non_zero()
     {
-        string cause = AspireFixture.FormatLikelyCause(
+        var cause = AspireFixture.FormatLikelyCause(
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis());
 
@@ -369,7 +366,7 @@ public class AspireFixtureReportSelectionTests
         // property of the assembled message, and until it was assembled in one
         // place, deleting the cause line from the `throw` left every test green
         // while the line disappeared from the report a human reads.
-        string message = AspireFixture.FormatTimeoutMessage(
+        var message = AspireFixture.FormatTimeoutMessage(
             TimeSpan.FromMinutes(8),
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis(),
@@ -384,7 +381,7 @@ public class AspireFixtureReportSelectionTests
     [Fact]
     public void The_timeout_message_carries_every_section_of_the_report()
     {
-        string message = AspireFixture.FormatTimeoutMessage(
+        var message = AspireFixture.FormatTimeoutMessage(
             TimeSpan.FromMinutes(8),
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis(),
@@ -437,7 +434,7 @@ public class AspireFixtureReportSelectionTests
     [Fact]
     public void Idle_rebuilders_stay_out_of_the_failed_resource_report()
     {
-        string report = AspireFixture.FormatFailedResourceReport(
+        var report = AspireFixture.FormatFailedResourceReport(
             StatesFromTheRunThatMotivatedThis(),
             ExitCodesFromTheRunThatMotivatedThis(),
             new(StringComparer.Ordinal));

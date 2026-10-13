@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.Shared.Kernel.Primitives;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
@@ -13,20 +12,20 @@ public sealed class StreamRepository(
 {
     public async Task<Option<Domain.Stream.Stream>> GetByIdentifierAsync(StreamIdentifier stream, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
+        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Id == stream, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
     public async Task<Option<Domain.Stream.Stream>> GetByCameraAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream? found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
+        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Camera == camera, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
     public async Task<Option<Domain.Stream.Stream>> GetByPathAsync(MediaMtxPath path, CancellationToken cancellationToken)
     {
         Ensure.That(path).IsNotNull();
-        Domain.Stream.Stream? found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
+        var found = await dbContext.Streams.FirstOrDefaultAsync(candidate => candidate.Path == path, cancellationToken);
         return found is null ? Option<Domain.Stream.Stream>.None : Option<Domain.Stream.Stream>.Some(found);
     }
 
@@ -38,7 +37,7 @@ public sealed class StreamRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Domain.Stream.Stream[] tracked = dbContext.ChangeTracker.Entries<Domain.Stream.Stream>()
+        var tracked = dbContext.ChangeTracker.Entries<Domain.Stream.Stream>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
             .ToArray();
@@ -52,9 +51,9 @@ public sealed class StreamRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (Domain.Stream.Stream? stream in tracked)
+        foreach (var stream in tracked)
         {
-            IDomainEvent[] events = stream.PendingEvents.ToArray();
+            var events = stream.PendingEvents.ToArray();
             stream.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
@@ -66,10 +65,10 @@ public sealed class StreamRepository(
     {
         Ensure.That(stream).IsNotNull();
 
-        StreamIdentifier identifier = stream.Id;
-        AggregateVersion loaded = stream.Version;
+        var identifier = stream.Id;
+        var loaded = stream.Version;
 
-        int matched = await dbContext.Streams
+        var matched = await dbContext.Streams
             .Where(candidate => candidate.Id == identifier && candidate.Version == loaded)
             .ExecuteUpdateAsync(set => set.SetProperty(candidate => candidate.Version, candidate => candidate.Version), cancellationToken);
 

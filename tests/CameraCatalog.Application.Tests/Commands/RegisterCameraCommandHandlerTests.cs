@@ -21,7 +21,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task Register_a_camera_with_valid_input_returns_the_new_identifier()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand command = new(
             Fab: FabIdentifier.From("munich"),
@@ -29,7 +29,7 @@ public class RegisterCameraCommandHandlerTests
             Url: RtspUrl.From("rtsp://10.0.5.12/h264"),
             RegisteredBy: AnAdmin);
 
-        Result<CameraIdentifier, RegisterCameraError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -40,7 +40,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task Register_a_camera_persists_the_aggregate_and_calls_save_once()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand command = new(
             Fab: FabIdentifier.From("munich"),
@@ -59,7 +59,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task Register_a_camera_raises_a_pending_domain_event_on_the_aggregate()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand command = new(
             Fab: FabIdentifier.From("munich"),
@@ -76,7 +76,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task Register_a_camera_with_a_duplicate_name_returns_NameAlreadyTaken()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand first = new(
             Fab: FabIdentifier.From("munich"),
@@ -91,7 +91,7 @@ public class RegisterCameraCommandHandlerTests
             Url: RtspUrl.From("rtsp://10.0.5.51/h264"),
             RegisteredBy: AnAdmin);
 
-        Result<CameraIdentifier, RegisterCameraError> result =
+        var result =
             await handler.HandleAsync(second, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -105,7 +105,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task Register_a_camera_with_case_differing_duplicate_name_returns_NameAlreadyTaken()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         await handler.HandleAsync(
             new RegisterCameraCommand(FabIdentifier.From("munich"),
@@ -114,7 +114,7 @@ public class RegisterCameraCommandHandlerTests
                 RegisteredBy: AnAdmin),
             CancellationToken.None);
 
-        Result<CameraIdentifier, RegisterCameraError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterCameraCommand(FabIdentifier.From("munich"),
                 Name: CameraName.From("line-1-entrance"),
                 Url: RtspUrl.From("rtsp://10.0.5.13/h264"),
@@ -134,7 +134,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task The_same_name_is_accepted_in_a_second_fab()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand inMunich = new(
             Fab: FabIdentifier.From("munich"),
@@ -149,7 +149,7 @@ public class RegisterCameraCommandHandlerTests
             Url: RtspUrl.From("rtsp://10.0.5.61/h264"),
             RegisteredBy: AnAdmin);
 
-        Result<CameraIdentifier, RegisterCameraError> result =
+        var result =
             await handler.HandleAsync(inDresden, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -161,7 +161,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task The_same_name_is_refused_in_the_same_fab_and_the_refusal_names_it()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand first = new(
             Fab: FabIdentifier.From("dresden"),
@@ -170,7 +170,7 @@ public class RegisterCameraCommandHandlerTests
             RegisteredBy: AnAdmin);
         await handler.HandleAsync(first, CancellationToken.None);
 
-        Result<CameraIdentifier, RegisterCameraError> result =
+        var result =
             await handler.HandleAsync(first with { Url = RtspUrl.From("rtsp://10.0.5.61/h264") },
                 CancellationToken.None);
 
@@ -196,7 +196,7 @@ public class RegisterCameraCommandHandlerTests
     public async Task A_retired_cameras_name_does_not_block_a_new_registration()
     {
         InMemoryCameraRepository cameras = new();
-        RegisterCameraCommandHandler handler = NewHandler(cameras);
+        var handler = NewHandler(cameras);
 
         RegisterCameraCommand original = new(
             Fab: FabIdentifier.From("munich"),
@@ -204,7 +204,7 @@ public class RegisterCameraCommandHandlerTests
             Url: RtspUrl.From("rtsp://10.0.5.31/h264"),
             RegisteredBy: AnAdmin);
 
-        Result<CameraIdentifier, RegisterCameraError> registered =
+        var registered =
             await handler.HandleAsync(original, CancellationToken.None);
         registered.IsSuccess.ShouldBeTrue();
 
@@ -219,7 +219,7 @@ public class RegisterCameraCommandHandlerTests
 
         // Differently cased on purpose: the name is released as normalised, so
         // reuse must not depend on matching the retired camera's spelling.
-        RegisterCameraCommand replacement = original with { Name = CameraName.From("line-3-inlet") };
+        var replacement = original with { Name = CameraName.From("line-3-inlet") };
 
         (await handler.HandleAsync(replacement, CancellationToken.None))
             .IsSuccess.ShouldBeTrue();

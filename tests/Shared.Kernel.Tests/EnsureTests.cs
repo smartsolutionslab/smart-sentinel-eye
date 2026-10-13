@@ -1,5 +1,4 @@
 using System.Text.RegularExpressions;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Shared.Kernel.Tests;
 
@@ -122,7 +121,7 @@ public class EnsureTests
     {
         List<int> numbers = null!;
 
-        ArgumentNullException thrown =
+        var thrown =
             Should.Throw<ArgumentNullException>(() => Ensure.That(numbers).IsNotNull());
 
         thrown.ParamName.ShouldBe("numbers");
@@ -133,7 +132,7 @@ public class EnsureTests
     {
         // The generic overload also accepts strings; the more specific string
         // overload must win so value-object invariant chains keep compiling.
-        EnsuredString chained = Ensure.That("value");
+        var chained = Ensure.That("value");
 
         Should.NotThrow(() => chained.IsNotNullOrWhiteSpace());
     }
@@ -141,7 +140,7 @@ public class EnsureTests
     [Fact]
     public void IsNotEmpty_accepts_a_non_empty_guid()
     {
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
 
         Should.NotThrow(() => Ensure.That(id).IsNotEmpty());
     }
@@ -149,9 +148,9 @@ public class EnsureTests
     [Fact]
     public void IsNotEmpty_throws_on_the_empty_guid_naming_the_argument()
     {
-        Guid identifier = Guid.Empty;
+        var identifier = Guid.Empty;
 
-        ArgumentException thrown =
+        var thrown =
             Should.Throw<ArgumentException>(() => Ensure.That(identifier).IsNotEmpty());
 
         thrown.ParamName.ShouldBe("identifier");
@@ -160,9 +159,9 @@ public class EnsureTests
     [Fact]
     public void IsNotEmpty_throws_carrying_a_custom_message_when_supplied()
     {
-        Guid identifier = Guid.Empty;
+        var identifier = Guid.Empty;
 
-        ArgumentException thrown = Should.Throw<ArgumentException>(
+        var thrown = Should.Throw<ArgumentException>(
             () => Ensure.That(identifier).IsNotEmpty("use the System sentinel"));
 
         thrown.ParamName.ShouldBe("identifier");
@@ -237,7 +236,7 @@ public class EnsureTests
     [Fact]
     public void Decimal_InRange_names_the_parameter_and_the_interval()
     {
-        decimal normalizedY = 2m;
+        var normalizedY = 2m;
 
         Action act = () => Ensure.That(normalizedY).InRange(0m, 1m);
 

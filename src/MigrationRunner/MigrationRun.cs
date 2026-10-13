@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -36,16 +34,16 @@ internal static class MigrationRun
         Ensure.That(services).IsNotNull();
         Ensure.That(logger).IsNotNull();
 
-        string reached = "resolving the migrators";
+        var reached = "resolving the migrators";
         try
         {
             // Resolved from a scope rather than the root provider. Every migrator was a
             // singleton until spec 019 added one that depends on the Keycloak admin client,
             // which is scoped — and resolving a scoped service from the root throws under
             // the scope validation the Development environment turns on.
-            await using AsyncServiceScope scope = services.CreateAsyncScope();
+            await using var scope = services.CreateAsyncScope();
 
-            foreach (IMigrator migrator in scope.ServiceProvider.GetServices<IMigrator>())
+            foreach (var migrator in scope.ServiceProvider.GetServices<IMigrator>())
             {
                 reached = migrator.ContextName;
                 logger.RunningMigrations(reached);

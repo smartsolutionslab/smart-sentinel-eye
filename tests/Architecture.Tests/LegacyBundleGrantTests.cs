@@ -39,9 +39,9 @@ public class LegacyBundleGrantTests
     [Fact]
     public void The_bundle_is_not_a_default_or_optional_scope_of_any_client()
     {
-        foreach (JsonElement client in Clients())
+        foreach (var client in Clients())
         {
-            string clientId = client.GetProperty("clientId").GetString() ?? "(unnamed)";
+            var clientId = client.GetProperty("clientId").GetString() ?? "(unnamed)";
 
             ScopesNamedBy(client, "defaultClientScopes").ShouldNotContain(
                 Bundle,
@@ -80,7 +80,7 @@ public class LegacyBundleGrantTests
     }
 
     private static IReadOnlyCollection<string> ScopesNamedBy(JsonElement client, string property) =>
-        client.TryGetProperty(property, out JsonElement scopes)
+        client.TryGetProperty(property, out var scopes)
             ? [.. scopes.EnumerateArray().Select(scope => scope.GetString() ?? string.Empty)]
             : [];
 
@@ -106,11 +106,11 @@ public class LegacyBundleGrantTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
 
         return JsonDocument.Parse(File.ReadAllText(path));

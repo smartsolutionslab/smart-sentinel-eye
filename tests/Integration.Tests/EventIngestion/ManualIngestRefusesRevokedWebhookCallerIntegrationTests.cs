@@ -1,10 +1,8 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -54,22 +52,22 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
     [Fact]
     public async Task A_revoked_webhook_integrations_token_is_refused_by_manual_ingest_too()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName("manual-jwt-revoked");
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName("manual-jwt-revoked");
         await SeedJwtIntegrationAsync(name);
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
 
         // Control: the same token, before revocation, is accepted — proving
         // the refusal below is the revocation, not a scope/fab mismatch.
-        HttpResponseMessage accepted = await PostManualAsync(jwt);
+        var accepted = await PostManualAsync(jwt);
         accepted.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(accepted));
 
         await RevokeAsync(admin, name);
 
         try
         {
-            HttpResponseMessage refused = await PostManualAsync(jwt);
+            var refused = await PostManualAsync(jwt);
             refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await DiagnoseAsync(refused));
         }
         finally
@@ -84,10 +82,10 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
 
     private async Task SeedJwtIntegrationAsync(string name)
     {
-        await using EventIngestionDbContext context = await aspire.CreateEventIngestionDbContextAsync();
+        await using var context = await aspire.CreateEventIngestionDbContextAsync();
 
         SystemClock clock = new();
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From(name), FabIdentifier.From(Fab), Kind.From("WebhookAlarm"), clock);
         integration.MarkAsRotated(KeycloakClientIdentifier.From(JwtClientId), clock);
         integration.ClearPendingEvents();
@@ -106,9 +104,9 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
     /// </summary>
     private async Task DetachFromSharedClientAsync(string name)
     {
-        await using EventIngestionDbContext context = await aspire.CreateEventIngestionDbContextAsync();
-        WebhookIntegrationName parsed = WebhookIntegrationName.From(name);
-        WebhookIntegration integration = await context.WebhookIntegrations
+        await using var context = await aspire.CreateEventIngestionDbContextAsync();
+        var parsed = WebhookIntegrationName.From(name);
+        var integration = await context.WebhookIntegrations
             .SingleAsync(candidate => candidate.Name == parsed);
 
         integration.MarkAsRotated(KeycloakClientIdentifier.From($"webhook-{name}"), new SystemClock());
@@ -140,21 +138,21 @@ public class ManualIngestRefusesRevokedWebhookCallerIntegrationTests(AspireFixtu
     /// </summary>
     private async Task RevokeAsync(HttpClient admin, string name)
     {
-        int version = (await FindAsync(admin, name)).GetProperty("version").GetInt32();
+        var version = (await FindAsync(admin, name)).GetProperty("version").GetInt32();
 
         using HttpRequestMessage request = new(HttpMethod.Delete, $"/webhook-integrations/{name}");
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
-        HttpResponseMessage revoked = await admin.SendAsync(request);
+        var revoked = await admin.SendAsync(request);
 
         revoked.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(revoked));
     }
 
     private static async Task<JsonElement> FindAsync(HttpClient admin, string name)
     {
-        HttpResponseMessage listed = await admin.GetAsync("/webhook-integrations?includeRevoked=false");
+        var listed = await admin.GetAsync("/webhook-integrations?includeRevoked=false");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.EnumerateArray().Single(row =>
             string.Equals(row.GetProperty("name").GetString(), name, StringComparison.Ordinal));

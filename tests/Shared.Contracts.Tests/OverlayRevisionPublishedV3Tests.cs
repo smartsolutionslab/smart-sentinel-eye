@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -25,8 +24,8 @@ public class OverlayRevisionPublishedV3Tests
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
-        Guid overlay = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
         List<OverlayElementV3> elements = [
             new OverlayElementV3("Box", "#D32F2FFF", 0.1m, 0.2m, 0.4m, 0.5m, null, null),
             new OverlayElementV3("Text", "#D32F2FFF", 0.1m, 0.72m, 0.4m, 0.08m, "Zone A", 24),
@@ -78,8 +77,8 @@ public class OverlayRevisionPublishedV3Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid overlay = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
         List<OverlayElementV3> elements = [
             new OverlayElementV3("Box", "#D32F2FFF", 0.1m, 0.2m, 0.4m, 0.5m, null, null),
             new OverlayElementV3("Text", "#D32F2FFF", 0.1m, 0.72m, 0.4m, 0.08m, "Zone A", 24),
@@ -102,8 +101,8 @@ public class OverlayRevisionPublishedV3Tests
         OverlayRevisionPublishedV3 original = new(
             Guid.CreateVersion7(), 3, "Line-1 Title", elements, FixedMoment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        OverlayRevisionPublishedV3 deserialized =
+        var json = JsonSerializer.Serialize(original);
+        var deserialized =
             JsonSerializer.Deserialize<OverlayRevisionPublishedV3>(json)!;
 
         deserialized.Overlay.ShouldBe(original.Overlay);

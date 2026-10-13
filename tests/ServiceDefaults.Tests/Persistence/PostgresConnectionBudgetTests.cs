@@ -28,7 +28,7 @@ public class PostgresConnectionBudgetTests
     [Fact]
     public void Every_service_saturating_every_pool_still_leaves_the_reserve_intact()
     {
-        int required = PostgresConnectionBudget.ServiceCeiling
+        var required = PostgresConnectionBudget.ServiceCeiling
             + PostgresConnectionBudget.ReservedForToolingAndOperators;
 
         required.ShouldBeLessThanOrEqualTo(
@@ -81,7 +81,7 @@ public class PostgresConnectionBudgetTests
     [Fact]
     public void A_connection_string_gets_the_cap_applied()
     {
-        string bounded = PostgresConnectionBudget.Bounded("Host=localhost;Database=audit-db;Username=postgres");
+        var bounded = PostgresConnectionBudget.Bounded("Host=localhost;Database=audit-db;Username=postgres");
 
         new NpgsqlConnectionStringBuilder(bounded).MaxPoolSize
             .ShouldBe(PostgresConnectionBudget.MaxPoolSize);
@@ -95,7 +95,7 @@ public class PostgresConnectionBudgetTests
     [Fact]
     public void Applying_the_cap_keeps_the_rest_of_the_connection_string()
     {
-        string bounded = PostgresConnectionBudget.Bounded(
+        var bounded = PostgresConnectionBudget.Bounded(
             "Host=db.internal;Port=6432;Database=audit-db;Username=sse;Password=secret;SSL Mode=Require");
 
         NpgsqlConnectionStringBuilder parsed = new(bounded);
@@ -115,7 +115,7 @@ public class PostgresConnectionBudgetTests
     [Fact]
     public void An_explicit_pool_size_in_the_connection_string_wins()
     {
-        string bounded = PostgresConnectionBudget.Bounded(
+        var bounded = PostgresConnectionBudget.Bounded(
             "Host=localhost;Database=audit-db;Username=postgres;Maximum Pool Size=7");
 
         new NpgsqlConnectionStringBuilder(bounded).MaxPoolSize.ShouldBe(7);

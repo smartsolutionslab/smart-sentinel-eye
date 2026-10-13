@@ -12,7 +12,7 @@ public class AssetCorrelationTableTests
         table.RecordOverlay("mill", "b", Guid.NewGuid(), 0, 1);
         table.RecordCamera("a", Guid.NewGuid());
 
-        table.IsWallComplete("mill", 2, out int ready).ShouldBeFalse();
+        table.IsWallComplete("mill", 2, out var ready).ShouldBeFalse();
         ready.ShouldBe(1);
 
         table.RecordCamera("b", Guid.NewGuid());
@@ -37,10 +37,10 @@ public class AssetCorrelationTableTests
     public void Complete_tiles_are_returned_in_row_major_order()
     {
         AssetCorrelationTable table = new();
-        Guid roughing = Guid.NewGuid();
-        Guid finishing = Guid.NewGuid();
-        Guid cooling = Guid.NewGuid();
-        Guid coiler = Guid.NewGuid();
+        var roughing = Guid.NewGuid();
+        var finishing = Guid.NewGuid();
+        var cooling = Guid.NewGuid();
+        var coiler = Guid.NewGuid();
 
         // Recorded out of grid order.
         table.RecordOverlay("mill", "coiler", Guid.NewGuid(), 1, 1);
@@ -52,7 +52,7 @@ public class AssetCorrelationTableTests
         table.RecordOverlay("mill", "finishing", Guid.NewGuid(), 0, 1);
         table.RecordCamera("finishing", finishing);
 
-        IReadOnlyList<CorrelatedTile> tiles = table.CompleteTiles("mill");
+        var tiles = table.CompleteTiles("mill");
 
         tiles.Select(tile => (tile.Row, tile.Col)).ShouldBe(new[] { (0, 0), (0, 1), (1, 0), (1, 1) });
         tiles[0].Camera.ShouldBe(roughing);

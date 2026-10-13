@@ -34,11 +34,11 @@ public sealed class CameraRetiredIntegrationEventHandler(
 
         var (cameraId, _, _, _, _, _) = message;
 
-        CameraIdentifier camera = CameraIdentifier.From(cameraId);
+        var camera = CameraIdentifier.From(cameraId);
 
         RetireStreamCommand command = new(camera);
 
-        Result<Option<StreamIdentifier>, RetireStreamError> result =
+        var result =
             await handler.HandleAsync(command, cancellationToken);
 
         if (result.IsFailure)

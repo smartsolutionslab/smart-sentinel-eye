@@ -51,11 +51,11 @@ public class StaleCodeConventionTests
     {
         List<string> offenders = [];
 
-        foreach ((string path, string source) in ReadSources())
+        foreach ((var path, var source) in ReadSources())
         {
             foreach (Match match in ErrorCodeLiteral.Matches(source))
             {
-                string code = match.Groups[1].Value;
+                var code = match.Groups[1].Value;
 
                 if (code.EndsWith("_STALE", StringComparison.Ordinal))
                 {
@@ -95,11 +95,11 @@ public class StaleCodeConventionTests
     {
         HashSet<string> codes = new(StringComparer.Ordinal);
 
-        foreach ((_, string source) in ReadSources())
+        foreach ((_, var source) in ReadSources())
         {
             foreach (Match match in ErrorCodeLiteral.Matches(source))
             {
-                string code = match.Groups[1].Value;
+                var code = match.Groups[1].Value;
                 if (code.EndsWith("_STALE", StringComparison.Ordinal))
                 {
                     codes.Add(code);
@@ -139,11 +139,11 @@ public class StaleCodeConventionTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

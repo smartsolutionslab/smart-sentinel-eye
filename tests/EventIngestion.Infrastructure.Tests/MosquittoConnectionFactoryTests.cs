@@ -28,9 +28,9 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public async Task A_refusing_Keycloak_does_not_stop_the_connection_being_built()
     {
-        MosquittoConnectionFactory factory = Create(HttpStatusCode.ServiceUnavailable);
+        var factory = Create(HttpStatusCode.ServiceUnavailable);
 
-        MqttConnection connection = await factory.CreateAsync(CancellationToken.None);
+        var connection = await factory.CreateAsync(CancellationToken.None);
 
         connection.ShouldNotBeNull(
             "the host must start. A subscriber that connects a few seconds late is a better property "
@@ -47,9 +47,9 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public async Task A_connection_built_without_a_token_carries_an_empty_credential()
     {
-        MosquittoConnectionFactory factory = Create(HttpStatusCode.ServiceUnavailable);
+        var factory = Create(HttpStatusCode.ServiceUnavailable);
 
-        MqttConnection connection = await factory.CreateAsync(CancellationToken.None);
+        var connection = await factory.CreateAsync(CancellationToken.None);
 
         connection.Options.Credentials
             .ShouldNotBeNull()
@@ -60,9 +60,9 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public async Task A_reachable_Keycloak_still_supplies_the_credential()
     {
-        MosquittoConnectionFactory factory = Create(HttpStatusCode.OK);
+        var factory = Create(HttpStatusCode.OK);
 
-        MqttConnection connection = await factory.CreateAsync(CancellationToken.None);
+        var connection = await factory.CreateAsync(CancellationToken.None);
 
         System.Text.Encoding.UTF8.GetString(
                 connection.Options.Credentials.ShouldNotBeNull().GetPassword(
@@ -88,9 +88,9 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public async Task The_subscriber_speaks_MQTT_3_1_1_rather_than_the_v5_default()
     {
-        MosquittoConnectionFactory factory = Create(HttpStatusCode.OK);
+        var factory = Create(HttpStatusCode.OK);
 
-        MqttConnection connection = await factory.CreateAsync(CancellationToken.None);
+        var connection = await factory.CreateAsync(CancellationToken.None);
 
         connection.Options.ProtocolVersion.ShouldBe(
             MqttProtocolVersion.V311,
@@ -107,7 +107,7 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public async Task A_cancelled_start_is_not_swallowed()
     {
-        MosquittoConnectionFactory factory = Create(HttpStatusCode.OK);
+        var factory = Create(HttpStatusCode.OK);
         using CancellationTokenSource cts = new();
         await cts.CancelAsync();
 
@@ -141,9 +141,9 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public async Task The_subscribers_session_survives_a_disconnect()
     {
-        MosquittoConnectionFactory factory = Create(HttpStatusCode.OK);
+        var factory = Create(HttpStatusCode.OK);
 
-        MqttConnection connection = await factory.CreateAsync(CancellationToken.None);
+        var connection = await factory.CreateAsync(CancellationToken.None);
 
         SurvivesDisconnect(connection.Options).ShouldBeTrue(
             $"the subscriber asked for {Describe(connection.Options)}, which the broker is free to "
@@ -165,7 +165,7 @@ public class MosquittoConnectionFactoryTests
     [Fact]
     public void The_v5_default_shape_is_not_a_session_that_survives_a_disconnect()
     {
-        MqttClientOptions v5Default = new MqttClientOptionsBuilder()
+        var v5Default = new MqttClientOptionsBuilder()
             .WithClientId("event-ingestion")
             .WithTcpServer("mosquitto.test", 1883)
             .WithCleanSession(false)
@@ -210,7 +210,7 @@ public class MosquittoConnectionFactoryTests
 
     private static MosquittoConnectionFactory Create(HttpStatusCode keycloak)
     {
-        IOptions<MosquittoOptions> options = Options.Create(new MosquittoOptions
+        var options = Options.Create(new MosquittoOptions
         {
             Host = "mosquitto.test",
             Port = 1883,

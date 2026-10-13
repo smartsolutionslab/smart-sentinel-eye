@@ -1,11 +1,8 @@
 using System.Globalization;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Queries;
 
@@ -21,26 +18,26 @@ public class GetLayoutQueryHandlerTests
     public async Task Existing_layout_is_mapped_into_a_LayoutDto_with_ordered_revisions()
     {
         InMemoryLayoutRepository repository = new();
-        LayoutBuilder builder = new LayoutBuilder().Named("Line-1").At(FixedMoment);
-        OperatorIdentifier op = builder.Operator;
-        IClock clock = builder.Clock;
-        Layout layout = builder.Build();
+        var builder = new LayoutBuilder().Named("Line-1").At(FixedMoment);
+        var op = builder.Operator;
+        var clock = builder.Clock;
+        var layout = builder.Build();
         layout.Publish(LayoutRevisionNumber.One, op, clock);
-        Revision branched = layout.BranchDraft(op, clock);
+        var branched = layout.BranchDraft(op, clock);
         repository.Add(layout);
 
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetLayoutQuery([Munich], layout.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        LayoutDto dto = result.Value;
+        var dto = result.Value;
         dto.LayoutIdentifier.ShouldBe(layout.Id.Value);
         dto.Name.ShouldBe("Line-1");
         dto.Revisions.Count.ShouldBe(2);
         dto.Revisions[0].RevisionNumber.ShouldBe(1);
         dto.Revisions[1].RevisionNumber.ShouldBe(branched.Number.Value);
-        LayoutRevisionDto first = dto.Revisions[0];
+        var first = dto.Revisions[0];
         first.GridRows.ShouldBe(1);
         first.GridCols.ShouldBe(1);
         first.Tiles.ShouldHaveSingleItem().Row.ShouldBe(0);
@@ -53,11 +50,11 @@ public class GetLayoutQueryHandlerTests
     public async Task The_dto_carries_the_aggregate_version()
     {
         InMemoryLayoutRepository repository = new();
-        Layout layout = new LayoutBuilder().Named("Line-2").At(FixedMoment).Build();
+        var layout = new LayoutBuilder().Named("Line-2").At(FixedMoment).Build();
         repository.Add(layout);
 
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetLayoutQuery([Munich], layout.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -70,7 +67,7 @@ public class GetLayoutQueryHandlerTests
         InMemoryLayoutRepository repository = new();
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
 
-        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetLayoutQuery([Munich], LayoutIdentifier.New()), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -87,11 +84,11 @@ public class GetLayoutQueryHandlerTests
     public async Task A_layout_in_a_fab_the_caller_does_not_hold_is_reported_as_not_found()
     {
         InMemoryLayoutRepository repository = new();
-        Layout inMunich = new LayoutBuilder().WithFab(Munich).Named("Line-1").At(FixedMoment).Build();
+        var inMunich = new LayoutBuilder().WithFab(Munich).Named("Line-1").At(FixedMoment).Build();
         repository.Add(inMunich);
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
 
-        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetLayoutQuery([Dresden], inMunich.Id), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -103,13 +100,13 @@ public class GetLayoutQueryHandlerTests
     public async Task The_dto_carries_each_tiles_span()
     {
         InMemoryLayoutRepository repository = new();
-        CameraIdentifier hero = CameraIdentifier.From(Guid.CreateVersion7());
+        var hero = CameraIdentifier.From(Guid.CreateVersion7());
         Tile heroTile = new(
             hero, Option<OverlayIdentifier>.None, GridPosition.From(0, 0), TileSpan.From(2, 2));
         Tile filler = new(
             CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None,
             GridPosition.From(2, 2));
-        Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .Named("Hero-Wall")
             .WithGrid(GridDimensions.From(3, 3))
             .WithTiles([heroTile, filler])
@@ -118,15 +115,15 @@ public class GetLayoutQueryHandlerTests
         repository.Add(layout);
 
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
-        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetLayoutQuery([Munich], layout.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        IReadOnlyList<TileDto> tiles = result.Value.Revisions[0].Tiles;
-        TileDto heroDto = tiles.Single(tile => tile.CameraIdentifier == hero.Value);
+        var tiles = result.Value.Revisions[0].Tiles;
+        var heroDto = tiles.Single(tile => tile.CameraIdentifier == hero.Value);
         heroDto.RowSpan.ShouldBe(2);
         heroDto.ColSpan.ShouldBe(2);
-        TileDto fillerDto = tiles.Single(tile => tile.CameraIdentifier != hero.Value);
+        var fillerDto = tiles.Single(tile => tile.CameraIdentifier != hero.Value);
         fillerDto.RowSpan.ShouldBe(1);
         fillerDto.ColSpan.ShouldBe(1);
     }
@@ -135,11 +132,11 @@ public class GetLayoutQueryHandlerTests
     public async Task A_multi_fab_caller_reaches_a_layout_in_either_of_their_fabs()
     {
         InMemoryLayoutRepository repository = new();
-        Layout inDresden = new LayoutBuilder().WithFab(Dresden).Named("Line-1").At(FixedMoment).Build();
+        var inDresden = new LayoutBuilder().WithFab(Dresden).Named("Line-1").At(FixedMoment).Build();
         repository.Add(inDresden);
         GetLayoutQueryHandler handler = new(new InMemoryLayoutQuerySource(repository));
 
-        Result<LayoutDto, GetLayoutError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetLayoutQuery([Munich, Dresden], inDresden.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

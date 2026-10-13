@@ -142,7 +142,7 @@ public static class PostgresConnectionBudget
         Ensure.That(builder).IsNotNull();
         Ensure.That(connectionName).IsNotNull().IsNotNullOrWhiteSpace();
 
-        string connectionString = builder.Configuration.GetConnectionString(connectionName)
+        var connectionString = builder.Configuration.GetConnectionString(connectionName)
             ?? throw new InvalidOperationException(
                 $"Connection string '{connectionName}' is required.");
 

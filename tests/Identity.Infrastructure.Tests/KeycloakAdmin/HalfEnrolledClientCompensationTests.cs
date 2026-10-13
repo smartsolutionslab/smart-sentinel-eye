@@ -51,7 +51,7 @@ public class HalfEnrolledClientCompensationTests
     [InlineData(HttpStatusCode.Unauthorized)]
     public async Task A_refused_compensation_names_the_client_it_left_behind(HttpStatusCode refusal)
     {
-        (StubKeycloakHandler keycloak, CapturingLogger<HttpKeycloakAdminClient> logger) =
+        (var keycloak, var logger) =
             await EnrolAndFailAsync(refusal);
 
         // The discriminator. Without it the whole test passes for a flow that
@@ -63,7 +63,7 @@ public class HalfEnrolledClientCompensationTests
             "the compensating delete never ran, so this asserts nothing about it. Sent: "
             + string.Join(", ", keycloak.Requests.Select(request => request.Method + " " + request.PathAndQuery)));
 
-        LoggedEntry residue = logger.Named(ResidueLine).ShouldHaveSingleItem(
+        var residue = logger.Named(ResidueLine).ShouldHaveSingleItem(
             "Keycloak answered " + (int)refusal + " to the compensating delete, so the half-enrolled "
             + "client is still in the realm holding offline_access, and the existence probe "
             + "answers already-enrolled for it forever. Nothing records that today (#2166).");
@@ -104,7 +104,7 @@ public class HalfEnrolledClientCompensationTests
             Refuse = Refusing(HttpStatusCode.Conflict),
         };
 
-        HttpRequestException thrown = await Should.ThrowAsync<HttpRequestException>(
+        var thrown = await Should.ThrowAsync<HttpRequestException>(
             () => CreateAsync(keycloak, new CapturingLogger<HttpKeycloakAdminClient>()));
 
         thrown.StatusCode.ShouldBe(
@@ -128,14 +128,14 @@ public class HalfEnrolledClientCompensationTests
     [Fact]
     public async Task A_compensation_finding_nothing_to_delete_does_not_claim_a_residue()
     {
-        (StubKeycloakHandler _, CapturingLogger<HttpKeycloakAdminClient> logger) =
+        (var _, var logger) =
             await EnrolAndFailAsync(HttpStatusCode.NotFound);
 
         logger.Named(ResidueLine).ShouldBeEmpty(
             "a 404 means Keycloak has no such client, so nothing was left behind and no one "
             + "should be sent looking for it");
 
-        LoggedEntry absent = logger.Named(AbsenceLine).ShouldHaveSingleItem(
+        var absent = logger.Named(AbsenceLine).ShouldHaveSingleItem(
             "it is still worth a line: the post-create re-probe found this client moments "
             + "earlier, and one call later it is gone");
         absent.Field("ClientId").ShouldBe(ClientId);
@@ -152,7 +152,7 @@ public class HalfEnrolledClientCompensationTests
     [Fact]
     public async Task A_compensation_that_succeeds_says_nothing()
     {
-        (StubKeycloakHandler keycloak, CapturingLogger<HttpKeycloakAdminClient> logger) =
+        (var keycloak, var logger) =
             await EnrolAndFailAsync(refusal: null);
 
         keycloak.Requests.ShouldContain(

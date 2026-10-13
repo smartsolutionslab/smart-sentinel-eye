@@ -28,7 +28,7 @@ public sealed class EventTypeAdmissionSource(EventIngestionDbContext dbContext) 
     public async Task<IReadOnlySet<Kind>> RegisteredKindsAsync(
         FabIdentifier fab, IReadOnlyCollection<Kind> kinds, CancellationToken cancellationToken)
     {
-        List<Kind> registered = await dbContext.RegisteredEventTypes
+        var registered = await dbContext.RegisteredEventTypes
             .AsNoTracking()
             .Where(eventType => eventType.Fab == fab
                 && kinds.Contains(eventType.Kind)

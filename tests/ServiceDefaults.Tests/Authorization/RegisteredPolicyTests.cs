@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.ServiceDefaults.Authorization;
@@ -44,11 +43,11 @@ public class RegisteredPolicyTests
     [Fact]
     public async Task The_host_registers_no_admin_policy()
     {
-        using ServiceProvider provider = BuildServiceProvider();
-        IAuthorizationPolicyProvider policyProvider =
+        using var provider = BuildServiceProvider();
+        var policyProvider =
             provider.GetRequiredService<IAuthorizationPolicyProvider>();
 
-        AuthorizationPolicy? policy = await policyProvider.GetPolicyAsync("admin");
+        var policy = await policyProvider.GetPolicyAsync("admin");
 
         policy.ShouldBeNull(
             "AuthenticationDefaults registers an 'admin' policy requiring sse.management — a "
@@ -64,13 +63,13 @@ public class RegisteredPolicyTests
     [Fact]
     public async Task The_host_still_registers_a_policy_per_catalogued_scope()
     {
-        using ServiceProvider provider = BuildServiceProvider();
-        IAuthorizationPolicyProvider policyProvider =
+        using var provider = BuildServiceProvider();
+        var policyProvider =
             provider.GetRequiredService<IAuthorizationPolicyProvider>();
 
-        foreach (string scope in Scope.All)
+        foreach (var scope in Scope.All)
         {
-            AuthorizationPolicy? policy = await policyProvider.GetPolicyAsync(scope);
+            var policy = await policyProvider.GetPolicyAsync(scope);
 
             policy.ShouldNotBeNull($"AddScopePolicies should register a policy for '{scope}'.");
         }
@@ -78,7 +77,7 @@ public class RegisteredPolicyTests
 
     private static ServiceProvider BuildServiceProvider()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.AddBearerAuthentication();
 

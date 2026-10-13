@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 
@@ -17,10 +16,10 @@ public class UpsertPreconditionTests
     [Fact]
     public void If_None_Match_wildcard_means_the_caller_asserts_it_does_not_exist()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfNoneMatch = "*";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> version, out IResult? problem)
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out var version, out var problem)
             .ShouldBeTrue();
         version.HasValue.ShouldBeFalse();
         problem.ShouldBeNull();
@@ -29,10 +28,10 @@ public class UpsertPreconditionTests
     [Fact]
     public void If_Match_carries_the_version_the_caller_holds()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = "\"7\"";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> version, out _).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out var version, out _).ShouldBeTrue();
         version.HasValue.ShouldBeTrue();
         version.Value.ShouldBe(7);
     }
@@ -42,10 +41,10 @@ public class UpsertPreconditionTests
     [Fact]
     public void If_Match_zero_is_an_update_at_version_zero_not_a_create()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = "\"0\"";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> version, out _).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out var version, out _).ShouldBeTrue();
         version.HasValue.ShouldBeTrue();
         version.Value.ShouldBe(0);
     }
@@ -53,10 +52,10 @@ public class UpsertPreconditionTests
     [Fact]
     public void Neither_header_is_refused_with_428()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
-        ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out var problem).ShouldBeFalse();
+        var result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MissingErrorCode);
         result.ProblemDetails.Detail!.ShouldContain("If-None-Match");
@@ -65,11 +64,11 @@ public class UpsertPreconditionTests
     [Fact]
     public void Both_headers_together_are_refused_as_ambiguous()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = "\"7\"";
         request.Headers.IfNoneMatch = "*";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out var problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>().StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
 
@@ -78,11 +77,11 @@ public class UpsertPreconditionTests
     [Fact]
     public void A_non_wildcard_If_None_Match_is_refused()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfNoneMatch = "\"3\"";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
-        ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out var problem).ShouldBeFalse();
+        var result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MalformedErrorCode);
     }
@@ -90,10 +89,10 @@ public class UpsertPreconditionTests
     [Fact]
     public void A_wildcard_on_If_Match_is_still_refused_as_an_opt_out()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = "*";
 
-        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out IResult? problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadUpsertPrecondition(request, out _, out var problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>().StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
 }

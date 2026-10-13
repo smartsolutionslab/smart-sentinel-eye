@@ -33,9 +33,9 @@ public sealed class MigrationRunTests
     public async Task A_migrator_that_throws_is_reported_rather_than_escaping_the_process()
     {
         CapturingLogger<Program> logger = new();
-        using ServiceProvider services = Services(new ThrowingMigrator("EventIngestion"));
+        using var services = Services(new ThrowingMigrator("EventIngestion"));
 
-        int exitCode = await MigrationRun.ExecuteAsync(services, logger, CancellationToken.None);
+        var exitCode = await MigrationRun.ExecuteAsync(services, logger, CancellationToken.None);
 
         exitCode.ShouldNotBe(0);
         logger.Entries.ShouldContain(entry => entry.Level >= LogLevel.Error && entry.Exception != null);
@@ -49,7 +49,7 @@ public sealed class MigrationRunTests
     public async Task The_failure_names_the_context_it_happened_in()
     {
         CapturingLogger<Program> logger = new();
-        using ServiceProvider services = Services(
+        using var services = Services(
             new SucceedingMigrator("CameraCatalog"), new ThrowingMigrator("EventIngestion"));
 
         await MigrationRun.ExecuteAsync(services, logger, CancellationToken.None);
@@ -65,9 +65,9 @@ public sealed class MigrationRunTests
         SucceedingMigrator camera = new("CameraCatalog");
         SucceedingMigrator events = new("EventIngestion");
         CapturingLogger<Program> logger = new();
-        using ServiceProvider services = Services(camera, events);
+        using var services = Services(camera, events);
 
-        int exitCode = await MigrationRun.ExecuteAsync(services, logger, CancellationToken.None);
+        var exitCode = await MigrationRun.ExecuteAsync(services, logger, CancellationToken.None);
 
         exitCode.ShouldBe(0);
         camera.Ran.ShouldBeTrue();
@@ -82,7 +82,7 @@ public sealed class MigrationRunTests
     private static ServiceProvider Services(params IMigrator[] migrators)
     {
         ServiceCollection services = new();
-        foreach (IMigrator migrator in migrators)
+        foreach (var migrator in migrators)
         {
             services.AddScoped(_ => migrator);
         }

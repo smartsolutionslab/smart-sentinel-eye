@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -44,7 +41,7 @@ public static class EventSourcesEndpoints
         // No scope at the group level. The group carries two different scopes
         // for writes and reads (FR-013), so each mapping declares its own per
         // plan.md §5, as EndpointScopeDeclarationTests requires.
-        RouteGroupBuilder group = app.MapGroup("/event-sources").WithTags("EventIngestion");
+        var group = app.MapGroup("/event-sources").WithTags("EventIngestion");
 
         group.MapPost("/", Declare)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
@@ -128,12 +125,12 @@ public static class EventSourcesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!IdempotencyHeaders.TryRead(request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
@@ -141,8 +138,8 @@ public static class EventSourcesEndpoints
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
-        OperatorIdentifier declaredBy = user.ToOperatorIdentifier();
+        var fab = fabResolution.Value;
+        var declaredBy = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
@@ -167,7 +164,7 @@ public static class EventSourcesEndpoints
         OperatorIdentifier declaredBy,
         CancellationToken cancellationToken)
     {
-        Result<SourceModeIdentifier, DeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DeclareSourceModeCommand(fab, source, mode, declaredBy), cancellationToken);
 
         return result.Match(
@@ -192,7 +189,7 @@ public static class EventSourcesEndpoints
         [FromServices] ListSourceModesQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
@@ -200,7 +197,7 @@ public static class EventSourcesEndpoints
             return fabsResolution.Error;
         }
 
-        Result<IReadOnlyList<SourceModeDto>, ListSourceModesError> result =
+        var result =
             await handler.HandleAsync(new ListSourceModesQuery(fabsResolution.Value), cancellationToken);
 
         return result.Match<IResult>(
@@ -223,7 +220,7 @@ public static class EventSourcesEndpoints
         // Read before the row is looked up, deliberately (FR-011): looking the
         // row up first would make the 428-vs-404 choice an existence oracle for
         // sources in fabs the caller cannot read (mirrors EventTypesEndpoints.Retire).
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
@@ -242,7 +239,7 @@ public static class EventSourcesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
@@ -250,9 +247,9 @@ public static class EventSourcesEndpoints
             return fabResolution.Error;
         }
 
-        OperatorIdentifier changedBy = user.ToOperatorIdentifier();
+        var changedBy = user.ToOperatorIdentifier();
 
-        Result<SourceModeIdentifier, ChangeSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ChangeSourceModeCommand(fabResolution.Value, parsedSource, parsedMode, expectedVersion, changedBy),
             cancellationToken);
 
@@ -276,7 +273,7 @@ public static class EventSourcesEndpoints
         [FromServices] UndeclareSourceModeCommandHandler handler,
         CancellationToken cancellationToken)
     {
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
@@ -293,7 +290,7 @@ public static class EventSourcesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
@@ -301,9 +298,9 @@ public static class EventSourcesEndpoints
             return fabResolution.Error;
         }
 
-        OperatorIdentifier undeclaredBy = user.ToOperatorIdentifier();
+        var undeclaredBy = user.ToOperatorIdentifier();
 
-        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new UndeclareSourceModeCommand(fabResolution.Value, parsedSource, expectedVersion, undeclaredBy),
             cancellationToken);
 

@@ -23,7 +23,7 @@ public sealed class ChangeCameraAddressCommandHandler(
         // from one that does not exist (FR-006). The fab is in the predicate,
         // so the row is never materialised rather than materialised and
         // refused.
-        Option<Camera> found = await cameras.GetWithinFabAsync(fab, camera, cancellationToken);
+        var found = await cameras.GetWithinFabAsync(fab, camera, cancellationToken);
 
         if (!found.HasValue)
         {
@@ -31,7 +31,7 @@ public sealed class ChangeCameraAddressCommandHandler(
             return Failure(ChangeCameraAddressFailures.CameraNotFound(camera.Value));
         }
 
-        Camera changing = found.Value;
+        var changing = found.Value;
 
         // Version before terminal state: a caller working from a stale read
         // should be told their view is stale, not told about a state their

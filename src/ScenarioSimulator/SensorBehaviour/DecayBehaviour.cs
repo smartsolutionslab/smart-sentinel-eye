@@ -15,8 +15,8 @@ public sealed class DecayBehaviour : ISensorBehaviour
 
     public double Sample(SensorDefinition sensor, double fraction, Random random)
     {
-        double start = sensor.Start ?? 0d;
-        double floor = sensor.Floor ?? 0d;
+        var start = sensor.Start ?? 0d;
+        var floor = sensor.Floor ?? 0d;
         return floor + ((start - floor) * Math.Exp(-Rate * fraction));
     }
 }

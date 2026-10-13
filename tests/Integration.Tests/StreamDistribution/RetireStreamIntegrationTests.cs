@@ -1,9 +1,7 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 
@@ -42,22 +40,22 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Retiring_a_camera_removes_its_path_and_leaves_the_stream_terminal_and_present()
     {
-        Guid camera = await RegisterAsync("Line-9-Retire");
-        Stream provisioned = await WaitForStreamRowAsync(camera, ProvisionTimeout);
+        var camera = await RegisterAsync("Line-9-Retire");
+        var provisioned = await WaitForStreamRowAsync(camera, ProvisionTimeout);
 
         await AssertMediaMtxPathAsync(provisioned.Path.Value, expected: true);
 
         await RetireAsync(camera);
 
-        Stream retired = await WaitForStateAsync(camera, StreamState.Retired, RetireTimeout);
+        var retired = await WaitForStateAsync(camera, StreamState.Retired, RetireTimeout);
 
         retired.Id.ShouldBe(provisioned.Id, "the same stream reached the terminal state, not a new one");
 
         await AssertMediaMtxPathAsync(provisioned.Path.Value, expected: false);
 
-        await using StreamDistributionDbContext context =
+        await using var context =
             await aspire.CreateStreamDistributionDbContextAsync();
-        CameraIdentifier cameraId = CameraIdentifier.From(camera);
+        var cameraId = CameraIdentifier.From(camera);
 
         (await context.Streams.AsNoTracking().CountAsync(row => row.Camera == cameraId))
             .ShouldBe(1, "the row is kept — retirement records that the hardware was there (FR-008)");
@@ -73,17 +71,17 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_camera_is_retired_even_when_its_stream_never_became_healthy()
     {
-        Guid camera = await RegisterAsync("Line-9-Unreachable");
+        var camera = await RegisterAsync("Line-9-Unreachable");
         await WaitForStreamRowAsync(camera, ProvisionTimeout);
 
         await RetireAsync(camera);
 
         // The catalogue is the authority on the camera and does not consult
         // stream distribution: this is true immediately, not eventually.
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        HttpResponseMessage listed = await cameras.GetAsync("/cameras?limit=200&includeRetired=true");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var listed = await cameras.GetAsync("/cameras?limit=200&includeRetired=true");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         page.GetProperty("items").EnumerateArray()
             .Single(row => row.GetProperty("cameraIdentifier").GetGuid() == camera)
@@ -111,7 +109,7 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task After_retirement_no_further_health_changes_are_announced_for_that_camera()
     {
-        Guid camera = await RegisterAsync("Line-9-Quiet");
+        var camera = await RegisterAsync("Line-9-Quiet");
         await WaitForStreamRowAsync(camera, ProvisionTimeout);
 
         await RetireAsync(camera);
@@ -119,7 +117,7 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
         // Let anything already in flight land before the baseline is taken.
         await Task.Delay(TimeSpan.FromSeconds(3));
-        int baseline = await HealthAnnouncementCountAsync(camera);
+        var baseline = await HealthAnnouncementCountAsync(camera);
 
         // Several watcher periods — StreamHealthWatcher polls every 2 s.
         await Task.Delay(TimeSpan.FromSeconds(10));
@@ -130,9 +128,9 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<Guid> RegisterAsync(string name)
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
 
-        HttpResponseMessage register = await cameras.PostAsJsonAsync(
+        var register = await cameras.PostAsJsonAsync(
             "/cameras",
             new
             {
@@ -147,7 +145,7 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task RetireAsync(Guid camera)
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -165,15 +163,15 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         TimeSpan timeout,
         string what)
     {
-        CameraIdentifier cameraId = CameraIdentifier.From(camera);
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var cameraId = CameraIdentifier.From(camera);
+        var deadline = DateTime.UtcNow + timeout;
 
         while (DateTime.UtcNow < deadline)
         {
-            await using StreamDistributionDbContext context =
+            await using var context =
                 await aspire.CreateStreamDistributionDbContextAsync();
 
-            Stream? row = await context.Streams
+            var row = await context.Streams
                 .AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Camera == cameraId);
 
@@ -191,10 +189,10 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<int> HealthAnnouncementCountAsync(Guid camera)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> rows = await context.Database
+        var rows = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM audit_events
@@ -208,12 +206,12 @@ public class RetireStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task AssertMediaMtxPathAsync(string path, bool expected)
     {
-        using HttpClient mediamtx = aspire.CreateMediaMtxApiClient();
-        DateTime deadline = DateTime.UtcNow + RetireTimeout;
+        using var mediamtx = aspire.CreateMediaMtxApiClient();
+        var deadline = DateTime.UtcNow + RetireTimeout;
 
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await mediamtx.GetAsync($"/v3/config/paths/get/{path}");
+            var response = await mediamtx.GetAsync($"/v3/config/paths/get/{path}");
 
             if ((response.StatusCode == HttpStatusCode.OK) == expected)
             {

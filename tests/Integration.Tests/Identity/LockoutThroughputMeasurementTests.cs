@@ -112,10 +112,10 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task A_fresh_probe_accounts_correct_password_mints_a_token()
     {
-        (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
+        (var username, var id) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
-            using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
+            using var response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
@@ -140,8 +140,8 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task The_running_realm_declares_the_password_policy_the_import_file_carries()
     {
-        string filePolicy = DeclaredPasswordPolicyFromRealmFile();
-        JsonElement representation = await ReadRealmRepresentationAsync(CancellationToken.None);
+        var filePolicy = DeclaredPasswordPolicyFromRealmFile();
+        var representation = await ReadRealmRepresentationAsync(CancellationToken.None);
 
         RequireProperty(representation, "passwordPolicy").GetString().ShouldBe(
             filePolicy,
@@ -161,15 +161,15 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task A_bursting_caller_is_refused_after_the_quick_login_check_trips()
     {
-        (string username, string id, int attempts) = await BurstUntilLockedAsync(CancellationToken.None);
+        (var username, var id, var attempts) = await BurstUntilLockedAsync(CancellationToken.None);
         try
         {
             output.WriteLine(
                 $"burst: '{username}' reported disabled after {attempts} wrong-password attempt(s) "
                 + "with no delay between them.");
 
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+            using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            var attackDetection = await RealmProbe.ReadJsonAsync(
                 admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", CancellationToken.None);
             output.WriteLine($"attack-detection record at lock: {attackDetection}");
 
@@ -198,7 +198,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task A_paced_caller_is_admitted_more_attempts_than_a_bursting_one()
     {
-        (string burstUsername, string burstId, int burstAttempts) = await BurstUntilLockedAsync(CancellationToken.None);
+        (var burstUsername, var burstId, var burstAttempts) = await BurstUntilLockedAsync(CancellationToken.None);
         try
         {
             // G2: the pacing interval that avoids the quick-login check is
@@ -206,11 +206,11 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
             // realm rather than hard-coded (spec.md §Assumptions). Read
             // together with failureFactor, one mint and one GET, rather than
             // each of this fact's two realm reads minting its own client.
-            (int failureFactor, int quickLoginCheckMilliseconds) =
+            (var failureFactor, var quickLoginCheckMilliseconds) =
                 await ReadLockoutConfigurationAsync(CancellationToken.None);
-            TimeSpan pace = TimeSpan.FromMilliseconds(quickLoginCheckMilliseconds + PacingMarginMilliseconds);
+            var pace = TimeSpan.FromMilliseconds(quickLoginCheckMilliseconds + PacingMarginMilliseconds);
 
-            (string pacedUsername, string pacedId, int pacedAttempts, TimeSpan pacedElapsed) =
+            (var pacedUsername, var pacedId, var pacedAttempts, var pacedElapsed) =
                 await PacedUntilLockedAsync(pace, failureFactor, CancellationToken.None);
             try
             {
@@ -251,18 +251,18 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task A_temporary_lock_expires_without_administrative_intervention()
     {
-        (string username, string id, int attempts) = await BurstUntilLockedAsync(CancellationToken.None);
+        (var username, var id, var attempts) = await BurstUntilLockedAsync(CancellationToken.None);
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            JsonElement attackDetectionAtLock = await RealmProbe.ReadJsonAsync(
+            using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            var attackDetectionAtLock = await RealmProbe.ReadJsonAsync(
                 admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", CancellationToken.None);
             output.WriteLine(
                 $"'{username}' locked after {attempts} burst attempt(s); polling every "
                 + $"{LockExpiryPollInterval.TotalSeconds:F0}s for natural expiry (no DELETE of the "
                 + $"attack-detection record). record at lock: {attackDetectionAtLock}");
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
+            var stopwatch = Stopwatch.StartNew();
 
             // Phase-6 re-review (spec 219): without this, a realm change that
             // stopped enforcing the lock at /token — while attack-detection
@@ -270,7 +270,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
             // checks — would pass this fact on its very first poll, reporting
             // a near-zero duration that SC-11's arithmetic would then divide
             // by. Proven by counterfactual against a never-locked probe.
-            using (HttpResponseMessage firstPoll = await RequestTokenAsync(username, ProbePassword, CancellationToken.None))
+            using (var firstPoll = await RequestTokenAsync(username, ProbePassword, CancellationToken.None))
             {
                 firstPoll.StatusCode.ShouldNotBe(
                     HttpStatusCode.OK,
@@ -283,12 +283,12 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
 
             output.WriteLine($"  still locked at {stopwatch.Elapsed.TotalSeconds:F0}s (confirmed refused on first poll)");
 
-            bool accepted = false;
+            var accepted = false;
             while (stopwatch.Elapsed < LockExpiryPollTimeout)
             {
                 await Task.Delay(LockExpiryPollInterval, CancellationToken.None);
 
-                using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
+                using var response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
                     accepted = true;
@@ -322,10 +322,10 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task A_seeded_account_authenticates_while_a_probe_is_locked()
     {
-        (string username, string id, int attempts) = await BurstUntilLockedAsync(CancellationToken.None);
+        (var username, var id, var attempts) = await BurstUntilLockedAsync(CancellationToken.None);
         try
         {
-            using HttpResponseMessage response = await RequestTokenAsync(
+            using var response = await RequestTokenAsync(
                 AspireFixture.AdminUsername, AspireFixture.AdminPassword, CancellationToken.None);
 
             response.StatusCode.ShouldBe(
@@ -374,15 +374,15 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
             ["password"] = ProbePassword,
             ["scope"] = "openid",
         };
-        using HttpResponseMessage response = await PostTokenFormAsync(form, CancellationToken.None);
-        string body = await response.Content.ReadAsStringAsync();
+        using var response = await PostTokenFormAsync(form, CancellationToken.None);
+        var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized,
             $"a grant with no username at all should be refused, not silently accepted. body: {body}");
 
-        using JsonDocument document = JsonDocument.Parse(body);
-        document.RootElement.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
+        using var document = JsonDocument.Parse(body);
+        document.RootElement.TryGetProperty("error", out var error).ShouldBeTrue(
             $"the refusal body should name an OAuth error. body: {body}");
         error.GetString().ShouldBe(
             "invalid_request",
@@ -425,11 +425,11 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task A_grant_naming_a_real_account_but_missing_its_password_counts_as_a_failed_login()
     {
-        (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
+        (var username, var id) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            int failuresBefore = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
+            using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            var failuresBefore = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
 
             Dictionary<string, string> form = new()
             {
@@ -438,23 +438,23 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
                 ["username"] = username,
                 ["scope"] = "openid",
             };
-            using HttpResponseMessage response = await PostTokenFormAsync(form, CancellationToken.None);
-            string body = await response.Content.ReadAsStringAsync();
+            using var response = await PostTokenFormAsync(form, CancellationToken.None);
+            var body = await response.Content.ReadAsStringAsync();
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.BadRequest,
                 $"a grant naming '{username}' but missing its password should be refused as an ordinary "
                 + $"failed authentication, not silently accepted. body: {body}");
 
-            using JsonDocument document = JsonDocument.Parse(body);
-            document.RootElement.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
+            using var document = JsonDocument.Parse(body);
+            document.RootElement.TryGetProperty("error", out var error).ShouldBeTrue(
                 $"the refusal body should name an OAuth error. body: {body}");
             error.GetString().ShouldBe(
                 "invalid_grant",
                 $"a present username with a missing password is handled as a failed authentication "
                 + $"attempt, not diagnosed as a malformed request. body: {body}");
 
-            int failuresAfter = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
+            var failuresAfter = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
             failuresAfter.ShouldBe(
                 failuresBefore + 1,
                 $"'{username}''s failure counter should move by exactly one — Keycloak treats a missing "
@@ -492,23 +492,23 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     private async Task<(string Username, string Id, int Attempts)> BurstUntilLockedAsync(
         CancellationToken cancellationToken)
     {
-        (string username, string id) = await CreateProbeUserAsync(cancellationToken);
+        (var username, var id) = await CreateProbeUserAsync(cancellationToken);
 
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+            using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
 
-            int attempts = 0;
-            bool disabled = false;
+            var attempts = 0;
+            var disabled = false;
             while (!disabled && attempts < BurstAttemptCeiling)
             {
                 attempts++;
-                using HttpResponseMessage wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
+                using var wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
                 wrong.IsSuccessStatusCode.ShouldBeFalse(
                     $"wrong-password grant #{attempts} for '{username}' unexpectedly succeeded; the "
                     + $"throwaway account's password should never be '{WrongPassword}'.");
 
-                JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+                var attackDetection = await RealmProbe.ReadJsonAsync(
                     admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", cancellationToken);
                 disabled = attackDetection.GetProperty("disabled").GetBoolean();
             }
@@ -548,16 +548,16 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     private async Task<(string Username, string Id, int Attempts, TimeSpan Elapsed)> PacedUntilLockedAsync(
         TimeSpan pace, int failureFactor, CancellationToken cancellationToken)
     {
-        (string username, string id) = await CreateProbeUserAsync(cancellationToken);
+        (var username, var id) = await CreateProbeUserAsync(cancellationToken);
 
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
-            int ceiling = failureFactor + PacedAttemptCeilingMargin;
+            using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+            var ceiling = failureFactor + PacedAttemptCeilingMargin;
 
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            int attempts = 0;
-            bool disabled = false;
+            var stopwatch = Stopwatch.StartNew();
+            var attempts = 0;
+            var disabled = false;
             while (!disabled && attempts < ceiling)
             {
                 if (attempts > 0)
@@ -566,12 +566,12 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
                 }
 
                 attempts++;
-                using HttpResponseMessage wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
+                using var wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
                 wrong.IsSuccessStatusCode.ShouldBeFalse(
                     $"wrong-password grant #{attempts} for '{username}' unexpectedly succeeded; the "
                     + $"throwaway account's password should never be '{WrongPassword}'.");
 
-                JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+                var attackDetection = await RealmProbe.ReadJsonAsync(
                     admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", cancellationToken);
                 disabled = attackDetection.GetProperty("disabled").GetBoolean();
             }
@@ -607,15 +607,15 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
 
-        string text = File.ReadAllText(path).TrimStart('﻿');
-        using JsonDocument document = JsonDocument.Parse(text);
+        var text = File.ReadAllText(path).TrimStart('﻿');
+        using var document = JsonDocument.Parse(text);
         return document.RootElement.GetProperty("passwordPolicy").GetString() ?? string.Empty;
     }
 
@@ -631,7 +631,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     /// </summary>
     private async Task<JsonElement> ReadRealmRepresentationAsync(CancellationToken cancellationToken)
     {
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
         return await RealmProbe.ReadJsonAsync(admin, $"admin/realms/{RealmProbe.Realm}", cancellationToken);
     }
 
@@ -641,7 +641,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     /// </summary>
     private static JsonElement RequireProperty(JsonElement representation, string propertyName)
     {
-        representation.TryGetProperty(propertyName, out JsonElement value).ShouldBeTrue(
+        representation.TryGetProperty(propertyName, out var value).ShouldBeTrue(
             $"the master-realm admin-cli read of 'admin/realms/{RealmProbe.Realm}' did not include "
             + $"'{propertyName}' at all. representation: {representation}");
         return value;
@@ -656,7 +656,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     private async Task<(int FailureFactor, int QuickLoginCheckMilliSeconds)> ReadLockoutConfigurationAsync(
         CancellationToken cancellationToken)
     {
-        JsonElement representation = await ReadRealmRepresentationAsync(cancellationToken);
+        var representation = await ReadRealmRepresentationAsync(cancellationToken);
         return (
             RequireProperty(representation, "failureFactor").GetInt32(),
             RequireProperty(representation, "quickLoginCheckMilliSeconds").GetInt32());
@@ -672,7 +672,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     /// </summary>
     private async Task<HttpClient> MasterRealmAdminClientAsync(CancellationToken cancellationToken)
     {
-        using HttpClient tokenClient = aspire.CreateKeycloakClient();
+        using var tokenClient = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
@@ -681,19 +681,19 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
             ["password"] = MasterRealmAdminPassword,
         };
 
-        using HttpResponseMessage response = await tokenClient.PostAsync(
+        using var response = await tokenClient.PostAsync(
             "/realms/master/protocol/openid-connect/token",
             new FormUrlEncodedContent(form),
             cancellationToken);
-        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         response.IsSuccessStatusCode.ShouldBeTrue(
             $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; without "
             + $"it this file cannot read the realm's real configuration. body: {body}");
 
-        using JsonDocument document = JsonDocument.Parse(body);
-        string token = document.RootElement.GetProperty("access_token").GetString()!;
+        using var document = JsonDocument.Parse(body);
+        var token = document.RootElement.GetProperty("access_token").GetString()!;
 
-        HttpClient admin = aspire.CreateKeycloakClient();
+        var admin = aspire.CreateKeycloakClient();
         admin.DefaultRequestHeaders.Authorization = new("Bearer", token);
         return admin;
     }
@@ -701,7 +701,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     private static async Task<int> ReadAttackDetectionFailureCountAsync(
         HttpClient admin, string id, CancellationToken cancellationToken)
     {
-        JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+        var attackDetection = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", cancellationToken);
         return attackDetection.GetProperty("numFailures").GetInt32();
     }
@@ -719,10 +719,10 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     /// </summary>
     private async Task<(string Username, string Id)> CreateProbeUserAsync(CancellationToken cancellationToken)
     {
-        string username = $"policy-probe-{Guid.NewGuid():N}";
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        var username = $"policy-probe-{Guid.NewGuid():N}";
+        using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/users",
             new
             {
@@ -739,15 +739,15 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
             + $"without it every assertion below proves nothing. body: "
             + $"{await created.Content.ReadAsStringAsync(cancellationToken)}");
 
-        string location = created.Headers.Location!.ToString();
-        string id = location[(location.LastIndexOf('/') + 1)..];
+        var location = created.Headers.Location!.ToString();
+        var id = location[(location.LastIndexOf('/') + 1)..];
 
         // From here on the user exists in the realm even though setup has not
         // finished. If the reset-password call throws, delete on the way out
         // rather than leaking it the way #2166 leaked clients.
         try
         {
-            HttpResponseMessage resetPassword = await admin.PutAsJsonAsync(
+            var resetPassword = await admin.PutAsJsonAsync(
                 $"admin/realms/{RealmProbe.Realm}/users/{id}/reset-password",
                 new { type = "password", value = ProbePassword, temporary = false },
                 cancellationToken);
@@ -776,8 +776,8 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     /// </summary>
     private async Task DeleteProbeUserAsync(string id, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
-        HttpResponseMessage deleted = await admin.DeleteAsync(
+        using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        var deleted = await admin.DeleteAsync(
             $"admin/realms/{RealmProbe.Realm}/users/{id}", cancellationToken);
 
         deleted.IsSuccessStatusCode.ShouldBeTrue(
@@ -816,7 +816,7 @@ public class LockoutThroughputMeasurementTests(AspireFixture aspire, ITestOutput
     private async Task<HttpResponseMessage> PostTokenFormAsync(
         Dictionary<string, string> form, CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         return await keycloak.PostAsync(
             $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token",
             new FormUrlEncodedContent(form),

@@ -45,9 +45,9 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task A_lost_update_is_declined_and_left_to_the_concurrency_handler()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
-        bool handled = await new UniqueConstraintExceptionHandler()
+        var handled = await new UniqueConstraintExceptionHandler()
             .TryHandleAsync(context, new DbUpdateConcurrencyException("row count was unexpected"), CancellationToken.None);
 
         handled.ShouldBeFalse();
@@ -62,15 +62,15 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task A_unique_violation_wrapped_by_EF_becomes_a_conflict()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
-        bool handled = await new UniqueConstraintExceptionHandler()
+        var handled = await new UniqueConstraintExceptionHandler()
             .TryHandleAsync(context, WrappedUniqueViolation(), CancellationToken.None);
 
         handled.ShouldBeTrue();
         context.Response.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
 
-        JsonElement problem = JsonDocument.Parse(await BodyOfAsync(context)).RootElement;
+        var problem = JsonDocument.Parse(await BodyOfAsync(context)).RootElement;
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_ALREADY_EXISTS");
         problem.GetProperty("status").GetInt32().ShouldBe(409);
     }
@@ -83,9 +83,9 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task A_bare_unique_violation_becomes_a_conflict_too()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
-        bool handled = await new UniqueConstraintExceptionHandler()
+        var handled = await new UniqueConstraintExceptionHandler()
             .TryHandleAsync(context, UniqueViolation(), CancellationToken.None);
 
         handled.ShouldBeTrue();
@@ -108,9 +108,9 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task A_different_storage_failure_is_declined()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
-        bool handled = await new UniqueConstraintExceptionHandler().TryHandleAsync(
+        var handled = await new UniqueConstraintExceptionHandler().TryHandleAsync(
             context,
             new DbUpdateException("update failed", Postgres(PostgresErrorCodes.UndefinedTable)),
             CancellationToken.None);
@@ -122,9 +122,9 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task An_unrelated_exception_is_declined()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
-        bool handled = await new UniqueConstraintExceptionHandler()
+        var handled = await new UniqueConstraintExceptionHandler()
             .TryHandleAsync(context, new InvalidOperationException("something else"), CancellationToken.None);
 
         handled.ShouldBeFalse();
@@ -153,12 +153,12 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task The_response_says_nothing_about_the_storage_or_what_collided()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
         await new UniqueConstraintExceptionHandler()
             .TryHandleAsync(context, WrappedUniqueViolation(), CancellationToken.None);
 
-        string body = await BodyOfAsync(context);
+        var body = await BodyOfAsync(context);
 
         body.ShouldNotContain(ConstraintName, Case.Insensitive);
         body.ShouldNotContain("cameras", Case.Insensitive);
@@ -178,12 +178,12 @@ public class UniqueConstraintExceptionHandlerTests
     [Fact]
     public async Task The_wording_points_at_a_different_name_rather_than_at_re_reading()
     {
-        DefaultHttpContext context = NewContext();
+        var context = NewContext();
 
         await new UniqueConstraintExceptionHandler()
             .TryHandleAsync(context, WrappedUniqueViolation(), CancellationToken.None);
 
-        string detail = JsonDocument.Parse(await BodyOfAsync(context))
+        var detail = JsonDocument.Parse(await BodyOfAsync(context))
             .RootElement.GetProperty("detail").GetString()!;
 
         detail.ShouldContain("already exists", Case.Insensitive);
@@ -204,7 +204,7 @@ public class UniqueConstraintExceptionHandlerTests
     {
         UniqueConstraintExceptionHandler.ErrorCode.ShouldNotEndWith("_STALE", Case.Sensitive);
 
-        foreach (string meansLostUpdate in new[]
+        foreach (var meansLostUpdate in new[]
                  {
                      "VERSION_MISMATCH", "VERSION_CONFLICT", "VERSION_OUTDATED",
                      "STALE_VERSION", "REVISION_MISMATCH", "CONCURRENCY_CONFLICT",

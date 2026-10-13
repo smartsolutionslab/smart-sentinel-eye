@@ -30,7 +30,7 @@ public class InMemoryReverseIndexTests
     public void An_overlay_is_found_by_every_variable_its_label_references()
     {
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(overlay, [Label("oeeLine1", "cycleTime")]);
 
@@ -50,8 +50,8 @@ public class InMemoryReverseIndexTests
     public void Several_overlays_referencing_one_variable_are_all_returned()
     {
         InMemoryReverseIndex index = new();
-        Guid first = Guid.CreateVersion7();
-        Guid second = Guid.CreateVersion7();
+        var first = Guid.CreateVersion7();
+        var second = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(first, [Label("oeeLine1")]);
         index.UpsertOverlayReferences(second, [Label("oeeLine1")]);
@@ -69,7 +69,7 @@ public class InMemoryReverseIndexTests
         // stop reaching it. Leaving the stale entry means the screen updates
         // for a variable it no longer shows.
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(overlay, [Label("oeeLine1")]);
         index.UpsertOverlayReferences(overlay, [Label("cycleTime")]);
@@ -82,7 +82,7 @@ public class InMemoryReverseIndexTests
     public void Re_publishing_does_not_duplicate_an_overlay_against_the_same_variable()
     {
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(overlay, [Label("oeeLine1")]);
         index.UpsertOverlayReferences(overlay, [Label("oeeLine1")]);
@@ -94,8 +94,8 @@ public class InMemoryReverseIndexTests
     public void Re_publishing_one_overlay_leaves_another_referencing_the_same_variable()
     {
         InMemoryReverseIndex index = new();
-        Guid kept = Guid.CreateVersion7();
-        Guid changed = Guid.CreateVersion7();
+        var kept = Guid.CreateVersion7();
+        var changed = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(kept, [Label("oeeLine1")]);
         index.UpsertOverlayReferences(changed, [Label("oeeLine1")]);
@@ -110,7 +110,7 @@ public class InMemoryReverseIndexTests
     public void Removing_an_overlay_removes_it_from_every_variable_and_from_the_label_store()
     {
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, [Label("oeeLine1", "cycleTime")]);
 
         index.RemoveOverlay(overlay);
@@ -125,7 +125,7 @@ public class InMemoryReverseIndexTests
     public void Removing_an_overlay_that_was_never_indexed_is_a_no_op()
     {
         InMemoryReverseIndex index = new();
-        Guid present = Guid.CreateVersion7();
+        var present = Guid.CreateVersion7();
         index.UpsertOverlayReferences(present, [Label("oeeLine1")]);
 
         index.RemoveOverlay(Guid.CreateVersion7());
@@ -139,7 +139,7 @@ public class InMemoryReverseIndexTests
     public void The_label_text_round_trips_and_the_latest_wins()
     {
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(overlay, ["first {{oeeLine1}}"]);
         index.UpsertOverlayReferences(overlay, ["second {{cycleTime}}"]);
@@ -163,11 +163,11 @@ public class InMemoryReverseIndexTests
     public void Multiple_labels_are_cached_in_order_and_register_the_union_of_their_placeholders()
     {
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(overlay, ["Line 1", "OEE: {{oeeLine1}}%", "{{cycleTime}}s"]);
 
-        IReadOnlyList<string>? texts = index.LookupLabelTexts(overlay);
+        var texts = index.LookupLabelTexts(overlay);
         texts!.Count.ShouldBe(3);
         texts[0].ShouldBe("Line 1");
         texts[1].ShouldBe("OEE: {{oeeLine1}}%");
@@ -182,7 +182,7 @@ public class InMemoryReverseIndexTests
         // It has no variables, so it appears in no lookup — but it exists, and
         // AllOverlays is what the seeder reconciles against.
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         index.UpsertOverlayReferences(overlay, ["no placeholders here"]);
 
@@ -216,7 +216,7 @@ public class InMemoryReverseIndexTests
     {
         InMemoryReverseIndex index = new();
         Guid[] overlays = [.. Enumerable.Range(0, 40).Select(_ => Guid.CreateVersion7())];
-        foreach (Guid overlay in overlays)
+        foreach (var overlay in overlays)
         {
             index.UpsertOverlayReferences(overlay, [Label("shared")]);
         }

@@ -1,7 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.Identity.Application.Queries;
 using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.ServiceDefaults;
@@ -29,7 +26,7 @@ public static class RevocationEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/registered-clients")
+        var group = app.MapGroup("/registered-clients")
             .RequireAuthorization(Scope.Sse.Identity.Revocations.Read)
             .WithTags("IdentityRevocations");
 
@@ -47,7 +44,7 @@ public static class RevocationEndpoints
         [FromServices] ListRevokedClientsQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        Result<IReadOnlyList<RevokedClientEntry>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListRevokedClientsQuery(), cancellationToken);
 
         return result.Match<IResult>(

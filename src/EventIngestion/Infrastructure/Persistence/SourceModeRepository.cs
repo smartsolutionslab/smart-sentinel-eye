@@ -17,7 +17,7 @@ public sealed class SourceModeRepository(
         Ensure.That(fab).IsNotNull();
         Ensure.That(source).IsNotNull();
 
-        SourceMode? found = await dbContext.SourceModes
+        var found = await dbContext.SourceModes
             .Where(sourceMode => sourceMode.Fab == fab && sourceMode.Source == source)
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -44,7 +44,7 @@ public sealed class SourceModeRepository(
         // Deleted) and still carries PendingEvents, so its
         // SourceModeUndeclaredDomainEvent is dispatched the same way a
         // Declare's or Change's is.
-        SourceMode[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<SourceMode>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -54,9 +54,9 @@ public sealed class SourceModeRepository(
         // capture and the row commit below happen in one transaction. Nothing
         // subscribes to either domain event this aggregate raises (FR-014),
         // so this loop dispatches to no handler.
-        foreach (SourceMode sourceMode in tracked)
+        foreach (var sourceMode in tracked)
         {
-            IDomainEvent[] events = sourceMode.PendingEvents.ToArray();
+            var events = sourceMode.PendingEvents.ToArray();
             sourceMode.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

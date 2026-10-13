@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.ServiceDefaults.Persistence;
@@ -71,16 +70,16 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_retire_that_read_the_row_before_the_assertion_still_commits()
     {
-        StreamIdentifier streamIdentifier = await SeedAsync(CameraIdentifier.From(Guid.CreateVersion7()), PathNotRegistered);
+        var streamIdentifier = await SeedAsync(CameraIdentifier.From(Guid.CreateVersion7()), PathNotRegistered);
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        await using StreamDistributionDbContext contextB = await VersionedContextAsync();
+        await using var contextA = await VersionedContextAsync();
+        await using var contextB = await VersionedContextAsync();
 
-        StreamRepository repositoryA = NewRepository(contextA);
-        StreamRepository repositoryB = NewRepository(contextB);
+        var repositoryA = NewRepository(contextA);
+        var repositoryB = NewRepository(contextB);
 
-        StreamAggregate loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
-        StreamAggregate loadedByB = (await repositoryB.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByB = (await repositoryB.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
 
         loadedByB.Version.ShouldBe(loadedByA.Version, "the race needs both sides to have read the same version");
 
@@ -114,23 +113,23 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task The_assertion_waits_for_an_uncommitted_retire_and_then_does_not_match()
     {
-        StreamIdentifier streamIdentifier = await SeedAsync(CameraIdentifier.From(Guid.CreateVersion7()), PathNotRegistered);
+        var streamIdentifier = await SeedAsync(CameraIdentifier.From(Guid.CreateVersion7()), PathNotRegistered);
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        await using StreamDistributionDbContext contextB = await VersionedContextAsync();
+        await using var contextA = await VersionedContextAsync();
+        await using var contextB = await VersionedContextAsync();
 
-        StreamRepository repositoryA = NewRepository(contextA);
-        StreamRepository repositoryB = NewRepository(contextB);
+        var repositoryA = NewRepository(contextA);
+        var repositoryB = NewRepository(contextB);
 
-        StreamAggregate loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
-        StreamAggregate loadedByB = (await repositoryB.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByB = (await repositoryB.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
 
-        await using IDbContextTransaction retireTransaction = await contextB.Database.BeginTransactionAsync();
+        await using var retireTransaction = await contextB.Database.BeginTransactionAsync();
 
         loadedByB.Retire(new SystemClock());
         await repositoryB.SaveAsync(CancellationToken.None);
 
-        Task<bool> assertion = repositoryA.IsUnchangedSinceLoadAsync(loadedByA, CancellationToken.None);
+        var assertion = repositoryA.IsUnchangedSinceLoadAsync(loadedByA, CancellationToken.None);
 
         await Task.WhenAny(assertion, Task.Delay(HasNotCompletedWithin));
 
@@ -163,21 +162,21 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_retire_inside_the_provision_window_leaves_MediaMTX_without_the_path()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        MediaMtxPath path = MediaMtxPath.For(camera);
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var path = MediaMtxPath.For(camera);
 
         // The first delivery's work, done: path registered, then the row the
         // watcher would leave behind for a registered path that is not ready.
         await NewGateway().AddPathAsync(path, Source, CancellationToken.None);
-        StreamIdentifier seeded = await SeedAsync(camera, PathNotReady);
+        var seeded = await SeedAsync(camera, PathNotReady);
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        await using StreamDistributionDbContext contextB = await VersionedContextAsync();
+        await using var contextA = await VersionedContextAsync();
+        await using var contextB = await VersionedContextAsync();
 
         WindowedGateway gateway = new(NewGateway(), RetireOn(contextB, camera, seeded), RetireRunsAt.BeforeTheAdd);
-        ProvisionStreamCommandHandler provision = NewProvisionHandler(contextA, gateway);
+        var provision = NewProvisionHandler(contextA, gateway);
 
-        Result<StreamIdentifier, ProvisionStreamError> result = await provision.HandleAsync(
+        var result = await provision.HandleAsync(
             new ProvisionStreamCommand(Munich, camera, Source, AnAdmin),
             CancellationToken.None);
 
@@ -195,20 +194,20 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_retire_between_the_insert_and_the_path_registration_leaves_MediaMTX_without_the_path()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        MediaMtxPath path = MediaMtxPath.For(camera);
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var path = MediaMtxPath.For(camera);
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        await using StreamDistributionDbContext contextB = await VersionedContextAsync();
+        await using var contextA = await VersionedContextAsync();
+        await using var contextB = await VersionedContextAsync();
 
         WindowedGateway gateway = new(NewGateway(), RetireOn(contextB, camera, expected: null), RetireRunsAt.BeforeTheAdd);
-        ProvisionStreamCommandHandler provision = NewProvisionHandler(contextA, gateway);
+        var provision = NewProvisionHandler(contextA, gateway);
 
-        Result<StreamIdentifier, ProvisionStreamError> result = await provision.HandleAsync(
+        var result = await provision.HandleAsync(
             new ProvisionStreamCommand(Munich, camera, Source, AnAdmin),
             CancellationToken.None);
 
-        StreamIdentifier inserted = await StreamOfAsync(camera);
+        var inserted = await StreamOfAsync(camera);
 
         gateway.RetireRuns.ShouldBe(1, "the retire must have run inside the provision's window, or nothing was raced");
         Describe(result).ShouldBe(Describe(inserted));
@@ -237,19 +236,19 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_retire_after_the_add_makes_the_compensation_a_second_removal_that_still_succeeds()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        MediaMtxPath path = MediaMtxPath.For(camera);
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var path = MediaMtxPath.For(camera);
 
         await NewGateway().AddPathAsync(path, Source, CancellationToken.None);
-        StreamIdentifier seeded = await SeedAsync(camera, PathNotReady);
+        var seeded = await SeedAsync(camera, PathNotReady);
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        await using StreamDistributionDbContext contextB = await VersionedContextAsync();
+        await using var contextA = await VersionedContextAsync();
+        await using var contextB = await VersionedContextAsync();
 
         WindowedGateway gateway = new(NewGateway(), RetireOn(contextB, camera, seeded), RetireRunsAt.AfterTheAdd);
-        ProvisionStreamCommandHandler provision = NewProvisionHandler(contextA, gateway);
+        var provision = NewProvisionHandler(contextA, gateway);
 
-        Result<StreamIdentifier, ProvisionStreamError> result = await provision.HandleAsync(
+        var result = await provision.HandleAsync(
             new ProvisionStreamCommand(Munich, camera, Source, AnAdmin),
             CancellationToken.None);
 
@@ -274,7 +273,7 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
                 new SystemClock(),
                 NullLogger<RetireStreamCommandHandler>.Instance);
 
-            Result<Option<StreamIdentifier>, RetireStreamError> retired =
+            var retired =
                 await retire.HandleAsync(new RetireStreamCommand(camera), CancellationToken.None);
 
             retired.IsSuccess.ShouldBeTrue("the staged retire must itself succeed");
@@ -296,11 +295,11 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<StreamIdentifier> SeedAsync(CameraIdentifier camera, string watcherError)
     {
-        await using StreamDistributionDbContext context = await VersionedContextAsync();
-        StreamRepository repository = NewRepository(context);
+        await using var context = await VersionedContextAsync();
+        var repository = NewRepository(context);
 
         SystemClock clock = new();
-        StreamAggregate stream = StreamAggregate.Provision(Munich, camera, StreamSourceUrl.From(Source), AnAdmin, clock);
+        var stream = StreamAggregate.Provision(Munich, camera, StreamSourceUrl.From(Source), AnAdmin, clock);
         stream.ReportDegraded(StreamError.Truncating(watcherError), clock);
 
         repository.Add(stream);
@@ -311,7 +310,7 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<StreamState> CommittedStateAsync(StreamIdentifier stream)
     {
-        await using StreamDistributionDbContext reader = await VersionedContextAsync();
+        await using var reader = await VersionedContextAsync();
 
         return await reader.Streams
             .AsNoTracking()
@@ -322,7 +321,7 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<StreamIdentifier> StreamOfAsync(CameraIdentifier camera)
     {
-        await using StreamDistributionDbContext reader = await VersionedContextAsync();
+        await using var reader = await VersionedContextAsync();
 
         return await reader.Streams
             .AsNoTracking()
@@ -333,8 +332,8 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<HttpStatusCode> MediaMtxConfigStatusAsync(MediaMtxPath path)
     {
-        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
-        using HttpResponseMessage response = await mediaMtx.GetAsync($"/v3/config/paths/get/{path.Value}");
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
+        using var response = await mediaMtx.GetAsync($"/v3/config/paths/get/{path.Value}");
 
         return response.StatusCode;
     }
@@ -347,7 +346,7 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<StreamDistributionDbContext> VersionedContextAsync()
     {
-        string connectionString = await aspire.App
+        var connectionString = await aspire.App
             .GetConnectionStringAsync(AspireFixture.StreamDistributionConnectionName)
             ?? throw new InvalidOperationException(
                 $"Connection string '{AspireFixture.StreamDistributionConnectionName}' was not provisioned by Aspire.");
@@ -378,7 +377,7 @@ public class ProvisionRetireRaceIntegrationTests(AspireFixture aspire) : IAsyncL
 
         public async Task AddPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
         {
-            bool stage = RetireRuns == 0;
+            var stage = RetireRuns == 0;
 
             if (stage && when == RetireRunsAt.BeforeTheAdd)
             {

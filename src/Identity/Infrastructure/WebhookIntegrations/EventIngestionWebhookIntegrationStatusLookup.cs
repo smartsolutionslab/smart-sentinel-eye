@@ -36,7 +36,7 @@ public sealed class EventIngestionWebhookIntegrationStatusLookup(
 
         try
         {
-            using HttpResponseMessage response = await httpClient.GetAsync(
+            using var response = await httpClient.GetAsync(
                 $"/webhook-integrations?fabId={fab.Value}&includeRevoked=true", cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -46,7 +46,7 @@ public sealed class EventIngestionWebhookIntegrationStatusLookup(
                 return WebhookIntegrationStatus.Unverifiable;
             }
 
-            string body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
             return ParseStatus(body, integrationName);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -65,19 +65,19 @@ public sealed class EventIngestionWebhookIntegrationStatusLookup(
 
     private static WebhookIntegrationStatus ParseStatus(string body, string integrationName)
     {
-        using JsonDocument document = JsonDocument.Parse(body);
+        using var document = JsonDocument.Parse(body);
         if (document.RootElement.ValueKind != JsonValueKind.Array)
         {
             throw new JsonException("EventIngestion's webhook-integrations response was not a JSON array.");
         }
 
-        bool matched = false;
-        bool revoked = false;
-        foreach (JsonElement row in document.RootElement.EnumerateArray())
+        var matched = false;
+        var revoked = false;
+        foreach (var row in document.RootElement.EnumerateArray())
         {
-            string name = row.GetProperty("name").GetString()
+            var name = row.GetProperty("name").GetString()
                 ?? throw new JsonException("A webhook-integrations row's 'name' was JSON null.");
-            JsonElement revokedAt = row.GetProperty("revokedAt");
+            var revokedAt = row.GetProperty("revokedAt");
 
             if (!string.Equals(name, integrationName, StringComparison.Ordinal))
             {

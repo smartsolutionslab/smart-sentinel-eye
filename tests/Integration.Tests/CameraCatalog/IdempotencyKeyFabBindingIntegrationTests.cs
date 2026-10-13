@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -40,14 +39,14 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_for_the_same_camera_in_another_fab_is_refused_and_creates_nothing()
     {
-        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string name = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var name = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage first = await SendAsync(cameras, "munich", name, key);
+        var first = await SendAsync(cameras, "munich", name, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(first));
 
-        HttpResponseMessage second = await SendAsync(cameras, "dresden", name, key);
+        var second = await SendAsync(cameras, "dresden", name, key);
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -65,15 +64,15 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_for_a_different_camera_in_the_same_fab_is_refused()
     {
-        using HttpClient cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
-        string first = UniqueName();
-        string second = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var cameras = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var first = UniqueName();
+        var second = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await SendAsync(cameras, "munich", first, key);
+        var created = await SendAsync(cameras, "munich", first, key);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        HttpResponseMessage refused = await SendAsync(cameras, "munich", second, key);
+        var refused = await SendAsync(cameras, "munich", second, key);
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -91,14 +90,14 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_fab_guard_refuses_before_a_reused_key_is_examined()
     {
-        using HttpClient cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
-        string name = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var cameras = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        var name = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await SendAsync(cameras, "dresden", name, key);
+        var created = await SendAsync(cameras, "dresden", name, key);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        HttpResponseMessage refused = await SendAsync(cameras, "munich", UniqueName(), key);
+        var refused = await SendAsync(cameras, "munich", UniqueName(), key);
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
@@ -114,14 +113,14 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_by_another_caller_is_a_fresh_request()
     {
-        string sharedKey = $"key-{Guid.CreateVersion7():N}";
-        using HttpClient dresdenOnly = await ClientFor(DresdenOperator, DresdenOperatorPassword);
-        using HttpClient multi = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
+        var sharedKey = $"key-{Guid.CreateVersion7():N}";
+        using var dresdenOnly = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var multi = await ClientFor(MultiFabOperator, MultiFabOperatorPassword);
 
-        HttpResponseMessage first = await SendAsync(dresdenOnly, "dresden", UniqueName(), sharedKey);
+        var first = await SendAsync(dresdenOnly, "dresden", UniqueName(), sharedKey);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(first));
 
-        HttpResponseMessage second = await SendAsync(multi, "dresden", UniqueName(), sharedKey);
+        var second = await SendAsync(multi, "dresden", UniqueName(), sharedKey);
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.Created,
@@ -151,9 +150,9 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
 
     private static async Task<string[]> NamesInAsync(HttpClient cameras, string fab)
     {
-        HttpResponseMessage listed = await cameras.GetAsync($"/cameras?fabId={fab}&limit=200");
+        var listed = await cameras.GetAsync($"/cameras?fabId={fab}&limit=200");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("items").EnumerateArray()
             .Select(row => row.GetProperty("name").GetString()!)];
@@ -161,9 +160,9 @@ public class IdempotencyKeyFabBindingIntegrationTests(AspireFixture aspire)
 
     private static async Task<string?> TitleOfAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-        return problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out JsonElement title)
+        return problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out var title)
             ? title.GetString()
             : null;
     }

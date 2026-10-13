@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Shouldly;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
@@ -49,7 +48,7 @@ public class CreateClientReplacementGuardTests
         const string ClientId = "webhook-acme";
         StubKeycloakHandler keycloak = new(ActiveSameKindClientFlow(ClientId));
 
-        KeycloakClientAlreadyExistsException thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
+        var thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
             () => CreateAsync(keycloak, Representation(ClientId, kind: "webhook", fab: "fab-b")));
 
         thrown.ClientId.ShouldBe(ClientId);
@@ -73,7 +72,7 @@ public class CreateClientReplacementGuardTests
         const string ClientId = "management-web";
         StubKeycloakHandler keycloak = new(DisabledNoKindAttributeFlow(ClientId));
 
-        KeycloakClientAlreadyExistsException thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
+        var thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
             () => CreateAsync(keycloak, Representation(ClientId, kind: "kiosk", fab: "munich")));
 
         thrown.ClientId.ShouldBe(ClientId);
@@ -95,7 +94,7 @@ public class CreateClientReplacementGuardTests
         const string ClientId = "plc-oven-12";
         StubKeycloakHandler keycloak = new(DisabledDifferentKindFlow(ClientId));
 
-        KeycloakClientAlreadyExistsException thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
+        var thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
             () => CreateAsync(keycloak, Representation(ClientId, kind: "kiosk", fab: "munich")));
 
         thrown.ClientId.ShouldBe(ClientId);
@@ -117,7 +116,7 @@ public class CreateClientReplacementGuardTests
         const string ClientId = "plc-oven-12";
         StubKeycloakHandler keycloak = new(DisabledSameKindDifferentFabFlow(ClientId));
 
-        KeycloakClientAlreadyExistsException thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
+        var thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
             () => CreateAsync(keycloak, Representation(ClientId, kind: "device", fab: "fab-b")));
 
         thrown.ClientId.ShouldBe(ClientId);
@@ -137,7 +136,7 @@ public class CreateClientReplacementGuardTests
         const string ClientId = "plc-oven-12";
         StubKeycloakHandler keycloak = new(DisabledSameKindSameFabFlow(ClientId));
 
-        KeycloakClientCredentials credentials = await CreateAsync(
+        var credentials = await CreateAsync(
             keycloak, Representation(ClientId, kind: "device", fab: "fab-a"));
 
         credentials.ClientSecret.ShouldBe(

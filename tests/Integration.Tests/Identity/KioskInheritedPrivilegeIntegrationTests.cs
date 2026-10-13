@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
@@ -35,15 +34,15 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_kiosk_enrolled_at_runtime_does_not_hold_the_long_lived_credential_privilege()
     {
-        HttpKeycloakAdminClient keycloak = CreateAdminClient();
-        string clientId = $"kiosk-privilege-probe-{Guid.CreateVersion7():N}";
+        var keycloak = CreateAdminClient();
+        var clientId = $"kiosk-privilege-probe-{Guid.CreateVersion7():N}";
 
         await keycloak.CreateClientAsync(
             KioskRepresentation(clientId), "/fabs/munich", CancellationToken.None);
 
         try
         {
-            IReadOnlyList<string> held = await realm.EffectiveRealmRolesAsync(clientId, CancellationToken.None);
+            var held = await realm.EffectiveRealmRolesAsync(clientId, CancellationToken.None);
 
             held.ShouldNotContain(
                 RealmProbe.LongLivedCredentialPrivilege,
@@ -63,11 +62,11 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_account_the_provider_creates_holds_it_until_something_removes_it()
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-        string clientId = $"control-probe-{Guid.CreateVersion7():N}";
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        var clientId = $"control-probe-{Guid.CreateVersion7():N}";
 
         // Created directly, bypassing enrolment — so nothing strips it.
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
@@ -82,7 +81,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 
         try
         {
-            IReadOnlyList<string> held = await realm.EffectiveRealmRolesAsync(clientId, CancellationToken.None);
+            var held = await realm.EffectiveRealmRolesAsync(clientId, CancellationToken.None);
 
             held.ShouldContain(
                 RealmProbe.LongLivedCredentialPrivilege,
@@ -102,7 +101,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_operator_does_not_hold_the_long_lived_credential_privilege()
     {
-        IReadOnlyList<string> held = await realm.EffectiveRealmRolesOfUserAsync("operator", CancellationToken.None);
+        var held = await realm.EffectiveRealmRolesOfUserAsync("operator", CancellationToken.None);
 
         held.ShouldNotContain(RealmProbe.LongLivedCredentialPrivilege);
     }
@@ -115,7 +114,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_wall_display_account_does_hold_it()
     {
-        IReadOnlyList<string> held = await realm.EffectiveRealmRolesOfUserAsync("wall-munich", CancellationToken.None);
+        var held = await realm.EffectiveRealmRolesOfUserAsync("wall-munich", CancellationToken.None);
 
         held.ShouldContain(
             RealmProbe.LongLivedCredentialPrivilege,
@@ -140,7 +139,7 @@ public class KioskInheritedPrivilegeIntegrationTests(AspireFixture aspire)
 
     private HttpKeycloakAdminClient CreateAdminClient()
     {
-        HttpClient http = aspire.CreateKeycloakClient();
+        var http = aspire.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),

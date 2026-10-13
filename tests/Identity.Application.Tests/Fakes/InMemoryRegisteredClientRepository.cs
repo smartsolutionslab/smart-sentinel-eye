@@ -93,7 +93,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     public Task<Option<RegisteredClientAggregate>> GetByIdentifierAsync(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
     {
-        RegisteredClientAggregate? found = clients.SingleOrDefault(c => c.Id == identifier);
+        var found = clients.SingleOrDefault(c => c.Id == identifier);
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
             : Option<RegisteredClientAggregate>.Some(found));
@@ -105,7 +105,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         Ensure.That(clientId).IsNotNull();
         // Disabled rows release the name for re-registration (mirrors
         // spec 005's archived-name pattern).
-        RegisteredClientAggregate? found = clients.SingleOrDefault(c =>
+        var found = clients.SingleOrDefault(c =>
             c.ClientId == clientId && c.DisabledAt is null);
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
@@ -128,7 +128,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         // Fab is part of the match, not a filter applied afterwards — mirrors
         // the production predicate (spec 180 US1). Disabled rows are excluded,
         // matching GetByClientIdAsync.
-        RegisteredClientAggregate? found = clients.SingleOrDefault(c =>
+        var found = clients.SingleOrDefault(c =>
             c.ClientId == clientId && c.Fab == fab && c.DisabledAt is null);
         return Task.FromResult(found is null
             ? Option<RegisteredClientAggregate>.None
@@ -146,7 +146,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
         saveCalls++;
         if (saveCalls == 2 && FailSecondSaveWith is not null)
         {
-            Exception toThrow = FailSecondSaveWith;
+            var toThrow = FailSecondSaveWith;
             FailSecondSaveWith = null;
             HasUnresolvedConcurrencyFailure = true;
             throw toThrow;
@@ -154,19 +154,19 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
 
         if (FailNextSaveWith is not null)
         {
-            Exception toThrow = FailNextSaveWith;
+            var toThrow = FailNextSaveWith;
             FailNextSaveWith = null;
             HasUnresolvedConcurrencyFailure = true;
             throw toThrow;
         }
 
-        foreach (RegisteredClientAggregate c in clients)
+        foreach (var c in clients)
         {
             // Mirrors AggregateVersionInterceptor.RequiresBump: an Added root
             // starts at 0 and is not bumped; an already-persisted root with
             // changes is. Pending events stand in for the change tracker's
             // Modified state — every mutator on this aggregate raises one.
-            bool wasAlreadyPersisted = !persisted.Add(c.Id.Value);
+            var wasAlreadyPersisted = !persisted.Add(c.Id.Value);
             if (wasAlreadyPersisted && c.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(c);
@@ -186,7 +186,7 @@ public sealed class InMemoryRegisteredClientRepository : IRegisteredClientReposi
     {
         CallLog.Add(nameof(GetActiveClientIdsAsync));
 
-        HashSet<ClientId> active = clients
+        var active = clients
             .Where(c => c.DisabledAt is null)
             .Select(c => c.ClientId)
             .ToHashSet();

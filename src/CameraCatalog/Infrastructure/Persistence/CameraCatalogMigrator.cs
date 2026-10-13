@@ -16,7 +16,7 @@ public sealed class CameraCatalogMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using CameraCatalogDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

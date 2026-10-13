@@ -69,7 +69,7 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_refused_seed_is_logged_as_an_error()
     {
-        Seed seed = await RunAsync(HttpStatusCode.Unauthorized);
+        var seed = await RunAsync(HttpStatusCode.Unauthorized);
 
         seed.Logger.Entries.Count.ShouldBe(1, Transcript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
@@ -87,7 +87,7 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_forbidden_seed_is_logged_as_an_error()
     {
-        Seed seed = await RunAsync(HttpStatusCode.Forbidden);
+        var seed = await RunAsync(HttpStatusCode.Forbidden);
 
         seed.Logger.Entries.Count.ShouldBe(1, Transcript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
@@ -115,9 +115,9 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_refused_seed_does_not_promise_a_self_heal()
     {
-        Seed seed = await RunAsync(HttpStatusCode.Unauthorized);
+        var seed = await RunAsync(HttpStatusCode.Unauthorized);
 
-        string message = seed.Logger.Entries.Single().Message;
+        var message = seed.Logger.Entries.Single().Message;
 
         message.Contains("will populate", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
             $"a refused credential does not self-heal, but the message promises it does: '{message}'");
@@ -137,7 +137,7 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_server_error_stays_a_warning()
     {
-        Seed seed = await RunAsync(HttpStatusCode.ServiceUnavailable);
+        var seed = await RunAsync(HttpStatusCode.ServiceUnavailable);
 
         seed.Logger.Entries.Count.ShouldBe(1, Transcript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
@@ -160,7 +160,7 @@ public class ReverseIndexSeederHostedServiceTests
     public async Task A_refused_seed_leaves_the_host_started()
     {
         // No throw: StartAsync completing is the host starting.
-        Seed seed = await RunAsync(HttpStatusCode.Unauthorized);
+        var seed = await RunAsync(HttpStatusCode.Unauthorized);
 
         seed.Index.AllOverlays().ShouldBeEmpty("a refusal leaves the index as it was; it does not fail");
     }
@@ -175,11 +175,11 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_successful_seed_populates_the_index()
     {
-        Seed seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
+        var seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
 
         seed.Index.LookupOverlays("oeeLine1").ShouldBe([Overlay]);
         seed.Index.LookupOverlays("status").ShouldBe([Overlay]);
-        IReadOnlyList<string>? texts = seed.Index.LookupLabelTexts(Overlay);
+        var texts = seed.Index.LookupLabelTexts(Overlay);
         texts!.Count.ShouldBe(2);
         texts[0].ShouldBe(LabelText);
         texts[1].ShouldBe(SecondLabelText);
@@ -200,7 +200,7 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_published_listing_in_the_new_shape_seeds_every_element_of_every_overlay()
     {
-        Seed seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
+        var seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
 
         seed.Logger.Entries.ShouldContain(
             entry => entry.Message.Contains("seeded with 1 published overlays", StringComparison.Ordinal),
@@ -223,11 +223,11 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_box_then_text_payload_seeds_an_empty_string_then_the_text()
     {
-        string listing = BoxThenTextListing();
+        var listing = BoxThenTextListing();
 
-        Seed seed = await RunAsync(HttpStatusCode.OK, listing);
+        var seed = await RunAsync(HttpStatusCode.OK, listing);
 
-        IReadOnlyList<string>? texts = seed.Index.LookupLabelTexts(Overlay);
+        var texts = seed.Index.LookupLabelTexts(Overlay);
         texts!.Count.ShouldBe(2, "the Box must still occupy its own slot.");
         texts[0].ShouldBe(string.Empty, "a Box has no \"text\"; it contributes an empty string, not a shift.");
         texts[1].ShouldBe(LabelText, "the Text element must stay at index 1, not slide to index 0.");
@@ -246,11 +246,11 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public void Against_the_unchanged_labels_reading_seeder_this_payload_seeds_zero()
     {
-        using System.Text.Json.JsonDocument document = System.Text.Json.JsonDocument.Parse(BoxThenTextListing());
-        System.Text.Json.JsonElement overlay = document.RootElement.GetProperty("published")[0];
+        using var document = System.Text.Json.JsonDocument.Parse(BoxThenTextListing());
+        var overlay = document.RootElement.GetProperty("published")[0];
 
-        bool unchangedSeederWouldSeedThisOverlay =
-            overlay.TryGetProperty("labels", out System.Text.Json.JsonElement labelsElement)
+        var unchangedSeederWouldSeedThisOverlay =
+            overlay.TryGetProperty("labels", out var labelsElement)
             && labelsElement.ValueKind == System.Text.Json.JsonValueKind.Array;
 
         unchangedSeederWouldSeedThisOverlay.ShouldBeFalse(
@@ -302,7 +302,7 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task The_seed_request_today_carries_no_authorization_header()
     {
-        Seed seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
+        var seed = await RunAsync(HttpStatusCode.OK, PublishedListing);
 
         seed.Factory.RequestedNames.ShouldBe([OverlayDesignerClientName]);
         seed.Transport.Authorization.ShouldBeNull(
@@ -333,7 +333,7 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_refused_token_mint_is_logged_as_an_error()
     {
-        FailedSeed seed = await RunThrowingAsync(RefusedMint());
+        var seed = await RunThrowingAsync(RefusedMint());
 
         seed.Logger.Entries.Count.ShouldBe(1, FailureTranscript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
@@ -358,9 +358,9 @@ public class ReverseIndexSeederHostedServiceTests
     [Fact]
     public async Task A_refused_token_mint_does_not_promise_a_self_heal()
     {
-        FailedSeed seed = await RunThrowingAsync(RefusedMint());
+        var seed = await RunThrowingAsync(RefusedMint());
 
-        string message = seed.Logger.Entries.Single().Message;
+        var message = seed.Logger.Entries.Single().Message;
 
         message.Contains("will populate", StringComparison.OrdinalIgnoreCase).ShouldBeFalse(
             $"a refused mint does not self-heal, but the message promises it does: '{message}'");
@@ -388,7 +388,7 @@ public class ReverseIndexSeederHostedServiceTests
     {
         HttpRequestException unreachable = new("overlay-designer unreachable");
 
-        FailedSeed seed = await RunThrowingAsync(unreachable);
+        var seed = await RunThrowingAsync(unreachable);
 
         seed.Logger.Entries.Count.ShouldBe(1, FailureTranscript(seed));
         seed.Logger.Entries[0].Level.ShouldBe(
@@ -415,7 +415,7 @@ public class ReverseIndexSeederHostedServiceTests
     public async Task A_refused_token_mint_leaves_the_host_started()
     {
         // No throw: StartAsync completing is the host starting.
-        FailedSeed seed = await RunThrowingAsync(RefusedMint());
+        var seed = await RunThrowingAsync(RefusedMint());
 
         seed.Index.AllOverlays().ShouldBeEmpty(
             "a refused mint leaves the index as it was; it does not fail");

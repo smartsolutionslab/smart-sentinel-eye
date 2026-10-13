@@ -47,12 +47,12 @@ public class IngestWriteLimiterTests
     {
         using IngestWriteLimiter limiter = new(concurrency: 2);
 
-        IngestWriteLease first = limiter.TryAcquire();
-        IngestWriteLease second = limiter.TryAcquire();
+        var first = limiter.TryAcquire();
+        var second = limiter.TryAcquire();
         first.Acquired.ShouldBeTrue();
         second.Acquired.ShouldBeTrue();
 
-        IngestWriteLease third = limiter.TryAcquire();
+        var third = limiter.TryAcquire();
 
         third.Acquired.ShouldBeFalse();
     }
@@ -68,8 +68,8 @@ public class IngestWriteLimiterTests
     {
         using IngestWriteLimiter limiter = new(concurrency: 2);
 
-        IngestWriteLease held = limiter.TryAcquire();
-        IngestWriteLease released = limiter.TryAcquire();
+        var held = limiter.TryAcquire();
+        var released = limiter.TryAcquire();
         held.Acquired.ShouldBeTrue();
         released.Acquired.ShouldBeTrue();
         limiter.TryAcquire().Acquired.ShouldBeFalse(
@@ -92,10 +92,10 @@ public class IngestWriteLimiterTests
     {
         using IngestWriteLimiter limiter = new(concurrency: 1);
 
-        IngestWriteLease held = limiter.TryAcquire();
+        var held = limiter.TryAcquire();
         held.Acquired.ShouldBeTrue();
 
-        IngestWriteLease refused = limiter.TryAcquire();
+        var refused = limiter.TryAcquire();
         refused.Acquired.ShouldBeFalse();
 
         refused.Dispose();
@@ -120,7 +120,7 @@ public class IngestWriteLimiterTests
         // `using` disposes the semaphore first, so releasing a lease afterwards
         // would throw ObjectDisposedException and read as a limiter defect.
         List<IngestWriteLease> held = [];
-        for (int writer = 0; writer < IngestWriteLimiter.DefaultConcurrency; writer++)
+        for (var writer = 0; writer < IngestWriteLimiter.DefaultConcurrency; writer++)
         {
             held.Add(limiter.TryAcquire());
         }
@@ -138,7 +138,7 @@ public class IngestWriteLimiterTests
     [Fact]
     public void A_concurrency_of_zero_is_refused()
     {
-        ArgumentException exception = Should.Throw<ArgumentException>(() => new IngestWriteLimiter(0));
+        var exception = Should.Throw<ArgumentException>(() => new IngestWriteLimiter(0));
 
         exception.ParamName.ShouldBe("concurrency");
     }
@@ -151,7 +151,7 @@ public class IngestWriteLimiterTests
     [Fact]
     public void A_negative_concurrency_is_refused()
     {
-        ArgumentException exception = Should.Throw<ArgumentException>(() => new IngestWriteLimiter(-1));
+        var exception = Should.Throw<ArgumentException>(() => new IngestWriteLimiter(-1));
 
         exception.ParamName.ShouldBe("concurrency");
     }

@@ -26,8 +26,8 @@ public sealed class MqttSampleMapper(TimeProvider clock)
 
     public MqttSample Map(AssetDefinition asset, SensorDefinition sensor, double value)
     {
-        string topic = $"fab/{FabId}/{sensor.Source}/{asset.Camera.Path}";
-        string body = JsonSerializer.Serialize(
+        var topic = $"fab/{FabId}/{sensor.Source}/{asset.Camera.Path}";
+        var body = JsonSerializer.Serialize(
             new MqttBody<MqttPayload>(
                 Guid.CreateVersion7(),
                 sensor.Kind,
@@ -47,9 +47,9 @@ public sealed class MqttSampleMapper(TimeProvider clock)
     /// </summary>
     public MqttSample Map(AssetDefinition asset, CueDefinition cue, int clipOffsetMs)
     {
-        string topic = $"fab/{FabId}/{cue.Source}/{asset.Camera.Path}";
-        DetectionBox? box = cue.Box is { } cueBox ? new DetectionBox(cueBox.X, cueBox.Y, cueBox.Width, cueBox.Height) : null;
-        string body = JsonSerializer.Serialize(
+        var topic = $"fab/{FabId}/{cue.Source}/{asset.Camera.Path}";
+        var box = cue.Box is { } cueBox ? new DetectionBox(cueBox.X, cueBox.Y, cueBox.Width, cueBox.Height) : null;
+        var body = JsonSerializer.Serialize(
             new MqttBody<DetectionPayload>(
                 Guid.CreateVersion7(),
                 cue.Kind,

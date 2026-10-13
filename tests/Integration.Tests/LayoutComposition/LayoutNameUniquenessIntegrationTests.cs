@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
-using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
@@ -79,11 +78,11 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_second_live_chain_with_the_same_name_in_one_fab_is_refused_by_the_database()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        string name = UniqueName();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var name = UniqueName();
         await CreateAsync(layouts, name);
 
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
         context.Layouts.Add(Layout.CreateDraft(
             FabIdentifier.From(Fab),
             LayoutName.From(name),
@@ -95,7 +94,7 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new SystemClock()));
 
-        DbUpdateException refused = await Should.ThrowAsync<DbUpdateException>(
+        var refused = await Should.ThrowAsync<DbUpdateException>(
             () => context.SaveChangesAsync());
 
         refused.InnerException.ShouldBeOfType<PostgresException>()
@@ -131,20 +130,20 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Concurrent_creates_for_one_layout_name_in_one_fab_yield_one_success_and_never_a_fault()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        string contested = UniqueName();
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, Fab);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var contested = UniqueName();
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, Fab);
 
-        IEnumerable<Task<HttpResponseMessage>> attempts = Enumerable
+        var attempts = Enumerable
             .Range(0, Writers)
             .Select(_ => layouts.PostAsJsonAsync("/layouts", Body(contested, camera)));
 
-        HttpResponseMessage[] answers = await Task.WhenAll(attempts);
+        var answers = await Task.WhenAll(attempts);
 
         try
         {
             HttpStatusCode[] statuses = [.. answers.Select(answer => answer.StatusCode)];
-            int rows = await CountRowsNamedAsync(contested);
+            var rows = await CountRowsNamedAsync(contested);
 
             statuses.ShouldNotContain(
                 HttpStatusCode.InternalServerError,
@@ -160,17 +159,17 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
             statuses.Where(status => status != HttpStatusCode.Created)
                 .ShouldAllBe(status => status == HttpStatusCode.Conflict);
 
-            foreach (HttpResponseMessage loser in answers.Where(
+            foreach (var loser in answers.Where(
                 answer => answer.StatusCode == HttpStatusCode.Conflict))
             {
-                JsonElement problem = await loser.Content.ReadFromJsonAsync<JsonElement>();
+                var problem = await loser.Content.ReadFromJsonAsync<JsonElement>();
                 problem.GetProperty("title").GetString().ShouldBeOneOf(
                     "RESOURCE_ALREADY_EXISTS", "LAYOUT_NAME_TAKEN");
             }
         }
         finally
         {
-            foreach (HttpResponseMessage answer in answers)
+            foreach (var answer in answers)
             {
                 answer.Dispose();
             }
@@ -186,15 +185,15 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task An_archived_chain_releases_its_name_within_its_fab()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        string name = UniqueName();
-        Guid archived = await CreateAsync(layouts, name);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var name = UniqueName();
+        var archived = await CreateAsync(layouts, name);
 
-        HttpResponseMessage archive = await LayoutRequests.PostAsync(
+        var archive = await LayoutRequests.PostAsync(
             layouts, archived, "revisions/1/archive");
         archive.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archive));
 
-        HttpResponseMessage reused = await layouts.PostAsJsonAsync(
+        var reused = await layouts.PostAsJsonAsync(
             "/layouts", Body(name, await LayoutRequests.RegisterCameraAsync(aspire, Fab)));
 
         reused.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(reused));
@@ -208,19 +207,19 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Branching_an_archived_chain_whose_name_was_taken_is_refused_with_LAYOUT_NAME_TAKEN()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        string name = UniqueName();
-        Guid stranded = await CreateAsync(layouts, name);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var name = UniqueName();
+        var stranded = await CreateAsync(layouts, name);
         (await LayoutRequests.PostAsync(layouts, stranded, "revisions/1/archive"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
         (await layouts.PostAsJsonAsync(
             "/layouts", Body(name, await LayoutRequests.RegisterCameraAsync(aspire, Fab))))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage refused = await LayoutRequests.PostAsync(layouts, stranded, "draft");
+        var refused = await LayoutRequests.PostAsync(layouts, stranded, "draft");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await DiagnoseAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_NAME_TAKEN");
     }
 
@@ -233,13 +232,13 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Two_layout_names_differing_only_in_case_are_distinct_chains()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        string lower = $"lay-case-{Guid.NewGuid():N}"[..16];
-        string upper = lower.ToUpperInvariant();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var lower = $"lay-case-{Guid.NewGuid():N}"[..16];
+        var upper = lower.ToUpperInvariant();
 
-        HttpResponseMessage first = await layouts.PostAsJsonAsync(
+        var first = await layouts.PostAsJsonAsync(
             "/layouts", Body(lower, await LayoutRequests.RegisterCameraAsync(aspire, Fab)));
-        HttpResponseMessage second = await layouts.PostAsJsonAsync(
+        var second = await layouts.PostAsJsonAsync(
             "/layouts", Body(upper, await LayoutRequests.RegisterCameraAsync(aspire, Fab)));
 
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(first));
@@ -252,7 +251,7 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task<Guid> CreateAsync(HttpClient layouts, string name)
     {
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", Body(name, await LayoutRequests.RegisterCameraAsync(aspire, Fab)));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
@@ -261,9 +260,9 @@ public class LayoutNameUniquenessIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task<int> CountRowsNamedAsync(string name)
     {
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
-        FabIdentifier fab = FabIdentifier.From(Fab);
-        LayoutName parsed = LayoutName.From(name);
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
+        var fab = FabIdentifier.From(Fab);
+        var parsed = LayoutName.From(name);
 
         return await context.Layouts.CountAsync(
             candidate => candidate.Fab == fab && candidate.Name == parsed);

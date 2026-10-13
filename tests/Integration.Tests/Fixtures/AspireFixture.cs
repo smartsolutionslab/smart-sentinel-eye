@@ -3,7 +3,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Text;
 using Aspire.Hosting;
-using Microsoft.Extensions.Logging;
 using Polly.Timeout;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -333,7 +332,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         // would block the run indefinitely.
         using CancellationTokenSource cts = new(StartupTimeout);
 
-        IDistributedApplicationTestingBuilder builder =
+        var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(parameters, cts.Token)
                 .ConfigureAwait(false);
@@ -354,7 +353,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // StartAsync, WatchAsync has nothing to watch and completes
             // immediately — which is why the first attempt at this captured
             // nothing and reported it as "the service said nothing".
-            foreach (string resource in TailedResources)
+            foreach (var resource in TailedResources)
             {
                 logTails.TryAdd(resource, new ConcurrentQueue<string>());
             }
@@ -386,7 +385,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             // state text through unmodified so the two cannot differ in fact —
             // but matching the comparer makes "the same condition" exact rather
             // than true-by-inspection.
-            ResourceEvent migrations = await app.ResourceNotifications
+            var migrations = await app.ResourceNotifications
                 .WaitForResourceAsync(
                     "migrations",
                     migration => string.Equals(
@@ -400,10 +399,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             {
                 // Only on this branch: a healthy boot must not pay the bounded
                 // five-second log read.
-                Aspire.Hosting.ApplicationModel.ResourceLoggerService migrationLoggers =
+                var migrationLoggers =
                     app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
-                string migrationsLog =
+                var migrationsLog =
                     await CaptureOneResourceLogAsync(migrationLoggers, "migrations").ConfigureAwait(false);
 
                 // Not a TimeoutException, and not any OperationCanceledException:
@@ -497,9 +496,9 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         }
         catch (Exception ex) when (ex is OperationCanceledException or TaskCanceledException)
         {
-            string logTail = RecentLogs("camera-catalog");
-            Dictionary<string, string> states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
-            string failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
+            var logTail = RecentLogs("camera-catalog");
+            var states = await CaptureResourceStateMapAsync().ConfigureAwait(false);
+            var failedLogs = await CaptureFailedResourceLogsAsync(states).ConfigureAwait(false);
             throw new TimeoutException(
                 FormatTimeoutMessage(StartupTimeout, states, exitCodes, failedLogs, logTail),
                 ex);
@@ -547,7 +546,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     private async Task<string> ResolveMediaMtxApiSecretAsync(CancellationToken cancellationToken)
     {
-        ParameterResource parameter = App.Services
+        var parameter = App.Services
             .GetRequiredService<DistributedApplicationModel>()
             .Resources
             .OfType<ParameterResource>()
@@ -614,7 +613,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         try
         {
-            await foreach (ResourceEvent evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
+            await foreach (var evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
             {
                 if (!string.Equals(evt.Resource.Name, resourceName, StringComparison.Ordinal))
                 {
@@ -627,7 +626,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     + $"started={evt.Snapshot.StartTimeStamp?.ToString("O", CultureInfo.InvariantCulture) ?? "(never)"} "
                     + $"stopped={evt.Snapshot.StopTimeStamp?.ToString("O", CultureInfo.InvariantCulture) ?? "(none)"}");
 
-                foreach (HealthReportSnapshot report in evt.Snapshot.HealthReports)
+                foreach (var report in evt.Snapshot.HealthReports)
                 {
                     lines.Add(
                         $"  health {report.Name}={report.Status}: "
@@ -651,7 +650,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         using CancellationTokenSource snapshot = new(TimeSpan.FromSeconds(3));
         try
         {
-            await foreach (ResourceEvent evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
+            await foreach (var evt in app.ResourceNotifications.WatchAsync(snapshot.Token))
             {
                 states[evt.Resource.Name] = evt.Snapshot.State?.Text ?? "(unknown)";
                 exitCodes[evt.Resource.Name] = evt.Snapshot.ExitCode;
@@ -736,7 +735,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     internal static bool ExitedNonZero([NotNullWhen(true)] int? exitCode) => exitCode is not null and not 0;
 
     private static bool ExitedNonZero(string name, Dictionary<string, int?> exitCodes) =>
-        exitCodes.TryGetValue(name, out int? exit) && ExitedNonZero(exit);
+        exitCodes.TryGetValue(name, out var exit) && ExitedNonZero(exit);
 
     // Resources that run once and stop; finishing is how they succeed.
     private static bool IsOneShot(string name) =>
@@ -800,7 +799,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             : string.Join(
                 '\n',
                 states.OrderBy(kv => kv.Key, StringComparer.Ordinal).Select(kv =>
-                    exitCodes.TryGetValue(kv.Key, out int? exit) && exit is not null
+                    exitCodes.TryGetValue(kv.Key, out var exit) && exit is not null
                         ? $"  {kv.Key}: {kv.Value} (exit code {exit})"
                         : $"  {kv.Key}: {kv.Value}"));
 
@@ -844,7 +843,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         // inside the watch window ends it `Running` and is left out of the
         // failure section, so naming it here would point the reader at a
         // section that does not exist.
-        string[] died = UnhealthyResources(states, exitCodes)
+        var died = UnhealthyResources(states, exitCodes)
             .Where(name => ExitedNonZero(name, exitCodes))
             .ToArray();
 
@@ -860,7 +859,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         // a rebuilder from the *sentence*, not from the report. `died` keeps
         // them, because #2061's rule is that an exemption ends where a non-zero
         // exit begins.
-        string[] ended = UnhealthyResources(states, exitCodes)
+        var ended = UnhealthyResources(states, exitCodes)
             .Where(name => !ExitedNonZero(name, exitCodes)
                 && !name.EndsWith("-rebuilder", StringComparison.Ordinal)
                 && EndedStates.Contains(states[name], StringComparer.OrdinalIgnoreCase))
@@ -870,13 +869,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         if (died.Length > 0)
         {
-            string named = string.Join("; ", died.Select(name => $"{name} exited with code {exitCodes[name]}"));
+            var named = string.Join("; ", died.Select(name => $"{name} exited with code {exitCodes[name]}"));
             sentences.Add($"{named} — a non-zero exit is a failure, not a clean finish.");
         }
 
         if (ended.Length > 0)
         {
-            string named = string.Join("; ", ended.Select(name => DescribeEnd(name, states[name], exitCodes)));
+            var named = string.Join("; ", ended.Select(name => DescribeEnd(name, states[name], exitCodes)));
             // Not "a long-running resource that ends…". Nothing on this path
             // establishes that: `IsHealthy` only spells the one-shot exemption
             // for `Finished`, so a `migrations` sitting in `Exited` with code 0
@@ -907,7 +906,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     // hole where its one fact should be. Saying the code was not recorded is
     // the true sentence, and it is shorter than the false one.
     private static string DescribeEnd(string name, string state, Dictionary<string, int?> exitCodes) =>
-        exitCodes.TryGetValue(name, out int? exit) && exit is not null
+        exitCodes.TryGetValue(name, out var exit) && exit is not null
             ? $"{name} reached {state} with exit code {exit}"
             : $"{name} reached {state} and no exit code was recorded";
 
@@ -1002,12 +1001,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         Dictionary<string, string> logs)
     {
         StringBuilder report = new();
-        foreach (string name in SelectResourcesToReport(states, exitCodes))
+        foreach (var name in SelectResourcesToReport(states, exitCodes))
         {
             report.Append("---- ").Append(name).Append(" (")
                 .Append(DescribeWhySelected(states[name], ExitCodeOf(name, exitCodes)))
                 .AppendLine(") ----");
-            report.AppendLine(logs.TryGetValue(name, out string? captured) ? captured : "(no logs captured)");
+            report.AppendLine(logs.TryGetValue(name, out var captured) ? captured : "(no logs captured)");
         }
 
         return report.ToString();
@@ -1027,7 +1026,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     };
 
     private static int? ExitCodeOf(string name, Dictionary<string, int?> exitCodes) =>
-        exitCodes.TryGetValue(name, out int? exit) ? exit : null;
+        exitCodes.TryGetValue(name, out var exit) ? exit : null;
 
     /// <summary>
     /// On a startup timeout, dump recent stdout for every resource that did
@@ -1042,18 +1041,18 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             return "(app not built)";
         }
 
-        string[] failed = SelectResourcesToReport(states, exitCodes);
+        var failed = SelectResourcesToReport(states, exitCodes);
 
         if (failed.Length == 0)
         {
             return "(no failed resources)";
         }
 
-        Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
+        var loggers =
             app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
         Dictionary<string, string> logs = new(StringComparer.Ordinal);
-        foreach (string name in failed)
+        foreach (var name in failed)
         {
             logs[name] = await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false);
         }
@@ -1115,17 +1114,17 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     {
         List<(string Name, string State, int? ExitCode)> dead = [];
 
-        foreach (string name in GatedResources)
+        foreach (var name in GatedResources)
         {
             // Defensive rather than reachable, like the branch in
             // CaptureOneResourceLogAsync: each of the twelve has published a
             // snapshot by now, because its own wait matched one.
-            if (!App.ResourceNotifications.TryGetCurrentState(name, out ResourceEvent? current))
+            if (!App.ResourceNotifications.TryGetCurrentState(name, out var current))
             {
                 continue;
             }
 
-            string? stateText = current.Snapshot.State?.Text;
+            var stateText = current.Snapshot.State?.Text;
 
             if (IsFatalStartupState(stateText))
             {
@@ -1138,13 +1137,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             return;
         }
 
-        Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
+        var loggers =
             App.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
         List<string> deaths = [];
-        foreach ((string name, string state, int? exitCode) in dead)
+        foreach ((var name, var state, var exitCode) in dead)
         {
-            string resourceLog = await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false);
+            var resourceLog = await CaptureOneResourceLogAsync(loggers, name).ConfigureAwait(false);
             deaths.Add(FormatResourceDeathMessage(name, state, exitCode, resourceLog));
         }
 
@@ -1158,7 +1157,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     private async Task<string> CaptureOneResourceLogAsync(
         Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers, string name)
     {
-        if (!TryResolveResourceId(name, out string resourceId))
+        if (!TryResolveResourceId(name, out var resourceId))
         {
             // Kept, and defensive rather than reachable. This method's only
             // caller derives `name` from a snapshot, so the resource has by
@@ -1174,10 +1173,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
         using CancellationTokenSource perResource = new(TimeSpan.FromSeconds(5));
         try
         {
-            await foreach (IReadOnlyList<LogLine> batch in
+            await foreach (var batch in
                 loggers.WatchAsync(resourceId).WithCancellation(perResource.Token))
             {
-                foreach (LogLine line in batch)
+                foreach (var line in batch)
                 {
                     lines.Add(line.Content);
                 }
@@ -1209,13 +1208,13 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     /// </summary>
     public string RecentLogs(string resourceName, int lines = 120)
     {
-        if (!logTails.TryGetValue(resourceName, out ConcurrentQueue<string>? tail))
+        if (!logTails.TryGetValue(resourceName, out var tail))
         {
             return $"(not tailed — add '{resourceName}' to AspireFixture.TailedResources)";
         }
 
-        string[] recent = tail.TakeLast(lines).ToArray();
-        logTailFailures.TryGetValue(resourceName, out string? failure);
+        var recent = tail.TakeLast(lines).ToArray();
+        logTailFailures.TryGetValue(resourceName, out var failure);
 
         if (recent.Length == 0)
         {
@@ -1224,7 +1223,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                 : $"(log tail failed: {failure})";
         }
 
-        string content = string.Join(Environment.NewLine, recent);
+        var content = string.Join(Environment.NewLine, recent);
 
         return failure is null
             ? content
@@ -1276,7 +1275,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
             return false;
         }
 
-        if (!app.ResourceNotifications.TryGetCurrentState(resourceName, out ResourceEvent? snapshot))
+        if (!app.ResourceNotifications.TryGetCurrentState(resourceName, out var snapshot))
         {
             return false;
         }
@@ -1295,7 +1294,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
         try
         {
-            Aspire.Hosting.ApplicationModel.ResourceLoggerService loggers =
+            var loggers =
                 app.Services.GetRequiredService<Aspire.Hosting.ApplicationModel.ResourceLoggerService>();
 
             // **Re-subscribed in a loop, because a watch ends when its process
@@ -1328,7 +1327,7 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                     // resolve re-subscribes to the instance that just died and the
                     // resource goes permanently quiet — #2038's symptom,
                     // reintroduced by the fix for #2054. Linux is unverified.
-                    if (!TryResolveResourceId(resourceName, out string resourceId))
+                    if (!TryResolveResourceId(resourceName, out var resourceId))
                     {
                         // Not a failure: the tails are launched before the
                         // WaitForResourceAsync calls, so a resource may simply not
@@ -1339,10 +1338,10 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
                         continue;
                     }
 
-                    await foreach (IReadOnlyList<LogLine> batch in
+                    await foreach (var batch in
                         loggers.WatchAsync(resourceId).WithCancellation(cancellationToken))
                     {
-                        foreach (LogLine line in batch)
+                        foreach (var line in batch)
                         {
                             RecordLogLine(resourceName, line.Content);
                         }
@@ -1391,12 +1390,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task WaitForKeycloakRealmAsync(CancellationToken cancellationToken)
     {
-        using HttpClient probe = CreateKeycloakClient();
-        for (int attempt = 0; attempt < 60; attempt++)
+        using var probe = CreateKeycloakClient();
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             try
             {
-                HttpResponseMessage response = await probe.GetAsync(
+                var response = await probe.GetAsync(
                     "/realms/smart-sentinel-eye/.well-known/openid-configuration",
                     cancellationToken).ConfigureAwait(false);
 
@@ -1420,12 +1419,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
 
     private async Task WaitForMediaMtxAsync(CancellationToken cancellationToken)
     {
-        using HttpClient probe = CreateMediaMtxApiClient();
-        for (int attempt = 0; attempt < 60; attempt++)
+        using var probe = CreateMediaMtxApiClient();
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             try
             {
-                HttpResponseMessage response = await probe.GetAsync(
+                var response = await probe.GetAsync(
                     "/v3/paths/list", cancellationToken).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {
@@ -1448,12 +1447,12 @@ public sealed partial class AspireFixture : IAsyncLifetime, IDisposable
     {
         // Name the endpoint for the same reason the per-API clients do: an
         // unnamed one resolves to whichever endpoint Aspire happens to prefer.
-        using HttpClient probe = App.CreateHttpClient(resourceName, "http");
-        for (int attempt = 0; attempt < 60; attempt++)
+        using var probe = App.CreateHttpClient(resourceName, "http");
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             try
             {
-                HttpResponseMessage response = await probe.GetAsync(
+                var response = await probe.GetAsync(
                     "/health", cancellationToken).ConfigureAwait(false);
                 if (response.IsSuccessStatusCode)
                 {

@@ -17,8 +17,8 @@ public class RuleActionSwitchWallSceneTests
     [Fact]
     public void From_with_target_Next_and_no_layout_round_trips_the_wall_and_Next_target()
     {
-        Guid wall = Guid.CreateVersion7();
-        RuleAction.SwitchWallScene action = RuleAction.SwitchWallScene.From(wall, "Next", null);
+        var wall = Guid.CreateVersion7();
+        var action = RuleAction.SwitchWallScene.From(wall, "Next", null);
 
         action.Wall.Value.ShouldBe(wall);
         action.Target.ShouldBeOfType<SceneTarget.Next>();
@@ -27,12 +27,12 @@ public class RuleActionSwitchWallSceneTests
     [Fact]
     public void From_with_target_Layout_and_a_layout_round_trips_the_wall_and_layout_target()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid layout = Guid.CreateVersion7();
-        RuleAction.SwitchWallScene action = RuleAction.SwitchWallScene.From(wall, "Layout", layout);
+        var wall = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
+        var action = RuleAction.SwitchWallScene.From(wall, "Layout", layout);
 
         action.Wall.Value.ShouldBe(wall);
-        SceneTarget.Layout target = action.Target.ShouldBeOfType<SceneTarget.Layout>();
+        var target = action.Target.ShouldBeOfType<SceneTarget.Layout>();
         target.Value.Value.ShouldBe(layout);
     }
 
@@ -81,7 +81,7 @@ public class RuleActionSwitchWallSceneTests
     [Fact]
     public void Actions_with_the_same_wall_and_Next_target_are_equal()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         RuleAction a = RuleAction.SwitchWallScene.From(wall, "Next", null);
         RuleAction b = RuleAction.SwitchWallScene.From(wall, "Next", null);
         a.ShouldBe(b);
@@ -90,8 +90,8 @@ public class RuleActionSwitchWallSceneTests
     [Fact]
     public void Actions_with_the_same_wall_and_layout_target_are_equal()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid layout = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
         RuleAction a = RuleAction.SwitchWallScene.From(wall, "Layout", layout);
         RuleAction b = RuleAction.SwitchWallScene.From(wall, "Layout", layout);
         a.ShouldBe(b);
@@ -108,7 +108,7 @@ public class RuleActionSwitchWallSceneTests
     [Fact]
     public void Actions_with_the_same_wall_but_different_targets_are_not_equal()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         RuleAction a = RuleAction.SwitchWallScene.From(wall, "Next", null);
         RuleAction b = RuleAction.SwitchWallScene.From(wall, "Layout", Guid.CreateVersion7());
         a.ShouldNotBe(b);

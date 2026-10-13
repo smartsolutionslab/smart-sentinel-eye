@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.ServiceDefaults.Persistence;
 using Xunit.Abstractions;
@@ -42,10 +41,10 @@ public class PostgresConnectionBudgetIntegrationTests(AspireFixture aspire, ITes
     [Fact]
     public async Task The_running_server_allows_what_the_budget_assumes()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> allowed = await context.Database
+        var allowed = await context.Database
             .SqlQueryRaw<int>("SELECT setting::int AS \"Value\" FROM pg_settings WHERE name = 'max_connections'")
             .ToListAsync();
 
@@ -95,10 +94,10 @@ public class PostgresConnectionBudgetIntegrationTests(AspireFixture aspire, ITes
     [Fact]
     public async Task The_stack_is_not_sitting_near_the_limit()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> used = await context.Database
+        var used = await context.Database
             .SqlQueryRaw<int>("SELECT count(*)::int AS \"Value\" FROM pg_stat_activity")
             .ToListAsync();
 

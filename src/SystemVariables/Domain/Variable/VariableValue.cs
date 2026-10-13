@@ -37,7 +37,7 @@ public abstract record VariableValue : IValueObject
         }
         if (type == VariableType.Number)
         {
-            if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+            if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
             {
                 throw new ArgumentException(
                     $"'{raw}' is not a valid invariant-culture decimal for a Number variable.",

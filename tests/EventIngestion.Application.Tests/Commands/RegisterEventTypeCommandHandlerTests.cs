@@ -32,7 +32,7 @@ public class RegisterEventTypeCommandHandlerTests
         RegisterEventTypeCommandHandler handler = new(
             eventTypes, deadLetters, new FakeClock(Now), NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Berlin, NobodyDeclaredThis, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -51,14 +51,14 @@ public class RegisterEventTypeCommandHandlerTests
     public async Task An_already_registered_kind_still_promotes_before_returning_409()
     {
         InMemoryRegisteredEventTypeRepository eventTypes = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Berlin, NobodyDeclaredThis, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         eventTypes.Add(seeded);
         InMemoryDeadLetterRepository deadLetters = new();
         RegisterEventTypeCommandHandler handler = new(
             eventTypes, deadLetters, new FakeClock(Now), NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Berlin, NobodyDeclaredThis, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

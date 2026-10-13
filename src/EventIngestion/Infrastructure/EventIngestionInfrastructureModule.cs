@@ -2,7 +2,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Metrics;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.EventHandlers;
@@ -168,7 +167,7 @@ public static class EventIngestionInfrastructureModule
         // nothing else in the container depends on a bare IDisposable.
         builder.Services.AddSingleton<IIngestChannel>(provider =>
         {
-            BoundedIngestChannel channel = provider.GetRequiredService<BoundedIngestChannel>();
+            var channel = provider.GetRequiredService<BoundedIngestChannel>();
             _ = provider.GetRequiredService<IDisposable>();
             return channel;
         });
@@ -215,8 +214,8 @@ public static class EventIngestionInfrastructureModule
         // fail fast when they are absent. Defaulting these (it used to be
         // localhost:1883) turns a wiring gap into a subscriber that silently
         // retries a dead address forever while /health stays green.
-        (string mqttHost, int mqttPort) = ResolveBroker(builder.Configuration);
-        string keycloakUrl = ResolveKeycloak(builder.Configuration);
+        (var mqttHost, var mqttPort) = ResolveBroker(builder.Configuration);
+        var keycloakUrl = ResolveKeycloak(builder.Configuration);
 
         builder.Services.AddOptions<MosquittoOptions>()
             .Bind(builder.Configuration.GetSection(MosquittoOptions.SectionName))
@@ -255,22 +254,22 @@ public static class EventIngestionInfrastructureModule
     /// </summary>
     private static (string Host, int Port) ResolveBroker(IConfiguration configuration)
     {
-        string endpoint =
+        var endpoint =
             configuration["services:mosquitto:mqtt:0"]
             ?? configuration[$"{MosquittoOptions.SectionName}:Endpoint"]
             ?? throw new InvalidOperationException(
                 "Mosquitto endpoint not found. Looked for services:mosquitto:mqtt:0 and "
                 + $"{MosquittoOptions.SectionName}:Endpoint.");
 
-        string value = endpoint;
-        int scheme = value.IndexOf("://", StringComparison.Ordinal);
+        var value = endpoint;
+        var scheme = value.IndexOf("://", StringComparison.Ordinal);
         if (scheme >= 0)
         {
             value = value[(scheme + 3)..];
         }
 
-        string[] parts = value.Split(':');
-        if (parts.Length != 2 || parts[0].Length == 0 || !int.TryParse(parts[1], out int port))
+        var parts = value.Split(':');
+        if (parts.Length != 2 || parts[0].Length == 0 || !int.TryParse(parts[1], out var port))
         {
             throw new InvalidOperationException($"Mosquitto endpoint '{endpoint}' is not host:port.");
         }

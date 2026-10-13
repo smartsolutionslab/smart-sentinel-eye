@@ -16,7 +16,7 @@ public sealed class SystemVariablesMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using SystemVariablesDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

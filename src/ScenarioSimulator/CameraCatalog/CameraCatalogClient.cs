@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
@@ -38,8 +37,8 @@ public sealed class CameraCatalogClient(
     /// </summary>
     public async Task<Guid?> RegisterCameraAsync(string name, string cameraPath, CancellationToken cancellationToken)
     {
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
-        string rtspUrl = $"rtsp://{options.Value.RtspHost.Trim('/')}/{cameraPath}";
+        var token = await tokens.GetAccessTokenAsync(cancellationToken);
+        var rtspUrl = $"rtsp://{options.Value.RtspHost.Trim('/')}/{cameraPath}";
 
         using HttpRequestMessage request = new(HttpMethod.Post, "/cameras")
         {
@@ -47,7 +46,7 @@ public sealed class CameraCatalogClient(
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-        using HttpResponseMessage response = await http.SendAsync(request, cancellationToken);
+        using var response = await http.SendAsync(request, cancellationToken);
 
         if (response.StatusCode == HttpStatusCode.Conflict)
         {
@@ -56,7 +55,7 @@ public sealed class CameraCatalogClient(
         }
 
         response.EnsureSuccessStatusCode();
-        Guid camera = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+        var camera = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
         logger.CameraRegistered(name, rtspUrl);
         return camera;
     }
@@ -85,21 +84,21 @@ public sealed class CameraCatalogClient(
             // Raising the number would not work: the endpoint refuses anything
             // above 200 rather than clamping, so the page size is a ceiling and
             // the offset is the only way through.
-            int offset = 0;
-            int reported = 0;
+            var offset = 0;
+            var reported = 0;
 
             do
             {
                 using HttpRequestMessage list = new(
                     HttpMethod.Get, $"/cameras?limit={PageSize}&offset={offset}");
                 list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
+                using var response = await http.SendAsync(list, cancellationToken);
                 response.EnsureSuccessStatusCode();
 
-                CameraPage? payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
-                IReadOnlyList<CameraSummary> items = payload?.Items ?? [];
+                var payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
+                var items = payload?.Items ?? [];
 
-                CameraSummary? match = items
+                var match = items
                     .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
 
                 if (match is not null)

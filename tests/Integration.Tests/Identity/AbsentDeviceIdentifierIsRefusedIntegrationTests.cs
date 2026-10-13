@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -56,8 +54,8 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
             return;
         }
 
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        foreach (string clientId in createdClientIds)
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        foreach (var clientId in createdClientIds)
         {
             await identity.DeleteAsync($"/devices/{clientId}?fabId={Fab}");
         }
@@ -66,10 +64,10 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task An_omitted_device_identifier_field_is_refused_with_DEVICE_INVALID_IDENTIFIER()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
         using StringContent body = new("{\"deviceType\":\"plc\"}", Encoding.UTF8, "application/json");
 
-        using HttpResponseMessage response = await identity.PostAsync(
+        using var response = await identity.PostAsync(
             $"/devices/register?fabId={Fab}", body);
 
         await RecordIfCreatedAsync(response);
@@ -81,11 +79,11 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task A_null_device_identifier_is_refused_with_DEVICE_INVALID_IDENTIFIER()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
         using StringContent body = new(
             "{\"deviceType\":\"plc\",\"deviceIdentifier\":null}", Encoding.UTF8, "application/json");
 
-        using HttpResponseMessage response = await identity.PostAsync(
+        using var response = await identity.PostAsync(
             $"/devices/register?fabId={Fab}", body);
 
         await RecordIfCreatedAsync(response);
@@ -97,9 +95,9 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task An_empty_device_identifier_is_refused_with_DEVICE_INVALID_IDENTIFIER()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
 
-        using HttpResponseMessage response = await identity.PostAsJsonAsync(
+        using var response = await identity.PostAsJsonAsync(
             $"/devices/register?fabId={Fab}",
             new { deviceType = "plc", deviceIdentifier = "" });
 
@@ -121,14 +119,14 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task A_repeated_empty_device_identifier_is_refused_both_times()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
         object emptyIdentifierBody = new { deviceType = "plc", deviceIdentifier = "" };
 
-        using HttpResponseMessage first = await identity.PostAsJsonAsync(
+        using var first = await identity.PostAsJsonAsync(
             $"/devices/register?fabId={Fab}", emptyIdentifierBody);
         await RecordIfCreatedAsync(first);
 
-        using HttpResponseMessage second = await identity.PostAsJsonAsync(
+        using var second = await identity.PostAsJsonAsync(
             $"/devices/register?fabId={Fab}", emptyIdentifierBody);
         await RecordIfCreatedAsync(second);
 
@@ -148,10 +146,10 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
     [Fact]
     public async Task A_valid_unique_device_identifier_still_registers_successfully()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string device = $"t2575-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var device = $"t2575-{Guid.CreateVersion7():N}";
 
-        using HttpResponseMessage response = await identity.PostAsJsonAsync(
+        using var response = await identity.PostAsJsonAsync(
             $"/devices/register?fabId={Fab}",
             new { deviceType = "plc", deviceIdentifier = device });
 
@@ -167,7 +165,7 @@ public class AbsentDeviceIdentifierIsRefusedIntegrationTests(AspireFixture aspir
             return;
         }
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         createdClientIds.Add(body.GetProperty("clientId").GetString()!);
     }
 

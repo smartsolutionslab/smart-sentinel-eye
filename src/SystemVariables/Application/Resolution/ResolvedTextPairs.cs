@@ -32,7 +32,7 @@ public static class ResolvedTextPairs
         List<(string Template, string Resolved)> pairs = [];
         HashSet<string> seen = new(StringComparer.Ordinal);
 
-        foreach (string template in templates)
+        foreach (var template in templates)
         {
             if (template.Length == 0 || !seen.Add(template))
             {

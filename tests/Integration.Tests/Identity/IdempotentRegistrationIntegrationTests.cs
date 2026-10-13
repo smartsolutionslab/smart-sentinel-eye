@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -38,12 +36,12 @@ public class IdempotentRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_repeat_carrying_the_same_key_replays_the_original_credentials()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string device = NewDeviceIdentifier();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var device = NewDeviceIdentifier();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        JsonElement first = await RegisterAsync(identity, device, key, HttpStatusCode.Created);
-        JsonElement second = await RegisterAsync(identity, device, key, HttpStatusCode.Created);
+        var first = await RegisterAsync(identity, device, key, HttpStatusCode.Created);
+        var second = await RegisterAsync(identity, device, key, HttpStatusCode.Created);
 
         Secret(second).ShouldBe(
             Secret(first),
@@ -60,12 +58,12 @@ public class IdempotentRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_repeat_without_a_key_is_still_refused_as_a_duplicate()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string device = NewDeviceIdentifier();
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var device = NewDeviceIdentifier();
 
         await RegisterAsync(identity, device, key: null, HttpStatusCode.Created);
 
-        using HttpResponseMessage repeat = await SendAsync(identity, device, key: null);
+        using var repeat = await SendAsync(identity, device, key: null);
 
         repeat.StatusCode.ShouldBe(
             HttpStatusCode.Conflict,
@@ -81,12 +79,12 @@ public class IdempotentRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_different_key_for_the_same_device_is_still_a_duplicate()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string device = NewDeviceIdentifier();
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var device = NewDeviceIdentifier();
 
         await RegisterAsync(identity, device, $"key-{Guid.CreateVersion7():N}", HttpStatusCode.Created);
 
-        using HttpResponseMessage other = await SendAsync(identity, device, $"key-{Guid.CreateVersion7():N}");
+        using var other = await SendAsync(identity, device, $"key-{Guid.CreateVersion7():N}");
 
         other.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
@@ -94,9 +92,9 @@ public class IdempotentRegistrationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_malformed_key_is_refused_rather_than_ignored()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
 
-        using HttpResponseMessage response = await SendAsync(
+        using var response = await SendAsync(
             identity, NewDeviceIdentifier(), key: "has spaces and *stars*");
 
         response.StatusCode.ShouldBe(
@@ -110,7 +108,7 @@ public class IdempotentRegistrationIntegrationTests(AspireFixture aspire)
     private static async Task<JsonElement> RegisterAsync(
         HttpClient identity, string device, string? key, HttpStatusCode expected)
     {
-        using HttpResponseMessage response = await SendAsync(identity, device, key);
+        using var response = await SendAsync(identity, device, key);
 
         response.StatusCode.ShouldBe(expected, await response.Content.ReadAsStringAsync());
 

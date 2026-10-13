@@ -12,8 +12,8 @@ public class StreamStateTests
     [InlineData("Retired")]
     public void From_known_value_returns_the_matching_singleton(string value)
     {
-        StreamState first = StreamState.From(value);
-        StreamState second = StreamState.From(value);
+        var first = StreamState.From(value);
+        var second = StreamState.From(value);
 
         first.Value.ShouldBe(value);
         first.ShouldBeSameAs(second);

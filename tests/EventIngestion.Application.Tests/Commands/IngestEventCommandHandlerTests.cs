@@ -5,7 +5,6 @@ using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Commands;
 
@@ -42,8 +41,8 @@ public class IngestEventCommandHandlerTests
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
-        EventEnvelope envelope = BuildEnvelope();
-        Result<EventIdentifier, IngestEventError> result =
+        var envelope = BuildEnvelope();
+        var result =
             await handler.HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -54,18 +53,18 @@ public class IngestEventCommandHandlerTests
     [Fact]
     public async Task Duplicate_event_returns_EventAlreadyIngested_and_does_not_double_insert()
     {
-        EventIdentifier identifier = EventIdentifier.New();
+        var identifier = EventIdentifier.New();
         InMemoryEventRepository repo = new();
         IngestEventCommandHandler handler = new(
             repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
-        Result<EventIdentifier, IngestEventError> first = await handler.HandleAsync(
+        var first = await handler.HandleAsync(
             new IngestEventCommand(BuildEnvelope(identifier)), CancellationToken.None);
         first.IsSuccess.ShouldBeTrue();
 
-        Result<EventIdentifier, IngestEventError> second = await handler.HandleAsync(
+        var second = await handler.HandleAsync(
             new IngestEventCommand(BuildEnvelope(identifier)), CancellationToken.None);
 
         second.IsSuccess.ShouldBeFalse();
@@ -82,9 +81,9 @@ public class IngestEventCommandHandlerTests
             new EventTypeAdmission(new AdmitAllEventTypeAdmissionSource()),
             NullLogger<IngestEventCommandHandler>.Instance);
 
-        EventEnvelope envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6));
+        var envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6));
 
-        Result<EventIdentifier, IngestEventError> result =
+        var result =
             await handler.HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -104,7 +103,7 @@ public class IngestEventCommandHandlerTests
     public async Task A_stored_event_is_counted_once_under_its_source(string token)
     {
         using RecordedIngestVolume recorded = new();
-        Source source = Source.From(token);
+        var source = Source.From(token);
         InMemoryEventRepository repo = new();
 
         await Handler(repo).HandleAsync(
@@ -123,7 +122,7 @@ public class IngestEventCommandHandlerTests
     public async Task A_duplicate_re_delivery_is_not_counted()
     {
         using RecordedIngestVolume recorded = new();
-        EventIdentifier identifier = EventIdentifier.New();
+        var identifier = EventIdentifier.New();
         InMemoryEventRepository repo = new();
 
         await Handler(repo).HandleAsync(

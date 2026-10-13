@@ -28,7 +28,7 @@ public sealed class OverlayRevisionArchivedV1Handler(
         // creates and that FR-013 accepts: a fab whose only use of the overlay
         // is in a draft is not told it was archived, and finds the draft
         // broken at publish time.
-        IReadOnlyList<FabIdentifier> fabs = await referencingFabs.HandleAsync(overlay, cancellationToken);
+        var fabs = await referencingFabs.HandleAsync(overlay, cancellationToken);
 
         await broadcaster.OverlayArchivedAsync(
             new OverlayLifecycleArchivedNotification(

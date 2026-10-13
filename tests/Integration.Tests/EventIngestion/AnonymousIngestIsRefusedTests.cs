@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
@@ -52,7 +50,7 @@ public class AnonymousIngestIsRefusedTests(AspireFixture aspire)
     [Fact]
     public async Task Anonymous_manual_ingest_is_refused()
     {
-        HttpResponseMessage response = await aspire.EventIngestion.PostAsJsonAsync(
+        var response = await aspire.EventIngestion.PostAsJsonAsync(
             "/events/manual?fabId=munich",
             new
             {
@@ -73,7 +71,7 @@ public class AnonymousIngestIsRefusedTests(AspireFixture aspire)
     [Fact]
     public async Task Anonymous_event_read_is_refused()
     {
-        HttpResponseMessage response = await aspire.EventIngestion.GetAsync("/events?fabId=munich");
+        var response = await aspire.EventIngestion.GetAsync("/events?fabId=munich");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -86,7 +84,7 @@ public class AnonymousIngestIsRefusedTests(AspireFixture aspire)
     [Fact]
     public async Task Anonymous_dead_letter_read_is_refused()
     {
-        HttpResponseMessage response = await aspire.EventIngestion.GetAsync("/events/dead-letters");
+        var response = await aspire.EventIngestion.GetAsync("/events/dead-letters");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }

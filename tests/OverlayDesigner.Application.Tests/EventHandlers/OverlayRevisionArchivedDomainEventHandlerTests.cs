@@ -19,14 +19,14 @@ public class OverlayRevisionArchivedDomainEventHandlerTests
         FakeEventBus bus = new();
         OverlayRevisionArchivedDomainEventHandler handler = new(bus);
 
-        OverlayIdentifier overlayId = OverlayIdentifier.From(Guid.CreateVersion7());
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlayId = OverlayIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         OverlayRevisionArchivedDomainEvent domainEvent = new(
             overlayId, OverlayRevisionNumber.One, FixedMoment, by);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        OverlayRevisionArchivedV1 v1 = bus.Published.OfType<OverlayRevisionArchivedV1>().ShouldHaveSingleItem();
+        var v1 = bus.Published.OfType<OverlayRevisionArchivedV1>().ShouldHaveSingleItem();
         v1.Overlay.ShouldBe(overlayId.Value);
         v1.RevisionNumber.ShouldBe(1);
         v1.ArchivedAt.ShouldBe(FixedMoment);

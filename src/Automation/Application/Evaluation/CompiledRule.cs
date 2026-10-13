@@ -60,8 +60,8 @@ public sealed class CompiledRule
     public static CompiledRule From(Rule rule)
     {
         Ensure.That(rule).IsNotNull();
-        AelExpression predicate = AelParser.Parse(rule.Predicate.Value);
-        AelExpression? valueExpression = rule.Action is RuleAction.SetVariableValue setVariableValue
+        var predicate = AelParser.Parse(rule.Predicate.Value);
+        var valueExpression = rule.Action is RuleAction.SetVariableValue setVariableValue
             ? AelParser.Parse(setVariableValue.ValueExpression)
             : null;
         return new CompiledRule(

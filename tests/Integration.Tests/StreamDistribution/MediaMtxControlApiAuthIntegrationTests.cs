@@ -1,4 +1,3 @@
-using System.Net;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
@@ -24,9 +23,9 @@ public class MediaMtxControlApiAuthIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task An_uncredentialed_call_into_MediaMtxs_control_API_is_refused()
     {
-        using HttpClient uncredentialed = aspire.App.CreateHttpClient("mediamtx", "api");
+        using var uncredentialed = aspire.App.CreateHttpClient("mediamtx", "api");
 
-        HttpResponseMessage response = await uncredentialed.GetAsync("/v3/config/paths/list");
+        var response = await uncredentialed.GetAsync("/v3/config/paths/list");
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized,
@@ -43,9 +42,9 @@ public class MediaMtxControlApiAuthIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task A_credentialed_call_into_MediaMtxs_control_API_succeeds()
     {
-        using HttpClient credentialed = aspire.CreateMediaMtxApiClient();
+        using var credentialed = aspire.CreateMediaMtxApiClient();
 
-        HttpResponseMessage response = await credentialed.GetAsync("/v3/config/paths/list");
+        var response = await credentialed.GetAsync("/v3/config/paths/list");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
     }

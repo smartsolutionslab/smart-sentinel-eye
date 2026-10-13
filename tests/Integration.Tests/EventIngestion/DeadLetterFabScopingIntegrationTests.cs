@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
@@ -6,7 +5,6 @@ using MQTTnet.Formatter;
 using MQTTnet.Protocol;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 using DeadLetterAggregate = SmartSentinelEye.EventIngestion.Domain.DeadLetter.DeadLetter;
@@ -62,14 +60,14 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Rejected_deliveries_reach_their_own_plant_and_an_unattributed_one_reaches_nobody()
     {
-        string run = Guid.CreateVersion7().ToString("N")[..12];
-        string munichPayload = $"not-json-munich-{run}";
-        string dresdenPayload = $"not-json-dresden-{run}";
-        string orphanPayload = $"not-json-orphan-{run}";
+        var run = Guid.CreateVersion7().ToString("N")[..12];
+        var munichPayload = $"not-json-munich-{run}";
+        var dresdenPayload = $"not-json-dresden-{run}";
+        var orphanPayload = $"not-json-orphan-{run}";
 
         // (b) — the common case, through the real ingress: the address is
         // well-formed, the payload is not, and the plant comes off the topic.
-        DeadLetterAggregate munich = await WaitForCapturedAsync(
+        var munich = await WaitForCapturedAsync(
             "fab/munich/plc/station-4", munichPayload);
         munich.Fab.ShouldBe(
             FabIdentifier.From("munich"),
@@ -80,8 +78,8 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
         // (a) — the address itself is malformed, so there is no plant to record.
         await SeedAsync($"rejected/{run}", null, orphanPayload);
 
-        IReadOnlyList<string> dresdenSees = await PayloadsVisibleToAsync(DresdenOperator, run);
-        IReadOnlyList<string> multiFabSees = await PayloadsVisibleToAsync(MultiFabOperator, run);
+        var dresdenSees = await PayloadsVisibleToAsync(DresdenOperator, run);
+        var multiFabSees = await PayloadsVisibleToAsync(MultiFabOperator, run);
 
         dresdenSees.ShouldBe([dresdenPayload]);
 
@@ -95,8 +93,8 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
 
         // Asserted directly, because every assertion above also passes if the
         // capture path simply never wrote the row.
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-        DeadLetterAggregate orphan = await database.DeadLetters.AsNoTracking()
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
+        var orphan = await database.DeadLetters.AsNoTracking()
             .SingleAsync(deadLetter => deadLetter.RawPayload == RawPayload.From(orphanPayload));
         orphan.Fab.ShouldBeNull();
     }
@@ -109,9 +107,9 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_is_refused()
     {
-        using HttpClient events = await ClientFor(DresdenOperator);
+        using var events = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await events.GetAsync("/events/dead-letters?fabId=munich");
+        var refused = await events.GetAsync("/events/dead-letters?fabId=munich");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
     }
@@ -126,11 +124,11 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     /// </summary>
     private async Task<IReadOnlyList<string>> PayloadsVisibleToAsync(string username, string run)
     {
-        using HttpClient events = await ClientFor(username);
-        HttpResponseMessage listed = await events.GetAsync("/events/dead-letters?limit=1000");
+        using var events = await ClientFor(username);
+        var listed = await events.GetAsync("/events/dead-letters?limit=1000");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return
         [
             .. rows.EnumerateArray()
@@ -143,7 +141,7 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task SeedAsync(string topic, FabIdentifier? fab, string rawPayload)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         database.DeadLetters.Add(DeadLetterAggregate.Capture(
             DeliveryTopic.From(topic), fab, RawPayload.From(rawPayload), RejectionReason.From("spec 018 T024 seed"),
             DeadLetterReason.ParseFailure, null, new SystemClock()));
@@ -159,17 +157,17 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
     /// </summary>
     private async Task<DeadLetterAggregate> WaitForCapturedAsync(string topic, string rawPayload)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(60);
         while (DateTime.UtcNow < deadline)
         {
             await PublishAsync(topic, rawPayload);
 
-            for (int attempt = 0; attempt < 6; attempt++)
+            for (var attempt = 0; attempt < 6; attempt++)
             {
                 await Task.Delay(TimeSpan.FromMilliseconds(500));
 
-                await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-                DeadLetterAggregate? captured = await database.DeadLetters.AsNoTracking()
+                await using var database = await aspire.CreateEventIngestionDbContextAsync();
+                var captured = await database.DeadLetters.AsNoTracking()
                     .FirstOrDefaultAsync(deadLetter => deadLetter.RawPayload == RawPayload.From(rawPayload));
                 if (captured is not null)
                 {
@@ -185,11 +183,11 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task PublishAsync(string topic, string payload)
     {
-        string jwt = await MintSimulatorTokenAsync();
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        var jwt = await MintSimulatorTokenAsync();
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
 
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientOptions options = new MqttClientOptionsBuilder()
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var options = new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             // The go-auth plugin requires the username to equal the token's azp.
@@ -199,7 +197,7 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
             .WithTimeout(TimeSpan.FromSeconds(10))
             .Build();
 
-        MqttClientConnectResult connected = await client.ConnectAsync(options);
+        var connected = await client.ConnectAsync(options);
         connected.ResultCode.ShouldBe(
             MqttClientConnectResultCode.Success, "could not authenticate against the broker");
 
@@ -213,7 +211,7 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task<string> MintSimulatorTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -221,11 +219,11 @@ public class DeadLetterFabScopingIntegrationTests(AspireFixture aspire) : IAsync
             ["client_secret"] = SimulatorClientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         response.EnsureSuccessStatusCode();
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("access_token").GetString()!;
     }
 

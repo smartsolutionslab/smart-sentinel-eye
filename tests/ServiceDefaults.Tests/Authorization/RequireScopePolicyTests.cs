@@ -18,7 +18,7 @@ public class RequireScopePolicyTests
     private static ClaimsPrincipal UserWithScopes(params string[] scopeClaims)
     {
         ClaimsIdentity identity = new("test");
-        foreach (string scopeClaim in scopeClaims)
+        foreach (var scopeClaim in scopeClaims)
         {
             identity.AddClaim(new Claim("scope", scopeClaim));
         }
@@ -38,10 +38,10 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Principal_with_the_exact_scope_passes_that_scopes_policy()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes(Scope.Sse.Rules.Write);
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes(Scope.Sse.Rules.Write);
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
 
         result.Succeeded.ShouldBeTrue();
@@ -50,10 +50,10 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Principal_without_the_scope_fails_that_scopes_policy()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes(Scope.Sse.Cameras.Read);
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes(Scope.Sse.Cameras.Read);
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
 
         result.Succeeded.ShouldBeFalse();
@@ -62,11 +62,11 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Space_separated_multi_scope_claim_is_parsed_and_the_target_is_found()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes(
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes(
             "openid profile sse.cameras.read sse.rules.write sse.audit.read");
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
 
         result.Succeeded.ShouldBeTrue();
@@ -75,10 +75,10 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Target_present_across_multiple_separate_scope_claims_passes()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes("openid profile", Scope.Sse.Rules.Write);
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes("openid profile", Scope.Sse.Rules.Write);
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
 
         result.Succeeded.ShouldBeTrue();
@@ -111,13 +111,13 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task A_principal_carrying_only_the_legacy_bundle_fails_every_policy()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes("sse.management");
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes("sse.management");
 
         List<string> passed = [];
-        foreach (string scope in Scope.All)
+        foreach (var scope in Scope.All)
         {
-            AuthorizationResult result = await authorization.AuthorizeAsync(user, null, scope);
+            var result = await authorization.AuthorizeAsync(user, null, scope);
             if (result.Succeeded)
             {
                 passed.Add(scope);
@@ -158,15 +158,15 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task A_principal_carrying_only_a_hostile_near_miss_fails_the_real_scopes_policy()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
+        var authorization = BuildAuthorizationService();
 
         List<string> unexpectedlyPassed = [];
-        foreach (string scope in RepresentativeScopesForExclusivity)
+        foreach (var scope in RepresentativeScopesForExclusivity)
         {
-            foreach (string nearMiss in HostileNearMisses(scope))
+            foreach (var nearMiss in HostileNearMisses(scope))
             {
-                ClaimsPrincipal user = UserWithScopes(nearMiss);
-                AuthorizationResult result = await authorization.AuthorizeAsync(user, null, scope);
+                var user = UserWithScopes(nearMiss);
+                var result = await authorization.AuthorizeAsync(user, null, scope);
                 if (result.Succeeded)
                 {
                     unexpectedlyPassed.Add($"{scope} via \"{nearMiss}\"");
@@ -198,8 +198,8 @@ public class RequireScopePolicyTests
             scope + "x",
         ];
 
-        string[] segments = scope.Split('.');
-        for (int length = 2; length < segments.Length; length++)
+        var segments = scope.Split('.');
+        for (var length = 2; length < segments.Length; length++)
         {
             nearMisses.Add(string.Join('.', segments[..length]));
         }
@@ -210,10 +210,10 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Events_publish_policy_passes_for_the_exact_publish_scope()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes(Scope.Sse.Events.Publish);
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes(Scope.Sse.Events.Publish);
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Events.Publish);
 
         result.Succeeded.ShouldBeTrue();
@@ -222,10 +222,10 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Principal_without_a_scope_claim_fails()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UserWithScopes();
+        var authorization = BuildAuthorizationService();
+        var user = UserWithScopes();
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
 
         result.Succeeded.ShouldBeFalse();
@@ -234,10 +234,10 @@ public class RequireScopePolicyTests
     [Fact]
     public async Task Unauthenticated_principal_fails_even_when_a_scope_claim_is_present()
     {
-        IAuthorizationService authorization = BuildAuthorizationService();
-        ClaimsPrincipal user = UnauthenticatedWithScope(Scope.Sse.Rules.Write);
+        var authorization = BuildAuthorizationService();
+        var user = UnauthenticatedWithScope(Scope.Sse.Rules.Write);
 
-        AuthorizationResult result =
+        var result =
             await authorization.AuthorizeAsync(user, null, Scope.Sse.Rules.Write);
 
         result.Succeeded.ShouldBeFalse();

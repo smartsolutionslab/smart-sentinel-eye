@@ -73,11 +73,11 @@ public class FakeMqttClientConcurrencyTests
         using CancellationTokenSource writerDone = new();
         ViolationTracker tracker = new();
 
-        Task writer = Task.Run(async () =>
+        var writer = Task.Run(async () =>
         {
             try
             {
-                for (int i = 1; i <= Writes; i++)
+                for (var i = 1; i <= Writes; i++)
                 {
                     await client.ConnectAsync(OptionsPresenting($"token-{i}"));
                 }
@@ -88,20 +88,20 @@ public class FakeMqttClientConcurrencyTests
             }
         });
 
-        Task reader = Task.Run(() =>
+        var reader = Task.Run(() =>
         {
             while (!writerDone.IsCancellationRequested)
             {
                 // Read the count first: the invariant under test is that a
                 // snapshot taken afterwards is never behind it.
-                int counted = client.ConnectAttempts;
-                int index = 0;
+                var counted = client.ConnectAttempts;
+                var index = 0;
 
                 try
                 {
-                    foreach (string credential in client.PresentedCredentials)
+                    foreach (var credential in client.PresentedCredentials)
                     {
-                        string expected = $"token-{index + 1}";
+                        var expected = $"token-{index + 1}";
                         if (credential != expected)
                         {
                             tracker.RecordViolation(
@@ -153,11 +153,11 @@ public class FakeMqttClientConcurrencyTests
         using CancellationTokenSource writerDone = new();
         ViolationTracker tracker = new();
 
-        Task writer = Task.Run(async () =>
+        var writer = Task.Run(async () =>
         {
             try
             {
-                for (int i = 1; i <= Writes; i++)
+                for (var i = 1; i <= Writes; i++)
                 {
                     await client.ConnectAsync(new MqttClientOptions());
                     await client.SubscribeAsync(
@@ -171,17 +171,17 @@ public class FakeMqttClientConcurrencyTests
             }
         });
 
-        Task reader = Task.Run(() =>
+        var reader = Task.Run(() =>
         {
             while (!writerDone.IsCancellationRequested)
             {
-                int index = 0;
+                var index = 0;
 
                 try
                 {
-                    foreach (string topic in client.SubscribedTopics)
+                    foreach (var topic in client.SubscribedTopics)
                     {
-                        string expected = $"topic-{index + 1}";
+                        var expected = $"topic-{index + 1}";
                         if (topic != expected)
                         {
                             tracker.RecordViolation(

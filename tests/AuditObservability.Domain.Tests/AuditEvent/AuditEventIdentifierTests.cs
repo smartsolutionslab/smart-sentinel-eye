@@ -8,7 +8,7 @@ public class AuditEventIdentifierTests
     [Fact]
     public void New_returns_a_Guid_v7()
     {
-        AuditEventIdentifier id = AuditEventIdentifier.New();
+        var id = AuditEventIdentifier.New();
         id.Value.Version.ShouldBe(7);
     }
 
@@ -23,15 +23,15 @@ public class AuditEventIdentifierTests
         // cursor pagination doesn't rely on strict ordering across
         // ties; distinctness is the only guarantee the Domain
         // promises.
-        AuditEventIdentifier first = AuditEventIdentifier.New();
-        AuditEventIdentifier second = AuditEventIdentifier.New();
+        var first = AuditEventIdentifier.New();
+        var second = AuditEventIdentifier.New();
         first.Value.ShouldNotBe(second.Value);
     }
 
     [Fact]
     public void From_rejects_Guid_Empty()
     {
-        ArgumentException ex = Should.Throw<ArgumentException>(
+        var ex = Should.Throw<ArgumentException>(
             () => AuditEventIdentifier.From(Guid.Empty));
         ex.ParamName.ShouldBe("value");
     }
@@ -39,22 +39,22 @@ public class AuditEventIdentifierTests
     [Fact]
     public void From_round_trips_a_valid_Guid()
     {
-        Guid raw = Guid.CreateVersion7();
-        AuditEventIdentifier id = AuditEventIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var id = AuditEventIdentifier.From(raw);
         id.Value.ShouldBe(raw);
     }
 
     [Fact]
     public void Implements_IStronglyTypedId_of_Guid()
     {
-        AuditEventIdentifier id = AuditEventIdentifier.New();
+        var id = AuditEventIdentifier.New();
         id.ShouldBeAssignableTo<IStronglyTypedId<Guid>>();
     }
 
     [Fact]
     public void ToString_returns_the_underlying_Guid_string()
     {
-        Guid raw = Guid.CreateVersion7();
+        var raw = Guid.CreateVersion7();
         AuditEventIdentifier.From(raw).ToString().ShouldBe(raw.ToString());
     }
 }

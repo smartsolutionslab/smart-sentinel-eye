@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.Primitives;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults;
@@ -80,8 +79,8 @@ public static class ConcurrencyHeaders
         expectedVersion = Option<int>.None;
         problem = null;
 
-        bool hasIfMatch = request.Headers.IfMatch.Count > 0;
-        bool hasIfNoneMatch = request.Headers.IfNoneMatch.Count > 0;
+        var hasIfMatch = request.Headers.IfMatch.Count > 0;
+        var hasIfNoneMatch = request.Headers.IfNoneMatch.Count > 0;
 
         if (hasIfMatch && hasIfNoneMatch)
         {
@@ -92,7 +91,7 @@ public static class ConcurrencyHeaders
 
         if (hasIfNoneMatch)
         {
-            string? raw = request.Headers.IfNoneMatch[0]?.Trim();
+            var raw = request.Headers.IfNoneMatch[0]?.Trim();
             if (!string.Equals(raw, Wildcard, StringComparison.Ordinal))
             {
                 problem = Malformed("If-None-Match must be '*' here; it asserts the resource does not exist yet.");
@@ -110,7 +109,7 @@ public static class ConcurrencyHeaders
             return false;
         }
 
-        if (!TryReadExpectedVersion(request, out int version, out problem))
+        if (!TryReadExpectedVersion(request, out var version, out problem))
         {
             return false;
         }
@@ -127,7 +126,7 @@ public static class ConcurrencyHeaders
         expectedVersion = default;
         problem = null;
 
-        StringValues header = request.Headers.IfMatch;
+        var header = request.Headers.IfMatch;
 
         if (header.Count == 0)
         {
@@ -143,7 +142,7 @@ public static class ConcurrencyHeaders
             return false;
         }
 
-        string? raw = header[0]?.Trim();
+        var raw = header[0]?.Trim();
 
         if (string.IsNullOrEmpty(raw))
         {

@@ -13,7 +13,7 @@ public sealed class GetVariableQueryHandler(IVariableQuerySource variables)
     {
         Ensure.That(query).IsNotNull();
 
-        List<Variable> matches = await variables.Variables
+        var matches = await variables.Variables
             .Where(candidate => query.Fabs.Contains(candidate.Fab))
             .Where(candidate => candidate.Name == query.Name)
             // FR-005: a released name is free for re-use, so an Archived row

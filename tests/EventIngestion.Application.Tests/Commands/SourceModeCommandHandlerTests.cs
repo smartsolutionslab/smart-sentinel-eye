@@ -39,7 +39,7 @@ public class SourceModeCommandHandlerTests
         DeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now), NullLogger<DeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, DeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DeclareSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -52,14 +52,14 @@ public class SourceModeCommandHandlerTests
     public async Task Declaring_a_pair_already_declared_is_refused()
     {
         InMemorySourceModeRepository repo = new();
-        SourceMode seeded = SourceMode.Declare(
+        var seeded = SourceMode.Declare(
             Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Add(seeded);
 
         DeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now), NullLogger<DeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, DeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DeclareSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Discovery, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -72,14 +72,14 @@ public class SourceModeCommandHandlerTests
     public async Task Declaring_the_same_source_in_another_fab_is_allowed()
     {
         InMemorySourceModeRepository repo = new();
-        SourceMode seeded = SourceMode.Declare(
+        var seeded = SourceMode.Declare(
             Munich, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Add(seeded);
 
         DeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now), NullLogger<DeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, DeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DeclareSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -93,14 +93,14 @@ public class SourceModeCommandHandlerTests
     public async Task Changing_a_declared_mode_flips_it()
     {
         InMemorySourceModeRepository repo = new();
-        SourceMode seeded = SourceMode.Declare(
+        var seeded = SourceMode.Declare(
             Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded);
 
         ChangeSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<ChangeSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, ChangeSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ChangeSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Discovery, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -122,7 +122,7 @@ public class SourceModeCommandHandlerTests
         ChangeSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<ChangeSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, ChangeSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ChangeSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Discovery, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -135,14 +135,14 @@ public class SourceModeCommandHandlerTests
     public async Task Changing_with_a_stale_expected_version_is_refused()
     {
         InMemorySourceModeRepository repo = new();
-        SourceMode seeded = SourceMode.Declare(
+        var seeded = SourceMode.Declare(
             Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded, version: 3);
 
         ChangeSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<ChangeSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, ChangeSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ChangeSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Discovery, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -171,7 +171,7 @@ public class SourceModeCommandHandlerTests
         ChangeSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<ChangeSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, ChangeSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ChangeSourceModeCommand(
                 Dresden, Source.Manual, EventTypeMode.Discovery, 99, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
@@ -186,14 +186,14 @@ public class SourceModeCommandHandlerTests
     public async Task Undeclaring_a_declared_pair_removes_it()
     {
         InMemorySourceModeRepository repo = new();
-        SourceMode seeded = SourceMode.Declare(
+        var seeded = SourceMode.Declare(
             Dresden, Source.Manual, EventTypeMode.Discovery, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded);
 
         UndeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new UndeclareSourceModeCommand(Dresden, Source.Manual, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -209,7 +209,7 @@ public class SourceModeCommandHandlerTests
         UndeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new UndeclareSourceModeCommand(Dresden, Source.Manual, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -221,14 +221,14 @@ public class SourceModeCommandHandlerTests
     public async Task Undeclaring_with_a_stale_expected_version_is_refused()
     {
         InMemorySourceModeRepository repo = new();
-        SourceMode seeded = SourceMode.Declare(
+        var seeded = SourceMode.Declare(
             Dresden, Source.Manual, EventTypeMode.Strict, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded, version: 3);
 
         UndeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new UndeclareSourceModeCommand(Dresden, Source.Manual, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -246,7 +246,7 @@ public class SourceModeCommandHandlerTests
         UndeclareSourceModeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<UndeclareSourceModeCommandHandler>.Instance);
 
-        Result<SourceModeIdentifier, UndeclareSourceModeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new UndeclareSourceModeCommand(Dresden, Source.Manual, 99, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

@@ -64,9 +64,9 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Create_with_a_coordinate_outside_the_unit_range_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -75,7 +75,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
         problem.GetProperty("detail").GetString()
             .ShouldBe("normalizedY must be in [0, 1]; got 2. (Parameter 'normalizedY')");
@@ -84,9 +84,9 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Create_with_an_extent_outside_the_unit_range_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -95,7 +95,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
         problem.GetProperty("detail").GetString()
             .ShouldBe("normalizedWidth: must be in (0, 1]; got 0. (Parameter 'normalizedWidth')");
@@ -104,15 +104,15 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Edit_with_a_coordinate_outside_the_unit_range_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var overlayIdentifier = await CreateDraftAsync(overlays);
 
-        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+        var response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = new[] { LabelBody(normalizedX: -1m) } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
         problem.GetProperty("detail").GetString()
             .ShouldBe("normalizedX must be in [0, 1]; got -1. (Parameter 'normalizedX')");
@@ -121,15 +121,15 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Edit_with_an_extent_outside_the_unit_range_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var overlayIdentifier = await CreateDraftAsync(overlays);
 
-        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+        var response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = new[] { LabelBody(normalizedHeight: 2m) } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
         problem.GetProperty("detail").GetString()
             .ShouldBe("normalizedHeight: must be in (0, 1]; got 2. (Parameter 'normalizedHeight')");
@@ -142,9 +142,9 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task A_label_on_the_unit_bounds_is_accepted()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -163,9 +163,9 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Create_without_a_label_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -173,7 +173,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
         problem.GetProperty("detail").GetString()!.ShouldContain("body.Elements");
     }
@@ -188,14 +188,14 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Edit_without_a_label_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var overlayIdentifier = await CreateDraftAsync(overlays);
 
-        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+        var response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1", new { });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
         problem.GetProperty("detail").GetString()!.ShouldContain("body.Elements");
     }
@@ -211,9 +211,9 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Create_with_a_null_label_element_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -222,7 +222,7 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
             });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
     }
 
@@ -233,15 +233,15 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Edit_with_a_null_label_element_returns_400_OVERLAY_INVALID_INPUT()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var overlayIdentifier = await CreateDraftAsync(overlays);
 
-        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+        var response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = new object?[] { null } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
     }
 
@@ -255,21 +255,21 @@ public class OverlayGeometryValidationIntegrationTests(AspireFixture aspire) : I
     [Fact]
     public async Task Edit_with_nine_labels_returns_400_OVERLAY_ELEMENTS_TOO_MANY()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        Guid overlayIdentifier = await CreateDraftAsync(overlays);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var overlayIdentifier = await CreateDraftAsync(overlays);
 
-        HttpResponseMessage response = await OverlayRequests.PatchAsync(
+        var response = await OverlayRequests.PatchAsync(
             overlays, overlayIdentifier, "revisions/1",
             new { elements = Enumerable.Range(0, 9).Select(_ => LabelBody()).ToArray() });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_ELEMENTS_TOO_MANY");
     }
 
     private static async Task<Guid> CreateDraftAsync(HttpClient overlays)
     {
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {

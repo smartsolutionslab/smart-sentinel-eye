@@ -32,14 +32,14 @@ public class OrphanedClientSweepHostedServiceTests
         SilentKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<OrphanedClientSweepHostedService> logger = new();
-        await using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        await using var provider = Compose(keycloak, timeProvider, logger);
 
-        OrphanedClientSweepHostedService service = BuildHostedService(provider);
+        var service = BuildHostedService(provider);
 
         using CancellationTokenSource hostStart = new();
         try
         {
-            Task startTask = service.StartAsync(hostStart.Token);
+            var startTask = service.StartAsync(hostStart.Token);
 
             await startTask.WaitAsync(TimeSpan.FromSeconds(2));
             startTask.IsCompletedSuccessfully.ShouldBeTrue(
@@ -48,7 +48,7 @@ public class OrphanedClientSweepHostedServiceTests
                 + "(spec 320 plan §5: 'There is no per-pass Bound like "
                 + "KioskPrivilegeSweepHostedService's'; StartAsync returns at its own Task.Yield()).");
 
-            bool reachedKeycloak = await WaitUntilAsync(
+            var reachedKeycloak = await WaitUntilAsync(
                 () => keycloak.StampedClientAttempts >= 1, TimeSpan.FromSeconds(2));
             reachedKeycloak.ShouldBeTrue(
                 "the startup pass must actually have asked Keycloak (S5: it is read first), not "
@@ -67,26 +67,26 @@ public class OrphanedClientSweepHostedServiceTests
         ThrowingStampedClientKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<OrphanedClientSweepHostedService> logger = new();
-        await using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        await using var provider = Compose(keycloak, timeProvider, logger);
 
-        OrphanedClientSweepHostedService service = BuildHostedService(provider);
+        var service = BuildHostedService(provider);
 
         using CancellationTokenSource hostStart = new();
         try
         {
             await service.StartAsync(hostStart.Token);
 
-            bool firstPassRan = await WaitUntilAsync(() => keycloak.Attempts >= 1, TimeSpan.FromSeconds(2));
+            var firstPassRan = await WaitUntilAsync(() => keycloak.Attempts >= 1, TimeSpan.FromSeconds(2));
             firstPassRan.ShouldBeTrue("the startup pass must have run at least once");
 
-            bool firstFailureLogged = await WaitUntilAsync(
+            var firstFailureLogged = await WaitUntilAsync(
                 () => logger.Named("OrphanedClientSweepFailed").Count >= 1, TimeSpan.FromSeconds(2));
             firstFailureLogged.ShouldBeTrue(
                 "a pass that throws must be logged, not silently dropped — a janitor that goes "
                 + "quiet looks identical to a healthy one, and the next tick is the only recovery "
                 + "(spec 320 plan §5).");
 
-            bool timerRequested = await timeProvider.WaitForPendingTimersAsync(1, TimeSpan.FromSeconds(2));
+            var timerRequested = await timeProvider.WaitForPendingTimersAsync(1, TimeSpan.FromSeconds(2));
             timerRequested.ShouldBeTrue(
                 "the hosted service must register a PeriodicTimer against this TimeProvider for "
                 + "its hourly tick (OrphanedClientSweepHostedService.TickInterval).");
@@ -97,7 +97,7 @@ public class OrphanedClientSweepHostedServiceTests
             // fail this test rather than silently move the assertion with it.
             timeProvider.Advance(TimeSpan.FromHours(1));
 
-            bool secondPassRan = await WaitUntilAsync(() => keycloak.Attempts >= 2, TimeSpan.FromSeconds(2));
+            var secondPassRan = await WaitUntilAsync(() => keycloak.Attempts >= 2, TimeSpan.FromSeconds(2));
             secondPassRan.ShouldBeTrue(
                 "one tick's failure must not stop the next tick — Identity keeps serving requests "
                 + "and the sweep keeps trying (spec 320, the same discipline as "
@@ -116,21 +116,21 @@ public class OrphanedClientSweepHostedServiceTests
         SilentKeycloakAdminClient keycloak = new();
         ManualTimeProvider timeProvider = new(DateTimeOffset.UtcNow);
         CapturingLogger<OrphanedClientSweepHostedService> logger = new();
-        await using ServiceProvider provider = Compose(keycloak, timeProvider, logger);
+        await using var provider = Compose(keycloak, timeProvider, logger);
 
-        OrphanedClientSweepHostedService service = BuildHostedService(provider);
+        var service = BuildHostedService(provider);
 
         using CancellationTokenSource hostStart = new();
         await service.StartAsync(hostStart.Token);
 
-        bool reachedKeycloak = await WaitUntilAsync(
+        var reachedKeycloak = await WaitUntilAsync(
             () => keycloak.StampedClientAttempts >= 1, TimeSpan.FromSeconds(2));
         reachedKeycloak.ShouldBeTrue(
             "the pass must actually be running, parked on Keycloak, before shutdown races it");
 
         await hostStart.CancelAsync();
 
-        Exception? thrown = await Record.ExceptionAsync(() => service.StopAsync(CancellationToken.None));
+        var thrown = await Record.ExceptionAsync(() => service.StopAsync(CancellationToken.None));
 
         thrown.ShouldBeNull(
             "host shutdown during a running pass must not surface as an unhandled exception from "
@@ -140,7 +140,7 @@ public class OrphanedClientSweepHostedServiceTests
 
     private static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (condition())
@@ -166,7 +166,7 @@ public class OrphanedClientSweepHostedServiceTests
     private static ServiceProvider Compose(
         IKeycloakAdminClient keycloak, TimeProvider timeProvider, ILogger<OrphanedClientSweepHostedService> logger)
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
 
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {

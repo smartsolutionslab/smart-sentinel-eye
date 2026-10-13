@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
 
@@ -27,7 +26,7 @@ public class OverlayRevisionArchivedV1HandlerTests
             broadcaster,
             new FabsReferencingOverlayQueryHandler(new InMemoryLayoutQuerySource(new InMemoryLayoutRepository())), NullLogger<OverlayRevisionArchivedV1Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionArchivedV1 message = new(
             Overlay: overlay,
             RevisionNumber: 2,
@@ -37,7 +36,7 @@ public class OverlayRevisionArchivedV1HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        OverlayLifecycleArchivedNotification notification = broadcaster.OverlaysArchived.ShouldHaveSingleItem();
+        var notification = broadcaster.OverlaysArchived.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(2);
         notification.ArchivedAt.ShouldBe(Moment);

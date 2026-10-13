@@ -32,21 +32,21 @@ public class EventSourceModeAuthorizationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_event_source_token_can_neither_declare_nor_change_a_source_mode()
     {
-        string clientId = $"event-source-mode-probe-{Guid.CreateVersion7():N}";
+        var clientId = $"event-source-mode-probe-{Guid.CreateVersion7():N}";
         await PlantEventSourceClientAsync(clientId);
 
         try
         {
-            using HttpClient source = await EventSourceClientAsync(clientId);
+            using var source = await EventSourceClientAsync(clientId);
 
-            HttpResponseMessage declared = await DeclareAsync(source, "plc", "strict");
+            var declared = await DeclareAsync(source, "plc", "strict");
             declared.StatusCode.ShouldBe(
                 HttpStatusCode.Forbidden,
                 await Diagnose(declared) + Environment.NewLine
                 + "spec.md FR-013 is the whole reason sse.events.types.write is reused here. A 201 "
                 + "here means the POST is still declaring sse.events.write.");
 
-            HttpResponseMessage changed = await ChangeAsync(source, "plc", "discovery", expectedVersion: null);
+            var changed = await ChangeAsync(source, "plc", "discovery", expectedVersion: null);
             changed.StatusCode.ShouldBe(
                 HttpStatusCode.Forbidden,
                 await Diagnose(changed) + Environment.NewLine
@@ -68,14 +68,14 @@ public class EventSourceModeAuthorizationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_event_source_token_cannot_undeclare_a_source_mode()
     {
-        string clientId = $"event-source-undeclare-probe-{Guid.CreateVersion7():N}";
+        var clientId = $"event-source-undeclare-probe-{Guid.CreateVersion7():N}";
         await PlantEventSourceClientAsync(clientId);
 
         try
         {
-            using HttpClient source = await EventSourceClientAsync(clientId);
+            using var source = await EventSourceClientAsync(clientId);
 
-            HttpResponseMessage refused = await DeleteAsync(source, "plc", expectedVersion: null);
+            var refused = await DeleteAsync(source, "plc", expectedVersion: null);
 
             refused.StatusCode.ShouldBe(
                 HttpStatusCode.Forbidden,
@@ -91,9 +91,9 @@ public class EventSourceModeAuthorizationIntegrationTests(AspireFixture aspire)
 
     private async Task PlantEventSourceClientAsync(string clientId)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
@@ -115,9 +115,9 @@ public class EventSourceModeAuthorizationIntegrationTests(AspireFixture aspire)
 
     private async Task<HttpClient> EventSourceClientAsync(string clientId)
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
+        var jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
 
-        HttpClient client = aspire.CreateServiceClient(ResourceName);
+        var client = aspire.CreateServiceClient(ResourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
 
         return client;

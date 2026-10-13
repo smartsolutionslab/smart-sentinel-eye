@@ -25,8 +25,8 @@ internal static class TypeScriptSource
     /// </summary>
     internal static string StringLiteralContent(string source)
     {
-        string withoutBlockComments = Regex.Replace(source, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
-        string withoutComments = Regex.Replace(withoutBlockComments, @"//[^\n]*", string.Empty);
+        var withoutBlockComments = Regex.Replace(source, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+        var withoutComments = Regex.Replace(withoutBlockComments, @"//[^\n]*", string.Empty);
 
         List<string> literals = [];
 

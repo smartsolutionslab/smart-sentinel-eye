@@ -178,7 +178,7 @@ public class IntegrationTestSelectionTests
         {
             get
             {
-                Match match = FilterArgument.Match(Command);
+                var match = FilterArgument.Match(Command);
                 return match.Success ? match.Groups["value"].Value : null;
             }
         }
@@ -203,9 +203,9 @@ public class IntegrationTestSelectionTests
         {
             get
             {
-                string[] tokens = QuotedSpan.Replace(Command, "QUOTEDVALUE")
+                var tokens = QuotedSpan.Replace(Command, "QUOTEDVALUE")
                     .Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                int separator = Array.IndexOf(tokens, "--");
+                var separator = Array.IndexOf(tokens, "--");
 
                 return separator >= 0
                     && tokens.Skip(separator + 1).Any(token => token == TreatNoTestsAsErrorFlag);
@@ -231,18 +231,18 @@ public class IntegrationTestSelectionTests
     private static TestInvocation[] ParseInvocations(string[] lines)
     {
         List<TestInvocation> invocations = [];
-        int index = 0;
+        var index = 0;
 
         while (index < lines.Length)
         {
-            string trimmed = lines[index].Trim();
+            var trimmed = lines[index].Trim();
             if (!trimmed.StartsWith("dotnet test", StringComparison.Ordinal))
             {
                 index++;
                 continue;
             }
 
-            int line = index + 1;
+            var line = index + 1;
             List<string> segments = [TrimContinuation(trimmed)];
 
             // Bounds-checked (phase 6 review, #2289): a workflow whose very last
@@ -267,7 +267,7 @@ public class IntegrationTestSelectionTests
 
     private static string TrimContinuation(string line)
     {
-        string trimmed = line.TrimEnd();
+        var trimmed = line.TrimEnd();
         return trimmed.EndsWith('\\') ? trimmed[..^1].TrimEnd() : trimmed;
     }
 
@@ -304,8 +304,8 @@ public class IntegrationTestSelectionTests
 
     private static string ReadWorkflowText()
     {
-        DirectoryInfo root = RepositoryRoot();
-        string path = Path.Combine([root.FullName, .. Workflow.Split('/')]);
+        var root = RepositoryRoot();
+        var path = Path.Combine([root.FullName, .. Workflow.Split('/')]);
 
         File.Exists(path).ShouldBeTrue(
             $"expected {Workflow} at {path} — if it moved, update this guard rather than deleting it.");
@@ -316,7 +316,7 @@ public class IntegrationTestSelectionTests
     [Fact]
     public void Every_integration_test_class_declares_where_it_runs()
     {
-        TestFile[] scanned = ScannedFiles();
+        var scanned = ScannedFiles();
 
         scanned.Count(file => file.Facts > 0).ShouldBeGreaterThan(
             0,
@@ -324,7 +324,7 @@ public class IntegrationTestSelectionTests
             + "A source-scanning guard that matches nothing passes, and a passing guard that checks "
             + "nothing is indistinguishable from one that holds.");
 
-        TestFile[] undeclared = scanned.Where(file => file.Undeclared).ToArray();
+        var undeclared = scanned.Where(file => file.Undeclared).ToArray();
 
         undeclared.ShouldBeEmpty(Explain(undeclared, scanned));
     }
@@ -419,7 +419,7 @@ public class IntegrationTestSelectionTests
             /* trailing */
             """;
 
-        TestFile file = Describe("synthetic/GlobTests.cs", source);
+        var file = Describe("synthetic/GlobTests.cs", source);
 
         file.Facts.ShouldBe(2,
             "the string literal's `/*` is not a comment opener; a naive stripper treating it as "
@@ -562,10 +562,10 @@ public class IntegrationTestSelectionTests
     [Fact]
     public void The_workflow_reader_finds_every_dotnet_test_invocation()
     {
-        string[] lines = WorkflowLines();
-        int rawCount = lines.Count(line => line.TrimStart().StartsWith("dotnet test", StringComparison.Ordinal));
+        var lines = WorkflowLines();
+        var rawCount = lines.Count(line => line.TrimStart().StartsWith("dotnet test", StringComparison.Ordinal));
 
-        TestInvocation[] invocations = WorkflowInvocations();
+        var invocations = WorkflowInvocations();
 
         invocations.Length.ShouldBe(rawCount,
             $"the reader found {invocations.Length} `dotnet test` invocation(s) in {Workflow}, but a raw count "
@@ -578,9 +578,9 @@ public class IntegrationTestSelectionTests
             + "--filter. F1 below has nothing to check without at least one — this positive control has gone "
             + "stale along with it.");
 
-        int filterMentions = invocations.Count(invocation =>
+        var filterMentions = invocations.Count(invocation =>
             invocation.Command.Contains("--filter", StringComparison.Ordinal));
-        int recognizedFilters = invocations.Count(invocation => invocation.IsFiltered);
+        var recognizedFilters = invocations.Count(invocation => invocation.IsFiltered);
 
         filterMentions.ShouldBe(recognizedFilters,
             $"{filterMentions} invocation(s) in {Workflow} contain the literal `--filter` substring, but only "
@@ -637,13 +637,13 @@ public class IntegrationTestSelectionTests
     [Fact]
     public void Every_category_the_workflow_filters_on_is_declared_by_a_test_class()
     {
-        string[] categories = DerivedCategoryNames();
+        var categories = DerivedCategoryNames();
 
         categories.ShouldNotBeEmpty(
             $"the reader derived no category names from {Workflow}'s filters — an empty set would make every "
             + "class vacuously \"declared\", which is the exact silent-pass shape this fact exists to refuse.");
 
-        HashSet<string> declared = DeclaredCategoryNames();
+        var declared = DeclaredCategoryNames();
 
         string[] undeclared = [.. categories.Where(name => !declared.Contains(name))];
 
@@ -674,7 +674,7 @@ public class IntegrationTestSelectionTests
                         --blame-hang --blame-hang-dump-type mini --blame-hang-timeout 3min
             """;
 
-        TestInvocation[] invocations = ParseWorkflow(workflow);
+        var invocations = ParseWorkflow(workflow);
 
         invocations.Length.ShouldBe(1,
             "a `dotnet test` invocation split across five continuation lines must be read as one invocation, "
@@ -692,7 +692,7 @@ public class IntegrationTestSelectionTests
                         --filter "Category=RunConfiguration.TreatNoTestsAsError=true"
             """;
 
-        TestInvocation invocation = ParseWorkflow(workflow).Single();
+        var invocation = ParseWorkflow(workflow).Single();
 
         invocation.FailsOnNoTests.ShouldBeFalse(
             "the flag's text sitting inside a quoted --filter value is not the flag reaching VSTest — there is "
@@ -717,7 +717,7 @@ public class IntegrationTestSelectionTests
                         --filter "Category=A -- RunConfiguration.TreatNoTestsAsError=true &Category=B"
             """;
 
-        TestInvocation invocation = ParseWorkflow(workflow).Single();
+        var invocation = ParseWorkflow(workflow).Single();
 
         invocation.FailsOnNoTests.ShouldBeFalse(
             "the `--` and the flag text both sit inside the quoted --filter value; splitting on plain spaces "
@@ -736,7 +736,7 @@ public class IntegrationTestSelectionTests
                         -- SomeOtherSetting=false
             """;
 
-        TestInvocation invocation = ParseWorkflow(workflow).Single();
+        var invocation = ParseWorkflow(workflow).Single();
 
         invocation.FailsOnNoTests.ShouldBeFalse(
             "the flag token sits before the standalone `--` separator, so it never reaches VSTest as a "
@@ -752,7 +752,7 @@ public class IntegrationTestSelectionTests
                         -c Release --no-build
             """;
 
-        TestInvocation invocation = ParseWorkflow(workflow).Single();
+        var invocation = ParseWorkflow(workflow).Single();
 
         invocation.IsFiltered.ShouldBeFalse(
             "this invocation carries no --filter, so it cannot select zero tests the way a filtered one can — "
@@ -762,7 +762,7 @@ public class IntegrationTestSelectionTests
     [Fact]
     public void An_exclusion_filter_with_two_terms_yields_both_category_names()
     {
-        string[] categories = Categories("Category!=Measurement&Category!=Disruptive&Category!=Maintenance");
+        var categories = Categories("Category!=Measurement&Category!=Disruptive&Category!=Maintenance");
 
         categories.ShouldBe(["Measurement", "Disruptive", "Maintenance"],
             "each Category!=X term names a separate category that must exist on the test side; combining them "
@@ -795,9 +795,9 @@ public class IntegrationTestSelectionTests
     /// </summary>
     private static HashSet<string> DeclaredCategoryNames()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
-        IEnumerable<string> names = Directory
+        var names = Directory
             .EnumerateFiles(Path.Combine(root.FullName, ScannedTree), "*.cs", SearchOption.AllDirectories)
             .Select(file => Relative(root, file))
             .Where(IsSource)
@@ -832,7 +832,7 @@ public class IntegrationTestSelectionTests
     /// </summary>
     private static string CitationFor(Func<string, bool> matchesFilter, string description)
     {
-        TestInvocation? invocation = WorkflowInvocations()
+        var invocation = WorkflowInvocations()
             .FirstOrDefault(candidate => candidate.IsFiltered && matchesFilter(candidate.Filter!));
 
         return invocation is null
@@ -893,8 +893,8 @@ public class IntegrationTestSelectionTests
 
     private static string Explain(TestFile[] undeclared, TestFile[] scanned)
     {
-        int tests = undeclared.Sum(file => file.Facts);
-        int population = scanned.Count(file => file.Facts > 0);
+        var tests = undeclared.Sum(file => file.Facts);
+        var population = scanned.Count(file => file.Facts > 0);
 
         List<string> message =
         [
@@ -908,9 +908,9 @@ public class IntegrationTestSelectionTests
             .OrderBy(file => file.Path, StringComparer.Ordinal)
             .Select(file => $"  {file.Path} ({file.Facts} tests)"));
 
-        string cheapStep = InclusionStepCitation();
-        string excludeStep = ExclusionStepCitation();
-        string categoryList = FormatNameList(DerivedCategoryNames());
+        var cheapStep = InclusionStepCitation();
+        var excludeStep = ExclusionStepCitation();
+        var categoryList = FormatNameList(DerivedCategoryNames());
 
         message.Add(string.Empty);
         message.Add(
@@ -934,7 +934,7 @@ public class IntegrationTestSelectionTests
 
     private static TestFile[] ScannedFiles()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return Directory
             .EnumerateFiles(Path.Combine(root.FullName, ScannedTree), "*.cs", SearchOption.AllDirectories)
@@ -954,9 +954,9 @@ public class IntegrationTestSelectionTests
         // population it should have been checked against. The fact regex is
         // already line-anchored on `[`, so a comment cannot inflate the count —
         // only a genuine [Fact]/[Theory] at the start of its own line counts.
-        int facts = FactOrTheory.Count(source);
+        var facts = FactOrTheory.Count(source);
 
-        string declarations = StripComments(source);
+        var declarations = StripComments(source);
 
         return new TestFile(
             path,

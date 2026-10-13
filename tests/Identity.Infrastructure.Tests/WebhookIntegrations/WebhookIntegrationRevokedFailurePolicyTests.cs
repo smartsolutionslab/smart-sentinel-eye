@@ -6,13 +6,11 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.EventHandlers;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
-using SmartSentinelEye.Identity.Infrastructure;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using Wolverine;
-using Wolverine.ErrorHandling;
 using Wolverine.Runtime;
 using Wolverine.Runtime.Handlers;
 
@@ -59,7 +57,7 @@ public class WebhookIntegrationRevokedFailurePolicyTests
 {
     private static async Task<HandlerGraph> DiscoverAsync()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.UseWolverine(opts =>
         {
             opts.Discovery.IncludeAssembly(typeof(WebhookIntegrationRevokedIntegrationEventHandler).Assembly);
@@ -67,9 +65,9 @@ public class WebhookIntegrationRevokedFailurePolicyTests
             opts.StubAllExternalTransports();
         });
 
-        using IHost host = builder.Build();
+        using var host = builder.Build();
         await host.StartAsync();
-        HandlerGraph graph = host.Services.GetRequiredService<HandlerGraph>();
+        var graph = host.Services.GetRequiredService<HandlerGraph>();
         await host.StopAsync();
         return graph;
     }
@@ -83,20 +81,20 @@ public class WebhookIntegrationRevokedFailurePolicyTests
     /// </summary>
     private static TimeSpan ReadDelay(IContinuation continuation)
     {
-        PropertyInfo? property = continuation.GetType().GetProperty("Delay", BindingFlags.Public | BindingFlags.Instance);
+        var property = continuation.GetType().GetProperty("Delay", BindingFlags.Public | BindingFlags.Instance);
         property.ShouldNotBeNull($"{continuation.GetType().Name} is expected to expose a public Delay property");
-        object? value = property.GetValue(continuation);
+        var value = property.GetValue(continuation);
         return value.ShouldBeOfType<TimeSpan>();
     }
 
     [Fact]
     public async Task A_failed_disable_is_retried_after_one_minute_then_two_then_five_minutes_until_attempt_fourteen()
     {
-        HandlerGraph graph = await DiscoverAsync();
-        HandlerChain? chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
         chain.ShouldNotBeNull();
 
-        FailureRule rule = chain.Failures.ShouldHaveSingleItem();
+        var rule = chain.Failures.ShouldHaveSingleItem();
 
         List<TimeSpan> expectedLadder =
         [
@@ -106,11 +104,11 @@ public class WebhookIntegrationRevokedFailurePolicyTests
         ];
         expectedLadder.Count.ShouldBe(14);
 
-        for (int attempt = 1; attempt <= 14; attempt++)
+        for (var attempt = 1; attempt <= 14; attempt++)
         {
             Envelope envelope = new(SampleMessage()) { Attempts = attempt };
-            bool created = rule.TryCreateContinuation(
-                new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"), envelope, out IContinuation continuation);
+            var created = rule.TryCreateContinuation(
+                new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"), envelope, out var continuation);
 
             created.ShouldBeTrue($"attempt {attempt} should still be on the retry ladder");
             continuation.ShouldNotBeNull();
@@ -126,15 +124,15 @@ public class WebhookIntegrationRevokedFailurePolicyTests
     [Fact]
     public async Task The_fifteenth_failed_attempt_is_dead_lettered()
     {
-        HandlerGraph graph = await DiscoverAsync();
-        HandlerChain? chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
         chain.ShouldNotBeNull();
 
-        FailureRule rule = chain.Failures.ShouldHaveSingleItem();
+        var rule = chain.Failures.ShouldHaveSingleItem();
 
         Envelope envelope = new(SampleMessage()) { Attempts = 15 };
-        bool created = rule.TryCreateContinuation(
-            new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"), envelope, out IContinuation continuation);
+        var created = rule.TryCreateContinuation(
+            new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE"), envelope, out var continuation);
 
         created.ShouldBeTrue();
         continuation.ShouldNotBeNull();
@@ -146,11 +144,11 @@ public class WebhookIntegrationRevokedFailurePolicyTests
     [Fact]
     public async Task The_rule_matches_the_disable_failure_and_nothing_wider()
     {
-        HandlerGraph graph = await DiscoverAsync();
-        HandlerChain? chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
         chain.ShouldNotBeNull();
 
-        FailureRule rule = chain.Failures.ShouldHaveSingleItem();
+        var rule = chain.Failures.ShouldHaveSingleItem();
 
         rule.Match.Matches(new WebhookClientDisableFailedException("w", "KEYCLOAK_UNAVAILABLE")).ShouldBeTrue();
         rule.Match.Matches(new InvalidOperationException()).ShouldBeFalse(
@@ -162,11 +160,11 @@ public class WebhookIntegrationRevokedFailurePolicyTests
     [Fact]
     public async Task The_exception_the_handler_throws_on_KeycloakUnavailable_is_the_one_the_rule_matches()
     {
-        HandlerGraph graph = await DiscoverAsync();
-        HandlerChain? chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WebhookIntegrationRevokedV1>();
         chain.ShouldNotBeNull();
 
-        FailureRule rule = chain.Failures.ShouldHaveSingleItem();
+        var rule = chain.Failures.ShouldHaveSingleItem();
 
         StubDisableWebhookClientCommandHandler handler = new()
         {
@@ -176,7 +174,7 @@ public class WebhookIntegrationRevokedFailurePolicyTests
         WebhookIntegrationRevokedIntegrationEventHandler subscriber = new(
             handler, NullLogger<WebhookIntegrationRevokedIntegrationEventHandler>.Instance);
 
-        Exception caught = await Should.ThrowAsync<Exception>(
+        var caught = await Should.ThrowAsync<Exception>(
             () => subscriber.Handle(SampleMessage(), CancellationToken.None));
 
         rule.Match.Matches(caught).ShouldBeTrue(
@@ -186,13 +184,13 @@ public class WebhookIntegrationRevokedFailurePolicyTests
     [Fact]
     public async Task No_other_discovered_chain_gained_a_failure_rule()
     {
-        HandlerGraph graph = await DiscoverAsync();
+        var graph = await DiscoverAsync();
 
         HandlerChain[] others = [.. graph.AllChains()
             .Where(chain => chain.MessageType != typeof(WebhookIntegrationRevokedV1))];
         others.ShouldNotBeEmpty("otherwise this proves nothing about scoping");
 
-        foreach (HandlerChain chain in others)
+        foreach (var chain in others)
         {
             chain.Failures.ShouldBeEmpty(
                 $"{chain.MessageType.Name}'s chain gained a failure rule nothing asked it to have");

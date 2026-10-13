@@ -1,9 +1,7 @@
-using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Application.Tests.TestData;
-using SmartSentinelEye.Shared.Kernel;
 using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers;
@@ -22,17 +20,17 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task Returns_rows_filtered_by_fab_in_descending_OccurredAt_order()
     {
-        DateTimeOffset baseTime = DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
-        AuditEventEntity older = new AuditEventBuilder()
+        var baseTime = DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var older = new AuditEventBuilder()
             .WithOccurredAt(baseTime).WithFab("munich").Build();
-        AuditEventEntity newer = new AuditEventBuilder()
+        var newer = new AuditEventBuilder()
             .WithOccurredAt(baseTime.AddMinutes(5)).WithFab("munich").Build();
-        AuditEventEntity wrongFab = new AuditEventBuilder()
+        var wrongFab = new AuditEventBuilder()
             .WithOccurredAt(baseTime.AddMinutes(10)).WithFab("berlin").Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([older, newer, wrongFab]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(DefaultQuery(), default);
+        var result = await handler.HandleAsync(DefaultQuery(), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.Count.ShouldBe(2);
@@ -43,12 +41,12 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task Without_fab_uses_the_caller_fab_set()
     {
-        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
-        AuditEventEntity berlin = new AuditEventBuilder().WithFab("berlin").Build();
+        var munich = new AuditEventBuilder().WithFab("munich").Build();
+        var berlin = new AuditEventBuilder().WithFab("berlin").Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
@@ -79,13 +77,13 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task A_caller_with_fabs_sees_cross_fab_rows_alongside_their_own()
     {
-        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
-        AuditEventEntity berlin = new AuditEventBuilder().WithFab("berlin").Build();
-        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var munich = new AuditEventBuilder().WithFab("munich").Build();
+        var berlin = new AuditEventBuilder().WithFab("berlin").Build();
+        var unscoped = new AuditEventBuilder().WithFab(null).Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich"]), default);
 
         result.Value.Rows.Select(row => row.Fab).ShouldBe(["munich", null], ignoreOrder: true);
@@ -96,12 +94,12 @@ public class SearchAuditQueryHandlerTests
     {
         // Asking for one fab is a narrower question than "what may I see": a
         // row with no fab is not in munich, so it is not an answer to it.
-        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
-        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var munich = new AuditEventBuilder().WithFab("munich").Build();
+        var unscoped = new AuditEventBuilder().WithFab(null).Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(fab: "munich", callerFabs: ["munich"]), default);
 
         result.Value.Rows.Count.ShouldBe(1);
@@ -111,12 +109,12 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task A_caller_with_no_fabs_still_sees_only_cross_fab_rows()
     {
-        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
-        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var munich = new AuditEventBuilder().WithFab("munich").Build();
+        var unscoped = new AuditEventBuilder().WithFab(null).Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: []), default);
 
         result.Value.Rows.Count.ShouldBe(1);
@@ -137,13 +135,13 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task A_malformed_claimed_fab_costs_only_itself()
     {
-        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
-        AuditEventEntity berlin = new AuditEventBuilder().WithFab("berlin").Build();
-        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var munich = new AuditEventBuilder().WithFab("munich").Build();
+        var berlin = new AuditEventBuilder().WithFab("berlin").Build();
+        var unscoped = new AuditEventBuilder().WithFab(null).Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, berlin, unscoped]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["munich", "Munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
@@ -163,12 +161,12 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task A_wholly_malformed_claim_set_sees_only_cross_fab_rows()
     {
-        AuditEventEntity munich = new AuditEventBuilder().WithFab("munich").Build();
-        AuditEventEntity unscoped = new AuditEventBuilder().WithFab(null).Build();
+        var munich = new AuditEventBuilder().WithFab("munich").Build();
+        var unscoped = new AuditEventBuilder().WithFab(null).Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([munich, unscoped]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(fab: null, callerFabs: ["Munich"]), default);
 
         result.IsSuccess.ShouldBeTrue();
@@ -180,7 +178,7 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task Cursor_pagination_round_trips_without_overlap()
     {
-        DateTimeOffset baseTime = DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
+        var baseTime = DateTimeOffset.Parse("2026-05-29T08:00:00Z", System.Globalization.CultureInfo.InvariantCulture);
         List<AuditEventEntity> rows = [..
             Enumerable.Range(0, 5)
                 .Select(i => new AuditEventBuilder()
@@ -190,16 +188,16 @@ public class SearchAuditQueryHandlerTests
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource(rows));
 
-        Result<AuditPageDto, SearchAuditError> page1 = await handler.HandleAsync(DefaultQuery(pageSize: 2), default);
+        var page1 = await handler.HandleAsync(DefaultQuery(pageSize: 2), default);
         page1.Value.Rows.Count.ShouldBe(2);
         page1.Value.NextCursor.ShouldNotBeNull();
 
-        Result<AuditPageDto, SearchAuditError> page2 = await handler.HandleAsync(
+        var page2 = await handler.HandleAsync(
             DefaultQuery(pageSize: 2, cursor: page1.Value.NextCursor), default);
         page2.Value.Rows.Count.ShouldBe(2);
         page2.Value.NextCursor.ShouldNotBeNull();
 
-        IEnumerable<Guid> seen = page1.Value.Rows.Concat(page2.Value.Rows)
+        var seen = page1.Value.Rows.Concat(page2.Value.Rows)
             .Select(r => r.AuditIdentifier);
         seen.Distinct().Count().ShouldBe(4);
     }
@@ -209,7 +207,7 @@ public class SearchAuditQueryHandlerTests
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(DefaultQuery(), default);
+        var result = await handler.HandleAsync(DefaultQuery(), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.Rows.ShouldBeEmpty();
@@ -221,7 +219,7 @@ public class SearchAuditQueryHandlerTests
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(cursor: "this-is-not-a-cursor"), default);
 
         result.IsFailure.ShouldBeTrue();
@@ -233,7 +231,7 @@ public class SearchAuditQueryHandlerTests
     {
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(DefaultQuery(pageSize: 201), default);
+        var result = await handler.HandleAsync(DefaultQuery(pageSize: 201), default);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<SearchAuditError.PageSizeOutOfRange>();
@@ -242,14 +240,14 @@ public class SearchAuditQueryHandlerTests
     [Fact]
     public async Task Filter_by_actor_username_narrows_the_result()
     {
-        AuditEventEntity admin = new AuditEventBuilder()
+        var admin = new AuditEventBuilder()
             .WithActor(Guid.CreateVersion7(), username: "admin@munich.test").Build();
-        AuditEventEntity operatorRow = new AuditEventBuilder()
+        var operatorRow = new AuditEventBuilder()
             .WithActor(Guid.CreateVersion7(), username: "op-3@munich.test").Build();
 
         SearchAuditQueryHandler handler = new(new TestAuditEventQuerySource([admin, operatorRow]));
 
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(actorUsername: "admin@munich.test"), default);
 
         result.IsSuccess.ShouldBeTrue();

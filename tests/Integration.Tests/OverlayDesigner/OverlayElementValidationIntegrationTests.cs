@@ -44,16 +44,16 @@ public class OverlayElementValidationIntegrationTests(AspireFixture aspire) : IA
 
     private async Task<JsonElement> CreateExpectingBadRequestAsync(object element, string expectedField)
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new { name = $"Val-{Guid.NewGuid():N}"[..16], elements = new[] { element } });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_INVALID_INPUT");
-        string detail = problem.GetProperty("detail").GetString()!;
+        var detail = problem.GetProperty("detail").GetString()!;
         // Quoted: ArgumentException appends "(Parameter 'x')" using the
         // thrown exception's own paramName, which is the actual FR-003
         // signal. An unquoted check on "kind" would pass by coincidence —
@@ -117,7 +117,7 @@ public class OverlayElementValidationIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Five_boxes_and_four_texts_are_rejected_naming_the_ceiling_of_8_elements()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
         object[] elements =
         [
@@ -125,12 +125,12 @@ public class OverlayElementValidationIntegrationTests(AspireFixture aspire) : IA
             .. Enumerable.Range(0, 4).Select(_ => ElementBody(kind: "Text")),
         ];
 
-        HttpResponseMessage response = await overlays.PostAsJsonAsync(
+        var response = await overlays.PostAsJsonAsync(
             "/overlays",
             new { name = $"Ceil-{Guid.NewGuid():N}"[..16], elements });
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_ELEMENTS_TOO_MANY");
         problem.GetProperty("detail").GetString()!.ShouldContain("8");
     }

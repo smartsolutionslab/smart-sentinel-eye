@@ -25,9 +25,9 @@ public class RetireCameraCommandHandlerTests
     public async Task Retires_a_camera_in_the_callers_fab()
     {
         InMemoryCameraRepository cameras = new();
-        CameraAggregate camera = await SeedAsync(cameras, "munich", "line-3-inlet");
+        var camera = await SeedAsync(cameras, "munich", "line-3-inlet");
 
-        Result<CameraIdentifier, RetireCameraError> result =
+        var result =
             await Handler(cameras).HandleAsync(Command("munich", camera.Id), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -39,7 +39,7 @@ public class RetireCameraCommandHandlerTests
     {
         InMemoryCameraRepository cameras = new();
 
-        Result<CameraIdentifier, RetireCameraError> result = await Handler(cameras)
+        var result = await Handler(cameras)
             .HandleAsync(Command("munich", CameraIdentifier.New()), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -56,9 +56,9 @@ public class RetireCameraCommandHandlerTests
     public async Task Another_fabs_camera_is_refused_as_not_found_and_stays_registered()
     {
         InMemoryCameraRepository cameras = new();
-        CameraAggregate dresden = await SeedAsync(cameras, "dresden", "line-3-inlet");
+        var dresden = await SeedAsync(cameras, "dresden", "line-3-inlet");
 
-        Result<CameraIdentifier, RetireCameraError> result =
+        var result =
             await Handler(cameras).HandleAsync(Command("munich", dresden.Id), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -81,12 +81,12 @@ public class RetireCameraCommandHandlerTests
     public async Task Retiring_twice_succeeds_and_announces_once()
     {
         InMemoryCameraRepository cameras = new();
-        CameraAggregate camera = await SeedAsync(cameras, "munich", "line-3-inlet");
-        RetireCameraCommand command = Command("munich", camera.Id);
+        var camera = await SeedAsync(cameras, "munich", "line-3-inlet");
+        var command = Command("munich", camera.Id);
 
-        Result<CameraIdentifier, RetireCameraError> first =
+        var first =
             await Handler(cameras).HandleAsync(command, CancellationToken.None);
-        Result<CameraIdentifier, RetireCameraError> second =
+        var second =
             await Handler(cameras).HandleAsync(command, CancellationToken.None);
 
         first.IsSuccess.ShouldBeTrue();
@@ -104,7 +104,7 @@ public class RetireCameraCommandHandlerTests
     private static async Task<CameraAggregate> SeedAsync(
         InMemoryCameraRepository cameras, string fab, string name)
     {
-        CameraAggregate camera = CameraAggregate.Register(
+        var camera = CameraAggregate.Register(
             FabIdentifier.From(fab),
             CameraName.From(name),
             RtspUrl.From("rtsp://10.0.0.1:554/h264"),

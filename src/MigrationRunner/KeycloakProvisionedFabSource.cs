@@ -1,8 +1,6 @@
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.MigrationRunner;
 
@@ -82,7 +80,7 @@ internal sealed class KeycloakProvisionedFabSource(
         // provision nothing and report success (FR-011). "There are no fabs"
         // and "I could not tell" are opposite facts, and catching here would
         // make them one again from the other direction.
-        Option<IReadOnlyList<string>> tree =
+        var tree =
             await keycloak.GetSubGroupNamesAsync(FabGroupPath, cancellationToken);
 
         if (!tree.HasValue)
@@ -90,7 +88,7 @@ internal sealed class KeycloakProvisionedFabSource(
             throw new InvalidOperationException(AbsentGroupVerdict);
         }
 
-        IReadOnlyList<string> names = tree.Value;
+        var names = tree.Value;
 
         if (names.Count == 0)
         {
@@ -109,11 +107,11 @@ internal sealed class KeycloakProvisionedFabSource(
     {
         List<FabIdentifier> fabs = [];
         List<string> unusable = [];
-        foreach (string name in names)
+        foreach (var name in names)
         {
             try
             {
-                FabIdentifier fab = FabIdentifier.From(name);
+                var fab = FabIdentifier.From(name);
                 if (!fabs.Contains(fab))
                 {
                     fabs.Add(fab);

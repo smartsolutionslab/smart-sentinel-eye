@@ -36,7 +36,7 @@ public class MediaMtxReconcilerStartupOrderingTests
         using FakeHostApplicationLifetime lifetime = new();
         MediaMtxReconciler reconciler = new(scopeFactory, lifetime, NullLogger<MediaMtxReconciler>.Instance);
 
-        Task startAsync = reconciler.StartAsync(CancellationToken.None);
+        var startAsync = reconciler.StartAsync(CancellationToken.None);
 
         (await Task.WhenAny(startAsync, Task.Delay(TimeSpan.FromSeconds(2)))).ShouldBe(
             startAsync, "StartAsync must return immediately rather than block on the reconcile pass");

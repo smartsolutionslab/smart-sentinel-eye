@@ -1,13 +1,11 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -78,11 +76,11 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     [Fact]
     public async Task Measure_sustained_rate_latency_and_order()
     {
-        string kind = $"Load{Guid.CreateVersion7():N}"[..20];
-        int perPublisher = TargetRatePerSecond * DurationSeconds / Publishers;
+        var kind = $"Load{Guid.CreateVersion7():N}"[..20];
+        var perPublisher = TargetRatePerSecond * DurationSeconds / Publishers;
 
-        Stopwatch publishing = Stopwatch.StartNew();
-        int offered = await PublishConcurrentlyAsync(kind, perPublisher);
+        var publishing = Stopwatch.StartNew();
+        var offered = await PublishConcurrentlyAsync(kind, perPublisher);
         publishing.Stop();
 
         output.WriteLine(
@@ -90,10 +88,10 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
             + $"= {offered / publishing.Elapsed.TotalSeconds:F0}/s "
             + $"(target {TargetRatePerSecond}/s for {DurationSeconds}s)");
 
-        Stopwatch draining = Stopwatch.StartNew();
-        long stored = await WaitForDrainAsync(kind, offered);
+        var draining = Stopwatch.StartNew();
+        var stored = await WaitForDrainAsync(kind, offered);
         draining.Stop();
-        TimeSpan endToEnd = publishing.Elapsed + draining.Elapsed;
+        var endToEnd = publishing.Elapsed + draining.Elapsed;
 
         output.WriteLine(
             $"T022 sustained: {stored} of {offered} stored by {endToEnd.TotalSeconds:F1}s "
@@ -119,8 +117,8 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task ReportLatencyAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-        double[] milliseconds = await database.Database
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
+        var milliseconds = await database.Database
             .SqlQueryRaw<double>(
                 """
                 SELECT EXTRACT(EPOCH FROM (ingested_at - (payload->>'publishedAt')::timestamptz)) * 1000
@@ -153,12 +151,12 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task ReportOrderingAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-        int total = 0;
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
+        var total = 0;
 
-        for (int publisher = 0; publisher < Publishers; publisher++)
+        for (var publisher = 0; publisher < Publishers; publisher++)
         {
-            long[] sequence = await database.Database
+            var sequence = await database.Database
                 .SqlQueryRaw<long>(
                     """
                     SELECT (payload->>'sequence')::bigint AS "Value"
@@ -169,8 +167,8 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
                     $"load-{publisher}")
                 .ToArrayAsync();
 
-            int inversions = 0;
-            for (int i = 1; i < sequence.Length; i++)
+            var inversions = 0;
+            for (var i = 1; i < sequence.Length; i++)
             {
                 if (sequence[i] < sequence[i - 1])
                 {
@@ -187,7 +185,7 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
 
     private static double Percentile(double[] sorted, double fraction)
     {
-        int index = (int)Math.Clamp(Math.Round(fraction * (sorted.Length - 1)), 0, sorted.Length - 1);
+        var index = (int)Math.Clamp(Math.Round(fraction * (sorted.Length - 1)), 0, sorted.Length - 1);
         return sorted[index];
     }
 
@@ -199,14 +197,14 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task<long> WaitForDrainAsync(string kind, long expected)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + DrainLimit;
-        long stored = await CountAsync(kind);
-        int stalled = 0;
+        var deadline = DateTimeOffset.UtcNow + DrainLimit;
+        var stored = await CountAsync(kind);
+        var stalled = 0;
 
         while (stored < expected && DateTimeOffset.UtcNow < deadline && stalled < 10)
         {
             await Task.Delay(TimeSpan.FromSeconds(1));
-            long now = await CountAsync(kind);
+            var now = await CountAsync(kind);
             stalled = now == stored ? stalled + 1 : 0;
             stored = now;
         }
@@ -216,7 +214,7 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
 
     private async Task<long> CountAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -224,8 +222,8 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
 
     private async Task<int> PublishConcurrentlyAsync(string kind, int perPublisher)
     {
-        string jwt = await TokenAsync();
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        var jwt = await TokenAsync();
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
         ConcurrentBag<int> counts = [];
 
         // One client per source, so each source's stream is genuinely ordered by
@@ -246,7 +244,7 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
         int count,
         CancellationToken cancellationToken)
     {
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
         await client.ConnectAsync(
             new MqttClientOptionsBuilder()
                 .WithProtocolVersion(MqttProtocolVersion.V311)
@@ -258,11 +256,11 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
                 .Build(),
             cancellationToken);
 
-        string topic = $"fab/munich/plc/load-{publisher}";
-        Stopwatch elapsed = Stopwatch.StartNew();
-        int sent = 0;
+        var topic = $"fab/munich/plc/load-{publisher}";
+        var elapsed = Stopwatch.StartNew();
+        var sent = 0;
 
-        for (int sequence = 0; sequence < count; sequence++)
+        for (var sequence = 0; sequence < count; sequence++)
         {
             await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
@@ -294,20 +292,20 @@ public class IngestThroughputMeasurementTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task<string> TokenAsync()
     {
-        int attempt = 0;
+        var attempt = 0;
         while (true)
         {
             attempt++;
             try
             {
-                using HttpClient keycloak = aspire.CreateKeycloakClient();
+                using var keycloak = aspire.CreateKeycloakClient();
                 using FormUrlEncodedContent form = new(new Dictionary<string, string>
                 {
                     ["grant_type"] = "client_credentials",
                     ["client_id"] = SimulatorClientId,
                     ["client_secret"] = SimulatorClientSecret,
                 });
-                HttpResponseMessage token = await keycloak.PostAsync(
+                var token = await keycloak.PostAsync(
                     "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
                 token.EnsureSuccessStatusCode();
                 return (await token.Content.ReadFromJsonAsync<JsonElement>())

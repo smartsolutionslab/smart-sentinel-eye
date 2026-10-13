@@ -34,7 +34,7 @@ public class LayoutGridInvariantTests
     [Fact]
     public void CreateDraft_refuses_an_empty_tile_set()
     {
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.Cell,
@@ -50,7 +50,7 @@ public class LayoutGridInvariantTests
     {
         IReadOnlyList<Tile> tiles = [TileAt(0, 0), TileAt(0, 0)];
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.Default,
@@ -66,7 +66,7 @@ public class LayoutGridInvariantTests
     {
         IReadOnlyList<Tile> tiles = [TileAt(0, 1)];
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.Cell,
@@ -86,7 +86,7 @@ public class LayoutGridInvariantTests
         // Ensure.That guard already rejects > MaxCells, which would make this
         // pass for a reason that has nothing to do with the aggregate
         // (LayoutTests.cs:305-311 uses the same direct-constructor trick).
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             new GridDimensions(4, 3),
@@ -110,16 +110,16 @@ public class LayoutGridInvariantTests
         // tile repeats a position; the count check runs before the
         // overlap check, so TooLarge — not Overlap — is what actually fires.
         List<Tile> tiles = [];
-        for (int row = 0; row < 3; row++)
+        for (var row = 0; row < 3; row++)
         {
-            for (int col = 0; col < 3; col++)
+            for (var col = 0; col < 3; col++)
             {
                 tiles.Add(TileAt(row, col));
             }
         }
         tiles.Add(TileAt(0, 0));
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.From(3, 3),
@@ -147,10 +147,10 @@ public class LayoutGridInvariantTests
         Tile overflowing = new(
             CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None,
             GridPosition.From(1, 0), TileSpan.From(int.MaxValue, 1));
-        Tile insideWrappedRectangle = TileAt(2, 0);
+        var insideWrappedRectangle = TileAt(2, 0);
         IReadOnlyList<Tile> tiles = [overflowing, insideWrappedRectangle];
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.From(3, 3),
@@ -169,7 +169,7 @@ public class LayoutGridInvariantTests
         IReadOnlyList<Tile> tiles =
             [TileAt(0, 0), TileAt(0, 1), TileAt(1, 0), TileAt(1, 1)];
 
-        Domain.Layout.Layout layout = Domain.Layout.Layout.CreateDraft(
+        var layout = Domain.Layout.Layout.CreateDraft(
             FabIdentifier.From("munich"),
             LayoutName.From("Line-1"),
             GridDimensions.Default,
@@ -185,15 +185,15 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_refuses_an_empty_tile_set_and_leaves_the_revision_unchanged()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(camera).Build();
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().ForCamera(camera).Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
             LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>(), clock));
 
         exception.Message.ShouldContain(nameof(GridViolation.Empty));
-        Revision only = layout.Revisions.Single();
+        var only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.Cell);
         only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
     }
@@ -201,16 +201,16 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_refuses_two_tiles_at_the_same_position_and_leaves_the_revision_unchanged()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(camera).Build();
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().ForCamera(camera).Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         IReadOnlyList<Tile> tiles = [TileAt(0, 0), TileAt(0, 0)];
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
             LayoutRevisionNumber.One, GridDimensions.Default, tiles, clock));
 
         exception.Message.ShouldContain(nameof(GridViolation.Overlap));
-        Revision only = layout.Revisions.Single();
+        var only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.Cell);
         only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
     }
@@ -218,16 +218,16 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_refuses_an_out_of_bounds_tile_and_leaves_the_revision_unchanged()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(camera).Build();
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().ForCamera(camera).Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         IReadOnlyList<Tile> tiles = [TileAt(0, 1)];
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
             LayoutRevisionNumber.One, GridDimensions.Cell, tiles, clock));
 
         exception.Message.ShouldContain(nameof(GridViolation.OutOfBounds));
-        Revision only = layout.Revisions.Single();
+        var only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.Cell);
         only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
     }
@@ -235,16 +235,16 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_refuses_an_oversized_grid_and_leaves_the_revision_unchanged()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(camera).Build();
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().ForCamera(camera).Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         IReadOnlyList<Tile> tiles = [TileAt(0, 0)];
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
+        var exception = Should.Throw<InvalidOperationException>(() => layout.EditDraft(
             LayoutRevisionNumber.One, new GridDimensions(4, 3), tiles, clock));
 
         exception.Message.ShouldContain(nameof(GridViolation.TooLarge));
-        Revision only = layout.Revisions.Single();
+        var only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.Cell);
         only.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(camera);
     }
@@ -254,7 +254,7 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_still_accepts_two_in_bounds_tiles()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         IReadOnlyList<Tile> tiles = [TileAt(0, 0), TileAt(1, 1)];
 
@@ -287,7 +287,7 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_refuses_an_invalid_grid_before_reporting_a_missing_revision_number()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
 
         // Revision 99 does not exist AND the tile set is empty. Today,
@@ -296,7 +296,7 @@ public class LayoutGridInvariantTests
         // RequireRevision (plan §3), the failure names the grid violation
         // instead, because a bad argument is a bad argument regardless of
         // which revision it targets.
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() =>
+        var exception = Should.Throw<InvalidOperationException>(() =>
             layout.EditDraft(LayoutRevisionNumber.From(99), GridDimensions.Cell, Array.Empty<Tile>(), clock));
 
         exception.Message.ShouldContain("Empty");
@@ -306,8 +306,8 @@ public class LayoutGridInvariantTests
     [Fact]
     public void EditDraft_on_a_Published_revision_with_an_invalid_grid_fails_on_the_grid_first()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
@@ -317,7 +317,7 @@ public class LayoutGridInvariantTests
         // (plan §3), the empty tile set is refused before the state is ever
         // consulted — the argument is bad regardless of which revision, or
         // which state, it targets.
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(() =>
+        var exception = Should.Throw<InvalidOperationException>(() =>
             layout.EditDraft(LayoutRevisionNumber.One, GridDimensions.Cell, Array.Empty<Tile>(), clock));
 
         exception.Message.ShouldContain("Empty");

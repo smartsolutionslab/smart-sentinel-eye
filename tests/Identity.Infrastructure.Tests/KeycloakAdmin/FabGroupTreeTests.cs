@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Tests.KeycloakAdmin;
 
@@ -52,7 +51,7 @@ public class FabGroupTreeTests
             Refuse = _ => HttpStatusCode.NotFound,
         };
 
-        Option<IReadOnlyList<string>> tree = await ClientOver(keycloak)
+        var tree = await ClientOver(keycloak)
             .GetSubGroupNamesAsync("/fabs", CancellationToken.None);
 
         tree.HasValue.ShouldBeFalse(
@@ -67,7 +66,7 @@ public class FabGroupTreeTests
     {
         StubKeycloakHandler keycloak = new(ChildlessFlow);
 
-        Option<IReadOnlyList<string>> tree = await ClientOver(keycloak)
+        var tree = await ClientOver(keycloak)
             .GetSubGroupNamesAsync("/fabs", CancellationToken.None);
 
         tree.HasValue.ShouldBeTrue("the group answered; having no children is that answer");
@@ -88,7 +87,7 @@ public class FabGroupTreeTests
               {"id":"2","name":"dresden","path":"/fabs/dresden"}]}
             """);
 
-        Option<IReadOnlyList<string>> tree = await ClientOver(keycloak)
+        var tree = await ClientOver(keycloak)
             .GetSubGroupNamesAsync("/fabs", CancellationToken.None);
 
         tree.Value.ShouldBe(["munich", "dresden"]);

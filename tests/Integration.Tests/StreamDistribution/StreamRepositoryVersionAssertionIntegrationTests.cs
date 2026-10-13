@@ -42,16 +42,16 @@ public class StreamRepositoryVersionAssertionIntegrationTests(AspireFixture aspi
     [Fact]
     public async Task The_assertion_does_not_match_after_another_context_retires_the_row()
     {
-        StreamIdentifier streamIdentifier = await SeedAsync();
+        var streamIdentifier = await SeedAsync();
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        await using StreamDistributionDbContext contextB = await VersionedContextAsync();
+        await using var contextA = await VersionedContextAsync();
+        await using var contextB = await VersionedContextAsync();
 
-        StreamRepository repositoryA = NewRepository(contextA);
-        StreamRepository repositoryB = NewRepository(contextB);
+        var repositoryA = NewRepository(contextA);
+        var repositoryB = NewRepository(contextB);
 
-        StreamAggregate loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
-        StreamAggregate loadedByB = (await repositoryB.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByB = (await repositoryB.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
 
         loadedByB.Retire(new SystemClock());
         await repositoryB.SaveAsync(CancellationToken.None);
@@ -68,28 +68,28 @@ public class StreamRepositoryVersionAssertionIntegrationTests(AspireFixture aspi
     [Fact]
     public async Task The_assertion_matches_and_leaves_the_version_unchanged_when_nothing_else_wrote()
     {
-        StreamIdentifier streamIdentifier = await SeedAsync();
+        var streamIdentifier = await SeedAsync();
 
-        await using StreamDistributionDbContext contextA = await VersionedContextAsync();
-        StreamRepository repositoryA = NewRepository(contextA);
+        await using var contextA = await VersionedContextAsync();
+        var repositoryA = NewRepository(contextA);
 
-        StreamAggregate loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
+        var loadedByA = (await repositoryA.GetByIdentifierAsync(streamIdentifier, CancellationToken.None)).Value;
         int loadedVersion = loadedByA.Version;
 
         (await repositoryA.IsUnchangedSinceLoadAsync(loadedByA, CancellationToken.None)).ShouldBeTrue();
 
-        await using StreamDistributionDbContext reader = await VersionedContextAsync();
-        StreamAggregate reread = await reader.Streams.AsNoTracking().SingleAsync(stream => stream.Id == streamIdentifier);
+        await using var reader = await VersionedContextAsync();
+        var reread = await reader.Streams.AsNoTracking().SingleAsync(stream => stream.Id == streamIdentifier);
 
         reread.Version.Value.ShouldBe(loadedVersion, "a non-bumping assertion must not move the token it checks");
     }
 
     private async Task<StreamIdentifier> SeedAsync()
     {
-        await using StreamDistributionDbContext context = await VersionedContextAsync();
-        StreamRepository repository = NewRepository(context);
+        await using var context = await VersionedContextAsync();
+        var repository = NewRepository(context);
 
-        StreamAggregate stream = StreamAggregate.Provision(
+        var stream = StreamAggregate.Provision(
             Munich,
             CameraIdentifier.From(Guid.CreateVersion7()),
             StreamSourceUrl.From("rtsp://10.0.5.1/h264"),
@@ -117,7 +117,7 @@ public class StreamRepositoryVersionAssertionIntegrationTests(AspireFixture aspi
 
     private async Task<StreamDistributionDbContext> VersionedContextAsync()
     {
-        string connectionString = await aspire.App
+        var connectionString = await aspire.App
             .GetConnectionStringAsync(AspireFixture.StreamDistributionConnectionName)
             ?? throw new InvalidOperationException(
                 $"Connection string '{AspireFixture.StreamDistributionConnectionName}' was not provisioned by Aspire.");

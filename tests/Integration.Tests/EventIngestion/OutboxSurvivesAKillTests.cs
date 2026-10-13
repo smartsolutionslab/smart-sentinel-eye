@@ -1,9 +1,4 @@
-using System.Net;
-using System.Net.Http.Json;
-using Aspire.Hosting.ApplicationModel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -43,14 +38,14 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
     [Fact]
     public async Task Announcements_committed_before_a_restart_are_delivered_after_it()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", Operator, OperatorPassword);
 
-        string kind = $"Killed{Guid.CreateVersion7():N}"[..20];
+        var kind = $"Killed{Guid.CreateVersion7():N}"[..20];
 
-        for (int i = 0; i < Written; i++)
+        for (var i = 0; i < Written; i++)
         {
-            HttpResponseMessage created = await client.PostAsJsonAsync("/events/manual", new
+            var created = await client.PostAsJsonAsync("/events/manual", new
             {
                 deviceId = "kill-device",
                 kind,
@@ -69,7 +64,7 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
 
         (await StoredAsync(kind)).ShouldBe(Written, "a committed event went missing across the restart");
 
-        long pending = await DrainedAsync(TimeSpan.FromMinutes(2));
+        var pending = await DrainedAsync(TimeSpan.FromMinutes(2));
         output.WriteLine($"pending announcements after restart: {pending}");
 
         pending.ShouldBe(
@@ -87,12 +82,12 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
     /// </summary>
     private async Task RestartAsync(string resourceName)
     {
-        ResourceCommandService commands =
+        var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
         try
         {
-            ExecuteCommandResult result = await commands.ExecuteCommandAsync(
+            var result = await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.RestartCommand, CancellationToken.None);
             result.Success.ShouldBeTrue($"could not restart {resourceName}: {result.Message}");
         }
@@ -115,8 +110,8 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
 
     private async Task<long> DrainedAsync(TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
-        long pending = await PendingAsync();
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var pending = await PendingAsync();
 
         while (pending > 0 && DateTimeOffset.UtcNow < deadline)
         {
@@ -129,7 +124,7 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
 
     private async Task<long> PendingAsync()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>(
                 $"SELECT count(*) AS \"Value\" FROM {OutboxSchema}.wolverine_outgoing_envelopes")
@@ -138,7 +133,7 @@ public class OutboxSurvivesAKillTests(AspireFixture aspire, ITestOutputHelper ou
 
     private async Task<long> StoredAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();

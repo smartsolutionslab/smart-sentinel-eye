@@ -30,7 +30,7 @@ public class NormalizedSizeTests
     [Fact]
     public void From_accepts_a_full_cell()
     {
-        NormalizedSize size = NormalizedSize.From(1m, 1m);
+        var size = NormalizedSize.From(1m, 1m);
 
         size.Width.ShouldBe(1m);
         size.Height.ShouldBe(1m);
@@ -39,7 +39,7 @@ public class NormalizedSizeTests
     [Fact]
     public void From_keeps_the_two_extents_in_the_order_they_were_given()
     {
-        NormalizedSize size = NormalizedSize.From(0.3m, 0.08m);
+        var size = NormalizedSize.From(0.3m, 0.08m);
 
         size.Width.ShouldBe(0.3m);
         size.Height.ShouldBe(0.08m);
@@ -48,8 +48,8 @@ public class NormalizedSizeTests
     [Fact]
     public void Two_sizes_with_the_same_extents_are_equal()
     {
-        NormalizedSize a = NormalizedSize.From(0.4m, 0.5m);
-        NormalizedSize b = NormalizedSize.From(0.4m, 0.5m);
+        var a = NormalizedSize.From(0.4m, 0.5m);
+        var b = NormalizedSize.From(0.4m, 0.5m);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());

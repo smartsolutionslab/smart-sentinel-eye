@@ -46,9 +46,9 @@ public class WallDisplayAccountTests
     [Fact]
     public void Only_wall_display_accounts_may_mint_a_long_lived_credential()
     {
-        List<RealmUser> users = RealmUsers();
+        var users = RealmUsers();
 
-        string[] privileged = users
+        var privileged = users
             .Where(user => user.RealmRoles.Any(role => role == "offline_access"))
             .Select(user => user.Username)
             .ToArray();
@@ -75,17 +75,17 @@ public class WallDisplayAccountTests
     [Fact]
     public void Every_fab_has_a_wall_display_account_that_holds_it()
     {
-        string[] fabs = RealmFabGroups();
+        var fabs = RealmFabGroups();
         fabs.ShouldNotBeEmpty("a realm with no fabs would make this vacuous");
 
-        string[] covered = RealmUsers()
+        var covered = RealmUsers()
             .Where(user => user.Username.StartsWith("wall-", StringComparison.Ordinal))
             .Where(user => user.RealmRoles.Any(role => role == "offline_access"))
             .SelectMany(user => user.Groups)
             .Distinct()
             .ToArray();
 
-        foreach (string fab in fabs)
+        foreach (var fab in fabs)
         {
             covered.ShouldContain(
                 fab,
@@ -101,7 +101,7 @@ public class WallDisplayAccountTests
     [Fact]
     public void A_wall_display_account_belongs_to_exactly_one_fab()
     {
-        foreach (RealmUser wall in RealmUsers().Where(u => u.Username.StartsWith("wall-", StringComparison.Ordinal)))
+        foreach (var wall in RealmUsers().Where(u => u.Username.StartsWith("wall-", StringComparison.Ordinal)))
         {
             wall.Groups.Length.ShouldBe(
                 1,
@@ -132,10 +132,10 @@ public class WallDisplayAccountTests
     [Fact]
     public void The_kiosk_client_does_not_force_the_offline_scope_on_every_account()
     {
-        JsonElement kiosk = RealmClients()
+        var kiosk = RealmClients()
             .First(client => client.GetProperty("clientId").GetString() == "kiosk-web");
 
-        string[] defaults = kiosk.GetProperty("defaultClientScopes")
+        var defaults = kiosk.GetProperty("defaultClientScopes")
             .EnumerateArray()
             .Select(scope => scope.GetString() ?? string.Empty)
             .ToArray();
@@ -160,10 +160,10 @@ public class WallDisplayAccountTests
 
     private static List<RealmUser> RealmUsers()
     {
-        JsonElement root = Realm();
+        var root = Realm();
         List<RealmUser> users = [];
 
-        foreach (JsonElement user in root.GetProperty("users").EnumerateArray())
+        foreach (var user in root.GetProperty("users").EnumerateArray())
         {
             users.Add(new RealmUser(
                 user.GetProperty("username").GetString() ?? string.Empty,
@@ -177,7 +177,7 @@ public class WallDisplayAccountTests
     private static JsonElement.ArrayEnumerator RealmClients() => Realm().GetProperty("clients").EnumerateArray();
 
     private static string[] Strings(JsonElement element, string property) =>
-        element.TryGetProperty(property, out JsonElement value)
+        element.TryGetProperty(property, out var value)
             ? value.EnumerateArray().Select(item => item.GetString() ?? string.Empty).ToArray()
             : [];
 
@@ -189,14 +189,14 @@ public class WallDisplayAccountTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException($"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
 
         // The file carries a byte-order mark, which the JSON reader rejects.
-        string text = File.ReadAllText(path).TrimStart('﻿');
+        var text = File.ReadAllText(path).TrimStart('﻿');
         return JsonDocument.Parse(text).RootElement;
     }
 }

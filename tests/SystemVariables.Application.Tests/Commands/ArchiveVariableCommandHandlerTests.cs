@@ -18,13 +18,13 @@ public class ArchiveVariableCommandHandlerTests
     public async Task Archiving_a_defined_variable_transitions_state_and_releases_the_name()
     {
         InMemoryVariableRepository repo = new();
-        VariableBuilder builder = new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number);
-        Variable v = builder.Build();
+        var builder = new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number);
+        var v = builder.Build();
         repo.Add(v);
 
         ArchiveVariableCommandHandler handler = new(
             repo, builder.Clock, NullLogger<ArchiveVariableCommandHandler>.Instance);
-        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
@@ -42,7 +42,7 @@ public class ArchiveVariableCommandHandlerTests
         ArchiveVariableCommandHandler handler = new(
             repo, new FakeClock(FixedMoment), NullLogger<ArchiveVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("ghost"),

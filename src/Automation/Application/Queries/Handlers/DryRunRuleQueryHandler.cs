@@ -64,7 +64,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
         // Value object, not .Value: RuleState is value-converted, same trap as
         // RuleName and Fab above.
         FabIdentifier[] scopedFabs = [.. fabs];
-        List<Rule> matches = await rules.Rules
+        var matches = await rules.Rules
             .Where(candidate => scopedFabs.Contains(candidate.Fab)
                 && candidate.Name == parsed
                 && candidate.State != RuleState.Archived)
@@ -77,13 +77,13 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
 
         // Keyed on distinct fabs, not match count — same reason as
         // GetRuleQueryHandler.
-        IReadOnlyList<string> fabsHolding = RuleFabCandidates.Fabs(matches);
+        var fabsHolding = RuleFabCandidates.Fabs(matches);
         if (fabsHolding.Count > 1)
         {
             return Failure(DryRunRuleFailures.FabAmbiguous(name, fabsHolding));
         }
 
-        Rule rule = matches[0];
+        var rule = matches[0];
 
         JsonDocument sample;
         try
@@ -101,8 +101,8 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
 
             try
             {
-                CompiledRule compiled = CompiledRule.From(rule);
-                AelValue verdict = AelInterpreter.Evaluate(compiled.CompiledPredicate, context);
+                var compiled = CompiledRule.From(rule);
+                var verdict = AelInterpreter.Evaluate(compiled.CompiledPredicate, context);
 
                 // Same truthiness rule as RuleEvaluator — a non-boolean result
                 // does NOT match. A dry run that disagreed with the live
@@ -115,7 +115,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
 
                 // Only SetVariableValue produces a value; HighlightOverlay and
                 // SwitchWallScene match but have nothing to evaluate.
-                string? evaluated = compiled.CompiledValueExpression is null
+                var evaluated = compiled.CompiledValueExpression is null
                     ? null
                     : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();
 
@@ -134,7 +134,7 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
             {
                 logger.DryRunEvaluationFailed(exception, rule.Id);
 
-                string reason = exception is InvalidOperationException or ArgumentException or AelParseException
+                var reason = exception is InvalidOperationException or ArgumentException or AelParseException
                     ? exception.Message
                     : "the rule could not be evaluated against this sample";
 

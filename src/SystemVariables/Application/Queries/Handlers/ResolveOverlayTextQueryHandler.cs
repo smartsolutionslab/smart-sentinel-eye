@@ -25,10 +25,10 @@ public sealed class ResolveOverlayTextQueryHandler(IVariableSnapshotBuilder buil
 
         var (fabs, text) = query;
 
-        IReadOnlyList<PlaceholderResolution> resolutions = await builder.BuildAsync(fabs, text, cancellationToken);
+        var resolutions = await builder.BuildAsync(fabs, text, cancellationToken);
 
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
-        foreach (PlaceholderResolution resolution in resolutions)
+        foreach (var resolution in resolutions)
         {
             if (resolution is { Outcome: PlaceholderOutcome.Resolved, Entry: { } entry })
             {
@@ -36,7 +36,7 @@ public sealed class ResolveOverlayTextQueryHandler(IVariableSnapshotBuilder buil
             }
         }
 
-        string resolvedText = resolver.Resolve(text, snapshot);
+        var resolvedText = resolver.Resolve(text, snapshot);
 
         List<PlaceholderResolutionDto> placeholders = [.. resolutions.Select(ToDto)];
 
@@ -46,7 +46,7 @@ public sealed class ResolveOverlayTextQueryHandler(IVariableSnapshotBuilder buil
 
     private static PlaceholderResolutionDto ToDto(PlaceholderResolution resolution)
     {
-        string? renderedValue = resolution is { Outcome: PlaceholderOutcome.Resolved, Entry: { } entry }
+        var renderedValue = resolution is { Outcome: PlaceholderOutcome.Resolved, Entry: { } entry }
             ? entry.Value.Render(entry.BooleanLabels ?? BooleanLabels.Default)
             : null;
 

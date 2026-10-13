@@ -15,7 +15,7 @@ public class IngestedAtTests
     [Fact]
     public void Round_trips_an_already_UTC_moment()
     {
-        DateTimeOffset utc =
+        var utc =
             DateTimeOffset.Parse("2026-05-28T08:14:33.040Z", CultureInfo.InvariantCulture);
         IngestedAt.From(utc).Value.ShouldBe(utc);
     }

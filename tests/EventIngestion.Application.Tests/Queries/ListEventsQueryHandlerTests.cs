@@ -1,9 +1,7 @@
-using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Queries;
 
@@ -28,7 +26,7 @@ public class ListEventsQueryHandlerTests
     public async Task PageSize_above_the_maximum_returns_PageSizeOutOfRange()
     {
         ListEventsQueryHandler handler = new(new TestEventQuerySource([]));
-        Result<EventPageDto, ListEventsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             Query(pageSize: 2_000), CancellationToken.None);
         result.Error.ShouldBeOfType<ListEventsError.PageSizeOutOfRange>();
     }
@@ -37,7 +35,7 @@ public class ListEventsQueryHandlerTests
     public async Task Malformed_cursor_returns_InvalidCursor()
     {
         ListEventsQueryHandler handler = new(new TestEventQuerySource([]));
-        Result<EventPageDto, ListEventsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             Query(cursor: "not-base64-and-not-a-cursor"), CancellationToken.None);
         result.Error.ShouldBeOfType<ListEventsError.InvalidCursor>();
     }

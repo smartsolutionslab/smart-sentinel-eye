@@ -65,8 +65,8 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_admin_harness_token_is_minted_by_the_integration_test_admin_client()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync(ProbeResource);
-        string token = TokenOf(client);
+        using var client = await aspire.CreateAdminClientAsync(ProbeResource);
+        var token = TokenOf(client);
 
         AzpOf(token).ShouldBe(
             HarnessClientId,
@@ -86,16 +86,16 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_admin_harness_token_carries_the_admin_users_fab_and_the_consoles_scopes()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync(ProbeResource);
-        string token = TokenOf(client);
+        using var client = await aspire.CreateAdminClientAsync(ProbeResource);
+        var token = TokenOf(client);
 
         GroupsOf(token).ShouldContain(
             AdminFabGroup,
             customMessage: "the admin harness token must carry the admin user's fab group, or "
             + "every fab-scoped admin call the migrated sites make is refused (spec 327 AS-1).");
 
-        IReadOnlyCollection<string> granted = ScopesOf(token);
-        IReadOnlyCollection<string> expected = ExpectedGrantedScopes();
+        var granted = ScopesOf(token);
+        var expected = ExpectedGrantedScopes();
 
         expected.Except(granted, StringComparer.Ordinal).ShouldBeEmpty(
             customMessage: $"the admin harness token is missing a scope '{ConsoleClientId}' "
@@ -107,7 +107,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
             ApiAudience,
             customMessage: $"the admin harness token must name '{ApiAudience}' (spec 069 FR-003).");
 
-        Guid.TryParse(SubjectOf(token), out Guid subject).ShouldBeTrue(
+        Guid.TryParse(SubjectOf(token), out var subject).ShouldBeTrue(
             "the admin harness token's sub must parse as a Guid, exactly like every other minted "
             + "token's (spec 042).");
         subject.ShouldNotBe(Guid.Empty);
@@ -122,7 +122,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
         // — the same answer a wrong secret would get against a real client, so
         // this is red for the right reason rather than a fact that would have
         // passed by accident.
-        (HttpStatusCode controlStatus, JsonElement controlBody) = await ClientCredentialsGrantAsync(
+        (var controlStatus, var controlBody) = await ClientCredentialsGrantAsync(
             HarnessClientId, HarnessClientSecret);
 
         controlStatus.ShouldBe(
@@ -130,7 +130,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
             customMessage: "control: client_credentials with the correct secret must succeed, or "
             + $"the wrong-secret refusal below proves nothing. Observed: {(int)controlStatus} {controlBody}");
 
-        (HttpStatusCode status, JsonElement body) = await ClientCredentialsGrantAsync(
+        (var status, var body) = await ClientCredentialsGrantAsync(
             HarnessClientId, "wrong-secret");
 
         status.ShouldBe(
@@ -145,7 +145,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
         // Control first, same reasoning as the fact above: client_credentials
         // with the correct secret must succeed before the password-grant
         // refusal means anything about direct access grants specifically.
-        (HttpStatusCode controlStatus, JsonElement controlBody) = await ClientCredentialsGrantAsync(
+        (var controlStatus, var controlBody) = await ClientCredentialsGrantAsync(
             HarnessClientId, HarnessClientSecret);
 
         controlStatus.ShouldBe(
@@ -153,14 +153,14 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
             customMessage: "control: client_credentials with the correct secret must succeed, or "
             + $"the password-grant refusal below proves nothing. Observed: {(int)controlStatus} {controlBody}");
 
-        (HttpStatusCode status, JsonElement body) = await PasswordGrantAsync(
+        (var status, var body) = await PasswordGrantAsync(
             HarnessClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, HarnessClientSecret);
 
         status.ShouldBe(
             HttpStatusCode.BadRequest,
             customMessage: $"'{HarnessClientId}' has directAccessGrantsEnabled=false and must "
             + $"refuse a password grant (AS-4). Observed: {(int)status} {body}");
-        body.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
+        body.TryGetProperty("error", out var error).ShouldBeTrue(
             $"expected an 'error' field on the refusal. Observed: {(int)status} {body}");
         error.GetString().ShouldBe(
             "unauthorized_client",
@@ -181,12 +181,12 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Every_admin_accessor_presents_the_same_subject()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync(ProbeResource);
-        string? clientSubject = SubjectOf(TokenOf(client));
+        using var client = await aspire.CreateAdminClientAsync(ProbeResource);
+        var clientSubject = SubjectOf(TokenOf(client));
         clientSubject.ShouldNotBeNullOrEmpty("CreateAdminClientAsync's token carries no sub claim.");
 
-        string rawToken = await aspire.GetAdminAccessTokenAsync();
-        string? rawSubject = SubjectOf(rawToken);
+        var rawToken = await aspire.GetAdminAccessTokenAsync();
+        var rawSubject = SubjectOf(rawToken);
         rawSubject.ShouldNotBeNullOrEmpty("GetAdminAccessTokenAsync()'s token carries no sub claim.");
 
         rawSubject.ShouldBe(
@@ -200,7 +200,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
     private async Task<(HttpStatusCode Status, JsonElement Body)> ClientCredentialsGrantAsync(
         string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -208,10 +208,10 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (response.StatusCode, body);
     }
 
@@ -226,7 +226,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
     private async Task<(HttpStatusCode Status, JsonElement Body)> PasswordGrantAsync(
         string clientId, string username, string password, string? clientSecret = null)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> fields = new()
         {
             ["grant_type"] = "password",
@@ -243,10 +243,10 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
 
         using FormUrlEncodedContent form = new(fields);
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (response.StatusCode, body);
     }
 
@@ -259,31 +259,31 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
     /// </summary>
     private static IReadOnlyCollection<string> ExpectedGrantedScopes()
     {
-        using JsonDocument realm = ReadRealmImport();
+        using var realm = ReadRealmImport();
 
-        JsonElement console = realm.RootElement.GetProperty("clients").EnumerateArray()
+        var console = realm.RootElement.GetProperty("clients").EnumerateArray()
             .First(client => client.GetProperty("clientId").GetString() == ConsoleClientId);
         IReadOnlyCollection<string> consoleScopeNames = [.. console
             .GetProperty("defaultClientScopes").EnumerateArray()
             .Select(scope => scope.GetString() ?? string.Empty)];
 
-        Dictionary<string, JsonElement> scopesByName = realm.RootElement
+        var scopesByName = realm.RootElement
             .GetProperty("clientScopes").EnumerateArray()
             .ToDictionary(scope => scope.GetProperty("name").GetString() ?? string.Empty, scope => scope);
 
         return
         [
             .. consoleScopeNames.Where(name =>
-                scopesByName.TryGetValue(name, out JsonElement scope)
-                && scope.TryGetProperty("attributes", out JsonElement attributes)
-                && attributes.TryGetProperty("include.in.token.scope", out JsonElement include)
+                scopesByName.TryGetValue(name, out var scope)
+                && scope.TryGetProperty("attributes", out var attributes)
+                && attributes.TryGetProperty("include.in.token.scope", out var include)
                 && include.GetString() == "true"),
         ];
     }
 
     private static JsonDocument ReadRealmImport()
     {
-        string path = Path.Combine(
+        var path = Path.Combine(
             RepositoryRoot(), "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
 
         File.Exists(path).ShouldBeTrue($"the realm import should be at {path}");
@@ -336,7 +336,7 @@ public class AdminHarnessTokenIntegrationTests(AspireFixture aspire)
 
     private static IReadOnlyCollection<string> ScopesOf(string token)
     {
-        string? scope = ClaimOf(token, "scope");
+        var scope = ClaimOf(token, "scope");
 
         return scope is null
             ? []

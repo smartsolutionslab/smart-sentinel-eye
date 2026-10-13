@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
@@ -31,7 +30,7 @@ internal static class EventIngestionFabResolution
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "EVENT_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
@@ -75,11 +74,11 @@ internal static class EventIngestionFabResolution
         IFabAuthorizationGuard fabGuard,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> resolved =
+        var resolved =
             await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
 
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in resolved)
+        foreach (var candidate in resolved)
         {
             try
             {

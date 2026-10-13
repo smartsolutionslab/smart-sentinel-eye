@@ -11,7 +11,7 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
 
     public Task<Option<Overlay>> GetByIdentifierAsync(OverlayIdentifier overlay, CancellationToken cancellationToken)
     {
-        Overlay? found = overlays.SingleOrDefault(candidate => candidate.Id == overlay);
+        var found = overlays.SingleOrDefault(candidate => candidate.Id == overlay);
         return Task.FromResult(found is null ? Option<Overlay>.None : Option<Overlay>.Some(found));
     }
 
@@ -23,7 +23,7 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
         // fake would keep the Application suite green against a rule production
         // no longer applies — the two are equivalent today, and the fake is
         // where that would stop being noticed.
-        Overlay? found = overlays.SingleOrDefault(candidate =>
+        var found = overlays.SingleOrDefault(candidate =>
             candidate.Name == name &&
             candidate.ArchivedAt is null);
         return Task.FromResult(found is null ? Option<Overlay>.None : Option<Overlay>.Some(found));
@@ -37,7 +37,7 @@ public sealed class InMemoryOverlayRepository : IOverlayRepository
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (Overlay overlay in overlays)
+        foreach (var overlay in overlays)
         {
             overlay.ClearPendingEvents();
         }

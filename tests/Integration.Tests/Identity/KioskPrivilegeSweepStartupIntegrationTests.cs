@@ -71,13 +71,13 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
     public async Task A_kiosk_a_failed_enrolment_left_behind_loses_the_privilege_when_identity_starts()
     {
         RealmProbe realm = new(aspire);
-        string residue = $"kiosk-residue-probe-{Guid.CreateVersion7():N}";
-        CancellationToken cancellationToken = CancellationToken.None;
+        var residue = $"kiosk-residue-probe-{Guid.CreateVersion7():N}";
+        var cancellationToken = CancellationToken.None;
 
         await realm.PlantAsync(residue, KioskStamp, cancellationToken);
         try
         {
-            IReadOnlyList<string> before = await realm.EffectiveRealmRolesAsync(residue, cancellationToken);
+            var before = await realm.EffectiveRealmRolesAsync(residue, cancellationToken);
             before.ShouldContain(
                 RealmProbe.LongLivedCredentialPrivilege,
                 "the provider grants this by default to accounts it creates after import; if this "
@@ -86,7 +86,7 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
 
             await DriveIdentityStartupAsync(cancellationToken);
 
-            IReadOnlyList<string> after = await realm.EffectiveRealmRolesAsync(residue, cancellationToken);
+            var after = await realm.EffectiveRealmRolesAsync(residue, cancellationToken);
             after.ShouldNotContain(
                 RealmProbe.LongLivedCredentialPrivilege,
                 "a client stamped sse.kind=kiosk that enrolment could not delete keeps a privilege "
@@ -117,27 +117,27 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
     public async Task An_account_this_system_did_not_enrol_keeps_every_realm_role_it_held()
     {
         RealmProbe realm = new(aspire);
-        string residue = $"kiosk-residue-probe-{Guid.CreateVersion7():N}";
-        string bystander = $"operator-shaped-probe-{Guid.CreateVersion7():N}";
-        CancellationToken cancellationToken = CancellationToken.None;
+        var residue = $"kiosk-residue-probe-{Guid.CreateVersion7():N}";
+        var bystander = $"operator-shaped-probe-{Guid.CreateVersion7():N}";
+        var cancellationToken = CancellationToken.None;
 
         await realm.PlantAsync(residue, KioskStamp, cancellationToken);
         await realm.PlantAsync(bystander, NoStamp, cancellationToken);
         try
         {
-            IReadOnlyList<string> before = await realm.EffectiveRealmRolesAsync(bystander, cancellationToken);
+            var before = await realm.EffectiveRealmRolesAsync(bystander, cancellationToken);
             before.ShouldNotBeEmpty("an account holding nothing cannot be shown to keep what it held");
 
             await DriveIdentityStartupAsync(cancellationToken);
 
-            IReadOnlyList<string> residueAfter =
+            var residueAfter =
                 await realm.EffectiveRealmRolesAsync(residue, cancellationToken);
             residueAfter.ShouldNotContain(
                 RealmProbe.LongLivedCredentialPrivilege,
                 "the pass has to have done something, or the bystander below is unchanged for the "
                 + "wrong reason");
 
-            IReadOnlyList<string> bystanderAfter =
+            var bystanderAfter =
                 await realm.EffectiveRealmRolesAsync(bystander, cancellationToken);
             bystanderAfter.ShouldBe(
                 before,
@@ -160,9 +160,9 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task DriveIdentityStartupAsync(CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
 
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
 
         // Keycloak is the real one behind the fixture. The other two are read
         // while AddIdentityInfrastructure registers and never dialled: the host
@@ -191,7 +191,7 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
 
         builder.AddIdentityInfrastructure();
 
-        Type[] startupServices = builder.Services
+        var startupServices = builder.Services
             .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
                 && descriptor.ImplementationType is not null
                 && descriptor.ImplementationType.Assembly == typeof(IdentityInfrastructureModule).Assembly)
@@ -212,12 +212,12 @@ public class KioskPrivilegeSweepStartupIntegrationTests(AspireFixture aspire)
         // ValidateScopes, so a startup service that took the scoped
         // IKeycloakAdminClient straight into its constructor fails here rather
         // than at the first boot of the real host.
-        await using ServiceProvider provider = builder.Services
+        await using var provider = builder.Services
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
-        foreach (Type startupService in startupServices)
+        foreach (var startupService in startupServices)
         {
-            IHostedService service = (IHostedService)ActivatorUtilities.CreateInstance(provider, startupService);
+            var service = (IHostedService)ActivatorUtilities.CreateInstance(provider, startupService);
             await service.StartAsync(cancellationToken);
         }
     }

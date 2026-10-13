@@ -85,7 +85,7 @@ public sealed class MediaMtxReconciler(
     /// </summary>
     public async Task StopAsync(CancellationToken cancellationToken)
     {
-        Task? pass = deferredPass;
+        var pass = deferredPass;
         if (pass is null)
         {
             return;
@@ -131,13 +131,13 @@ public sealed class MediaMtxReconciler(
 
     public async Task ReconcileOnceAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
 
-        IDbContextFactory<StreamDistributionDbContext> factory =
+        var factory =
             scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
-        IRtspGateway gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
+        var gateway = scope.ServiceProvider.GetRequiredService<IRtspGateway>();
 
-        await using StreamDistributionDbContext context =
+        await using var context =
             await factory.CreateDbContextAsync(cancellationToken);
 
         // Anonymous type, not ValueTuple.Create: both properties carry value
@@ -148,13 +148,13 @@ public sealed class MediaMtxReconciler(
             .Select(stream => new { stream.Path, stream.SourceUrl })
             .ToListAsync(cancellationToken);
 
-        HashSet<MediaMtxPath> expected = streams.Select(entry => entry.Path).ToHashSet();
+        var expected = streams.Select(entry => entry.Path).ToHashSet();
 
-        IReadOnlyList<MediaMtxPath> configured =
+        var configured =
             await gateway.ListConfiguredPathsAsync(cancellationToken);
 
-        int removed = 0;
-        foreach (MediaMtxPath path in configured)
+        var removed = 0;
+        foreach (var path in configured)
         {
             if (expected.Contains(path))
             {
@@ -176,13 +176,13 @@ public sealed class MediaMtxReconciler(
         // Re-add the other half: a Stream whose path MediaMTX no longer knows
         // about. Without this a MediaMTX restart leaves every stream 404ing,
         // because CameraRegisteredV1 does not re-fire for existing cameras.
-        HashSet<MediaMtxPath> present = configured.ToHashSet();
+        var present = configured.ToHashSet();
 
-        int readded = 0;
+        var readded = 0;
         foreach (var entry in streams)
         {
-            MediaMtxPath path = entry.Path;
-            StreamSourceUrl sourceUrl = entry.SourceUrl;
+            var path = entry.Path;
+            var sourceUrl = entry.SourceUrl;
 
             if (present.Contains(path))
             {

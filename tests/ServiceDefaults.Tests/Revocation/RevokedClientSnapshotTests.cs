@@ -39,7 +39,7 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void A_token_minted_before_the_disable_is_refused()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
         snapshot.Refuses(RevokedClientId, DisabledAt.AddMinutes(-10)).ShouldBeTrue();
     }
@@ -53,9 +53,9 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void A_token_minted_within_the_five_minute_tolerance_after_the_disable_is_still_refused()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
-        DateTimeOffset justInsideTolerance = DisabledAt + TimeSpan.FromMinutes(4) + TimeSpan.FromSeconds(59);
+        var justInsideTolerance = DisabledAt + TimeSpan.FromMinutes(4) + TimeSpan.FromSeconds(59);
 
         snapshot.Refuses(RevokedClientId, justInsideTolerance).ShouldBeTrue(
             "a token minted 4:59 after DisabledAt is within the 5-minute clock-skew tolerance "
@@ -69,9 +69,9 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void A_token_minted_just_past_the_tolerance_is_admitted()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
-        DateTimeOffset justPastTolerance = DisabledAt + TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(1);
+        var justPastTolerance = DisabledAt + TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(1);
 
         snapshot.Refuses(RevokedClientId, justPastTolerance).ShouldBeFalse(
             "a token minted more than 5 minutes after DisabledAt belongs to a client re-registered "
@@ -81,7 +81,7 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void A_client_id_the_snapshot_does_not_list_is_admitted()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
         snapshot.Refuses("kiosk-never-disabled", DisabledAt.AddMinutes(-10)).ShouldBeFalse();
     }
@@ -94,7 +94,7 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void A_token_with_no_azp_is_admitted()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
         snapshot.Refuses(azp: null, issuedAt: DisabledAt.AddMinutes(-10)).ShouldBeFalse();
     }
@@ -107,7 +107,7 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void A_listed_clients_token_with_no_iat_is_refused()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
         snapshot.Refuses(RevokedClientId, issuedAt: null).ShouldBeTrue();
     }
@@ -120,15 +120,15 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void The_later_of_two_entries_for_the_same_client_id_wins()
     {
-        DateTimeOffset firstDisable = DisabledAt;
-        DateTimeOffset secondDisable = DisabledAt.AddDays(1);
+        var firstDisable = DisabledAt;
+        var secondDisable = DisabledAt.AddDays(1);
 
-        RevokedClientSnapshot snapshot = RevokedClientSnapshot.From([
+        var snapshot = RevokedClientSnapshot.From([
             new RevokedClientEntry(RevokedClientId, firstDisable),
             new RevokedClientEntry(RevokedClientId, secondDisable),
         ]);
 
-        DateTimeOffset mintedBetweenTheTwoDisables = firstDisable.AddHours(1);
+        var mintedBetweenTheTwoDisables = firstDisable.AddHours(1);
 
         snapshot.Refuses(RevokedClientId, mintedBetweenTheTwoDisables).ShouldBeTrue(
             "the snapshot must keep the later DisabledAt for a client id disabled twice; a token "
@@ -138,7 +138,7 @@ public class RevokedClientSnapshotTests
     [Fact]
     public void The_client_id_match_is_ordinal_and_case_sensitive()
     {
-        RevokedClientSnapshot snapshot = SnapshotOf((RevokedClientId, DisabledAt));
+        var snapshot = SnapshotOf((RevokedClientId, DisabledAt));
 
         snapshot.Refuses("KIOSK-269", DisabledAt.AddMinutes(-10)).ShouldBeFalse(
             "the client id match must be ordinal and case-sensitive (plan.md §4.3); a "

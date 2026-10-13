@@ -1,12 +1,9 @@
 using System.Globalization;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -53,14 +50,14 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
     [Fact]
     public async Task A_clock_skewed_delivery_records_the_rule_it_broke_not_the_retry_window()
     {
-        string kind = $"ClockDrift{Guid.CreateVersion7():N}"[..20];
-        DateTimeOffset occurredAt = DateTimeOffset.UtcNow.AddHours(1);
+        var kind = $"ClockDrift{Guid.CreateVersion7():N}"[..20];
+        var occurredAt = DateTimeOffset.UtcNow.AddHours(1);
 
         await PublishAsync($"fab/{SkewedFab}/plc/{SkewedDevice}", kind, occurredAt);
         output.WriteLine($"published clock-skewed delivery, kind={kind}, occurredAt={occurredAt:O}");
 
         // Step 2+3 — the row exists and names the rule, not the window.
-        string error = await WaitForDeadLetterAsync(kind, TimeSpan.FromMinutes(2));
+        var error = await WaitForDeadLetterAsync(kind, TimeSpan.FromMinutes(2));
         output.WriteLine($"dead letter error: {error}");
 
         error.ShouldNotBeNullOrEmpty("the skewed delivery was never dead-lettered");
@@ -77,7 +74,7 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
         // as a second row for the same kind. One row after this wait is the
         // observable proof the delivery was acknowledged, not carried.
         await Task.Delay(TimeSpan.FromSeconds(30));
-        long rows = await CountDeadLettersAsync(kind);
+        var rows = await CountDeadLettersAsync(kind);
         rows.ShouldBe(1, "the delivery was carried rather than acknowledged — a second row appeared");
 
         // Step 5 — an operator holding only fab hamburg must not see the
@@ -87,27 +84,27 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
         // empty or broken listing would satisfy the negative assertion alone
         // without the scoping mechanism actually working (DeadLetterFabScopingIntegrationTests
         // asserts both directions for the same reason).
-        string hamburgKind = $"ClockDrift{Guid.CreateVersion7():N}"[..20];
+        var hamburgKind = $"ClockDrift{Guid.CreateVersion7():N}"[..20];
         await PublishAsync("fab/hamburg/plc/clock-drift-2", hamburgKind, occurredAt);
         output.WriteLine($"published hamburg control delivery, kind={hamburgKind}");
         await WaitForDeadLetterAsync(hamburgKind, TimeSpan.FromMinutes(2));
 
-        using HttpClient hamburgEvents = await aspire.CreateAuthenticatedClientAsync(
+        using var hamburgEvents = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", HamburgOperator, OperatorPassword);
-        HttpResponseMessage listed = await hamburgEvents.GetAsync("/events/dead-letters?limit=1000");
+        var listed = await hamburgEvents.GetAsync("/events/dead-letters?limit=1000");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await listed.Content.ReadAsStringAsync());
 
-        JsonElement listedRows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var listedRows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         IReadOnlyList<JsonElement> rowElements = [.. listedRows.EnumerateArray()];
         output.WriteLine($"hamburg operator's dead-letter listing: {rowElements.Count} row(s)");
 
-        bool sawOwnHamburgRow = rowElements.Any(row =>
+        var sawOwnHamburgRow = rowElements.Any(row =>
             row.GetProperty("rawPayload").GetString()?.Contains(hamburgKind, StringComparison.Ordinal) == true);
         sawOwnHamburgRow.ShouldBeTrue(
             "an operator holding fab hamburg could not see their own hamburg row — " +
             "the listing itself is broken, which would make the munich exclusion below meaningless");
 
-        bool munichRowVisibleToHamburg = rowElements.Any(row =>
+        var munichRowVisibleToHamburg = rowElements.Any(row =>
             row.GetProperty("rawPayload").GetString()?.Contains(kind, StringComparison.Ordinal) == true);
         munichRowVisibleToHamburg.ShouldBeFalse(
             "an operator holding only fab hamburg saw a munich row — the richer reason widened fab scoping");
@@ -121,13 +118,13 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task<string> WaitForDeadLetterAsync(string kind, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            await using EventIngestionDbContext database =
+            await using var database =
                 await aspire.CreateEventIngestionDbContextAsync();
-            string[] found = await database.Database
+            var found = await database.Database
                 .SqlQueryRaw<string>(
                     "SELECT error AS \"Value\" FROM dead_letters WHERE raw_payload LIKE {0}",
                     $"%{kind}%")
@@ -146,7 +143,7 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
 
     private async Task<long> CountDeadLettersAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>(
                 "SELECT count(*) AS \"Value\" FROM dead_letters WHERE raw_payload LIKE {0}", $"%{kind}%")
@@ -155,22 +152,22 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
 
     private async Task PublishAsync(string topic, string kind, DateTimeOffset occurredAt)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -180,7 +177,7 @@ public class DeadLetterReasonIntegrationTests(AspireFixture aspire, ITestOutputH
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        MqttClientPublishResult published = await client.PublishAsync(
+        var published = await client.PublishAsync(
             new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(Payload(kind, occurredAt))

@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
@@ -63,20 +62,20 @@ public class ProvisionedStreamSurvivesGatewayOutageTests(AspireFixture aspire, I
 
         try
         {
-            using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+            using var cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
 
-            HttpResponseMessage register = await cameraClient.PostAsJsonAsync(
+            var register = await cameraClient.PostAsJsonAsync(
                 "/cameras",
                 new { name = "Gateway-Outage", rtspUrl = "rtsp://unreachable.test/h264" });
             register.StatusCode.ShouldBe(HttpStatusCode.Created);
-            Guid camera = await register.Content.ReadFromJsonAsync<Guid>();
+            var camera = await register.Content.ReadFromJsonAsync<Guid>();
             camera.ShouldNotBe(Guid.Empty);
 
             // Observed through a DbContext the handler never touches -- a fresh
             // connection against the same Postgres instance -- so a row seen
             // here is the database's own commit, not anything this test's
             // writer cached.
-            Stream? stream = await WaitForStreamRowAsync(camera, StreamTimeout);
+            var stream = await WaitForStreamRowAsync(camera, StreamTimeout);
 
             stream.ShouldNotBeNull(
                 "the Stream row never committed, even though the only thing that ran " +
@@ -93,14 +92,14 @@ public class ProvisionedStreamSurvivesGatewayOutageTests(AspireFixture aspire, I
 
     private async Task<Stream?> WaitForStreamRowAsync(Guid camera, TimeSpan timeout)
     {
-        CameraIdentifier cameraId = CameraIdentifier.From(camera);
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var cameraId = CameraIdentifier.From(camera);
+        var deadline = DateTime.UtcNow + timeout;
 
         while (DateTime.UtcNow < deadline)
         {
-            await using StreamDistributionDbContext context =
+            await using var context =
                 await aspire.CreateStreamDistributionDbContextAsync();
-            Stream? found = await context.Streams
+            var found = await context.Streams
                 .AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Camera == cameraId);
             if (found is not null)
@@ -116,10 +115,10 @@ public class ProvisionedStreamSurvivesGatewayOutageTests(AspireFixture aspire, I
 
     private async Task StopAsync(string resourceName)
     {
-        ResourceCommandService commands =
+        var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
-        ExecuteCommandResult result = await commands.ExecuteCommandAsync(
+        var result = await commands.ExecuteCommandAsync(
             resourceName, KnownResourceCommands.StopCommand, CancellationToken.None);
         result.Success.ShouldBeTrue($"could not stop {resourceName}: {result.Message}");
     }
@@ -132,7 +131,7 @@ public class ProvisionedStreamSurvivesGatewayOutageTests(AspireFixture aspire, I
     /// </summary>
     private async Task StartAsync(string resourceName)
     {
-        ResourceCommandService commands =
+        var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
         await commands.ExecuteCommandAsync(resourceName, KnownResourceCommands.StartCommand, CancellationToken.None);

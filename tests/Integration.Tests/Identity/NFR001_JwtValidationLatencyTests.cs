@@ -53,10 +53,10 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
     [Fact]
     public async Task Per_request_JWT_validation_median_stays_under_the_500us_budget()
     {
-        string token = await aspire.GetAdminAccessTokenAsync();
+        var token = await aspire.GetAdminAccessTokenAsync();
 
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
-        string authority = $"{keycloak.BaseAddress!.ToString().TrimEnd('/')}/realms/smart-sentinel-eye";
+        using var keycloak = aspire.CreateKeycloakClient();
+        var authority = $"{keycloak.BaseAddress!.ToString().TrimEnd('/')}/realms/smart-sentinel-eye";
 
         HttpDocumentRetriever retriever = new() { RequireHttps = false };
         ConfigurationManager<OpenIdConnectConfiguration> oidc = new(
@@ -64,7 +64,7 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
             new OpenIdConnectConfigurationRetriever(),
             retriever);
 
-        OpenIdConnectConfiguration config = await oidc.GetConfigurationAsync(CancellationToken.None);
+        var config = await oidc.GetConfigurationAsync(CancellationToken.None);
 
         TokenValidationParameters parameters = new()
         {
@@ -78,7 +78,7 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
 
         JwtSecurityTokenHandler handler = new() { MapInboundClaims = false };
 
-        for (int i = 0; i < WarmupIterations; i++)
+        for (var i = 0; i < WarmupIterations; i++)
         {
             handler.ValidateToken(token, parameters, out _);
         }
@@ -88,19 +88,19 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
         // gen2 collect spiked a sample to ~16 ms while the median was ~96 µs —
         // i.e. the tail was GC, not code. Collect first, then defer gen2 for the
         // measurement window so the p99 captures the hot-path cost the NFR is about.
-        double[] elapsedMicroseconds = new double[MeasureIterations];
+        var elapsedMicroseconds = new double[MeasureIterations];
 #pragma warning disable S1215 // Intentional: deterministic benchmark stabilisation, not production code.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
 #pragma warning restore S1215
-        GCLatencyMode previousLatencyMode = GCSettings.LatencyMode;
+        var previousLatencyMode = GCSettings.LatencyMode;
         GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
         try
         {
-            for (int i = 0; i < MeasureIterations; i++)
+            for (var i = 0; i < MeasureIterations; i++)
             {
-                long start = Stopwatch.GetTimestamp();
+                var start = Stopwatch.GetTimestamp();
                 handler.ValidateToken(token, parameters, out _);
                 elapsedMicroseconds[i] = Stopwatch.GetElapsedTime(start).TotalMicroseconds;
             }
@@ -111,9 +111,9 @@ public class NFR001_JwtValidationLatencyTests(AspireFixture aspire, ITestOutputH
         }
 
         Array.Sort(elapsedMicroseconds);
-        double p50 = elapsedMicroseconds[MeasureIterations / 2];
-        double p99 = elapsedMicroseconds[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
-        double max = elapsedMicroseconds[^1];
+        var p50 = elapsedMicroseconds[MeasureIterations / 2];
+        var p99 = elapsedMicroseconds[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
+        var max = elapsedMicroseconds[^1];
 
         // Log the full distribution every run for trend visibility — the p99/max
         // are observed here, not gated (they are jitter-dominated on CI).

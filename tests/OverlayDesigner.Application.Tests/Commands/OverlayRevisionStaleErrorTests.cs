@@ -47,7 +47,7 @@ public class OverlayRevisionStaleErrorTests
     [Fact]
     public void The_message_names_both_the_version_held_and_the_version_stored()
     {
-        foreach (ApiError error in EveryStaleCase())
+        foreach (var error in EveryStaleCase())
         {
             error.Message.ShouldContain("3");
             error.Message.ShouldContain("4");

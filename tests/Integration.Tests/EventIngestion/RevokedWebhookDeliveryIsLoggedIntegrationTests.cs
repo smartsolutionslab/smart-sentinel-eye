@@ -67,14 +67,14 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_delivery_to_a_revoked_integration_is_logged_as_revoked()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName("revoked-logged");
-        string token = await RegisterAndCaptureTokenAsync(admin, name);
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName("revoked-logged");
+        var token = await RegisterAndCaptureTokenAsync(admin, name);
         await RevokeAsync(admin, name);
 
-        using LogCapture capture = aspire.CaptureLogs(EventIngestionResource);
+        using var capture = aspire.CaptureLogs(EventIngestionResource);
 
-        HttpResponseMessage refused = await PostWebhookAsync(name, Fab, token);
+        var refused = await PostWebhookAsync(name, Fab, token);
 
         // The response is checked first and in full — status and body — before
         // any log is read. This is the pinned, unchanged half of the behaviour
@@ -84,8 +84,8 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
             "the 401 body must stay empty — this fact's new assertion is about an internal log "
             + "record only, never about what the caller receives.");
 
-        string expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
-        bool logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
+        var expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
+        var logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
 
         logged.ShouldBeTrue(
             $"expected the {EventIngestionResource} log to contain a record matching "
@@ -106,26 +106,26 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_delivery_to_an_integration_that_never_existed_logs_no_revocation()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        string neverRegisteredName = UniqueName("never-existed");
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var neverRegisteredName = UniqueName("never-existed");
 
-        using LogCapture capture = aspire.CaptureLogs(EventIngestionResource);
+        using var capture = aspire.CaptureLogs(EventIngestionResource);
 
-        HttpResponseMessage neverRegisteredResponse = await PostWebhookAsync(
+        var neverRegisteredResponse = await PostWebhookAsync(
             neverRegisteredName, Fab, "irrelevant-token");
         neverRegisteredResponse.StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized, await DiagnoseAsync(neverRegisteredResponse));
 
-        string sentinelName = UniqueName("sentinel-revoked");
-        string sentinelToken = await RegisterAndCaptureTokenAsync(admin, sentinelName);
+        var sentinelName = UniqueName("sentinel-revoked");
+        var sentinelToken = await RegisterAndCaptureTokenAsync(admin, sentinelName);
         await RevokeAsync(admin, sentinelName);
 
-        HttpResponseMessage sentinelResponse = await PostWebhookAsync(sentinelName, Fab, sentinelToken);
+        var sentinelResponse = await PostWebhookAsync(sentinelName, Fab, sentinelToken);
         sentinelResponse.StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized, await DiagnoseAsync(sentinelResponse));
 
-        string sentinelPhrase = $"Refused a delivery to revoked webhook integration '{sentinelName}'";
-        bool sentinelLogged = await MarkerEverAppearsAsync(capture, sentinelPhrase, LogAppearanceTimeout);
+        var sentinelPhrase = $"Refused a delivery to revoked webhook integration '{sentinelName}'";
+        var sentinelLogged = await MarkerEverAppearsAsync(capture, sentinelPhrase, LogAppearanceTimeout);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel's own revoked-delivery record (\"{sentinelPhrase}\") never appeared; "
             + "without it, finding no record naming the never-registered integration proves "
@@ -147,18 +147,18 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task The_revoked_delivery_record_never_carries_the_bearer()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName("revoked-bearer");
-        string token = await RegisterAndCaptureTokenAsync(admin, name);
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName("revoked-bearer");
+        var token = await RegisterAndCaptureTokenAsync(admin, name);
         await RevokeAsync(admin, name);
 
-        using LogCapture capture = aspire.CaptureLogs(EventIngestionResource);
+        using var capture = aspire.CaptureLogs(EventIngestionResource);
 
-        HttpResponseMessage refused = await PostWebhookAsync(name, Fab, token);
+        var refused = await PostWebhookAsync(name, Fab, token);
         refused.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await DiagnoseAsync(refused));
 
-        string expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
-        bool logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
+        var expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
+        var logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
         logged.ShouldBeTrue(
             $"expected the {EventIngestionResource} log to contain a record matching "
             + $"\"{expectedPhrase}\" before this fact can check what it carries; found none. "
@@ -199,14 +199,14 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     {
         const string callerFab = "dresden";
 
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName("revoked-mismatched-fab");
-        string token = await RegisterAndCaptureTokenInFabAsync(admin, name, Fab);
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName("revoked-mismatched-fab");
+        var token = await RegisterAndCaptureTokenInFabAsync(admin, name, Fab);
         await RevokeAsync(admin, name);
 
-        using LogCapture capture = aspire.CaptureLogs(EventIngestionResource);
+        using var capture = aspire.CaptureLogs(EventIngestionResource);
 
-        HttpResponseMessage refused = await PostWebhookAsync(name, callerFab, token);
+        var refused = await PostWebhookAsync(name, callerFab, token);
 
         // (a) the external 401 is unchanged by which fab the caller named —
         // checked first and in full, exactly as the facts above do.
@@ -214,14 +214,14 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
         (await refused.Content.ReadAsStringAsync()).ShouldBeEmpty(
             "the 401 body must stay empty regardless of which fabId the caller named.");
 
-        string expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
-        bool logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
+        var expectedPhrase = $"Refused a delivery to revoked webhook integration '{name}'";
+        var logged = await MarkerEverAppearsAsync(capture, expectedPhrase, LogAppearanceTimeout);
         logged.ShouldBeTrue(
             $"expected the {EventIngestionResource} log to contain a record matching "
             + $"\"{expectedPhrase}\" even though the caller named a fab other than the integration's "
             + $"own; found none. Captured lines:{Environment.NewLine}{CapturedLines(capture)}");
 
-        string matchedLine = capture.Lines.First(line => line.Contains(expectedPhrase, StringComparison.Ordinal));
+        var matchedLine = capture.Lines.First(line => line.Contains(expectedPhrase, StringComparison.Ordinal));
 
         // (b) the record names the integration's OWN fab — proving the log
         // call ran before (or regardless of) the fab-rejection check, which
@@ -250,11 +250,11 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     /// </summary>
     private static async Task<string> RegisterAndCaptureTokenAsync(HttpClient admin, string name)
     {
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
 
         return body.GetProperty("token").GetString()!;
     }
@@ -266,20 +266,20 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     /// </summary>
     private async Task RevokeAsync(HttpClient admin, string name)
     {
-        int version = (await FindAsync(admin, name)).GetProperty("version").GetInt32();
+        var version = (await FindAsync(admin, name)).GetProperty("version").GetInt32();
 
-        using HttpRequestMessage request = Conditional(name, version);
-        HttpResponseMessage revoked = await admin.SendAsync(request);
+        using var request = Conditional(name, version);
+        var revoked = await admin.SendAsync(request);
 
         revoked.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(revoked));
     }
 
     private static async Task<JsonElement> FindAsync(HttpClient admin, string name)
     {
-        HttpResponseMessage listed = await admin.GetAsync("/webhook-integrations?includeRevoked=false");
+        var listed = await admin.GetAsync("/webhook-integrations?includeRevoked=false");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.EnumerateArray().Single(row =>
             string.Equals(row.GetProperty("name").GetString(), name, StringComparison.Ordinal));
@@ -322,11 +322,11 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     /// </summary>
     private static async Task<string> RegisterAndCaptureTokenInFabAsync(HttpClient admin, string name, string fab)
     {
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"/webhook-integrations?fabId={fab}", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
 
         return body.GetProperty("token").GetString()!;
     }
@@ -340,7 +340,7 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     /// </summary>
     private static async Task<bool> MarkerEverAppearsAsync(LogCapture capture, string marker, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {

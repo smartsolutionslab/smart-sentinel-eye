@@ -26,9 +26,9 @@ public sealed class HttpRevokedClientSource(IHttpClientFactory httpClientFactory
 
     public async Task<IReadOnlyList<RevokedClientEntry>> FetchAsync(CancellationToken cancellationToken)
     {
-        HttpClient httpClient = httpClientFactory.CreateClient(HttpClientName);
+        var httpClient = httpClientFactory.CreateClient(HttpClientName);
 
-        RevokedClientsResponse response = await httpClient.GetFromJsonAsync<RevokedClientsResponse>(
+        var response = await httpClient.GetFromJsonAsync<RevokedClientsResponse>(
             "/registered-clients/revoked", cancellationToken)
             ?? throw new InvalidOperationException(
                 "Identity returned an empty response for GET /registered-clients/revoked.");

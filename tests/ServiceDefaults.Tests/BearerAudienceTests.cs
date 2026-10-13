@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -41,7 +40,7 @@ public class BearerAudienceTests
     [Fact]
     public void The_bearer_options_validate_the_audience()
     {
-        JwtBearerOptions options = BearerOptions();
+        var options = BearerOptions();
 
         options.TokenValidationParameters.ValidateAudience.ShouldBeTrue(
             "with audience validation off, an API accepts any token this realm signed — "
@@ -51,7 +50,7 @@ public class BearerAudienceTests
     [Fact]
     public void The_bearer_options_name_this_products_api()
     {
-        JwtBearerOptions options = BearerOptions();
+        var options = BearerOptions();
 
         // Materialised through a null-coalesce because "no audience configured"
         // arrives as a null collection, and letting ShouldContain dereference it
@@ -76,7 +75,7 @@ public class BearerAudienceTests
     [Fact]
     public void A_token_minted_for_another_api_is_refused()
     {
-        JwtBearerOptions options = BearerOptions();
+        var options = BearerOptions();
 
         Should.Throw<SecurityTokenInvalidAudienceException>(() =>
             Validators.ValidateAudience(
@@ -94,11 +93,11 @@ public class BearerAudienceTests
     /// </summary>
     private static JwtBearerOptions BearerOptions()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
         return provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
             .Get(JwtBearerDefaults.AuthenticationScheme);
     }

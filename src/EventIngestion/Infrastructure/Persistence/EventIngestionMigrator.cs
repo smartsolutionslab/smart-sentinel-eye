@@ -16,7 +16,7 @@ public sealed class EventIngestionMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using EventIngestionDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

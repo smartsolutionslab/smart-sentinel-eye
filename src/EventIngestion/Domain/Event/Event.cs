@@ -54,7 +54,7 @@ public sealed class Event : AggregateRoot<EventIdentifier>
         Ensure.That(payload).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         if (occurredAt.Value > now.Add(MaximumFutureSkew))
         {
             throw new ArgumentException(
@@ -63,7 +63,7 @@ public sealed class Event : AggregateRoot<EventIdentifier>
                 nameof(occurredAt));
         }
 
-        IngestedAt ingestedAt = IngestedAt.From(now);
+        var ingestedAt = IngestedAt.From(now);
         Event @event = new()
         {
             Id = identifier,

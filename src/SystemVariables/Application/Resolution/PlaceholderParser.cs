@@ -34,7 +34,7 @@ public static partial class PlaceholderParser
         List<string> ordered = [];
         foreach (Match m in PlaceholderRegex().Matches(labelText))
         {
-            string name = m.Groups["name"].Value;
+            var name = m.Groups["name"].Value;
             if (seen.Add(name))
             {
                 ordered.Add(name);
@@ -56,8 +56,8 @@ public static partial class PlaceholderParser
 
         return PlaceholderRegex().Replace(labelText, match =>
         {
-            string name = match.Groups["name"].Value;
-            string? value = resolveOne(name);
+            var name = match.Groups["name"].Value;
+            var value = resolveOne(name);
             return value ?? match.Value;
         });
     }

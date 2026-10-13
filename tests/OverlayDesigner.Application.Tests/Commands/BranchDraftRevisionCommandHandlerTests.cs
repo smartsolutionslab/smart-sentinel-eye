@@ -19,7 +19,7 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -29,7 +29,7 @@ public class BranchDraftRevisionCommandHandlerTests
 
         BranchDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(
                 overlay.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
@@ -46,7 +46,7 @@ public class BranchDraftRevisionCommandHandlerTests
         BranchDraftRevisionCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<BranchDraftRevisionCommandHandler>.Instance);
 
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(
                 OverlayIdentifier.New(), OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
@@ -60,7 +60,7 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -69,7 +69,7 @@ public class BranchDraftRevisionCommandHandlerTests
 
         BranchDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(
                 overlay.Id, OperatorIdentifier.From(Guid.CreateVersion7()), 0),
             CancellationToken.None);
@@ -89,15 +89,15 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        Overlay stranded = new OverlayBuilder().At(clock.UtcNow).Named("Line-1").Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var stranded = new OverlayBuilder().At(clock.UtcNow).Named("Line-1").Build();
         overlays.Add(stranded);
         stranded.Publish(OverlayRevisionNumber.One, by, clock);
         stranded.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
 
         BranchDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(stranded.Id, by, 0),
             CancellationToken.None);
 
@@ -118,8 +118,8 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        Overlay stranded = new OverlayBuilder().At(clock.UtcNow).Named("Line-1").Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var stranded = new OverlayBuilder().At(clock.UtcNow).Named("Line-1").Build();
         overlays.Add(stranded);
         stranded.Publish(OverlayRevisionNumber.One, by, clock);
         stranded.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
@@ -130,7 +130,7 @@ public class BranchDraftRevisionCommandHandlerTests
 
         BranchDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(stranded.Id, by, 0),
             CancellationToken.None);
 
@@ -155,14 +155,14 @@ public class BranchDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
-        Overlay live = new OverlayBuilder().At(clock.UtcNow).Named("Line-1").Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var live = new OverlayBuilder().At(clock.UtcNow).Named("Line-1").Build();
         overlays.Add(live);
         live.Publish(OverlayRevisionNumber.One, by, clock);
 
         BranchDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(live.Id, by, 0),
             CancellationToken.None);
 

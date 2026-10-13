@@ -59,7 +59,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         outcome.Examined.ShouldBe(2);
@@ -70,7 +70,7 @@ public class OrphanedClientSweepTests
             "2 of 2 eligible stamped clients orphaned looks like the wrong database, not two rare "
             + "cancellations (spec 320 §4.3)");
 
-        IReadOnlyList<LoggedEntry> refusals = logger.Named("OrphanedClientSweepRefused");
+        var refusals = logger.Named("OrphanedClientSweepRefused");
         refusals.Count.ShouldBe(1);
         refusals[0].Level.ShouldBe(LogLevel.Error);
         refusals[0].Field("Candidates").ShouldBe("2");
@@ -93,11 +93,11 @@ public class OrphanedClientSweepTests
         FakeClock clock = new(Now);
         InMemoryRegisteredClientRepository clients = new();
         clients.Add(ActiveRow("plc-active-1", ClientKind.Device, clock));
-        RegisteredClientAggregate replacedRow = ActiveRow("plc-replaced-1", ClientKind.Device, clock);
+        var replacedRow = ActiveRow("plc-replaced-1", ClientKind.Device, clock);
         replacedRow.Disable(clock);
         clients.Add(replacedRow);
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, clock).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBe(["plc-replaced-1"]);
@@ -112,7 +112,7 @@ public class OrphanedClientSweepTests
         keycloak.ServiceAccountCreatedAt["mystery-1"] = Now - PastGrace;
         InMemoryRegisteredClientRepository clients = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBeEmpty();
@@ -129,7 +129,7 @@ public class OrphanedClientSweepTests
         keycloak.ServiceAccountCreatedAt["webhook-orphan-1"] = Now - PastGrace;
         InMemoryRegisteredClientRepository clients = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBe(
@@ -153,7 +153,7 @@ public class OrphanedClientSweepTests
         FakeClock clock = new(Now);
         clients.Add(ActiveRow("webhook-active-1", ClientKind.WebhookIntegration, clock));
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, clock).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBeEmpty();
@@ -188,7 +188,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBeEmpty();
@@ -209,7 +209,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBe(["plc-readable"]);
@@ -237,7 +237,7 @@ public class OrphanedClientSweepTests
         // mass-disable guard before either disable is even attempted, which
         // is this test's own fix-in-flight behaviour, not what this test is
         // about). 2 orphans of 4 eligible stays clear of "more than half".
-        foreach (string registered in new[] { "plc-registered-a", "plc-registered-b" })
+        foreach (var registered in new[] { "plc-registered-a", "plc-registered-b" })
         {
             keycloak.StampedClients.Add(new StampedClient(registered, "device", Enabled: true));
             clients.Add(ActiveRow(registered, ClientKind.Device, clock));
@@ -245,7 +245,7 @@ public class OrphanedClientSweepTests
 
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, clock, logger).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBe(["plc-will-disable"]);
@@ -267,7 +267,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBeEmpty();
@@ -283,7 +283,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         FakeClock clock = new(Now);
 
-        foreach (string orphan in new[] { "plc-orphan-a", "plc-orphan-b", "plc-orphan-c" })
+        foreach (var orphan in new[] { "plc-orphan-a", "plc-orphan-b", "plc-orphan-c" })
         {
             keycloak.StampedClients.Add(new StampedClient(orphan, "device", Enabled: true));
             keycloak.ServiceAccountCreatedAt[orphan] = Now - PastGrace;
@@ -294,7 +294,7 @@ public class OrphanedClientSweepTests
 
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, clock, logger).SweepAsync(CancellationToken.None);
 
         outcome.Refused.ShouldBeTrue();
@@ -303,7 +303,7 @@ public class OrphanedClientSweepTests
             "3 of 4 enabled stamped clients orphaned looks like the wrong database, not a rare "
             + "cancellation (spec 320 §4.3)");
 
-        IReadOnlyList<LoggedEntry> refusals = logger.Named("OrphanedClientSweepRefused");
+        var refusals = logger.Named("OrphanedClientSweepRefused");
         refusals.Count.ShouldBe(1);
         refusals[0].Level.ShouldBe(LogLevel.Error);
         refusals[0].Field("Candidates").ShouldBe("3");
@@ -320,7 +320,7 @@ public class OrphanedClientSweepTests
         oneOfOne.StampedClients.Add(new StampedClient("plc-lone-orphan", "device", Enabled: true));
         oneOfOne.ServiceAccountCreatedAt["plc-lone-orphan"] = Now - PastGrace;
 
-        OrphanedClientSweepOutcome soleOutcome =
+        var soleOutcome =
             await SweepOver(oneOfOne, new InMemoryRegisteredClientRepository())
                 .SweepAsync(CancellationToken.None);
 
@@ -334,19 +334,19 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clientsForTwoOfFour = new();
         FakeClock clock = new(Now);
 
-        foreach (string orphan in new[] { "plc-orphan-x", "plc-orphan-y" })
+        foreach (var orphan in new[] { "plc-orphan-x", "plc-orphan-y" })
         {
             twoOfFour.StampedClients.Add(new StampedClient(orphan, "device", Enabled: true));
             twoOfFour.ServiceAccountCreatedAt[orphan] = Now - PastGrace;
         }
 
-        foreach (string registered in new[] { "plc-registered-x", "plc-registered-y" })
+        foreach (var registered in new[] { "plc-registered-x", "plc-registered-y" })
         {
             twoOfFour.StampedClients.Add(new StampedClient(registered, "device", Enabled: true));
             clientsForTwoOfFour.Add(ActiveRow(registered, ClientKind.Device, clock));
         }
 
-        OrphanedClientSweepOutcome halfOutcome =
+        var halfOutcome =
             await SweepOver(twoOfFour, clientsForTwoOfFour, clock).SweepAsync(CancellationToken.None);
 
         halfOutcome.Refused.ShouldBeFalse();
@@ -376,7 +376,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         outcome.Examined.ShouldBe(0);
@@ -419,7 +419,7 @@ public class OrphanedClientSweepTests
         InMemoryRegisteredClientRepository clients = new();
         CapturingLogger<OrphanedClientSweep> logger = new();
 
-        OrphanedClientSweepOutcome outcome =
+        var outcome =
             await SweepOver(keycloak, clients, logger: logger).SweepAsync(CancellationToken.None);
 
         keycloak.Disabled.ShouldBeEmpty();

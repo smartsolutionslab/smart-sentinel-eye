@@ -3,9 +3,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
@@ -28,10 +26,10 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Publish_rejects_a_stale_version_and_leaves_the_revision_in_Draft()
     {
-        (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
+        (var layouts, var clock, var layout) = Seeded();
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
@@ -42,10 +40,10 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Archive_rejects_a_stale_version_and_leaves_the_revision_in_Draft()
     {
-        (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
+        (var layouts, var clock, var layout) = Seeded();
 
         ArchiveRevisionCommandHandler handler = new(layouts, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
@@ -56,11 +54,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task BranchDraft_rejects_a_stale_version_and_adds_no_revision()
     {
-        (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
+        (var layouts, var clock, var layout) = Seeded();
         layout.Publish(LayoutRevisionNumber.One, Editor(), clock);
 
         BranchDraftRevisionCommandHandler handler = new(layouts, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand([Munich], layout.Id, Editor(), Stale),
             CancellationToken.None);
 
@@ -71,11 +69,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Revert_rejects_a_stale_version_and_leaves_the_revision_Published()
     {
-        (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
+        (var layouts, var clock, var layout) = Seeded();
         layout.Publish(LayoutRevisionNumber.One, Editor(), clock);
 
         RevertRevisionCommandHandler handler = new(layouts, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
@@ -86,11 +84,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task EditDraft_rejects_a_stale_version_and_leaves_the_tiles_untouched()
     {
-        (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
-        Guid originalCamera = layout.Revisions.Single().Tiles.Single().Camera.Value;
+        (var layouts, var clock, var layout) = Seeded();
+        var originalCamera = layout.Revisions.Single().Tiles.Single().Camera.Value;
 
         EditDraftRevisionCommandHandler handler = new(layouts, FakeCameraFabGuard.Permissive(), clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand([Munich],
                 layout.Id,
                 LayoutRevisionNumber.One,
@@ -106,10 +104,10 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task The_matching_version_is_accepted()
     {
-        (InMemoryLayoutRepository layouts, FakeClock clock, Layout layout) = Seeded();
+        (var layouts, var clock, var layout) = Seeded();
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand([Munich], layout.Id, LayoutRevisionNumber.One, Editor(), layout.Version),
             CancellationToken.None);
 
@@ -128,7 +126,7 @@ public class StaleVersionRejectionTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout layout = new LayoutBuilder().At(FixedMoment).Build();
+        var layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
 
         return (layouts, clock, layout);

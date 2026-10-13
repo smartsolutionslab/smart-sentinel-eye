@@ -30,7 +30,7 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new();
 
-        IResult result = await Run(Option<IdempotencyScope>.None, store, TimeProvider.System);
+        var result = await Run(Option<IdempotencyScope>.None, store, TimeProvider.System);
 
         ShouldBeOk(result, "done");
         store.Begins.ShouldBe(0, "an endpoint without a key must behave exactly as it did before ADR-0142.");
@@ -41,7 +41,7 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new();
 
-        IResult result = await Run(store);
+        var result = await Run(store);
 
         ShouldBeOk(result, "done");
         store.Completed.ShouldBe(Created);
@@ -52,7 +52,7 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new() { Next = IdempotencyReservation.CompletedWith(Created) };
 
-        IResult result = await Run(store);
+        var result = await Run(store);
 
         ShouldBeOk(result, $"replayed {Created}");
         store.WorkRuns.ShouldBe(0, "the whole point is that the operation is applied once.");
@@ -72,7 +72,7 @@ public class IdempotentRequestTests
             LandsAfter = 3,
         };
 
-        IResult result = await Run(store, new InstantClock());
+        var result = await Run(store, new InstantClock());
 
         ShouldBeOk(result, $"replayed {Created}");
         store.Begins.ShouldBe(4, "three in-progress reads, then the one that saw it land.");
@@ -83,9 +83,9 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new() { Next = IdempotencyReservation.InProgress };
 
-        IResult result = await Run(store, new InstantClock());
+        var result = await Run(store, new InstantClock());
 
-        ProblemHttpResult problem = result.ShouldBeOfType<ProblemHttpResult>();
+        var problem = result.ShouldBeOfType<ProblemHttpResult>();
         problem.StatusCode.ShouldBe(StatusCodes.Status409Conflict);
         problem.ProblemDetails.Title.ShouldBe(IdempotencyHeaders.InProgressErrorCode);
     }
@@ -138,7 +138,7 @@ public class IdempotentRequestTests
             ReleaseThrows = new InvalidOperationException("release failed"),
         };
 
-        InvalidOperationException escaped =
+        var escaped =
             await Should.ThrowAsync<InvalidOperationException>(() => Run(store));
 
         escaped.Message.ShouldBe(
@@ -167,7 +167,7 @@ public class IdempotentRequestTests
             ReleaseThrows = new InvalidOperationException("release failed"),
         };
 
-        using Activity? activity = source.StartActivity("idempotent-request-test");
+        using var activity = source.StartActivity("idempotent-request-test");
 
         await Should.ThrowAsync<InvalidOperationException>(() => Run(store));
 
@@ -188,7 +188,7 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new() { CreatesNothing = true };
 
-        IResult result = await Run(store);
+        var result = await Run(store);
 
         ShouldBeOk(result, "refused");
         store.Completed.ShouldBeNull();
@@ -205,7 +205,7 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new() { CompleteThrows = new InvalidOperationException("store unavailable") };
 
-        IResult result = await Run(store);
+        var result = await Run(store);
 
         ShouldBeOk(result, "done");
     }
@@ -220,7 +220,7 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new() { CreatesNothing = true, ReleaseThrows = new InvalidOperationException("store unavailable") };
 
-        IResult result = await Run(store);
+        var result = await Run(store);
 
         ShouldBeOk(result, "refused");
     }
@@ -249,7 +249,7 @@ public class IdempotentRequestTests
             ReleaseThrows = new InvalidOperationException("release failed"),
         };
 
-        using Activity? activity = source.StartActivity("idempotent-request-test");
+        using var activity = source.StartActivity("idempotent-request-test");
 
         await Run(store);
 
@@ -279,7 +279,7 @@ public class IdempotentRequestTests
 
         RecordingStore store = new() { CompleteThrows = new InvalidOperationException("completion failed") };
 
-        using Activity? activity = source.StartActivity("idempotent-request-test");
+        using var activity = source.StartActivity("idempotent-request-test");
 
         await Run(store);
 
@@ -319,9 +319,9 @@ public class IdempotentRequestTests
     {
         RecordingStore store = new() { Next = IdempotencyReservation.Mismatched };
 
-        IResult result = await Run(store);
+        var result = await Run(store);
 
-        ProblemHttpResult problem = result.ShouldBeOfType<ProblemHttpResult>();
+        var problem = result.ShouldBeOfType<ProblemHttpResult>();
         problem.StatusCode.ShouldBe(StatusCodes.Status422UnprocessableEntity);
         problem.ProblemDetails.Title.ShouldBe(IdempotencyHeaders.ReusedErrorCode);
         store.WorkRuns.ShouldBe(0, "a mismatch must never run the work — the row belongs to a different request.");

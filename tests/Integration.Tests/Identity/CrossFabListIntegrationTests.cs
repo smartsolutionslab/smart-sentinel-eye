@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -63,17 +61,17 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_listing_kiosks_without_a_fabId_does_not_see_a_dresden_kiosk()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await EnrollKioskAsync(dresden, "dresden");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await EnrollKioskAsync(dresden, "dresden");
 
-        using HttpClient munich = await MunichClientAsync();
+        using var munich = await MunichClientAsync();
         // Enrolled explicitly rather than relying on some other test's side
         // effect to have left a munich row behind: the second assertion below
         // needs at least one munich row to exist by construction, not by luck
         // of xUnit's unordered execution within the collection.
-        string munichClientId = await EnrollKioskAsync(munich, "munich");
+        var munichClientId = await EnrollKioskAsync(munich, "munich");
 
-        JsonElement rows = await ListAsync(munich, "/kiosks");
+        var rows = await ListAsync(munich, "/kiosks");
 
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
@@ -92,16 +90,16 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_listing_devices_without_a_fabId_does_not_see_a_dresden_device()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
 
-        using HttpClient munich = await MunichClientAsync();
+        using var munich = await MunichClientAsync();
         // Enrolled explicitly, same reasoning as I1: the distinct-fabs
         // assertion below needs a guaranteed munich row, not one that happens
         // to be left behind by another test's unordered execution.
-        string munichClientId = await RegisterDeviceAsync(munich, "munich");
+        var munichClientId = await RegisterDeviceAsync(munich, "munich");
 
-        JsonElement rows = await ListAsync(munich, "/devices");
+        var rows = await ListAsync(munich, "/devices");
 
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
@@ -120,16 +118,16 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_listing_webhook_integrations_without_a_fabId_does_not_see_a_dresden_integration()
     {
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
 
-        using HttpClient munich = await MunichClientAsync();
+        using var munich = await MunichClientAsync();
         // Created explicitly, same reasoning as I1/I2: the distinct-fabs
         // assertion below needs a guaranteed munich row, not one that happens
         // to be left behind by another test's unordered execution.
-        string munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
+        var munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
 
-        JsonElement rows = await ListAsync(munich, "/webhook-integrations");
+        var rows = await ListAsync(munich, "/webhook-integrations");
 
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
@@ -153,15 +151,15 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_multi_fab_operator_listing_kiosks_without_a_fabId_sees_both_their_fabs_and_no_others()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string munichClientId = await EnrollKioskAsync(munich, "munich");
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await EnrollKioskAsync(dresden, "dresden");
-        using HttpClient berlin = await BerlinClientAsync();
-        string berlinClientId = await EnrollKioskAsync(berlin, "berlin");
+        using var munich = await MunichClientAsync();
+        var munichClientId = await EnrollKioskAsync(munich, "munich");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await EnrollKioskAsync(dresden, "dresden");
+        using var berlin = await BerlinClientAsync();
+        var berlinClientId = await EnrollKioskAsync(berlin, "berlin");
 
-        using HttpClient multi = await MultiClientAsync();
-        JsonElement rows = await ListAsync(multi, "/kiosks");
+        using var multi = await MultiClientAsync();
+        var rows = await ListAsync(multi, "/kiosks");
 
         ClientIds(rows).ShouldContain(
             munichClientId,
@@ -180,15 +178,15 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_multi_fab_operator_listing_devices_without_a_fabId_sees_both_their_fabs_and_no_others()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string munichClientId = await RegisterDeviceAsync(munich, "munich");
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
-        using HttpClient berlin = await BerlinClientAsync();
-        string berlinClientId = await RegisterDeviceAsync(berlin, "berlin");
+        using var munich = await MunichClientAsync();
+        var munichClientId = await RegisterDeviceAsync(munich, "munich");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
+        using var berlin = await BerlinClientAsync();
+        var berlinClientId = await RegisterDeviceAsync(berlin, "berlin");
 
-        using HttpClient multi = await MultiClientAsync();
-        JsonElement rows = await ListAsync(multi, "/devices");
+        using var multi = await MultiClientAsync();
+        var rows = await ListAsync(multi, "/devices");
 
         ClientIds(rows).ShouldContain(
             munichClientId,
@@ -207,15 +205,15 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_multi_fab_operator_listing_webhook_integrations_without_a_fabId_sees_both_their_fabs_and_no_others()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
-        using HttpClient berlin = await BerlinClientAsync();
-        string berlinClientId = await CreateWebhookIntegrationAsync(berlin, "berlin");
+        using var munich = await MunichClientAsync();
+        var munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
+        using var berlin = await BerlinClientAsync();
+        var berlinClientId = await CreateWebhookIntegrationAsync(berlin, "berlin");
 
-        using HttpClient multi = await MultiClientAsync();
-        JsonElement rows = await ListAsync(multi, "/webhook-integrations");
+        using var multi = await MultiClientAsync();
+        var rows = await ListAsync(multi, "/webhook-integrations");
 
         ClientIds(rows).ShouldContain(
             munichClientId,
@@ -239,9 +237,9 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_naming_dresden_is_still_refused()
     {
-        using HttpClient munich = await MunichClientAsync();
+        using var munich = await MunichClientAsync();
 
-        HttpResponseMessage response = await munich.GetAsync("/kiosks?fabId=dresden");
+        var response = await munich.GetAsync("/kiosks?fabId=dresden");
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
@@ -258,12 +256,12 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_operator_naming_munich_still_sees_only_munich_rows()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string munichClientId = await EnrollKioskAsync(munich, "munich");
-        using HttpClient dresden = await DresdenClientAsync();
+        using var munich = await MunichClientAsync();
+        var munichClientId = await EnrollKioskAsync(munich, "munich");
+        using var dresden = await DresdenClientAsync();
         await EnrollKioskAsync(dresden, "dresden");
 
-        JsonElement rows = await ListAsync(munich, "/kiosks?fabId=munich");
+        var rows = await ListAsync(munich, "/kiosks?fabId=munich");
 
         ClientIds(rows).ShouldContain(
             munichClientId,
@@ -287,9 +285,9 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> EnrollKioskAsync(HttpClient client, string fab)
     {
-        string name = $"s183-wall-{Guid.CreateVersion7():N}";
+        var name = $"s183-wall-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage enrolled = await client.PostAsJsonAsync(
+        var enrolled = await client.PostAsJsonAsync(
             $"/kiosks/enroll?fabId={fab}", new { name });
         enrolled.StatusCode.ShouldBe(
             HttpStatusCode.Created, await enrolled.Content.ReadAsStringAsync());
@@ -299,7 +297,7 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> RegisterDeviceAsync(HttpClient client, string fab)
     {
-        HttpResponseMessage registered = await client.PostAsJsonAsync(
+        var registered = await client.PostAsJsonAsync(
             $"/devices/register?fabId={fab}",
             new { deviceType = "plc", deviceIdentifier = $"s183-{Guid.CreateVersion7():N}" });
         registered.StatusCode.ShouldBe(
@@ -310,14 +308,14 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> CreateWebhookIntegrationAsync(HttpClient client, string fab)
     {
-        string name = $"s183-{Guid.CreateVersion7():N}";
+        var name = $"s183-{Guid.CreateVersion7():N}";
         HttpRequestMessage request = new(HttpMethod.Post, $"/webhook-integrations/{name}/rotate")
         {
             Content = JsonContent.Create(new { fabId = fab }),
         };
         request.Headers.TryAddWithoutValidation("If-None-Match", "*");
 
-        HttpResponseMessage created = await client.SendAsync(request);
+        var created = await client.SendAsync(request);
         created.StatusCode.ShouldBe(
             HttpStatusCode.OK, await created.Content.ReadAsStringAsync());
 
@@ -326,7 +324,7 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
 
     private static async Task<JsonElement> ListAsync(HttpClient client, string path)
     {
-        HttpResponseMessage listed = await client.GetAsync(path);
+        var listed = await client.GetAsync(path);
         listed.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             $"a scoped list call must always answer 200, even with zero rows; got {(int)listed.StatusCode} "

@@ -7,8 +7,8 @@ public class CameraIdentifierTests
     [Fact]
     public void New_returns_a_distinct_non_empty_identifier_each_time()
     {
-        CameraIdentifier first = CameraIdentifier.New();
-        CameraIdentifier second = CameraIdentifier.New();
+        var first = CameraIdentifier.New();
+        var second = CameraIdentifier.New();
 
         first.Value.ShouldNotBe(Guid.Empty);
         second.Value.ShouldNotBe(Guid.Empty);
@@ -18,8 +18,8 @@ public class CameraIdentifierTests
     [Fact]
     public void From_with_an_existing_guid_round_trips_the_value()
     {
-        Guid raw = Guid.CreateVersion7();
-        CameraIdentifier wrapped = CameraIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var wrapped = CameraIdentifier.From(raw);
 
         wrapped.Value.ShouldBe(raw);
     }
@@ -35,8 +35,8 @@ public class CameraIdentifierTests
     [Fact]
     public void ToString_returns_the_guid_string_representation()
     {
-        Guid raw = Guid.CreateVersion7();
-        CameraIdentifier identifier = CameraIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var identifier = CameraIdentifier.From(raw);
 
         identifier.ToString().ShouldBe(raw.ToString());
     }

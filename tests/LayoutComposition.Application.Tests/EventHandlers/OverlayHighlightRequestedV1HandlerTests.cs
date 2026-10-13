@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
@@ -31,12 +30,12 @@ public class OverlayHighlightRequestedV1HandlerTests
         OverlayHighlightRequestedV1Handler handler = new(
             broadcaster, new RecordingLatencyBudget(), NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayHighlightRequestedV1 message = new(overlay, 10_000, Moment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
         await handler.Handle(message, CancellationToken.None);
 
-        OverlayHighlightedNotification notification = broadcaster.Highlighted.ShouldHaveSingleItem();
+        var notification = broadcaster.Highlighted.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
         notification.DurationMs.ShouldBe(10_000);
         notification.Fab.ShouldBe("munich");
@@ -52,8 +51,8 @@ public class OverlayHighlightRequestedV1HandlerTests
         OverlayHighlightRequestedV1Handler handler = new(
             broadcaster, new RecordingLatencyBudget(), NullLogger<OverlayHighlightRequestedV1Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
-        Guid causingEvent = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
+        var causingEvent = Guid.CreateVersion7();
 
         await handler.Handle(
             new OverlayHighlightRequestedV1(

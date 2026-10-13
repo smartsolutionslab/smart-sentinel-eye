@@ -96,7 +96,7 @@ public sealed class MqttPublisherStartTests
 
     private static async Task RunRoundsAsync(KeycloakTokenProvider tokens)
     {
-        for (int round = 0; round < Rounds; round++)
+        for (var round = 0; round < Rounds; round++)
         {
             FakeMqttClient client = new();
 
@@ -137,9 +137,9 @@ public sealed class MqttPublisherStartTests
     private static void RaceStartAsync(MqttPublisher publisher)
     {
         using Barrier barrier = new(RacingThreads);
-        Thread[] threads = new Thread[RacingThreads];
+        var threads = new Thread[RacingThreads];
 
-        for (int i = 0; i < RacingThreads; i++)
+        for (var i = 0; i < RacingThreads; i++)
         {
             threads[i] = new Thread(() =>
             {
@@ -150,7 +150,7 @@ public sealed class MqttPublisherStartTests
             threads[i].Start();
         }
 
-        foreach (Thread thread in threads)
+        foreach (var thread in threads)
         {
             thread.Join();
         }
@@ -158,7 +158,7 @@ public sealed class MqttPublisherStartTests
 
     private static async Task<bool> WaitUntilAsync(Func<bool> condition)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(2);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(2);
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (condition())
@@ -198,7 +198,7 @@ public sealed class MqttPublisherStartTests
 
         try
         {
-            for (int round = 0; round < DisposalRounds; round++)
+            for (var round = 0; round < DisposalRounds; round++)
             {
                 FakeMqttClient client = new();
                 MqttPublisher publisher = new(

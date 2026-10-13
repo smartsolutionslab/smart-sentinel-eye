@@ -34,7 +34,7 @@ internal static class ReactionRuleSeed
         Ensure.That(asset).IsNotNull();
         Ensure.That(reaction).IsNotNull();
 
-        string name = $"{scenario}-{asset.Key}-{reaction.Name}";
+        var name = $"{scenario}-{asset.Key}-{reaction.Name}";
         if (!IsValidRuleName(name))
         {
             return new ReactionSeedResult.Refused(
@@ -60,7 +60,7 @@ internal static class ReactionRuleSeed
             return new ReactionSeedResult.Refused("trigger Predicate must not be blank.");
         }
 
-        string predicate = $"$.device == '{asset.Camera.Path}' && ({reaction.When.Predicate})";
+        var predicate = $"$.device == '{asset.Camera.Path}' && ({reaction.When.Predicate})";
 
         switch (reaction.Then.Type)
         {
@@ -106,7 +106,7 @@ internal static class ReactionRuleSeed
             return new ReactionSeedResult.Refused("SetVariableValue reaction has no Value.");
         }
 
-        bool declared = asset.Variables.Any(variable =>
+        var declared = asset.Variables.Any(variable =>
             string.Equals(variable.Name, reaction.Then.Variable, StringComparison.Ordinal));
         if (!declared)
         {
@@ -132,9 +132,9 @@ internal static class ReactionRuleSeed
             return false;
         }
 
-        for (int i = 1; i < name.Length; i++)
+        for (var i = 1; i < name.Length; i++)
         {
-            char c = name[i];
+            var c = name[i];
             if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c) && c != '-')
             {
                 return false;

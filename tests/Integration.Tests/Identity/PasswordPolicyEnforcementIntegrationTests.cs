@@ -76,11 +76,11 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_running_realm_refuses_a_password_the_old_policy_admitted()
     {
-        (string username, string id, _) = await CreateProbeUserAsync(CancellationToken.None);
+        (var username, var id, _) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
-            using HttpClient admin = await MasterRealmAdminClientAsync(CancellationToken.None);
-            using HttpResponseMessage reset = await ResetPasswordAsync(admin, id, OldPolicyOnlyPassword, CancellationToken.None);
+            using var admin = await MasterRealmAdminClientAsync(CancellationToken.None);
+            using var reset = await ResetPasswordAsync(admin, id, OldPolicyOnlyPassword, CancellationToken.None);
 
             reset.StatusCode.ShouldBe(
                 HttpStatusCode.BadRequest,
@@ -90,7 +90,7 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
                 + $"realm's current declared policy. status: {(int)reset.StatusCode}, body: "
                 + $"{await reset.Content.ReadAsStringAsync()}");
 
-            using HttpResponseMessage token = await RequestTokenAsync(username, CompliantProbePassword, CancellationToken.None);
+            using var token = await RequestTokenAsync(username, CompliantProbePassword, CancellationToken.None);
             token.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
                 $"'{username}''s own compliant password should still mint a token after the refused "
@@ -113,21 +113,21 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Each_new_policy_clause_refuses_a_password_that_only_breaks_it()
     {
-        (string username, string id, string email) = await CreateProbeUserAsync(CancellationToken.None);
+        (var username, var id, var email) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
-            using HttpClient admin = await MasterRealmAdminClientAsync(CancellationToken.None);
+            using var admin = await MasterRealmAdminClientAsync(CancellationToken.None);
 
             // 15 chars, upper+lower+digit, no special character.
             const string missingSpecial = "Abcdefghijklmn1";
             // Compliant on every other clause; contains the probe's own
             // username verbatim.
-            string containsUsername = $"Xy9-{username}";
+            var containsUsername = $"Xy9-{username}";
             // The probe's own email, verbatim — itself 15+ chars and
             // class-compliant (EmailOf), and built to not contain the
             // username, so this refusal isolates `notEmail` from
             // `notContainsUsername`.
-            string equalsEmail = email;
+            var equalsEmail = email;
 
             (string Password, string Reason)[] refusals =
             [
@@ -136,9 +136,9 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
                 (equalsEmail, "equal to its own email, verbatim"),
             ];
 
-            foreach ((string password, string reason) in refusals)
+            foreach ((var password, var reason) in refusals)
             {
-                using HttpResponseMessage reset = await ResetPasswordAsync(admin, id, password, CancellationToken.None);
+                using var reset = await ResetPasswordAsync(admin, id, password, CancellationToken.None);
 
                 reset.StatusCode.ShouldBe(
                     HttpStatusCode.BadRequest,
@@ -147,7 +147,7 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
                     + $"{await reset.Content.ReadAsStringAsync()}");
             }
 
-            using HttpResponseMessage token = await RequestTokenAsync(username, CompliantProbePassword, CancellationToken.None);
+            using var token = await RequestTokenAsync(username, CompliantProbePassword, CancellationToken.None);
             token.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
                 $"'{username}''s own compliant password should still mint a token after all three "
@@ -167,13 +167,13 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_running_realm_declares_exactly_what_the_import_file_declares()
     {
-        string declaredInFile = DeclaredPolicyInFile();
+        var declaredInFile = DeclaredPolicyInFile();
 
-        using HttpClient admin = await MasterRealmAdminClientAsync(CancellationToken.None);
-        JsonElement representation = await RealmProbe.ReadJsonAsync(
+        using var admin = await MasterRealmAdminClientAsync(CancellationToken.None);
+        var representation = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{Realm}", CancellationToken.None);
 
-        representation.TryGetProperty("passwordPolicy", out JsonElement declaredOnServer).ShouldBeTrue(
+        representation.TryGetProperty("passwordPolicy", out var declaredOnServer).ShouldBeTrue(
             $"the master-admin read of 'admin/realms/{Realm}' did not include 'passwordPolicy' at "
             + $"all. representation: {representation}");
 
@@ -207,11 +207,11 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<(string Username, string Id, string Email)> CreateProbeUserAsync(CancellationToken cancellationToken)
     {
-        string username = $"policy-probe-{Guid.NewGuid():N}";
-        string email = EmailOf();
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var username = $"policy-probe-{Guid.NewGuid():N}";
+        var email = EmailOf();
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{Realm}/users",
             new
             {
@@ -228,12 +228,12 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
             + $"without it every assertion below proves nothing. body: "
             + $"{await created.Content.ReadAsStringAsync(cancellationToken)}");
 
-        string location = created.Headers.Location!.ToString();
-        string id = location[(location.LastIndexOf('/') + 1)..];
+        var location = created.Headers.Location!.ToString();
+        var id = location[(location.LastIndexOf('/') + 1)..];
 
         try
         {
-            HttpResponseMessage resetPassword = await admin.PutAsJsonAsync(
+            var resetPassword = await admin.PutAsJsonAsync(
                 $"admin/realms/{Realm}/users/{id}/reset-password",
                 new { type = "password", value = CompliantProbePassword, temporary = false },
                 cancellationToken);
@@ -258,8 +258,8 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task DeleteProbeUserAsync(string id, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
-        HttpResponseMessage deleted = await admin.DeleteAsync($"admin/realms/{Realm}/users/{id}", cancellationToken);
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var deleted = await admin.DeleteAsync($"admin/realms/{Realm}/users/{id}", cancellationToken);
 
         deleted.IsSuccessStatusCode.ShouldBeTrue(
             $"deleting throwaway probe user '{id}' answered {(int)deleted.StatusCode}; it is still "
@@ -283,7 +283,7 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     private async Task<HttpResponseMessage> RequestTokenAsync(
         string username, string password, CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
@@ -308,7 +308,7 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<HttpClient> MasterRealmAdminClientAsync(CancellationToken cancellationToken)
     {
-        using HttpClient tokenClient = aspire.CreateKeycloakClient();
+        using var tokenClient = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
@@ -317,17 +317,17 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
             ["password"] = MasterRealmAdminPassword,
         };
 
-        using HttpResponseMessage response = await tokenClient.PostAsync(
+        using var response = await tokenClient.PostAsync(
             "/realms/master/protocol/openid-connect/token", new FormUrlEncodedContent(form), cancellationToken);
-        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         response.IsSuccessStatusCode.ShouldBeTrue(
             $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; "
             + $"without it this file cannot read or write the application realm. body: {body}");
 
-        using JsonDocument document = JsonDocument.Parse(body);
-        string token = document.RootElement.GetProperty("access_token").GetString()!;
+        using var document = JsonDocument.Parse(body);
+        var token = document.RootElement.GetProperty("access_token").GetString()!;
 
-        HttpClient admin = aspire.CreateKeycloakClient();
+        var admin = aspire.CreateKeycloakClient();
         admin.DefaultRequestHeaders.Authorization = new("Bearer", token);
         return admin;
     }
@@ -342,11 +342,11 @@ public class PasswordPolicyEnforcementIntegrationTests(AspireFixture aspire)
     /// </summary>
     private static string DeclaredPolicyInFile()
     {
-        string path = Path.Combine(RepositoryRoot(), "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(RepositoryRoot(), "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm import should be at {path}");
 
-        string text = File.ReadAllText(path);
-        using JsonDocument document = JsonDocument.Parse(text);
+        var text = File.ReadAllText(path);
+        using var document = JsonDocument.Parse(text);
         return document.RootElement.GetProperty("passwordPolicy").GetString() ?? string.Empty;
     }
 

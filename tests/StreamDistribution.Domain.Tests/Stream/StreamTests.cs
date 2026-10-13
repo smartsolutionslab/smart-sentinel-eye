@@ -14,9 +14,9 @@ public class StreamTests
     [Fact]
     public void Provision_creates_a_provisioning_stream_and_raises_the_provisioned_event()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
 
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .ForCamera(camera)
             .At(FixedMoment)
             .Build();
@@ -36,9 +36,9 @@ public class StreamTests
     [Fact]
     public void Provision_records_when_it_happened_and_who_did_it()
     {
-        OperatorIdentifier operatorIdentifier = OperatorIdentifier.From(Guid.CreateVersion7());
+        var operatorIdentifier = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .At(FixedMoment)
             .ProvisionedBy(operatorIdentifier)
             .Build();
@@ -50,9 +50,9 @@ public class StreamTests
     [Fact]
     public void Provision_persists_the_source_url_so_the_reconciler_can_re_add_the_path()
     {
-        StreamSourceUrl source = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
+        var source = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
 
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .WithSourceUrl(source)
             .Build();
 
@@ -84,7 +84,7 @@ public class StreamTests
     [Fact]
     public void Provision_records_the_fab_the_camera_belongs_to()
     {
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .WithFab(FabIdentifier.From("dresden"))
             .Build();
 
@@ -99,7 +99,7 @@ public class StreamTests
     [Fact]
     public void Report_healthy_from_provisioning_transitions_and_raises_HealthChanged()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ClearPendingEvents();
 
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
@@ -109,7 +109,7 @@ public class StreamTests
         stream.LastSuccessAt!.Value.ShouldBe(FixedMoment);
         stream.LastError.ShouldBeNull();
 
-        StreamHealthChangedDomainEvent transition =
+        var transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Provisioning);
         transition.ToState.ShouldBe(StreamState.Healthy);
@@ -119,7 +119,7 @@ public class StreamTests
     [Fact]
     public void Report_healthy_when_already_healthy_does_not_raise_a_second_event()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ClearPendingEvents();
 
@@ -132,7 +132,7 @@ public class StreamTests
     [Fact]
     public void Report_degraded_from_healthy_raises_HealthChanged_with_the_error()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ClearPendingEvents();
 
@@ -141,7 +141,7 @@ public class StreamTests
         stream.State.ShouldBe(StreamState.Degraded);
         stream.LastError!.Value.ShouldBe("source unreachable");
 
-        StreamHealthChangedDomainEvent transition =
+        var transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Healthy);
         transition.ToState.ShouldBe(StreamState.Degraded);
@@ -151,7 +151,7 @@ public class StreamTests
     [Fact]
     public void Report_degraded_when_already_degraded_updates_LastError_but_does_not_raise_an_event()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ReportDegraded(StreamError.From("first failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ClearPendingEvents();
@@ -176,7 +176,7 @@ public class StreamTests
     [Fact]
     public void Report_offline_when_already_offline_updates_LastError_but_does_not_raise_an_event()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ReportOffline(StreamError.From("still unreachable"), new TestClock(FixedMoment.AddSeconds(30)));
@@ -192,7 +192,7 @@ public class StreamTests
     [Fact]
     public void Report_offline_from_degraded_raises_HealthChanged()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ReportDegraded(StreamError.From("first failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ClearPendingEvents();
@@ -200,7 +200,7 @@ public class StreamTests
         stream.ReportOffline(StreamError.From("retry exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
 
         stream.State.ShouldBe(StreamState.Offline);
-        StreamHealthChangedDomainEvent transition =
+        var transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Degraded);
         transition.ToState.ShouldBe(StreamState.Offline);
@@ -209,7 +209,7 @@ public class StreamTests
     [Fact]
     public void Report_offline_directly_from_healthy_throws()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
 
         Action act = () => stream.ReportOffline(StreamError.From("can't happen"), new TestClock(FixedMoment.AddSeconds(10)));
@@ -220,7 +220,7 @@ public class StreamTests
     [Fact]
     public void Report_healthy_from_degraded_transitions_back()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ReportDegraded(StreamError.From("first failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ClearPendingEvents();
@@ -229,7 +229,7 @@ public class StreamTests
 
         stream.State.ShouldBe(StreamState.Healthy);
         stream.LastError.ShouldBeNull();
-        StreamHealthChangedDomainEvent transition =
+        var transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Degraded);
         transition.ToState.ShouldBe(StreamState.Healthy);
@@ -238,7 +238,7 @@ public class StreamTests
     [Fact]
     public void Report_healthy_from_offline_transitions_back()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ReportDegraded(StreamError.From("failure"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ReportOffline(StreamError.From("exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
@@ -247,7 +247,7 @@ public class StreamTests
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment.AddMinutes(10)));
 
         stream.State.ShouldBe(StreamState.Healthy);
-        StreamHealthChangedDomainEvent transition =
+        var transition =
             stream.PendingEvents.Single().ShouldBeOfType<StreamHealthChangedDomainEvent>();
         transition.FromState.ShouldBe(StreamState.Offline);
         transition.ToState.ShouldBe(StreamState.Healthy);
@@ -263,8 +263,8 @@ public class StreamTests
     [Fact]
     public void The_fab_survives_every_state_transition()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
-        Domain.Stream.Stream stream = new StreamBuilder().WithFab(dresden).Build();
+        var dresden = FabIdentifier.From("dresden");
+        var stream = new StreamBuilder().WithFab(dresden).Build();
 
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.Fab.ShouldBe(dresden);
@@ -300,15 +300,15 @@ public class StreamTests
     [Fact]
     public void Every_health_announcement_carries_the_fab()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
-        Domain.Stream.Stream stream = new StreamBuilder().WithFab(dresden).Build();
+        var dresden = FabIdentifier.From("dresden");
+        var stream = new StreamBuilder().WithFab(dresden).Build();
 
         stream.ReportHealthy(TranscodeMode.Passthrough, new TestClock(FixedMoment));
         stream.ReportDegraded(StreamError.From("source unreachable"), new TestClock(FixedMoment.AddSeconds(15)));
         stream.ReportOffline(StreamError.From("retry exhausted"), new TestClock(FixedMoment.AddMinutes(5)));
         stream.Retire(new TestClock(FixedMoment.AddMinutes(10)));
 
-        StreamHealthChangedDomainEvent[] raised = stream.PendingEvents
+        var raised = stream.PendingEvents
             .OfType<StreamHealthChangedDomainEvent>()
             .ToArray();
 
@@ -346,7 +346,7 @@ public class StreamTests
     [Fact]
     public void A_stream_that_already_has_a_fab_cannot_be_reattributed()
     {
-        Domain.Stream.Stream stream = new StreamBuilder().WithFab(FabIdentifier.From("munich")).Build();
+        var stream = new StreamBuilder().WithFab(FabIdentifier.From("munich")).Build();
 
         Action act = () => stream.AttributeToFab(FabIdentifier.From("dresden"));
 

@@ -1,6 +1,5 @@
 using System.Diagnostics.Metrics;
 using System.Globalization;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 
@@ -26,7 +25,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_real_overlay_draw_is_recorded()
     {
-        List<Measurement> recorded = Listen("kiosk-overlay-draw");
+        var recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(18));
 
@@ -41,7 +40,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_suspended_page_sized_duration_is_not_recorded()
     {
-        List<Measurement> recorded = Listen("kiosk-overlay-draw");
+        var recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMinutes(5));
 
@@ -56,7 +55,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_negative_duration_records_nothing_rather_than_zero()
     {
-        List<Measurement> recorded = Listen("kiosk-receive-to-decoded");
+        var recorded = Listen("kiosk-receive-to-decoded");
 
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(-4));
 
@@ -71,7 +70,7 @@ public class KioskLatencyTests
     [Fact]
     public void The_two_kiosk_legs_are_separable()
     {
-        List<Measurement> recorded = Listen("kiosk-overlay-draw", "kiosk-receive-to-decoded");
+        var recorded = Listen("kiosk-overlay-draw", "kiosk-receive-to-decoded");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(20));
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(40));
@@ -105,11 +104,11 @@ public class KioskLatencyTests
     [Fact]
     public void The_decode_measurement_does_not_claim_its_leg()
     {
-        List<Measurement> recorded = Listen("kiosk-receive-to-decoded");
+        var recorded = Listen("kiosk-receive-to-decoded");
 
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(9));
 
-        Measurement only = recorded.ShouldHaveSingleItem();
+        var only = recorded.ShouldHaveSingleItem();
         only.IsWholeLeg.ShouldBeFalse(
             "receive-to-decoded excludes transit from the SFU; flagged whole it would report "
             + "the 120 ms budget met on the strength of its cheaper half");
@@ -127,11 +126,11 @@ public class KioskLatencyTests
     [Fact]
     public void The_overlay_measurement_does_claim_its_leg()
     {
-        List<Measurement> recorded = Listen("kiosk-overlay-draw");
+        var recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(12));
 
-        Measurement only = recorded.ShouldHaveSingleItem();
+        var only = recorded.ShouldHaveSingleItem();
         only.IsWholeLeg.ShouldBeTrue();
         only.LegBudget.ShouldBe(50);
     }
@@ -144,8 +143,8 @@ public class KioskLatencyTests
     [Fact]
     public void A_kiosk_figure_carries_the_camera_it_was_observed_on()
     {
-        List<Measurement> recorded = Listen("kiosk-overlay-draw");
-        Guid camera = Guid.CreateVersion7();
+        var recorded = Listen("kiosk-overlay-draw");
+        var camera = Guid.CreateVersion7();
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(12), camera);
 
@@ -159,7 +158,7 @@ public class KioskLatencyTests
     [Fact]
     public void A_figure_with_no_camera_carries_no_camera_tag()
     {
-        List<Measurement> recorded = Listen("kiosk-overlay-draw");
+        var recorded = Listen("kiosk-overlay-draw");
 
         LatencyBudget.Record(LatencySegment.KioskOverlayDraw, TimeSpan.FromMilliseconds(12));
 
@@ -173,9 +172,9 @@ public class KioskLatencyTests
     [Fact]
     public void Two_tiles_are_distinguishable_in_the_same_segment()
     {
-        List<Measurement> recorded = Listen("kiosk-receive-to-decoded");
-        Guid first = Guid.CreateVersion7();
-        Guid second = Guid.CreateVersion7();
+        var recorded = Listen("kiosk-receive-to-decoded");
+        var first = Guid.CreateVersion7();
+        var second = Guid.CreateVersion7();
 
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(30), first);
         LatencyBudget.Record(LatencySegment.KioskReceiveToDecoded, TimeSpan.FromMilliseconds(900), second);
@@ -193,11 +192,11 @@ public class KioskLatencyTests
     [Fact]
     public void A_presentation_buffer_measurement_is_recorded_as_a_whole_leg()
     {
-        List<Measurement> recorded = Listen("kiosk-presentation-buffer");
+        var recorded = Listen("kiosk-presentation-buffer");
 
         LatencyBudget.Record(LatencySegment.PresentationBuffer, TimeSpan.FromMilliseconds(120), camera: null);
 
-        Measurement only = recorded.ShouldHaveSingleItem();
+        var only = recorded.ShouldHaveSingleItem();
         only.Value.ShouldBe(120, tolerance: 0.5);
         only.Leg.ShouldBe("presentation-buffer");
         only.LegBudget.ShouldBe(200);
@@ -218,11 +217,11 @@ public class KioskLatencyTests
     [Fact]
     public void A_wall_skew_never_lands_in_the_latency_segment_histogram()
     {
-        List<Measurement> segments = Listen(
+        var segments = Listen(
             "kiosk-presentation-buffer",
             "kiosk-overlay-draw",
             "kiosk-receive-to-decoded");
-        List<double> skews = ListenToSkew();
+        var skews = ListenToSkew();
 
         WallSkew.Record(TimeSpan.FromMilliseconds(27), camera: null);
 
@@ -238,7 +237,7 @@ public class KioskLatencyTests
     [Fact]
     public void An_impossible_skew_is_not_recorded()
     {
-        List<double> skews = ListenToSkew();
+        var skews = ListenToSkew();
 
         WallSkew.Record(TimeSpan.FromMilliseconds(-5), camera: null);
         WallSkew.Record(TimeSpan.FromMinutes(5), camera: null);
@@ -261,11 +260,11 @@ public class KioskLatencyTests
     [Fact]
     public void A_label_delay_never_lands_in_the_latency_segment_histogram()
     {
-        List<Measurement> segments = Listen(
+        var segments = Listen(
             "kiosk-presentation-buffer",
             "kiosk-overlay-draw",
             "kiosk-receive-to-decoded");
-        List<double> holds = ListenToLabelDelay();
+        var holds = ListenToLabelDelay();
 
         LabelDelay.Record(TimeSpan.FromMilliseconds(37), camera: null);
 
@@ -282,8 +281,8 @@ public class KioskLatencyTests
     [Fact]
     public void A_hold_and_a_skew_are_not_the_same_instrument()
     {
-        List<double> skews = ListenToSkew();
-        List<double> holds = ListenToLabelDelay();
+        var skews = ListenToSkew();
+        var holds = ListenToLabelDelay();
 
         WallSkew.Record(TimeSpan.FromMilliseconds(27), camera: null);
         LabelDelay.Record(TimeSpan.FromMilliseconds(37), camera: null);
@@ -300,7 +299,7 @@ public class KioskLatencyTests
     [Fact]
     public void An_impossible_hold_is_not_recorded()
     {
-        List<double> holds = ListenToLabelDelay();
+        var holds = ListenToLabelDelay();
 
         LabelDelay.Record(TimeSpan.FromMilliseconds(-5), camera: null);
         LabelDelay.Record(TimeSpan.FromMinutes(5), camera: null);
@@ -371,12 +370,12 @@ public class KioskLatencyTests
 
         listener.SetMeasurementEventCallback<double>((_, measurement, tags, _) =>
         {
-            string segment = string.Empty;
-            string leg = string.Empty;
+            var segment = string.Empty;
+            var leg = string.Empty;
             double budget = 0;
-            bool whole = false;
-            string camera = string.Empty;
-            foreach (KeyValuePair<string, object?> tag in tags)
+            var whole = false;
+            var camera = string.Empty;
+            foreach (var tag in tags)
             {
                 switch (tag.Key)
                 {

@@ -7,7 +7,7 @@ public class SchemaVersionTests
     [Fact]
     public void Accepts_a_stamped_version()
     {
-        SchemaVersion version = SchemaVersion.From(3);
+        var version = SchemaVersion.From(3);
         version.Value.ShouldBe((short)3);
     }
 

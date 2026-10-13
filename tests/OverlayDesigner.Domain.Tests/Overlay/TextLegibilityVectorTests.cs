@@ -51,7 +51,7 @@ public class TextLegibilityVectorTests
 
     private static List<Vector> LoadVectors()
     {
-        string json = File.ReadAllText(FixturePath());
+        var json = File.ReadAllText(FixturePath());
         return JsonSerializer.Deserialize<List<Vector>>(json)
             ?? throw new InvalidOperationException("text-legibility-vectors.json deserialised to null.");
     }
@@ -70,7 +70,7 @@ public class TextLegibilityVectorTests
     public void IsLegible_agrees_with_the_independent_reference_generator(
         string color, bool expectedLegible, string expectedMinimumAlphaHex)
     {
-        OverlayColor parsed = OverlayColor.From(color);
+        var parsed = OverlayColor.From(color);
 
         TextLegibility.IsLegible(parsed).ShouldBe(expectedLegible, $"colour {color}");
         TextLegibility.MinimumAlpha(parsed).ShouldBe(

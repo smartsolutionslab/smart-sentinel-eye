@@ -39,8 +39,8 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Five_cameras_settle_into_observable_states_in_the_batch_API_within_30_seconds()
     {
-        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
         (string Address, string ExpectedState)[] sources =
         [
@@ -51,8 +51,8 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
             ("rtsp://10.0.6.2/h264", "Degraded"),
         ];
 
-        Guid[] cameras = new Guid[sources.Length];
-        for (int index = 0; index < cameras.Length; index++)
+        var cameras = new Guid[sources.Length];
+        for (var index = 0; index < cameras.Length; index++)
         {
             cameras[index] = await RegisterAsync(
                 cameraClient,
@@ -64,18 +64,18 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
 
         await WaitForBatchSettledAsync(streamClient, cameras, expected, SettleTimeout);
 
-        HttpResponseMessage response = await streamClient.GetAsync(
+        var response = await streamClient.GetAsync(
             $"/streams?cameraIdentifiers={string.Join(',', cameras)}");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement items = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var items = await response.Content.ReadFromJsonAsync<JsonElement>();
         items.GetArrayLength().ShouldBe(cameras.Length);
 
-        Dictionary<Guid, string> stateByCamera = items.EnumerateArray().ToDictionary(
+        var stateByCamera = items.EnumerateArray().ToDictionary(
             element => Guid.Parse(element.GetProperty("cameraIdentifier").GetString()!),
             element => element.GetProperty("state").GetString()!);
 
-        for (int index = 0; index < cameras.Length; index++)
+        for (var index = 0; index < cameras.Length; index++)
         {
             stateByCamera.ShouldContainKey(cameras[index]);
             stateByCamera[cameras[index]].ShouldBe(expected[index]);
@@ -84,7 +84,7 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
 
     private static async Task<Guid> RegisterAsync(HttpClient client, string name, string rtspUrl)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras", new { name, rtspUrl });
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>();
@@ -109,25 +109,25 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
     private static async Task WaitForBatchSettledAsync(
         HttpClient streamClient, Guid[] cameras, string[] expected, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
-        string query = string.Join(',', cameras);
-        string lastObserved = "<no response yet>";
+        var deadline = DateTime.UtcNow + timeout;
+        var query = string.Join(',', cameras);
+        var lastObserved = "<no response yet>";
 
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await streamClient.GetAsync(
+            var response = await streamClient.GetAsync(
                 $"/streams?cameraIdentifiers={query}");
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                JsonElement items = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var items = await response.Content.ReadFromJsonAsync<JsonElement>();
                 if (items.GetArrayLength() == cameras.Length)
                 {
-                    Dictionary<Guid, string> states = items.EnumerateArray().ToDictionary(
+                    var states = items.EnumerateArray().ToDictionary(
                         element => Guid.Parse(element.GetProperty("cameraIdentifier").GetString()!),
                         element => element.GetProperty("state").GetString()!);
 
                     if (cameras.Select((camera, index) =>
-                            states.TryGetValue(camera, out string? state)
+                            states.TryGetValue(camera, out var state)
                             && string.Equals(state, expected[index], StringComparison.Ordinal))
                         .All(matched => matched))
                     {
@@ -137,7 +137,7 @@ public class ListStreamsByCamerasIntegrationTests(AspireFixture aspire) : IAsync
                     lastObserved = string.Join(
                         ", ",
                         cameras.Select((camera, index) =>
-                            $"{expected[index]}->{(states.TryGetValue(camera, out string? state) ? state : "<absent>")}"));
+                            $"{expected[index]}->{(states.TryGetValue(camera, out var state) ? state : "<absent>")}"));
                 }
                 else
                 {

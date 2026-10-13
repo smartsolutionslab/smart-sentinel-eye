@@ -63,15 +63,15 @@ public class RetiredSeededPasswordTests
     [Fact]
     public void No_retired_seeded_password_remains_in_readme_quickstarts_tests_e2e_or_src()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         string[] retired = [.. RetiredSeededCredentials.Select(credential => Capitalise(credential.Username) + credential.Suffix)];
-        string[] files = ScannedFiles(root);
+        var files = ScannedFiles(root);
 
         List<string> offenders = [];
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string text = File.ReadAllText(file);
-            foreach (string password in retired)
+            var text = File.ReadAllText(file);
+            foreach (var password in retired)
             {
                 if (text.Contains(password, StringComparison.Ordinal))
                 {
@@ -96,21 +96,21 @@ public class RetiredSeededPasswordTests
     {
         List<string> files = [];
 
-        string readme = Path.Combine(root.FullName, "README.md");
+        var readme = Path.Combine(root.FullName, "README.md");
         if (File.Exists(readme))
         {
             files.Add(readme);
         }
 
-        string specsDirectory = Path.Combine(root.FullName, "specs");
+        var specsDirectory = Path.Combine(root.FullName, "specs");
         if (Directory.Exists(specsDirectory))
         {
             files.AddRange(Directory.EnumerateFiles(specsDirectory, "quickstart.md", SearchOption.AllDirectories));
         }
 
-        foreach (string tree in new[] { "tests", "e2e", "src" })
+        foreach (var tree in new[] { "tests", "e2e", "src" })
         {
-            string directory = Path.Combine(root.FullName, tree);
+            var directory = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(directory))
             {
                 continue;

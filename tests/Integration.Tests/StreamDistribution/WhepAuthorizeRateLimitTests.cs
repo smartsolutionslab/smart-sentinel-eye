@@ -179,11 +179,11 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </remarks>
     private async Task<int> BeginCountingAsync()
     {
-        bool refused = false;
+        var refused = false;
 
-        for (int attempt = 0; attempt < PermitLimit + 1; attempt++)
+        for (var attempt = 0; attempt < PermitLimit + 1; attempt++)
         {
-            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+            using var response = await PostAsync(NoTokenBody(NewPath()));
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -229,11 +229,11 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </remarks>
     private async Task<int> BeginCountingWithClearDebounceAsync()
     {
-        bool refused = false;
+        var refused = false;
 
-        for (int attempt = 0; attempt < PermitLimit + 1; attempt++)
+        for (var attempt = 0; attempt < PermitLimit + 1; attempt++)
         {
-            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+            using var response = await PostAsync(NoTokenBody(NewPath()));
 
             if (response.StatusCode == HttpStatusCode.TooManyRequests)
             {
@@ -267,9 +267,9 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Authorize_refuses_a_source_over_its_window_with_429()
     {
-        int budget = await BeginCountingAsync();
+        var budget = await BeginCountingAsync();
 
-        HttpStatusCode last = await ExhaustWindowAsync(budget);
+        var last = await ExhaustWindowAsync(budget);
 
         last.ShouldBe(HttpStatusCode.TooManyRequests);
     }
@@ -304,20 +304,20 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_throttled_authorize_never_reaches_the_handler()
     {
-        int budget = await BeginCountingAsync();
-        using LogCapture capture = aspire.CaptureLogs(StreamDistributionResource);
+        var budget = await BeginCountingAsync();
+        using var capture = aspire.CaptureLogs(StreamDistributionResource);
 
-        for (int i = 0; i < budget - 1; i++)
+        for (var i = 0; i < budget - 1; i++)
         {
-            HttpResponseMessage response = await PostAsync(NoActionBody(NewPath()));
+            var response = await PostAsync(NoActionBody(NewPath()));
             response.StatusCode.ShouldNotBe(
                 HttpStatusCode.TooManyRequests,
                 $"filler request {i + 1} of {budget - 1} should still be admitted; if this fails the "
                 + "fact's own admitted-request budget is wrong, not the throttled assertion below.");
         }
 
-        string sentinelPath = NewPath();
-        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+        var sentinelPath = NewPath();
+        var sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
 
         // S7 (spec 208 review), extended by spec 251 FR-004: the sentinel's
         // own status is asserted here — before any log is read — so a
@@ -331,8 +331,8 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             + $"action check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
             + $"{sentinelResponse.StatusCode}.");
 
-        string throttledPath = NewPath();
-        HttpResponseMessage throttledResponse = await PostAsync(NoActionBody(throttledPath));
+        var throttledPath = NewPath();
+        var throttledResponse = await PostAsync(NoActionBody(throttledPath));
 
         // S7 (spec 208 review): FR-002 is specifically about what happens to
         // a request the limiter actually refused — this was previously only
@@ -346,14 +346,14 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             $"request {budget + 1} in the window should have been refused by the limiter; it "
             + "was not, so the absence of a handler log below proves nothing about FR-002.");
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
+        var sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail via "
             + "RefusedAbsentWhepAction; if this fails the test's own admitted-request budget is "
             + "wrong, not the throttled assertion above. stream-distribution log:"
             + $"{Environment.NewLine}{CapturedEvidence(capture, sentinelPath, throttledPath)}");
 
-        bool throttledMarkerLogged = await MarkerEverAppearsInLogsAsync(capture, throttledPath, LogAbsenceGraceWindow);
+        var throttledMarkerLogged = await MarkerEverAppearsInLogsAsync(capture, throttledPath, LogAbsenceGraceWindow);
         throttledMarkerLogged.ShouldBeFalse(
             $"path '{throttledPath}' was logged by AuthorizeWhepCommandHandler even though request "
             + $"{budget + 1} in the window should have been refused by the limiter before the "
@@ -367,13 +367,13 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Authorize_declares_the_429_it_can_answer()
     {
-        HttpResponseMessage document = await aspire.StreamDistribution.GetAsync("/openapi/v1.json");
+        var document = await aspire.StreamDistribution.GetAsync("/openapi/v1.json");
         document.StatusCode.ShouldBe(
             HttpStatusCode.OK, await document.Content.ReadAsStringAsync());
 
-        using JsonDocument openApi = await JsonDocument.ParseAsync(await document.Content.ReadAsStreamAsync());
+        using var openApi = await JsonDocument.ParseAsync(await document.Content.ReadAsStreamAsync());
 
-        JsonElement responses = openApi.RootElement
+        var responses = openApi.RootElement
             .GetProperty("paths")
             .GetProperty("/streams/authorize")
             .GetProperty("post")
@@ -394,7 +394,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Health_and_readiness_are_never_throttled()
     {
-        int budget = await BeginCountingAsync();
+        var budget = await BeginCountingAsync();
 
         // S7 (spec 208 review): this fact's whole premise is that the source
         // below is actually throttled on /streams/authorize by this point —
@@ -406,24 +406,24 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
             "the window-exhaustion helper's own last response was not 429 — this fact's premise "
             + "(a source over the ceiling) does not hold, so the assertions below prove nothing.");
 
-        HttpResponseMessage health = await aspire.StreamDistribution.GetAsync("/health");
+        var health = await aspire.StreamDistribution.GetAsync("/health");
         health.StatusCode.ShouldNotBe(HttpStatusCode.TooManyRequests);
 
-        HttpResponseMessage alive = await aspire.StreamDistribution.GetAsync("/alive");
+        var alive = await aspire.StreamDistribution.GetAsync("/alive");
         alive.StatusCode.ShouldNotBe(HttpStatusCode.TooManyRequests);
 
         // The other three /streams routes all require sse.streams.read and no
         // token is sent, so today's answer on each is 401 — the point here is
         // only that it is not 429, i.e. that the "whep-authorize" policy was
         // never attached to the MapGroup.
-        HttpResponseMessage getOne = await aspire.StreamDistribution.GetAsync(
+        var getOne = await aspire.StreamDistribution.GetAsync(
             $"/streams/{Guid.CreateVersion7()}");
         getOne.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        HttpResponseMessage list = await aspire.StreamDistribution.GetAsync("/streams/");
+        var list = await aspire.StreamDistribution.GetAsync("/streams/");
         list.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        HttpResponseMessage kioskLatency = await aspire.StreamDistribution.PostAsJsonAsync(
+        var kioskLatency = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/kiosk-latency", new { });
         kioskLatency.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -440,8 +440,8 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_partition_entering_the_throttled_state_is_logged_once()
     {
-        int budget = await BeginCountingWithClearDebounceAsync();
-        using LogCapture capture = aspire.CaptureLogs(StreamDistributionResource);
+        var budget = await BeginCountingWithClearDebounceAsync();
+        using var capture = aspire.CaptureLogs(StreamDistributionResource);
 
         // S6 (spec 208 review): anchors on a sentinel's position in the
         // capture instead of a baseline-count delta. Spec 291 §1.2: the
@@ -453,8 +453,8 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
         // the later read. A sentinel line's position in the capture does not
         // have that problem: the capture cannot evict it, so once found,
         // everything counted after it is provably after it.
-        string sentinelPath = NewPath();
-        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+        var sentinelPath = NewPath();
+        var sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
 
         // Spec 251 FR-004: the sentinel's own status is asserted before any
         // log is read — see the identical reasoning in
@@ -467,21 +467,21 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
 
         // Spec 251 FR-002: every counted request — the sentinel above, then
         // the exhaust below — is sent before any log is polled.
-        HttpStatusCode last = await ExhaustWindowAsync(budget - 1);
+        var last = await ExhaustWindowAsync(budget - 1);
         last.ShouldBe(
             HttpStatusCode.TooManyRequests,
             "the window-exhaustion helper's own last response was not 429 after the sentinel — this "
             + "fact's premise (a source over the ceiling) does not hold, so the count below proves "
             + "nothing.");
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
+        var sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
             + "without it there is no reliable position to count throttle-transition records after. "
             + $"stream-distribution log:{Environment.NewLine}"
             + $"{CapturedEvidence(capture, sentinelPath)}");
 
-        int transitionLogCount = await ThrottleTransitionCountSinceAsync(capture, sentinelPath, LogAbsenceGraceWindow);
+        var transitionLogCount = await ThrottleTransitionCountSinceAsync(capture, sentinelPath, LogAbsenceGraceWindow);
 
         transitionLogCount.ShouldBe(
             1,
@@ -512,31 +512,31 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Repeated_refusals_within_the_same_window_do_not_add_a_second_log_record()
     {
-        int budget = await BeginCountingWithClearDebounceAsync();
-        using LogCapture capture = aspire.CaptureLogs(StreamDistributionResource);
+        var budget = await BeginCountingWithClearDebounceAsync();
+        using var capture = aspire.CaptureLogs(StreamDistributionResource);
 
         // S6 (spec 208 review): sentinel-position anchor — see the identical
         // comment in A_partition_entering_the_throttled_state_is_logged_once.
         // A fresh sentinel also naturally excludes a prior fact's own
         // leftover transition record.
-        string sentinelPath = NewPath();
-        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+        var sentinelPath = NewPath();
+        var sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
         sentinelResponse.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
             $"the sentinel request should be admitted and refused only by the handler's own action "
             + $"check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
             + $"{sentinelResponse.StatusCode}.");
 
-        HttpStatusCode last = await ExhaustWindowAsync(budget - 1);
+        var last = await ExhaustWindowAsync(budget - 1);
         last.ShouldBe(
             HttpStatusCode.TooManyRequests,
             "the window-exhaustion helper's own last response was not 429 after the sentinel — this "
             + "fact's premise (a source over the ceiling) does not hold, so the repeats below prove "
             + "nothing.");
 
-        for (int i = 0; i < 5; i++)
+        for (var i = 0; i < 5; i++)
         {
-            HttpResponseMessage repeat = await PostAsync(NoTokenBody(NewPath()));
+            var repeat = await PostAsync(NoTokenBody(NewPath()));
             repeat.StatusCode.ShouldBe(
                 HttpStatusCode.TooManyRequests,
                 $"repeat refusal {i + 1} of 5 should still be refused by the limiter inside the same "
@@ -545,21 +545,21 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
                 + "FR-009's repeated-refusal silence.");
         }
 
-        bool sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
+        var sentinelLogged = await MarkerEverAppearsInLogsAsync(capture, sentinelPath, LogAbsenceGraceWindow);
         sentinelLogged.ShouldBeTrue(
             $"the sentinel request's own path ('{sentinelPath}') never appeared in the log tail; "
             + "without it there is no reliable position to count throttle-transition records after. "
             + $"stream-distribution log:{Environment.NewLine}"
             + $"{CapturedEvidence(capture, sentinelPath)}");
 
-        int afterTransition = await ThrottleTransitionCountSinceAsync(capture, sentinelPath, LogAbsenceGraceWindow);
+        var afterTransition = await ThrottleTransitionCountSinceAsync(capture, sentinelPath, LogAbsenceGraceWindow);
 
         // Nothing to poll *for* here: on a healthy implementation the repeats
         // must not log at all, so there is no delivery to wait on. A short
         // fixed pause only guards against a slow-but-real second delivery
         // being missed by reading the tail before it lands.
         await Task.Delay(PollInterval);
-        int afterRepeats = ThrottleTransitionCountSince(capture, sentinelPath);
+        var afterRepeats = ThrottleTransitionCountSince(capture, sentinelPath);
 
         afterTransition.ShouldBe(
             1,
@@ -611,7 +611,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_fact_that_starts_just_before_a_window_boundary_still_counts_one_whole_window()
     {
-        for (int i = 0; i < PermitLimit + 1; i++)
+        for (var i = 0; i < PermitLimit + 1; i++)
         {
             await PostAsync(NoTokenBody(NewPath()));
         }
@@ -619,11 +619,11 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
         await PollUntilAdmittedAsync();
         await Task.Delay(Window - TimeSpan.FromMilliseconds(150));
 
-        int budget = await BeginCountingAsync();
+        var budget = await BeginCountingAsync();
 
-        for (int i = 0; i < budget - 1; i++)
+        for (var i = 0; i < budget - 1; i++)
         {
-            HttpResponseMessage response = await PostAsync(NoActionBody(NewPath()));
+            var response = await PostAsync(NoActionBody(NewPath()));
             response.StatusCode.ShouldNotBe(
                 HttpStatusCode.TooManyRequests,
                 $"filler request {i + 1} of {budget - 1} should still be admitted; a fact that starts "
@@ -631,16 +631,16 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
                 + "aligned to the following boundary.");
         }
 
-        string sentinelPath = NewPath();
-        HttpResponseMessage sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
+        var sentinelPath = NewPath();
+        var sentinelResponse = await PostAsync(NoActionBody(sentinelPath));
         sentinelResponse.StatusCode.ShouldBe(
             HttpStatusCode.Forbidden,
             $"the sentinel request should be admitted and refused only by the handler's own action "
             + $"check (403), not by the limiter; got {(int)sentinelResponse.StatusCode} "
             + $"{sentinelResponse.StatusCode}.");
 
-        string throttledPath = NewPath();
-        HttpResponseMessage throttledResponse = await PostAsync(NoActionBody(throttledPath));
+        var throttledPath = NewPath();
+        var throttledResponse = await PostAsync(NoActionBody(throttledPath));
         throttledResponse.StatusCode.ShouldBe(
             HttpStatusCode.TooManyRequests,
             $"request {budget + 1} in the window should have been refused by the limiter; a fact "
@@ -688,16 +688,16 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task<HttpStatusCode> ExhaustWindowAsync(int budget)
     {
-        for (int attempt = 0; attempt < budget; attempt++)
+        for (var attempt = 0; attempt < budget; attempt++)
         {
-            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+            using var response = await PostAsync(NoTokenBody(NewPath()));
             response.StatusCode.ShouldNotBe(
                 HttpStatusCode.TooManyRequests,
                 $"request {attempt + 1} of {budget} should still be admitted; if this fails the "
                 + "fact's own admitted-request budget is wrong, not the refusal asserted after it.");
         }
 
-        using HttpResponseMessage overflow = await PostAsync(NoTokenBody(NewPath()));
+        using var overflow = await PostAsync(NoTokenBody(NewPath()));
         return overflow.StatusCode;
     }
 
@@ -709,12 +709,12 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task WaitUntilAdmittedAgainAsync()
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + AdmissionRecoveryTimeout;
+        var deadline = DateTimeOffset.UtcNow + AdmissionRecoveryTimeout;
         HttpStatusCode status;
 
         do
         {
-            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+            using var response = await PostAsync(NoTokenBody(NewPath()));
             status = response.StatusCode;
 
             if (status != HttpStatusCode.TooManyRequests)
@@ -758,12 +758,12 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task PollUntilAdmittedAsync()
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + AdmissionRecoveryTimeout;
+        var deadline = DateTimeOffset.UtcNow + AdmissionRecoveryTimeout;
         HttpStatusCode status;
 
         do
         {
-            using HttpResponseMessage response = await PostAsync(NoTokenBody(NewPath()));
+            using var response = await PostAsync(NoTokenBody(NewPath()));
             status = response.StatusCode;
 
             if (status != HttpStatusCode.TooManyRequests)
@@ -790,7 +790,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private static async Task<bool> MarkerEverAppearsInLogsAsync(LogCapture capture, string marker, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -822,8 +822,8 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     private static async Task<int> ThrottleTransitionCountSinceAsync(
         LogCapture capture, string sentinelPath, TimeSpan settleTimeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + settleTimeout;
-        int count = ThrottleTransitionCountSince(capture, sentinelPath);
+        var deadline = DateTimeOffset.UtcNow + settleTimeout;
+        var count = ThrottleTransitionCountSince(capture, sentinelPath);
 
         while (count == 0 && DateTimeOffset.UtcNow < deadline)
         {
@@ -858,10 +858,10 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </param>
     private static int ThrottleTransitionCountSince(LogCapture capture, string sentinelPath)
     {
-        IReadOnlyList<string> lines = capture.Lines;
+        var lines = capture.Lines;
 
-        int sentinelIndex = -1;
-        for (int i = lines.Count - 1; i >= 0; i--)
+        var sentinelIndex = -1;
+        for (var i = lines.Count - 1; i >= 0; i--)
         {
             if (lines[i].Contains(sentinelPath, StringComparison.Ordinal))
             {
@@ -896,9 +896,9 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private static string CapturedEvidence(LogCapture capture, params string[] paths)
     {
-        IReadOnlyList<string> lines = capture.Lines;
+        var lines = capture.Lines;
 
-        IEnumerable<string> relevant = lines.Where(line =>
+        var relevant = lines.Where(line =>
             paths.Any(path => line.Contains(path, StringComparison.Ordinal))
             || ThrottleTransitionMarkers.Any(marker => line.Contains(marker, StringComparison.OrdinalIgnoreCase)));
 

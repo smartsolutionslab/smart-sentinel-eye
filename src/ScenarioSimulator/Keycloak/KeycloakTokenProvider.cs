@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ServiceDefaults.Authentication;
@@ -38,7 +37,7 @@ public sealed class KeycloakTokenProvider(
 
     private static ClientCredentials Credentials(IOptions<SimulatorOptions> options)
     {
-        SimulatorOptions opts = options.Value;
+        var opts = options.Value;
         return new ClientCredentials(opts.KeycloakUrl, opts.Realm, opts.ClientId, opts.ClientSecret);
     }
 }

@@ -1,6 +1,3 @@
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
-using SmartSentinelEye.Shared.Kernel;
-
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 
 /// <summary>
@@ -19,7 +16,7 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
     {
         Ensure.That(fabs).IsNotNull();
         // Fab as part of the lookup, mirroring the real repository (FR-006).
-        Layout? found = layouts.SingleOrDefault(
+        var found = layouts.SingleOrDefault(
             candidate => candidate.Id == layout && fabs.Contains(candidate.Fab));
         return Task.FromResult(found is null ? Option<Layout>.None : Option<Layout>.Some(found));
     }
@@ -34,7 +31,7 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
         // now reads the chain's own marker rather than its revisions (spec 086)
         // — left on the old predicate this fake would keep the Application
         // suite green against a rule production no longer applies.
-        Layout? found = layouts.SingleOrDefault(candidate =>
+        var found = layouts.SingleOrDefault(candidate =>
             candidate.Fab == fab &&
             candidate.Name == name &&
             candidate.ArchivedAt is null);
@@ -49,7 +46,7 @@ public sealed class InMemoryLayoutRepository : ILayoutRepository
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (Layout layout in layouts)
+        foreach (var layout in layouts)
         {
             layout.ClearPendingEvents();
         }

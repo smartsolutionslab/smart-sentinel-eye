@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -10,7 +7,6 @@ using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.EventIngestion.Domain.RegisteredEventType;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
@@ -35,7 +31,7 @@ public static class EventTypesEndpoints
         // No scope at the group level: the group carries two different scopes
         // (FR-010 write, FR-011 read), so each mapping declares its own
         // (plan.md §5; EndpointScopeDeclarationTests).
-        RouteGroupBuilder group = app.MapGroup("/event-types").WithTags("EventIngestion");
+        var group = app.MapGroup("/event-types").WithTags("EventIngestion");
 
         group.MapPost("/", Register)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
@@ -104,12 +100,12 @@ public static class EventTypesEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!IdempotencyHeaders.TryRead(request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
@@ -117,8 +113,8 @@ public static class EventTypesEndpoints
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
-        OperatorIdentifier registeredBy = user.ToOperatorIdentifier();
+        var fab = fabResolution.Value;
+        var registeredBy = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
@@ -142,7 +138,7 @@ public static class EventTypesEndpoints
         OperatorIdentifier registeredBy,
         CancellationToken cancellationToken)
     {
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(fab, kind, registeredBy), cancellationToken);
 
         return result.Match(
@@ -167,7 +163,7 @@ public static class EventTypesEndpoints
         [FromServices] ListEventTypesQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
@@ -175,7 +171,7 @@ public static class EventTypesEndpoints
             return fabsResolution.Error;
         }
 
-        Result<IReadOnlyList<RegisteredEventTypeDto>, ListEventTypesError> result =
+        var result =
             await handler.HandleAsync(new ListEventTypesQuery(fabsResolution.Value), cancellationToken);
 
         return result.Match<IResult>(
@@ -207,12 +203,12 @@ public static class EventTypesEndpoints
         // Read before the row is looked up, deliberately (FR-006): looking the
         // row up first would make the 428-vs-404 choice an existence oracle for
         // kinds in fabs the caller cannot read.
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
@@ -220,9 +216,9 @@ public static class EventTypesEndpoints
             return fabResolution.Error;
         }
 
-        OperatorIdentifier retiredBy = user.ToOperatorIdentifier();
+        var retiredBy = user.ToOperatorIdentifier();
 
-        Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RetireEventTypeCommand(fabResolution.Value, parsed, expectedVersion, retiredBy),
             cancellationToken);
 

@@ -1,9 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.Identity.Api.Requests;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
@@ -33,7 +30,7 @@ public static class WebhookRotationEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/webhook-integrations")
+        var group = app.MapGroup("/webhook-integrations")
             .RequireAuthorization(Scope.Sse.Webhooks.Write)
             .WithTags("IdentityWebhookRotation");
 
@@ -73,7 +70,7 @@ public static class WebhookRotationEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await IdentityFabResolution.ResolveReadFabsAsync(
                 user, fabId, fabGuard, "WEBHOOK_INVALID_INPUT", cancellationToken);
         if (fabsResolution.IsFailure)
@@ -81,9 +78,9 @@ public static class WebhookRotationEndpoints
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListWebhookClientsQuery(fabs), cancellationToken);
 
         return result.Match<IResult>(
@@ -102,10 +99,10 @@ public static class WebhookRotationEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(request).IsNotNull();
 
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
-        RotateWebhookClientCommandHandler handler = services.Handler;
+        var fabGuard = services.FabGuard;
+        var handler = services.Handler;
 
-        if (!IdempotencyHeaders.TryRead(request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -133,12 +130,12 @@ public static class WebhookRotationEndpoints
         // If-None-Match: * to create the client, If-Match: "N" to rotate the
         // one at version N. See ConcurrencyHeaders for why a lone If-Match
         // cannot carry both.
-        if (!ConcurrencyHeaders.TryReadUpsertPrecondition(request, out Option<int> expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadUpsertPrecondition(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
 
         // **A replay never reaches the precondition, and that is the point of
         // applying idempotency here.** The header is still parsed above — a
@@ -162,7 +159,7 @@ public static class WebhookRotationEndpoints
         // *rotate* of the same integration — or across two different
         // integrations — is two different operations, not one replayed onto
         // the other (spec 302 / #2424).
-        string preconditionText = expectedVersion.Match(
+        var preconditionText = expectedVersion.Match(
             some: version => version.ToString(CultureInfo.InvariantCulture),
             none: () => "*");
 
@@ -178,7 +175,7 @@ public static class WebhookRotationEndpoints
                 services.Clock),
             async token =>
             {
-                Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
+                var result = await handler.HandleAsync(
                     new RotateWebhookClientCommand(name, fab, actingOperator, expectedVersion), token);
 
                 return result.Match(
@@ -187,7 +184,7 @@ public static class WebhookRotationEndpoints
             },
             async (rotated, token) =>
             {
-                Result<ReplayedClientDto, ReplayRegistrationError> replayed =
+                var replayed =
                     await services.Replay.HandleAsync(
                         new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(rotated)), token);
 

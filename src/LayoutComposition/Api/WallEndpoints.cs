@@ -1,6 +1,3 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
@@ -21,7 +18,7 @@ public static partial class WallEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/walls")
+        var group = app.MapGroup("/walls")
             .WithTags("Walls");
 
         group.MapPost("/", CreateWall)

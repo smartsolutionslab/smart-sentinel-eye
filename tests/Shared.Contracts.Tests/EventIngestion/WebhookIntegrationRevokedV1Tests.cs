@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests.EventIngestion;
@@ -38,7 +37,7 @@ public class WebhookIntegrationRevokedV1Tests
     public void JSON_round_trip_preserves_every_field()
     {
         WebhookIntegrationRevokedV1 original = new("w", Moment, Metadata: TestMetadata);
-        string json = JsonSerializer.Serialize(original);
+        var json = JsonSerializer.Serialize(original);
         JsonSerializer.Deserialize<WebhookIntegrationRevokedV1>(json).ShouldBe(original);
     }
 }

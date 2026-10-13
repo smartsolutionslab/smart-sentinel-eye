@@ -1,10 +1,7 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 using SmartSentinelEye.ScenarioSimulator.Mqtt;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.Cues;
 
@@ -32,7 +29,7 @@ public sealed class ClipCueHostedService(
     {
         await publisher.StartAsync(stoppingToken);
 
-        IEnumerable<Task> loops = ResolveCuedPaths().Select(entry => RunPathAsync(entry, stoppingToken));
+        var loops = ResolveCuedPaths().Select(entry => RunPathAsync(entry, stoppingToken));
         await Task.WhenAll(loops);
     }
 
@@ -43,22 +40,22 @@ public sealed class ClipCueHostedService(
     /// </summary>
     private List<CuedPath> ResolveCuedPaths()
     {
-        ScenarioOptions options = scenarioOptions.Value;
+        var options = scenarioOptions.Value;
         List<CuedPath> cued = [];
 
-        foreach (string key in options.Active)
+        foreach (var key in options.Active)
         {
-            if (!options.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
+            if (!options.Scenarios.TryGetValue(key, out var scenario))
             {
                 continue;
             }
 
-            foreach (AssetDefinition asset in scenario.Assets)
+            foreach (var asset in scenario.Assets)
             {
-                ClipManifestLoadResult result = ClipManifestLoader.Load(options.ClipsDirectory, asset.Camera.Clip);
+                var result = ClipManifestLoader.Load(options.ClipsDirectory, asset.Camera.Clip);
                 if (result.Violations.Count > 0)
                 {
-                    string violations = string.Join(
+                    var violations = string.Join(
                         "; ",
                         result.Violations.Select(v => v.CueIndex is { } index ? $"cue {index}: {v.Message}" : v.Message));
                     logger.ClipManifestRefused(key, asset.Key, asset.Camera.Clip, violations);
@@ -114,20 +111,20 @@ public sealed class ClipCueHostedService(
     private async Task<(PathLoopState State, TimeSpan Delay)> TickAsync(
         CuedPath cued, PathLoopState state, CancellationToken stoppingToken)
     {
-        Option<PathState> path = await pathClient.GetAsync(cued.Path, stoppingToken);
+        var path = await pathClient.GetAsync(cued.Path, stoppingToken);
         if (!path.HasValue || !path.Value.Ready || path.Value.ReadyTime is not { } anchor)
         {
             return (state, NotReadyPollInterval);
         }
 
-        CueCursor? cursor = state.Cursor;
+        var cursor = state.Cursor;
         if (state.Anchor.HasValue && state.Anchor.Value != anchor)
         {
             logger.ClipAnchorChanged(cued.Path, state.Anchor.Value, anchor);
             cursor = null;
         }
 
-        CueDecision decision = CueSchedule.Next(anchor, clock.GetUtcNow(), cued.Manifest, cursor);
+        var decision = CueSchedule.Next(anchor, clock.GetUtcNow(), cued.Manifest, cursor);
         return decision switch
         {
             CueDecision.Wait wait => (new PathLoopState(anchor, cursor), Cap(wait.Delay)),
@@ -148,10 +145,10 @@ public sealed class ClipCueHostedService(
 
     private async Task<CueCursor> HandleEmitAsync(CuedPath cued, CueDecision.Emit emit, CancellationToken cancellationToken)
     {
-        MqttSample sample = mapper.Map(cued.Asset, emit.Cue, emit.Cue.AtMs);
+        var sample = mapper.Map(cued.Asset, emit.Cue, emit.Cue.AtMs);
         await publisher.PublishAsync(sample.Topic, sample.Payload, cancellationToken);
 
-        double latenessMs = (clock.GetUtcNow() - emit.DueAt).TotalMilliseconds;
+        var latenessMs = (clock.GetUtcNow() - emit.DueAt).TotalMilliseconds;
         logger.ClipCueEmitted(cued.Path, emit.Loop, emit.Index, emit.Cue.AtMs, latenessMs);
 
         return emit.NextCursor;

@@ -14,7 +14,7 @@ public sealed class ListEventTypesQueryHandler(IRegisteredEventTypeQuerySource e
     {
         Ensure.That(query).IsNotNull();
 
-        List<RegisteredEventType> rows = await eventTypes.RegisteredEventTypes
+        var rows = await eventTypes.RegisteredEventTypes
             .Where(eventType =>
                 query.Fabs.Contains(eventType.Fab) && eventType.State == RegistrationState.Registered)
             .ToListAsync(cancellationToken);

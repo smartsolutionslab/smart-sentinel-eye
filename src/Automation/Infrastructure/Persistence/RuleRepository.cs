@@ -14,7 +14,7 @@ public sealed class RuleRepository(
     public async Task<Option<RuleAggregate>> GetByIdentifierAsync(
         RuleIdentifier rule, CancellationToken cancellationToken)
     {
-        RuleAggregate? found = await dbContext.Rules
+        var found = await dbContext.Rules
             .FirstOrDefaultAsync(candidate => candidate.Id == rule, cancellationToken);
         return found is null ? Option<RuleAggregate>.None : Option<RuleAggregate>.Some(found);
     }
@@ -29,7 +29,7 @@ public sealed class RuleRepository(
         // treats an archived rule as not-found, not a conflict.
         // Fab first: a name is unique only within one (spec 013), so without
         // it this could return another fab's rule.
-        RuleAggregate? found = await dbContext.Rules
+        var found = await dbContext.Rules
             .Where(rule => rule.Fab == fab)
             .Where(rule => rule.Name == name)
             .Where(rule => rule.State != RuleState.Archived)
@@ -45,7 +45,7 @@ public sealed class RuleRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        RuleAggregate[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<RuleAggregate>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -60,9 +60,9 @@ public sealed class RuleRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (RuleAggregate rule in tracked)
+        foreach (var rule in tracked)
         {
-            IDomainEvent[] events = rule.PendingEvents.ToArray();
+            var events = rule.PendingEvents.ToArray();
             rule.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

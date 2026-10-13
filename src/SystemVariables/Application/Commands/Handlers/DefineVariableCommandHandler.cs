@@ -12,11 +12,11 @@ public sealed class DefineVariableCommandHandler(IVariableRepository variables, 
     {
         Ensure.That(command).IsNotNull();
 
-        (FabIdentifier? fab, VariableName? name, VariableType? type, VariableValue? initialValue, BooleanLabels? booleanLabels, OperatorIdentifier definedBy) = command;
+        (var fab, var name, var type, var initialValue, var booleanLabels, var definedBy) = command;
 
         // Name uniqueness within the fab (FR-001 / FR-005). Archived names are
         // free, and another fab holding the name is not a collision at all.
-        Option<Variable> existing = await variables.GetByNameAsync(fab, name, cancellationToken);
+        var existing = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
             return Failure(DefineVariableFailures.VariableNameTaken(fab.Value, name.Value));

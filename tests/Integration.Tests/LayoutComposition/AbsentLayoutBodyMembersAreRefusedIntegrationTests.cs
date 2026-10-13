@@ -35,14 +35,14 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_layout_create_omitting_the_grid_is_refused_as_invalid_input()
     {
-        using HttpClient layouts = await DresdenClientAsync();
-        string name = UniqueName();
+        using var layouts = await DresdenClientAsync();
+        var name = UniqueName();
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync(
+        var refused = await layouts.PostAsJsonAsync(
             "/layouts", new { name, tiles = Array.Empty<object>() });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("grid", Case.Insensitive);
 
@@ -52,14 +52,14 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_layout_create_with_an_explicit_null_grid_is_refused_as_invalid_input()
     {
-        using HttpClient layouts = await DresdenClientAsync();
-        string name = UniqueName();
+        using var layouts = await DresdenClientAsync();
+        var name = UniqueName();
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync(
+        var refused = await layouts.PostAsJsonAsync(
             "/layouts", new { name, grid = (object?)null, tiles = Array.Empty<object>() });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("grid", Case.Insensitive);
 
@@ -71,20 +71,20 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task Editing_a_draft_revision_omitting_the_grid_is_refused_as_invalid_input()
     {
-        using HttpClient layouts = await DresdenClientAsync();
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, "dresden");
-        Guid layoutIdentifier = await CreateDraftAsync(layouts, camera);
+        using var layouts = await DresdenClientAsync();
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, "dresden");
+        var layoutIdentifier = await CreateDraftAsync(layouts, camera);
 
-        HttpResponseMessage refused = await LayoutRequests.PatchAsync(
+        var refused = await LayoutRequests.PatchAsync(
             layouts, layoutIdentifier, "revisions/1", new { tiles = Array.Empty<object>() });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("grid", Case.Insensitive);
 
-        JsonElement layout = await FetchAsync(layouts, layoutIdentifier);
-        JsonElement revision1 = RevisionByNumber(layout, 1);
+        var layout = await FetchAsync(layouts, layoutIdentifier);
+        var revision1 = RevisionByNumber(layout, 1);
         revision1.GetProperty("gridRows").GetInt32().ShouldBe(1);
         revision1.GetProperty("gridCols").GetInt32().ShouldBe(1);
         revision1.GetProperty("tiles").GetArrayLength().ShouldBe(1);
@@ -96,15 +96,15 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_layout_create_with_a_null_tile_element_is_refused_as_invalid_input()
     {
-        using HttpClient layouts = await DresdenClientAsync();
-        string name = UniqueName();
+        using var layouts = await DresdenClientAsync();
+        var name = UniqueName();
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync(
+        var refused = await layouts.PostAsJsonAsync(
             "/layouts",
             new { name, grid = new { rows = 1, cols = 1 }, tiles = new object?[] { null } });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("tile", Case.Insensitive);
 
@@ -114,21 +114,21 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task Editing_a_draft_revision_with_a_null_tile_element_is_refused_as_invalid_input()
     {
-        using HttpClient layouts = await DresdenClientAsync();
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, "dresden");
-        Guid layoutIdentifier = await CreateDraftAsync(layouts, camera);
+        using var layouts = await DresdenClientAsync();
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, "dresden");
+        var layoutIdentifier = await CreateDraftAsync(layouts, camera);
 
-        HttpResponseMessage refused = await LayoutRequests.PatchAsync(
+        var refused = await LayoutRequests.PatchAsync(
             layouts, layoutIdentifier, "revisions/1",
             new { grid = new { rows = 1, cols = 1 }, tiles = new object?[] { null } });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("tile", Case.Insensitive);
 
-        JsonElement layout = await FetchAsync(layouts, layoutIdentifier);
-        JsonElement revision1 = RevisionByNumber(layout, 1);
+        var layout = await FetchAsync(layouts, layoutIdentifier);
+        var revision1 = RevisionByNumber(layout, 1);
         revision1.GetProperty("tiles").GetArrayLength().ShouldBe(1);
         revision1.GetProperty("tiles")[0].GetProperty("cameraIdentifier").GetGuid().ShouldBe(camera);
     }
@@ -143,11 +143,11 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_zero_row_grid_keeps_its_existing_refusal_detail()
     {
-        using HttpClient layouts = await DresdenClientAsync();
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, "dresden");
-        string name = UniqueName();
+        using var layouts = await DresdenClientAsync();
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, "dresden");
+        var name = UniqueName();
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync(
+        var refused = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -157,7 +157,7 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
             });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("LAYOUT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldBe("rows must be >= 1; got 0. (Parameter 'rows')");
     }
@@ -172,9 +172,9 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
     [Fact]
     public async Task An_anonymous_caller_omitting_the_grid_is_challenged_not_validated()
     {
-        using HttpClient anonymous = aspire.CreateServiceClient("layout-composition");
+        using var anonymous = aspire.CreateServiceClient("layout-composition");
 
-        HttpResponseMessage response = await anonymous.PostAsJsonAsync(
+        var response = await anonymous.PostAsJsonAsync(
             "/layouts", new { name = UniqueName(), tiles = Array.Empty<object>() });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await BodyAsync(response));
@@ -187,7 +187,7 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
 
     private static async Task<Guid> CreateDraftAsync(HttpClient layouts, Guid camera)
     {
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -201,7 +201,7 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
 
     private static async Task<JsonElement> FetchAsync(HttpClient layouts, Guid layoutIdentifier)
     {
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
         return await fetched.Content.ReadFromJsonAsync<JsonElement>();
     }
@@ -212,9 +212,9 @@ public class AbsentLayoutBodyMembersAreRefusedIntegrationTests(AspireFixture asp
 
     private static async Task<string[]> NamesAsync(HttpClient layouts)
     {
-        HttpResponseMessage listed = await layouts.GetAsync("/layouts");
+        var listed = await layouts.GetAsync("/layouts");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("chains").EnumerateArray()
             .Select(row => row.GetProperty("name").GetString()!)];

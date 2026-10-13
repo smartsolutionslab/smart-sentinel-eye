@@ -28,7 +28,7 @@ public sealed class IdempotencyKey : IValueObject<string>, IEquatable<Idempotenc
     {
         Ensure.That(value).IsNotNull().IsNotNullOrWhiteSpace();
 
-        string trimmed = value.Trim();
+        var trimmed = value.Trim();
 
         if (trimmed.Length > MaxLength)
         {

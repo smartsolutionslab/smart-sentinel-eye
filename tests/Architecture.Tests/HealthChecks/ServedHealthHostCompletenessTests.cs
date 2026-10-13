@@ -43,13 +43,13 @@ public class ServedHealthHostCompletenessTests
     [Fact]
     public void Every_host_that_maps_health_is_guarded_and_every_guarded_host_maps_health()
     {
-        ServedProgramFile[] served = ServedProgramFiles();
+        var served = ServedProgramFiles();
         HashSet<string> servedAssemblyNames = new(
             served.Select(file => file.AssemblyName), StringComparer.Ordinal);
         HashSet<string> guardedAssemblyNames = new(
             ServedHealthHosts.All.Select(host => host.AssemblyName), StringComparer.Ordinal);
 
-        string[] unguarded = served
+        var unguarded = served
             .Where(file => !guardedAssemblyNames.Contains(file.AssemblyName))
             .Select(file => $"{file.ProgramPath} ({file.AssemblyName})")
             .ToArray();
@@ -60,7 +60,7 @@ public class ServedHealthHostCompletenessTests
             + $"{Environment.NewLine}HealthCheckFailureStatusGuardTests never composes this host, so ADR-0154 "
             + "clause 1 is unguarded for it. Add it to ServedHealthHosts.");
 
-        string[] stale = ServedHealthHosts.All
+        var stale = ServedHealthHosts.All
             .Where(host => !servedAssemblyNames.Contains(host.AssemblyName))
             .Select(host => $"{host.AssemblyName} ({host.ProjectDirectory})")
             .ToArray();
@@ -75,7 +75,7 @@ public class ServedHealthHostCompletenessTests
 
     private static ServedProgramFile[] ServedProgramFiles()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         DirectoryInfo srcRoot = new(Path.Combine(root.FullName, "src"));
 
         return srcRoot
@@ -91,10 +91,10 @@ public class ServedHealthHostCompletenessTests
 
     private static string AssemblyNameOf(FileInfo programFile)
     {
-        DirectoryInfo directory = programFile.Directory
+        var directory = programFile.Directory
             ?? throw new InvalidOperationException($"{programFile.FullName} has no containing directory.");
 
-        FileInfo project = directory.EnumerateFiles("*.csproj").SingleOrDefault()
+        var project = directory.EnumerateFiles("*.csproj").SingleOrDefault()
             ?? throw new InvalidOperationException(
                 $"{directory.FullName} does not contain exactly one .csproj alongside {ProgramFileName}.");
 

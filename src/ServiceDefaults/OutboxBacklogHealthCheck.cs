@@ -79,7 +79,7 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
     {
         try
         {
-            (long pending, int attempts) = await ReadBacklogAsync(cancellationToken);
+            (var pending, var attempts) = await ReadBacklogAsync(cancellationToken);
 
             Dictionary<string, object> data = new(StringComparer.Ordinal)
             {
@@ -93,7 +93,7 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
                 return HealthCheckResult.Healthy("No announcements are waiting.", data);
             }
 
-            string description = string.Create(
+            var description = string.Create(
                 CultureInfo.InvariantCulture,
                 $"{pending} announcement(s) waiting; most-retried has failed {attempts} time(s).");
 
@@ -218,7 +218,7 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
     /// </summary>
     private async Task<(long Pending, int Attempts)> ReadBacklogAsync(CancellationToken cancellationToken)
     {
-        string table = $"{Identifier(outboxSchema)}.wolverine_outgoing_envelopes";
+        var table = $"{Identifier(outboxSchema)}.wolverine_outgoing_envelopes";
 
         // EF1002 is suppressed because a schema name cannot be a parameter —
         // SQL takes identifiers literally — and it is earned rather than
@@ -227,7 +227,7 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
         // The value comes from AddWolverineForContext's caller, a constant per
         // module, and never from a request.
 #pragma warning disable EF1002
-        long pending = await database.Database
+        var pending = await database.Database
             .SqlQueryRaw<long>($"SELECT count(*) AS \"Value\" FROM {table}")
             .SingleAsync(cancellationToken);
 
@@ -239,7 +239,7 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
             return (0, 0);
         }
 
-        int attempts = await database.Database
+        var attempts = await database.Database
             .SqlQueryRaw<int>($"SELECT COALESCE(max(\"{AttemptsColumn}\"), 0) AS \"Value\" FROM {table}")
             .SingleAsync(cancellationToken);
 #pragma warning restore EF1002

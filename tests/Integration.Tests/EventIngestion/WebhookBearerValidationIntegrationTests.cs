@@ -1,10 +1,7 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -46,10 +43,10 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task StaticHash_mode_accepts_the_matching_legacy_bearer()
     {
-        string name = UniqueName("hash-ok");
-        string token = await RegisterStaticHashIntegrationAsync(name);
+        var name = UniqueName("hash-ok");
+        var token = await RegisterStaticHashIntegrationAsync(name);
 
-        HttpResponseMessage response = await PostWebhookAsync(name, Fab, token);
+        var response = await PostWebhookAsync(name, Fab, token);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
@@ -57,10 +54,10 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task StaticHash_mode_rejects_a_wrong_bearer()
     {
-        string name = UniqueName("hash-bad");
+        var name = UniqueName("hash-bad");
         await RegisterStaticHashIntegrationAsync(name);
 
-        HttpResponseMessage response = await PostWebhookAsync(name, Fab, "not-the-real-token");
+        var response = await PostWebhookAsync(name, Fab, "not-the-real-token");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -68,12 +65,12 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Jwt_mode_accepts_a_valid_token_for_the_rotated_client_and_fab()
     {
-        string name = UniqueName("jwt-ok");
+        var name = UniqueName("jwt-ok");
         await SeedJwtIntegrationAsync(name, JwtClientId);
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
 
-        HttpResponseMessage response = await PostWebhookAsync(name, Fab, jwt);
+        var response = await PostWebhookAsync(name, Fab, jwt);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
@@ -92,11 +89,11 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Jwt_mode_rejects_a_token_without_the_events_write_scope()
     {
-        string name = UniqueName("jwt-scope");
+        var name = UniqueName("jwt-scope");
         await SeedJwtIntegrationAsync(name, ScopeLessClientId);
-        string jwt = await ScopeLessServiceAccountTokenAsync();
+        var jwt = await ScopeLessServiceAccountTokenAsync();
 
-        HttpResponseMessage response = await PostWebhookAsync(name, Fab, jwt);
+        var response = await PostWebhookAsync(name, Fab, jwt);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -104,14 +101,14 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Jwt_mode_rejects_a_token_whose_azp_does_not_match_the_integration_client()
     {
-        string name = UniqueName("jwt-azp");
+        var name = UniqueName("jwt-azp");
         await SeedJwtIntegrationAsync(name, "some-other-rotated-client");
         // Valid token, valid scope, valid fab — but azp=management-web does
         // not equal the integration's KeycloakClientId.
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
 
-        HttpResponseMessage response = await PostWebhookAsync(name, Fab, jwt);
+        var response = await PostWebhookAsync(name, Fab, jwt);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -119,18 +116,18 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Jwt_mode_rejects_a_caller_outside_the_target_fab_group()
     {
-        string name = UniqueName("jwt-fab");
+        var name = UniqueName("jwt-fab");
         // Seeded in berlin so the delivery's fab matches the integration's own
         // and the request reaches ValidateJwtAsync's group check, which is what
         // this case is for. Seeding it in munich would now be refused a step
         // earlier by the integration-fab comparison (#1545) and this test would
         // pass without ever exercising the check it names.
         await SeedJwtIntegrationAsync(name, JwtClientId, "berlin");
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             JwtClientId, AspireFixture.AdminUsername, AspireFixture.AdminPassword, JwtScope);
 
         // admin is in /fabs/munich only; berlin is not in the groups claim.
-        HttpResponseMessage response = await PostWebhookAsync(name, "berlin", jwt);
+        var response = await PostWebhookAsync(name, "berlin", jwt);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -145,10 +142,10 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task StaticHash_mode_rejects_a_delivery_naming_another_plants_fab()
     {
-        string name = UniqueName("hash-fab");
-        string token = await RegisterStaticHashIntegrationAsync(name);
+        var name = UniqueName("hash-fab");
+        var token = await RegisterStaticHashIntegrationAsync(name);
 
-        HttpResponseMessage response = await PostWebhookAsync(name, "dresden", token);
+        var response = await PostWebhookAsync(name, "dresden", token);
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
@@ -160,11 +157,11 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_delivery_to_another_plants_integration_looks_like_one_that_does_not_exist()
     {
-        string name = UniqueName("hash-probe");
-        string token = await RegisterStaticHashIntegrationAsync(name);
+        var name = UniqueName("hash-probe");
+        var token = await RegisterStaticHashIntegrationAsync(name);
 
-        HttpResponseMessage otherFab = await PostWebhookAsync(name, "dresden", token);
-        HttpResponseMessage neverExisted = await PostWebhookAsync(UniqueName("absent"), "dresden", token);
+        var otherFab = await PostWebhookAsync(name, "dresden", token);
+        var neverExisted = await PostWebhookAsync(UniqueName("absent"), "dresden", token);
 
         otherFab.StatusCode.ShouldBe(neverExisted.StatusCode);
         (await otherFab.Content.ReadAsStringAsync())
@@ -173,12 +170,12 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 
     private async Task<string> RegisterStaticHashIntegrationAsync(string name)
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var created = await admin.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("token").GetString()!;
     }
 
@@ -187,10 +184,10 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
 
     private async Task SeedJwtIntegrationAsync(string name, string keycloakClientId, string fab)
     {
-        await using EventIngestionDbContext context = await aspire.CreateEventIngestionDbContextAsync();
+        await using var context = await aspire.CreateEventIngestionDbContextAsync();
 
         SystemClock clock = new();
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From(name), FabIdentifier.From(fab), Kind.From("WebhookAlarm"), clock);
         integration.MarkAsRotated(KeycloakClientIdentifier.From(keycloakClientId), clock);
         integration.ClearPendingEvents();
@@ -221,7 +218,7 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<string> ScopeLessServiceAccountTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
 
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
@@ -230,11 +227,11 @@ public class WebhookBearerValidationIntegrationTests(AspireFixture aspire)
             ["client_secret"] = ScopeLessClientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("access_token").GetString()!;
     }

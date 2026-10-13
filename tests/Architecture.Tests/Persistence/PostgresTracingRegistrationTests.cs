@@ -71,14 +71,14 @@ public class PostgresTracingRegistrationTests
     {
         CapturingExporter exporter = new();
 
-        using ServiceProvider provider = PostgresComposition.Compose(contextName, builder =>
+        using var provider = PostgresComposition.Compose(contextName, builder =>
             builder.Services.AddOpenTelemetry()
                 .WithTracing(tracing => tracing.AddProcessor(new SimpleActivityExportProcessor(exporter))));
 
-        TracerProvider tracerProvider = provider.GetRequiredService<TracerProvider>();
+        var tracerProvider = provider.GetRequiredService<TracerProvider>();
 
         using ActivitySource probe = new(NpgsqlActivitySourceName);
-        using Activity? activity = probe.StartActivity(ProbeActivityName);
+        using var activity = probe.StartActivity(ProbeActivityName);
         activity?.Stop();
 
         tracerProvider.ForceFlush();
@@ -100,7 +100,7 @@ public class PostgresTracingRegistrationTests
 
         public override ExportResult Export(in Batch<Activity> batch)
         {
-            foreach (Activity activity in batch)
+            foreach (var activity in batch)
             {
                 Captured.Add(activity);
             }

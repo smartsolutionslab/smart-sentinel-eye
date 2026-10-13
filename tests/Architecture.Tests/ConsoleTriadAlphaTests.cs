@@ -64,19 +64,19 @@ public class ConsoleTriadAlphaTests
     [Fact]
     public void Every_scanned_tree_exists_and_is_non_empty()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach (string tree in ConsoleSrcTrees)
+        foreach (var tree in ConsoleSrcTrees)
         {
-            string full = Path.Combine(root.FullName, tree);
+            var full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))
             {
                 problems.Add($"{tree} does not exist.");
                 continue;
             }
 
-            bool hasAnyFile = Directory
+            var hasAnyFile = Directory
                 .EnumerateFiles(full, "*", SearchOption.AllDirectories)
                 .Any(file => file.EndsWith(".ts", StringComparison.Ordinal) || file.EndsWith(".tsx", StringComparison.Ordinal));
 
@@ -100,12 +100,12 @@ public class ConsoleTriadAlphaTests
     [Fact]
     public void No_translucent_triad_colour_in_the_console()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
-            string literalContent = TypeScriptSource.StringLiteralContent(
+            var literalContent = TypeScriptSource.StringLiteralContent(
                 File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in TranslucentTriadColour.Matches(literalContent))
@@ -125,15 +125,15 @@ public class ConsoleTriadAlphaTests
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        foreach (string tree in ConsoleSrcTrees)
+        foreach (var tree in ConsoleSrcTrees)
         {
-            string full = Path.Combine(root.FullName, tree);
+            var full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))
             {
                 continue;
             }
 
-            foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+            foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
             {
                 if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
                 {
@@ -143,7 +143,7 @@ public class ConsoleTriadAlphaTests
                 // Slash-normalised: Path.GetRelativePath returns the platform
                 // separator — a backslash-literal filter is green on Windows and
                 // red on Linux CI.
-                string relative = RepositorySource.RelativePath(root, file);
+                var relative = RepositorySource.RelativePath(root, file);
 
                 if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
                 {

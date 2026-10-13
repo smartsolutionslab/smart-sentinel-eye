@@ -1,7 +1,6 @@
 using System.Reflection;
 using JasperFx.CodeGeneration.Model;
 using Microsoft.Extensions.Options;
-using SmartSentinelEye.ScenarioSimulator;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
@@ -11,7 +10,6 @@ using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.ScenarioSimulator.Seeding;
 using SmartSentinelEye.ScenarioSimulator.Timeline;
-using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Resilience;
 using Wolverine;
 using Wolverine.RabbitMQ;
@@ -21,7 +19,7 @@ using Wolverine.RabbitMQ;
 // video on the config-clean camera-sim MediaMTX. Gated off in CI/E2E/prod by
 // the AppHost; this host is simply never started there.
 
-HostApplicationBuilder builder = Host.CreateApplicationBuilder(args);
+var builder = Host.CreateApplicationBuilder(args);
 builder.AddServiceDefaults();
 
 // Scenario files (Scenarios/*.json) are copied next to the app; merge each so
@@ -46,14 +44,14 @@ builder.Services.AddSingleton<KeycloakTokenProvider>();
 // Camera-catalog REST client (POST /cameras), bearer-authenticated.
 builder.Services.AddHttpClient<CameraCatalogClient>((sp, client) =>
     {
-        SimulatorOptions options = Resolve(sp);
+        var options = Resolve(sp);
         client.BaseAddress = new Uri(options.CameraCatalogUrl);
     });
 
 // camera-sim MediaMTX v3 control-plane client (provisions loop paths).
 builder.Services.AddHttpClient<CameraSimProvisioner>((sp, client) =>
     {
-        SimulatorOptions options = Resolve(sp);
+        var options = Resolve(sp);
         client.BaseAddress = new Uri(options.CameraSimApiUrl);
     });
 
@@ -89,7 +87,7 @@ builder.UseWolverine(opts =>
     // gated off in CI, so nothing automated would ever notice the drop.
     opts.ServiceLocationPolicy = ServiceLocationPolicy.AllowedButWarn;
 
-    string rabbitConnection =
+    var rabbitConnection =
         builder.Configuration.GetConnectionString("rabbitmq")
         ?? throw new InvalidOperationException("Connection string 'rabbitmq' is required for the scenario simulator.");
 
@@ -103,18 +101,18 @@ builder.UseWolverine(opts =>
 
 builder.Services.AddScoped<CameraRegisteredSimHandler>();
 
-IHost host = builder.Build();
+var host = builder.Build();
 await host.RunAsync();
 
 static void LoadScenarioFiles(HostApplicationBuilder builder)
 {
-    string scenariosDir = Path.Combine(AppContext.BaseDirectory, "Scenarios");
+    var scenariosDir = Path.Combine(AppContext.BaseDirectory, "Scenarios");
     if (!Directory.Exists(scenariosDir))
     {
         return;
     }
 
-    foreach (string file in Directory.EnumerateFiles(scenariosDir, "*.json"))
+    foreach (var file in Directory.EnumerateFiles(scenariosDir, "*.json"))
     {
         builder.Configuration.AddJsonFile(file, optional: true, reloadOnChange: false);
     }

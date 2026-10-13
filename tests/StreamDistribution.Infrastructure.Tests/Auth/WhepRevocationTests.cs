@@ -8,7 +8,6 @@ using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Contracts.Identity;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
@@ -64,13 +63,13 @@ public sealed class WhepRevocationTests : IDisposable
     [Fact]
     public async Task A_registry_that_refuses_the_azp_rejects_the_token()
     {
-        DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
-        CapturingRegistry registry = RegistryDisabledAt(RevokedClientId, issuedAt);
-        CountingRefreshMetadata metadata = MetadataFor(RealmIssuer);
+        var issuedAt = DateTime.UtcNow.AddMinutes(-1);
+        var registry = RegistryDisabledAt(RevokedClientId, issuedAt);
+        var metadata = MetadataFor(RealmIssuer);
         WhepAuthValidator validator = new(metadata, registry, NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(RevokedClientId, issuedAt);
+        var token = TokenFor(RevokedClientId, issuedAt);
 
-        Result<WhepAuthSubject, WhepAuthFailure> result =
+        var result =
             await validator.ValidateAsync(token, CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -90,11 +89,11 @@ public sealed class WhepRevocationTests : IDisposable
     public async Task A_registry_that_admits_the_azp_leaves_validation_unchanged()
     {
         CapturingRegistry registry = new(RevokedClientSnapshot.From([]));
-        CountingRefreshMetadata metadata = MetadataFor(RealmIssuer);
+        var metadata = MetadataFor(RealmIssuer);
         WhepAuthValidator validator = new(metadata, registry, NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(RevokedClientId, DateTime.UtcNow.AddMinutes(-1));
+        var token = TokenFor(RevokedClientId, DateTime.UtcNow.AddMinutes(-1));
 
-        Result<WhepAuthSubject, WhepAuthFailure> result =
+        var result =
             await validator.ValidateAsync(token, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -114,15 +113,15 @@ public sealed class WhepRevocationTests : IDisposable
     [Fact]
     public async Task A_later_issued_token_from_a_re_registered_client_is_admitted()
     {
-        DateTimeOffset disabledAt = DateTimeOffset.UtcNow.AddMinutes(-10);
-        DateTime laterIssuedAt = disabledAt.AddMinutes(6).UtcDateTime;
+        var disabledAt = DateTimeOffset.UtcNow.AddMinutes(-10);
+        var laterIssuedAt = disabledAt.AddMinutes(6).UtcDateTime;
         CapturingRegistry registry = new(RevokedClientSnapshot.From(
             [new RevokedClientEntry(RevokedClientId, disabledAt)]));
-        CountingRefreshMetadata metadata = MetadataFor(RealmIssuer);
+        var metadata = MetadataFor(RealmIssuer);
         WhepAuthValidator validator = new(metadata, registry, NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(RevokedClientId, laterIssuedAt);
+        var token = TokenFor(RevokedClientId, laterIssuedAt);
 
-        Result<WhepAuthSubject, WhepAuthFailure> result =
+        var result =
             await validator.ValidateAsync(token, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -139,11 +138,11 @@ public sealed class WhepRevocationTests : IDisposable
     [Fact]
     public async Task The_validator_passes_the_tokens_own_azp_and_issued_at_to_the_registry()
     {
-        DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
+        var issuedAt = DateTime.UtcNow.AddMinutes(-1);
         CapturingRegistry registry = new(RevokedClientSnapshot.From([]));
-        CountingRefreshMetadata metadata = MetadataFor(RealmIssuer);
+        var metadata = MetadataFor(RealmIssuer);
         WhepAuthValidator validator = new(metadata, registry, NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(RevokedClientId, issuedAt);
+        var token = TokenFor(RevokedClientId, issuedAt);
 
         await validator.ValidateAsync(token, CancellationToken.None);
 
@@ -160,11 +159,11 @@ public sealed class WhepRevocationTests : IDisposable
     [Fact]
     public async Task A_revocation_refusal_does_not_request_a_metadata_refresh()
     {
-        DateTime issuedAt = DateTime.UtcNow.AddMinutes(-1);
-        CapturingRegistry registry = RegistryDisabledAt(RevokedClientId, issuedAt);
-        CountingRefreshMetadata metadata = MetadataFor(RealmIssuer);
+        var issuedAt = DateTime.UtcNow.AddMinutes(-1);
+        var registry = RegistryDisabledAt(RevokedClientId, issuedAt);
+        var metadata = MetadataFor(RealmIssuer);
         WhepAuthValidator validator = new(metadata, registry, NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(RevokedClientId, issuedAt);
+        var token = TokenFor(RevokedClientId, issuedAt);
 
         await validator.ValidateAsync(token, CancellationToken.None);
 
@@ -181,7 +180,7 @@ public sealed class WhepRevocationTests : IDisposable
 
     private CountingRefreshMetadata MetadataFor(string issuer)
     {
-        RSAParameters publicKey = signingKey.ExportParameters(includePrivateParameters: false);
+        var publicKey = signingKey.ExportParameters(includePrivateParameters: false);
         OpenIdConnectConfiguration configuration = new() { Issuer = issuer };
         configuration.SigningKeys.Add(new RsaSecurityKey(publicKey) { KeyId = SigningKeyIdentifier });
         return new CountingRefreshMetadata(configuration);

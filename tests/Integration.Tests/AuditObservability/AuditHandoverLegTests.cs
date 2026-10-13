@@ -87,22 +87,22 @@ public class AuditHandoverLegTests(AspireFixture aspire, ITestOutputHelper outpu
     [Fact]
     public async Task Audit_handover_leg_implied_by_the_broker_population_at_100_events_per_second()
     {
-        CancellationToken cancellationToken = CancellationToken.None;
+        var cancellationToken = CancellationToken.None;
 
-        using HttpClient broker = await AuditQueueProbe.ClientAsync(aspire, cancellationToken);
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var broker = await AuditQueueProbe.ClientAsync(aspire, cancellationToken);
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
         // Quiescent first, so the window below holds this run's population and
         // nobody else's — a residue from a neighbouring fact would inflate L and
         // be indistinguishable from a deep buffer.
-        int quiescent = await AuditQueueProbe.WaitForQuiescenceAsync(broker, QuiesceDeadline, cancellationToken);
+        var quiescent = await AuditQueueProbe.WaitForQuiescenceAsync(broker, QuiesceDeadline, cancellationToken);
 
-        string warmName = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
-        string[] names = new string[Writers];
-        for (int writer = 0; writer < Writers; writer++)
+        var warmName = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
+        var names = new string[Writers];
+        for (var writer = 0; writer < Writers; writer++)
         {
             names[writer] = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
         }
@@ -111,7 +111,7 @@ public class AuditHandoverLegTests(AspireFixture aspire, ITestOutputHelper outpu
             variables, warmName, IngestRunShape.WarmupEvents, IngestSpanMeasurement.NoPacing, cancellationToken);
 
         HandoverRun run = new(broker, variables, context, names);
-        HandoverReading reading = await MeasureAsync(run, cancellationToken);
+        var reading = await MeasureAsync(run, cancellationToken);
 
         output.WriteLine(Describe(quiescent, reading));
 
@@ -157,21 +157,21 @@ public class AuditHandoverLegTests(AspireFixture aspire, ITestOutputHelper outpu
     /// </summary>
     private static async Task<HandoverReading> MeasureAsync(HandoverRun run, CancellationToken cancellationToken)
     {
-        using CancellationTokenSource sampling = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        Task<(long Total, int Samples, int NonZero, int Peak)> sampler = SampleAsync(run.Broker, sampling.Token);
+        using var sampling = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var sampler = SampleAsync(run.Broker, sampling.Token);
 
-        Func<Task> pace = IngestSpanMeasurement.PaceTo(IngestRunShape.SlotIntervalMs, cancellationToken);
-        int position = IngestSpanMeasurement.PacedDrivesSinceBoot;
+        var pace = IngestSpanMeasurement.PaceTo(IngestRunShape.SlotIntervalMs, cancellationToken);
+        var position = IngestSpanMeasurement.PacedDrivesSinceBoot;
 
-        DateTimeOffset started = DateTimeOffset.UtcNow;
-        string[] identifiers = await Task.WhenAll(run.Names.Select(name =>
+        var started = DateTimeOffset.UtcNow;
+        var identifiers = await Task.WhenAll(run.Names.Select(name =>
             IngestSpanMeasurement.SetRepeatedlyAsync(run.Variables, name, EventsPerWriter, pace, cancellationToken)));
 
-        int landed = await WaitForRowsAsync(run.Context, identifiers, cancellationToken);
-        TimeSpan window = DateTimeOffset.UtcNow - started;
+        var landed = await WaitForRowsAsync(run.Context, identifiers, cancellationToken);
+        var window = DateTimeOffset.UtcNow - started;
 
         await sampling.CancelAsync();
-        (long total, int samples, int nonZero, int peak) = await sampler;
+        (var total, var samples, var nonZero, var peak) = await sampler;
 
         return new HandoverReading(
             Landed: landed,
@@ -192,15 +192,15 @@ public class AuditHandoverLegTests(AspireFixture aspire, ITestOutputHelper outpu
         HttpClient broker, CancellationToken cancellationToken)
     {
         long total = 0;
-        int samples = 0;
-        int nonZero = 0;
-        int peak = 0;
+        var samples = 0;
+        var nonZero = 0;
+        var peak = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                int unacknowledged = await AuditQueueProbe.UnacknowledgedAsync(broker, cancellationToken);
+                var unacknowledged = await AuditQueueProbe.UnacknowledgedAsync(broker, cancellationToken);
                 total += unacknowledged;
                 samples++;
                 peak = Math.Max(peak, unacknowledged);
@@ -220,8 +220,8 @@ public class AuditHandoverLegTests(AspireFixture aspire, ITestOutputHelper outpu
     private static async Task<int> WaitForRowsAsync(
         AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + DrainDeadline;
-        int landed = await IngestSpanMeasurement.CountAsync(context, identifiers, cancellationToken);
+        var deadline = DateTimeOffset.UtcNow + DrainDeadline;
+        var landed = await IngestSpanMeasurement.CountAsync(context, identifiers, cancellationToken);
 
         while (landed < Events && DateTimeOffset.UtcNow < deadline)
         {

@@ -1,11 +1,9 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -43,7 +41,7 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
     [Fact]
     public async Task Every_event_published_during_an_outage_is_stored_exactly_once_after_it()
     {
-        string kind = $"Outage{Guid.CreateVersion7():N}"[..20];
+        var kind = $"Outage{Guid.CreateVersion7():N}"[..20];
 
         await DropStorageAsync();
         output.WriteLine($"dropped events_{Fab} — writes for this fab now fail");
@@ -54,7 +52,7 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
             output.WriteLine($"published {Published} events while storage was away");
 
             await Task.Delay(TimeSpan.FromSeconds(8));
-            long duringOutage = await CountAsync(kind);
+            var duringOutage = await CountAsync(kind);
             output.WriteLine($"stored during the outage: {duringOutage}");
             duringOutage.ShouldBe(0, "the outage has to be real for the rest to mean anything");
         }
@@ -68,7 +66,7 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
             output.WriteLine($"restored events_{Fab} — storage is possible again");
         }
 
-        (long total, long distinct) = await WaitForAsync(kind, Published, TimeSpan.FromSeconds(90));
+        (var total, var distinct) = await WaitForAsync(kind, Published, TimeSpan.FromSeconds(90));
         output.WriteLine($"after recovery: count={total} distinct={distinct}");
 
         total.ShouldBe(Published, "an event published during the outage was lost");
@@ -83,7 +81,7 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
     private async Task<(long Total, long Distinct)> WaitForAsync(
         string kind, long expected, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
         (long total, long distinct) = (0, 0);
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -107,11 +105,11 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
 
     private async Task<(long Total, long Distinct)> CountBothAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-        long total = await database.Database
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
+        var total = await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
-        long distinct = await database.Database
+        var distinct = await database.Database
             .SqlQueryRaw<long>(
                 "SELECT count(DISTINCT event_id) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -122,7 +120,7 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
 
     private async Task RestoreStorageAsync()
     {
-        DateTime now = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
         await ExecuteAsync($"""
             CREATE TABLE IF NOT EXISTS events_{Fab} PARTITION OF events
                 FOR VALUES IN ('{Fab}') PARTITION BY RANGE (ingested_at);
@@ -135,7 +133,7 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
 
     private async Task ExecuteAsync(string sql)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
 #pragma warning disable EF1002
         await database.Database.ExecuteSqlRawAsync(sql);
 #pragma warning restore EF1002
@@ -143,22 +141,22 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
 
     private async Task PublishAsync(string topic, string kind, int count)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -168,9 +166,9 @@ public class OutageRecoveryIntegrationTests(AspireFixture aspire, ITestOutputHel
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
-            MqttClientPublishResult published = await client.PublishAsync(
+            var published = await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
                     .WithPayload(Payload(kind))

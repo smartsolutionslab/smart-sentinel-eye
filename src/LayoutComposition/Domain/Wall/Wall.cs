@@ -84,7 +84,7 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
 
     private static void RequireValidScenes(IReadOnlyList<LayoutIdentifier> scenes)
     {
-        Option<SceneSetViolation> violation = ValidateScenes(scenes);
+        var violation = ValidateScenes(scenes);
         if (violation.HasValue)
         {
             throw new InvalidOperationException(
@@ -110,8 +110,8 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
         Ensure.That(clock).IsNotNull();
         RequireValidScenes(scenes);
 
-        DateTimeOffset now = clock.UtcNow;
-        LayoutIdentifier first = scenes[0];
+        var now = clock.UtcNow;
+        var first = scenes[0];
         Wall wall = new()
         {
             Id = WallIdentifier.New(),
@@ -149,14 +149,14 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
             return;
         }
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         scenes.Clear();
         scenes.AddRange(newScenes);
 
         if (!scenes.Contains(Showing))
         {
-            LayoutIdentifier previous = Showing;
-            LayoutIdentifier next = scenes[0];
+            var previous = Showing;
+            var next = scenes[0];
             Showing = next;
             SceneVersion = SceneVersion.Next();
             ShowingSince = ShowingSince.From(now);
@@ -185,7 +185,7 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
         Ensure.That(cause).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        LayoutIdentifier? resolved = target switch
+        var resolved = target switch
         {
             SceneTarget.Layout layout => ResolveLayoutTarget(layout.Value, publishable),
             SceneTarget.Next => ResolveNextTarget(publishable),
@@ -199,8 +199,8 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
             return Option<WallSceneSwitchedDomainEvent>.None;
         }
 
-        DateTimeOffset now = clock.UtcNow;
-        LayoutIdentifier previous = Showing;
+        var now = clock.UtcNow;
+        var previous = Showing;
         Showing = next;
         SceneVersion = SceneVersion.Next();
         ShowingSince = ShowingSince.From(now);
@@ -231,10 +231,10 @@ public sealed class Wall : AggregateRoot<WallIdentifier>
     /// </summary>
     private LayoutIdentifier? ResolveNextTarget(IReadOnlySet<LayoutIdentifier> publishable)
     {
-        int startIndex = scenes.IndexOf(Showing);
-        for (int offset = 1; offset <= scenes.Count; offset++)
+        var startIndex = scenes.IndexOf(Showing);
+        for (var offset = 1; offset <= scenes.Count; offset++)
         {
-            LayoutIdentifier candidate = scenes[(startIndex + offset) % scenes.Count];
+            var candidate = scenes[(startIndex + offset) % scenes.Count];
             if (candidate == Showing)
             {
                 return null;

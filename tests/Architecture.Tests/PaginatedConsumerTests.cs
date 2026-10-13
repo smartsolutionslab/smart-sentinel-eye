@@ -165,7 +165,7 @@ public class PaginatedConsumerTests
     public static TheoryData<string, string> RegisteredHooks()
     {
         TheoryData<string, string> data = [];
-        foreach (BoundedResponse row in Register)
+        foreach (var row in Register)
         {
             data.Add(row.Hook, row.BoundaryField);
         }
@@ -187,9 +187,9 @@ public class PaginatedConsumerTests
     [MemberData(nameof(RegisteredHooks))]
     public void Every_consumer_of_a_bounded_response_names_its_boundary_field(string hook, string boundaryField)
     {
-        Regex accessors = AccessorsOf(hook);
+        var accessors = AccessorsOf(hook);
 
-        string[] silent = FrontendSources()
+        var silent = FrontendSources()
             .Where(file => accessors.IsMatch(file.Value))
             .Where(file => !Mentions(file.Value, boundaryField))
             .Select(file => file.Key)
@@ -220,8 +220,8 @@ public class PaginatedConsumerTests
     [Fact]
     public void The_register_pairs_every_bounded_response_with_the_hook_that_produces_it()
     {
-        string[] declared = DeclaredBoundedPairs();
-        string[] registered = Register
+        var declared = DeclaredBoundedPairs();
+        var registered = Register
             .Select(row => $"{row.ResponseType} -> {row.Hook}")
             .Order(StringComparer.Ordinal)
             .ToArray();
@@ -260,7 +260,7 @@ public class PaginatedConsumerTests
     {
         string[] swept = [.. FrontendSources().Keys];
 
-        string[] unswept = AppDirectories()
+        var unswept = AppDirectories()
             .Select(app => new DirectoryInfo(app).Name)
             .Where(app => !swept.Any(path => path.StartsWith($"apps/{app}/", StringComparison.Ordinal)))
             .OrderBy(app => app, StringComparer.Ordinal)
@@ -288,7 +288,7 @@ public class PaginatedConsumerTests
     [Fact]
     public void The_consumer_sweep_reads_a_corpus_large_enough_to_hold_a_violation()
     {
-        int corpus = FrontendSources().Count;
+        var corpus = FrontendSources().Count;
 
         corpus.ShouldBeGreaterThanOrEqualTo(
             SmallestPlausibleCorpus,
@@ -313,7 +313,7 @@ public class PaginatedConsumerTests
     [Fact]
     public void Every_exported_shape_in_the_api_clients_is_readable_by_the_matcher()
     {
-        string[] unreadable = ApiClientSources()
+        var unreadable = ApiClientSources()
             .SelectMany(UnreadableShapes)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -378,7 +378,7 @@ public class PaginatedConsumerTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_a_consumer(string mechanism)
     {
-        string[] offenders = SharedSourceScanFiles.Prepend(GuardSource)
+        var offenders = SharedSourceScanFiles.Prepend(GuardSource)
             .SelectMany(file => RepositorySource.ExecutableLines(ReadRepositoryFile(file)))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
@@ -401,8 +401,8 @@ public class PaginatedConsumerTests
     /// </summary>
     private static Regex AccessorsOf(string hook)
     {
-        string endpoint = EndpointOf(hook);
-        string stem = char.ToUpperInvariant(endpoint[0]) + endpoint[1..];
+        var endpoint = EndpointOf(hook);
+        var stem = char.ToUpperInvariant(endpoint[0]) + endpoint[1..];
 
         return new Regex(
             $@"\buse(?:Lazy)?{stem}Query(?:State|Subscription)?\b|\bendpoints\.{endpoint}\b",
@@ -421,7 +421,7 @@ public class PaginatedConsumerTests
             $"'{hook}' is not a generated RTK Query hook name, so no endpoint can be recovered from it. "
             + "A register row names the hook RTK Query generates: use + the capitalised endpoint + Query.");
 
-        string stem = hook[3..^5];
+        var stem = hook[3..^5];
         return char.ToLowerInvariant(stem[0]) + stem[1..];
     }
 
@@ -440,9 +440,9 @@ public class PaginatedConsumerTests
     /// </summary>
     private static string[] DeclaredBoundedPairs()
     {
-        string[] clients = ApiClientSources();
+        var clients = ApiClientSources();
 
-        ILookup<string, string> producers = clients
+        var producers = clients
             .SelectMany(text => QueryDeclaration.Matches(text).AsEnumerable())
             .ToLookup(
                 match => match.Groups["response"].Value,
@@ -526,7 +526,7 @@ public class PaginatedConsumerTests
     /// </summary>
     private static string[] ApiClientSources()
     {
-        string[] clients = FrontendFiles()
+        var clients = FrontendFiles()
             .Where(IsApiClient)
             .Select(ReadRepositoryFile)
             .ToArray();
@@ -557,7 +557,7 @@ public class PaginatedConsumerTests
     /// </summary>
     private static string[] FrontendFiles()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
 
         return AppDirectories()
             .Select(app => Path.Combine(app, "src"))
@@ -609,7 +609,7 @@ public class PaginatedConsumerTests
 
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositorySource.Root().FullName, relativePath);
+        var path = Path.Combine(RepositorySource.Root().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path);

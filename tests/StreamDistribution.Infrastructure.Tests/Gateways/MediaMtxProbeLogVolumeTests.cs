@@ -64,14 +64,14 @@ public class MediaMtxProbeLogVolumeTests
     {
         const int probeCount = 250;
 
-        (IHost host, StubHandler stub, RecordingLoggerProvider recorder) =
+        (var host, var stub, var recorder) =
             BuildGatewayHost(environment, HealthyResponder);
 
-        IRtspGateway gateway = host.Services.GetRequiredService<IRtspGateway>();
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
 
-        for (int i = 0; i < probeCount; i++)
+        for (var i = 0; i < probeCount; i++)
         {
-            RtspPathHealth result = await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
+            var result = await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
             result.IsReady.ShouldBeTrue();
         }
 
@@ -88,9 +88,9 @@ public class MediaMtxProbeLogVolumeTests
                 $"service discovery should pass 'http://mediamtx.test' through unchanged for a host with no "
                 + $"matching 'services:' configuration entry; the stub actually received '{stub.RequestUris[0]}'");
 
-        int routine = CountRoutine(recorder.Entries);
-        double perProbe = (double)routine / probeCount;
-        double recordsPerSecondAt250 = perProbe * 250 / 2;
+        var routine = CountRoutine(recorder.Entries);
+        var perProbe = (double)routine / probeCount;
+        var recordsPerSecondAt250 = perProbe * 250 / 2;
 
         routine.ShouldBe(
             0,
@@ -104,15 +104,15 @@ public class MediaMtxProbeLogVolumeTests
     public async Task A_probe_answered_not_ready_or_not_found_writes_no_information_record(
         HttpStatusCode status, string body, bool expectedReady)
     {
-        (IHost host, StubHandler _, RecordingLoggerProvider recorder) =
+        (var host, var _, var recorder) =
             BuildGatewayHost(Environments.Production, _ => Respond(status, body));
 
-        IRtspGateway gateway = host.Services.GetRequiredService<IRtspGateway>();
-        RtspPathHealth result = await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
+        var result = await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
 
         result.IsReady.ShouldBe(expectedReady);
 
-        int routine = CountRoutine(recorder.Entries);
+        var routine = CountRoutine(recorder.Entries);
 
         routine.ShouldBe(
             0,
@@ -129,12 +129,12 @@ public class MediaMtxProbeLogVolumeTests
     [Fact]
     public async Task A_probe_that_needs_retries_still_logs_them_at_warning_and_its_failure_at_error()
     {
-        (IHost host, StubHandler _, RecordingLoggerProvider recorder) = BuildGatewayHost(
+        (var host, var _, var recorder) = BuildGatewayHost(
             Environments.Production,
             _ => Respond(HttpStatusCode.ServiceUnavailable, string.Empty),
             zeroRetryDelay: true);
 
-        IRtspGateway gateway = host.Services.GetRequiredService<IRtspGateway>();
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
 
         await Should.ThrowAsync<HttpRequestException>(
             () => gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None));
@@ -158,8 +158,8 @@ public class MediaMtxProbeLogVolumeTests
     [Fact]
     public async Task Another_client_in_the_same_service_still_logs_its_exchanges_at_information()
     {
-        HostApplicationBuilder builder = NewBuilder(Environments.Production);
-        RecordingLoggerProvider recorder = AttachRecorder(builder);
+        var builder = NewBuilder(Environments.Production);
+        var recorder = AttachRecorder(builder);
 
         // "In the same container" (AS-4) — the gateway is registered
         // alongside the unrelated client, just as production does, even
@@ -169,11 +169,11 @@ public class MediaMtxProbeLogVolumeTests
         StubHandler unrelatedStub = new(HealthyResponder);
         builder.Services.AddHttpClient("unrelated").ConfigurePrimaryHttpMessageHandler(() => unrelatedStub);
 
-        using IHost host = builder.Build();
+        using var host = builder.Build();
 
-        IHttpClientFactory factory = host.Services.GetRequiredService<IHttpClientFactory>();
-        using HttpClient client = factory.CreateClient("unrelated");
-        using HttpResponseMessage response = await client.GetAsync("http://unrelated.test/ping", CancellationToken.None);
+        var factory = host.Services.GetRequiredService<IHttpClientFactory>();
+        using var client = factory.CreateClient("unrelated");
+        using var response = await client.GetAsync("http://unrelated.test/ping", CancellationToken.None);
 
         RecordedLog[] unrelatedHandlerEntries =
         [
@@ -211,10 +211,10 @@ public class MediaMtxProbeLogVolumeTests
             ["Logging:LogLevel:" + PollyCategory] = "Debug",
         };
 
-        (IHost host, StubHandler _, RecordingLoggerProvider recorder) =
+        (var host, var _, var recorder) =
             BuildGatewayHost(Environments.Production, HealthyResponder, overrides);
 
-        IRtspGateway gateway = host.Services.GetRequiredService<IRtspGateway>();
+        var gateway = host.Services.GetRequiredService<IRtspGateway>();
         await gateway.GetPathHealthAsync(RandomPath(), CancellationToken.None);
 
         RecordedLog[] gatewayHandlerEntries =
@@ -227,7 +227,7 @@ public class MediaMtxProbeLogVolumeTests
             "the environment override should bring the four HttpClient handler records back at Information "
             + "without a rebuild (this half is green even before the fix — there is nothing to override yet)");
 
-        RecordedLog attempt = recorder.Entries.Single(entry =>
+        var attempt = recorder.Entries.Single(entry =>
             entry.Category == PollyCategory && entry.EffectiveEventName == ExecutionAttempt);
 
         attempt.Level.ShouldBe(
@@ -260,9 +260,9 @@ public class MediaMtxProbeLogVolumeTests
         IReadOnlyDictionary<string, string?>? overrides = null,
         bool zeroRetryDelay = false)
     {
-        HostApplicationBuilder builder = NewBuilder(environment, overrides);
-        RecordingLoggerProvider recorder = AttachRecorder(builder);
-        (IHttpClientBuilder gatewayBuilder, StubHandler stub) = AttachGateway(builder, responder);
+        var builder = NewBuilder(environment, overrides);
+        var recorder = AttachRecorder(builder);
+        (var gatewayBuilder, var stub) = AttachGateway(builder, responder);
 
         if (zeroRetryDelay)
         {
@@ -283,10 +283,10 @@ public class MediaMtxProbeLogVolumeTests
 
     private static HostApplicationBuilder NewBuilder(string environment, IReadOnlyDictionary<string, string?>? overrides = null)
     {
-        DirectoryInfo repoRoot = RepositoryRoot();
-        string apiContentRoot = Path.Combine(repoRoot.FullName, "src", "StreamDistribution", "Api");
+        var repoRoot = RepositoryRoot();
+        var apiContentRoot = Path.Combine(repoRoot.FullName, "src", "StreamDistribution", "Api");
 
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
         {
             ContentRootPath = apiContentRoot,
             EnvironmentName = environment,
@@ -324,7 +324,7 @@ public class MediaMtxProbeLogVolumeTests
         builder.Services.Configure<MediaMtxOptions>(options => options.ManagementUrl = "http://mediamtx.test");
 
         StubHandler stub = new(responder);
-        IHttpClientBuilder gatewayBuilder = builder.Services
+        var gatewayBuilder = builder.Services
             .AddMediaMtxGateway()
             .ConfigurePrimaryHttpMessageHandler(() => stub);
 
@@ -436,7 +436,7 @@ public class MediaMtxProbeLogVolumeTests
             {
                 if (state is IEnumerable enumerable and not string)
                 {
-                    foreach (object? item in enumerable)
+                    foreach (var item in enumerable)
                     {
                         if (item is KeyValuePair<string, object> pair && pair.Key == "EventName")
                         {

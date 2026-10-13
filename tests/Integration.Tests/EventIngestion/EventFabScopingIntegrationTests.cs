@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -35,9 +34,9 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_is_refused()
     {
-        using HttpClient events = await ClientFor(DresdenOperator);
+        using var events = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await events.GetAsync("/events?fabId=munich");
+        var refused = await events.GetAsync("/events?fabId=munich");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
     }
@@ -45,11 +44,11 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task Omitting_the_fab_spans_the_callers_own_fabs_rather_than_failing()
     {
-        using HttpClient events = await ClientFor(DresdenOperator);
+        using var events = await ClientFor(DresdenOperator);
 
         // Previously a 400: fabId was required. Making it optional is the
         // widening half of a change that is otherwise strictly narrowing.
-        HttpResponseMessage listed = await events.GetAsync("/events");
+        var listed = await events.GetAsync("/events");
 
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
     }
@@ -57,9 +56,9 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task A_multi_fab_operator_may_narrow_to_one_of_their_own_fabs()
     {
-        using HttpClient events = await ClientFor(MultiFabOperator);
+        using var events = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage listed = await events.GetAsync("/events?fabId=munich");
+        var listed = await events.GetAsync("/events?fabId=munich");
 
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
     }
@@ -72,9 +71,9 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task A_dresden_operator_never_sees_a_munich_event()
     {
-        string kind = $"Seeded{Guid.NewGuid():N}"[..20];
+        var kind = $"Seeded{Guid.NewGuid():N}"[..20];
 
-        using HttpClient seeder = await ClientFor(MultiFabOperator);
+        using var seeder = await ClientFor(MultiFabOperator);
         (await seeder.PostAsJsonAsync("/events/manual?fabId=munich", Body(kind)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
@@ -82,11 +81,11 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
         // through the operator who may legitimately see it.
         await WaitUntilVisibleAsync(seeder, "munich", kind);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        HttpResponseMessage listed = await dresden.GetAsync($"/events?kind={kind}");
+        using var dresden = await ClientFor(DresdenOperator);
+        var listed = await dresden.GetAsync($"/events?kind={kind}");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         page.GetProperty("items").GetArrayLength().ShouldBe(
             0, "a munich event reached a dresden operator's listing");
     }
@@ -98,18 +97,18 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     [Fact]
     public async Task Another_fabs_event_is_indistinguishable_from_one_that_never_existed()
     {
-        string kind = $"Hidden{Guid.NewGuid():N}"[..20];
+        var kind = $"Hidden{Guid.NewGuid():N}"[..20];
 
-        using HttpClient seeder = await ClientFor(MultiFabOperator);
+        using var seeder = await ClientFor(MultiFabOperator);
         (await seeder.PostAsJsonAsync("/events/manual?fabId=munich", Body(kind)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
-        Guid munichEvent = await WaitUntilVisibleAsync(seeder, "munich", kind);
+        var munichEvent = await WaitUntilVisibleAsync(seeder, "munich", kind);
 
-        Guid neverExisted = Guid.CreateVersion7();
+        var neverExisted = Guid.CreateVersion7();
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        HttpResponseMessage hidden = await dresden.GetAsync($"/events/{munichEvent}");
-        HttpResponseMessage absent = await dresden.GetAsync($"/events/{neverExisted}");
+        using var dresden = await ClientFor(DresdenOperator);
+        var hidden = await dresden.GetAsync($"/events/{munichEvent}");
+        var absent = await dresden.GetAsync($"/events/{neverExisted}");
 
         hidden.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(hidden));
         absent.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(absent));
@@ -123,14 +122,14 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     /// <summary>Waits for an ingested event to appear, returning its identifier.</summary>
     private static async Task<Guid> WaitUntilVisibleAsync(HttpClient events, string fab, string kind)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage listed = await events.GetAsync($"/events?fabId={fab}&kind={kind}");
+            var listed = await events.GetAsync($"/events?fabId={fab}&kind={kind}");
             if (listed.IsSuccessStatusCode)
             {
-                JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
-                JsonElement items = page.GetProperty("items");
+                var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+                var items = page.GetProperty("items");
                 if (items.GetArrayLength() > 0)
                 {
                     return items[0].GetProperty("eventIdentifier").GetGuid();
@@ -168,7 +167,7 @@ public class EventFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLifet
     /// </summary>
     private static async Task<string> NormalisedProblemAsync(HttpResponseMessage response, Guid requested)
     {
-        JsonNode problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        var problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
         problem.AsObject().Remove("traceId");
 
         return problem.ToJsonString()

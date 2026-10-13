@@ -1,4 +1,3 @@
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -125,14 +124,14 @@ public class AuditIngestHistoricSpanTests(AspireFixture aspire, ITestOutputHelpe
     [Fact]
     public async Task Ingest_span_from_publish_to_row_at_the_unpaced_historic_shape()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
         // Two variables, not one. The warm-up's rows would otherwise sit in the
         // same result set as the measured ones with no way to tell them apart
         // after the fact, and the percentile would include the cold path the
         // warm-up exists to exclude.
-        string warmName = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
-        string measureName = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
+        var warmName = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
+        var measureName = await IngestSpanMeasurement.DefineAsync(variables, CancellationToken.None);
 
         await IngestSpanMeasurement.SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, IngestSpanMeasurement.NoPacing, CancellationToken.None);
 
@@ -140,20 +139,20 @@ public class AuditIngestHistoricSpanTests(AspireFixture aspire, ITestOutputHelpe
         // assumed.** It is the reason the figure below is not a verdict: a
         // sequential writer is capped by its own round trip, well under the
         // 100 ev/s NFR-001 is a claim about.
-        DateTimeOffset started = DateTimeOffset.UtcNow;
-        string measureIdentifier = await IngestSpanMeasurement.SetRepeatedlyAsync(variables, measureName, IngestRunShape.MeasuredEvents, IngestSpanMeasurement.NoPacing, CancellationToken.None);
-        TimeSpan drove = DateTimeOffset.UtcNow - started;
+        var started = DateTimeOffset.UtcNow;
+        var measureIdentifier = await IngestSpanMeasurement.SetRepeatedlyAsync(variables, measureName, IngestRunShape.MeasuredEvents, IngestSpanMeasurement.NoPacing, CancellationToken.None);
+        var drove = DateTimeOffset.UtcNow - started;
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        int landed = await IngestSpanMeasurement.WaitForRowsAsync(context, [measureIdentifier], CancellationToken.None);
+        var landed = await IngestSpanMeasurement.WaitForRowsAsync(context, [measureIdentifier], CancellationToken.None);
         landed.ShouldBe(
             IngestRunShape.MeasuredEvents,
             "every measured event must reach the audit store before its latency can be read; "
             + $"{landed} of {IngestRunShape.MeasuredEvents} arrived within {IngestSpanMeasurement.IngestDeadline.TotalSeconds:F0}s");
 
-        (double p50, double p99, double max) = await IngestSpanMeasurement.PercentilesAsync(context, [measureIdentifier], CancellationToken.None);
+        (var p50, var p99, var max) = await IngestSpanMeasurement.PercentilesAsync(context, [measureIdentifier], CancellationToken.None);
 
         output.WriteLine(
             $"audit ingest over {IngestRunShape.MeasuredEvents} events: "
@@ -174,7 +173,7 @@ public class AuditIngestHistoricSpanTests(AspireFixture aspire, ITestOutputHelpe
         // exported is exactly how a figure gets attributed to the wrong
         // configuration, so each run states the switch state it actually ran
         // under, read off the rows it produced rather than off an intention.
-        int stamped = await IngestSpanMeasurement.StampedCountAsync(context, [measureIdentifier], CancellationToken.None);
+        var stamped = await IngestSpanMeasurement.StampedCountAsync(context, [measureIdentifier], CancellationToken.None);
         output.WriteLine(
             $"measurement switch: {(stamped > 0 ? "ON" : "OFF")} "
             + $"({stamped} of {landed} rows carry the stamps)");

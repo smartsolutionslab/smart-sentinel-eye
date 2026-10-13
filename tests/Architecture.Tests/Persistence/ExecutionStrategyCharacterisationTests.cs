@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace SmartSentinelEye.Architecture.Tests.Persistence;
@@ -40,9 +39,9 @@ public class ExecutionStrategyCharacterisationTests
     [MemberData(nameof(PostgresComposition.AllContexts), MemberType = typeof(PostgresComposition))]
     public void The_created_db_context_resolves_the_non_retrying_npgsql_execution_strategy(string contextName)
     {
-        using ServiceProvider provider = PostgresComposition.Compose(contextName);
-        using IServiceScope scope = provider.CreateScope();
-        using DbContext dbContext = PostgresComposition.ResolveDbContext(contextName, scope.ServiceProvider);
+        using var provider = PostgresComposition.Compose(contextName);
+        using var scope = provider.CreateScope();
+        using var dbContext = PostgresComposition.ResolveDbContext(contextName, scope.ServiceProvider);
 
         dbContext.Database.CreateExecutionStrategy().GetType().FullName.ShouldBe(
             NonRetryingStrategyTypeName,

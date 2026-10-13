@@ -47,7 +47,7 @@ public sealed record CameraName : StringValueObject, IComparable<CameraName>
         Ensure.That(value, nameof(value))
             .IsNotNullOrWhiteSpace()
             .HasMaxLength(MaximumLength);
-        string trimmed = value.Trim();
+        var trimmed = value.Trim();
         return new CameraName(trimmed, trimmed.ToUpperInvariant());
     }
 

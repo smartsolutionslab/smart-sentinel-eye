@@ -1,14 +1,10 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Api;
 
@@ -32,16 +28,16 @@ public static partial class WallEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await LayoutEndpoints.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<WallDto, GetWallError> result = await handler
+        var result = await handler
             .HandleAsync(new GetWallQuery(fabs, WallIdentifier.From(wallIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
@@ -63,14 +59,14 @@ public static partial class WallEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await LayoutEndpoints.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<WallDto> walls = await handler
+        var walls = await handler
             .HandleAsync(new ListWallsQuery(fabsResolution.Value), cancellationToken);
 
         return Results.Ok(walls);

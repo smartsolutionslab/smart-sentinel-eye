@@ -14,7 +14,7 @@ internal static class AuditCursor
 {
     public static string Encode(DateTimeOffset occurredAt, Guid auditIdentifier)
     {
-        string raw = $"{occurredAt.UtcTicks:D19}.{auditIdentifier:N}";
+        var raw = $"{occurredAt.UtcTicks:D19}.{auditIdentifier:N}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(raw));
     }
 
@@ -27,15 +27,15 @@ internal static class AuditCursor
 
         try
         {
-            string raw = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-            int dot = raw.IndexOf('.', StringComparison.Ordinal);
+            var raw = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
+            var dot = raw.IndexOf('.', StringComparison.Ordinal);
             if (dot < 0)
             {
                 return null;
             }
 
-            long ticks = long.Parse(raw[..dot], CultureInfo.InvariantCulture);
-            Guid id = Guid.ParseExact(raw[(dot + 1)..], "N");
+            var ticks = long.Parse(raw[..dot], CultureInfo.InvariantCulture);
+            var id = Guid.ParseExact(raw[(dot + 1)..], "N");
             return (new DateTimeOffset(ticks, TimeSpan.Zero), id);
         }
         catch (Exception ex) when (ex is FormatException or ArgumentException)

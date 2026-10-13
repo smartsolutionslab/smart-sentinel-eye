@@ -10,7 +10,7 @@ public class PlaceholderParserTests
     [Fact]
     public void ExtractNames_finds_well_formed_placeholders()
     {
-        IReadOnlyCollection<string> names =
+        var names =
             PlaceholderParser.ExtractNames("OEE: {{oeeLine1}}% Status: {{lineStatus}}");
         names.ShouldBe(TwoExpected);
     }
@@ -18,7 +18,7 @@ public class PlaceholderParserTests
     [Fact]
     public void ExtractNames_returns_unique_names_in_first_occurrence_order()
     {
-        IReadOnlyCollection<string> names =
+        var names =
             PlaceholderParser.ExtractNames("{{a}} {{b}} {{a}} {{c}} {{b}}");
         names.ShouldBe(ThreeExpected);
     }
@@ -37,7 +37,7 @@ public class PlaceholderParserTests
     [Fact]
     public void Substitute_replaces_well_formed_placeholders()
     {
-        string output = PlaceholderParser.Substitute(
+        var output = PlaceholderParser.Substitute(
             "OEE: {{oee}}%", _ => "82.4");
         output.ShouldBe("OEE: 82.4%");
     }
@@ -45,7 +45,7 @@ public class PlaceholderParserTests
     [Fact]
     public void Substitute_leaves_literal_when_resolver_returns_null()
     {
-        string output = PlaceholderParser.Substitute(
+        var output = PlaceholderParser.Substitute(
             "OEE: {{oee}}% Status: {{status}}",
             name => name == "oee" ? "82.4" : null);
         output.ShouldBe("OEE: 82.4% Status: {{status}}");
@@ -54,7 +54,7 @@ public class PlaceholderParserTests
     [Fact]
     public void Substitute_leaves_malformed_placeholders_literal()
     {
-        string output = PlaceholderParser.Substitute(
+        var output = PlaceholderParser.Substitute(
             "{{1nope}} {{ ws }} ok",
             _ => "REPLACED");
         output.ShouldBe("{{1nope}} {{ ws }} ok");

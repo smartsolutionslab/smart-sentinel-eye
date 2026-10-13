@@ -124,7 +124,7 @@ public class OutboxCommitTests
     [MemberData(nameof(Assemblies))]
     public void Nothing_commits_without_its_announcements(string assemblyName)
     {
-        List<string> offenders = Offenders(Assembly.Load(assemblyName));
+        var offenders = Offenders(Assembly.Load(assemblyName));
 
         offenders.ShouldBeEmpty(
             $"{string.Join(", ", offenders)} calls SaveChanges or SaveChangesAsync directly. "
@@ -146,7 +146,7 @@ public class OutboxCommitTests
     [Fact]
     public void Every_permitted_direct_commit_still_commits_directly()
     {
-        foreach (Type permitted in PermittedDirectCommits)
+        foreach (var permitted in PermittedDirectCommits)
         {
             ScannedAssemblies.ShouldContain(
                 permitted.Assembly.GetName().Name,
@@ -162,7 +162,7 @@ public class OutboxCommitTests
     public static TheoryData<string> Assemblies()
     {
         TheoryData<string> data = [];
-        foreach (string assembly in ScannedAssemblies)
+        foreach (var assembly in ScannedAssemblies)
         {
             data.Add(assembly);
         }
@@ -205,20 +205,20 @@ public class OutboxCommitTests
         // in OutboxCommitProbe.cs (see The_rule_sees_both_spellings_of_a_direct_commit's
         // doc) and is deliberately never a scan candidate — it is not production
         // code that could commit anything.
-        string testAssemblyFile = Path.GetFileName(typeof(OutboxCommitTests).Assembly.Location);
+        var testAssemblyFile = Path.GetFileName(typeof(OutboxCommitTests).Assembly.Location);
 
         List<string> reaching = [];
-        foreach (string path in Directory.GetFiles(AppContext.BaseDirectory, "SmartSentinelEye.*.dll"))
+        foreach (var path in Directory.GetFiles(AppContext.BaseDirectory, "SmartSentinelEye.*.dll"))
         {
             if (string.Equals(Path.GetFileName(path), testAssemblyFile, StringComparison.OrdinalIgnoreCase))
             {
                 continue;
             }
 
-            AssemblyName name = AssemblyName.GetAssemblyName(path);
-            Assembly assembly = Assembly.Load(name);
+            var name = AssemblyName.GetAssemblyName(path);
+            var assembly = Assembly.Load(name);
 
-            bool canReachDbContext = assembly.GetReferencedAssemblies().Any(reference =>
+            var canReachDbContext = assembly.GetReferencedAssemblies().Any(reference =>
                 reference.Name == "Microsoft.EntityFrameworkCore"
                 || (reference.Name is not null
                     && reference.Name.StartsWith("SmartSentinelEye.", StringComparison.Ordinal)
@@ -306,7 +306,7 @@ public class OutboxCommitTests
     [Fact]
     public void The_rule_sees_both_spellings_of_a_direct_commit()
     {
-        List<string> offenders = Offenders(typeof(OutboxCommitTests).Assembly);
+        var offenders = Offenders(typeof(OutboxCommitTests).Assembly);
 
         offenders.ShouldBe(
             [
@@ -455,7 +455,7 @@ public class OutboxCommitTests
     /// </remarks>
     private static bool ReferencesSaveChanges(MethodBody body, Module module)
     {
-        byte[] il = body.GetILAsByteArray() ?? [];
+        var il = body.GetILAsByteArray() ?? [];
 
         // 0x28 call, 0x6F callvirt — a direct or virtual invocation.
         // 0xFE 0x06 ldftn, 0xFE 0x07 ldvirtftn — a method group converted to a
@@ -465,9 +465,9 @@ public class OutboxCommitTests
         // through the vtable even for a method group taken off a live instance.
         // ldftn only appears for the base-qualified spelling, reachable from
         // inside a DbContext subclass.
-        for (int i = 0; i + 4 < il.Length; i++)
+        for (var i = 0; i + 4 < il.Length; i++)
         {
-            int operand = il[i] switch
+            var operand = il[i] switch
             {
                 0x28 or 0x6F => i + 1,
                 0xFE when il[i + 1] is 0x06 or 0x07 => i + 2,
@@ -479,10 +479,10 @@ public class OutboxCommitTests
                 continue;
             }
 
-            int token = BitConverter.ToInt32(il, operand);
+            var token = BitConverter.ToInt32(il, operand);
             try
             {
-                MethodBase? called = module.ResolveMethod(token);
+                var called = module.ResolveMethod(token);
                 // IsAssignableFrom, not IsSubclassOf: SaveChanges/SaveChangesAsync are
                 // declared on DbContext itself, so a subclass check excludes the only
                 // declaring type they ever have — which is how the first version of

@@ -1,12 +1,9 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.LayoutComposition.Infrastructure.Persistence;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
-using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
@@ -30,15 +27,15 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_key_reused_for_a_different_rule_is_refused()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string first = UniqueName();
-        string second = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var first = UniqueName();
+        var second = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await rules.SendAsync(RuleRequest(first, key));
+        var created = await rules.SendAsync(RuleRequest(first, key));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync("automation", created));
 
-        HttpResponseMessage refused = await rules.SendAsync(RuleRequest(second, key));
+        var refused = await rules.SendAsync(RuleRequest(second, key));
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -46,23 +43,23 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
             + await DiagnoseAsync("automation", refused));
         (await TitleOfAsync(refused)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
-        HttpResponseMessage read = await rules.GetAsync($"/rules/{second}");
+        var read = await rules.GetAsync($"/rules/{second}");
         read.StatusCode.ShouldBe(HttpStatusCode.NotFound, "the second rule must never have been created");
     }
 
     [Fact]
     public async Task A_key_reused_for_a_different_layout_is_refused()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, Fab);
-        string first = UniqueName();
-        string second = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, Fab);
+        var first = UniqueName();
+        var second = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await layouts.SendAsync(LayoutRequest(first, camera, key));
+        var created = await layouts.SendAsync(LayoutRequest(first, camera, key));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync("layout-composition", created));
 
-        HttpResponseMessage refused = await layouts.SendAsync(LayoutRequest(second, camera, key));
+        var refused = await layouts.SendAsync(LayoutRequest(second, camera, key));
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -77,17 +74,17 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_key_reused_for_a_different_wall_is_refused()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid sceneA = await PublishedLayoutAsync(layouts);
-        Guid sceneB = await PublishedLayoutAsync(layouts);
-        string first = UniqueName();
-        string second = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var sceneA = await PublishedLayoutAsync(layouts);
+        var sceneB = await PublishedLayoutAsync(layouts);
+        var first = UniqueName();
+        var second = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await layouts.SendAsync(WallRequest(first, [sceneA, sceneB], key));
+        var created = await layouts.SendAsync(WallRequest(first, [sceneA, sceneB], key));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync("layout-composition", created));
 
-        HttpResponseMessage refused = await layouts.SendAsync(WallRequest(second, [sceneA, sceneB], key));
+        var refused = await layouts.SendAsync(WallRequest(second, [sceneA, sceneB], key));
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -103,15 +100,15 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_key_reused_for_a_different_overlay_is_refused()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string first = UniqueName();
-        string second = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var first = UniqueName();
+        var second = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await overlays.SendAsync(OverlayRequest(first, key));
+        var created = await overlays.SendAsync(OverlayRequest(first, key));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync("overlay-designer", created));
 
-        HttpResponseMessage refused = await overlays.SendAsync(OverlayRequest(second, key));
+        var refused = await overlays.SendAsync(OverlayRequest(second, key));
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -126,15 +123,15 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_key_reused_for_a_different_system_variable_is_refused()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        string first = UniqueVariableName();
-        string second = UniqueVariableName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        var first = UniqueVariableName();
+        var second = UniqueVariableName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await variables.SendAsync(VariableRequest(first, key));
+        var created = await variables.SendAsync(VariableRequest(first, key));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync("system-variables", created));
 
-        HttpResponseMessage refused = await variables.SendAsync(VariableRequest(second, key));
+        var refused = await variables.SendAsync(VariableRequest(second, key));
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -142,7 +139,7 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
             + await DiagnoseAsync("system-variables", refused));
         (await TitleOfAsync(refused)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
-        HttpResponseMessage read = await variables.GetAsync($"/system-variables/{second}");
+        var read = await variables.GetAsync($"/system-variables/{second}");
         read.StatusCode.ShouldBe(HttpStatusCode.NotFound, "the second variable must never have been created");
     }
 
@@ -244,10 +241,10 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
     /// <summary>Creates and publishes a one-tile layout, for a wall's scene list.</summary>
     private async Task<Guid> PublishedLayoutAsync(HttpClient layouts)
     {
-        string name = $"W302-{Guid.NewGuid():N}"[..16];
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, Fab);
+        var name = $"W302-{Guid.NewGuid():N}"[..16];
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, Fab);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name,
             grid = new { rows = 1, cols = 1 },
@@ -257,9 +254,9 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
             },
         });
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
+        var published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
 
         return layoutIdentifier;
@@ -267,26 +264,26 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
 
     private async Task<int> CountLayoutsNamedAsync(string name)
     {
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
-        FabIdentifier fab = FabIdentifier.From(Fab);
-        LayoutName parsed = LayoutName.From(name);
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
+        var fab = FabIdentifier.From(Fab);
+        var parsed = LayoutName.From(name);
 
         return await context.Layouts.CountAsync(candidate => candidate.Fab == fab && candidate.Name == parsed);
     }
 
     private async Task<int> CountWallsNamedAsync(string name)
     {
-        await using LayoutCompositionDbContext context = await aspire.CreateLayoutCompositionDbContextAsync();
-        FabIdentifier fab = FabIdentifier.From(Fab);
-        WallName parsed = WallName.From(name);
+        await using var context = await aspire.CreateLayoutCompositionDbContextAsync();
+        var fab = FabIdentifier.From(Fab);
+        var parsed = WallName.From(name);
 
         return await context.Walls.CountAsync(candidate => candidate.Fab == fab && candidate.Name == parsed);
     }
 
     private async Task<int> CountOverlaysNamedAsync(string name)
     {
-        await using OverlayDesignerDbContext context = await aspire.CreateOverlayDesignerDbContextAsync();
-        OverlayName parsed = OverlayName.From(name);
+        await using var context = await aspire.CreateOverlayDesignerDbContextAsync();
+        var parsed = OverlayName.From(name);
 
         return await context.Overlays.CountAsync(candidate => candidate.Name == parsed);
     }
@@ -302,9 +299,9 @@ public class IdempotencyKeyReuseAcrossContextsIntegrationTests(AspireFixture asp
 
     private static async Task<string?> TitleOfAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-        return problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out JsonElement title)
+        return problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out var title)
             ? title.GetString()
             : null;
     }

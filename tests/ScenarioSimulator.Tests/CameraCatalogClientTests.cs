@@ -38,9 +38,9 @@ public class CameraCatalogClientTests
     [Fact]
     public async Task A_camera_past_the_first_page_is_still_found()
     {
-        StubHandler catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
+        var catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
 
-        Guid? found = await ReadBackAsync(catalog, "camera-241");
+        var found = await ReadBackAsync(catalog, "camera-241");
 
         found.ShouldNotBeNull(
             "the camera exists; before this it was reported absent because it sat past the "
@@ -55,7 +55,7 @@ public class CameraCatalogClientTests
     [Fact]
     public async Task The_walk_continues_past_the_page_the_catalog_will_serve()
     {
-        StubHandler catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
+        var catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
 
         await ReadBackAsync(catalog, "camera-241");
 
@@ -73,7 +73,7 @@ public class CameraCatalogClientTests
     [Fact]
     public async Task No_request_asks_for_more_than_the_catalog_will_serve()
     {
-        StubHandler catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
+        var catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
 
         await ReadBackAsync(catalog, "camera-241");
 
@@ -83,9 +83,9 @@ public class CameraCatalogClientTests
     [Fact]
     public async Task A_camera_on_the_first_page_costs_one_request()
     {
-        StubHandler catalog = Catalog(total: 250, wanted: "camera-007", wantedAt: 6);
+        var catalog = Catalog(total: 250, wanted: "camera-007", wantedAt: 6);
 
-        Guid? found = await ReadBackAsync(catalog, "camera-007");
+        var found = await ReadBackAsync(catalog, "camera-007");
 
         found.ShouldNotBeNull();
         catalog.Queries.Count.ShouldBe(1, "the walk stops at the match rather than reading on");
@@ -94,9 +94,9 @@ public class CameraCatalogClientTests
     [Fact]
     public async Task A_camera_that_is_genuinely_absent_is_reported_absent()
     {
-        StubHandler catalog = Catalog(total: 250, wanted: "never-registered", wantedAt: -1);
+        var catalog = Catalog(total: 250, wanted: "never-registered", wantedAt: -1);
 
-        Guid? found = await ReadBackAsync(catalog, "never-registered");
+        var found = await ReadBackAsync(catalog, "never-registered");
 
         found.ShouldBeNull();
     }
@@ -111,9 +111,9 @@ public class CameraCatalogClientTests
     {
         // Claims 500, serves 250. Without the empty-page guard the offset never
         // reaches the count and this never returns.
-        StubHandler catalog = Catalog(total: 250, wanted: "never-registered", wantedAt: -1, reportedCount: 500);
+        var catalog = Catalog(total: 250, wanted: "never-registered", wantedAt: -1, reportedCount: 500);
 
-        Guid? found = await ReadBackAsync(catalog, "never-registered");
+        var found = await ReadBackAsync(catalog, "never-registered");
 
         found.ShouldBeNull();
         catalog.Queries.Count.ShouldBe(3, "two pages of rows, then the empty page that stops it");
@@ -123,12 +123,12 @@ public class CameraCatalogClientTests
     {
         return new StubHandler(query =>
         {
-            int offset = ParseOffset(query);
-            int take = Math.Max(0, Math.Min(PageSize, total - offset));
+            var offset = ParseOffset(query);
+            var take = Math.Max(0, Math.Min(PageSize, total - offset));
 
-            string items = string.Join(",", Enumerable.Range(offset, take).Select(index =>
+            var items = string.Join(",", Enumerable.Range(offset, take).Select(index =>
             {
-                string name = index == wantedAt ? wanted : $"filler-{index}";
+                var name = index == wantedAt ? wanted : $"filler-{index}";
                 return $$"""{"cameraIdentifier":"{{Guid.CreateVersion7()}}","name":"{{name}}"}""";
             }));
 
@@ -138,7 +138,7 @@ public class CameraCatalogClientTests
 
     private static int ParseOffset(string query)
     {
-        int marker = query.IndexOf("offset=", StringComparison.Ordinal);
+        var marker = query.IndexOf("offset=", StringComparison.Ordinal);
 
         return marker < 0 ? 0 : int.Parse(query[(marker + "offset=".Length)..], CultureInfo.InvariantCulture);
     }
@@ -193,7 +193,7 @@ public class CameraCatalogClientTests
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Conflict));
             }
 
-            string query = request.RequestUri!.PathAndQuery;
+            var query = request.RequestUri!.PathAndQuery;
 
             if (query.StartsWith("/cameras", StringComparison.Ordinal))
             {

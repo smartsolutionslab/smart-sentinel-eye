@@ -5,8 +5,6 @@ using SmartSentinelEye.Identity.Application.Commands.Handlers;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
-using SmartSentinelEye.Shared.Kernel;
-using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Tests.Commands;
 
@@ -21,7 +19,7 @@ public class DisableDeviceCommandHandlerTests
     private static void SeedAggregate(
         InMemoryRegisteredClientRepository repo, ClientKind kind, string clientId, string fab = "munich")
     {
-        RegisteredClientAggregate aggregate = new RegisteredClientBuilder()
+        var aggregate = new RegisteredClientBuilder()
             .WithClientId(clientId)
             .WithKind(kind)
             .WithFab(fab)
@@ -41,7 +39,7 @@ public class DisableDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now.AddHours(1)),
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableDeviceCommand(ClientId.From("plc-station-4"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -59,7 +57,7 @@ public class DisableDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableDeviceCommand(ClientId.From("ghost"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -79,7 +77,7 @@ public class DisableDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableDeviceCommand(ClientId.From("kiosk-3"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableDeviceError.DeviceNotFound>();
@@ -101,7 +99,7 @@ public class DisableDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<DisableDeviceCommandHandler>.Instance);
 
-        Result<RegisteredClientIdentifier, DisableDeviceError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableDeviceCommand(ClientId.From("plc-station-4"), FabIdentifier.From("munich")), CancellationToken.None);
 
         result.Error.ShouldBeOfType<DisableDeviceError.DeviceNotFound>();

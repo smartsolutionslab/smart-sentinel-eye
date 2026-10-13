@@ -1,5 +1,4 @@
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 
@@ -24,7 +23,7 @@ public sealed class InMemoryWallRepository : IWallRepository
     /// </summary>
     public Task<Option<FabIdentifier>> FindFabAsync(WallIdentifier wall, CancellationToken cancellationToken)
     {
-        Wall? found = walls.SingleOrDefault(candidate => candidate.Id == wall);
+        var found = walls.SingleOrDefault(candidate => candidate.Id == wall);
         return Task.FromResult(found is null ? Option<FabIdentifier>.None : Option<FabIdentifier>.Some(found.Fab));
     }
 
@@ -39,7 +38,7 @@ public sealed class InMemoryWallRepository : IWallRepository
         WallIdentifier wall, IReadOnlyList<FabIdentifier> fabs, CancellationToken cancellationToken)
     {
         Ensure.That(fabs).IsNotNull();
-        Wall? found = walls.SingleOrDefault(candidate => candidate.Id == wall && fabs.Contains(candidate.Fab));
+        var found = walls.SingleOrDefault(candidate => candidate.Id == wall && fabs.Contains(candidate.Fab));
         return Task.FromResult(found is null ? Option<Wall>.None : Option<Wall>.Some(found));
     }
 
@@ -48,7 +47,7 @@ public sealed class InMemoryWallRepository : IWallRepository
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        Wall? found = walls.SingleOrDefault(candidate => candidate.Fab == fab && candidate.Name == name);
+        var found = walls.SingleOrDefault(candidate => candidate.Fab == fab && candidate.Name == name);
         return Task.FromResult(found is null ? Option<Wall>.None : Option<Wall>.Some(found));
     }
 
@@ -73,7 +72,7 @@ public sealed class InMemoryWallRepository : IWallRepository
             throw exception;
         }
 
-        foreach (Wall wall in walls)
+        foreach (var wall in walls)
         {
             wall.ClearPendingEvents();
         }

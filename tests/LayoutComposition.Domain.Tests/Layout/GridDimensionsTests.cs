@@ -35,7 +35,7 @@ public class GridDimensionsTests
     [InlineData(3, 2)]
     public void From_accepts_grids_within_the_cell_cap(int rows, int cols)
     {
-        GridDimensions grid = GridDimensions.From(rows, cols);
+        var grid = GridDimensions.From(rows, cols);
         grid.Rows.ShouldBe(rows);
         grid.Cols.ShouldBe(cols);
     }

@@ -38,7 +38,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         Ensure.That(fab).IsNotNull();
 
-        if (!byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out List<CompiledRule>? bucket))
+        if (!byTrigger.TryGetValue((fab.Value, triggerSource, triggerKind), out var bucket))
         {
             return Array.Empty<CompiledRule>();
         }
@@ -56,11 +56,11 @@ public sealed class InMemoryRuleCache : IRuleCache
             return;
         }
 
-        CompiledRule compiled = CompiledRule.From(rule);
+        var compiled = CompiledRule.From(rule);
         (string Fab, string TriggerSource, string TriggerKind) key =
             (rule.Fab.Value, rule.TriggerSource.Value, rule.TriggerKind.Value);
 
-        List<CompiledRule> bucket = byTrigger.GetOrAdd(key, _ => []);
+        var bucket = byTrigger.GetOrAdd(key, _ => []);
         lock (gate)
         {
             bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule.Id);
@@ -73,7 +73,7 @@ public sealed class InMemoryRuleCache : IRuleCache
     {
         lock (gate)
         {
-            foreach (List<CompiledRule> bucket in byTrigger.Values)
+            foreach (var bucket in byTrigger.Values)
             {
                 bucket.RemoveAll(compiledRule => compiledRule.Identifier == rule);
             }

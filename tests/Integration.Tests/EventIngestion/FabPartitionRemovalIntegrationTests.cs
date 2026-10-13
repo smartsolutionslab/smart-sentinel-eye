@@ -26,13 +26,13 @@ public class FabPartitionRemovalIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Provisioning_without_a_fab_leaves_its_storage_and_its_events_alone()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
 
         // A row that would be lost if provisioning ever dropped a partition.
-        string marker = $"Removal{Guid.CreateVersion7():N}"[..20];
+        var marker = $"Removal{Guid.CreateVersion7():N}"[..20];
         await SeedDresdenEventAsync(database, marker);
 
-        long before = await CountAsync(database, marker);
+        var before = await CountAsync(database, marker);
         before.ShouldBe(1, "the seed did not land, so survival proves nothing");
 
         // Provision for munich alone: dresden, berlin and hamburg are all

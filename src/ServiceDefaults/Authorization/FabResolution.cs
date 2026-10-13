@@ -64,7 +64,7 @@ public static class FabResolution
             return Result<string, IResult>.Success(fabId);
         }
 
-        IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
+        var assigned = FabClaims.AssignedFabs(user);
 
         if (assigned.Count == 1)
         {
@@ -107,7 +107,7 @@ public static class FabResolution
             return [fabId];
         }
 
-        IReadOnlyList<string> assigned = FabClaims.AssignedFabs(user);
+        var assigned = FabClaims.AssignedFabs(user);
         if (assigned.Count == 0)
         {
             // Same refusal as the write path, and for the same reason: an

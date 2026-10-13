@@ -45,17 +45,17 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_completed_key_presented_with_a_different_fingerprint_is_mismatched()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyScope original = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var original = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(original, CancellationToken.None);
+        var reserved = await store.BeginAsync(original, CancellationToken.None);
         reserved.Outcome.ShouldBe(IdempotencyOutcome.Reserved);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
 
-        IdempotencyScope differentFingerprint = Scope(key, Option<string>.Some("munich"), Fingerprint("beta"));
-        IdempotencyReservation mismatch = await store.BeginAsync(differentFingerprint, CancellationToken.None);
+        var differentFingerprint = Scope(key, Option<string>.Some("munich"), Fingerprint("beta"));
+        var mismatch = await store.BeginAsync(differentFingerprint, CancellationToken.None);
 
         mismatch.Outcome.ShouldBe(IdempotencyOutcome.Mismatched);
     }
@@ -64,17 +64,17 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_completed_key_presented_with_a_different_fab_is_mismatched()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyFingerprint fingerprint = Fingerprint("alpha");
-        IdempotencyScope original = Scope(key, Option<string>.Some("munich"), fingerprint);
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var fingerprint = Fingerprint("alpha");
+        var original = Scope(key, Option<string>.Some("munich"), fingerprint);
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(original, CancellationToken.None);
+        var reserved = await store.BeginAsync(original, CancellationToken.None);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
 
-        IdempotencyScope differentFab = Scope(key, Option<string>.Some("dresden"), fingerprint);
-        IdempotencyReservation mismatch = await store.BeginAsync(differentFab, CancellationToken.None);
+        var differentFab = Scope(key, Option<string>.Some("dresden"), fingerprint);
+        var mismatch = await store.BeginAsync(differentFab, CancellationToken.None);
 
         mismatch.Outcome.ShouldBe(IdempotencyOutcome.Mismatched);
     }
@@ -87,16 +87,16 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task An_unfinished_key_presented_with_a_different_fingerprint_is_mismatched_not_in_progress()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyScope original = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var original = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(original, CancellationToken.None);
+        var reserved = await store.BeginAsync(original, CancellationToken.None);
         reserved.Outcome.ShouldBe(IdempotencyOutcome.Reserved, "the row must still be unfinished for this case to mean anything.");
 
-        IdempotencyScope differentFingerprint = Scope(key, Option<string>.Some("munich"), Fingerprint("beta"));
-        IdempotencyReservation mismatch = await store.BeginAsync(differentFingerprint, CancellationToken.None);
+        var differentFingerprint = Scope(key, Option<string>.Some("munich"), Fingerprint("beta"));
+        var mismatch = await store.BeginAsync(differentFingerprint, CancellationToken.None);
 
         mismatch.Outcome.ShouldBe(
             IdempotencyOutcome.Mismatched,
@@ -107,16 +107,16 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_completed_key_presented_with_the_same_binding_still_replays()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyFingerprint fingerprint = Fingerprint("alpha");
-        IdempotencyScope scope = Scope(key, Option<string>.Some("munich"), fingerprint);
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var fingerprint = Fingerprint("alpha");
+        var scope = Scope(key, Option<string>.Some("munich"), fingerprint);
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(scope, CancellationToken.None);
+        var reserved = await store.BeginAsync(scope, CancellationToken.None);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
 
-        IdempotencyReservation replay = await store.BeginAsync(scope, CancellationToken.None);
+        var replay = await store.BeginAsync(scope, CancellationToken.None);
 
         replay.Outcome.ShouldBe(IdempotencyOutcome.Completed);
         replay.ResourceIdentifier.Value.ShouldBe(ResourceA);
@@ -130,17 +130,17 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_fabless_scope_does_not_match_a_row_written_with_a_fab()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyFingerprint fingerprint = Fingerprint("alpha");
-        IdempotencyScope withFab = Scope(key, Option<string>.Some("munich"), fingerprint);
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var fingerprint = Fingerprint("alpha");
+        var withFab = Scope(key, Option<string>.Some("munich"), fingerprint);
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(withFab, CancellationToken.None);
+        var reserved = await store.BeginAsync(withFab, CancellationToken.None);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
 
-        IdempotencyScope withoutFab = Scope(key, Option<string>.None, fingerprint);
-        IdempotencyReservation mismatch = await store.BeginAsync(withoutFab, CancellationToken.None);
+        var withoutFab = Scope(key, Option<string>.None, fingerprint);
+        var mismatch = await store.BeginAsync(withoutFab, CancellationToken.None);
 
         mismatch.Outcome.ShouldBe(IdempotencyOutcome.Mismatched);
     }
@@ -156,16 +156,16 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_fabless_scope_presented_with_the_same_binding_still_replays()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyFingerprint fingerprint = Fingerprint("alpha");
-        IdempotencyScope scope = Scope(key, Option<string>.None, fingerprint);
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var fingerprint = Fingerprint("alpha");
+        var scope = Scope(key, Option<string>.None, fingerprint);
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(scope, CancellationToken.None);
+        var reserved = await store.BeginAsync(scope, CancellationToken.None);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
 
-        IdempotencyReservation replay = await store.BeginAsync(scope, CancellationToken.None);
+        var replay = await store.BeginAsync(scope, CancellationToken.None);
 
         replay.Outcome.ShouldBe(IdempotencyOutcome.Completed);
         replay.ResourceIdentifier.Value.ShouldBe(ResourceA);
@@ -175,17 +175,17 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_fab_bearing_scope_does_not_match_a_row_written_without_a_fab()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyFingerprint fingerprint = Fingerprint("alpha");
-        IdempotencyScope withoutFab = Scope(key, Option<string>.None, fingerprint);
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var fingerprint = Fingerprint("alpha");
+        var withoutFab = Scope(key, Option<string>.None, fingerprint);
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(withoutFab, CancellationToken.None);
+        var reserved = await store.BeginAsync(withoutFab, CancellationToken.None);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
 
-        IdempotencyScope withFab = Scope(key, Option<string>.Some("munich"), fingerprint);
-        IdempotencyReservation mismatch = await store.BeginAsync(withFab, CancellationToken.None);
+        var withFab = Scope(key, Option<string>.Some("munich"), fingerprint);
+        var mismatch = await store.BeginAsync(withFab, CancellationToken.None);
 
         mismatch.Outcome.ShouldBe(IdempotencyOutcome.Mismatched);
     }
@@ -200,16 +200,16 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_row_written_before_the_binding_existed_is_mismatched()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyScope scope = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var scope = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
-        IdempotencyReservation reserved = await store.BeginAsync(scope, CancellationToken.None);
+        var reserved = await store.BeginAsync(scope, CancellationToken.None);
         await store.CompleteAsync(reserved.Claim.Value, ResourceA, CancellationToken.None);
         await NullOutFingerprintAsync(scope);
 
-        IdempotencyReservation replay = await store.BeginAsync(scope, CancellationToken.None);
+        var replay = await store.BeginAsync(scope, CancellationToken.None);
 
         replay.Outcome.ShouldBe(
             IdempotencyOutcome.Mismatched,
@@ -224,26 +224,26 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_stale_reservation_reclaimed_by_a_different_request_takes_over_its_binding()
     {
-        IdempotencyKey key = NewKey();
-        IdempotencyScope deadAttempt = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
-        await using CameraCatalogDbContext dbA = await aspire.CreateCameraCatalogDbContextAsync();
+        var key = NewKey();
+        var deadAttempt = Scope(key, Option<string>.Some("munich"), Fingerprint("alpha"));
+        await using var dbA = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeA = new(dbA);
         await storeA.BeginAsync(deadAttempt, CancellationToken.None);
         await AgeAsync(deadAttempt, TimeSpan.FromMinutes(30));
 
-        IdempotencyScope reclaimer = Scope(key, Option<string>.Some("dresden"), Fingerprint("beta"));
-        await using CameraCatalogDbContext dbB = await aspire.CreateCameraCatalogDbContextAsync();
+        var reclaimer = Scope(key, Option<string>.Some("dresden"), Fingerprint("beta"));
+        await using var dbB = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeB = new(dbB);
-        IdempotencyReservation reclaimed = await storeB.BeginAsync(reclaimer, CancellationToken.None);
+        var reclaimed = await storeB.BeginAsync(reclaimer, CancellationToken.None);
         reclaimed.Outcome.ShouldBe(IdempotencyOutcome.Reserved, "the reclaimer must win the stale row.");
         await storeB.CompleteAsync(reclaimed.Claim.Value, ResourceB, CancellationToken.None);
 
-        IdempotencyReservation replayOfDeadAttempt = await storeA.BeginAsync(deadAttempt, CancellationToken.None);
+        var replayOfDeadAttempt = await storeA.BeginAsync(deadAttempt, CancellationToken.None);
         replayOfDeadAttempt.Outcome.ShouldBe(
             IdempotencyOutcome.Mismatched,
             "the row's binding now belongs to the reclaimer; the original, dead attempt's own scope must no longer match it.");
 
-        IdempotencyReservation replayOfReclaimer = await storeB.BeginAsync(reclaimer, CancellationToken.None);
+        var replayOfReclaimer = await storeB.BeginAsync(reclaimer, CancellationToken.None);
         replayOfReclaimer.Outcome.ShouldBe(IdempotencyOutcome.Completed);
         replayOfReclaimer.ResourceIdentifier.Value.ShouldBe(ResourceB);
     }
@@ -258,7 +258,7 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
 
     private async Task AgeAsync(IdempotencyScope scope, TimeSpan age)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """
@@ -275,7 +275,7 @@ public class IdempotencyRequestBindingStoreIntegrationTests(AspireFixture aspire
     /// </summary>
     private async Task NullOutFingerprintAsync(IdempotencyScope scope)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """

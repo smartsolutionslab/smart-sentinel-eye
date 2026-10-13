@@ -17,11 +17,11 @@ public class EventTypeNotRegisteredDeadLetterReasonTests
     [Fact]
     public void The_refusal_fits_a_dead_letter_reason()
     {
-        string maximumFab = "a" + new string('b', 31); // 32 chars, FabIdentifier.MaximumLength
-        string maximumKind = "K" + new string('a', 127); // 128 chars, Kind.MaximumLength
-        IngestEventError error = IngestEventFailures.EventTypeNotRegistered(maximumFab, "manual", maximumKind);
+        var maximumFab = "a" + new string('b', 31); // 32 chars, FabIdentifier.MaximumLength
+        var maximumKind = "K" + new string('a', 127); // 128 chars, Kind.MaximumLength
+        var error = IngestEventFailures.EventTypeNotRegistered(maximumFab, "manual", maximumKind);
 
-        RejectionReason reason = PersistenceLoopHostedService.Because(error);
+        var reason = PersistenceLoopHostedService.Because(error);
 
         reason.Value.Length.ShouldBeLessThanOrEqualTo(RejectionReason.MaximumLength);
         reason.Value.ShouldStartWith("EVENT_TYPE_NOT_REGISTERED:");

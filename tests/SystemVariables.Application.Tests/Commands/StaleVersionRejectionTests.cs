@@ -25,29 +25,29 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Set_value_rejects_a_stale_version_and_keeps_the_stored_value()
     {
-        (InMemoryVariableRepository variables, Variable variable) = Seeded();
-        string? before = variable.Value is VariableValue.Unset ? null : variable.Value.ToWireString();
+        (var variables, var variable) = Seeded();
+        var before = variable.Value is VariableValue.Unset ? null : variable.Value.ToWireString();
 
-        SetVariableValueCommandHandler handler = Setter(variables);
-        Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(
+        var handler = Setter(variables);
+        var result = await handler.HandleAsync(
             new SetVariableValueCommand(variable.Fab, variable.Name, "999", Editor(), Option<int>.Some(Stale), Option<DateTimeOffset>.None),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.Code.ShouldBe("VARIABLE_STALE");
-        string? after = variable.Value is VariableValue.Unset ? null : variable.Value.ToWireString();
+        var after = variable.Value is VariableValue.Unset ? null : variable.Value.ToWireString();
         after.ShouldBe(before);
     }
 
     [Fact]
     public async Task Archive_rejects_a_stale_version_and_leaves_the_state_alone()
     {
-        (InMemoryVariableRepository variables, Variable variable) = Seeded();
-        VariableState before = variable.State;
+        (var variables, var variable) = Seeded();
+        var before = variable.State;
 
         ArchiveVariableCommandHandler handler = new(
             variables, new FakeClock(FixedMoment), NullLogger<ArchiveVariableCommandHandler>.Instance);
-        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveVariableCommand(variable.Fab, variable.Name, Editor(), Stale),
             CancellationToken.None);
 
@@ -59,9 +59,9 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task The_matching_version_is_accepted()
     {
-        (InMemoryVariableRepository variables, Variable variable) = Seeded();
+        (var variables, var variable) = Seeded();
 
-        Result<VariableIdentifier, SetVariableValueError> result = await Setter(variables).HandleAsync(
+        var result = await Setter(variables).HandleAsync(
             new SetVariableValueCommand(variable.Fab, variable.Name, "12", Editor(), Option<int>.Some(variable.Version), Option<DateTimeOffset>.None),
             CancellationToken.None);
 
@@ -78,9 +78,9 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task A_caller_with_no_prior_view_is_not_gated()
     {
-        (InMemoryVariableRepository variables, Variable variable) = Seeded();
+        (var variables, var variable) = Seeded();
 
-        Result<VariableIdentifier, SetVariableValueError> result = await Setter(variables).HandleAsync(
+        var result = await Setter(variables).HandleAsync(
             new SetVariableValueCommand(variable.Fab, variable.Name, "77", Editor(), Option<int>.None, Option<DateTimeOffset>.None),
             CancellationToken.None);
 
@@ -96,7 +96,7 @@ public class StaleVersionRejectionTests
     private static (InMemoryVariableRepository, Variable) Seeded()
     {
         InMemoryVariableRepository variables = new();
-        Variable variable = new VariableBuilder()
+        var variable = new VariableBuilder()
             .Named("oeeLine1").OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(42)).Build();
         variables.Add(variable);

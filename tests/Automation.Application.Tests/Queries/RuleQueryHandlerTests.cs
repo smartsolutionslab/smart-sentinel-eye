@@ -8,7 +8,6 @@ using SmartSentinelEye.Automation.Application.Queries.Handlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Tests.Rule;
-using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Queries;
@@ -29,7 +28,7 @@ public class RuleQueryHandlerTests
     private static (InMemoryRuleRepository Repository, IRuleQuerySource Source) Seed(params RuleAggregate[] rules)
     {
         InMemoryRuleRepository repository = new();
-        foreach (RuleAggregate rule in rules)
+        foreach (var rule in rules)
         {
             repository.Add(rule);
         }
@@ -43,10 +42,10 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_returns_the_aggregate_version()
     {
-        RuleAggregate rule = new RuleBuilder().WithName("versioned-rule").WithClock(Moment).Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        var rule = new RuleBuilder().WithName("versioned-rule").WithClock(Moment).Build();
+        (_, var source) = Seed(rule);
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Munich, "versioned-rule"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -57,10 +56,10 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_returns_the_rule_when_the_name_matches()
     {
-        RuleAggregate rule = new RuleBuilder().WithName("high-oee").WithClock(Moment).Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        var rule = new RuleBuilder().WithName("high-oee").WithClock(Moment).Build();
+        (_, var source) = Seed(rule);
 
-        Result<RuleDto, GetRuleError> result =
+        var result =
             await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "high-oee"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -72,9 +71,9 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_returns_RuleNotFound_for_an_unknown_name()
     {
-        (_, IRuleQuerySource source) = Seed(new RuleBuilder().WithName("known").Build());
+        (_, var source) = Seed(new RuleBuilder().WithName("known").Build());
 
-        Result<RuleDto, GetRuleError> result =
+        var result =
             await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "missing"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -84,13 +83,13 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_projects_the_predicate_as_its_raw_AEL_string()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("cycle")
             .WithPredicate("$.payload.cycleTime <= 30")
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<RuleDto, GetRuleError> result =
+        var result =
             await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "cycle"), CancellationToken.None);
 
         result.Value.Predicate.ShouldBe("$.payload.cycleTime <= 30");
@@ -99,13 +98,13 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_projects_a_SetVariableValue_action_as_its_tagged_wire_shape()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("set-var")
             .WithAction(RuleAction.SetVariableValue.From("oeeLine1", "42"))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        RuleActionDto action =
+        var action =
             (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "set-var"), CancellationToken.None))
             .Value.Action;
 
@@ -119,14 +118,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_projects_a_HighlightOverlay_action_as_its_tagged_wire_shape()
     {
-        Guid overlay = Guid.CreateVersion7();
-        RuleAggregate rule = new RuleBuilder()
+        var overlay = Guid.CreateVersion7();
+        var rule = new RuleBuilder()
             .WithName("highlight")
             .WithAction(RuleAction.HighlightOverlay.From(overlay, 5_000))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        RuleActionDto action =
+        var action =
             (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "highlight"), CancellationToken.None))
             .Value.Action;
 
@@ -140,14 +139,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_projects_a_SwitchWallScene_action_with_Next_target_as_its_tagged_wire_shape()
     {
-        Guid wall = Guid.CreateVersion7();
-        RuleAggregate rule = new RuleBuilder()
+        var wall = Guid.CreateVersion7();
+        var rule = new RuleBuilder()
             .WithName("switch-next")
             .WithAction(RuleAction.SwitchWallScene.From(wall, "Next", null))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        RuleActionDto action =
+        var action =
             (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "switch-next"), CancellationToken.None))
             .Value.Action;
 
@@ -164,15 +163,15 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_projects_a_SwitchWallScene_action_with_Layout_target_as_its_tagged_wire_shape()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid layout = Guid.CreateVersion7();
-        RuleAggregate rule = new RuleBuilder()
+        var wall = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
+        var rule = new RuleBuilder()
             .WithName("switch-layout")
             .WithAction(RuleAction.SwitchWallScene.From(wall, "Layout", layout))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        RuleActionDto action =
+        var action =
             (await new GetRuleQueryHandler(source).HandleAsync(new GetRuleQuery(Munich, "switch-layout"), CancellationToken.None))
             .Value.Action;
 
@@ -185,14 +184,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_matches_a_SwitchWallScene_rule_with_no_value_to_evaluate()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("switch")
             .WithPredicate("$.payload.cycleTime <= 30")
             .WithAction(RuleAction.SwitchWallScene.From(Guid.CreateVersion7(), "Next", null))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "switch", Sample), CancellationToken.None);
 
@@ -210,12 +209,12 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_resolves_the_live_rule_when_an_archived_one_holds_the_same_name()
     {
-        RuleAggregate archived = new RuleBuilder().WithName("re-used").WithClock(Moment).Build();
+        var archived = new RuleBuilder().WithName("re-used").WithClock(Moment).Build();
         archived.Archive(new FakeClock(Moment));
-        RuleAggregate live = new RuleBuilder().WithName("re-used").WithClock(Moment.AddMinutes(1)).Build();
-        (_, IRuleQuerySource source) = Seed(archived, live);
+        var live = new RuleBuilder().WithName("re-used").WithClock(Moment.AddMinutes(1)).Build();
+        (_, var source) = Seed(archived, live);
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Munich, "re-used"), CancellationToken.None);
 
         // The custom message surfaces today's actual refusal (code + message)
@@ -232,11 +231,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_reports_an_archived_rule_whose_name_was_never_re_used_as_not_found()
     {
-        RuleAggregate archived = new RuleBuilder().WithName("r-gone").WithClock(Moment).Build();
+        var archived = new RuleBuilder().WithName("r-gone").WithClock(Moment).Build();
         archived.Archive(new FakeClock(Moment));
-        (_, IRuleQuerySource source) = Seed(archived);
+        (_, var source) = Seed(archived);
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Munich, "r-gone"), CancellationToken.None);
 
         // The deliberate narrowing (spec.md, "What option 1 costs"): a name
@@ -251,23 +250,23 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_still_refuses_a_cross_fab_collision_when_an_archived_namesake_exists()
     {
-        RuleAggregate archivedMunich = new RuleBuilder()
+        var archivedMunich = new RuleBuilder()
             .WithFab("munich").WithName("shared").WithClock(Moment).Build();
         archivedMunich.Archive(new FakeClock(Moment));
-        RuleAggregate liveMunich = new RuleBuilder()
+        var liveMunich = new RuleBuilder()
             .WithFab("munich").WithName("shared").WithClock(Moment.AddMinutes(1)).Build();
-        RuleAggregate liveDresden = new RuleBuilder()
+        var liveDresden = new RuleBuilder()
             .WithFab("dresden").WithName("shared").WithClock(Moment).Build();
-        (_, IRuleQuerySource source) = Seed(archivedMunich, liveMunich, liveDresden);
+        (_, var source) = Seed(archivedMunich, liveMunich, liveDresden);
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Both, "shared"), CancellationToken.None);
 
         // A genuine ambiguity must survive the new archived-exclusion
         // predicate: excluding the archived munich row must not also make
         // this look like a single-fab match.
         result.IsFailure.ShouldBeTrue();
-        GetRuleError.FabAmbiguous ambiguous = result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
+        var ambiguous = result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
 
         // Exact message, not Message.ShouldContain: a substring check cannot
         // see the archived row rendering as a second "munich" in the
@@ -279,19 +278,19 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task The_ambiguity_refusal_names_each_holding_fab_exactly_once()
     {
-        RuleAggregate archivedMunich = new RuleBuilder()
+        var archivedMunich = new RuleBuilder()
             .WithFab("munich").WithName("shared").WithClock(Moment).Build();
         archivedMunich.Archive(new FakeClock(Moment));
-        RuleAggregate liveMunich = new RuleBuilder()
+        var liveMunich = new RuleBuilder()
             .WithFab("munich").WithName("shared").WithClock(Moment.AddMinutes(1)).Build();
-        RuleAggregate liveDresden = new RuleBuilder()
+        var liveDresden = new RuleBuilder()
             .WithFab("dresden").WithName("shared").WithClock(Moment).Build();
-        (_, IRuleQuerySource source) = Seed(archivedMunich, liveMunich, liveDresden);
+        (_, var source) = Seed(archivedMunich, liveMunich, liveDresden);
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Both, "shared"), CancellationToken.None);
 
-        GetRuleError.FabAmbiguous ambiguous = result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
+        var ambiguous = result.Error.ShouldBeOfType<GetRuleError.FabAmbiguous>();
 
         // Message.ShouldContain("munich") cannot see a duplicate: it would
         // pass whether "munich" is named once or twice, which is exactly why
@@ -310,11 +309,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task List_without_filters_returns_every_rule_newest_first()
     {
-        RuleAggregate older = new RuleBuilder().WithName("older").WithClock(Moment).Build();
-        RuleAggregate newer = new RuleBuilder().WithName("newer").WithClock(Moment.AddHours(1)).Build();
-        (_, IRuleQuerySource source) = Seed(older, newer);
+        var older = new RuleBuilder().WithName("older").WithClock(Moment).Build();
+        var newer = new RuleBuilder().WithName("newer").WithClock(Moment.AddHours(1)).Build();
+        (_, var source) = Seed(older, newer);
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> result =
+        var result =
             await new ListRulesQueryHandler(source).HandleAsync(
                 new ListRulesQuery(Munich, null, null, null), CancellationToken.None);
 
@@ -326,12 +325,12 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task List_filters_by_state()
     {
-        RuleAggregate draft = new RuleBuilder().WithName("draft-rule").WithClock(Moment).Build();
-        RuleAggregate active = new RuleBuilder().WithName("active-rule").WithClock(Moment).Build();
+        var draft = new RuleBuilder().WithName("draft-rule").WithClock(Moment).Build();
+        var active = new RuleBuilder().WithName("active-rule").WithClock(Moment).Build();
         active.Publish(new FakeClock(Moment));
-        (_, IRuleQuerySource source) = Seed(draft, active);
+        (_, var source) = Seed(draft, active);
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> result =
+        var result =
             await new ListRulesQueryHandler(source).HandleAsync(
                 new ListRulesQuery(Munich, RuleState.Active.Value, null, null), CancellationToken.None);
 
@@ -342,19 +341,19 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task List_filters_by_trigger_source_and_kind()
     {
-        RuleAggregate plc = new RuleBuilder().WithName("plc-rule")
+        var plc = new RuleBuilder().WithName("plc-rule")
             .WithTriggerSource("plc").WithTriggerKind("PlcCycleStart").Build();
-        RuleAggregate inference = new RuleBuilder().WithName("inference-rule")
+        var inference = new RuleBuilder().WithName("inference-rule")
             .WithTriggerSource("inference").WithTriggerKind("DefectDetected").Build();
-        (_, IRuleQuerySource source) = Seed(plc, inference);
+        (_, var source) = Seed(plc, inference);
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> bySource =
+        var bySource =
             await new ListRulesQueryHandler(source).HandleAsync(
                 new ListRulesQuery(Munich, null, "inference", null), CancellationToken.None);
         bySource.Value.Count.ShouldBe(1);
         bySource.Value[0].Name.ShouldBe("inference-rule");
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> byKind =
+        var byKind =
             await new ListRulesQueryHandler(source).HandleAsync(
                 new ListRulesQuery(Munich, null, null, "PlcCycleStart"), CancellationToken.None);
         byKind.Value.Count.ShouldBe(1);
@@ -364,9 +363,9 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task List_rejects_an_unknown_state_filter_rather_than_ignoring_it()
     {
-        (_, IRuleQuerySource source) = Seed(new RuleBuilder().Build());
+        (_, var source) = Seed(new RuleBuilder().Build());
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> result =
+        var result =
             await new ListRulesQueryHandler(source).HandleAsync(
                 new ListRulesQuery(Munich, "Retired", null, null), CancellationToken.None);
 
@@ -379,14 +378,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_reports_a_match_and_the_value_the_action_would_write()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("cycle")
             .WithPredicate("$.payload.cycleTime <= 30")
             .WithAction(RuleAction.SetVariableValue.From("oeeLine1", "100 - $.payload.cycleTime * 2"))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle", Sample), CancellationToken.None);
 
@@ -398,13 +397,13 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_reports_no_match_without_an_evaluated_value()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("cycle")
             .WithPredicate("$.payload.cycleTime > 100")
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle", Sample), CancellationToken.None);
 
@@ -415,14 +414,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_matches_a_HighlightOverlay_rule_with_no_value_to_evaluate()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("highlight")
             .WithPredicate("$.payload.cycleTime <= 30")
             .WithAction(RuleAction.HighlightOverlay.From(Guid.CreateVersion7(), 5_000))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "highlight", Sample), CancellationToken.None);
 
@@ -433,11 +432,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_works_on_a_Draft_rule_that_is_not_in_the_cache()
     {
-        RuleAggregate draft = new RuleBuilder().WithName("draft-rule").Build();
+        var draft = new RuleBuilder().WithName("draft-rule").Build();
         draft.State.ShouldBe(RuleState.Draft);
-        (_, IRuleQuerySource source) = Seed(draft);
+        (_, var source) = Seed(draft);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "draft-rule", Sample), CancellationToken.None);
 
@@ -448,9 +447,9 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_returns_RuleNotFound_for_an_unknown_name()
     {
-        (_, IRuleQuerySource source) = Seed(new RuleBuilder().WithName("known").Build());
+        (_, var source) = Seed(new RuleBuilder().WithName("known").Build());
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "missing", Sample), CancellationToken.None);
 
@@ -460,9 +459,9 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_rejects_a_sample_that_is_not_JSON()
     {
-        (_, IRuleQuerySource source) = Seed(new RuleBuilder().WithName("cycle").Build());
+        (_, var source) = Seed(new RuleBuilder().WithName("cycle").Build());
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle", "not json at all"), CancellationToken.None);
 
@@ -475,13 +474,13 @@ public class RuleQueryHandlerTests
         // The field is absent from the sample, so the comparison cannot be
         // evaluated. "Did not match" would be a lie — the rule is broken for
         // this shape of event, which is what a dry run exists to expose.
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("missing-field")
             .WithPredicate("$.payload.absent <= 30")
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "missing-field", Sample), CancellationToken.None);
 
@@ -497,23 +496,23 @@ public class RuleQueryHandlerTests
         // 7.9e28 is inside decimal's range — the interpreter fix (US1) lets
         // it through as a DecimalValue fine. It is the multiplication itself
         // that overflows, which only the widened filter (US2) can contain.
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("overflow-rule")
             .WithPredicate("$.payload.big * 10 > 0")
             .WithClock(Moment)
             .Build();
         rule.Publish(new FakeClock(Moment.AddMinutes(1)));
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
         const string overflowSample = """{"payload": {"big": 7.9e28}}""";
         CapturingLogger<DryRunRuleQueryHandler> logger = new();
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, logger).HandleAsync(
                 new DryRunRuleQuery(Munich, "overflow-rule", overflowSample), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        DryRunRuleError.EvaluationFailed failure =
+        var failure =
             result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
         failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
         failure.Status.ShouldBe(HttpStatusCode.BadRequest);
@@ -546,20 +545,20 @@ public class RuleQueryHandlerTests
         // validation gate normally prevents (same trick as the overflow test
         // above). A single '=' is invalid AEL grammar: AelLexer throws an
         // AelParseException saying a single '=' is not an operator.
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("uncompilable")
             .WithPredicate("$.payload.cycleTime = 30")
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
         CapturingLogger<DryRunRuleQueryHandler> logger = new();
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, logger).HandleAsync(
                 new DryRunRuleQuery(Munich, "uncompilable", Sample), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        DryRunRuleError.EvaluationFailed failure =
+        var failure =
             result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
         failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
         failure.Status.ShouldBe(HttpStatusCode.BadRequest);
@@ -576,21 +575,21 @@ public class RuleQueryHandlerTests
         // Same defect, reached through CompiledRule.From's second Parse call
         // — the SetVariableValue action's value expression, not the
         // predicate. The predicate itself is valid AEL.
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("uncompilable-value")
             .WithPredicate("$.payload.cycleTime <= 30")
             .WithAction(RuleAction.SetVariableValue.From("oeeLine1", "100 = $.payload.cycleTime"))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
         CapturingLogger<DryRunRuleQueryHandler> logger = new();
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, logger).HandleAsync(
                 new DryRunRuleQuery(Munich, "uncompilable-value", Sample), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        DryRunRuleError.EvaluationFailed failure =
+        var failure =
             result.Error.ShouldBeOfType<DryRunRuleError.EvaluationFailed>();
         failure.Code.ShouldBe("RULE_DRY_RUN_EVALUATION_FAILED");
         failure.Status.ShouldBe(HttpStatusCode.BadRequest);
@@ -607,14 +606,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task A_dry_run_that_matches_is_unchanged()
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("cycle-unchanged")
             .WithPredicate("$.payload.cycleTime <= 30")
             .WithAction(RuleAction.SetVariableValue.From("oeeLine1", "100 - $.payload.cycleTime * 2"))
             .Build();
-        (_, IRuleQuerySource source) = Seed(rule);
+        (_, var source) = Seed(rule);
 
-        Result<DryRunResultDto, DryRunRuleError> result =
+        var result =
             await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance).HandleAsync(
                 new DryRunRuleQuery(Munich, "cycle-unchanged", Sample), CancellationToken.None);
 
@@ -628,14 +627,14 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_resolves_the_live_rule_when_an_archived_one_holds_the_same_name()
     {
-        RuleAggregate archived = new RuleBuilder()
+        var archived = new RuleBuilder()
             .WithName("re-used").WithPredicate("$.payload.cycleTime <= 30").WithClock(Moment).Build();
         archived.Archive(new FakeClock(Moment));
-        RuleAggregate live = new RuleBuilder()
+        var live = new RuleBuilder()
             .WithName("re-used").WithPredicate("$.payload.cycleTime <= 30").WithClock(Moment.AddMinutes(1)).Build();
-        (_, IRuleQuerySource source) = Seed(archived, live);
+        (_, var source) = Seed(archived, live);
 
-        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
+        var result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
             .HandleAsync(new DryRunRuleQuery(Munich, "re-used", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -650,12 +649,12 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_reports_another_fabs_rule_as_not_found()
     {
-        RuleAggregate munichRule = new RuleBuilder().WithFab("munich").WithName("secret-rule").WithClock(Moment).Build();
-        (_, IRuleQuerySource source) = Seed(munichRule);
+        var munichRule = new RuleBuilder().WithFab("munich").WithName("secret-rule").WithClock(Moment).Build();
+        (_, var source) = Seed(munichRule);
 
-        Result<RuleDto, GetRuleError> foreign = await new GetRuleQueryHandler(source)
+        var foreign = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Dresden, "secret-rule"), CancellationToken.None);
-        Result<RuleDto, GetRuleError> absent = await new GetRuleQueryHandler(source)
+        var absent = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Dresden, "never-existed"), CancellationToken.None);
 
         // Identical, deliberately. A distinguishable refusal would confirm the
@@ -670,11 +669,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task List_omits_rules_from_fabs_the_caller_does_not_hold()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("munich-rule").WithClock(Moment).Build(),
             new RuleBuilder().WithFab("dresden").WithName("dresden-rule").WithClock(Moment).Build());
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await new ListRulesQueryHandler(source)
+        var result = await new ListRulesQueryHandler(source)
             .HandleAsync(new ListRulesQuery(Munich, null, null, null), CancellationToken.None);
 
         result.Value.Select(rule => rule.Name).ShouldBe(["munich-rule"]);
@@ -683,12 +682,12 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task List_spans_every_fab_the_caller_holds()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("munich-rule").WithClock(Moment).Build(),
             new RuleBuilder().WithFab("dresden").WithName("dresden-rule").WithClock(Moment).Build());
 
         IReadOnlyList<FabIdentifier> both = [FabIdentifier.From("munich"), FabIdentifier.From("dresden")];
-        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await new ListRulesQueryHandler(source)
+        var result = await new ListRulesQueryHandler(source)
             .HandleAsync(new ListRulesQuery(both, null, null, null), CancellationToken.None);
 
         result.Value.Select(rule => rule.Name)
@@ -698,10 +697,10 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task An_operator_assigned_to_no_fab_lists_nothing()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("munich-rule").WithClock(Moment).Build());
 
-        Result<IReadOnlyList<RuleDto>, ListRulesError> result = await new ListRulesQueryHandler(source)
+        var result = await new ListRulesQueryHandler(source)
             .HandleAsync(new ListRulesQuery([], null, null, null), CancellationToken.None);
 
         // Empty, not everything. The endpoint refuses this caller outright,
@@ -712,10 +711,10 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task The_projected_rule_carries_its_fab()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("tagged").WithClock(Moment).Build());
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Munich, "tagged"), CancellationToken.None);
 
         result.Value.Fab.ShouldBe("munich");
@@ -734,11 +733,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task Get_refuses_a_name_that_resolves_in_two_of_the_callers_fabs()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("shared").WithClock(Moment).Build(),
             new RuleBuilder().WithFab("dresden").WithName("shared").WithClock(Moment).Build());
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Both, "shared"), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -756,11 +755,11 @@ public class RuleQueryHandlerTests
     {
         // The refusal above must not become a blanket refusal for multi-fab
         // callers: the ambiguity is the collision, not the second fab.
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("munich-only").WithClock(Moment).Build(),
             new RuleBuilder().WithFab("dresden").WithName("dresden-only").WithClock(Moment).Build());
 
-        Result<RuleDto, GetRuleError> result = await new GetRuleQueryHandler(source)
+        var result = await new GetRuleQueryHandler(source)
             .HandleAsync(new GetRuleQuery(Both, "dresden-only"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -770,11 +769,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_refuses_a_name_that_resolves_in_two_of_the_callers_fabs()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("munich").WithName("shared").WithPredicate("$.payload.cycleTime <= 30").Build(),
             new RuleBuilder().WithFab("dresden").WithName("shared").WithPredicate("$.payload.cycleTime <= 30").Build());
 
-        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
+        var result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
             .HandleAsync(new DryRunRuleQuery(Both, "shared", Sample), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -787,11 +786,11 @@ public class RuleQueryHandlerTests
     [Fact]
     public async Task DryRun_answers_when_only_one_of_the_callers_fabs_holds_the_name()
     {
-        (_, IRuleQuerySource source) = Seed(
+        (_, var source) = Seed(
             new RuleBuilder().WithFab("dresden").WithName("dresden-only")
                 .WithPredicate("$.payload.cycleTime <= 30").Build());
 
-        Result<DryRunResultDto, DryRunRuleError> result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
+        var result = await new DryRunRuleQueryHandler(source, NullLogger<DryRunRuleQueryHandler>.Instance)
             .HandleAsync(new DryRunRuleQuery(Both, "dresden-only", Sample), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

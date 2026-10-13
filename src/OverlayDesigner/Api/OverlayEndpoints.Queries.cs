@@ -1,11 +1,8 @@
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SmartSentinelEye.OverlayDesigner.Application.DTOs;
 using SmartSentinelEye.OverlayDesigner.Application.Queries;
 using SmartSentinelEye.OverlayDesigner.Application.Queries.Handlers;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
 using SmartSentinelEye.ServiceDefaults;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.OverlayDesigner.Api;
 
@@ -26,8 +23,7 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<OverlayDto, GetOverlayError> result = await handler
-            .HandleAsync(new GetOverlayQuery(OverlayIdentifier.From(overlayIdentifier)), cancellationToken);
+        var result = await handler.HandleAsync(new GetOverlayQuery(OverlayIdentifier.From(overlayIdentifier)), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: overlay =>
@@ -62,8 +58,7 @@ public static partial class OverlayEndpoints
             }
         }
 
-        Result<ListOverlaysResult, ListOverlaysError> result = await handler
-            .HandleAsync(new ListOverlaysQuery(filter), cancellationToken);
+        var result = await handler.HandleAsync(new ListOverlaysQuery(filter), cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: payload => Results.Ok(new ListOverlaysResponse(payload.Chains, payload.Published)),

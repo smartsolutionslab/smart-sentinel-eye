@@ -20,16 +20,16 @@ public sealed class EditWallScenesCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (IReadOnlyList<FabIdentifier> fabs, WallIdentifier wallIdentifier, int expectedVersion,
-            IReadOnlyList<LayoutIdentifier> newScenes, OperatorIdentifier by) = command;
+        (var fabs, var wallIdentifier, var expectedVersion,
+            var newScenes, var by) = command;
 
-        Option<Wall> found = await walls.FindAsync(wallIdentifier, fabs, cancellationToken);
+        var found = await walls.FindAsync(wallIdentifier, fabs, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(EditWallScenesFailures.WallNotFound(wallIdentifier.Value));
         }
 
-        Wall wall = found.Value;
+        var wall = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the wall that
         // has since moved. Checked before any mutation.
@@ -38,13 +38,13 @@ public sealed class EditWallScenesCommandHandler(
             return Failure(EditWallScenesFailures.Stale(wallIdentifier.Value, expectedVersion, wall.Version));
         }
 
-        Option<SceneSetViolation> setViolation = Wall.ValidateScenes(newScenes);
+        var setViolation = Wall.ValidateScenes(newScenes);
         if (setViolation.HasValue)
         {
             return Failure(EditWallScenesFailures.FromViolation(setViolation.Value, newScenes.Count));
         }
 
-        EditWallScenesError? sceneError = await ValidateScenesAsync(newScenes, wall.Fab, cancellationToken);
+        var sceneError = await ValidateScenesAsync(newScenes, wall.Fab, cancellationToken);
         if (sceneError is not null)
         {
             return Failure(sceneError);
@@ -62,12 +62,12 @@ public sealed class EditWallScenesCommandHandler(
     private async Task<EditWallScenesError?> ValidateScenesAsync(
         IReadOnlyList<LayoutIdentifier> scenes, FabIdentifier fab, CancellationToken cancellationToken)
     {
-        IReadOnlyDictionary<LayoutIdentifier, FabIdentifier> fabsOf =
+        var fabsOf =
             await lookup.FabsOf(scenes, cancellationToken);
 
-        foreach (LayoutIdentifier scene in scenes)
+        foreach (var scene in scenes)
         {
-            if (!fabsOf.TryGetValue(scene, out FabIdentifier? sceneFab))
+            if (!fabsOf.TryGetValue(scene, out var sceneFab))
             {
                 return EditWallScenesFailures.SceneNotFound(scene.Value);
             }
@@ -77,8 +77,8 @@ public sealed class EditWallScenesCommandHandler(
             }
         }
 
-        IReadOnlySet<LayoutIdentifier> published = await lookup.PublishedAmong(scenes, fab, cancellationToken);
-        LayoutIdentifier? unpublished = scenes
+        var published = await lookup.PublishedAmong(scenes, fab, cancellationToken);
+        var unpublished = scenes
             .Where(candidate => !published.Contains(candidate))
             .Cast<LayoutIdentifier?>()
             .FirstOrDefault();

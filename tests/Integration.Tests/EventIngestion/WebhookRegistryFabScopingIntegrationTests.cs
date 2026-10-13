@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -27,17 +26,17 @@ public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_integration_is_registered_into_the_registering_operators_fab()
     {
-        string name = UniqueName("dresden-owned");
+        var name = UniqueName("dresden-owned");
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        HttpResponseMessage created = await dresden.PostAsJsonAsync(
+        using var dresden = await ClientFor(DresdenOperator);
+        var created = await dresden.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
         // Read back through the multi-fab operator, who can see both plants and
         // so can tell dresden from the munich default everything else falls to.
-        using HttpClient multi = await ClientFor(MultiFabOperator);
-        JsonElement listed = await ListAsync(multi);
+        using var multi = await ClientFor(MultiFabOperator);
+        var listed = await ListAsync(multi);
 
         listed.EnumerateArray()
             .Single(row => row.GetProperty("name").GetString() == name)
@@ -48,22 +47,22 @@ public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_multi_fab_operator_naming_no_fab_is_refused()
     {
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        using var multi = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage refused = await multi.PostAsJsonAsync(
+        var refused = await multi.PostAsJsonAsync(
             "/webhook-integrations", new { name = UniqueName("ambiguous"), defaultKind = "WebhookAlarm" });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("EVENT_FAB_REQUIRED");
     }
 
     [Fact]
     public async Task Registering_into_a_fab_the_caller_does_not_hold_is_refused()
     {
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await dresden.PostAsJsonAsync(
+        var refused = await dresden.PostAsJsonAsync(
             "/webhook-integrations?fabId=munich",
             new { name = UniqueName("cross-fab"), defaultKind = "WebhookAlarm" });
 
@@ -73,15 +72,15 @@ public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_dresden_operator_does_not_see_a_munich_integration()
     {
-        string name = UniqueName("munich-owned");
+        var name = UniqueName("munich-owned");
 
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        using var multi = await ClientFor(MultiFabOperator);
         (await multi.PostAsJsonAsync(
             "/webhook-integrations?fabId=munich", new { name, defaultKind = "WebhookAlarm" }))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        JsonElement listed = await ListAsync(dresden);
+        using var dresden = await ClientFor(DresdenOperator);
+        var listed = await ListAsync(dresden);
 
         listed.EnumerateArray()
             .Select(row => row.GetProperty("name").GetString())
@@ -96,28 +95,28 @@ public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Revoking_another_plants_integration_is_reported_as_one_that_never_existed()
     {
-        string name = UniqueName("munich-revoke");
+        var name = UniqueName("munich-revoke");
 
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        using var multi = await ClientFor(MultiFabOperator);
         (await multi.PostAsJsonAsync(
             "/webhook-integrations?fabId=munich", new { name, defaultKind = "WebhookAlarm" }))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        JsonElement listed = await ListAsync(multi);
-        int version = listed.EnumerateArray()
+        var listed = await ListAsync(multi);
+        var version = listed.EnumerateArray()
             .Single(row => row.GetProperty("name").GetString() == name)
             .GetProperty("version").GetInt32();
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        HttpResponseMessage hidden = await RevokeAsync(dresden, name, version);
-        HttpResponseMessage absent = await RevokeAsync(dresden, UniqueName("never"), version);
+        using var dresden = await ClientFor(DresdenOperator);
+        var hidden = await RevokeAsync(dresden, name, version);
+        var absent = await RevokeAsync(dresden, UniqueName("never"), version);
 
         hidden.StatusCode.ShouldBe(HttpStatusCode.NotFound, await hidden.Content.ReadAsStringAsync());
         absent.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         // And still there afterwards, because a 404 that had revoked it anyway
         // would be the worst of both.
-        JsonElement stillListed = await ListAsync(multi);
+        var stillListed = await ListAsync(multi);
         stillListed.EnumerateArray()
             .Single(row => row.GetProperty("name").GetString() == name)
             .GetProperty("revokedAt").ValueKind.ShouldBe(JsonValueKind.Null);
@@ -132,7 +131,7 @@ public class WebhookRegistryFabScopingIntegrationTests(AspireFixture aspire)
 
     private static async Task<JsonElement> ListAsync(HttpClient client)
     {
-        HttpResponseMessage listed = await client.GetAsync("/webhook-integrations?includeRevoked=true");
+        var listed = await client.GetAsync("/webhook-integrations?includeRevoked=true");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await listed.Content.ReadAsStringAsync());
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
     }

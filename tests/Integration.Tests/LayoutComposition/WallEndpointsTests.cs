@@ -1,9 +1,6 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.LayoutComposition;
@@ -43,18 +40,18 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_1_Creating_a_wall_with_two_Published_scenes_succeeds_and_is_audited()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        string name = UniqueName();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await CreateWallAsync(layouts, name, [a, b], key: $"key-{Guid.CreateVersion7():N}");
+        var created = await CreateWallAsync(layouts, name, [a, b], key: $"key-{Guid.CreateVersion7():N}");
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
-        Guid wall = await created.Content.ReadFromJsonAsync<Guid>();
+        var wall = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/walls/{wall}");
+        var fetched = await layouts.GetAsync($"/walls/{wall}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("scenes").EnumerateArray().Select(e => e.GetGuid()).ShouldBe([a, b]);
         body.GetProperty("showing").GetGuid().ShouldBe(a);
         body.GetProperty("sceneVersion").GetInt64().ShouldBe(0L);
@@ -70,19 +67,19 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_2_A_replayed_create_with_the_same_idempotency_key_returns_the_original_wall()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        string name = UniqueName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var name = UniqueName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage first = await CreateWallAsync(layouts, name, [a, b], key);
+        var first = await CreateWallAsync(layouts, name, [a, b], key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(first));
-        Guid firstId = await first.Content.ReadFromJsonAsync<Guid>();
+        var firstId = await first.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage second = await CreateWallAsync(layouts, name, [a, b], key);
+        var second = await CreateWallAsync(layouts, name, [a, b], key);
         second.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(second));
-        Guid secondId = await second.Content.ReadFromJsonAsync<Guid>();
+        var secondId = await second.Content.ReadFromJsonAsync<Guid>();
 
         secondId.ShouldBe(firstId, "a replay must return the wall the first attempt created, not a second one");
         (await ListNamesAsync(layouts)).Count(n => n == name).ShouldBe(1);
@@ -93,16 +90,16 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_3_A_manual_next_switch_advances_the_scene_and_is_audited()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        int version = await WallVersionAsync(layouts, wall);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var version = await WallVersionAsync(layouts, wall);
 
-        HttpResponseMessage switched = await SwitchAsync(layouts, wall, version, new { target = "next" });
+        var switched = await SwitchAsync(layouts, wall, version, new { target = "next" });
 
         switched.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(switched));
-        JsonElement body = await switched.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await switched.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("showing").GetGuid().ShouldBe(b);
         body.GetProperty("sceneVersion").GetInt64().ShouldBe(1L);
 
@@ -111,7 +108,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             "(payload->>'PreviousLayout') || '|' || (payload->>'CurrentLayout') || '|' || (payload->>'Cause')",
             row =>
             {
-                string[] parts = row.Split('|');
+                var parts = row.Split('|');
                 return (Guid.Parse(parts[0]), Guid.Parse(parts[1]), parts[2]);
             });
         audited.Previous.ShouldBe(a);
@@ -122,14 +119,14 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_4_Jumping_to_a_named_scene_shows_that_scene()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid c = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b, c]);
-        int version = await WallVersionAsync(layouts, wall);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var c = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b, c]);
+        var version = await WallVersionAsync(layouts, wall);
 
-        HttpResponseMessage switched = await SwitchAsync(layouts, wall, version, new { target = "layout", layout = c });
+        var switched = await SwitchAsync(layouts, wall, version, new { target = "layout", layout = c });
 
         switched.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(switched));
         (await switched.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("showing").GetGuid().ShouldBe(c);
@@ -138,14 +135,14 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_5_Next_wraps_from_the_last_scene_back_to_the_first()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid c = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b, c]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var c = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b, c]);
 
         await SwitchAsync(layouts, wall, await WallVersionAsync(layouts, wall), new { target = "layout", layout = c });
-        HttpResponseMessage wrapped = await SwitchAsync(layouts, wall, await WallVersionAsync(layouts, wall), new { target = "next" });
+        var wrapped = await SwitchAsync(layouts, wall, await WallVersionAsync(layouts, wall), new { target = "next" });
 
         wrapped.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(wrapped));
         (await wrapped.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("showing").GetGuid().ShouldBe(a);
@@ -154,16 +151,16 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_6_Switching_to_the_scene_already_showing_is_a_no_op()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        int version = await WallVersionAsync(layouts, wall);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var version = await WallVersionAsync(layouts, wall);
 
-        HttpResponseMessage result = await SwitchAsync(layouts, wall, version, new { target = "layout", layout = a });
+        var result = await SwitchAsync(layouts, wall, version, new { target = "layout", layout = a });
 
         result.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(result));
-        JsonElement body = await result.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await result.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("sceneVersion").GetInt64().ShouldBe(0L);
 
         (await CountAuditRowsAsync("WallSceneChangedV1", wall)).ShouldBe(0, "a no-op switch must publish nothing");
@@ -174,16 +171,16 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_7_A_stale_If_Match_on_switch_is_refused_with_409_WALL_STALE()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        int staleVersion = await WallVersionAsync(layouts, wall);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var staleVersion = await WallVersionAsync(layouts, wall);
 
         // Someone else switches first, moving the version off what we read.
         await SwitchAsync(layouts, wall, staleVersion, new { target = "next" });
 
-        HttpResponseMessage refused = await SwitchAsync(layouts, wall, staleVersion, new { target = "next" });
+        var refused = await SwitchAsync(layouts, wall, staleVersion, new { target = "next" });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_STALE");
@@ -192,13 +189,13 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_8_Switching_to_a_scene_whose_layout_is_no_longer_Published_is_refused_with_409()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
         await RevertToRevertToDraftAsync(layouts, b);
 
-        HttpResponseMessage refused = await SwitchAsync(
+        var refused = await SwitchAsync(
             layouts, wall, await WallVersionAsync(layouts, wall), new { target = "layout", layout = b });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(refused));
@@ -209,13 +206,13 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_9_Creating_a_wall_with_a_name_already_live_in_the_fab_is_refused_with_409()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        string name = UniqueName();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var name = UniqueName();
         (await CreateWallAsync(layouts, name, [a, b])).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage refused = await CreateWallAsync(layouts, name, [a, b]);
+        var refused = await CreateWallAsync(layouts, name, [a, b]);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_NAME_TAKEN");
@@ -226,10 +223,10 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_10_A_single_scene_is_refused_with_400_WALL_TOO_FEW_SCENES()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
 
-        HttpResponseMessage refused = await CreateWallAsync(layouts, UniqueName(), [a]);
+        var refused = await CreateWallAsync(layouts, UniqueName(), [a]);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_TOO_FEW_SCENES");
@@ -238,14 +235,14 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_10_Nine_distinct_scenes_are_refused_with_400_WALL_TOO_MANY_SCENES()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid[] nine = new Guid[9];
-        for (int i = 0; i < 9; i++)
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var nine = new Guid[9];
+        for (var i = 0; i < 9; i++)
         {
             nine[i] = await PublishedLayoutAsync(layouts);
         }
 
-        HttpResponseMessage refused = await CreateWallAsync(layouts, UniqueName(), nine);
+        var refused = await CreateWallAsync(layouts, UniqueName(), nine);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_TOO_MANY_SCENES");
@@ -254,10 +251,10 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_10_A_duplicate_scene_is_refused_with_400_WALL_DUPLICATE_SCENE()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
 
-        HttpResponseMessage refused = await CreateWallAsync(layouts, UniqueName(), [a, a]);
+        var refused = await CreateWallAsync(layouts, UniqueName(), [a, a]);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_DUPLICATE_SCENE");
@@ -266,13 +263,13 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_10_A_scene_from_another_fab_is_refused_with_400_WALL_SCENE_OTHER_FAB()
     {
-        using HttpClient munich = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(munich);
-        Guid dresdenLayout = await PublishedLayoutAsync(
+        using var munich = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(munich);
+        var dresdenLayout = await PublishedLayoutAsync(
             await aspire.CreateAuthenticatedClientAsync("layout-composition", MultiFabOperator, MultiFabOperatorPassword),
             "dresden");
 
-        HttpResponseMessage refused = await CreateWallAsync(munich, UniqueName(), [a, dresdenLayout]);
+        var refused = await CreateWallAsync(munich, UniqueName(), [a, dresdenLayout]);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_SCENE_OTHER_FAB");
@@ -281,10 +278,10 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_10_An_unknown_scene_identifier_is_refused_with_400_WALL_SCENE_NOT_FOUND()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
 
-        HttpResponseMessage refused = await CreateWallAsync(layouts, UniqueName(), [a, Guid.CreateVersion7()]);
+        var refused = await CreateWallAsync(layouts, UniqueName(), [a, Guid.CreateVersion7()]);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
         (await refused.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("title").GetString().ShouldBe("WALL_SCENE_NOT_FOUND");
@@ -295,13 +292,13 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_11_Switching_to_a_layout_not_among_the_scenes_is_refused_with_400()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid outside = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var outside = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
 
-        HttpResponseMessage refused = await SwitchAsync(
+        var refused = await SwitchAsync(
             layouts, wall, await WallVersionAsync(layouts, wall), new { target = "layout", layout = outside });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
@@ -311,12 +308,12 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_12_A_switch_without_If_Match_is_refused_with_428()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
 
-        HttpResponseMessage refused = await layouts.PostAsJsonAsync($"/walls/{wall}/switch", new { target = "next" });
+        var refused = await layouts.PostAsJsonAsync($"/walls/{wall}/switch", new { target = "next" });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired, await BodyAsync(refused));
     }
@@ -326,14 +323,14 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_13_A_kiosk_scoped_token_cannot_switch_but_can_read()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(admin);
-        Guid b = await PublishedLayoutAsync(admin);
-        Guid wall = await CreateWallReturningIdAsync(admin, [a, b]);
+        using var admin = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(admin);
+        var b = await PublishedLayoutAsync(admin);
+        var wall = await CreateWallReturningIdAsync(admin, [a, b]);
 
-        (string ClientId, string ClientSecret) enrolled = await EnrollKioskAsync();
-        string kioskToken = await ClientCredentialsTokenAsync(enrolled.ClientId, enrolled.ClientSecret);
-        using HttpClient kiosk = aspire.CreateServiceClient("layout-composition");
+        var enrolled = await EnrollKioskAsync();
+        var kioskToken = await ClientCredentialsTokenAsync(enrolled.ClientId, enrolled.ClientSecret);
+        using var kiosk = aspire.CreateServiceClient("layout-composition");
         kiosk.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", kioskToken);
 
         HttpRequestMessage switchRequest = new(HttpMethod.Post, $"/walls/{wall}/switch")
@@ -341,10 +338,10 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             Content = JsonContent.Create(new { target = "next" }),
         };
         switchRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{await WallVersionAsync(admin, wall)}\"");
-        HttpResponseMessage switchResponse = await kiosk.SendAsync(switchRequest);
+        var switchResponse = await kiosk.SendAsync(switchRequest);
         switchResponse.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(switchResponse));
 
-        HttpResponseMessage read = await kiosk.GetAsync($"/walls/{wall}");
+        var read = await kiosk.GetAsync($"/walls/{wall}");
         read.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(read));
     }
 
@@ -353,15 +350,15 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_14_Another_fabs_wall_is_reported_as_not_found()
     {
-        using HttpClient munich = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(munich);
-        Guid b = await PublishedLayoutAsync(munich);
-        Guid wall = await CreateWallReturningIdAsync(munich, [a, b]);
+        using var munich = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(munich);
+        var b = await PublishedLayoutAsync(munich);
+        var wall = await CreateWallReturningIdAsync(munich, [a, b]);
 
-        using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
+        using var dresden = await aspire.CreateAuthenticatedClientAsync(
             "layout-composition", DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage hidden = await dresden.GetAsync($"/walls/{wall}");
+        var hidden = await dresden.GetAsync($"/walls/{wall}");
         hidden.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(hidden));
 
         HttpRequestMessage switchRequest = new(HttpMethod.Post, $"/walls/{wall}/switch")
@@ -369,7 +366,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             Content = JsonContent.Create(new { target = "next" }),
         };
         switchRequest.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
-        HttpResponseMessage switchRefused = await dresden.SendAsync(switchRequest);
+        var switchRefused = await dresden.SendAsync(switchRequest);
         switchRefused.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(switchRefused));
     }
 
@@ -378,11 +375,11 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task US1_15_Dropping_the_showing_scene_moves_the_pointer_to_the_new_first_scene()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid c = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b, c]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var c = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b, c]);
         // Move Showing to b so the edit below genuinely drops the current pointer.
         await SwitchAsync(layouts, wall, await WallVersionAsync(layouts, wall), new { target = "layout", layout = b });
 
@@ -391,7 +388,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             Content = JsonContent.Create(new { scenes = new[] { a, c } }),
         };
         edit.Headers.TryAddWithoutValidation("If-Match", $"\"{await WallVersionAsync(layouts, wall)}\"");
-        HttpResponseMessage edited = await layouts.SendAsync(edit);
+        var edited = await layouts.SendAsync(edit);
 
         edited.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(edited));
         (await edited.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("showing").GetGuid().ShouldBe(a);
@@ -406,7 +403,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             "(payload->>'PreviousLayout') || '|' || (payload->>'CurrentLayout') || '|' || (payload->>'Cause')",
             row =>
             {
-                string[] parts = row.Split('|');
+                var parts = row.Split('|');
                 return (Guid.Parse(parts[0]), Guid.Parse(parts[1]), parts[2]);
             },
             extraWhereClause: "payload->>'Cause' = 'Reconfigured'");
@@ -417,10 +414,10 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<Guid> PublishedLayoutAsync(HttpClient layouts, string fab = "munich")
     {
-        string name = $"W-{Guid.NewGuid():N}"[..16];
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, fab);
+        var name = $"W-{Guid.NewGuid():N}"[..16];
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, fab);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts" + (fab == "munich" ? "" : $"?fabId={fab}"), new
+        var created = await layouts.PostAsJsonAsync("/layouts" + (fab == "munich" ? "" : $"?fabId={fab}"), new
         {
             name,
             grid = new { rows = 1, cols = 1 },
@@ -430,9 +427,9 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             },
         });
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
+        var published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
 
         return layoutIdentifier;
@@ -440,7 +437,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task RevertToRevertToDraftAsync(HttpClient layouts, Guid layoutIdentifier)
     {
-        HttpResponseMessage reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
+        var reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
         reverted.EnsureSuccessStatusCode();
     }
 
@@ -455,14 +452,14 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task<(string ClientId, string ClientSecret)> EnrollKioskAsync()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = $"t258-wall-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = $"t258-wall-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage enrolled = await identity.PostAsJsonAsync(
+        var enrolled = await identity.PostAsJsonAsync(
             "/kiosks/enroll?fabId=munich", new { name });
         enrolled.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(enrolled));
 
-        JsonElement body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("clientId").GetString()!, body.GetProperty("clientSecret").GetString()!);
     }
 
@@ -475,7 +472,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task<string> ClientCredentialsTokenAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -483,7 +480,7 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
 
@@ -507,14 +504,14 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<Guid> CreateWallReturningIdAsync(HttpClient layouts, IReadOnlyList<Guid> scenes)
     {
-        HttpResponseMessage created = await CreateWallAsync(layouts, UniqueName(), scenes);
+        var created = await CreateWallAsync(layouts, UniqueName(), scenes);
         created.EnsureSuccessStatusCode();
         return await created.Content.ReadFromJsonAsync<Guid>();
     }
 
     private static async Task<int> WallVersionAsync(HttpClient layouts, Guid wall)
     {
-        HttpResponseMessage fetched = await layouts.GetAsync($"/walls/{wall}");
+        var fetched = await layouts.GetAsync($"/walls/{wall}");
         fetched.EnsureSuccessStatusCode();
         return (await fetched.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetInt32();
     }
@@ -531,9 +528,9 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<string[]> ListNamesAsync(HttpClient layouts)
     {
-        HttpResponseMessage listed = await layouts.GetAsync("/walls");
+        var listed = await layouts.GetAsync("/walls");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return [.. page.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
     }
 
@@ -555,8 +552,8 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
         // WallSceneChangedV1 for the same wall) — "latest by occurred_at" is
         // racy there, since both rows land via independent async outbox
         // deliveries whose completion order need not match issue order.
-        string extraWhere = extraWhereClause is null ? string.Empty : $"AND {extraWhereClause}";
-        string sql = $$"""
+        var extraWhere = extraWhereClause is null ? string.Empty : $"AND {extraWhereClause}";
+        var sql = $$"""
             SELECT {{selectExpression}} AS "Value"
             FROM audit_events
             WHERE event_kind = {0}
@@ -565,11 +562,11 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
             ORDER BY occurred_at DESC
             """;
 
-        for (int attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
-            await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
+            await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
-            List<string> rows = await context.Database
+            var rows = await context.Database
                 .SqlQueryRaw<string>(sql, eventKind, wall.ToString())
                 .ToListAsync();
 
@@ -586,9 +583,9 @@ public class WallEndpointsTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<int> CountAuditRowsAsync(string eventKind, Guid wall)
     {
-        await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> rows = await context.Database
+        var rows = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM audit_events

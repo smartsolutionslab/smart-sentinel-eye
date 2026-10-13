@@ -98,7 +98,7 @@ public class AppHostGatewayRateBudgetTests
     [Fact]
     public async Task A_run_mode_stack_widens_the_gateways_rate_budget_for_its_own_simulated_screens()
     {
-        Dictionary<string, string> environment = await GatewayEnvironmentAsync(RunModeArguments);
+        var environment = await GatewayEnvironmentAsync(RunModeArguments);
 
         environment.ShouldContainKey(
             PermitLimitKey,
@@ -127,12 +127,12 @@ public class AppHostGatewayRateBudgetTests
     [Fact]
     public async Task The_integration_fixture_keeps_the_production_rate_budget_unoverridden()
     {
-        Dictionary<string, string> environment = await GatewayEnvironmentAsync(FixtureArguments);
+        var environment = await GatewayEnvironmentAsync(FixtureArguments);
 
         environment.ShouldNotContainKey(
             PermitLimitKey,
             $"api-gateway's composed environment carried '{PermitLimitKey}'='"
-            + $"{(environment.TryGetValue(PermitLimitKey, out string? observed) ? observed : string.Empty)}' "
+            + $"{(environment.TryGetValue(PermitLimitKey, out var observed) ? observed : string.Empty)}' "
             + "under E2ETests=true. The integration fixture must keep the 100/min production default "
             + "(src/ApiGateway/appsettings.json) unoverridden — GatewayRateLimitIntegrationTests "
             + "exhausts exactly that window, and a widened budget here would silently break it. "
@@ -149,19 +149,19 @@ public class AppHostGatewayRateBudgetTests
     /// </summary>
     private static async Task<Dictionary<string, string>> GatewayEnvironmentAsync(string[] arguments)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 
-        IResource gateway = builder.Resources.Single(resource => resource.Name == "api-gateway");
+        var gateway = builder.Resources.Single(resource => resource.Name == "api-gateway");
 
-        Dictionary<string, object> raw = await RawGatheredEnvironmentAsync(gateway);
+        var raw = await RawGatheredEnvironmentAsync(gateway);
 
         // Only PermitLimitKey is converted to a string. Every other entry may
         // carry an unresolved ReferenceExpression/EndpointReference (see the
         // class doc's "deliberately not BuildAsync" paragraph) that this
         // guard has no business — and no safe way — to resolve.
-        return raw.TryGetValue(PermitLimitKey, out object? value)
+        return raw.TryGetValue(PermitLimitKey, out var value)
             ? new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 [PermitLimitKey] = value?.ToString() ?? string.Empty,
@@ -188,7 +188,7 @@ public class AppHostGatewayRateBudgetTests
     {
         using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(15));
 
-        if (!resource.TryGetEnvironmentVariables(out IEnumerable<EnvironmentCallbackAnnotation>? annotations))
+        if (!resource.TryGetEnvironmentVariables(out var annotations))
         {
             return [];
         }
@@ -203,7 +203,7 @@ public class AppHostGatewayRateBudgetTests
             Logger = NullLogger.Instance,
         };
 
-        foreach (EnvironmentCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }

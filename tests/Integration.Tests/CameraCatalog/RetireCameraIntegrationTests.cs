@@ -1,8 +1,5 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
@@ -36,8 +33,8 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Retiring_a_camera_succeeds_and_retiring_it_again_announces_nothing_further()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid camera = await RegisterAsync(cameras, UniqueName());
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var camera = await RegisterAsync(cameras, UniqueName());
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -47,7 +44,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        int announced = await PollForRetirementCountAsync(camera, expected: 1);
+        var announced = await PollForRetirementCountAsync(camera, expected: 1);
 
         announced.ShouldBe(1,
             "two retirements in the audit trail means the aggregate raised twice while the endpoint stayed 204");
@@ -57,7 +54,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         // RetiredBy must be the same operator — if the metadata lost the actor
         // the row would fall back to the system actor and the trail would record
         // that the system retired a camera nobody asked it to.
-        (Guid Actor, Guid RetiredBy) attribution = await RetirementAttributionAsync(camera);
+        var attribution = await RetirementAttributionAsync(camera);
 
         attribution.RetiredBy.ShouldNotBe(Guid.Empty);
         attribution.Actor.ShouldBe(attribution.RetiredBy);
@@ -73,27 +70,27 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid inMunich = await RegisterAsync(munich, UniqueName());
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var inMunich = await RegisterAsync(munich, UniqueName());
 
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage crossFab = await dresden.PostAsync($"/cameras/{inMunich}/retire", null);
-        HttpResponseMessage neverExisted = await dresden.PostAsync($"/cameras/{Guid.CreateVersion7()}/retire", null);
+        var crossFab = await dresden.PostAsync($"/cameras/{inMunich}/retire", null);
+        var neverExisted = await dresden.PostAsync($"/cameras/{Guid.CreateVersion7()}/retire", null);
 
         crossFab.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         neverExisted.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         // Same shape, not just the same code: the detail must not name the fab
         // or otherwise confirm the camera is somewhere.
-        JsonElement crossFabProblem = await crossFab.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement unknownProblem = await neverExisted.Content.ReadFromJsonAsync<JsonElement>();
+        var crossFabProblem = await crossFab.Content.ReadFromJsonAsync<JsonElement>();
+        var unknownProblem = await neverExisted.Content.ReadFromJsonAsync<JsonElement>();
 
         crossFabProblem.GetProperty("title").GetString()
             .ShouldBe(unknownProblem.GetProperty("title").GetString());
 
         // And the camera is untouched — a refused retire must not half-happen.
-        using HttpClient owner = await ClientFor(MunichOperator, MunichOperatorPassword);
+        using var owner = await ClientFor(MunichOperator, MunichOperatorPassword);
         (await NamesAsync(owner)).Length.ShouldBeGreaterThan(0);
     }
 
@@ -110,20 +107,20 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_cameras_name_is_free_again_in_its_own_fab()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid original = await RegisterAsync(cameras, ReusedName);
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var original = await RegisterAsync(cameras, ReusedName);
 
         (await cameras.PostAsync($"/cameras/{original}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        HttpResponseMessage reused = await AttemptRegisterAsync(cameras, ReusedName);
+        var reused = await AttemptRegisterAsync(cameras, ReusedName);
 
         reused.StatusCode.ShouldBe(HttpStatusCode.Created,
             "the partial unique index excludes Decommissioned rows, so the name should be free");
 
         // A different camera, not the old one revived. Retirement is terminal,
         // so reuse of the name must not be reuse of the aggregate.
-        Guid replacement = await reused.Content.ReadFromJsonAsync<Guid>();
+        var replacement = await reused.Content.ReadFromJsonAsync<Guid>();
         replacement.ShouldNotBe(original);
     }
 
@@ -136,14 +133,14 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task An_active_cameras_name_is_still_refused()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         await RegisterAsync(cameras, ReusedName);
 
-        HttpResponseMessage duplicate = await AttemptRegisterAsync(cameras, ReusedName);
+        var duplicate = await AttemptRegisterAsync(cameras, ReusedName);
 
         duplicate.StatusCode.ShouldBe(HttpStatusCode.Conflict);
 
-        JsonElement problem = await duplicate.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await duplicate.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("CAMERA_NAME_TAKEN");
     }
 
@@ -156,10 +153,10 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retirement_in_one_fab_changes_nothing_in_another()
     {
-        using HttpClient munich = await ClientFor(MunichOperator, MunichOperatorPassword);
-        using HttpClient dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
+        using var munich = await ClientFor(MunichOperator, MunichOperatorPassword);
+        using var dresden = await ClientFor(DresdenOperator, DresdenOperatorPassword);
 
-        Guid inMunich = await RegisterAsync(munich, ReusedName);
+        var inMunich = await RegisterAsync(munich, ReusedName);
 
         // The same name in both fabs at once — uniqueness is per fab (spec 015).
         await RegisterAsync(dresden, ReusedName);
@@ -188,8 +185,8 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Case_insensitivity_survives_reuse()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
-        Guid original = await RegisterAsync(cameras, "Line-3-Inlet");
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        var original = await RegisterAsync(cameras, "Line-3-Inlet");
 
         // #1434: while it is active, a differently-cased name is the same name.
         (await AttemptRegisterAsync(cameras, "line-3-inlet"))
@@ -214,16 +211,16 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_retired_camera_leaves_the_default_listing_and_comes_back_when_asked_for()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
+        using var cameras = await ClientFor(MunichOperator, MunichOperatorPassword);
         await RegisterAsync(cameras, "cam-staying");
-        Guid going = await RegisterAsync(cameras, "cam-going");
+        var going = await RegisterAsync(cameras, "cam-going");
 
         (await cameras.PostAsync($"/cameras/{going}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
         (await NamesAsync(cameras)).ShouldBe(["cam-staying"]);
 
-        (string Name, string Status)[] withRetired = await RowsAsync(cameras, includeRetired: true);
+        var withRetired = await RowsAsync(cameras, includeRetired: true);
 
         withRetired.OrderBy(row => row.Name, StringComparer.Ordinal).ShouldBe(
         [
@@ -239,7 +236,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string name)
     {
-        HttpResponseMessage created = await AttemptRegisterAsync(cameras, name);
+        var created = await AttemptRegisterAsync(cameras, name);
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
 
@@ -271,10 +268,10 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
         HttpClient cameras,
         bool includeRetired = false)
     {
-        HttpResponseMessage listed =
+        var listed =
             await cameras.GetAsync($"/cameras?limit=200&includeRetired={includeRetired}");
         listed.EnsureSuccessStatusCode();
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return [.. page.GetProperty("items").EnumerateArray()
             .Select(row => (
@@ -290,9 +287,9 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task<int> PollForRetirementCountAsync(Guid camera, int expected)
     {
-        int count = 0;
+        var count = 0;
 
-        for (int attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             count = await RetirementCountAsync(camera);
             if (count >= expected)
@@ -311,10 +308,10 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
 
     private async Task<int> RetirementCountAsync(Guid camera)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> rows = await context.Database
+        var rows = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM audit_events
@@ -333,10 +330,10 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     private async Task<(Guid Actor, Guid RetiredBy)> RetirementAttributionAsync(Guid camera)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<string> rows = await context.Database
+        var rows = await context.Database
             .SqlQuery<string>($"""
                 SELECT actor_identifier::text || ',' || (payload->>'RetiredBy') AS "Value"
                 FROM audit_events
@@ -345,7 +342,7 @@ public class RetireCameraIntegrationTests(AspireFixture aspire) : IAsyncLifetime
                 """)
             .ToListAsync();
 
-        string[] parts = rows.ShouldHaveSingleItem().Split(',');
+        var parts = rows.ShouldHaveSingleItem().Split(',');
 
         return (Guid.Parse(parts[0]), Guid.Parse(parts[1]));
     }

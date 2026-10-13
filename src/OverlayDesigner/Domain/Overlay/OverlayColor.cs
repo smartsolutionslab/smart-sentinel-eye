@@ -47,8 +47,8 @@ public sealed partial record OverlayColor : StringValueObject
         Ensure.That(value).IsNotNullOrWhiteSpace().Matches(
             ColorPatternRegex(), "must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA.");
 
-        string digits = value[1..];
-        string eightDigits = digits.Length == 6 ? digits + "FF" : digits;
+        var digits = value[1..];
+        var eightDigits = digits.Length == 6 ? digits + "FF" : digits;
         return new OverlayColor($"#{eightDigits.ToUpperInvariant()}");
     }
 

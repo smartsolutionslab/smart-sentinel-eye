@@ -59,7 +59,7 @@ public sealed class IngestEventBatchCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        IReadOnlyList<EventEnvelope> envelopes = command.Envelopes;
+        var envelopes = command.Envelopes;
         if (envelopes.Count == 0)
         {
             return new IngestEventBatchResult([]);
@@ -68,13 +68,13 @@ public sealed class IngestEventBatchCommandHandler(
         // FR-002, once for the batch. Redelivery became the ordinary way an
         // interruption ends with spec 020, so this is the common case now and
         // not an edge one.
-        IReadOnlySet<EventIdentifier> already = await events.ExistingAsync(
+        var already = await events.ExistingAsync(
             [.. envelopes.Select(envelope => (envelope.Fab, envelope.Identifier))],
             cancellationToken);
 
         // Spec 269 FR-006 / spec 317 FR-006: one assessment for the whole
         // batch, before the build loop — never one query per event.
-        EventTypeVerdicts verdicts = await admission.AssessAsync(envelopes, cancellationToken);
+        var verdicts = await admission.AssessAsync(envelopes, cancellationToken);
 
         // Seeded with what is already stored, then grown as the batch is built,
         // so the same check answers both "already here" and "already in this
@@ -84,7 +84,7 @@ public sealed class IngestEventBatchCommandHandler(
         // duplicate the idempotency rule was supposed to absorb.
         HashSet<EventIdentifier> seen = [.. already];
         Dictionary<Source, long> storedBySource = [];
-        List<RefusedEnvelope> refused = StoreOrRefuse(envelopes, verdicts, seen, storedBySource);
+        var refused = StoreOrRefuse(envelopes, verdicts, seen, storedBySource);
 
         // Events and held rows commit together — one SaveAsync, so a held
         // envelope is on the record in the same transaction as the batch's
@@ -110,7 +110,7 @@ public sealed class IngestEventBatchCommandHandler(
     {
         List<RefusedEnvelope> refused = [];
 
-        foreach (EventEnvelope envelope in envelopes)
+        foreach (var envelope in envelopes)
         {
             if (!seen.Add(envelope.Identifier))
             {
@@ -118,7 +118,7 @@ public sealed class IngestEventBatchCommandHandler(
                 continue;
             }
 
-            Result<EventAggregate, IngestEventError> built = Build(envelope, verdicts);
+            var built = Build(envelope, verdicts);
             if (!built.IsSuccess)
             {
                 refused.Add(new RefusedEnvelope(envelope, built.Error));
@@ -183,7 +183,7 @@ public sealed class IngestEventBatchCommandHandler(
     /// </summary>
     private static void RecordVolume(Dictionary<Source, long> storedBySource)
     {
-        foreach ((Source source, long stored) in storedBySource)
+        foreach ((var source, var stored) in storedBySource)
         {
             IngestVolume.Record(source, stored);
         }
@@ -214,7 +214,7 @@ public sealed class IngestEventBatchCommandHandler(
         }
         catch (ArgumentException)
         {
-            IngestEventError skewed = IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value);
+            var skewed = IngestEventFailures.OccurredAtTooFarInFuture(envelope.OccurredAt.Value);
             logger.BatchEnvelopeRejected(envelope.Identifier, envelope.Source, envelope.Device, skewed.Code);
             return Failure(skewed);
         }
@@ -223,7 +223,7 @@ public sealed class IngestEventBatchCommandHandler(
         // verdict — the same precedence as the single-event handler.
         if (verdicts.Refuses(envelope))
         {
-            IngestEventError refused = IngestEventFailures.EventTypeNotRegistered(
+            var refused = IngestEventFailures.EventTypeNotRegistered(
                 envelope.Fab.Value, envelope.Source.Value, envelope.Kind.Value);
             logger.BatchEnvelopeRejected(envelope.Identifier, envelope.Source, envelope.Device, refused.Code);
             return Failure(refused);

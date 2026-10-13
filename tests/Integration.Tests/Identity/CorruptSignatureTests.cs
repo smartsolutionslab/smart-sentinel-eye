@@ -44,8 +44,8 @@ public class CorruptSignatureTests
     [Fact]
     public void A_64_byte_signature_ending_in_A_is_corrupted_at_the_decoded_byte_level()
     {
-        byte[] original = AllZeroSignature(length: 64, lastByte: 0);
-        string token = Token(original);
+        var original = AllZeroSignature(length: 64, lastByte: 0);
+        var token = Token(original);
         token[^1].ShouldBe(
             'A', "this fixture must produce the last-character-'A' encoding spec §2 identifies as "
             + "the observed failure, or the case below is not the one it claims to be.");
@@ -65,8 +65,8 @@ public class CorruptSignatureTests
     public void A_64_byte_signature_ending_in_Q_g_or_w_is_already_corrupted_at_the_decoded_byte_level(
         int lastByteValue, char expectedLastCharacter)
     {
-        byte[] original = AllZeroSignature(length: 64, lastByte: (byte)lastByteValue);
-        string token = Token(original);
+        var original = AllZeroSignature(length: 64, lastByte: (byte)lastByteValue);
+        var token = Token(original);
         token[^1].ShouldBe(
             expectedLastCharacter, "this fixture must produce the last character the theory case names, "
             + "or the case below is not exercising the encoding it claims to.");
@@ -87,8 +87,8 @@ public class CorruptSignatureTests
     [InlineData(256)]
     public void Other_signature_lengths_ending_in_A_are_corrupted_at_the_decoded_byte_level(int signatureLength)
     {
-        byte[] original = AllZeroSignature(signatureLength, lastByte: 0);
-        string token = Token(original);
+        var original = AllZeroSignature(signatureLength, lastByte: 0);
+        var token = Token(original);
         token[^1].ShouldBe(
             'A', $"this {signatureLength}-byte fixture must produce a last-character-'A' encoding, "
             + "or the case below is not the one it claims to be.");
@@ -106,11 +106,11 @@ public class CorruptSignatureTests
     [Fact]
     public void Header_and_payload_segments_are_returned_byte_identical()
     {
-        byte[] original = AllZeroSignature(length: 64, lastByte: 0);
-        string token = Token(original);
+        var original = AllZeroSignature(length: 64, lastByte: 0);
+        var token = Token(original);
 
-        string corrupted = LockoutSessionSurvivalIntegrationTests.CorruptSignature(token);
-        string[] segments = corrupted.Split('.');
+        var corrupted = LockoutSessionSurvivalIntegrationTests.CorruptSignature(token);
+        var segments = corrupted.Split('.');
 
         segments[0].ShouldBe(Header, "the header segment must be untouched by a signature-only corruption.");
         segments[1].ShouldBe(Payload, "the payload segment must be untouched by a signature-only corruption.");
@@ -148,8 +148,8 @@ public class CorruptSignatureTests
     /// </summary>
     private static void AssertSignatureIsCorruptedAtByteLevel(string originalToken, byte[] originalSignature, string context)
     {
-        string corrupted = LockoutSessionSurvivalIntegrationTests.CorruptSignature(originalToken);
-        string corruptedSegment = corrupted.Split('.')[2];
+        var corrupted = LockoutSessionSurvivalIntegrationTests.CorruptSignature(originalToken);
+        var corruptedSegment = corrupted.Split('.')[2];
 
         byte[]? corruptedBytes;
         try
@@ -172,7 +172,7 @@ public class CorruptSignatureTests
 
     private static byte[] AllZeroSignature(int length, byte lastByte)
     {
-        byte[] bytes = new byte[length];
+        var bytes = new byte[length];
         bytes[^1] = lastByte;
         return bytes;
     }

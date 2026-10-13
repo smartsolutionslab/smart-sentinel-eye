@@ -1,7 +1,5 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -170,16 +168,16 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task A_value_change_reaches_a_hub_client_in_the_fab_it_changed_in()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
 
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
 
         await using (munich)
         {
-            Task<ResolvedFrame> arrival = munichFrames.GetOrAdd(overlay, _ => new()).Task;
+            var arrival = munichFrames.GetOrAdd(overlay, _ => new()).Task;
 
-            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+            using var variables = await aspire.CreateAdminClientAsync("system-variables");
             (await VariableRequests.SetValueAsync(variables, variableName, "82.5")).EnsureSuccessStatusCode();
 
             // The clock starts when the write returns, so the figure is the
@@ -187,14 +185,14 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
             // the race is decided, so a won race does not leave a 20 s timer
             // ticking behind every run of this file.
             using CancellationTokenSource window = new();
-            Stopwatch stopwatch = Stopwatch.StartNew();
+            var stopwatch = Stopwatch.StartNew();
             await Task.WhenAny(arrival, Task.Delay(FrameWindow, window.Token));
             stopwatch.Stop();
             await window.CancelAsync();
 
             arrival.IsCompletedSuccessfully.ShouldBeTrue(NoFrameDiagnostic);
 
-            ResolvedFrame frame = await arrival;
+            var frame = await arrival;
             frame.ResolvedText.ShouldBe("Line 1: 82.5");
 
             // A frame the kiosk would discard is not a delivered frame: the
@@ -230,23 +228,23 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task A_munich_value_change_reaches_munich_and_not_dresden()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
 
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
-        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
+        (var dresden, var dresdenFrames) =
             await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, DresdenOperatorPassword));
 
         await using (munich)
         await using (dresden)
         {
-            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+            using var variables = await aspire.CreateAdminClientAsync("system-variables");
             (await VariableRequests.SetValueAsync(variables, variableName, "82.5")).EnsureSuccessStatusCode();
 
             // Munich's published layout shows the overlay, so munich is told.
             // Awaiting it here is what makes the line below an assertion: with
             // no frame proven to have been sent, "not to dresden" is free.
-            ResolvedFrame frame = await munichFrames.GetOrAdd(overlay, _ => new()).Task
+            var frame = await munichFrames.GetOrAdd(overlay, _ => new()).Task
                 .WaitAsync(FrameWindow);
             frame.ResolvedText.ShouldBe("Line 1: 82.5");
 
@@ -266,18 +264,18 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Successive_value_changes_carry_strictly_increasing_versions()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
 
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
 
         await using (munich)
         {
-            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+            using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-            ResolvedFrame first = await WriteAndAwaitFrameAsync(
+            var first = await WriteAndAwaitFrameAsync(
                 variables, munichFrames, variableName, overlay, "82.5");
-            ResolvedFrame second = await WriteAndAwaitFrameAsync(
+            var second = await WriteAndAwaitFrameAsync(
                 variables, munichFrames, variableName, overlay, "91.5");
 
             first.ResolvedText.ShouldBe("Line 1: 82.5");
@@ -299,19 +297,19 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task A_refused_value_change_pushes_no_frame_to_anyone()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
 
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
-        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
+        (var dresden, var dresdenFrames) =
             await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, DresdenOperatorPassword));
 
         await using (munich)
         await using (dresden)
         {
-            using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+            using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-            HttpResponseMessage refused = await VariableRequests.SetValueAsync(
+            var refused = await VariableRequests.SetValueAsync(
                 variables, variableName, "not-a-number");
             refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
 
@@ -345,33 +343,33 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task A_frame_a_two_fab_screen_receives_names_the_fab_it_belongs_to()
     {
-        (string variableName, Guid overlay) = await AMunichOverlayBoundToAVariableAsync();
+        (var variableName, var overlay) = await AMunichOverlayBoundToAVariableAsync();
         await AlsoDefinedInDresdenAsync(variableName);
 
-        (HubConnection munich, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> munichFrames) =
+        (var munich, var munichFrames) =
             await ListenAsync(await AdminTokenAsync());
-        (HubConnection dresden, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> dresdenFrames) =
+        (var dresden, var dresdenFrames) =
             await ListenAsync(await aspire.GetAccessTokenAsync(DresdenOperator, DresdenOperatorPassword));
-        (HubConnection bothFabs, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> bothFabsFrames) =
+        (var bothFabs, var bothFabsFrames) =
             await ListenAsync(await aspire.GetAccessTokenAsync(MultiFabOperator, MultiFabOperatorPassword));
 
         await using (munich)
         await using (dresden)
         await using (bothFabs)
         {
-            using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
+            using var variables = await aspire.CreateAuthenticatedClientAsync(
                 "system-variables", MultiFabOperator, MultiFabOperatorPassword);
             (await SetDresdenValueAsync(variables, variableName, "63.5")).EnsureSuccessStatusCode();
 
             // The dresden-only screen is told. Awaiting it first is what makes
             // the munich silence below an assertion rather than a free pass.
-            ResolvedFrame toDresden = await dresdenFrames.GetOrAdd(overlay, _ => new()).Task
+            var toDresden = await dresdenFrames.GetOrAdd(overlay, _ => new()).Task
                 .WaitAsync(FrameWindow);
             toDresden.ResolvedText.ShouldBe("Line 1: 63.5");
 
             // And so is the screen holding both fabs — correctly, because it
             // joined the dresden group. This does not change with the fix.
-            ResolvedFrame toBothFabs = await bothFabsFrames.GetOrAdd(overlay, _ => new()).Task
+            var toBothFabs = await bothFabsFrames.GetOrAdd(overlay, _ => new()).Task
                 .WaitAsync(FrameWindow);
             toBothFabs.ResolvedText.ShouldBe("Line 1: 63.5");
 
@@ -423,7 +421,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     private async Task<(HubConnection Connection, ConcurrentDictionary<Guid, TaskCompletionSource<ResolvedFrame>> Frames)>
         ListenAsync(string accessToken)
     {
-        HubConnection connection = new HubConnectionBuilder()
+        var connection = new HubConnectionBuilder()
             .WithUrl(aspire.HubUri("layout-composition", LayoutLifecycleHub.Path), options =>
             {
                 options.AccessTokenProvider = () => Task.FromResult<string?>(accessToken);
@@ -437,7 +435,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
             {
                 ResolvedFrame frame = new(
                     payload.GetProperty("overlay").GetGuid(),
-                    payload.TryGetProperty("fab", out JsonElement fab) ? fab.GetString() : null,
+                    payload.TryGetProperty("fab", out var fab) ? fab.GetString() : null,
                     payload.GetProperty("texts").EnumerateArray().First().GetProperty("resolved").GetString() ?? string.Empty,
                     payload.GetProperty("version").GetInt64());
                 frames.GetOrAdd(frame.Overlay, _ => new()).TrySetResult(frame);
@@ -461,7 +459,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     /// </summary>
     private async Task AlsoDefinedInDresdenAsync(string variableName)
     {
-        using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
+        using var variables = await aspire.CreateAuthenticatedClientAsync(
             "system-variables", MultiFabOperator, MultiFabOperatorPassword);
 
         (await variables.PostAsJsonAsync("/system-variables?fabId=dresden", new
@@ -482,9 +480,9 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     private static async Task<HttpResponseMessage> SetDresdenValueAsync(
         HttpClient variables, string name, string value)
     {
-        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
+        var fetched = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
         fetched.EnsureSuccessStatusCode();
-        JsonElement current = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var current = await fetched.Content.ReadFromJsonAsync<JsonElement>();
 
         using HttpRequestMessage request = new(HttpMethod.Put, $"/system-variables/{name}/value?fabId=dresden")
         {
@@ -509,10 +507,10 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
     /// </summary>
     private async Task<(string VariableName, Guid Overlay)> AMunichOverlayBoundToAVariableAsync()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string variableName = VariableRequests.UniqueName();
+        var variableName = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name = variableName,
@@ -522,7 +520,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+        var overlay = await OverlayRequests.PublishWithLabelAsync(
             overlays, $"Line 1: {{{{{variableName}}}}}", "Res");
 
         await PublishAMunichLayoutReferencingAsync(overlay);
@@ -533,9 +531,9 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
 
     private async Task PublishAMunichLayoutReferencingAsync(Guid overlay)
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name = $"Wall-{Guid.NewGuid():N}"[..16],
             grid = new { rows = 1, cols = 1 },
@@ -552,7 +550,7 @@ public class ResolvedTextReachesItsFabTests(AspireFixture aspire) : IAsyncLifeti
         });
         created.EnsureSuccessStatusCode();
 
-        Guid layout = await created.Content.ReadFromJsonAsync<Guid>();
+        var layout = await created.Content.ReadFromJsonAsync<Guid>();
         (await LayoutRequests.PostAsync(layouts, layout, "revisions/1/publish")).EnsureSuccessStatusCode();
     }
 }

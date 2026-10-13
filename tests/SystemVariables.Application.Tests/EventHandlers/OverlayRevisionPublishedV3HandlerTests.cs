@@ -22,7 +22,7 @@ public class OverlayRevisionPublishedV3HandlerTests
         OverlayRevisionPublishedV3Handler handler = new(
             index, NullLogger<OverlayRevisionPublishedV3Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionPublishedV3 message = new(
             overlay, 1, "Line",
             [new OverlayElementV3("Text", "#FFFFFFD9", 0.1m, 0.1m, 0.3m, 0.08m, "OEE: {{oee}}%", 32)],
@@ -41,7 +41,7 @@ public class OverlayRevisionPublishedV3HandlerTests
         OverlayRevisionPublishedV3Handler handler = new(
             index, NullLogger<OverlayRevisionPublishedV3Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionPublishedV3 message = new(
             overlay, 1, "Line",
             [
@@ -52,7 +52,7 @@ public class OverlayRevisionPublishedV3HandlerTests
 
         await handler.Handle(message);
 
-        IReadOnlyList<string>? texts = index.LookupLabelTexts(overlay);
+        var texts = index.LookupLabelTexts(overlay);
         texts!.Count.ShouldBe(2);
         texts[0].ShouldBe("OEE: {{oee}}%");
         texts[1].ShouldBe("Status: {{status}}");
@@ -72,7 +72,7 @@ public class OverlayRevisionPublishedV3HandlerTests
         OverlayRevisionPublishedV3Handler handler = new(
             index, NullLogger<OverlayRevisionPublishedV3Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionPublishedV3 message = new(
             overlay, 1, "Line",
             [
@@ -83,7 +83,7 @@ public class OverlayRevisionPublishedV3HandlerTests
 
         await handler.Handle(message);
 
-        IReadOnlyList<string>? texts = index.LookupLabelTexts(overlay);
+        var texts = index.LookupLabelTexts(overlay);
         texts!.Count.ShouldBe(2);
         texts[0].ShouldBe(string.Empty);
         texts[1].ShouldBe("OEE: {{oee}}%");

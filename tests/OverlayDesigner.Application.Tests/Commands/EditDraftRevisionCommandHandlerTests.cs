@@ -22,17 +22,17 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
         overlays.Add(overlay);
-        OverlayElement replacement = OtherLabel();
+        var replacement = OtherLabel();
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, [replacement], 0),
             CancellationToken.None);
 
@@ -47,7 +47,7 @@ public class EditDraftRevisionCommandHandlerTests
         EditDraftRevisionCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<EditDraftRevisionCommandHandler>.Instance);
 
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
                 OverlayIdentifier.New(), OverlayRevisionNumber.One, [OtherLabel()], 0),
             CancellationToken.None);
@@ -61,7 +61,7 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -70,7 +70,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.From(42), [OtherLabel()], 0),
             CancellationToken.None);
@@ -84,7 +84,7 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -94,7 +94,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, [OtherLabel()], 0),
             CancellationToken.None);
 
@@ -107,8 +107,8 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        OverlayElement initial = OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
-        Overlay overlay = new OverlayBuilder()
+        var initial = OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(initial)
@@ -117,7 +117,7 @@ public class EditDraftRevisionCommandHandlerTests
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, [], 0),
             CancellationToken.None);
 
@@ -131,18 +131,18 @@ public class EditDraftRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        OverlayElement initial = OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
-        Overlay overlay = new OverlayBuilder()
+        var initial = OverlayElement.TextElement("Initial", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default);
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(initial)
             .Build();
         overlays.Add(overlay);
-        List<OverlayElement> tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1).Select(_ => OtherLabel()).ToList();
+        var tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1).Select(_ => OtherLabel()).ToList();
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(overlay.Id, OverlayRevisionNumber.One, tooMany, 0),
             CancellationToken.None);
 

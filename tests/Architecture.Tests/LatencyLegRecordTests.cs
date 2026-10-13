@@ -30,7 +30,7 @@ public class LatencyLegRecordTests
     [Fact]
     public void The_kiosk_legs_are_recorded_as_built()
     {
-        string constitution = ReadConstitution();
+        var constitution = ReadConstitution();
 
         constitution.ShouldNotContain("| SFU → kiosk decode | **no** |",
             customMessage: "the kiosk decodes video — CellPage renders CameraViewer, which owns the "
@@ -57,7 +57,7 @@ public class LatencyLegRecordTests
     [Fact]
     public void The_record_still_distinguishes_every_state_a_leg_can_be_in()
     {
-        string constitution = ReadConstitution();
+        var constitution = ReadConstitution();
 
         constitution.ShouldContain("in part",
             customMessage: "the decode leg is measured in part — a browser cannot see the SFU's "
@@ -97,7 +97,7 @@ public class LatencyLegRecordTests
     [Fact]
     public void The_presentation_buffer_is_not_claimed_measured_before_anyone_has_looked()
     {
-        string constitution = ReadConstitution();
+        var constitution = ReadConstitution();
 
         constitution.ShouldContain(
             "| Presentation buffer (playout alignment) | yes | **recorded, not yet observed**",
@@ -129,11 +129,11 @@ public class LatencyLegRecordTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, ".specify", "memory", "constitution.md");
+        var path = Path.Combine(root.FullName, ".specify", "memory", "constitution.md");
         File.Exists(path).ShouldBeTrue($"the constitution should be at {path}");
         return File.ReadAllText(path);
     }

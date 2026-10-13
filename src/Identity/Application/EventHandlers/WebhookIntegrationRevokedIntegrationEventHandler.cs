@@ -29,7 +29,7 @@ public sealed class WebhookIntegrationRevokedIntegrationEventHandler(
 
         var (integrationName, _, metadata) = message;
 
-        Option<FabIdentifier> fab = ParseFab(metadata, integrationName);
+        var fab = ParseFab(metadata, integrationName);
         if (!fab.HasValue)
         {
             return;
@@ -46,7 +46,7 @@ public sealed class WebhookIntegrationRevokedIntegrationEventHandler(
             return;
         }
 
-        Result<RegisteredClientIdentifier, DisableWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableWebhookClientCommand(clientId, fab.Value), cancellationToken);
 
         if (result.IsFailure)

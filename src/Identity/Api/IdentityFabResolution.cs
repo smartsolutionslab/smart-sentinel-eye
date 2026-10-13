@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
@@ -41,11 +40,11 @@ internal static class IdentityFabResolution
         string unusableFabErrorCode,
         CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> resolved =
+        var resolved =
             await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
 
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in resolved)
+        foreach (var candidate in resolved)
         {
             try
             {

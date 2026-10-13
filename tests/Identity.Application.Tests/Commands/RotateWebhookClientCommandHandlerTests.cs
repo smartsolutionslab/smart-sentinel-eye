@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
-using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Application.WebhookIntegrations;
@@ -69,7 +68,7 @@ public class RotateWebhookClientCommandHandlerTests
             new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -77,7 +76,7 @@ public class RotateWebhookClientCommandHandlerTests
         result.Value.ClientSecret.ShouldBe("secret-webhook-qa");
         repo.Clients.ShouldHaveSingleItem().Kind.ShouldBe(ClientKind.WebhookIntegration);
 
-        WebhookIntegrationRotatedV1 published = bus.Published
+        var published = bus.Published
             .OfType<WebhookIntegrationRotatedV1>().ShouldHaveSingleItem();
         published.IntegrationName.ShouldBe("qa");
         published.ClientId.ShouldBe("webhook-qa");
@@ -94,12 +93,12 @@ public class RotateWebhookClientCommandHandlerTests
             new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> first =
+        var first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         // The second call is an update, so it carries the version the first
         // handed back rather than repeating the create intent.
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> second =
+        var second =
             await handler.HandleAsync(
                 HappyCommand() with { ExpectedVersion = Option<int>.Some(first.Value.Version) },
                 CancellationToken.None);
@@ -124,7 +123,7 @@ public class RotateWebhookClientCommandHandlerTests
 
         // "Has Spaces" yields clientId "webhook-Has Spaces" which
         // fails the ClientId grammar.
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler
+        var result = await handler
             .HandleAsync(HappyCommand("Has Spaces"), CancellationToken.None);
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.InvalidIntegrationName>();
@@ -141,7 +140,7 @@ public class RotateWebhookClientCommandHandlerTests
             new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.KeycloakUnavailable>();
@@ -169,7 +168,7 @@ public class RotateWebhookClientCommandHandlerTests
     public async Task A_rotation_that_loses_the_database_race_lets_the_concurrency_exception_reach_the_middleware()
     {
         InMemoryRegisteredClientRepository repo = new();
-        RegisteredClient client = RegisteredClient.Register(
+        var client = RegisteredClient.Register(
             ClientId.From("webhook-qa"),
             ClientKind.WebhookIntegration,
             FabIdentifier.From("munich"),
@@ -208,7 +207,7 @@ public class RotateWebhookClientCommandHandlerTests
     public async Task A_munich_operator_naming_its_own_fab_cannot_rotate_a_dresden_registered_webhook_client()
     {
         InMemoryRegisteredClientRepository repo = new();
-        RegisteredClient dresdenClient = RegisteredClient.Register(
+        var dresdenClient = RegisteredClient.Register(
             ClientId.From("webhook-dresden-line-3"),
             ClientKind.WebhookIntegration,
             FabIdentifier.From("dresden"),
@@ -236,8 +235,8 @@ public class RotateWebhookClientCommandHandlerTests
                 Attributes: new Dictionary<string, string>()),
             fabGroupPath: "/fabs/dresden",
             CancellationToken.None);
-        string dresdenSecretBeforeAttack = keycloak.CurrentSecrets["webhook-dresden-line-3"];
-        int keycloakCallsBeforeAttack = keycloak.CallCount;
+        var dresdenSecretBeforeAttack = keycloak.CurrentSecrets["webhook-dresden-line-3"];
+        var keycloakCallsBeforeAttack = keycloak.CallCount;
 
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
@@ -245,10 +244,10 @@ public class RotateWebhookClientCommandHandlerTests
             new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(CrossFabAttackCommand(), CancellationToken.None);
 
-        string evidence = result.IsSuccess
+        var evidence = result.IsSuccess
             ? $"succeeded with clientId '{result.Value.ClientId}' and clientSecret '{result.Value.ClientSecret}'"
             : $"correctly refused with {result.Error}";
         result.IsSuccess.ShouldBeFalse(
@@ -290,7 +289,7 @@ public class RotateWebhookClientCommandHandlerTests
             new FakeEventBus(), new NoOpTransactionalCommit(),
             new FakeClock(Now), NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(CrossFabAttackCommand(), CancellationToken.None);
 
         result.Error.ShouldBe(
@@ -329,7 +328,7 @@ public class RotateWebhookClientCommandHandlerTests
     public async Task A_munich_create_colliding_with_dresdens_active_webhook_gets_a_generic_conflict_that_does_not_name_the_client()
     {
         InMemoryRegisteredClientRepository repo = new();
-        RegisteredClient dresdenClient = RegisteredClient.Register(
+        var dresdenClient = RegisteredClient.Register(
             ClientId.From("webhook-shared"),
             ClientKind.WebhookIntegration,
             FabIdentifier.From("dresden"),
@@ -359,7 +358,7 @@ public class RotateWebhookClientCommandHandlerTests
                 }),
             fabGroupPath: "/fabs/dresden",
             CancellationToken.None);
-        string dresdenSecretBeforeAttempt = keycloak.CurrentSecrets["webhook-shared"];
+        var dresdenSecretBeforeAttempt = keycloak.CurrentSecrets["webhook-shared"];
 
         FakeEventBus bus = new();
         RotateWebhookClientCommandHandler handler = new(
@@ -373,13 +372,13 @@ public class RotateWebhookClientCommandHandlerTests
             "shared", FabIdentifier.From("munich"),
             OperatorIdentifier.From(Guid.CreateVersion7()), Option<int>.None);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(command, CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue(
             "munich must not be able to create a webhook client that collides with Dresden's");
 
-        string errorText = $"{result.Error.Code} {result.Error.Message}";
+        var errorText = $"{result.Error.Code} {result.Error.Message}";
         errorText.Contains("webhook-shared", StringComparison.Ordinal).ShouldBeFalse(
             $"the refusal must not name the clientId — a munich caller must not learn Dresden owns "
             + $"this name; got '{errorText}'");
@@ -417,7 +416,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>();
@@ -440,7 +439,7 @@ public class RotateWebhookClientCommandHandlerTests
     public async Task A_revoked_integration_is_refused_on_a_rotate_intent_and_the_existing_row_is_untouched()
     {
         InMemoryRegisteredClientRepository repo = new();
-        RegisteredClient client = RegisteredClient.Register(
+        var client = RegisteredClient.Register(
             ClientId.From("webhook-qa"),
             ClientKind.WebhookIntegration,
             FabIdentifier.From("munich"),
@@ -454,7 +453,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, new FakeEventBus(), new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RotateWebhookClientCommand(
                 "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
                 Option<int>.Some(3)),
@@ -463,7 +462,7 @@ public class RotateWebhookClientCommandHandlerTests
         result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>();
         keycloak.CallCount.ShouldBe(
             0, "a revoked integration must not have RotateClientSecretAsync called for it");
-        RegisteredClient stored = repo.Clients.ShouldHaveSingleItem();
+        var stored = repo.Clients.ShouldHaveSingleItem();
         stored.Version.Value.ShouldBe(3, "the version must not move for a refused rotation");
         stored.LastRotatedAt.ShouldBeNull("LastRotatedAt must not move for a refused rotation");
     }
@@ -477,7 +476,7 @@ public class RotateWebhookClientCommandHandlerTests
     public async Task A_revoked_integration_with_a_stale_version_answers_revoked_not_stale()
     {
         InMemoryRegisteredClientRepository repo = new();
-        RegisteredClient client = RegisteredClient.Register(
+        var client = RegisteredClient.Register(
             ClientId.From("webhook-qa"),
             ClientKind.WebhookIntegration,
             FabIdentifier.From("munich"),
@@ -491,7 +490,7 @@ public class RotateWebhookClientCommandHandlerTests
             new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RotateWebhookClientCommand(
                 "qa", FabIdentifier.From("munich"), OperatorIdentifier.From(Guid.CreateVersion7()),
                 Option<int>.Some(3)), // stale: the row is really at 5
@@ -511,7 +510,7 @@ public class RotateWebhookClientCommandHandlerTests
     public async Task A_revoked_integration_with_a_create_intent_against_an_existing_row_answers_revoked_not_already_exists()
     {
         InMemoryRegisteredClientRepository repo = new();
-        RegisteredClient client = RegisteredClient.Register(
+        var client = RegisteredClient.Register(
             ClientId.From("webhook-qa"),
             ClientKind.WebhookIntegration,
             FabIdentifier.From("munich"),
@@ -525,7 +524,7 @@ public class RotateWebhookClientCommandHandlerTests
             new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None); // create intent
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationRevoked>(
@@ -544,7 +543,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.WebhookIntegrationStatusUnavailable>();
@@ -566,7 +565,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -586,7 +585,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             NoOpDisableWebhookClient(), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result = await handler
+        var result = await handler
             .HandleAsync(HappyCommand("Has Spaces"), CancellationToken.None);
 
         result.Error.ShouldBeOfType<RotateWebhookClientError.InvalidIntegrationName>();
@@ -671,7 +670,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             DisableWebhookClientUsing(repo, keycloak), logger);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -682,7 +681,7 @@ public class RotateWebhookClientCommandHandlerTests
             "webhook-qa",
             "the race-created Keycloak client must be disabled once the post-commit re-check sees "
             + "Revoked");
-        RegisteredClient stored = repo.Clients.ShouldHaveSingleItem();
+        var stored = repo.Clients.ShouldHaveSingleItem();
         stored.DisabledAt.ShouldNotBeNull(
             "the local row must be marked disabled too, not just the Keycloak client");
         logger.Named("DisabledClientCreatedDuringRevokeRace").ShouldHaveSingleItem(
@@ -715,7 +714,7 @@ public class RotateWebhookClientCommandHandlerTests
         // later, best-effort DisableClientAsync call fails.
         keycloak.FailNextDisableWith = new HttpRequestException("Keycloak 503 on disable");
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -753,7 +752,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             DisableWebhookClientUsing(repo, keycloak), NullLogger<RotateWebhookClientCommandHandler>.Instance);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -763,7 +762,7 @@ public class RotateWebhookClientCommandHandlerTests
             "webhook-qa",
             "an Unverifiable answer after commit must disable the just-created client exactly as a "
             + "Revoked answer does — the fail-closed philosophy applies to both");
-        RegisteredClient stored = repo.Clients.ShouldHaveSingleItem();
+        var stored = repo.Clients.ShouldHaveSingleItem();
         stored.DisabledAt.ShouldNotBeNull(
             "the local row must be marked disabled, not left enabled because the status could not "
             + "be confirmed");
@@ -820,7 +819,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new RepositoryBackedTransactionalCommit(repo), new FakeClock(Now),
             DisableWebhookClientUsing(repo, keycloak), logger);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(
@@ -861,7 +860,7 @@ public class RotateWebhookClientCommandHandlerTests
             repo, keycloak, status, bus, new NoOpTransactionalCommit(), new FakeClock(Now),
             DisableWebhookClientUsing(repo, keycloak), logger);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue(

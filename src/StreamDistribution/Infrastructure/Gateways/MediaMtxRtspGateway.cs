@@ -28,7 +28,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // using the bundled FFmpeg binary (configured via `runOnDemand`-style
         // hooks in the YAML; not needed for v1 because we only ship the
         // ffmpeg-bundled image variant).
-        using HttpResponseMessage response = await http
+        using var response = await http
             .PostAsJsonAsync($"/v3/config/paths/add/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
 
         // Idempotent on the path name (spec 309 FR-002): MediaMTX answers 400
@@ -39,7 +39,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // original add/ failure below.
         if (response.StatusCode == System.Net.HttpStatusCode.BadRequest)
         {
-            using HttpResponseMessage check = await http.GetAsync($"/v3/config/paths/get/{path.Value}", cancellationToken);
+            using var check = await http.GetAsync($"/v3/config/paths/get/{path.Value}", cancellationToken);
             if (check.StatusCode == System.Net.HttpStatusCode.OK)
             {
                 logger.MediaMtxPathAlreadyRegistered(path);
@@ -60,7 +60,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // add/ would reject an existing path and delete+add would leave a
         // window with no path at all, which the two-second health sweep would
         // see and announce.
-        using HttpResponseMessage response = await http
+        using var response = await http
             .PatchAsJsonAsync($"/v3/config/paths/patch/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
 
         response.EnsureSuccessStatusCode();
@@ -71,7 +71,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         Ensure.That(path).IsNotNull();
 
-        using HttpResponseMessage response = await http.DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
+        using var response = await http.DeleteAsync($"/v3/config/paths/delete/{path.Value}", cancellationToken);
 
         // 404 is fine — path may have already been removed by a prior call.
         if (response.StatusCode != System.Net.HttpStatusCode.NotFound)
@@ -92,22 +92,22 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // MediaMTX paths are left alone.
         List<MediaMtxPath> paths = [];
 
-        int page = 0;
-        bool hasMorePages = true;
+        var page = 0;
+        var hasMorePages = true;
         while (hasMorePages)
         {
-            using HttpResponseMessage response = await http.GetAsync(
+            using var response = await http.GetAsync(
                 $"/v3/config/paths/list?page={page}&itemsPerPage=100", cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
             AddPageToPaths(payload, paths);
 
             // Absent pageCount (an older MediaMTX, or a test double that
             // never set it) reads as "one page" — the behaviour this
             // method always had before pagination was accounted for.
-            int pageCount = payload.TryGetProperty("pageCount", out JsonElement pageCountElement)
+            var pageCount = payload.TryGetProperty("pageCount", out var pageCountElement)
                 && pageCountElement.ValueKind == JsonValueKind.Number
                 ? pageCountElement.GetInt32()
                 : 1;
@@ -121,19 +121,19 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     private static void AddPageToPaths(JsonElement payload, List<MediaMtxPath> paths)
     {
-        if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
+        if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
         {
             return;
         }
 
-        foreach (JsonElement item in items.EnumerateArray())
+        foreach (var item in items.EnumerateArray())
         {
-            if (!item.TryGetProperty("name", out JsonElement name) ||
+            if (!item.TryGetProperty("name", out var name) ||
                 name.ValueKind != JsonValueKind.String)
             {
                 continue;
             }
-            string raw = name.GetString() ?? string.Empty;
+            var raw = name.GetString() ?? string.Empty;
             if (!MediaMtxPath.IsCanonical(raw))
             {
                 continue;
@@ -146,7 +146,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
     {
         Ensure.That(path).IsNotNull();
 
-        using HttpResponseMessage response = await http.GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
+        using var response = await http.GetAsync($"/v3/paths/get/{path.Value}", cancellationToken);
 
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
@@ -156,7 +156,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
         // Response shape (subset of MediaMTX /v3/paths/get):
         //   { "ready": bool, "readyTime": "ISO-8601" | null, "tracks": [...] }
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         return ParsePathHealth(payload);
     }
@@ -181,22 +181,22 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // /v3/config/paths/list endpoint the same way.
         Dictionary<MediaMtxPath, RtspPathHealth> health = [];
 
-        int page = 0;
-        bool hasMorePages = true;
+        var page = 0;
+        var hasMorePages = true;
         while (hasMorePages)
         {
-            using HttpResponseMessage response = await http.GetAsync(
+            using var response = await http.GetAsync(
                 $"/v3/paths/list?page={page}&itemsPerPage=100", cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
             AddPageToHealth(payload, health);
 
             // Absent pageCount (an older MediaMTX, or a test double that never
             // set it) reads as "one page" — the behaviour this method always
             // had before pagination was accounted for.
-            int pageCount = payload.TryGetProperty("pageCount", out JsonElement pageCountElement)
+            var pageCount = payload.TryGetProperty("pageCount", out var pageCountElement)
                 && pageCountElement.ValueKind == JsonValueKind.Number
                 ? pageCountElement.GetInt32()
                 : 1;
@@ -210,19 +210,19 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     private static void AddPageToHealth(JsonElement payload, Dictionary<MediaMtxPath, RtspPathHealth> health)
     {
-        if (!payload.TryGetProperty("items", out JsonElement items) || items.ValueKind != JsonValueKind.Array)
+        if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
         {
             return;
         }
 
-        foreach (JsonElement item in items.EnumerateArray())
+        foreach (var item in items.EnumerateArray())
         {
-            if (!item.TryGetProperty("name", out JsonElement name) || name.ValueKind != JsonValueKind.String)
+            if (!item.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
             {
                 continue;
             }
 
-            string raw = name.GetString() ?? string.Empty;
+            var raw = name.GetString() ?? string.Empty;
             if (!MediaMtxPath.IsCanonical(raw))
             {
                 continue;
@@ -240,19 +240,19 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
 
     private static RtspPathHealth ParsePathHealth(JsonElement payload)
     {
-        bool ready = payload.TryGetProperty("ready", out JsonElement readyEl) && readyEl.GetBoolean();
-        DateTimeOffset? readyTime = TryReadIsoTimestamp(payload, "readyTime");
+        var ready = payload.TryGetProperty("ready", out var readyEl) && readyEl.GetBoolean();
+        var readyTime = TryReadIsoTimestamp(payload, "readyTime");
 
-        TranscodeMode mode = ready ? DetectTranscodeMode(payload) : TranscodeMode.Unknown;
+        var mode = ready ? DetectTranscodeMode(payload) : TranscodeMode.Unknown;
 
-        string? error = ready ? null : "not ready";
+        var error = ready ? null : "not ready";
 
         return new RtspPathHealth(ready, error, readyTime, mode);
     }
 
     private static DateTimeOffset? TryReadIsoTimestamp(JsonElement payload, string property)
     {
-        if (!payload.TryGetProperty(property, out JsonElement element))
+        if (!payload.TryGetProperty(property, out var element))
         {
             return null;
         }
@@ -262,14 +262,14 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             return null;
         }
 
-        string raw = element.GetString() ?? string.Empty;
+        var raw = element.GetString() ?? string.Empty;
 
         if (raw.Length == 0)
         {
             return null;
         }
 
-        return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, out DateTimeOffset parsed) ? parsed : null;
+        return DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
     }
 
     private static TranscodeMode DetectTranscodeMode(JsonElement payload)
@@ -278,8 +278,8 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         // we'd see ffmpegPath / source.type == "rpiCamera" etc. For v1 the
         // YAML config doesn't enable runOnDemand transcoding so everything is
         // Passthrough. Surface the assumption explicitly.
-        if (payload.TryGetProperty("source", out JsonElement source) &&
-            source.TryGetProperty("type", out JsonElement type) &&
+        if (payload.TryGetProperty("source", out var source) &&
+            source.TryGetProperty("type", out var type) &&
             string.Equals(type.GetString(), "ffmpeg", StringComparison.OrdinalIgnoreCase))
         {
             return TranscodeMode.Software;

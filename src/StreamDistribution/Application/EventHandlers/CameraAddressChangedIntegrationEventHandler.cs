@@ -30,9 +30,9 @@ public sealed class CameraAddressChangedIntegrationEventHandler(
 
         var (cameraId, _, _, url, _, _, _) = message;
 
-        CameraIdentifier camera = CameraIdentifier.From(cameraId);
+        var camera = CameraIdentifier.From(cameraId);
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await handler.HandleAsync(new RepointStreamCommand(camera, url), cancellationToken);
 
         if (result.IsFailure)

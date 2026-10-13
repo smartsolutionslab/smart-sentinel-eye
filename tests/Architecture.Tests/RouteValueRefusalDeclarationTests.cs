@@ -271,7 +271,7 @@ public class RouteValueRefusalDeclarationTests
     public static TheoryData<string> EndpointFiles()
     {
         TheoryData<string> data = [];
-        foreach (string file in TheSurface.Value.EndpointSources)
+        foreach (var file in TheSurface.Value.EndpointSources)
         {
             data.Add(file);
         }
@@ -292,7 +292,7 @@ public class RouteValueRefusalDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_route_whose_handler_can_answer_400_declares_it_on_its_own_chain(string file)
     {
-        ResolvedMapping[] mappings = TheSurface.Value.Routes
+        var mappings = TheSurface.Value.Routes
             .Where(m => string.Equals(m.Mapping.File, file, StringComparison.Ordinal))
             .ToArray();
 
@@ -303,7 +303,7 @@ public class RouteValueRefusalDeclarationTests
             + "not parse, in which case none of its endpoints are being checked at all and this assertion "
             + "would pass over an empty set.");
 
-        string[] offenders = mappings
+        var offenders = mappings
             .Where(CanRefuse)
             .Where(m => !RefusalDeclaration.IsMatch(m.Mapping.Chain))
             .Select(Describe)
@@ -333,9 +333,9 @@ public class RouteValueRefusalDeclarationTests
     [Fact]
     public void No_route_group_declares_a_400_that_its_endpoints_would_inherit()
     {
-        Surface surface = TheSurface.Value;
+        var surface = TheSurface.Value;
 
-        int sites = surface.Files.Sum(file => GroupCall.Count(surface.Masked[file]));
+        var sites = surface.Files.Sum(file => GroupCall.Count(surface.Masked[file]));
         surface.Groups.Count.ShouldBe(
             sites,
             $"the reader bound {surface.Groups.Count} route groups to a builder variable; a flat sweep of "
@@ -348,7 +348,7 @@ public class RouteValueRefusalDeclarationTests
             "no route group was found under src/*/Api, which cannot be true while every endpoint file "
             + "opens with one. This assertion is passing over an empty set.");
 
-        string[] offenders = surface.Groups
+        var offenders = surface.Groups
             .Where(g => RefusalDeclaration.IsMatch(g.Chain))
             .Select(g => $"{g.File}:{g.Line} MapGroup(\"{g.Prefix}\")")
             .ToArray();
@@ -374,9 +374,9 @@ public class RouteValueRefusalDeclarationTests
     [Fact]
     public void Every_400_declaration_under_the_api_directories_sits_in_a_chain_the_walk_reads()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Files.Sum(file => RefusalDeclaration.Count(surface.Masked[file]));
-        int walked = surface.Routes.Sum(m => RefusalDeclaration.Count(m.Mapping.Chain))
+        var surface = TheSurface.Value;
+        var swept = surface.Files.Sum(file => RefusalDeclaration.Count(surface.Masked[file]));
+        var walked = surface.Routes.Sum(m => RefusalDeclaration.Count(m.Mapping.Chain))
             + surface.Groups.Sum(g => RefusalDeclaration.Count(g.Chain));
 
         swept.ShouldBeGreaterThan(
@@ -413,9 +413,9 @@ public class RouteValueRefusalDeclarationTests
     [Fact]
     public void Every_route_mapping_resolves_to_one_handler_body_the_guard_can_read()
     {
-        IReadOnlyList<ResolvedMapping> mappings = TheSurface.Value.Routes;
+        var mappings = TheSurface.Value.Routes;
 
-        string[] unresolved = mappings
+        var unresolved = mappings
             .Where(m => m.Failure is not null)
             .Select(m => $"{Describe(m)}: {m.Failure}")
             .ToArray();
@@ -444,7 +444,7 @@ public class RouteValueRefusalDeclarationTests
             + string.Join(", ", TheSurface.Value.EndpointSources) + ". The per-file theory above proves "
             + "each file it is given is non-empty and says nothing about a file it is never given.");
 
-        string[] outsideEndpointFiles = mappings
+        var outsideEndpointFiles = mappings
             .Select(m => m.Mapping.File)
             .Distinct(StringComparer.Ordinal)
             .Where(file => !TheSurface.Value.EndpointSources.Contains(file, StringComparer.Ordinal))
@@ -488,7 +488,7 @@ public class RouteValueRefusalDeclarationTests
             (cleanFile, cleanText),
         ];
 
-        string[] offenders = FormsThisReaderCannotMask(sources);
+        var offenders = FormsThisReaderCannotMask(sources);
 
         offenders.Length.ShouldBe(
             1,
@@ -519,8 +519,8 @@ public class RouteValueRefusalDeclarationTests
     [Fact]
     public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
         files.ShouldNotBeEmpty(
             "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
 
@@ -528,7 +528,7 @@ public class RouteValueRefusalDeclarationTests
             "the list of forms this reader's masker cannot handle is empty, so this guard would pass "
             + "against nothing to look for.");
 
-        string[] offenders = FormsThisReaderCannotMask(files.Select(file => (
+        var offenders = FormsThisReaderCannotMask(files.Select(file => (
             file,
             File.ReadAllText(Path.Combine(root.FullName, file)).Replace("\r", string.Empty, StringComparison.Ordinal))));
 
@@ -562,14 +562,14 @@ public class RouteValueRefusalDeclarationTests
     /// </summary>
     private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
     {
-        (string Form, string Why)[] bannedForms = BannedForms();
+        var bannedForms = BannedForms();
 
         List<string> offenders = [];
-        foreach ((string file, string text) in sources)
+        foreach ((var file, var text) in sources)
         {
-            foreach ((string form, string why) in bannedForms)
+            foreach ((var form, var why) in bannedForms)
             {
-                int at = text.IndexOf(form, StringComparison.Ordinal);
+                var at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
                 {
                     offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
@@ -587,14 +587,14 @@ public class RouteValueRefusalDeclarationTests
 
     private static string Describe(ResolvedMapping mapping)
     {
-        RouteMapping route = mapping.Mapping;
-        string[] declared = DeclaredStatus.Matches(route.Chain)
+        var route = mapping.Mapping;
+        var declared = DeclaredStatus.Matches(route.Chain)
             .Select(match => match.Groups["code"].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        string states = declared.Length == 0 ? "no status at all" : string.Join(", ", declared);
+        var states = declared.Length == 0 ? "no status at all" : string.Join(", ", declared);
 
         return $"{route.File}:{route.Line} {route.Verb} {route.FullRoute} -> "
             + $"{route.ContainingClass}.{route.HandlerArgument} declares {states}";
@@ -602,22 +602,22 @@ public class RouteValueRefusalDeclarationTests
 
     private static Surface Read()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
 
         Dictionary<string, string> masked = new(StringComparer.Ordinal);
         Dictionary<string, string> text = new(StringComparer.Ordinal);
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string body = File.ReadAllText(Path.Combine(root.FullName, file))
+            var body = File.ReadAllText(Path.Combine(root.FullName, file))
                 .Replace("\r", string.Empty, StringComparison.Ordinal);
             text[file] = body;
             masked[file] = SourceMask.Apply(body, MaskStrictness.CommentsAndLiteralInteriors);
         }
 
-        List<RouteChainReader.ClassSpan> classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
-        List<RouteGroup> groups = files.SelectMany(file => RouteGroups(file, text[file], masked[file])).ToList();
-        List<ResolvedMapping> mappings = files
+        var classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
+        var groups = files.SelectMany(file => RouteGroups(file, text[file], masked[file])).ToList();
+        var mappings = files
             .SelectMany(file => Mappings(file, text[file], masked[file], classes, groups))
             .Select(mapping => Resolve(mapping, classes, masked))
             .ToList();
@@ -632,7 +632,7 @@ public class RouteValueRefusalDeclarationTests
 
     private static List<string> ApiSourceFiles(DirectoryInfo root)
     {
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateDirectories(src)
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
@@ -652,13 +652,13 @@ public class RouteValueRefusalDeclarationTests
     {
         foreach (Match declaration in ClassDeclaration.Matches(masked))
         {
-            int open = masked.IndexOf('{', declaration.Index + declaration.Length);
+            var open = masked.IndexOf('{', declaration.Index + declaration.Length);
             if (open < 0)
             {
                 continue;
             }
 
-            int close = RouteChainReader.Balanced(masked, open, '{', '}');
+            var close = RouteChainReader.Balanced(masked, open, '{', '}');
             if (close > 0)
             {
                 yield return new RouteChainReader.ClassSpan(file, declaration.Groups["name"].Value, open, close);
@@ -675,16 +675,16 @@ public class RouteValueRefusalDeclarationTests
     {
         foreach (Match declaration in GroupDeclaration.Matches(masked))
         {
-            int open = declaration.Index + declaration.Length - 1;
-            int close = RouteChainReader.Balanced(masked, open, '(', ')');
+            var open = declaration.Index + declaration.Length - 1;
+            var close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
-            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            string prefix = arguments.Count > 0 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
+            var end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            var prefix = arguments.Count > 0 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
 
             yield return new RouteGroup(
                 file,
@@ -710,19 +710,19 @@ public class RouteValueRefusalDeclarationTests
     {
         foreach (Match call in MappingCall.Matches(masked))
         {
-            int open = call.Index + call.Length - 1;
-            int close = RouteChainReader.Balanced(masked, open, '(', ')');
+            var open = call.Index + call.Length - 1;
+            var close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
-            string chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
+            var end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            var chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
 
-            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            string route = arguments.Count > 0 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
-            string handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
+            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            var route = arguments.Count > 0 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim()) : string.Empty;
+            var handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
 
             yield return new RouteMapping(
                 file,
@@ -771,7 +771,7 @@ public class RouteValueRefusalDeclarationTests
             return Unreadable(mapping, "the mapping is not inside a class declaration this reader can find");
         }
 
-        RouteChainReader.HandlerResolution resolution = RouteChainReader.HandlerBodyFor(
+        var resolution = RouteChainReader.HandlerBodyFor(
             mapping.ContainingClass, mapping.HandlerArgument, mapping.File, classes, masked);
 
         if (!resolution.IsBareMethodGroupName)
@@ -783,7 +783,7 @@ public class RouteValueRefusalDeclarationTests
 
         if (resolution.Body is null)
         {
-            string project = ProjectOf(mapping.File);
+            var project = ProjectOf(mapping.File);
             if (resolution.Candidates.Count == 0)
             {
                 return Unreadable(
@@ -815,7 +815,7 @@ public class RouteValueRefusalDeclarationTests
     /// </summary>
     private static string ProjectOf(string file)
     {
-        int marker = file.IndexOf("/Api/", StringComparison.Ordinal);
+        var marker = file.IndexOf("/Api/", StringComparison.Ordinal);
         return marker < 0 ? file : file[..(marker + 4)];
     }
 

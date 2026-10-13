@@ -44,10 +44,10 @@ public sealed class CameraCatalogFabLookup(
 {
     public async Task<IReadOnlyDictionary<Guid, string>> FabsByCameraAsync(CancellationToken cancellationToken)
     {
-        int pageSize = options.Value.PageSize;
+        var pageSize = options.Value.PageSize;
         Dictionary<Guid, string> fabs = [];
 
-        int offset = 0;
+        var offset = 0;
         int fetched;
         do
         {
@@ -63,16 +63,16 @@ public sealed class CameraCatalogFabLookup(
     private async Task<int> ReadPageAsync(
         Dictionary<Guid, string> fabs, int offset, int pageSize, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await httpClient.GetAsync(
+        using var response = await httpClient.GetAsync(
             $"/cameras?offset={offset}&limit={pageSize}&includeRetired=true", cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-        JsonElement items = page.GetProperty("items");
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var items = page.GetProperty("items");
 
-        foreach (JsonElement row in items.EnumerateArray())
+        foreach (var row in items.EnumerateArray())
         {
-            string? fab = row.GetProperty("fab").GetString();
+            var fab = row.GetProperty("fab").GetString();
             if (!string.IsNullOrWhiteSpace(fab))
             {
                 fabs[row.GetProperty("cameraIdentifier").GetGuid()] = fab;

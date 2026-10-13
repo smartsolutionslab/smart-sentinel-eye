@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
@@ -15,7 +14,7 @@ public sealed class EventRepository(
     public async Task<Option<EventAggregate>> GetByIdentifierAsync(
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken)
     {
-        EventAggregate? found = await dbContext.Events
+        var found = await dbContext.Events
             .Where(eventEntity => eventEntity.Fab == fab && eventEntity.Id == identifier)
             .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<EventAggregate>.None : Option<EventAggregate>.Some(found);
@@ -44,7 +43,7 @@ public sealed class EventRepository(
         FabIdentifier[] fabs = [.. candidates.Select(candidate => candidate.Fab).Distinct()];
         EventIdentifier[] identifiers = [.. candidates.Select(candidate => candidate.Identifier)];
 
-        EventIdentifier[] found = await dbContext.Events
+        var found = await dbContext.Events
             .Where(eventEntity =>
                 fabs.Contains(eventEntity.Fab) && identifiers.Contains(eventEntity.Id))
             .Select(eventEntity => eventEntity.Id)
@@ -84,7 +83,7 @@ public sealed class EventRepository(
     /// </summary>
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        EventAggregate[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<EventAggregate>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -94,7 +93,7 @@ public sealed class EventRepository(
         // invisible while the caller saved one event at a time and becomes a
         // round trip per event the moment a batch is saved (spec 020 FR-010).
         List<IDomainEvent> pending = [];
-        foreach (EventAggregate @event in tracked)
+        foreach (var @event in tracked)
         {
             pending.AddRange(@event.PendingEvents);
             @event.ClearPendingEvents();
@@ -106,7 +105,7 @@ public sealed class EventRepository(
         // batch; it still holds, and it now aborts the write with them rather
         // than leaving 200 rows announced to nobody.
         List<Exception> failures = [];
-        foreach (IDomainEvent domainEvent in pending)
+        foreach (var domainEvent in pending)
         {
             try
             {

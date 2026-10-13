@@ -21,7 +21,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(
             repo, new FakeClock(FixedMoment), NullLogger<DefineVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
@@ -40,12 +40,12 @@ public class DefineVariableCommandHandlerTests
     public async Task Name_collision_with_a_non_archived_variable_returns_VariableNameTaken()
     {
         InMemoryVariableRepository repo = new();
-        VariableBuilder builder = new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number);
-        Variable existing = builder.Build();
+        var builder = new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number);
+        var existing = builder.Build();
         repo.Add(existing);
 
         DefineVariableCommandHandler handler = new(repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
@@ -63,7 +63,7 @@ public class DefineVariableCommandHandlerTests
     public async Task The_same_name_is_accepted_in_a_second_fab()
     {
         InMemoryVariableRepository repo = new();
-        VariableBuilder builder = new VariableBuilder()
+        var builder = new VariableBuilder()
             .WithFab("munich")
             .Named("oeeLine1")
             .OfType(VariableType.Number);
@@ -72,7 +72,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(
             repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("dresden"),
                 VariableName.From("oeeLine1"),
@@ -91,7 +91,7 @@ public class DefineVariableCommandHandlerTests
     public async Task The_same_name_is_refused_in_the_same_fab()
     {
         InMemoryVariableRepository repo = new();
-        VariableBuilder builder = new VariableBuilder()
+        var builder = new VariableBuilder()
             .WithFab("dresden")
             .Named("oeeLine1")
             .OfType(VariableType.Number);
@@ -100,7 +100,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(
             repo, builder.Clock, NullLogger<DefineVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("dresden"),
                 VariableName.From("oeeLine1"),
@@ -124,7 +124,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(
             repo, new FakeClock(FixedMoment), NullLogger<DefineVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("lineState"),
@@ -145,7 +145,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(
             repo, new FakeClock(FixedMoment), NullLogger<DefineVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),
@@ -166,7 +166,7 @@ public class DefineVariableCommandHandlerTests
         DefineVariableCommandHandler handler = new(
             repo, new FakeClock(FixedMoment), NullLogger<DefineVariableCommandHandler>.Instance);
 
-        Result<VariableIdentifier, DefineVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DefineVariableCommand(
                 FabIdentifier.From("munich"),
                 VariableName.From("oeeLine1"),

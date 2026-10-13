@@ -60,7 +60,7 @@ public sealed class IntegrationEventAuditHandler(AuditingMessageHandler auditing
 
     private Task AuditAsync(IIntegrationEvent message, CancellationToken cancellationToken)
     {
-        EventMetadata meta = message.Metadata;
+        var meta = message.Metadata;
         V1Envelope envelope = new(
             EventTypeName: message.GetType().Name,
             OccurredAt: meta.OccurredAt,

@@ -7,14 +7,14 @@ public class LayoutNameTests
     [Fact]
     public void From_accepts_a_normal_name()
     {
-        LayoutName name = LayoutName.From("Line-1 Entrance");
+        var name = LayoutName.From("Line-1 Entrance");
         name.Value.ShouldBe("Line-1 Entrance");
     }
 
     [Fact]
     public void From_trims_leading_and_trailing_whitespace()
     {
-        LayoutName name = LayoutName.From("  Line-1  ");
+        var name = LayoutName.From("  Line-1  ");
         name.Value.ShouldBe("Line-1");
     }
 
@@ -55,8 +55,8 @@ public class LayoutNameTests
     [Fact]
     public void Names_differing_only_in_case_are_not_equal()
     {
-        LayoutName upper = LayoutName.From("Wall A");
-        LayoutName lower = LayoutName.From("wall a");
+        var upper = LayoutName.From("Wall A");
+        var lower = LayoutName.From("wall a");
 
         upper.ShouldNotBe(lower);
         upper.Value.ShouldBe("Wall A");

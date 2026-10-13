@@ -7,7 +7,7 @@ public class AelLexerTests
     [Fact]
     public void Recognises_int_decimal_string_bool_literals()
     {
-        IReadOnlyList<AelToken> tokens =
+        var tokens =
             AelLexer.Tokenize("42 3.14 \"hello\" 'world' true false");
 
         tokens.Select(t => t.Kind).ShouldBe(
@@ -27,7 +27,7 @@ public class AelLexerTests
     [Fact]
     public void Recognises_arithmetic_comparison_logical_and_structural_operators()
     {
-        IReadOnlyList<AelToken> tokens = AelLexer.Tokenize(
+        var tokens = AelLexer.Tokenize(
             "+ - * / % == != < <= > >= && || ! ( ) $ . contains");
 
         tokens.Select(t => t.Kind).ShouldBe(
@@ -48,7 +48,7 @@ public class AelLexerTests
     [Fact]
     public void Tokenizes_a_field_access_path()
     {
-        IReadOnlyList<AelToken> tokens = AelLexer.Tokenize("$.payload.cycleTime");
+        var tokens = AelLexer.Tokenize("$.payload.cycleTime");
         tokens.Select(t => t.Kind).ShouldBe(
         [
             AelTokenKind.Dollar, AelTokenKind.Dot, AelTokenKind.Identifier,
@@ -62,14 +62,14 @@ public class AelLexerTests
     [InlineData("|", "expected '||'")]
     public void Rejects_single_char_operators_that_must_be_doubled(string input, string fragment)
     {
-        AelParseException ex = Should.Throw<AelParseException>(() => AelLexer.Tokenize(input));
+        var ex = Should.Throw<AelParseException>(() => AelLexer.Tokenize(input));
         ex.Message.ShouldContain(fragment);
     }
 
     [Fact]
     public void Rejects_unterminated_string_literal()
     {
-        AelParseException ex = Should.Throw<AelParseException>(
+        var ex = Should.Throw<AelParseException>(
             () => AelLexer.Tokenize("\"unterminated"));
         ex.Message.ShouldContain("unterminated string literal");
     }
@@ -77,7 +77,7 @@ public class AelLexerTests
     [Fact]
     public void Rejects_unexpected_character()
     {
-        AelParseException ex = Should.Throw<AelParseException>(
+        var ex = Should.Throw<AelParseException>(
             () => AelLexer.Tokenize("@"));
         ex.Position.ShouldBe(0);
     }
@@ -85,7 +85,7 @@ public class AelLexerTests
     [Fact]
     public void Skips_whitespace_between_tokens()
     {
-        IReadOnlyList<AelToken> tokens = AelLexer.Tokenize("  1\t+\n2  ");
+        var tokens = AelLexer.Tokenize("  1\t+\n2  ");
         tokens.Select(t => t.Kind).ShouldBe(
         [
             AelTokenKind.IntLiteral, AelTokenKind.Plus,
@@ -96,7 +96,7 @@ public class AelLexerTests
     [Fact]
     public void Tokenizes_the_PLC_predicate_fixture_end_to_end()
     {
-        IReadOnlyList<AelToken> tokens = AelLexer.Tokenize(AelFixtures.SimplePlcPredicate);
+        var tokens = AelLexer.Tokenize(AelFixtures.SimplePlcPredicate);
         tokens[^1].Kind.ShouldBe(AelTokenKind.EndOfFile);
         // 13 meaningful tokens + EOF.
         tokens.Count.ShouldBe(14);
@@ -113,7 +113,7 @@ public class AelLexerTests
     [InlineData("1e", 1)]
     public void Exponent_notation_is_refused_at_the_exponent_marker(string source, int position)
     {
-        AelParseException ex = Should.Throw<AelParseException>(() => AelLexer.Tokenize(source));
+        var ex = Should.Throw<AelParseException>(() => AelLexer.Tokenize(source));
         ex.Position.ShouldBe(position);
         ex.Message.ShouldContain("exponent");
     }

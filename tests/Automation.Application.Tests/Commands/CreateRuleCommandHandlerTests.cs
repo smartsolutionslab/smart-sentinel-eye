@@ -36,7 +36,7 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -51,11 +51,11 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> first =
+        var first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
         first.IsSuccess.ShouldBeTrue();
 
-        Result<RuleIdentifier, CreateRuleError> second =
+        var second =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         second.IsSuccess.ShouldBeFalse();
@@ -70,7 +70,7 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             HappyCommand(predicate: "$.payload.cycleTime <="),
             CancellationToken.None);
 
@@ -87,7 +87,7 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             HappyCommand(action: RuleAction.SetVariableValue.From("oeeLine1", "1 +")),
             CancellationToken.None);
 
@@ -103,7 +103,7 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             HappyCommand(action: RuleAction.HighlightOverlay.From(Guid.CreateVersion7(), 5_000)),
             CancellationToken.None);
 
@@ -119,9 +119,9 @@ public class CreateRuleCommandHandlerTests
         CreateRuleCommandHandler handler = new(
             repo, new FakeClock(Now), NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> first =
+        var first =
             await handler.HandleAsync(HappyCommand(fab: "munich"), CancellationToken.None);
-        Result<RuleIdentifier, CreateRuleError> second =
+        var second =
             await handler.HandleAsync(HappyCommand(fab: "dresden"), CancellationToken.None);
 
         first.IsSuccess.ShouldBeTrue();
@@ -138,7 +138,7 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now), NullLogger<CreateRuleCommandHandler>.Instance);
 
         await handler.HandleAsync(HappyCommand(fab: "munich"), CancellationToken.None);
-        Result<RuleIdentifier, CreateRuleError> duplicate =
+        var duplicate =
             await handler.HandleAsync(HappyCommand(fab: "munich"), CancellationToken.None);
 
         duplicate.IsFailure.ShouldBeTrue();
@@ -156,7 +156,7 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now), NullLogger<CreateRuleCommandHandler>.Instance);
 
         await handler.HandleAsync(HappyCommand(fab: "dresden"), CancellationToken.None);
-        Result<RuleIdentifier, CreateRuleError> duplicate =
+        var duplicate =
             await handler.HandleAsync(HappyCommand(fab: "dresden"), CancellationToken.None);
 
         duplicate.Error.Message.ShouldContain("dresden");
@@ -172,12 +172,12 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             HappyCommand(predicate: "$.payload.v > 999999999999999999999999999999999999"),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
-        CreateRuleError.PredicateParseFailed failure =
+        var failure =
             result.Error.ShouldBeOfType<CreateRuleError.PredicateParseFailed>();
         failure.Position.ShouldBe(14);
         repo.Rules.ShouldBeEmpty();
@@ -191,13 +191,13 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             HappyCommand(action: RuleAction.SetVariableValue.From(
                 "oeeLine1", "99999999999999999999")),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
-        CreateRuleError.ActionExpressionParseFailed failure =
+        var failure =
             result.Error.ShouldBeOfType<CreateRuleError.ActionExpressionParseFailed>();
         failure.Position.ShouldBe(0);
         repo.Rules.ShouldBeEmpty();
@@ -211,12 +211,12 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             HappyCommand(predicate: "$.payload.v > 1e30"),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
-        CreateRuleError.PredicateParseFailed failure =
+        var failure =
             result.Error.ShouldBeOfType<CreateRuleError.PredicateParseFailed>();
         failure.Position.ShouldBe(15);
         failure.Reason.ShouldContain("exponent");
@@ -230,11 +230,11 @@ public class CreateRuleCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<CreateRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, CreateRuleError> first =
+        var first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
         first.IsSuccess.ShouldBeTrue();
 
-        Result<RuleIdentifier, CreateRuleError> second = await handler.HandleAsync(
+        var second = await handler.HandleAsync(
             HappyCommand(predicate: "$.payload.v > 99999999999999999999"),
             CancellationToken.None);
 

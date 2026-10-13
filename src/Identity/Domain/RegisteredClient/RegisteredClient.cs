@@ -48,7 +48,7 @@ public sealed class RegisteredClient : AggregateRoot<RegisteredClientIdentifier>
         Ensure.That(fab).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         RegisteredClient registered = new()
         {
             Id = RegisteredClientIdentifier.New(),

@@ -1,4 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Domain.Tests.Stream;
@@ -12,7 +11,7 @@ public class MediaMtxActionTests
     [InlineData("api")]
     public void From_returns_the_matching_instance_for_a_modelled_action(string wire)
     {
-        MediaMtxAction action = MediaMtxAction.From(wire);
+        var action = MediaMtxAction.From(wire);
 
         action.Value.ShouldBe(wire);
     }
@@ -32,7 +31,7 @@ public class MediaMtxActionTests
     [InlineData("api")]
     public void TryFrom_returns_Some_for_a_modelled_action(string wire)
     {
-        Option<MediaMtxAction> parsed = MediaMtxAction.TryFrom(wire);
+        var parsed = MediaMtxAction.TryFrom(wire);
 
         parsed.HasValue.ShouldBeTrue();
         parsed.Value.Value.ShouldBe(wire);
@@ -55,7 +54,7 @@ public class MediaMtxActionTests
     [InlineData("sideload")]
     public void TryFrom_returns_None_for_anything_not_modelled(string? wire)
     {
-        Option<MediaMtxAction> parsed = MediaMtxAction.TryFrom(wire);
+        var parsed = MediaMtxAction.TryFrom(wire);
 
         parsed.HasValue.ShouldBeFalse();
     }
@@ -70,7 +69,7 @@ public class MediaMtxActionTests
     [InlineData("PUBLISH")]
     public void TryFrom_returns_None_for_a_differently_cased_action(string wire)
     {
-        Option<MediaMtxAction> parsed = MediaMtxAction.TryFrom(wire);
+        var parsed = MediaMtxAction.TryFrom(wire);
 
         parsed.HasValue.ShouldBeFalse();
     }

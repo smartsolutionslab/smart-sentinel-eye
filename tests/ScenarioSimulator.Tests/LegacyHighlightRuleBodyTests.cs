@@ -1,11 +1,9 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Shouldly;
 using SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
@@ -44,7 +42,7 @@ public sealed class LegacyHighlightRuleBodyTests
     public async Task Every_asset_in_the_three_shipped_scenarios_seeds_its_legacy_highlight_rule_with_the_exact_wire_body()
     {
         RecordingAutomationHandler automation = new();
-        Guid overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+        var overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
 
         await SeedAsync(automation, overlay);
 
@@ -101,7 +99,7 @@ public sealed class LegacyHighlightRuleBodyTests
     {
         RecordingAutomationHandler automation = new();
         CapturingLogger<ScenarioSeeder> log = new();
-        Guid overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+        var overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
 
         ScenarioOptions options = new()
         {
@@ -161,7 +159,7 @@ public sealed class LegacyHighlightRuleBodyTests
     public async Task A_sensor_source_matching_the_trigger_kind_is_used_and_an_unmatched_trigger_kind_falls_back_to_plc()
     {
         RecordingAutomationHandler automation = new();
-        Guid overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
+        var overlay = Guid.Parse("00000000-0000-0000-0000-0000000000aa");
 
         ScenarioOptions options = new()
         {
@@ -240,13 +238,13 @@ public sealed class LegacyHighlightRuleBodyTests
         Guid overlay,
         int durationMs)
     {
-        CreateCall create = automation.Creates.Where(call => call.Body.Name == name).ShouldHaveSingleItem();
+        var create = automation.Creates.Where(call => call.Body.Name == name).ShouldHaveSingleItem();
 
         create.PathAndQuery.ShouldBe("/rules?fabId=munich");
         create.Body.ShouldBe(new RuleBody(
             name, triggerSource, triggerKind, predicate, "HighlightOverlay", null, null, overlay, durationMs));
 
-        PublishCall publish = automation.Publishes
+        var publish = automation.Publishes
             .Where(call => call.PathAndQuery == $"/rules/{name}/publish?fabId=munich")
             .ShouldHaveSingleItem();
         publish.IfMatch.ShouldBe("\"0\"");
@@ -266,13 +264,13 @@ public sealed class LegacyHighlightRuleBodyTests
         string variableName,
         string valueExpression)
     {
-        CreateCall create = automation.Creates.Where(call => call.Body.Name == name).ShouldHaveSingleItem();
+        var create = automation.Creates.Where(call => call.Body.Name == name).ShouldHaveSingleItem();
 
         create.PathAndQuery.ShouldBe("/rules?fabId=munich");
         create.Body.ShouldBe(new RuleBody(
             name, triggerSource, triggerKind, predicate, "SetVariableValue", variableName, valueExpression, null, null));
 
-        PublishCall publish = automation.Publishes
+        var publish = automation.Publishes
             .Where(call => call.PathAndQuery == $"/rules/{name}/publish?fabId=munich")
             .ShouldHaveSingleItem();
         publish.IfMatch.ShouldBe("\"0\"");
@@ -296,7 +294,7 @@ public sealed class LegacyHighlightRuleBodyTests
 
     private static async Task RunSeederAsync(ScenarioOptions options, RecordingAutomationHandler automation, Guid overlay)
     {
-        ScenarioSeeder seeder = CreateSeeder(options, automation, overlay, NullLogger<ScenarioSeeder>.Instance);
+        var seeder = CreateSeeder(options, automation, overlay, NullLogger<ScenarioSeeder>.Instance);
 
         // StartAsync returns at the first await inside ExecuteAsync and the run
         // continues on a background task (the same pattern
@@ -322,7 +320,7 @@ public sealed class LegacyHighlightRuleBodyTests
     private static async Task RunSeederExpectingRefusalAsync(
         ScenarioOptions options, RecordingAutomationHandler automation, Guid overlay, CapturingLogger<ScenarioSeeder> log)
     {
-        ScenarioSeeder seeder = CreateSeeder(options, automation, overlay, log);
+        var seeder = CreateSeeder(options, automation, overlay, log);
 
         await seeder.StartAsync(CancellationToken.None);
         await WaitForWarningAsync(log, entry => entry.Contains("was not seeded", StringComparison.Ordinal));
@@ -332,8 +330,8 @@ public sealed class LegacyHighlightRuleBodyTests
     private static ScenarioSeeder CreateSeeder(
         ScenarioOptions options, RecordingAutomationHandler automation, Guid overlay, ILogger<ScenarioSeeder> logger)
     {
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
-        IOptions<SimulatorOptions> simulator = Simulator();
+        var wrapped = Options.Create(options);
+        var simulator = Simulator();
         AssetCorrelationTable correlation = new();
 
         return new ScenarioSeeder(
@@ -354,7 +352,7 @@ public sealed class LegacyHighlightRuleBodyTests
 
     private static async Task WaitForCreatesAsync(RecordingAutomationHandler automation, int expected)
     {
-        for (int attempt = 0; attempt < 100; attempt++)
+        for (var attempt = 0; attempt < 100; attempt++)
         {
             if (automation.Publishes.Count >= expected)
             {
@@ -367,7 +365,7 @@ public sealed class LegacyHighlightRuleBodyTests
 
     private static async Task WaitForWarningAsync(CapturingLogger<ScenarioSeeder> log, Func<string, bool> predicate)
     {
-        for (int attempt = 0; attempt < 100; attempt++)
+        for (var attempt = 0; attempt < 100; attempt++)
         {
             if (log.Warnings.Any(predicate))
             {
@@ -385,12 +383,12 @@ public sealed class LegacyHighlightRuleBodyTests
     /// </summary>
     private static ScenarioOptions LoadShippedScenarios()
     {
-        string scenarios = Path.Combine(AppContext.BaseDirectory, "Scenarios");
+        var scenarios = Path.Combine(AppContext.BaseDirectory, "Scenarios");
 
-        IConfigurationBuilder builder = new ConfigurationBuilder()
+        var builder = new ConfigurationBuilder()
             .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: true);
 
-        foreach (string file in Directory.EnumerateFiles(scenarios, "*.json"))
+        foreach (var file in Directory.EnumerateFiles(scenarios, "*.json"))
         {
             builder.AddJsonFile(file, optional: false);
         }
@@ -458,12 +456,12 @@ public sealed class LegacyHighlightRuleBodyTests
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string pathAndQuery = request.RequestUri!.PathAndQuery;
+            var pathAndQuery = request.RequestUri!.PathAndQuery;
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath == "/rules")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                RuleBody body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Rule create body did not deserialize.");
                 lock (Creates)
                 {
@@ -475,7 +473,7 @@ public sealed class LegacyHighlightRuleBodyTests
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath.EndsWith("/publish", StringComparison.Ordinal))
             {
-                string ifMatch = request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                var ifMatch = request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values)
                     : string.Empty;
 

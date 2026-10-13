@@ -42,10 +42,10 @@ public class WallTests
     [Fact]
     public void Create_shows_the_first_scene_at_SceneVersion_Initial()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
+        var a = NewScene();
+        var b = NewScene();
 
-        Domain.Wall.Wall wall = Domain.Wall.Wall.Create(
+        var wall = Domain.Wall.Wall.Create(
             Munich, WallName.From("Line 3 rotation"), [a, b], NewOperator(), new LayoutBuilder.TestClock(FixedMoment));
 
         wall.Showing.ShouldBe(a);
@@ -56,14 +56,14 @@ public class WallTests
     [Fact]
     public void Create_raises_WallConfiguredDomainEvent_naming_the_first_scene_as_Showing()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        OperatorIdentifier by = NewOperator();
+        var a = NewScene();
+        var b = NewScene();
+        var by = NewOperator();
 
-        Domain.Wall.Wall wall = Domain.Wall.Wall.Create(
+        var wall = Domain.Wall.Wall.Create(
             Munich, WallName.From("Line 3 rotation"), [a, b], by, new LayoutBuilder.TestClock(FixedMoment));
 
-        WallConfiguredDomainEvent raised = wall.PendingEvents.OfType<WallConfiguredDomainEvent>().Single();
+        var raised = wall.PendingEvents.OfType<WallConfiguredDomainEvent>().Single();
         raised.Wall.ShouldBe(wall.Id);
         raised.Fab.ShouldBe(Munich);
         raised.Scenes.ShouldBe([a, b]);
@@ -74,7 +74,7 @@ public class WallTests
     [Fact]
     public void ValidateScenes_flags_a_single_scene_as_TooFew()
     {
-        Option<SceneSetViolation> violation = Domain.Wall.Wall.ValidateScenes([NewScene()]);
+        var violation = Domain.Wall.Wall.ValidateScenes([NewScene()]);
 
         violation.HasValue.ShouldBeTrue();
         violation.Value.ShouldBe(SceneSetViolation.TooFew);
@@ -85,7 +85,7 @@ public class WallTests
     {
         IReadOnlyList<LayoutIdentifier> nine = [.. Enumerable.Range(0, 9).Select(_ => NewScene())];
 
-        Option<SceneSetViolation> violation = Domain.Wall.Wall.ValidateScenes(nine);
+        var violation = Domain.Wall.Wall.ValidateScenes(nine);
 
         violation.HasValue.ShouldBeTrue();
         violation.Value.ShouldBe(SceneSetViolation.TooMany);
@@ -94,9 +94,9 @@ public class WallTests
     [Fact]
     public void ValidateScenes_flags_a_duplicate_scene()
     {
-        LayoutIdentifier a = NewScene();
+        var a = NewScene();
 
-        Option<SceneSetViolation> violation = Domain.Wall.Wall.ValidateScenes([a, a]);
+        var violation = Domain.Wall.Wall.ValidateScenes([a, a]);
 
         violation.HasValue.ShouldBeTrue();
         violation.Value.ShouldBe(SceneSetViolation.Duplicate);
@@ -114,15 +114,15 @@ public class WallTests
     [Fact]
     public void SwitchTo_Next_wraps_from_the_last_scene_back_to_the_first()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier c = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b, c]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var c = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b, c]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
         wall.SwitchTo(new SceneTarget.Layout(c), AllPublishable([a, b, c]), OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
         wall.ClearPendingEvents();
 
-        Option<WallSceneSwitchedDomainEvent> result = wall.SwitchTo(
+        var result = wall.SwitchTo(
             new SceneTarget.Next(), AllPublishable([a, b, c]), OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
 
         result.HasValue.ShouldBeTrue();
@@ -132,15 +132,15 @@ public class WallTests
     [Fact]
     public void SwitchTo_Next_skips_a_scene_that_is_not_publishable()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier c = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b, c]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var c = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b, c]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
 
         // b has since lost its Published revision (PD-6): Next must skip it and land on c.
         IReadOnlySet<LayoutIdentifier> publishable = new HashSet<LayoutIdentifier> { a, c };
-        Option<WallSceneSwitchedDomainEvent> result = wall.SwitchTo(
+        var result = wall.SwitchTo(
             new SceneTarget.Next(), publishable, OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
 
         result.HasValue.ShouldBeTrue();
@@ -150,13 +150,13 @@ public class WallTests
     [Fact]
     public void SwitchTo_Next_is_a_no_op_when_nothing_else_is_publishable()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
 
         IReadOnlySet<LayoutIdentifier> publishable = new HashSet<LayoutIdentifier> { a };
-        Option<WallSceneSwitchedDomainEvent> result = wall.SwitchTo(
+        var result = wall.SwitchTo(
             new SceneTarget.Next(), publishable, OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
 
         result.HasValue.ShouldBeFalse();
@@ -168,12 +168,12 @@ public class WallTests
     [Fact]
     public void SwitchTo_Layout_already_Showing_is_a_no_op()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
 
-        Option<WallSceneSwitchedDomainEvent> result = wall.SwitchTo(
+        var result = wall.SwitchTo(
             new SceneTarget.Layout(a), AllPublishable([a, b]), OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
 
         result.HasValue.ShouldBeFalse();
@@ -185,10 +185,10 @@ public class WallTests
     [Fact]
     public void SwitchTo_Layout_not_in_the_scene_set_throws()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier outside = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var outside = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
 
         Action act = () => wall.SwitchTo(
             new SceneTarget.Layout(outside), AllPublishable([a, b]), OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
@@ -199,9 +199,9 @@ public class WallTests
     [Fact]
     public void SwitchTo_Layout_in_the_set_but_not_publishable_throws()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
 
         IReadOnlySet<LayoutIdentifier> publishable = new HashSet<LayoutIdentifier> { a };
         Action act = () => wall.SwitchTo(
@@ -213,9 +213,9 @@ public class WallTests
     [Fact]
     public void SceneVersion_advances_by_exactly_one_on_a_real_switch_and_never_on_a_no_op()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
 
         wall.SwitchTo(new SceneTarget.Layout(a), AllPublishable([a, b]), OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
@@ -228,17 +228,17 @@ public class WallTests
     [Fact]
     public void SwitchTo_a_real_change_raises_and_returns_WallSceneSwitchedDomainEvent()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
-        SceneSwitchCause.Operator cause = OperatorCause();
+        var cause = OperatorCause();
 
-        Option<WallSceneSwitchedDomainEvent> result = wall.SwitchTo(
+        var result = wall.SwitchTo(
             new SceneTarget.Layout(b), AllPublishable([a, b]), cause, new LayoutBuilder.TestClock(FixedMoment));
 
         result.HasValue.ShouldBeTrue();
-        WallSceneSwitchedDomainEvent raised = wall.PendingEvents.OfType<WallSceneSwitchedDomainEvent>().Single();
+        var raised = wall.PendingEvents.OfType<WallSceneSwitchedDomainEvent>().Single();
         raised.ShouldBe(result.Value);
         raised.Wall.ShouldBe(wall.Id);
         raised.Previous.ShouldBe(a);
@@ -250,22 +250,22 @@ public class WallTests
     [Fact]
     public void EditScenes_that_drops_the_Showing_scene_moves_the_pointer_to_the_new_first_scene_and_raises_Reconfigured()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier c = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b, c]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var c = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b, c]).At(FixedMoment).Build();
         // Move Showing to b so the edit below genuinely drops the current pointer.
         wall.SwitchTo(new SceneTarget.Layout(b), AllPublishable([a, b, c]), OperatorCause(), new LayoutBuilder.TestClock(FixedMoment));
         wall.ClearPendingEvents();
-        OperatorIdentifier editor = NewOperator();
+        var editor = NewOperator();
 
         wall.EditScenes([a, c], editor, new LayoutBuilder.TestClock(FixedMoment));
 
         wall.Showing.ShouldBe(a);
-        WallSceneSwitchedDomainEvent switched = wall.PendingEvents.OfType<WallSceneSwitchedDomainEvent>().Single();
+        var switched = wall.PendingEvents.OfType<WallSceneSwitchedDomainEvent>().Single();
         switched.Previous.ShouldBe(b);
         switched.Current.ShouldBe(a);
-        SceneSwitchCause.Reconfigured cause = switched.Cause.ShouldBeOfType<SceneSwitchCause.Reconfigured>();
+        var cause = switched.Cause.ShouldBeOfType<SceneSwitchCause.Reconfigured>();
         cause.By.ShouldBe(editor);
         wall.PendingEvents.OfType<WallConfiguredDomainEvent>().ShouldHaveSingleItem();
     }
@@ -273,10 +273,10 @@ public class WallTests
     [Fact]
     public void EditScenes_that_keeps_Showing_in_the_new_set_raises_no_Reconfigured_switch()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier c = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var c = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
 
         wall.EditScenes([a, c], NewOperator(), new LayoutBuilder.TestClock(FixedMoment));
@@ -305,7 +305,7 @@ public class WallTests
     [Fact]
     public void EditScenes_rejects_a_null_clock()
     {
-        Domain.Wall.Wall wall = new WallBuilder().At(FixedMoment).Build();
+        var wall = new WallBuilder().At(FixedMoment).Build();
         Action act = () => wall.EditScenes([NewScene(), NewScene()], NewOperator(), clock: null!);
         act.ShouldThrow<ArgumentNullException>();
     }
@@ -313,7 +313,7 @@ public class WallTests
     [Fact]
     public void SwitchTo_rejects_a_null_clock()
     {
-        Domain.Wall.Wall wall = new WallBuilder().At(FixedMoment).Build();
+        var wall = new WallBuilder().At(FixedMoment).Build();
         Action act = () => wall.SwitchTo(
             new SceneTarget.Next(), AllPublishable(wall.Scenes), OperatorCause(), clock: null!);
         act.ShouldThrow<ArgumentNullException>();

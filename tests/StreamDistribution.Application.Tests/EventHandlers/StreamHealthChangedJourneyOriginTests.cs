@@ -52,7 +52,7 @@ public class StreamHealthChangedJourneyOriginTests
     public async Task Each_camera_that_changed_begins_its_own_journey()
     {
         RecordingJourneyOrigin journeys = new();
-        StreamHealthChangedDomainEventHandler handler = HandlerFor(new FakeBus(), journeys);
+        var handler = HandlerFor(new FakeBus(), journeys);
 
         await handler.Handle(DomainEvent(), CancellationToken.None);
         await handler.Handle(DomainEvent(), CancellationToken.None);
@@ -121,11 +121,11 @@ public class StreamHealthChangedJourneyOriginTests
     public async Task The_announcement_carries_the_camera_that_changed_and_every_other_field()
     {
         FakeBus bus = new();
-        StreamHealthChangedDomainEvent domainEvent = DomainEvent();
+        var domainEvent = DomainEvent();
 
         await HandlerFor(bus, new RecordingJourneyOrigin()).Handle(domainEvent, CancellationToken.None);
 
-        StreamHealthChangedV1 announced = bus.Published.OfType<StreamHealthChangedV1>().ShouldHaveSingleItem();
+        var announced = bus.Published.OfType<StreamHealthChangedV1>().ShouldHaveSingleItem();
         announced.Camera.ShouldBe(domainEvent.Camera.Value);
         announced.Camera.ShouldNotBe(domainEvent.Stream.Value, "the stream identifier is the sibling this can be transposed with");
         announced.FromState.ShouldBe(StreamState.Healthy.Value);

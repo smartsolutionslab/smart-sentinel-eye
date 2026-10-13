@@ -1,13 +1,10 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Attribution;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 using CameraIdentifier = SmartSentinelEye.StreamDistribution.Domain.Stream.CameraIdentifier;
-using StreamAggregate = SmartSentinelEye.StreamDistribution.Domain.Stream.Stream;
 using StreamState = SmartSentinelEye.StreamDistribution.Domain.Stream.StreamState;
 
 namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
@@ -52,29 +49,29 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_stream_with_no_fab_is_returned_to_nobody()
     {
-        Guid camera = await ProvisionInMunichAsync();
+        var camera = await ProvisionInMunichAsync();
         await BlankTheFabAsync(camera);
 
         // Its own fab's operator first — the tempting special case is to treat
         // a null fab as "belongs to everyone here", and this is where that
         // would show.
-        using HttpClient munich = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var munich = await aspire.CreateAdminClientAsync("stream-distribution");
         (await streamsVisibleTo(munich, camera)).ShouldBeFalse();
         (await munich.GetAsync($"/streams/{camera}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         // And a multi-fab operator, who holds every fab there is and still
         // must not see a stream that belongs to none of them.
-        using HttpClient both = await aspire.CreateAuthenticatedClientAsync(
+        using var both = await aspire.CreateAuthenticatedClientAsync(
             "stream-distribution", MultiFabOperator, OperatorPassword);
         (await streamsVisibleTo(both, camera)).ShouldBeFalse();
         (await both.GetAsync($"/streams/{camera}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
         static async Task<bool> streamsVisibleTo(HttpClient client, Guid camera)
         {
-            HttpResponseMessage listed = await client.GetAsync($"/streams?cameraIdentifiers={camera}");
+            var listed = await client.GetAsync($"/streams?cameraIdentifiers={camera}");
             listed.StatusCode.ShouldBe(HttpStatusCode.OK, await listed.Content.ReadAsStringAsync());
 
-            JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+            var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
             return rows.GetArrayLength() > 0;
         }
     }
@@ -87,13 +84,13 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task The_same_stream_is_visible_while_it_still_has_its_fab()
     {
-        Guid camera = await ProvisionInMunichAsync();
+        var camera = await ProvisionInMunichAsync();
 
-        using HttpClient munich = await aspire.CreateAdminClientAsync("stream-distribution");
-        HttpResponseMessage read = await munich.GetAsync($"/streams/{camera}");
+        using var munich = await aspire.CreateAdminClientAsync("stream-distribution");
+        var read = await munich.GetAsync($"/streams/{camera}");
 
         read.StatusCode.ShouldBe(HttpStatusCode.OK, await read.Content.ReadAsStringAsync());
-        JsonElement stream = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var stream = await read.Content.ReadFromJsonAsync<JsonElement>();
         stream.GetProperty("fab").GetString().ShouldBe("munich");
     }
 
@@ -113,11 +110,11 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task Blanked_streams_reacquire_the_fab_of_their_own_camera()
     {
-        (Guid inMunich, Guid inDresden) = await ProvisionOnePerFabAsync();
+        (var inMunich, var inDresden) = await ProvisionOnePerFabAsync();
         await BlankTheFabAsync(inMunich);
         await BlankTheFabAsync(inDresden);
 
-        IReadOnlyDictionary<Guid, string> fabsByCamera = await RealLookup().FabsByCameraAsync(CancellationToken.None);
+        var fabsByCamera = await RealLookup().FabsByCameraAsync(CancellationToken.None);
 
         // The service account spans both fabs; a token holding only one would
         // resolve half of this and silently strand the other plant.
@@ -126,9 +123,9 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
         (await AttributePassAsync(fabsByCamera)).ShouldBe(2);
 
-        await using StreamDistributionDbContext reread =
+        await using var reread =
             await aspire.CreateStreamDistributionDbContextAsync();
-        Dictionary<Guid, string> stored = await reread.Streams
+        var stored = await reread.Streams
             .AsNoTracking()
             .Where(stream => stream.Fab != null)
             .ToDictionaryAsync(stream => stream.Camera.Value, stream => stream.Fab!.Value);
@@ -171,18 +168,18 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_stream_whose_camera_was_decommissioned_reacquires_its_fab()
     {
-        Guid camera = await ProvisionInMunichAsync();
+        var camera = await ProvisionInMunichAsync();
         await RetireAsync(camera);
         await BlankTheFabAsync(camera);
 
         // The arrange said out loud, because the whole test is meaningless if
         // the camera is not actually retired: a Registered camera resolves
         // today, and would make this green against unfixed code.
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
-        HttpResponseMessage read = await cameras.GetAsync($"/cameras/{camera}");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var read = await cameras.GetAsync($"/cameras/{camera}");
         read.StatusCode.ShouldBe(HttpStatusCode.OK, await read.Content.ReadAsStringAsync());
 
-        JsonElement retired = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var retired = await read.Content.ReadFromJsonAsync<JsonElement>();
         retired.GetProperty("status").GetString().ShouldBe("Decommissioned");
         retired.GetProperty("fab").GetString().ShouldBe("munich");
 
@@ -190,10 +187,10 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
         // its own fab's operator. One extra GET on a client this test needs
         // anyway, and without it the 200 at the end is equally consistent with
         // a stream that was never hidden.
-        using HttpClient munich = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var munich = await aspire.CreateAdminClientAsync("stream-distribution");
         (await munich.GetAsync($"/streams/{camera}")).StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        IReadOnlyDictionary<Guid, string> fabsByCamera =
+        var fabsByCamera =
             await RealLookup().FabsByCameraAsync(CancellationToken.None);
 
         fabsByCamera.ShouldContainKey(camera);
@@ -201,9 +198,9 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
         (await AttributePassAsync(fabsByCamera)).ShouldBe(1);
 
-        await using StreamDistributionDbContext reread =
+        await using var reread =
             await aspire.CreateStreamDistributionDbContextAsync();
-        StreamAggregate stored = await reread.Streams
+        var stored = await reread.Streams
             .AsNoTracking()
             .SingleAsync(stream => stream.Camera == CameraIdentifier.From(camera));
 
@@ -213,11 +210,11 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
         // SC-002, second half — the criterion's actual claim. The row above is
         // the attribution; this is that attribution reaching the reader, from
         // the same operator who got the 404.
-        HttpResponseMessage afterwards = await munich.GetAsync($"/streams/{camera}");
+        var afterwards = await munich.GetAsync($"/streams/{camera}");
         afterwards.StatusCode.ShouldBe(
             HttpStatusCode.OK, await afterwards.Content.ReadAsStringAsync());
 
-        JsonElement visible = await afterwards.Content.ReadFromJsonAsync<JsonElement>();
+        var visible = await afterwards.Content.ReadFromJsonAsync<JsonElement>();
         visible.GetProperty("fab").GetString().ShouldBe("munich");
     }
 
@@ -229,15 +226,15 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     [Fact]
     public async Task A_stream_whose_camera_the_catalogue_does_not_know_stays_unattributed()
     {
-        Guid known = await ProvisionInMunichAsync();
+        var known = await ProvisionInMunichAsync();
         await BlankTheFabAsync(known);
 
-        IReadOnlyDictionary<Guid, string> fabsByCamera = await RealLookup().FabsByCameraAsync(CancellationToken.None);
+        var fabsByCamera = await RealLookup().FabsByCameraAsync(CancellationToken.None);
         fabsByCamera.ShouldNotContainKey(Guid.CreateVersion7());
 
-        await using StreamDistributionDbContext context =
+        await using var context =
             await aspire.CreateStreamDistributionDbContextAsync();
-        List<StreamAggregate> unattributed = await context.Streams
+        var unattributed = await context.Streams
             .Where(stream => stream.Fab == null)
             .ToListAsync();
 
@@ -263,16 +260,16 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     {
         const int maximumAttempts = 5;
 
-        for (int attempt = 1; attempt <= maximumAttempts; attempt++)
+        for (var attempt = 1; attempt <= maximumAttempts; attempt++)
         {
-            await using StreamDistributionDbContext context =
+            await using var context =
                 await aspire.CreateStreamDistributionDbContextAsync();
 
-            List<StreamAggregate> unattributed = await context.Streams
+            var unattributed = await context.Streams
                 .Where(stream => stream.Fab == null)
                 .ToListAsync();
 
-            int attributed = StreamFabAttributionService.Attribute(unattributed, fabsByCamera);
+            var attributed = StreamFabAttributionService.Attribute(unattributed, fabsByCamera);
 
             try
             {
@@ -305,7 +302,7 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
             ClientIdentifier = AttributionClientIdentifier,
             ClientSecret = AttributionClientSecret,
         };
-        IOptions<StreamFabAttributionOptions> options = Options.Create(settings);
+        var options = Options.Create(settings);
 
         HttpClientHandler acceptsDevCert = new()
         {
@@ -322,7 +319,7 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
         // The lookup no longer holds the token provider — the bearer header is
         // attached per request by the delegating handler the registration adds,
         // so the test composes the same chain by hand.
-        HttpClient catalogue = aspire.CreateServiceClient("camera-catalog");
+        var catalogue = aspire.CreateServiceClient("camera-catalog");
         HttpClient authorised = new(
             new CameraCatalogAuthorizationHandler(tokens) { InnerHandler = new HttpClientHandler() })
         {
@@ -334,13 +331,13 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task<(Guid InMunich, Guid InDresden)> ProvisionOnePerFabAsync()
     {
-        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+        using var cameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", MultiFabOperator, OperatorPassword);
 
-        Guid inMunich = await RegisterAsync(cameras, "?fabId=munich");
-        Guid inDresden = await RegisterAsync(cameras, "?fabId=dresden");
+        var inMunich = await RegisterAsync(cameras, "?fabId=munich");
+        var inDresden = await RegisterAsync(cameras, "?fabId=dresden");
 
-        using HttpClient streams = await aspire.CreateAuthenticatedClientAsync(
+        using var streams = await aspire.CreateAuthenticatedClientAsync(
             "stream-distribution", MultiFabOperator, OperatorPassword);
         await WaitForStreamAsync(streams, inMunich);
         await WaitForStreamAsync(streams, inDresden);
@@ -350,7 +347,7 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string fabQuery)
     {
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             $"/cameras{fabQuery}",
             new
             {
@@ -365,9 +362,9 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task<Guid> ProvisionInMunichAsync()
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             "/cameras",
             new
             {
@@ -377,9 +374,9 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
         created.StatusCode.ShouldBe(
             HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        Guid camera = await created.Content.ReadFromJsonAsync<Guid>();
+        var camera = await created.Content.ReadFromJsonAsync<Guid>();
 
-        using HttpClient streams = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var streams = await aspire.CreateAdminClientAsync("stream-distribution");
         await WaitForStreamAsync(streams, camera);
 
         return camera;
@@ -387,7 +384,7 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
 
     private async Task WaitForStreamAsync(HttpClient streams, Guid camera)
     {
-        DateTime deadline = DateTime.UtcNow + ProvisionTimeout;
+        var deadline = DateTime.UtcNow + ProvisionTimeout;
         while (DateTime.UtcNow < deadline)
         {
             if ((await streams.GetAsync($"/streams/{camera}")).StatusCode == HttpStatusCode.OK)
@@ -415,19 +412,19 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     /// </summary>
     private async Task RetireAsync(Guid camera)
     {
-        using HttpClient cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
 
-        HttpResponseMessage retired = await cameras.PostAsync($"/cameras/{camera}/retire", null);
+        var retired = await cameras.PostAsync($"/cameras/{camera}/retire", null);
         retired.StatusCode.ShouldBe(
             HttpStatusCode.NoContent, await retired.Content.ReadAsStringAsync());
 
-        DateTime deadline = DateTime.UtcNow + ProvisionTimeout;
+        var deadline = DateTime.UtcNow + ProvisionTimeout;
         while (DateTime.UtcNow < deadline)
         {
-            await using StreamDistributionDbContext context =
+            await using var context =
                 await aspire.CreateStreamDistributionDbContextAsync();
 
-            bool seen = await context.Streams
+            var seen = await context.Streams
                 .AsNoTracking()
                 .AnyAsync(stream =>
                     stream.Camera == CameraIdentifier.From(camera)
@@ -453,7 +450,7 @@ public class StreamFabAttributionIntegrationTests(AspireFixture aspire) : IAsync
     /// </summary>
     private async Task BlankTheFabAsync(Guid camera)
     {
-        await using StreamDistributionDbContext context =
+        await using var context =
             await aspire.CreateStreamDistributionDbContextAsync();
 
         await context.Database.ExecuteSqlAsync(

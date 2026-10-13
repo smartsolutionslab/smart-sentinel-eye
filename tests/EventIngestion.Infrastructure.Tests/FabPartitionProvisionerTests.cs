@@ -13,7 +13,7 @@ public class FabPartitionProvisionerTests
     [Fact]
     public void Creates_the_partition_shape_the_rollover_expects()
     {
-        string ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From("berlin"));
+        var ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From("berlin"));
 
         // The name is a contract with EventPartitionRolloverMigrator, which
         // discovers fab partitions from the catalog and appends _yyyyMM to what
@@ -43,7 +43,7 @@ public class FabPartitionProvisionerTests
     [InlineData("a-b-c-d")]
     public void Quotes_the_identifier_so_a_kebab_style_fab_is_valid_sql(string fab)
     {
-        string ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From(fab));
+        var ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From(fab));
 
         ddl.ShouldContain($"\"events_{fab}\"");
         ddl.ShouldContain($"FOR VALUES IN ('{fab}')");
@@ -60,7 +60,7 @@ public class FabPartitionProvisionerTests
     [Fact]
     public void Builds_ddl_that_tolerates_an_existing_partition()
     {
-        string ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From("munich"));
+        var ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From("munich"));
 
         ddl.ShouldContain("IF NOT EXISTS");
     }
@@ -77,9 +77,9 @@ public class FabPartitionProvisionerTests
     [InlineData("DELETE")]
     public void Never_issues_a_destructive_statement(string forbidden)
     {
-        foreach (string fab in new[] { "munich", "dresden", "berlin", "hamburg" })
+        foreach (var fab in new[] { "munich", "dresden", "berlin", "hamburg" })
         {
-            string ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From(fab));
+            var ddl = FabPartitionProvisioner.BuildPartitionDdl(FabIdentifier.From(fab));
 
             ddl.ShouldNotContain(forbidden, Case.Insensitive,
                 $"provisioning must never destroy storage — '{fab}' would lose every event it has");

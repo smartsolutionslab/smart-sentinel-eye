@@ -304,9 +304,9 @@ public sealed class SourceScanCharacterisationTests
     /// </summary>
     private static void AssertStrictnessesDisagree(string fixture)
     {
-        string weakest = SourceMask.Apply(fixture, MaskStrictness.CommentsOnlyLiteralsIntact);
-        string onePass = SourceMask.Apply(fixture, MaskStrictness.CommentsAndLiteralInteriors);
-        string twoStage = SourceMask.Apply(
+        var weakest = SourceMask.Apply(fixture, MaskStrictness.CommentsOnlyLiteralsIntact);
+        var onePass = SourceMask.Apply(fixture, MaskStrictness.CommentsAndLiteralInteriors);
+        var twoStage = SourceMask.Apply(
             SourceMask.Apply(fixture, MaskStrictness.CommentsBlankedLiteralsIntact),
             MaskStrictness.LiteralInteriorsOnly);
 
@@ -367,8 +367,8 @@ public sealed class SourceScanCharacterisationTests
             + "    .RequireAuthorization(Scope.Sse.Cameras.Read)\n"
             + "    .ProducesProblem(StatusCodes.Status403Forbidden);\n";
 
-        string masked = SourceMask.Apply(source, MaskStrictness.CommentsAndLiteralInteriors);
-        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+        var masked = SourceMask.Apply(source, MaskStrictness.CommentsAndLiteralInteriors);
+        var end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
 
         end.ShouldBe(
             -1,

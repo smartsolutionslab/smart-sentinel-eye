@@ -57,8 +57,8 @@ public class LogTailCoverageTests
     [Fact]
     public void Every_resource_a_test_asks_for_logs_from_is_tailed()
     {
-        HashSet<string> tailed = TailedResources();
-        Request[] requests = LiteralRequests();
+        var tailed = TailedResources();
+        var requests = LiteralRequests();
 
         requests.Length.ShouldBeGreaterThan(
             0,
@@ -66,7 +66,7 @@ public class LogTailCoverageTests
             + "A source-scanning guard that matches nothing passes, and a passing guard that checks "
             + "nothing is indistinguishable from one that holds.");
 
-        Request[] violations = requests.Where(request => !tailed.Contains(request.Resource)).ToArray();
+        var violations = requests.Where(request => !tailed.Contains(request.Resource)).ToArray();
 
         violations.ShouldBeEmpty(Explain(violations, tailed, requests.Length));
     }
@@ -93,7 +93,7 @@ public class LogTailCoverageTests
             + "tail, so each one reports \"(not tailed — …)\" where the service's log should be:",
         ];
 
-        foreach (IGrouping<string, Request> group in violations
+        foreach (var group in violations
             .GroupBy(violation => violation.Resource, StringComparer.Ordinal)
             .OrderBy(group => group.Key, StringComparer.Ordinal))
         {
@@ -115,7 +115,7 @@ public class LogTailCoverageTests
 
     private static Request[] LiteralRequests()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return Directory
             .EnumerateFiles(Path.Combine(root.FullName, ScannedTree), "*.cs", SearchOption.AllDirectories)
@@ -127,9 +127,9 @@ public class LogTailCoverageTests
 
     private static IEnumerable<Request> RequestsIn(DirectoryInfo root, string relative)
     {
-        string[] lines = File.ReadAllLines(Path.Combine(root.FullName, relative));
+        var lines = File.ReadAllLines(Path.Combine(root.FullName, relative));
 
-        for (int i = 0; i < lines.Length; i++)
+        for (var i = 0; i < lines.Length; i++)
         {
             foreach (Match match in LiteralRequest.Matches(lines[i]))
             {
@@ -140,9 +140,9 @@ public class LogTailCoverageTests
 
     private static HashSet<string> TailedResources()
     {
-        string source = File.ReadAllText(Path.Combine(RepositoryRoot().FullName, Fixture));
+        var source = File.ReadAllText(Path.Combine(RepositoryRoot().FullName, Fixture));
 
-        Match declaration = TailedList.Match(source);
+        var declaration = TailedList.Match(source);
         if (!declaration.Success)
         {
             return [];

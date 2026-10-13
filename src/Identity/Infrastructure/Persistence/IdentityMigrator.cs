@@ -12,7 +12,7 @@ public sealed class IdentityMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using IdentityDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

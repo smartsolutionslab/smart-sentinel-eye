@@ -41,9 +41,9 @@ public class EventTypeAdmissionTests
     {
         InMemoryEventTypeAdmissionSource source = new();
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Refuses(envelope).ShouldBeFalse();
         verdicts.Holds(envelope).ShouldBeFalse();
@@ -58,13 +58,13 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_discovery_source_holds_an_unregistered_kind()
     {
-        FabIdentifier berlin = FabIdentifier.From("berlin");
+        var berlin = FabIdentifier.From("berlin");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareDiscovery(berlin, Source.Manual);
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "berlin", kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(fab: "berlin", kind: "NobodyDeclaredThis");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Holds(envelope).ShouldBeTrue();
         verdicts.Refuses(envelope).ShouldBeFalse("a hold is not a refusal — the two are distinct outcomes");
@@ -74,15 +74,15 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_discovery_source_admits_a_registered_kind()
     {
-        FabIdentifier berlin = FabIdentifier.From("berlin");
+        var berlin = FabIdentifier.From("berlin");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareDiscovery(berlin, Source.Manual);
         source.Register(RegisteredEventType.Register(
             berlin, Kind.From("PlcCycleStart"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now)));
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "berlin", kind: "PlcCycleStart");
+        var envelope = BuildEnvelope(fab: "berlin", kind: "PlcCycleStart");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Holds(envelope).ShouldBeFalse();
         verdicts.Refuses(envelope).ShouldBeFalse();
@@ -92,17 +92,17 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_retired_kind_is_held_under_discovery()
     {
-        FabIdentifier berlin = FabIdentifier.From("berlin");
-        RegisteredEventType retired = RegisteredEventType.Register(
+        var berlin = FabIdentifier.From("berlin");
+        var retired = RegisteredEventType.Register(
             berlin, Kind.From("WasOnceRegistered"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         retired.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareDiscovery(berlin, Source.Manual);
         source.Register(retired);
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "berlin", kind: "WasOnceRegistered");
+        var envelope = BuildEnvelope(fab: "berlin", kind: "WasOnceRegistered");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Holds(envelope).ShouldBeTrue();
     }
@@ -110,13 +110,13 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_strict_source_refuses_an_unregistered_kind()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
+        var dresden = FabIdentifier.From("dresden");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(dresden, Source.Manual);
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "NobodyDeclaredThis");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Refuses(envelope).ShouldBeTrue();
     }
@@ -125,13 +125,13 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_strict_source_does_not_hold_the_kind_it_refuses()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
+        var dresden = FabIdentifier.From("dresden");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(dresden, Source.Manual);
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "NobodyDeclaredThis");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Holds(envelope).ShouldBeFalse();
     }
@@ -139,15 +139,15 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_strict_source_admits_a_registered_kind()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
+        var dresden = FabIdentifier.From("dresden");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(dresden, Source.Manual);
         source.Register(RegisteredEventType.Register(
             dresden, Kind.From("PlcCycleStart"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now)));
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "PlcCycleStart");
+        var envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "PlcCycleStart");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Refuses(envelope).ShouldBeFalse();
     }
@@ -155,13 +155,13 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task Strict_on_one_source_leaves_the_fabs_other_sources_open()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
+        var dresden = FabIdentifier.From("dresden");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(dresden, Source.Inference);
         EventTypeAdmission admission = new(source);
-        EventEnvelope onPlc = BuildEnvelope(fab: "dresden", source: Source.Plc, kind: "Unregistered");
+        var onPlc = BuildEnvelope(fab: "dresden", source: Source.Plc, kind: "Unregistered");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([onPlc], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([onPlc], CancellationToken.None);
 
         verdicts.Refuses(onPlc).ShouldBeFalse();
     }
@@ -172,9 +172,9 @@ public class EventTypeAdmissionTests
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(FabIdentifier.From("dresden"), Source.Manual);
         EventTypeAdmission admission = new(source);
-        EventEnvelope inMunich = BuildEnvelope(fab: "munich", source: Source.Manual, kind: "Unregistered");
+        var inMunich = BuildEnvelope(fab: "munich", source: Source.Manual, kind: "Unregistered");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([inMunich], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([inMunich], CancellationToken.None);
 
         verdicts.Refuses(inMunich).ShouldBeFalse();
     }
@@ -182,17 +182,17 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_retired_kind_is_refused_under_strict()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
-        RegisteredEventType retired = RegisteredEventType.Register(
+        var dresden = FabIdentifier.From("dresden");
+        var retired = RegisteredEventType.Register(
             dresden, Kind.From("WasOnceRegistered"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         retired.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(dresden, Source.Manual);
         source.Register(retired);
         EventTypeAdmission admission = new(source);
-        EventEnvelope envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "WasOnceRegistered");
+        var envelope = BuildEnvelope(fab: "dresden", source: Source.Manual, kind: "WasOnceRegistered");
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([envelope], CancellationToken.None);
 
         verdicts.Refuses(envelope).ShouldBeTrue();
     }
@@ -213,17 +213,17 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_batch_costs_one_registry_query_per_strict_fab_not_per_envelope()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
-        FabIdentifier munich = FabIdentifier.From("munich");
+        var dresden = FabIdentifier.From("dresden");
+        var munich = FabIdentifier.From("munich");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(dresden, Source.Manual);
         source.DeclareStrict(munich, Source.Manual);
         EventTypeAdmission admission = new(source);
 
         List<EventEnvelope> envelopes = [];
-        for (int i = 0; i < 200; i++)
+        for (var i = 0; i < 200; i++)
         {
-            string fab = i % 2 == 0 ? "dresden" : "munich";
+            var fab = i % 2 == 0 ? "dresden" : "munich";
             envelopes.Add(BuildEnvelope(fab: fab, source: Source.Manual, kind: $"Kind{i % 5}"));
         }
 
@@ -237,7 +237,7 @@ public class EventTypeAdmissionTests
     [Fact]
     public async Task A_batch_costs_one_registry_query_per_discovery_fab_not_per_envelope()
     {
-        FabIdentifier berlin = FabIdentifier.From("berlin");
+        var berlin = FabIdentifier.From("berlin");
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareDiscovery(berlin, Source.Manual);
         EventTypeAdmission admission = new(source);
@@ -258,7 +258,7 @@ public class EventTypeAdmissionTests
         InMemoryEventTypeAdmissionSource source = new();
         EventTypeAdmission admission = new(source);
 
-        EventTypeVerdicts verdicts = await admission.AssessAsync([], CancellationToken.None);
+        var verdicts = await admission.AssessAsync([], CancellationToken.None);
 
         source.DeclaredSourceModesCalls.ShouldBe(0);
         source.RegisteredKindsCalls.ShouldBe(0);

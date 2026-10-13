@@ -1,8 +1,5 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -28,11 +25,11 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
     [Fact]
     public async Task A_created_event_is_readable_at_the_location_it_reports()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", Operator, OperatorPassword);
 
-        string kind = $"Direct{Guid.CreateVersion7():N}"[..20];
-        HttpResponseMessage created = await client.PostAsJsonAsync("/events/manual", new
+        var kind = $"Direct{Guid.CreateVersion7():N}"[..20];
+        var created = await client.PostAsJsonAsync("/events/manual", new
         {
             deviceId = "honesty-device",
             kind,
@@ -43,16 +40,16 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
         created.Headers.Location.ShouldNotBeNull("a 201 without a Location says nothing about where the event is");
 
-        string location = created.Headers.Location.ToString();
+        var location = created.Headers.Location.ToString();
         output.WriteLine($"POST /events/manual -> 201 {location}");
 
         // No delay. The point of storing before answering is that there is
         // nothing to wait for; a retry loop here would hide a regression to
         // eventual consistency behind a passing test.
-        HttpResponseMessage fetched = await client.GetAsync(location);
+        var fetched = await client.GetAsync(location);
         fetched.StatusCode.ShouldBe(HttpStatusCode.OK, "the 201 pointed at nothing");
 
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("kind").GetString().ShouldBe(kind);
     }
 
@@ -64,10 +61,10 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
     [Fact]
     public async Task A_write_that_cannot_be_stored_is_refused_and_stores_nothing()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", Operator, OperatorPassword);
 
-        string kind = $"Refused{Guid.CreateVersion7():N}"[..20];
+        var kind = $"Refused{Guid.CreateVersion7():N}"[..20];
         await ExecuteAsync($"DROP TABLE IF EXISTS events_{Fab};");
         output.WriteLine($"dropped events_{Fab}");
 
@@ -76,7 +73,7 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
             // Spec 019's readiness answer is cached, so the refusal only becomes
             // visible once that cache next looks. Waiting for it is the test
             // being honest about what the system promises, not padding.
-            HttpResponseMessage refused = await RetryUntilRefusedAsync(client, kind);
+            var refused = await RetryUntilRefusedAsync(client, kind);
             output.WriteLine($"POST /events/manual with storage away -> {(int)refused.StatusCode}");
 
             ((int)refused.StatusCode).ShouldBeGreaterThanOrEqualTo(500);
@@ -90,7 +87,7 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
 
     private static async Task<HttpResponseMessage> RetryUntilRefusedAsync(HttpClient client, string kind)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(90);
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(90);
         HttpResponseMessage response = null!;
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -116,7 +113,7 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
 
     private async Task<long> CountAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -124,7 +121,7 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
 
     private async Task RestoreStorageAsync()
     {
-        DateTime now = DateTime.UtcNow;
+        var now = DateTime.UtcNow;
         await ExecuteAsync($"""
             CREATE TABLE IF NOT EXISTS events_{Fab} PARTITION OF events
                 FOR VALUES IN ('{Fab}') PARTITION BY RANGE (ingested_at);
@@ -137,7 +134,7 @@ public class DirectWriteHonestyIntegrationTests(AspireFixture aspire, ITestOutpu
 
     private async Task ExecuteAsync(string sql)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
 #pragma warning disable EF1002
         await database.Database.ExecuteSqlRawAsync(sql);
 #pragma warning restore EF1002

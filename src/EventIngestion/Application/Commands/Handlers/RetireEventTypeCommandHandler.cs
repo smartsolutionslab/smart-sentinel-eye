@@ -23,13 +23,13 @@ public sealed class RetireEventTypeCommandHandler(
         // the caller stands, and this order is load-bearing: it must run
         // before the version gate, so a stale version against another fab's
         // row still answers 404, not 409 (plan.md §6).
-        Option<RegisteredEventType> found = await eventTypes.GetRegisteredAsync(fab, kind, cancellationToken);
+        var found = await eventTypes.GetRegisteredAsync(fab, kind, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RetireEventTypeFailures.EventTypeNotFound(kind.Value));
         }
 
-        RegisteredEventType eventType = found.Value;
+        var eventType = found.Value;
 
         if (eventType.Version != expectedVersion)
         {

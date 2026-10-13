@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -16,9 +15,9 @@ public class LayoutRevisionArchivedV1Tests
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
-        Guid layout = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
-        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        var layout = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
+        var at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
         LayoutRevisionArchivedV1 evt = new(layout, 1, at, by, Metadata: TestMetadata);
 
@@ -39,9 +38,9 @@ public class LayoutRevisionArchivedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid layout = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
-        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        var layout = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
+        var at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
         LayoutRevisionArchivedV1 a = new(layout, 2, at, by, Metadata: TestMetadata);
         LayoutRevisionArchivedV1 b = new(layout, 2, at, by, Metadata: TestMetadata);
@@ -60,8 +59,8 @@ public class LayoutRevisionArchivedV1Tests
             Guid.CreateVersion7(),
             Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        LayoutRevisionArchivedV1 deserialized = JsonSerializer.Deserialize<LayoutRevisionArchivedV1>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<LayoutRevisionArchivedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

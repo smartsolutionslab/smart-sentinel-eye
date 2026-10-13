@@ -1,10 +1,8 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.LayoutComposition.Api.Requests;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.ServiceDefaults;
@@ -28,10 +26,10 @@ public static partial class WallEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        CreateWallCommandHandler handler = services.Handler;
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        var handler = services.Handler;
+        var fabGuard = services.FabGuard;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -51,15 +49,15 @@ public static partial class WallEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await LayoutEndpoints.ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var fab = fabResolution.Value;
+        var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
@@ -117,22 +115,22 @@ public static partial class WallEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var actingOperator = user.ToOperatorIdentifier();
+        var fabsResolution =
             await LayoutEndpoints.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<WallDto, EditWallScenesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditWallScenesCommand(fabs, WallIdentifier.From(wallIdentifier), expectedVersion, scenes, actingOperator),
             cancellationToken);
 
@@ -172,22 +170,22 @@ public static partial class WallEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var actingOperator = user.ToOperatorIdentifier();
+        var fabsResolution =
             await LayoutEndpoints.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand(fabs, WallIdentifier.From(wallIdentifier), expectedVersion, target, actingOperator),
             cancellationToken);
 

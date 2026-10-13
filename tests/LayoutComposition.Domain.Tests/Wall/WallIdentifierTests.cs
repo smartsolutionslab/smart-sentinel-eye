@@ -12,8 +12,8 @@ public class WallIdentifierTests
     [Fact]
     public void New_returns_a_non_empty_sortable_Guid_v7()
     {
-        WallIdentifier a = WallIdentifier.New();
-        WallIdentifier b = WallIdentifier.New();
+        var a = WallIdentifier.New();
+        var b = WallIdentifier.New();
 
         a.Value.ShouldNotBe(Guid.Empty);
         a.ShouldNotBe(b);
@@ -29,15 +29,15 @@ public class WallIdentifierTests
     [Fact]
     public void From_round_trips_a_non_empty_Guid()
     {
-        Guid value = Guid.CreateVersion7();
-        WallIdentifier id = WallIdentifier.From(value);
+        var value = Guid.CreateVersion7();
+        var id = WallIdentifier.From(value);
         id.Value.ShouldBe(value);
     }
 
     [Fact]
     public void Implicitly_unwraps_to_its_guid()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         Guid unwrapped = WallIdentifier.From(guid);
         unwrapped.ShouldBe(guid);
     }

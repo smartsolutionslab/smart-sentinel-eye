@@ -1,8 +1,6 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
@@ -35,10 +33,10 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     /// </summary>
     public async Task DisposeAsync()
     {
-        DateTime now = DateTime.UtcNow;
-        DateTime nextMonth = now.AddMonths(1);
+        var now = DateTime.UtcNow;
+        var nextMonth = now.AddMonths(1);
 
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         await database.Database.ExecuteSqlRawAsync("""
             CREATE TABLE IF NOT EXISTS events_hamburg PARTITION OF events
                 FOR VALUES IN ('hamburg')
@@ -52,7 +50,7 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
         // Interpolated deliberately: these are identifiers and range bounds, and
         // Postgres parameterises neither. Every value is invariant-formatted off
         // DateTime.UtcNow — nothing here comes from outside this method.
-        string monthly =
+        var monthly =
             $"""
             CREATE TABLE IF NOT EXISTS "events_hamburg_{now:yyyyMM}" PARTITION OF events_hamburg
                 FOR VALUES FROM ('{now:yyyy-MM}-01') TO ('{nextMonth:yyyy-MM}-01');
@@ -65,17 +63,17 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task An_operator_of_a_fab_with_no_storage_is_refused_and_nothing_is_enqueued()
     {
-        string kind = $"Refused{Guid.CreateVersion7():N}"[..20];
+        var kind = $"Refused{Guid.CreateVersion7():N}"[..20];
 
         await DropHamburgStorageAsync();
 
-        using HttpClient hamburg = await ClientFor(HamburgOperator);
-        HttpResponseMessage refused = await PostUntilRefusedAsync(hamburg, kind);
+        using var hamburg = await ClientFor(HamburgOperator);
+        var refused = await PostUntilRefusedAsync(hamburg, kind);
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.ServiceUnavailable, await refused.Content.ReadAsStringAsync());
 
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("EVENT_FAB_NOT_PROVISIONED");
 
         // The assertion that matters. A 503 that had already written to the
@@ -92,17 +90,17 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     {
         await DropHamburgStorageAsync();
 
-        string name = $"refusal-{Guid.NewGuid():N}"[..20];
-        using HttpClient hamburg = await ClientFor(HamburgOperator);
+        var name = $"refusal-{Guid.NewGuid():N}"[..20];
+        using var hamburg = await ClientFor(HamburgOperator);
 
-        HttpResponseMessage created = await hamburg.PostAsJsonAsync(
+        var created = await hamburg.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
-        string token = body.GetProperty("token").GetString()!;
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var token = body.GetProperty("token").GetString()!;
 
-        HttpResponseMessage refused = await PostWebhookUntilRefusedAsync(name, token);
+        var refused = await PostWebhookUntilRefusedAsync(name, token);
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.ServiceUnavailable, await refused.Content.ReadAsStringAsync());
@@ -115,9 +113,9 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_fab_with_storage_still_accepts_events()
     {
-        using HttpClient munich = await ClientFor(MunichOperator);
+        using var munich = await ClientFor(MunichOperator);
 
-        HttpResponseMessage created = await munich.PostAsJsonAsync("/events/manual", Body("Unaffected"));
+        var created = await munich.PostAsJsonAsync("/events/manual", Body("Unaffected"));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
     }
@@ -147,8 +145,8 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     /// </summary>
     private static async Task<HttpResponseMessage> PostUntilRefusedAsync(HttpClient client, string kind)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
-        HttpResponseMessage response = await client.PostAsJsonAsync("/events/manual", Body(kind));
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+        var response = await client.PostAsJsonAsync("/events/manual", Body(kind));
 
         while (!await NamesTheMissingStorageAsync(response) && DateTime.UtcNow < deadline)
         {
@@ -173,7 +171,7 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
             return false;
         }
 
-        string body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync();
         return body.Contains("EVENT_FAB_NOT_PROVISIONED", StringComparison.Ordinal);
     }
 
@@ -184,8 +182,8 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
     /// </summary>
     private async Task<HttpResponseMessage> PostWebhookUntilRefusedAsync(string name, string token)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
-        HttpResponseMessage response = await SendWebhookAsync(name, token);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(90);
+        var response = await SendWebhookAsync(name, token);
 
         while (!await NamesTheMissingStorageAsync(response) && DateTime.UtcNow < deadline)
         {
@@ -209,13 +207,13 @@ public class FabStorageRefusalIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private async Task DropHamburgStorageAsync()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         await database.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS events_hamburg;");
     }
 
     private async Task<long> HamburgEventCountAsync()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE fab_id = 'hamburg'")
             .SingleAsync();

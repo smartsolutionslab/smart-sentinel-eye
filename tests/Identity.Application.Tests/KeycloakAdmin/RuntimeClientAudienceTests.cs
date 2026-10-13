@@ -59,7 +59,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task An_enrolled_kiosk_names_the_api_its_token_is_for()
     {
-        KeycloakClientRepresentation kiosk = await EnrolledKioskAsync();
+        var kiosk = await EnrolledKioskAsync();
 
         kiosk.DefaultClientScopes.ShouldContain(AudienceScope, customMessage: Missing("kiosk"));
     }
@@ -67,7 +67,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task An_enrolled_kiosk_keeps_every_permission_its_bundle_grants()
     {
-        KeycloakClientRepresentation kiosk = await EnrolledKioskAsync();
+        var kiosk = await EnrolledKioskAsync();
 
         KeycloakScopeBundles.Kiosk.ShouldBeSubsetOf(
             kiosk.DefaultClientScopes, customMessage: Traded("kiosk", nameof(KeycloakScopeBundles.Kiosk)));
@@ -76,7 +76,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task A_registered_device_names_the_api_its_token_is_for()
     {
-        KeycloakClientRepresentation device = await RegisteredDeviceAsync();
+        var device = await RegisteredDeviceAsync();
 
         device.DefaultClientScopes.ShouldContain(AudienceScope, customMessage: Missing("device"));
     }
@@ -84,7 +84,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task A_registered_device_keeps_every_permission_its_bundle_grants()
     {
-        KeycloakClientRepresentation device = await RegisteredDeviceAsync();
+        var device = await RegisteredDeviceAsync();
 
         KeycloakScopeBundles.Device.ShouldBeSubsetOf(
             device.DefaultClientScopes, customMessage: Traded("device", nameof(KeycloakScopeBundles.Device)));
@@ -93,7 +93,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task A_rotated_webhook_client_names_the_api_its_token_is_for()
     {
-        KeycloakClientRepresentation webhook = await RotatedWebhookClientAsync();
+        var webhook = await RotatedWebhookClientAsync();
 
         webhook.DefaultClientScopes.ShouldContain(AudienceScope, customMessage: Missing("webhook integration"));
     }
@@ -101,7 +101,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task A_rotated_webhook_client_keeps_every_permission_its_bundle_grants()
     {
-        KeycloakClientRepresentation webhook = await RotatedWebhookClientAsync();
+        var webhook = await RotatedWebhookClientAsync();
 
         KeycloakScopeBundles.WebhookIntegration.ShouldBeSubsetOf(
             webhook.DefaultClientScopes,
@@ -111,7 +111,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task An_enrolled_kiosk_carries_the_fab_claim()
     {
-        KeycloakClientRepresentation kiosk = await EnrolledKioskAsync();
+        var kiosk = await EnrolledKioskAsync();
 
         kiosk.DefaultClientScopes.ShouldContain(GroupsScope, customMessage: MissingGroups("kiosk"));
     }
@@ -119,7 +119,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task A_registered_device_carries_the_fab_claim()
     {
-        KeycloakClientRepresentation device = await RegisteredDeviceAsync();
+        var device = await RegisteredDeviceAsync();
 
         device.DefaultClientScopes.ShouldContain(GroupsScope, customMessage: MissingGroups("device"));
     }
@@ -127,7 +127,7 @@ public class RuntimeClientAudienceTests
     [Fact]
     public async Task A_rotated_webhook_client_carries_the_fab_claim()
     {
-        KeycloakClientRepresentation webhook = await RotatedWebhookClientAsync();
+        var webhook = await RotatedWebhookClientAsync();
 
         webhook.DefaultClientScopes.ShouldContain(GroupsScope, customMessage: MissingGroups("webhook integration"));
     }

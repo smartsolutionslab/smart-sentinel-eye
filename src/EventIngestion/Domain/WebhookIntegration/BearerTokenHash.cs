@@ -24,14 +24,14 @@ public sealed record BearerTokenHash : IValueObject<string>
     {
         Span<byte> raw = stackalloc byte[32];
         RandomNumberGenerator.Fill(raw);
-        string plaintext = Convert.ToBase64String(raw);
+        var plaintext = Convert.ToBase64String(raw);
         return (FromPlaintext(plaintext), plaintext);
     }
 
     public static BearerTokenHash FromPlaintext(string plaintext)
     {
         Ensure.That(plaintext).IsNotNull().IsNotNullOrWhiteSpace();
-        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(plaintext));
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(plaintext));
         return new BearerTokenHash(Convert.ToBase64String(hash));
     }
 
@@ -48,8 +48,8 @@ public sealed record BearerTokenHash : IValueObject<string>
             return false;
         }
 
-        byte[] candidate = SHA256.HashData(Encoding.UTF8.GetBytes(candidatePlaintext));
-        byte[] stored = Convert.FromBase64String(Value);
+        var candidate = SHA256.HashData(Encoding.UTF8.GetBytes(candidatePlaintext));
+        var stored = Convert.FromBase64String(Value);
         return CryptographicOperations.FixedTimeEquals(candidate, stored);
     }
 

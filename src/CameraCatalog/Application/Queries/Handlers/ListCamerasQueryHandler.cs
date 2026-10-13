@@ -17,7 +17,7 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         CancellationToken cancellationToken)
     {
         Ensure.That(query).IsNotNull();
-        (IReadOnlyList<FabIdentifier>? fabs, string? sort, string? order, int offset, int limit, bool includeRetired, _) = query;
+        (var fabs, var sort, var order, var offset, var limit, var includeRetired, _) = query;
 
         if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
         {
@@ -39,11 +39,11 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
             return Failure(ListCamerasFailures.LimitExceeded(limit, ListCamerasDefaults.MaximumLimit));
         }
 
-        bool descending = order == "desc";
+        var descending = order == "desc";
 
         // FR-005: only cameras in fabs the caller holds, and filtered before
         // the count so the total reflects what they can actually page through.
-        IQueryable<Camera> visible = cameras.Cameras.Where(camera => fabs.Contains(camera.Fab));
+        var visible = cameras.Cameras.Where(camera => fabs.Contains(camera.Fab));
 
         // FR-007, and filtered here rather than at the endpoint so the count
         // and the page agree: a total that included retired cameras while the
@@ -78,17 +78,17 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         //
         // The predicate comes from the seam because EF and the in-memory fake
         // reach the normalised name differently — see ICameraQuerySource.
-        string? fragment = query.TrimmedFragment;
+        var fragment = query.TrimmedFragment;
         if (fragment is not null)
         {
             visible = visible.Where(cameras.NameContains(fragment.ToUpperInvariant()));
         }
 
-        IQueryable<Camera> source = SortBy(visible, sort, descending);
+        var source = SortBy(visible, sort, descending);
 
-        int total = await source.CountAsync(cancellationToken);
+        var total = await source.CountAsync(cancellationToken);
 
-        List<CameraSummaryDto> items = await source
+        var items = await source
             .Skip(offset)
             .Take(limit)
             .Select(camera => new CameraSummaryDto(

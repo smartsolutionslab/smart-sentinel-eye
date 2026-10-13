@@ -33,7 +33,7 @@ public class StreamRetirementTests
     [MemberData(nameof(EveryState))]
     public void A_stream_can_be_retired_from_any_state(string from)
     {
-        Domain.Stream.Stream stream = InState(from);
+        var stream = InState(from);
 
         stream.Retire(Clock());
 
@@ -44,7 +44,7 @@ public class StreamRetirementTests
     [MemberData(nameof(EveryState))]
     public void A_health_report_after_retirement_is_refused_from_any_state(string from)
     {
-        Domain.Stream.Stream stream = InState(from);
+        var stream = InState(from);
         stream.Retire(Clock());
 
         // All three, because the watcher can arrive at any of them depending on
@@ -63,12 +63,12 @@ public class StreamRetirementTests
     [Fact]
     public void Retiring_raises_one_event_recording_where_it_came_from()
     {
-        Domain.Stream.Stream stream = InState("Healthy");
+        var stream = InState("Healthy");
         stream.ClearPendingEvents();
 
         stream.Retire(Clock());
 
-        StreamHealthChangedDomainEvent raised = stream.PendingEvents
+        var raised = stream.PendingEvents
             .OfType<StreamHealthChangedDomainEvent>()
             .ShouldHaveSingleItem();
 
@@ -86,7 +86,7 @@ public class StreamRetirementTests
     [Fact]
     public void Retiring_a_retired_stream_raises_nothing_further()
     {
-        Domain.Stream.Stream stream = InState("Healthy");
+        var stream = InState("Healthy");
         stream.Retire(Clock());
         stream.ClearPendingEvents();
 
@@ -106,8 +106,8 @@ public class StreamRetirementTests
     /// </summary>
     private static Domain.Stream.Stream InState(string state)
     {
-        Domain.Stream.Stream stream = new StreamBuilder().Build();
-        FixedClock clock = Clock();
+        var stream = new StreamBuilder().Build();
+        var clock = Clock();
 
         switch (state)
         {

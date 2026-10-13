@@ -1,4 +1,3 @@
-using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using SmartSentinelEye.Shared.Kernel;
@@ -30,17 +29,17 @@ public static class RequireScopeExtensions
         Ensure.That(builder).IsNotNull();
         Ensure.That(scopes).IsNotNull();
 
-        foreach (string scope in scopes)
+        foreach (var scope in scopes)
         {
-            string targetScope = scope;
+            var targetScope = scope;
             builder.AddPolicy(scope, policy =>
             {
                 policy.RequireAuthenticatedUser();
                 policy.RequireAssertion(context =>
                 {
-                    foreach (Claim claim in context.User.FindAll("scope"))
+                    foreach (var claim in context.User.FindAll("scope"))
                     {
-                        string[] tokens = claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                        var tokens = claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                         if (tokens.Contains(targetScope, StringComparer.Ordinal))
                         {
                             return true;

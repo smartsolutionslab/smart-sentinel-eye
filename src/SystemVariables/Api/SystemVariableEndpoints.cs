@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.ServiceDefaults.Idempotency;
@@ -42,7 +39,7 @@ public static class SystemVariableEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/system-variables")
+        var group = app.MapGroup("/system-variables")
             .RequireAuthorization()
             .WithTags("SystemVariables");
 
@@ -157,10 +154,10 @@ public static class SystemVariableEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        DefineVariableCommandHandler handler = services.Handler;
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
+        var handler = services.Handler;
+        var fabGuard = services.FabGuard;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -192,16 +189,16 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
         DefineVariableCommand command = new(fab, name, type, initialValue, booleanLabels, actingOperator);
 
         return await IdempotentRequest.ExecuteCreateAsync(
@@ -247,33 +244,33 @@ public static class SystemVariableEndpoints
             () => VariableName.From(name),
             "VARIABLE_INVALID_INPUT",
             out var parsed,
-            out IResult? problem))
+            out var problem))
         {
             return problem;
         }
 
         // Resolved before the precondition, for the same reason as Archive.
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
         // None: an operator setting a value by hand has no plant-floor event at
         // the root of it, so this effect opens no `event → overlay state` leg
         // and the push it causes is correctly left untimed (#2173).
         SetVariableValueCommand command = new(
             fab, parsed, body.Value, actingOperator, Option<int>.Some(expectedVersion), Option<DateTimeOffset>.None);
-        Result<VariableIdentifier, SetVariableValueError> result = await handler.HandleAsync(command, cancellationToken);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
     }
@@ -291,21 +288,21 @@ public static class SystemVariableEndpoints
             () => VariableName.From(name),
             "VARIABLE_INVALID_INPUT",
             out var parsed,
-            out IResult? problem))
+            out var problem))
         {
             return problem;
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery(fabs, parsed), cancellationToken);
 
         return result.Match<IResult>(
@@ -347,16 +344,16 @@ public static class SystemVariableEndpoints
             }
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery(fabs, filter, includeArchived), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
@@ -378,16 +375,16 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery(fabs, overlayIdentifier), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
@@ -417,16 +414,16 @@ public static class SystemVariableEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ResolveOverlayTextQuery(fabs, text), cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
@@ -445,7 +442,7 @@ public static class SystemVariableEndpoints
             () => VariableName.From(name),
             "VARIABLE_INVALID_INPUT",
             out var parsed,
-            out IResult? problem))
+            out var problem))
         {
             return problem;
         }
@@ -454,22 +451,22 @@ public static class SystemVariableEndpoints
         // they do not hold is refused on that ground rather than on a missing
         // If-Match — the reverse order answers 428 to a request that was never
         // theirs to make.
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        var actingOperator = user.ToOperatorIdentifier();
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        Result<VariableIdentifier, ArchiveVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveVariableCommand(fab, parsed, actingOperator, expectedVersion), cancellationToken);
 
         return result.Match<IResult>(onSuccess: identifier => Results.Ok(identifier.Value), onFailure: error => error.ToProblem());
@@ -484,7 +481,7 @@ public static class SystemVariableEndpoints
     private static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             user, fabId, fabGuard, "VARIABLE_FAB_REQUIRED", cancellationToken);
         if (resolution.IsFailure)
         {
@@ -506,7 +503,7 @@ public static class SystemVariableEndpoints
     private static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
         ClaimsPrincipal user, string fabId, IFabAuthorizationGuard fabGuard, CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> resolved = await FabResolution.ResolveForReadAsync(
+        var resolved = await FabResolution.ResolveForReadAsync(
             user, fabId, fabGuard, cancellationToken);
 
         // Per entry, not all-or-nothing. A single group under /fabs/ that is
@@ -515,7 +512,7 @@ public static class SystemVariableEndpoints
         // in the fabs the caller legitimately holds. Mirrors RulesEndpoints,
         // where that was a real defect.
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in resolved)
+        foreach (var candidate in resolved)
         {
             try
             {

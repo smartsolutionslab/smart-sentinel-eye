@@ -63,14 +63,14 @@ public class IngestEventQuarantineTests
         using RecordedIngestVolume recorded = new();
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        EventEnvelope envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
 
-        Result<EventIdentifier, IngestEventError> result = await Handler(events, deadLetters, DiscoverySource())
+        var result = await Handler(events, deadLetters, DiscoverySource())
             .HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
         result.Error.ShouldBeOfType<IngestEventError.EventTypeHeld>();
-        DeadLetter held = deadLetters.DeadLetters.ShouldHaveSingleItem();
+        var held = deadLetters.DeadLetters.ShouldHaveSingleItem();
         held.Reason.ShouldBe(DeadLetterReason.UnknownEventType);
         held.Kind.ShouldBe(Kind.From("NobodyDeclaredThis"));
         held.Fab.ShouldBe(Berlin);
@@ -83,7 +83,7 @@ public class IngestEventQuarantineTests
     {
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        EventEnvelope envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
 
         await Handler(events, deadLetters, DiscoverySource())
             .HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
@@ -97,7 +97,7 @@ public class IngestEventQuarantineTests
         using RecordedIngestVolume recorded = new();
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        EventEnvelope envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
 
         await Handler(events, deadLetters, DiscoverySource())
             .HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
@@ -110,15 +110,15 @@ public class IngestEventQuarantineTests
     public async Task A_redelivery_is_still_a_redelivery_under_discovery()
     {
         InMemoryEventRepository events = new();
-        EventIdentifier identifier = EventIdentifier.New();
-        EventEnvelope envelope = BuildEnvelope(identifier, kind: "NobodyDeclaredThis");
+        var identifier = EventIdentifier.New();
+        var envelope = BuildEnvelope(identifier, kind: "NobodyDeclaredThis");
         events.Add(EventAggregate.Ingest(
             envelope.Identifier, envelope.Fab, envelope.Source, envelope.Device,
             envelope.Kind, envelope.OccurredAt, envelope.Payload, new FakeClock(Now)));
         await events.SaveAsync(CancellationToken.None);
         InMemoryDeadLetterRepository deadLetters = new();
 
-        Result<EventIdentifier, IngestEventError> result = await Handler(events, deadLetters, DiscoverySource())
+        var result = await Handler(events, deadLetters, DiscoverySource())
             .HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -132,9 +132,9 @@ public class IngestEventQuarantineTests
     {
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        EventEnvelope envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6), kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6), kind: "NobodyDeclaredThis");
 
-        Result<EventIdentifier, IngestEventError> result = await Handler(events, deadLetters, DiscoverySource())
+        var result = await Handler(events, deadLetters, DiscoverySource())
             .HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.Error.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>();
@@ -147,12 +147,12 @@ public class IngestEventQuarantineTests
     {
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        InMemoryEventTypeAdmissionSource source = DiscoverySource();
+        var source = DiscoverySource();
         source.Register(Domain.RegisteredEventType.RegisteredEventType.Register(
             Berlin, Kind.From("PlcCycleStart"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now)));
-        EventEnvelope envelope = BuildEnvelope(kind: "PlcCycleStart");
+        var envelope = BuildEnvelope(kind: "PlcCycleStart");
 
-        Result<EventIdentifier, IngestEventError> result = await Handler(events, deadLetters, source)
+        var result = await Handler(events, deadLetters, source)
             .HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -166,13 +166,13 @@ public class IngestEventQuarantineTests
     {
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        InMemoryEventTypeAdmissionSource source = DiscoverySource();
+        var source = DiscoverySource();
         source.Register(Domain.RegisteredEventType.RegisteredEventType.Register(
             Berlin, Kind.From("PlcCycleStart"), OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now)));
-        EventEnvelope registered = BuildEnvelope(kind: "PlcCycleStart");
-        EventEnvelope unknown = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var registered = BuildEnvelope(kind: "PlcCycleStart");
+        var unknown = BuildEnvelope(kind: "NobodyDeclaredThis");
 
-        IngestEventBatchResult result = await BatchHandler(events, deadLetters, source)
+        var result = await BatchHandler(events, deadLetters, source)
             .HandleAsync(new IngestEventBatchCommand([registered, unknown]), CancellationToken.None);
 
         events.Events.ShouldHaveSingleItem().Id.ShouldBe(registered.Identifier);
@@ -185,7 +185,7 @@ public class IngestEventQuarantineTests
     {
         InMemoryEventRepository events = new();
         InMemoryDeadLetterRepository deadLetters = new();
-        InMemoryEventTypeAdmissionSource source = DiscoverySource();
+        var source = DiscoverySource();
         EventEnvelope[] envelopes = [.. Enumerable.Range(0, 20).Select(i => BuildEnvelope(kind: $"Kind{i % 3}"))];
 
         await BatchHandler(events, deadLetters, source)

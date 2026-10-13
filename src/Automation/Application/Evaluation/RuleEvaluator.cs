@@ -31,14 +31,14 @@ public sealed class RuleEvaluator(
         // Scoped to the originating fab (spec 013 FR-002). Before this, an
         // event from one fab was matched against every fab's rules and the
         // resulting change was attributed to the ingesting fab (#1252).
-        IReadOnlyList<CompiledRule> candidates = cache.LookupActive(fab, triggerSource, triggerKind);
+        var candidates = cache.LookupActive(fab, triggerSource, triggerKind);
         if (candidates.Count == 0)
         {
             return Array.Empty<RuleActionEffect>();
         }
 
         List<RuleActionEffect> effects = new(candidates.Count);
-        foreach (CompiledRule rule in candidates)
+        foreach (var rule in candidates)
         {
             if (!TryEvaluatePredicate(rule, context))
             {
@@ -48,7 +48,7 @@ public sealed class RuleEvaluator(
             switch (rule.Action)
             {
                 case RuleAction.SetVariableValue setValue:
-                    if (TryEvaluateValueExpression(rule, context, out string? wireValue))
+                    if (TryEvaluateValueExpression(rule, context, out var wireValue))
                     {
                         effects.Add(new RuleActionEffect.SetVariableValue(
                             setValue.VariableName, wireValue));
@@ -80,7 +80,7 @@ public sealed class RuleEvaluator(
     {
         try
         {
-            AelValue result = AelInterpreter.Evaluate(rule.CompiledPredicate, context);
+            var result = AelInterpreter.Evaluate(rule.CompiledPredicate, context);
             return result is AelValue.BoolValue { Value: true };
         }
         // Not an enumerated list of exception types — that list missed
@@ -110,7 +110,7 @@ public sealed class RuleEvaluator(
 
         try
         {
-            AelValue result = AelInterpreter.Evaluate(rule.CompiledValueExpression, context);
+            var result = AelInterpreter.Evaluate(rule.CompiledValueExpression, context);
             wireValue = result.ToWireString();
             return true;
         }

@@ -36,7 +36,7 @@ public class BoundedIngestChannelTests
         await channel.WriteAsync(Delivery("b"), CancellationToken.None);
         await channel.WriteAsync(Delivery("c"), CancellationToken.None);
 
-        IReadOnlyList<IngestDelivery> batch =
+        var batch =
             await channel.ReadBatchAsync(10, CancellationToken.None);
 
         batch.Select(delivery => delivery.Envelope.Payload.Value)
@@ -53,7 +53,7 @@ public class BoundedIngestChannelTests
         await channel.WriteAsync(Delivery("a", first), CancellationToken.None);
         await channel.WriteAsync(Delivery("b", second), CancellationToken.None);
 
-        IReadOnlyList<IngestDelivery> batch =
+        var batch =
             await channel.ReadBatchAsync(10, CancellationToken.None);
 
         // Acknowledging the batch must acknowledge each delivery's own sender —
@@ -69,12 +69,12 @@ public class BoundedIngestChannelTests
     public async Task Takes_no_more_than_the_batch_size()
     {
         BoundedIngestChannel channel = new(capacity: 10);
-        for (int i = 0; i < 7; i++)
+        for (var i = 0; i < 7; i++)
         {
             await channel.WriteAsync(Delivery($"{i}"), CancellationToken.None);
         }
 
-        IReadOnlyList<IngestDelivery> batch =
+        var batch =
             await channel.ReadBatchAsync(3, CancellationToken.None);
 
         batch.Count.ShouldBe(3);
@@ -94,7 +94,7 @@ public class BoundedIngestChannelTests
         await channel.WriteAsync(Delivery("alone"), CancellationToken.None);
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(2));
-        IReadOnlyList<IngestDelivery> batch = await channel.ReadBatchAsync(200, cts.Token);
+        var batch = await channel.ReadBatchAsync(200, cts.Token);
 
         batch.ShouldHaveSingleItem();
     }
@@ -108,7 +108,7 @@ public class BoundedIngestChannelTests
         // Blocks because the channel is full. This is the backpressure the
         // broker feels: the handler stops returning, the in-flight window
         // fills, and queue depth absorbs the burst (FR-022, ADR-0175).
-        ValueTask pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
+        var pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
         pending.IsCompleted.ShouldBeFalse();
 
         await channel.ReadBatchAsync(1, CancellationToken.None);
@@ -130,12 +130,12 @@ public class BoundedIngestChannelTests
         BoundedIngestChannel channel = new(capacity: 1);
         await channel.WriteAsync(Delivery("1"), CancellationToken.None);
 
-        ValueTask pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
+        var pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
         await Task.Delay(TimeSpan.FromMilliseconds(20));
         await channel.ReadBatchAsync(1, CancellationToken.None);
         await pending;
 
-        double waited = recorded.BlockedDurationsMilliseconds.ShouldHaveSingleItem();
+        var waited = recorded.BlockedDurationsMilliseconds.ShouldHaveSingleItem();
         waited.ShouldBeGreaterThan(0);
     }
 

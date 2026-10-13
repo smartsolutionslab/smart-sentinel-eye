@@ -50,9 +50,9 @@ public sealed class ReverseIndexSeederHostedService(
             // The factory, not a typed client: this is a hosted service and so a
             // singleton, and a typed client held by one never gets its handler
             // rotated. The base address comes from the registration.
-            using HttpClient client = httpClientFactory.CreateClient("overlay-designer");
+            using var client = httpClientFactory.CreateClient("overlay-designer");
 
-            using HttpResponseMessage response = await client
+            using var response = await client
                 .GetAsync("/overlays?state=Published", cancellationToken);
 
             if (!response.IsSuccessStatusCode)
@@ -69,18 +69,18 @@ public sealed class ReverseIndexSeederHostedService(
                 return;
             }
 
-            JsonElement payload = await response.Content
+            var payload = await response.Content
                 .ReadFromJsonAsync<JsonElement>(cancellationToken);
-            if (!payload.TryGetProperty("published", out JsonElement published))
+            if (!payload.TryGetProperty("published", out var published))
             {
                 logger.SeedMissingPublishedKey();
                 return;
             }
 
-            int seeded = 0;
-            foreach (JsonElement overlay in published.EnumerateArray())
+            var seeded = 0;
+            foreach (var overlay in published.EnumerateArray())
             {
-                if (!overlay.TryGetProperty("overlayIdentifier", out JsonElement idElement))
+                if (!overlay.TryGetProperty("overlayIdentifier", out var idElement))
                 {
                     continue;
                 }
@@ -94,13 +94,13 @@ public sealed class ReverseIndexSeederHostedService(
                 // and throw nothing; it would just seed zero overlays on
                 // every cold start — the exact class of bug spec 150
                 // shipped once already.
-                if (!overlay.TryGetProperty("elements", out JsonElement elementsElement)
+                if (!overlay.TryGetProperty("elements", out var elementsElement)
                     || elementsElement.ValueKind != JsonValueKind.Array)
                 {
                     continue;
                 }
 
-                Guid id = idElement.GetGuid();
+                var id = idElement.GetGuid();
                 reverseIndex.UpsertOverlayReferences(id, ExtractElementTexts(elementsElement));
                 seeded++;
             }
@@ -145,10 +145,10 @@ public sealed class ReverseIndexSeederHostedService(
     private static List<string> ExtractElementTexts(JsonElement elementsElement)
     {
         List<string> elementTexts = [];
-        foreach (JsonElement element in elementsElement.EnumerateArray())
+        foreach (var element in elementsElement.EnumerateArray())
         {
             elementTexts.Add(
-                element.TryGetProperty("text", out JsonElement textElement)
+                element.TryGetProperty("text", out var textElement)
                     ? textElement.GetString() ?? string.Empty
                     : string.Empty);
         }

@@ -17,11 +17,11 @@ public class RuleActionColumnConverterTests
     [Fact]
     public void Next_target_round_trips_through_the_packed_column()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         RuleAction original = RuleAction.SwitchWallScene.From(wall, "Next", null);
 
-        string packed = RuleActionColumnConverter.ToColumn(original);
-        RuleAction roundTripped = RuleActionColumnConverter.FromColumn(packed);
+        var packed = RuleActionColumnConverter.ToColumn(original);
+        var roundTripped = RuleActionColumnConverter.FromColumn(packed);
 
         roundTripped.ShouldBe(original);
     }
@@ -29,12 +29,12 @@ public class RuleActionColumnConverterTests
     [Fact]
     public void Layout_target_round_trips_through_the_packed_column()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid layout = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
         RuleAction original = RuleAction.SwitchWallScene.From(wall, "Layout", layout);
 
-        string packed = RuleActionColumnConverter.ToColumn(original);
-        RuleAction roundTripped = RuleActionColumnConverter.FromColumn(packed);
+        var packed = RuleActionColumnConverter.ToColumn(original);
+        var roundTripped = RuleActionColumnConverter.FromColumn(packed);
 
         roundTripped.ShouldBe(original);
     }
@@ -49,7 +49,7 @@ public class RuleActionColumnConverterTests
     [Fact]
     public void FromColumn_rejects_a_malformed_layout_guid()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         Action act = () => RuleActionColumnConverter.FromColumn(
             $"SwitchWallScene|{wall:D}|Layout|not-a-guid");
         act.ShouldThrow<ArgumentException>();
@@ -58,7 +58,7 @@ public class RuleActionColumnConverterTests
     [Fact]
     public void FromColumn_rejects_an_unknown_target()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         Action act = () => RuleActionColumnConverter.FromColumn(
             $"SwitchWallScene|{wall:D}|Sideways");
         act.ShouldThrow<ArgumentException>();
@@ -67,7 +67,7 @@ public class RuleActionColumnConverterTests
     [Fact]
     public void FromColumn_rejects_Layout_with_no_layout_segment()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         Action act = () => RuleActionColumnConverter.FromColumn($"SwitchWallScene|{wall:D}|Layout");
         act.ShouldThrow<ArgumentException>();
     }

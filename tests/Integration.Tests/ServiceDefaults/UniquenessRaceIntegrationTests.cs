@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.ServiceDefaults;
@@ -47,11 +45,11 @@ public class UniquenessRaceIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Concurrent_writers_for_one_name_yield_one_success_and_never_a_fault()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
+        using var cameras = await ClientFor(MunichOperator);
 
-        string contested = $"race-{Guid.CreateVersion7():N}"[..20];
+        var contested = $"race-{Guid.CreateVersion7():N}"[..20];
 
-        IEnumerable<Task<HttpResponseMessage>> attempts = Enumerable
+        var attempts = Enumerable
             .Range(0, Writers)
             .Select(_ => cameras.PostAsJsonAsync("/cameras", new
             {
@@ -59,7 +57,7 @@ public class UniquenessRaceIntegrationTests(AspireFixture aspire) : IAsyncLifeti
                 rtspUrl = "rtsp://10.0.7.12/h264",
             }));
 
-        HttpResponseMessage[] responses = await Task.WhenAll(attempts);
+        var responses = await Task.WhenAll(attempts);
 
         try
         {
@@ -79,7 +77,7 @@ public class UniquenessRaceIntegrationTests(AspireFixture aspire) : IAsyncLifeti
         }
         finally
         {
-            foreach (HttpResponseMessage response in responses)
+            foreach (var response in responses)
             {
                 response.Dispose();
             }

@@ -17,16 +17,16 @@ public sealed class ReportStreamHealthCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (CameraIdentifier camera, RtspPathHealth? observation, bool declareOffline) = command;
+        (var camera, var observation, var declareOffline) = command;
 
-        Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
+        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (!existing.HasValue)
         {
             return Failure(ReportStreamHealthFailures.StreamNotFound(camera.Value));
         }
 
-        Stream stream = existing.Value;
+        var stream = existing.Value;
 
         try
         {
@@ -45,7 +45,7 @@ public sealed class ReportStreamHealthCommandHandler(
         }
         catch (InvalidOperationException ex)
         {
-            string targetState = DescribeTarget(command);
+            var targetState = DescribeTarget(command);
             logger.RejectedHealthTransition(ex, camera);
             return Failure(ReportStreamHealthFailures.InvalidStateTransition(
                     from: stream.State.Value,

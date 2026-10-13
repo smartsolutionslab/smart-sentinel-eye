@@ -27,9 +27,9 @@ public class OverlayElementSetTests
     [Fact]
     public void ValidateElements_rejects_five_boxes_and_four_texts_as_TooMany()
     {
-        OverlayColor color = OverlayColor.From("#d32f2f");
-        OverlayColor textColor = OverlayColor.From("#FFFFFFD9");
-        NormalizedSize size = NormalizedSize.From(0.2m, 0.2m);
+        var color = OverlayColor.From("#d32f2f");
+        var textColor = OverlayColor.From("#FFFFFFD9");
+        var size = NormalizedSize.From(0.2m, 0.2m);
         List<OverlayElement> elements = [
             OverlayElement.Box(NormalizedPosition.From(0.0m, 0.1m), size, color),
             OverlayElement.Box(NormalizedPosition.From(0.1m, 0.1m), size, color),
@@ -42,7 +42,7 @@ public class OverlayElementSetTests
             OverlayElement.TextElement("Label", 16, NormalizedPosition.From(0.8m, 0.1m), size, textColor),
         ];
 
-        Option<ElementSetViolation> violation = Domain.Overlay.Overlay.ValidateElements(elements);
+        var violation = Domain.Overlay.Overlay.ValidateElements(elements);
 
         violation.HasValue.ShouldBeTrue();
         violation.Value.ShouldBe(ElementSetViolation.TooMany);
@@ -53,7 +53,7 @@ public class OverlayElementSetTests
     [Fact]
     public void ValidateElements_rejects_an_empty_set()
     {
-        Option<ElementSetViolation> violation = Domain.Overlay.Overlay.ValidateElements([]);
+        var violation = Domain.Overlay.Overlay.ValidateElements([]);
 
         violation.HasValue.ShouldBeTrue();
         violation.Value.ShouldBe(ElementSetViolation.Empty);
@@ -62,11 +62,11 @@ public class OverlayElementSetTests
     [Fact]
     public void ValidateElements_accepts_a_set_at_exactly_MaxElements()
     {
-        List<OverlayElement> labels = Enumerable.Range(0, OverlayElement.MaxElements)
+        var labels = Enumerable.Range(0, OverlayElement.MaxElements)
             .Select(i => MakeLabel($"Label {i}"))
             .ToList();
 
-        Option<ElementSetViolation> violation = Domain.Overlay.Overlay.ValidateElements(labels);
+        var violation = Domain.Overlay.Overlay.ValidateElements(labels);
 
         violation.HasValue.ShouldBeFalse();
     }
@@ -74,11 +74,11 @@ public class OverlayElementSetTests
     [Fact]
     public void ValidateElements_rejects_one_more_than_MaxElements()
     {
-        List<OverlayElement> labels = Enumerable.Range(0, OverlayElement.MaxElements + 1)
+        var labels = Enumerable.Range(0, OverlayElement.MaxElements + 1)
             .Select(i => MakeLabel($"Label {i}"))
             .ToList();
 
-        Option<ElementSetViolation> violation = Domain.Overlay.Overlay.ValidateElements(labels);
+        var violation = Domain.Overlay.Overlay.ValidateElements(labels);
 
         violation.HasValue.ShouldBeTrue();
         violation.Value.ShouldBe(ElementSetViolation.TooMany);
@@ -87,7 +87,7 @@ public class OverlayElementSetTests
     [Fact]
     public void ValidateElements_accepts_a_single_label()
     {
-        Option<ElementSetViolation> violation = Domain.Overlay.Overlay.ValidateElements([MakeLabel()]);
+        var violation = Domain.Overlay.Overlay.ValidateElements([MakeLabel()]);
 
         violation.HasValue.ShouldBeFalse();
     }
@@ -95,7 +95,7 @@ public class OverlayElementSetTests
     [Fact]
     public void CreateDraft_with_an_empty_label_set_throws_the_backstop()
     {
-        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
 
         Action act = () => Domain.Overlay.Overlay.CreateDraft(
@@ -107,9 +107,9 @@ public class OverlayElementSetTests
     [Fact]
     public void CreateDraft_with_too_many_labels_throws_the_backstop()
     {
-        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
-        List<OverlayElement> tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1)
+        var tooMany = Enumerable.Range(0, OverlayElement.MaxElements + 1)
             .Select(i => MakeLabel($"Label {i}"))
             .ToList();
 
@@ -122,7 +122,7 @@ public class OverlayElementSetTests
     [Fact]
     public void EditDraft_with_an_empty_label_set_throws_the_backstop()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
+        var overlay = new OverlayBuilder().Build();
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
 
         Action act = () => overlay.EditDraft(OverlayRevisionNumber.One, [], clock);
@@ -135,16 +135,16 @@ public class OverlayElementSetTests
     [Fact]
     public void CreateDraft_with_three_labels_keeps_them_in_submission_order_with_dense_ordinals()
     {
-        OverlayElement first = MakeLabel("First", 0.1m);
-        OverlayElement second = MakeLabel("Second", 0.2m);
-        OverlayElement third = MakeLabel("Third", 0.3m);
-        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var first = MakeLabel("First", 0.1m);
+        var second = MakeLabel("Second", 0.2m);
+        var third = MakeLabel("Third", 0.3m);
+        var createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
 
-        Domain.Overlay.Overlay overlay = Domain.Overlay.Overlay.CreateDraft(
+        var overlay = Domain.Overlay.Overlay.CreateDraft(
             OverlayName.From("Three Labels"), [first, second, third], createdBy, clock);
 
-        Revision revision = overlay.Revisions.Single();
+        var revision = overlay.Revisions.Single();
         revision.Elements.Count.ShouldBe(3);
         revision.Elements[0].Text!.Value.ShouldBe("First");
         revision.Elements[1].Text!.Value.ShouldBe("Second");
@@ -157,16 +157,16 @@ public class OverlayElementSetTests
     [Fact]
     public void Publish_with_three_labels_raises_exactly_one_event_carrying_all_three()
     {
-        OverlayElement first = MakeLabel("First", 0.1m);
-        OverlayElement second = MakeLabel("Second", 0.2m);
-        OverlayElement third = MakeLabel("Third", 0.3m);
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var first = MakeLabel("First", 0.1m);
+        var second = MakeLabel("Second", 0.2m);
+        var third = MakeLabel("Third", 0.3m);
+        var overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
 
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
-        OverlayRevisionPublishedDomainEvent evt =
+        var evt =
             overlay.PendingEvents.OfType<OverlayRevisionPublishedDomainEvent>().ShouldHaveSingleItem();
         evt.Elements.Count.ShouldBe(3);
         evt.Elements[0].Text!.Value.ShouldBe("First");
@@ -177,15 +177,15 @@ public class OverlayElementSetTests
     [Fact]
     public void ReplaceLabels_is_a_wholesale_replacement_not_a_merge()
     {
-        OverlayElement first = MakeLabel("First", 0.1m);
-        OverlayElement second = MakeLabel("Second", 0.2m);
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabels([first, second]).Build();
+        var first = MakeLabel("First", 0.1m);
+        var second = MakeLabel("Second", 0.2m);
+        var overlay = new OverlayBuilder().WithLabels([first, second]).Build();
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
-        OverlayElement replacement = MakeLabel("Replacement", 0.5m);
+        var replacement = MakeLabel("Replacement", 0.5m);
 
         overlay.EditDraft(OverlayRevisionNumber.One, [replacement], clock);
 
-        Revision revision = overlay.Revisions.Single();
+        var revision = overlay.Revisions.Single();
         revision.Elements.Count.ShouldBe(1);
         revision.Elements.Single().Text!.Value.ShouldBe("Replacement");
     }
@@ -195,19 +195,19 @@ public class OverlayElementSetTests
     [Fact]
     public void BranchDraft_deep_copies_every_label_in_the_set()
     {
-        OverlayElement first = MakeLabel("First", 0.1m);
-        OverlayElement second = MakeLabel("Second", 0.2m);
-        OverlayElement third = MakeLabel("Third", 0.3m);
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var first = MakeLabel("First", 0.1m);
+        var second = MakeLabel("Second", 0.2m);
+        var third = MakeLabel("Third", 0.3m);
+        var overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
-        Revision published = overlay.Revisions.Single(r => r.Number == OverlayRevisionNumber.One);
+        var published = overlay.Revisions.Single(r => r.Number == OverlayRevisionNumber.One);
 
-        Revision draft = overlay.BranchDraft(by, clock);
+        var draft = overlay.BranchDraft(by, clock);
 
         draft.Elements.Count.ShouldBe(3);
-        for (int i = 0; i < 3; i++)
+        for (var i = 0; i < 3; i++)
         {
             draft.Elements[i].ShouldBe(published.Elements[i]);
             ReferenceEquals(draft.Elements[i], published.Elements[i]).ShouldBeFalse();
@@ -232,16 +232,16 @@ public class OverlayElementSetTests
     [Fact]
     public void Labels_returns_sorted_order_even_when_the_backing_list_is_physically_reversed()
     {
-        OverlayElement first = MakeLabel("First", 0.1m);
-        OverlayElement second = MakeLabel("Second", 0.2m);
-        OverlayElement third = MakeLabel("Third", 0.3m);
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
-        Revision revision = overlay.Revisions.Single();
+        var first = MakeLabel("First", 0.1m);
+        var second = MakeLabel("Second", 0.2m);
+        var third = MakeLabel("Third", 0.3m);
+        var overlay = new OverlayBuilder().WithLabels([first, second, third]).Build();
+        var revision = overlay.Revisions.Single();
         revision.Elements.Select(label => label.Text!.Value).ShouldBe(["First", "Second", "Third"]);
 
-        FieldInfo backingField = typeof(Revision).GetField("elements", BindingFlags.NonPublic | BindingFlags.Instance)
+        var backingField = typeof(Revision).GetField("elements", BindingFlags.NonPublic | BindingFlags.Instance)
             ?? throw new InvalidOperationException("Revision's private 'elements' field was not found — rename tracked here must be updated.");
-        List<OverlayElement> backingList = (List<OverlayElement>)backingField.GetValue(revision)!;
+        var backingList = (List<OverlayElement>)backingField.GetValue(revision)!;
         backingList.Reverse();
 
         // The physical order is now reversed; each label's own Ordinal is untouched.

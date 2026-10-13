@@ -16,7 +16,7 @@ public sealed class OverlayDesignerMigrator(
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using OverlayDesignerDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

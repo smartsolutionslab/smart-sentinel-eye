@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -45,14 +44,14 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     {
         // Run-unique: a fixed literal cannot tell this run's event from one a
         // previous run left in the same database.
-        string kind = $"Inferred{Guid.NewGuid():N}"[..24];
+        var kind = $"Inferred{Guid.NewGuid():N}"[..24];
 
-        using HttpClient events = await ClientFor(DresdenOperator);
+        using var events = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage created = await events.PostAsJsonAsync("/events/manual", Body(kind));
+        var created = await events.PostAsJsonAsync("/events/manual", Body(kind));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        using HttpClient reader = await ClientFor(MultiFabOperator);
+        using var reader = await ClientFor(MultiFabOperator);
         (await WaitForCountAsync(reader, "dresden", kind)).ShouldBe(
             1, "the inferred fab did not land in dresden");
 
@@ -66,21 +65,21 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task A_multi_fab_operator_naming_no_fab_is_refused()
     {
-        using HttpClient events = await ClientFor(MultiFabOperator);
+        using var events = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage refused = await events.PostAsJsonAsync("/events/manual", Body("AmbiguousKind"));
+        var refused = await events.PostAsJsonAsync("/events/manual", Body("AmbiguousKind"));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("EVENT_FAB_REQUIRED");
     }
 
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient events = await ClientFor(MultiFabOperator);
+        using var events = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage created = await events.PostAsJsonAsync(
+        var created = await events.PostAsJsonAsync(
             "/events/manual?fabId=dresden", Body("NamedKind"));
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
@@ -95,10 +94,10 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_ingests_nothing()
     {
-        string kind = $"Injected{Guid.NewGuid():N}"[..24];
+        var kind = $"Injected{Guid.NewGuid():N}"[..24];
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        HttpResponseMessage refused = await dresden.PostAsJsonAsync(
+        using var dresden = await ClientFor(DresdenOperator);
+        var refused = await dresden.PostAsJsonAsync(
             "/events/manual?fabId=munich", Body(kind));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
@@ -107,11 +106,11 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
         // to land before concluding nothing did.
         await Task.Delay(TimeSpan.FromSeconds(3));
 
-        using HttpClient munichReader = await ClientFor(MultiFabOperator);
-        HttpResponseMessage listed = await munichReader.GetAsync($"/events?fabId=munich&kind={kind}");
+        using var munichReader = await ClientFor(MultiFabOperator);
+        var listed = await munichReader.GetAsync($"/events?fabId=munich&kind={kind}");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         page.GetProperty("items").GetArrayLength().ShouldBe(
             0, "a refused write reached munich's stream anyway");
     }
@@ -124,10 +123,10 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
     /// </summary>
     private static async Task<int> WaitForCountAsync(HttpClient reader, string fab, string kind)
     {
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (true)
         {
-            int count = await CountAsync(reader, fab, kind);
+            var count = await CountAsync(reader, fab, kind);
             if (count > 0 || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -139,10 +138,10 @@ public class ManualIngestFabScopingIntegrationTests(AspireFixture aspire) : IAsy
 
     private static async Task<int> CountAsync(HttpClient reader, string fab, string kind)
     {
-        HttpResponseMessage listed = await reader.GetAsync($"/events?fabId={fab}&kind={kind}");
+        var listed = await reader.GetAsync($"/events?fabId={fab}&kind={kind}");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return page.GetProperty("items").GetArrayLength();
     }
 

@@ -2,7 +2,6 @@ using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Wall.Builders;
-using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -30,11 +29,11 @@ public class WallEditScenesNoOpTests
     [Fact]
     public void EditScenes_resubmitting_the_identical_scene_set_raises_no_events()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Domain.Wall.Wall wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithScenes([a, b]).At(FixedMoment).Build();
         wall.ClearPendingEvents();
-        Domain.Wall.SceneVersion versionBefore = wall.SceneVersion;
+        var versionBefore = wall.SceneVersion;
 
         wall.EditScenes([a, b], NewOperator(), new LayoutBuilder.TestClock(FixedMoment));
 

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 
@@ -36,11 +35,11 @@ public sealed class WallSeeder(
     /// </summary>
     public async Task TryCreateAsync(CancellationToken cancellationToken)
     {
-        ScenarioOptions scenarios = scenarioOptions.Value;
+        var scenarios = scenarioOptions.Value;
 
-        foreach (string key in scenarios.Active)
+        foreach (var key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario) || scenario.Wall is null)
+            if (!scenarios.Scenarios.TryGetValue(key, out var scenario) || scenario.Wall is null)
             {
                 continue;
             }
@@ -54,8 +53,8 @@ public sealed class WallSeeder(
         ScenarioDefinition scenario,
         CancellationToken cancellationToken)
     {
-        int expected = scenario.Assets.Count(asset => asset.Overlay is not null && asset.Tile is not null);
-        if (!correlation.IsWallComplete(key, expected, out int ready))
+        var expected = scenario.Assets.Count(asset => asset.Overlay is not null && asset.Tile is not null);
+        if (!correlation.IsWallComplete(key, expected, out var ready))
         {
             logger.WallNotYetComplete(ready, expected);
             return;

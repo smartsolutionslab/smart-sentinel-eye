@@ -56,7 +56,7 @@ public static class IdempotencyHeaders
         key = Option<IdempotencyKey>.None;
         problem = null;
 
-        if (!request.Headers.TryGetValue(HeaderName, out Microsoft.Extensions.Primitives.StringValues values)
+        if (!request.Headers.TryGetValue(HeaderName, out var values)
             || values.Count == 0)
         {
             return true;
@@ -69,7 +69,7 @@ public static class IdempotencyHeaders
             return false;
         }
 
-        string? raw = values[0];
+        var raw = values[0];
 
         if (string.IsNullOrWhiteSpace(raw))
         {

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
@@ -25,15 +24,15 @@ public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_manual_ingest_with_no_payload_property_answers_400_not_500()
     {
-        using HttpClient events = await aspire.CreateAuthenticatedClientAsync(
+        using var events = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", ManualOperator, OperatorPassword);
 
-        HttpResponseMessage response = await events.PostAsJsonAsync(
+        var response = await events.PostAsJsonAsync(
             "/events/manual", ManualBodyMissingPayload());
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("EVENT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("payload", Case.Insensitive);
     }
@@ -41,8 +40,8 @@ public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_webhook_delivery_with_no_payload_property_answers_400_not_500()
     {
-        string name = $"missing-payload-{Guid.NewGuid():N}"[..32];
-        string token = await RegisterStaticHashIntegrationAsync(name);
+        var name = $"missing-payload-{Guid.NewGuid():N}"[..32];
+        var token = await RegisterStaticHashIntegrationAsync(name);
 
         using HttpRequestMessage request = new(
             HttpMethod.Post, $"/events/webhook/{name}?fabId={WebhookFab}")
@@ -50,11 +49,11 @@ public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
             Content = JsonContent.Create(WebhookBodyMissingPayload()),
         };
         request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-        HttpResponseMessage response = await aspire.EventIngestion.SendAsync(request);
+        var response = await aspire.EventIngestion.SendAsync(request);
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.BadRequest, await BodyAsync(response));
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("EVENT_INVALID_INPUT");
         problem.GetProperty("detail").GetString().ShouldNotBeNull().ShouldContain("payload", Case.Insensitive);
     }
@@ -67,10 +66,10 @@ public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_anonymous_caller_is_refused_before_the_body_is_read()
     {
-        string deviceId = $"anon-refused-{Guid.NewGuid():N}"[..24];
-        using HttpClient anonymous = aspire.CreateServiceClient("event-ingestion");
+        var deviceId = $"anon-refused-{Guid.NewGuid():N}"[..24];
+        using var anonymous = aspire.CreateServiceClient("event-ingestion");
 
-        HttpResponseMessage response = await anonymous.PostAsJsonAsync(
+        var response = await anonymous.PostAsJsonAsync(
             "/events/manual", ManualBodyMissingPayload(deviceId));
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized, await BodyAsync(response));
@@ -81,18 +80,18 @@ public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
 
     private async Task<string> RegisterStaticHashIntegrationAsync(string name)
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("event-ingestion");
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        using var admin = await aspire.CreateAdminClientAsync("event-ingestion");
+        var created = await admin.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "MissingPayloadProbe" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("token").GetString()!;
     }
 
     private async Task<long> DeadLetterCountAsync(string needle)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>(
                 "SELECT count(*) AS \"Value\" FROM dead_letters WHERE raw_payload LIKE {0}", $"%{needle}%")
@@ -101,7 +100,7 @@ public class MissingPayloadIsRefusedIntegrationTests(AspireFixture aspire)
 
     private async Task<long> EventCountAsync(string deviceId)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE device_id = {0}", deviceId)
             .SingleAsync();

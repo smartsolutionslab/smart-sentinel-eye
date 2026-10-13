@@ -1,4 +1,3 @@
-using System.Reflection;
 using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Contracts;
@@ -26,12 +25,12 @@ public class V1ResourceMapTests
     [Fact]
     public void Camera_V1_maps_to_camera_resource_kind()
     {
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
         CameraRegisteredV1 evt = new(
             id, "north-gate", "rtsp://example/cam",
             DateTimeOffset.UtcNow, Guid.CreateVersion7(), Metadata: TestMetadata);
 
-        V1Mapping mapping = map.Lookup(typeof(CameraRegisteredV1), evt);
+        var mapping = map.Lookup(typeof(CameraRegisteredV1), evt);
 
         mapping.Kind.HasValue.ShouldBeTrue();
         mapping.Kind.Value.ShouldBe(ResourceKind.Camera);
@@ -46,7 +45,7 @@ public class V1ResourceMapTests
             Guid.CreateVersion7(), "plc-station-4", "plc", "station-4", "munich",
             DateTimeOffset.UtcNow, Metadata: TestMetadata);
 
-        V1Mapping mapping = map.Lookup(typeof(DeviceRegisteredV1), evt);
+        var mapping = map.Lookup(typeof(DeviceRegisteredV1), evt);
 
         mapping.Kind.Value.ShouldBe(ResourceKind.Device);
         mapping.ResourceIdentifier.Value.Value.ShouldBe("plc-station-4");
@@ -58,7 +57,7 @@ public class V1ResourceMapTests
         KioskEnrolledV1 evt = new(
             Guid.CreateVersion7(), "kiosk-pilot", "munich", DateTimeOffset.UtcNow, Metadata: TestMetadata);
 
-        V1Mapping mapping = map.Lookup(typeof(KioskEnrolledV1), evt);
+        var mapping = map.Lookup(typeof(KioskEnrolledV1), evt);
 
         mapping.Kind.Value.ShouldBe(ResourceKind.Kiosk);
         mapping.ResourceIdentifier.Value.Value.ShouldBe("kiosk-pilot");
@@ -67,13 +66,13 @@ public class V1ResourceMapTests
     [Fact]
     public void AuditChunkArchivedV1_pivots_on_the_chunk_identifier()
     {
-        Guid chunkId = Guid.CreateVersion7();
+        var chunkId = Guid.CreateVersion7();
         AuditChunkArchivedV1 evt = new(
             chunkId, "munich", 0,
             DateTimeOffset.UtcNow, DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow, "k", "m", Metadata: TestMetadata);
 
-        V1Mapping mapping = map.Lookup(typeof(AuditChunkArchivedV1), evt);
+        var mapping = map.Lookup(typeof(AuditChunkArchivedV1), evt);
 
         mapping.Kind.HasValue.ShouldBeTrue();
         mapping.ResourceIdentifier.Value.Value.ShouldBe(chunkId.ToString());
@@ -82,7 +81,7 @@ public class V1ResourceMapTests
     [Fact]
     public void Lookup_of_a_non_IIntegrationEvent_type_returns_unmapped()
     {
-        V1Mapping mapping = map.Lookup(typeof(string), "anything");
+        var mapping = map.Lookup(typeof(string), "anything");
         mapping.Kind.HasValue.ShouldBeFalse();
         mapping.ResourceIdentifier.HasValue.ShouldBeFalse();
     }
@@ -155,7 +154,7 @@ public class V1ResourceMapTests
     // 1. AuditObservability.AuditChunkArchivedV1 -> event / ChunkIdentifier (hand-tweak; blessed)
     private static MappingCase AuditChunkArchivedCase()
     {
-        Guid chunkIdentifier = Guid.CreateVersion7();
+        var chunkIdentifier = Guid.CreateVersion7();
         return new MappingCase(
             typeof(AuditChunkArchivedV1),
             ResourceKind.Event,
@@ -175,7 +174,7 @@ public class V1ResourceMapTests
     // 2. CameraCatalog.CameraAddressChangedV1 -> camera / Camera
     private static MappingCase CameraAddressChangedCase()
     {
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         return new MappingCase(
             typeof(CameraAddressChangedV1),
             ResourceKind.Camera,
@@ -193,7 +192,7 @@ public class V1ResourceMapTests
     // 3. CameraCatalog.CameraRegisteredV1 -> camera / Camera
     private static MappingCase CameraRegisteredCase()
     {
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         return new MappingCase(
             typeof(CameraRegisteredV1),
             ResourceKind.Camera,
@@ -210,7 +209,7 @@ public class V1ResourceMapTests
     // 4. CameraCatalog.CameraRenamedV1 -> camera / Camera
     private static MappingCase CameraRenamedCase()
     {
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         return new MappingCase(
             typeof(CameraRenamedV1),
             ResourceKind.Camera,
@@ -228,7 +227,7 @@ public class V1ResourceMapTests
     // 5. CameraCatalog.CameraRetiredV1 -> camera / Camera
     private static MappingCase CameraRetiredCase()
     {
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         return new MappingCase(
             typeof(CameraRetiredV1),
             ResourceKind.Camera,
@@ -245,7 +244,7 @@ public class V1ResourceMapTests
     // 6. EventIngestion.FabEventIngestedV1 -> event / EventIdentifier
     private static MappingCase FabEventIngestedCase()
     {
-        Guid eventIdentifier = Guid.CreateVersion7();
+        var eventIdentifier = Guid.CreateVersion7();
         return new MappingCase(
             typeof(FabEventIngestedV1),
             ResourceKind.Event,
@@ -265,7 +264,7 @@ public class V1ResourceMapTests
     // 7. Identity.DeviceRegisteredV1 -> device / ClientId (hand-tweak)
     private static MappingCase DeviceRegisteredCase()
     {
-        string clientId = "ClientId-sentinel";
+        var clientId = "ClientId-sentinel";
         return new MappingCase(
             typeof(DeviceRegisteredV1),
             ResourceKind.Device,
@@ -283,7 +282,7 @@ public class V1ResourceMapTests
     // 8. Identity.KioskEnrolledV1 -> kiosk / ClientId (hand-tweak)
     private static MappingCase KioskEnrolledCase()
     {
-        string clientId = "ClientId-sentinel";
+        var clientId = "ClientId-sentinel";
         return new MappingCase(
             typeof(KioskEnrolledV1),
             ResourceKind.Kiosk,
@@ -299,7 +298,7 @@ public class V1ResourceMapTests
     // 9. Identity.WebhookIntegrationRotatedV1 -> webhook-integration / IntegrationName (hand-tweak)
     private static MappingCase WebhookIntegrationRotatedCase()
     {
-        string integrationName = "IntegrationName-sentinel";
+        var integrationName = "IntegrationName-sentinel";
         return new MappingCase(
             typeof(WebhookIntegrationRotatedV1),
             ResourceKind.WebhookIntegration,
@@ -315,7 +314,7 @@ public class V1ResourceMapTests
     // (hand-tweak; spec 264, #2206)
     private static MappingCase WebhookIntegrationRevokedCase()
     {
-        string integrationName = "IntegrationName-sentinel";
+        var integrationName = "IntegrationName-sentinel";
         return new MappingCase(
             typeof(WebhookIntegrationRevokedV1),
             ResourceKind.WebhookIntegration,
@@ -329,7 +328,7 @@ public class V1ResourceMapTests
     // 10. LayoutComposition.LayoutRevisionArchivedV1 -> layout / Layout
     private static MappingCase LayoutRevisionArchivedCase()
     {
-        Guid layout = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
         return new MappingCase(
             typeof(LayoutRevisionArchivedV1),
             ResourceKind.Layout,
@@ -345,7 +344,7 @@ public class V1ResourceMapTests
     // 11. LayoutComposition.LayoutRevisionPublishedV2 -> layout / Layout
     private static MappingCase LayoutRevisionPublishedCase()
     {
-        Guid layout = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
         return new MappingCase(
             typeof(LayoutRevisionPublishedV2),
             ResourceKind.Layout,
@@ -367,8 +366,8 @@ public class V1ResourceMapTests
     //     (the event's subject). The picked identifier (OverlayIdentifier) is already correct.
     private static MappingCase OverlayHighlightRequestedCase()
     {
-        Guid overlayIdentifier = Guid.CreateVersion7();
-        Guid causingEventIdentifier = Guid.CreateVersion7();
+        var overlayIdentifier = Guid.CreateVersion7();
+        var causingEventIdentifier = Guid.CreateVersion7();
         return new MappingCase(
             typeof(OverlayHighlightRequestedV1),
             ResourceKind.Overlay,
@@ -385,7 +384,7 @@ public class V1ResourceMapTests
     // 13. OverlayDesigner.OverlayRevisionArchivedV1 -> overlay / Overlay
     private static MappingCase OverlayRevisionArchivedCase()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         return new MappingCase(
             typeof(OverlayRevisionArchivedV1),
             ResourceKind.Overlay,
@@ -405,7 +404,7 @@ public class V1ResourceMapTests
     // on the V3 shape is still Overlay.)
     private static MappingCase OverlayRevisionPublishedCase()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         return new MappingCase(
             typeof(OverlayRevisionPublishedV3),
             ResourceKind.Overlay,
@@ -424,7 +423,7 @@ public class V1ResourceMapTests
     //     handle is the camera id, GET /streams/{cameraIdentifier})
     private static MappingCase StreamHealthChangedCase()
     {
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         return new MappingCase(
             typeof(StreamHealthChangedV1),
             ResourceKind.Stream,
@@ -445,7 +444,7 @@ public class V1ResourceMapTests
     // unedited).
     private static MappingCase ResolvedOverlayTextChangedCase()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         return new MappingCase(
             typeof(ResolvedOverlayTextChangedV3),
             ResourceKind.Overlay,
@@ -460,8 +459,8 @@ public class V1ResourceMapTests
     // 17. SystemVariables.SystemVariableArchivedV1 -> variable / Name (hand-tweak; spec 322, #2502)
     private static MappingCase SystemVariableArchivedCase()
     {
-        Guid variable = Guid.CreateVersion7();
-        string name = "Name-sentinel";
+        var variable = Guid.CreateVersion7();
+        var name = "Name-sentinel";
         return new MappingCase(
             typeof(SystemVariableArchivedV1),
             ResourceKind.Variable,
@@ -478,8 +477,8 @@ public class V1ResourceMapTests
     // 18. SystemVariables.SystemVariableDefinedV1 -> variable / Name (hand-tweak; spec 322, #2502)
     private static MappingCase SystemVariableDefinedCase()
     {
-        Guid variable = Guid.CreateVersion7();
-        string name = "Name-sentinel";
+        var variable = Guid.CreateVersion7();
+        var name = "Name-sentinel";
         return new MappingCase(
             typeof(SystemVariableDefinedV1),
             ResourceKind.Variable,
@@ -497,8 +496,8 @@ public class V1ResourceMapTests
     // 19. SystemVariables.SystemVariableValueChangedV1 -> variable / Name (hand-tweak; spec 322, #2502)
     private static MappingCase SystemVariableValueChangedCase()
     {
-        Guid variable = Guid.CreateVersion7();
-        string name = "Name-sentinel";
+        var variable = Guid.CreateVersion7();
+        var name = "Name-sentinel";
         return new MappingCase(
             typeof(SystemVariableValueChangedV1),
             ResourceKind.Variable,
@@ -520,8 +519,8 @@ public class V1ResourceMapTests
     //     convention picker wrongly resolves to that instead of Name.
     private static MappingCase SystemVariableValueRequestedCase()
     {
-        string name = "Name-sentinel";
-        Guid causingEventIdentifier = Guid.CreateVersion7();
+        var name = "Name-sentinel";
+        var causingEventIdentifier = Guid.CreateVersion7();
         return new MappingCase(
             typeof(SystemVariableValueRequestedV1),
             ResourceKind.Variable,
@@ -538,7 +537,7 @@ public class V1ResourceMapTests
     // 21. LayoutComposition.WallConfiguredV1 -> wall / Wall (spec 258 US1, T012)
     private static MappingCase WallConfiguredCase()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         return new MappingCase(
             typeof(WallConfiguredV1),
             ResourceKind.Wall,
@@ -555,7 +554,7 @@ public class V1ResourceMapTests
     // 22. LayoutComposition.WallSceneChangedV1 -> wall / Wall (spec 258 US1, T012)
     private static MappingCase WallSceneChangedCase()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         return new MappingCase(
             typeof(WallSceneChangedV1),
             ResourceKind.Wall,
@@ -577,7 +576,7 @@ public class V1ResourceMapTests
     //     the picker's first Guid property (`Wall`) already happens to be the right identifier.
     private static MappingCase WallSceneSwitchRequestedCase()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         return new MappingCase(
             typeof(WallSceneSwitchRequestedV1),
             ResourceKind.Wall,
@@ -595,7 +594,7 @@ public class V1ResourceMapTests
     public static TheoryData<MappingCase> Cases()
     {
         TheoryData<MappingCase> data = [];
-        foreach (MappingCase mappingCase in AllCases)
+        foreach (var mappingCase in AllCases)
         {
             data.Add(mappingCase);
         }
@@ -607,10 +606,10 @@ public class V1ResourceMapTests
     [MemberData(nameof(Cases))]
     public void Every_integration_event_pivots_on_the_resource_it_is_about(MappingCase mappingCase)
     {
-        object instance = mappingCase.Factory();
+        var instance = mappingCase.Factory();
         mappingCase.ContractType.IsInstanceOfType(instance).ShouldBeTrue();
 
-        V1Mapping mapping = map.Lookup(mappingCase.ContractType, instance);
+        var mapping = map.Lookup(mappingCase.ContractType, instance);
 
         mapping.Kind.HasValue.ShouldBeTrue();
         mapping.Kind.Value.ShouldBe(mappingCase.ExpectedKind);
@@ -633,8 +632,8 @@ public class V1ResourceMapTests
     [Fact]
     public void Every_variable_contract_for_one_variable_pivots_on_the_same_identifier()
     {
-        Guid variable = Guid.CreateVersion7();
-        string name = "Spec322-variable-name-sentinel";
+        var variable = Guid.CreateVersion7();
+        var name = "Spec322-variable-name-sentinel";
 
         SystemVariableDefinedV1 defined = new(
             variable,
@@ -692,7 +691,7 @@ public class V1ResourceMapTests
     [Fact]
     public void Every_integration_event_has_a_row_in_the_mapping_table()
     {
-        Assembly contracts = typeof(IIntegrationEvent).Assembly;
+        var contracts = typeof(IIntegrationEvent).Assembly;
         HashSet<Type> allIntegrationEvents = [.. contracts.GetTypes()
             .Where(type => !type.IsAbstract && !type.IsInterface)
             .Where(type => typeof(IIntegrationEvent).IsAssignableFrom(type))];

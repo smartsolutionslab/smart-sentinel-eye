@@ -28,9 +28,9 @@ public class ChangeCameraAddressCommandHandlerTests
     public async Task Correcting_the_address_stores_it_and_saves_once()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = await SeedAsync(cameras, "munich");
+        var camera = await SeedAsync(cameras, "munich");
 
-        Result<CameraIdentifier, ChangeCameraAddressError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(CommandFor(camera, "munich"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -42,7 +42,7 @@ public class ChangeCameraAddressCommandHandlerTests
     {
         InMemoryCameraRepository cameras = new();
 
-        Result<CameraIdentifier, ChangeCameraAddressError> result = await NewHandler(cameras).HandleAsync(
+        var result = await NewHandler(cameras).HandleAsync(
             new ChangeCameraAddressCommand(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(Guid.CreateVersion7()),
@@ -64,9 +64,9 @@ public class ChangeCameraAddressCommandHandlerTests
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
         InMemoryCameraRepository cameras = new();
-        Camera inMunich = await SeedAsync(cameras, "munich");
+        var inMunich = await SeedAsync(cameras, "munich");
 
-        Result<CameraIdentifier, ChangeCameraAddressError> crossFab =
+        var crossFab =
             await NewHandler(cameras).HandleAsync(CommandFor(inMunich, "dresden"), CancellationToken.None);
 
         crossFab.IsFailure.ShouldBeTrue();
@@ -81,15 +81,15 @@ public class ChangeCameraAddressCommandHandlerTests
     public async Task A_stale_version_is_refused_and_changes_nothing()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = await SeedAsync(cameras, "munich");
+        var camera = await SeedAsync(cameras, "munich");
 
-        Result<CameraIdentifier, ChangeCameraAddressError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(
                 CommandFor(camera, "munich") with { ExpectedVersion = camera.Version + 7 },
                 CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ChangeCameraAddressError.VersionStale stale =
+        var stale =
             result.Error.ShouldBeOfType<ChangeCameraAddressError.VersionStale>();
 
         // The code string, not only the record type. The string is what a client
@@ -123,10 +123,10 @@ public class ChangeCameraAddressCommandHandlerTests
     public async Task A_retired_camera_is_refused_as_retired()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = await SeedAsync(cameras, "munich");
+        var camera = await SeedAsync(cameras, "munich");
         camera.Retire(AnAdmin, new FixedClock(FixedMoment));
 
-        Result<CameraIdentifier, ChangeCameraAddressError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(
                 CommandFor(camera, "munich") with { ExpectedVersion = camera.Version },
                 CancellationToken.None);
@@ -149,9 +149,9 @@ public class ChangeCameraAddressCommandHandlerTests
     public async Task Re_submitting_the_current_address_succeeds_and_announces_nothing()
     {
         InMemoryCameraRepository cameras = new();
-        Camera camera = await SeedAsync(cameras, "munich");
+        var camera = await SeedAsync(cameras, "munich");
 
-        Result<CameraIdentifier, ChangeCameraAddressError> result =
+        var result =
             await NewHandler(cameras).HandleAsync(
                 CommandFor(camera, "munich") with { Url = RtspUrl.From(OriginalUrl) },
                 CancellationToken.None);
@@ -172,7 +172,7 @@ public class ChangeCameraAddressCommandHandlerTests
 
     private static async Task<Camera> SeedAsync(InMemoryCameraRepository cameras, string fab)
     {
-        Camera camera = Camera.Register(
+        var camera = Camera.Register(
             FabIdentifier.From(fab),
             CameraName.From("line-3-inlet"),
             RtspUrl.From(OriginalUrl),

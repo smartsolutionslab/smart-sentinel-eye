@@ -2,7 +2,6 @@ using System.Collections.Concurrent;
 using MQTTnet;
 using MQTTnet.Diagnostics.PacketInspection;
 using MQTTnet.Exceptions;
-using MQTTnet.Packets;
 
 namespace SmartSentinelEye.EventIngestion.Infrastructure.Tests.Fakes;
 
@@ -128,7 +127,7 @@ internal sealed class FakeMqttClient : IMqttClient
     /// </summary>
     public async Task RaiseStaleDisconnectAsync()
     {
-        Func<MqttClientDisconnectedEventArgs, Task>? handler = DisconnectedAsync;
+        var handler = DisconnectedAsync;
         if (handler is not null)
         {
             await handler(new MqttClientDisconnectedEventArgs(
@@ -164,7 +163,7 @@ internal sealed class FakeMqttClient : IMqttClient
     {
         IsConnected = false;
 
-        Func<MqttClientDisconnectedEventArgs, Task>? handler = DisconnectedAsync;
+        var handler = DisconnectedAsync;
         if (handler is not null)
         {
             await handler(new MqttClientDisconnectedEventArgs(
@@ -259,7 +258,7 @@ internal sealed class FakeMqttClient : IMqttClient
             throw new MqttClientNotConnectedException();
         }
 
-        foreach (MqttTopicFilter filter in options.TopicFilters)
+        foreach (var filter in options.TopicFilters)
         {
             subscribedTopics.Enqueue(filter.Topic);
         }

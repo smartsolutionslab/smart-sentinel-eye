@@ -38,32 +38,32 @@ public class HandlerDeconstructionTests
     [Fact]
     public void Handler_deconstructions_bind_their_records_fields_in_order()
     {
-        Dictionary<string, string> sources = ReadSources();
+        var sources = ReadSources();
         Dictionary<string, IReadOnlyList<IReadOnlyList<string>>> records = new(StringComparer.Ordinal);
         List<string> failures = [];
-        int checkedCount = 0;
+        var checkedCount = 0;
 
-        foreach ((string path, string text) in sources)
+        foreach ((var path, var text) in sources)
         {
             foreach (Match signature in HandlerSignature.Matches(text))
             {
-                string typeName = signature.Groups[1].Value;
-                string parameter = signature.Groups[2].Value;
+                var typeName = signature.Groups[1].Value;
+                var parameter = signature.Groups[2].Value;
 
-                string? body = BodyAfter(text, signature.Index);
+                var body = BodyAfter(text, signature.Index);
                 if (body is null)
                 {
                     continue;
                 }
 
-                Match deconstruction = Deconstruction.Match(body);
+                var deconstruction = Deconstruction.Match(body);
                 if (!deconstruction.Success || deconstruction.Groups[2].Value != parameter)
                 {
                     continue;
                 }
 
                 checkedCount++;
-                string[] bound = deconstruction.Groups[1].Value
+                var bound = deconstruction.Groups[1].Value
                     .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
 
                 failures.AddRange(Verify(path, typeName, bound, Candidates(typeName, sources, records)));
@@ -86,7 +86,7 @@ public class HandlerDeconstructionTests
         // Arity picks the overload, exactly as the compiler does. A mismatch here
         // is normally already a compile error; it is reported rather than assumed
         // so the guard degrades to a clear message instead of a wrong one.
-        IReadOnlyList<string>? fields = candidates.FirstOrDefault(c => c.Count == bound.Length);
+        var fields = candidates.FirstOrDefault(c => c.Count == bound.Length);
         if (fields is null)
         {
             yield return $"{path}: '{typeName}' offers no way to deconstruct into {bound.Length} "
@@ -95,15 +95,15 @@ public class HandlerDeconstructionTests
             yield break;
         }
 
-        for (int i = 0; i < bound.Length; i++)
+        for (var i = 0; i < bound.Length; i++)
         {
-            string local = bound[i];
+            var local = bound[i];
             if (local == "_" || Same(local, fields[i]))
             {
                 continue;
             }
 
-            int elsewhere = IndexOfField(fields, local);
+            var elsewhere = IndexOfField(fields, local);
             if (elsewhere >= 0)
             {
                 yield return $"{path}: '{typeName}' position {i} is '{fields[i]}' but is bound as "
@@ -115,7 +115,7 @@ public class HandlerDeconstructionTests
 
     private static int IndexOfField(IReadOnlyList<string> fields, string local)
     {
-        for (int i = 0; i < fields.Count; i++)
+        for (var i = 0; i < fields.Count; i++)
         {
             if (Same(local, fields[i]))
             {
@@ -140,21 +140,21 @@ public class HandlerDeconstructionTests
         IReadOnlyDictionary<string, string> sources,
         Dictionary<string, IReadOnlyList<IReadOnlyList<string>>> cache)
     {
-        if (cache.TryGetValue(typeName, out IReadOnlyList<IReadOnlyList<string>>? cached))
+        if (cache.TryGetValue(typeName, out var cached))
         {
             return cached;
         }
 
         Regex declaration = new(@"record\s+" + Regex.Escape(typeName) + @"\s*\(");
-        foreach (string text in sources.Values)
+        foreach (var text in sources.Values)
         {
-            Match match = declaration.Match(text);
+            var match = declaration.Match(text);
             if (!match.Success)
             {
                 continue;
             }
 
-            string? header = Balanced(text, match.Index + match.Length - 1, '(', ')');
+            var header = Balanced(text, match.Index + match.Length - 1, '(', ')');
             if (header is null)
             {
                 continue;
@@ -173,7 +173,7 @@ public class HandlerDeconstructionTests
     {
         foreach (Match overload in Regex.Matches(text[typeIndex..], @"void\s+Deconstruct\s*\("))
         {
-            string? parameters = Balanced(text, typeIndex + overload.Index + overload.Length - 1, '(', ')');
+            var parameters = Balanced(text, typeIndex + overload.Index + overload.Length - 1, '(', ')');
             if (parameters is not null)
             {
                 yield return Names(parameters);
@@ -192,11 +192,11 @@ public class HandlerDeconstructionTests
     /// <summary>Splits a parameter list on commas that are not inside generics.</summary>
     private static IEnumerable<string> SplitTopLevel(string parameters)
     {
-        int depth = 0;
-        int start = 0;
-        for (int i = 0; i < parameters.Length; i++)
+        var depth = 0;
+        var start = 0;
+        for (var i = 0; i < parameters.Length; i++)
         {
-            char c = parameters[i];
+            var c = parameters[i];
             if (c is '<' or '(' or '[')
             {
                 depth++;
@@ -217,15 +217,15 @@ public class HandlerDeconstructionTests
 
     private static string? BodyAfter(string text, int signatureIndex)
     {
-        int open = text.IndexOf('{', signatureIndex);
+        var open = text.IndexOf('{', signatureIndex);
         return open < 0 ? null : Balanced(text, open, '{', '}');
     }
 
     /// <summary>Contents between <paramref name="openIndex"/> and its match.</summary>
     private static string? Balanced(string text, int openIndex, char open, char close)
     {
-        int depth = 0;
-        for (int i = openIndex; i < text.Length; i++)
+        var depth = 0;
+        for (var i = openIndex; i < text.Length; i++)
         {
             if (text[i] == open)
             {
@@ -252,11 +252,11 @@ public class HandlerDeconstructionTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

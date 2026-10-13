@@ -13,7 +13,7 @@ public class DtoSmokeTests
     [Fact]
     public void EventDto_round_trips_every_field()
     {
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
         EventDto dto = new(
             id, "munich", "plc", "station-4", "PlcCycleStart",
             DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch.AddSeconds(1), "{}");
@@ -45,7 +45,7 @@ public class DtoSmokeTests
     [Fact]
     public void DeadLetterDto_round_trips_every_field()
     {
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
         DeadLetterDto dto = new(
             id, "fab/m/plc/x", "raw", "err", DateTimeOffset.UnixEpoch,
             "munich", "ParseFailure", null, "Held");
@@ -76,7 +76,7 @@ public class DtoSmokeTests
     [Fact]
     public void WebhookIntegrationDto_round_trips_every_field()
     {
-        Guid id = Guid.CreateVersion7();
+        var id = Guid.CreateVersion7();
         WebhookIntegrationDto dto = new(
             id, 7, "qa", "munich", "QaResult", DateTimeOffset.UnixEpoch, RevokedAt: null);
 

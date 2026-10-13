@@ -1,7 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Domain.DeadLetter;
@@ -62,16 +60,16 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<EventPageDto, ListEventsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListEventsQuery(
                 fabs, sourceVo, deviceVo, kindVo,
                 occurredAfter, occurredBefore, ingestedAfter, ingestedBefore,
@@ -103,16 +101,16 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<EventDto, GetEventError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetEventQuery(fabs, identifier), cancellationToken);
 
         return result.Match<IResult>(
@@ -152,16 +150,16 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<DeadLetterDto>, ListDeadLettersError> result =
+        var result =
             await handler.HandleAsync(
                 new ListDeadLettersQuery(fabs, limit ?? 100, reasonFilter, stateFilter), cancellationToken);
 

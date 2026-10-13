@@ -15,12 +15,12 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
 
         if (query.State == OverlayRevisionState.Published)
         {
-            List<Overlay> source = await overlays.Overlays.Where(overlay => overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published)).ToListAsync(cancellationToken);
+            var source = await overlays.Overlays.Where(overlay => overlay.Revisions.Any(revision => revision.State == OverlayRevisionState.Published)).ToListAsync(cancellationToken);
 
             IReadOnlyList<PublishedOverlayDto> published = source
                 .Select(overlay =>
                 {
-                    Revision pub = overlay.Revisions.Single(revision => revision.State == OverlayRevisionState.Published);
+                    var pub = overlay.Revisions.Single(revision => revision.State == OverlayRevisionState.Published);
                     return new PublishedOverlayDto(
                         OverlayIdentifier: overlay.Id.Value,
                         Name: overlay.Name.Value,
@@ -34,7 +34,7 @@ public sealed class ListOverlaysQueryHandler(IOverlayQuerySource overlays)
             return Success(new ListOverlaysResult(Array.Empty<OverlayDto>(), published));
         }
 
-        List<Overlay> all = await overlays.Overlays.ToListAsync(cancellationToken);
+        var all = await overlays.Overlays.ToListAsync(cancellationToken);
 
         IReadOnlyList<OverlayDto> chains = all.Select(GetOverlayQueryHandler.Map).OrderByDescending(dto => dto.CreatedAt).ToList();
 

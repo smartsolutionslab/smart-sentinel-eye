@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ServiceDefaults;
 
@@ -43,7 +42,7 @@ public sealed class LayoutCompositionClient(
         IReadOnlyList<CorrelatedTile> tiles,
         CancellationToken cancellationToken)
     {
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
+        var token = await tokens.GetAccessTokenAsync(cancellationToken);
 
         IReadOnlyList<TileBody> tileBodies = tiles
             .Select(tile => new TileBody(tile.Camera, tile.Overlay, tile.Row, tile.Col))
@@ -54,7 +53,7 @@ public sealed class LayoutCompositionClient(
             Content = JsonContent.Create(new CreateLayoutBody(name, new GridBody(rows, cols), tileBodies)),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
+        using var created = await http.SendAsync(create, cancellationToken);
 
         // A wall of this name already exists (a prior run). The create endpoint
         // returns 409 LayoutNameTaken; read it back to find out whether its
@@ -66,7 +65,7 @@ public sealed class LayoutCompositionClient(
         }
 
         created.EnsureSuccessStatusCode();
-        Guid layout = await created.Content.ReadFromJsonAsync<Guid>(cancellationToken);
+        var layout = await created.Content.ReadFromJsonAsync<Guid>(cancellationToken);
         await PublishAsync(layout, FreshChainVersion, token, cancellationToken);
 
         logger.WallSeeded(name, rows, cols, layout);
@@ -80,7 +79,7 @@ public sealed class LayoutCompositionClient(
         string token,
         CancellationToken cancellationToken)
     {
-        LayoutListItem existing = await ReadBackAsync(name, token, cancellationToken);
+        var existing = await ReadBackAsync(name, token, cancellationToken);
 
         // The list projection always carries revisions, so null means the read
         // model changed shape and this recovery has gone blind. Say so rather
@@ -104,7 +103,7 @@ public sealed class LayoutCompositionClient(
         // wall kept composing the camera that no longer exists. Same shape as the
         // FR-008 bug one level up — idempotent *by name* is the wrong identity
         // once the contents can change.
-        LayoutRevisionItem? published = existing.LatestPublished();
+        var published = existing.LatestPublished();
 
         // No published revision and no draft first revision: an archived or
         // otherwise unexpected chain. Leave it and say so — re-tiling something
@@ -145,27 +144,27 @@ public sealed class LayoutCompositionClient(
         string token,
         CancellationToken cancellationToken)
     {
-        Guid layout = existing.LayoutIdentifier;
+        var layout = existing.LayoutIdentifier;
 
         using HttpRequestMessage branch = new(HttpMethod.Post, $"/layouts/{layout}/draft");
         branch.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         branch.Headers.TryAddWithoutValidation("If-Match", ConcurrencyHeaders.ETag(existing.Version));
-        using HttpResponseMessage branched = await http.SendAsync(branch, cancellationToken);
+        using var branched = await http.SendAsync(branch, cancellationToken);
         branched.EnsureSuccessStatusCode();
 
-        int revision = await branched.Content.ReadFromJsonAsync<int>(cancellationToken);
+        var revision = await branched.Content.ReadFromJsonAsync<int>(cancellationToken);
 
-        LayoutListItem afterBranch = await ReadBackAsync(name, token, cancellationToken);
+        var afterBranch = await ReadBackAsync(name, token, cancellationToken);
         using HttpRequestMessage edit = new(HttpMethod.Patch, $"/layouts/{layout}/revisions/{revision}")
         {
             Content = JsonContent.Create(new EditDraftBody(new GridBody(rows, cols), tiles)),
         };
         edit.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         edit.Headers.TryAddWithoutValidation("If-Match", ConcurrencyHeaders.ETag(afterBranch.Version));
-        using HttpResponseMessage edited = await http.SendAsync(edit, cancellationToken);
+        using var edited = await http.SendAsync(edit, cancellationToken);
         edited.EnsureSuccessStatusCode();
 
-        LayoutListItem afterEdit = await ReadBackAsync(name, token, cancellationToken);
+        var afterEdit = await ReadBackAsync(name, token, cancellationToken);
         await PublishAsync(layout, afterEdit.Version, revision, token, cancellationToken);
 
         logger.WallRetiled(name, layout, revision);
@@ -182,7 +181,7 @@ public sealed class LayoutCompositionClient(
         publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         publish.Headers.TryAddWithoutValidation(
             "If-Match", ConcurrencyHeaders.ETag(expectedVersion));
-        using HttpResponseMessage published = await http.SendAsync(publish, cancellationToken);
+        using var published = await http.SendAsync(publish, cancellationToken);
         published.EnsureSuccessStatusCode();
     }
 
@@ -192,11 +191,11 @@ public sealed class LayoutCompositionClient(
         // revision history (the Published branch empties Chains), so omit state.
         using HttpRequestMessage list = new(HttpMethod.Get, "/layouts");
         list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage response = await http.SendAsync(list, cancellationToken);
+        using var response = await http.SendAsync(list, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        LayoutListResponse? payload = await response.Content.ReadFromJsonAsync<LayoutListResponse>(cancellationToken);
-        LayoutListItem? match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
+        var payload = await response.Content.ReadFromJsonAsync<LayoutListResponse>(cancellationToken);
+        var match = payload?.Chains?.FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
         return match
             ?? throw new InvalidOperationException($"Wall '{name}' conflicted but could not be read back.");
     }
@@ -268,7 +267,7 @@ public sealed class LayoutCompositionClient(
                 return false;
             }
 
-            IReadOnlyList<TileBody> actual = Tiles ?? [];
+            var actual = Tiles ?? [];
             return actual.Count == desired.Count && actual.SequenceEqual(desired);
         }
     }

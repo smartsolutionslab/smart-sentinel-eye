@@ -35,9 +35,9 @@ public class IntegrationEventAuditHandlerTests
     public async Task Handle_maps_metadata_actor_and_resource_pivot_for_a_camera_event()
     {
         InMemoryAuditEventRepository repo = new();
-        Guid actor = Guid.CreateVersion7();
-        Guid eventId = Guid.CreateVersion7();
-        Guid cameraId = Guid.CreateVersion7();
+        var actor = Guid.CreateVersion7();
+        var eventId = Guid.CreateVersion7();
+        var cameraId = Guid.CreateVersion7();
         CameraRegisteredV1 evt = new(
             cameraId, "north-gate", "rtsp://example/cam", OccurredAt, actor,
             Metadata: new EventMetadata(eventId, OccurredAt, Fab: null, Actor: actor));
@@ -45,7 +45,7 @@ public class IntegrationEventAuditHandlerTests
         await Build(repo).Handle(evt, default);
 
         repo.Committed.Count.ShouldBe(1);
-        AuditEvent row = repo.Committed[0];
+        var row = repo.Committed[0];
         row.EventKind.Value.ShouldBe("CameraRegisteredV1");
         row.OccurredAt.Value.ShouldBe(OccurredAt);
         row.EventIdentifier.Value.ShouldBe(eventId);
@@ -68,7 +68,7 @@ public class IntegrationEventAuditHandlerTests
         await Build(repo).Handle(evt, default);
 
         repo.Committed.Count.ShouldBe(1);
-        AuditEvent row = repo.Committed[0];
+        var row = repo.Committed[0];
         row.Fab!.Value.ShouldBe("munich");
         row.Actor.IsSystem.ShouldBeTrue();
     }

@@ -20,7 +20,7 @@ public class AttributionVerdictTests
     [Fact]
     public void Clocks_within_the_threshold_leave_the_attribution_standing()
     {
-        AttributionVerdict verdict = AttributionVerdict.For(Skew(2, 1));
+        var verdict = AttributionVerdict.For(Skew(2, 1));
 
         verdict.IsEstablished.ShouldBeTrue();
         verdict.Standing.ShouldBe(AttributionStanding.Established);
@@ -34,7 +34,7 @@ public class AttributionVerdictTests
     [Fact]
     public void Clocks_beyond_the_threshold_leave_it_not_established()
     {
-        AttributionVerdict verdict = AttributionVerdict.For(Skew(40, 1));
+        var verdict = AttributionVerdict.For(Skew(40, 1));
 
         verdict.IsEstablished.ShouldBeFalse();
         verdict.Standing.ShouldBe(AttributionStanding.NotEstablished);
@@ -57,7 +57,7 @@ public class AttributionVerdictTests
     [Fact]
     public void A_small_skew_with_a_large_residual_is_not_established()
     {
-        AttributionVerdict verdict = AttributionVerdict.For(Skew(9, 40));
+        var verdict = AttributionVerdict.For(Skew(9, 40));
 
         verdict.IsEstablished.ShouldBeFalse(
             "a measurement that could be wrong by 40 ms cannot establish anything to within 10 ms, "
@@ -98,7 +98,7 @@ public class AttributionVerdictTests
         ClockOffset publisher = new(TimeSpan.FromMilliseconds(3), TimeSpan.FromMilliseconds(4));
         ClockOffset consumer = new(TimeSpan.FromMilliseconds(1), TimeSpan.FromMilliseconds(5));
 
-        RelativeSkew skew = RelativeSkew.Between(publisher, consumer);
+        var skew = RelativeSkew.Between(publisher, consumer);
 
         skew.Skew.TotalMilliseconds.ShouldBe(2, 0.001);
         skew.Residual.TotalMilliseconds.ShouldBe(9, 0.001, "4 ms and 5 ms of independent uncertainty add");
@@ -111,7 +111,7 @@ public class AttributionVerdictTests
     [Fact]
     public void The_reason_carries_the_figures_it_was_decided_on()
     {
-        AttributionVerdict verdict = AttributionVerdict.For(Skew(40, 2));
+        var verdict = AttributionVerdict.For(Skew(40, 2));
 
         verdict.Reason.ShouldContain("42");
         verdict.ToString().ShouldStartWith("NOT ESTABLISHED");

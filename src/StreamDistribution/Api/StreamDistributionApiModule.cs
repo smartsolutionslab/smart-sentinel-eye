@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;

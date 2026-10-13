@@ -17,29 +17,29 @@ public sealed class EditDraftRevisionCommandHandler(
         EditDraftRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, GridDimensions grid, IReadOnlyList<Tile> tiles, int expectedVersion) = command;
+        (var fabs, var layoutIdentifier, var revisionNumber, var grid, var tiles, var expectedVersion) = command;
 
-        Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
+        var violation = Layout.ValidateGrid(grid, tiles);
         if (violation.HasValue)
         {
             return Failure(EditDraftRevisionError.FromViolation(violation.Value));
         }
 
-        Option<Layout> found = await layouts
+        var found = await layouts
             .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(EditDraftRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
-        Layout layout = found.Value;
+        var layout = found.Value;
 
         // FR-014 again on the edit path, and this is the half that would be
         // easy to miss: creation refusing a cross-fab tile is worth nothing if
         // an edit can introduce one afterwards. Checked against the *layout's*
         // fab, not the caller's fabs — a multi-fab operator editing a dresden
         // layout may still only use dresden's cameras.
-        IReadOnlyList<CameraIdentifier> outside = await cameraFabs
+        var outside = await cameraFabs
             .CamerasOutsideFabAsync(layout.Fab, [.. tiles.Select(tile => tile.Camera)], cancellationToken);
         if (outside.Count > 0)
         {
@@ -55,7 +55,7 @@ public sealed class EditDraftRevisionCommandHandler(
         {
             return Failure(EditDraftRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
-        Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
+        var revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
             return Failure(EditDraftRevisionFailures.LayoutRevisionNotFound(

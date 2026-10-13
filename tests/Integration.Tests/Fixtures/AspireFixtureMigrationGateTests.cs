@@ -1,6 +1,3 @@
-using Shouldly;
-using Xunit;
-
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 /// <summary>
@@ -46,7 +43,7 @@ public class AspireFixtureMigrationGateTests
     [Fact]
     public void The_failure_message_names_the_code_before_it_shows_the_log()
     {
-        string message = AspireFixture.FormatMigrationFailureMessage(134, "Unhandled exception. System.InvalidOperationException");
+        var message = AspireFixture.FormatMigrationFailureMessage(134, "Unhandled exception. System.InvalidOperationException");
 
         message.ShouldContain("134");
         message.ShouldContain("Unhandled exception. System.InvalidOperationException");
@@ -61,7 +58,7 @@ public class AspireFixtureMigrationGateTests
         // `(no logs captured)` placeholders on the Linux runner while Windows
         // served a log for every resource. The message has to carry the verdict
         // on its own when the log is a placeholder.
-        string message = AspireFixture.FormatMigrationFailureMessage(134, "(no logs captured)");
+        var message = AspireFixture.FormatMigrationFailureMessage(134, "(no logs captured)");
 
         message.ShouldContain("134");
         message.ShouldContain("a non-zero exit is a failure, not a clean finish.");

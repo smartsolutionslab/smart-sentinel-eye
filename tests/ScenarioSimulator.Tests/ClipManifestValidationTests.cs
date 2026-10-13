@@ -1,5 +1,4 @@
 using SmartSentinelEye.ScenarioSimulator.Cues;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
 
@@ -41,7 +40,7 @@ public sealed class ClipManifestValidationTests
                 Box: new CueBox(X: 0.61, Y: 0.40, Width: 0.08, Height: 0.31)),
         ]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldBeEmpty();
     }
@@ -51,9 +50,9 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("some-other-clip.mp4", 20_000, [new CueDefinition(0, "person", 0.9)]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
-        CueViolation violation = violations.ShouldHaveSingleItem();
+        var violation = violations.ShouldHaveSingleItem();
         violation.CueIndex.ShouldBeNull();
     }
 
@@ -62,7 +61,7 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("mill-roughing.mp4", 0, [new CueDefinition(0, "person", 0.9)]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == null);
     }
@@ -76,7 +75,7 @@ public sealed class ClipManifestValidationTests
             new CueDefinition(25_000, "person", 0.9), // >= DurationMs
         ]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 1);
     }
@@ -90,7 +89,7 @@ public sealed class ClipManifestValidationTests
             new CueDefinition(4_000, "person", 0.9), // out of order
         ]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 1);
     }
@@ -100,7 +99,7 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("mill-roughing.mp4", 20_000, [new CueDefinition(0, "  ", 0.9)]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 0);
     }
@@ -112,7 +111,7 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("mill-roughing.mp4", 20_000, [new CueDefinition(0, "person", confidence)]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 0);
     }
@@ -125,7 +124,7 @@ public sealed class ClipManifestValidationTests
             new CueDefinition(0, "person", 0.9, Box: new CueBox(X: 0.9, Y: 0.1, Width: 0.5, Height: 0.1)), // X+Width > 1
         ]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 0);
     }
@@ -138,7 +137,7 @@ public sealed class ClipManifestValidationTests
             new CueDefinition(0, "person", 0.9, Source: "camera"),
         ]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 0);
     }
@@ -151,7 +150,7 @@ public sealed class ClipManifestValidationTests
             new CueDefinition(0, "person", 0.9, Kind: new string('K', 129)),
         ]);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldContain(v => v.CueIndex == 0);
     }
@@ -163,7 +162,7 @@ public sealed class ClipManifestValidationTests
         CueDefinition[] cues = [.. Enumerable.Range(0, 11).Select(i => new CueDefinition(i * 50, "person", 0.9))];
         ClipManifest manifest = new("mill-roughing.mp4", 1_000, cues);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldNotBeEmpty();
     }
@@ -186,7 +185,7 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("mill-roughing.mp4", 20_000, Cues: null!);
 
-        IReadOnlyList<CueViolation> violations = Should.NotThrow(
+        var violations = Should.NotThrow(
             () => ClipManifestValidation.Validate(manifest, "mill-roughing.mp4"));
 
         violations.ShouldNotBeEmpty();
@@ -203,7 +202,7 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("mill-roughing.mp4", 20_000, [null!]);
 
-        IReadOnlyList<CueViolation> violations = Should.NotThrow(
+        var violations = Should.NotThrow(
             () => ClipManifestValidation.Validate(manifest, "mill-roughing.mp4"));
 
         violations.ShouldContain(v => v.CueIndex == 0);
@@ -225,7 +224,7 @@ public sealed class ClipManifestValidationTests
     {
         ClipManifest manifest = new("mill-roughing.mp4", 20_000, []);
 
-        IReadOnlyList<CueViolation> violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
+        var violations = ClipManifestValidation.Validate(manifest, "mill-roughing.mp4");
 
         violations.ShouldNotBeEmpty();
     }
@@ -233,10 +232,10 @@ public sealed class ClipManifestValidationTests
     [Fact]
     public void A_missing_sidecar_gives_no_manifest_and_no_violations()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
-            ClipManifestLoadResult result = ClipManifestLoader.Load(clipsDirectory, "no-such-clip.mp4");
+            var result = ClipManifestLoader.Load(clipsDirectory, "no-such-clip.mp4");
 
             result.Manifest.HasValue.ShouldBeFalse();
             result.Violations.ShouldBeEmpty();
@@ -250,12 +249,12 @@ public sealed class ClipManifestValidationTests
     [Fact]
     public async Task Unparseable_JSON_is_one_violation_and_yields_no_manifest()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             await File.WriteAllTextAsync(Path.Combine(clipsDirectory, "broken.cues.json"), "{ not valid json ");
 
-            ClipManifestLoadResult result = ClipManifestLoader.Load(clipsDirectory, "broken.mp4");
+            var result = ClipManifestLoader.Load(clipsDirectory, "broken.mp4");
 
             result.Manifest.HasValue.ShouldBeFalse();
             result.Violations.ShouldHaveSingleItem();
@@ -269,7 +268,7 @@ public sealed class ClipManifestValidationTests
     [Fact]
     public async Task A_valid_sidecar_loads_to_Some_with_no_violations()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             await File.WriteAllTextAsync(
@@ -284,7 +283,7 @@ public sealed class ClipManifestValidationTests
                 }
                 """);
 
-            ClipManifestLoadResult result = ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4");
+            var result = ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4");
 
             result.Violations.ShouldBeEmpty();
             result.Manifest.HasValue.ShouldBeTrue();
@@ -299,7 +298,7 @@ public sealed class ClipManifestValidationTests
     [Fact]
     public async Task An_invalid_but_parseable_sidecar_surfaces_Validates_violations_and_yields_no_manifest()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             await File.WriteAllTextAsync(
@@ -314,7 +313,7 @@ public sealed class ClipManifestValidationTests
                 }
                 """);
 
-            ClipManifestLoadResult result = ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4");
+            var result = ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4");
 
             result.Manifest.HasValue.ShouldBeFalse();
             result.Violations.ShouldContain(v => v.CueIndex == 0);
@@ -336,14 +335,14 @@ public sealed class ClipManifestValidationTests
     [Fact]
     public async Task A_sidecar_with_no_Cues_property_at_all_is_refused_rather_than_throwing()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             await File.WriteAllTextAsync(
                 Path.Combine(clipsDirectory, "mill-roughing.cues.json"),
                 """{ "Clip": "mill-roughing.mp4", "DurationMs": 1000 }""");
 
-            ClipManifestLoadResult result = Should.NotThrow(
+            var result = Should.NotThrow(
                 () => ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4"));
 
             result.Manifest.HasValue.ShouldBeFalse();
@@ -367,15 +366,15 @@ public sealed class ClipManifestValidationTests
     [Fact]
     public void An_unreadable_sidecar_is_one_violation_rather_than_a_thrown_exception()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
-        string sidecar = Path.Combine(clipsDirectory, "mill-roughing.cues.json");
+        var clipsDirectory = CreateTempClipsDirectory();
+        var sidecar = Path.Combine(clipsDirectory, "mill-roughing.cues.json");
         File.WriteAllText(sidecar, """{ "Clip": "mill-roughing.mp4", "DurationMs": 1000, "Cues": [] }""");
 
         try
         {
             using FileStream exclusiveLock = new(sidecar, FileMode.Open, FileAccess.Read, FileShare.None);
 
-            ClipManifestLoadResult result = Should.NotThrow(
+            var result = Should.NotThrow(
                 () => ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4"));
 
             result.Manifest.HasValue.ShouldBeFalse();
@@ -389,7 +388,7 @@ public sealed class ClipManifestValidationTests
 
     private static string CreateTempClipsDirectory()
     {
-        string directory = Path.Combine(Path.GetTempPath(), "sse-cues-" + Guid.NewGuid());
+        var directory = Path.Combine(Path.GetTempPath(), "sse-cues-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         return directory;
     }

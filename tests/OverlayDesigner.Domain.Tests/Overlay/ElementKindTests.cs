@@ -23,7 +23,7 @@ public class ElementKindTests
     [InlineData("Ellipse")]
     public void From_round_trips_canonical_strings(string raw)
     {
-        ElementKind parsed = ElementKind.From(raw);
+        var parsed = ElementKind.From(raw);
         parsed.Value.ShouldBe(raw);
     }
 

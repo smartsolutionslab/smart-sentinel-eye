@@ -8,8 +8,8 @@ public class TileTests
     [Fact]
     public void A_tile_with_an_overlay_exposes_it_as_Some()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var overlay = OverlayIdentifier.From(Guid.CreateVersion7());
 
         Tile tile = new(camera, Option<OverlayIdentifier>.Some(overlay), GridPosition.From(1, 0));
 
@@ -35,7 +35,7 @@ public class TileTests
     [Fact]
     public void Tiles_with_the_same_camera_overlay_and_position_are_equal()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
 
         Tile a = new(camera, Option<OverlayIdentifier>.None, GridPosition.From(0, 1));
         Tile b = new(camera, Option<OverlayIdentifier>.None, GridPosition.From(0, 1));

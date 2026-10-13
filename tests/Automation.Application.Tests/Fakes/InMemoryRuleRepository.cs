@@ -13,7 +13,7 @@ public sealed class InMemoryRuleRepository : IRuleRepository
     public Task<Option<RuleAggregate>> GetByIdentifierAsync(
         RuleIdentifier rule, CancellationToken cancellationToken)
     {
-        RuleAggregate? found = rules.SingleOrDefault(r => r.Id == rule);
+        var found = rules.SingleOrDefault(r => r.Id == rule);
         return Task.FromResult(found is null
             ? Option<RuleAggregate>.None
             : Option<RuleAggregate>.Some(found));
@@ -29,7 +29,7 @@ public sealed class InMemoryRuleRepository : IRuleRepository
         // (spec 013). Matching production here matters — a fake that ignored
         // the fab would let every handler test pass while the real lookup
         // returned another fab's rule.
-        RuleAggregate? found = rules.SingleOrDefault(r =>
+        var found = rules.SingleOrDefault(r =>
             r.Fab == fab && r.Name == name && r.State != RuleState.Archived);
         return Task.FromResult(found is null
             ? Option<RuleAggregate>.None
@@ -44,7 +44,7 @@ public sealed class InMemoryRuleRepository : IRuleRepository
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (RuleAggregate rule in rules)
+        foreach (var rule in rules)
         {
             rule.ClearPendingEvents();
         }

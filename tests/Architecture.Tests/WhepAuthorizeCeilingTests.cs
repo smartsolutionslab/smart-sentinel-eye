@@ -128,7 +128,7 @@ public class WhepAuthorizeCeilingTests
     [Fact]
     public void The_shipped_whep_authorize_ceiling_is_the_number_spec_208_derived()
     {
-        Ceiling ceiling = ReadShippedCeiling();
+        var ceiling = ReadShippedCeiling();
 
         ceiling.PermitLimit.ShouldBe(
             ExpectedPermitLimit,
@@ -144,28 +144,28 @@ public class WhepAuthorizeCeilingTests
     [Fact]
     public void The_program_fallback_defaults_agree_with_the_shipped_ceiling()
     {
-        Ceiling shipped = ReadShippedCeiling();
-        string raw = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, ProgramFile));
-        string text = SourceMask.Apply(raw, MaskStrictness.CommentsBlankedLiteralsIntact);
+        var shipped = ReadShippedCeiling();
+        var raw = File.ReadAllText(Path.Combine(RepositorySource.Root().FullName, ProgramFile));
+        var text = SourceMask.Apply(raw, MaskStrictness.CommentsBlankedLiteralsIntact);
 
-        MatchCollection permitLimitMatches = PermitLimitFallback.Matches(text);
+        var permitLimitMatches = PermitLimitFallback.Matches(text);
         permitLimitMatches.Count.ShouldBe(
             1,
             $"expected exactly one '?? <int>' fallback for '{PermitLimitKey}' in {ProgramFile}, found "
             + $"{permitLimitMatches.Count}. A source scan that stops matching must be repointed, not "
             + "treated as a pass.");
 
-        MatchCollection windowMatches = WindowFallback.Matches(text);
+        var windowMatches = WindowFallback.Matches(text);
         windowMatches.Count.ShouldBe(
             1,
             $"expected exactly one '?? TimeSpan.From...(...)' fallback for '{WindowKey}' in "
             + $"{ProgramFile}, found {windowMatches.Count}. A source scan that stops matching must be "
             + "repointed, not treated as a pass.");
 
-        int fallbackPermitLimit = int.Parse(
+        var fallbackPermitLimit = int.Parse(
             permitLimitMatches[0].Groups["value"].Value,
             CultureInfo.InvariantCulture);
-        TimeSpan fallbackWindow = ResolveTimeSpan(
+        var fallbackWindow = ResolveTimeSpan(
             windowMatches[0].Groups["unit"].Value,
             double.Parse(windowMatches[0].Groups["value"].Value, CultureInfo.InvariantCulture));
 
@@ -189,22 +189,22 @@ public class WhepAuthorizeCeilingTests
     /// </summary>
     private static Ceiling ReadShippedCeiling()
     {
-        string path = Path.Combine(RepositorySource.Root().FullName, SettingsFile);
+        var path = Path.Combine(RepositorySource.Root().FullName, SettingsFile);
         File.Exists(path).ShouldBeTrue(
             $"expected {SettingsFile} at {path} — if it moved, update this guard rather than "
             + "deleting it.");
 
-        IConfigurationRoot configuration = new ConfigurationBuilder()
+        var configuration = new ConfigurationBuilder()
             .AddJsonFile(path, optional: false)
             .Build();
 
-        int? permitLimit = Read<int>(configuration, PermitLimitKey, "an integer");
+        var permitLimit = Read<int>(configuration, PermitLimitKey, "an integer");
         permitLimit.ShouldNotBeNull(
             $"{SettingsFile} has no readable '{PermitLimitKey}' — the 'WhepAuthorizeRateLimiting' "
             + "section or the 'PermitLimit' key is absent, empty, or nested somewhere this exact path "
             + $"does not reach. {Derivation}");
 
-        TimeSpan? window = Read<TimeSpan>(configuration, WindowKey, "a TimeSpan");
+        var window = Read<TimeSpan>(configuration, WindowKey, "a TimeSpan");
         window.ShouldNotBeNull(
             $"{SettingsFile} has no readable '{WindowKey}' — the 'WhepAuthorizeRateLimiting' "
             + "section or the 'Window' key is absent, empty, or nested somewhere this exact path does "
@@ -226,7 +226,7 @@ public class WhepAuthorizeCeilingTests
     private static T? Read<T>(IConfigurationRoot configuration, string key, string kind)
         where T : struct
     {
-        string? raw = configuration[key];
+        var raw = configuration[key];
         if (raw is null)
         {
             return null;

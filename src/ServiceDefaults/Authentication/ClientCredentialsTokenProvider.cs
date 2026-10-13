@@ -135,8 +135,8 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
 
     private async Task<string> MintAsync(CancellationToken cancellationToken)
     {
-        ClientCredentials client = credentials();
-        string url = $"{client.Authority.TrimEnd('/')}/realms/{client.Realm}/protocol/openid-connect/token";
+        var client = credentials();
+        var url = $"{client.Authority.TrimEnd('/')}/realms/{client.Realm}/protocol/openid-connect/token";
 
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
@@ -149,12 +149,12 @@ public sealed class ClientCredentialsTokenProvider : IDisposable
         // pooled handler it does not own, so disposing it frees nothing and
         // would make a test double that hands back one client fail on the
         // second mint rather than on the first.
-        HttpClient httpClient = httpClientFactory.CreateClient(httpClientName);
+        var httpClient = httpClientFactory.CreateClient(httpClientName);
 
-        using HttpResponseMessage response = await httpClient.PostAsync(url, form, cancellationToken);
+        using var response = await httpClient.PostAsync(url, form, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        TokenResponse payload = await response.Content
+        var payload = await response.Content
             .ReadFromJsonAsync<TokenResponse>(JsonOptions, cancellationToken)
             ?? throw new InvalidOperationException(
                 $"Keycloak returned an empty token response for '{client.ClientIdentifier}'.");

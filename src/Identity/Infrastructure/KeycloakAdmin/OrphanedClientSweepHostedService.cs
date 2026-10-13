@@ -80,9 +80,9 @@ public sealed class OrphanedClientSweepHostedService(
     /// </summary>
     public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
 
-        OrphanedClientSweep sweep = scope.ServiceProvider.GetRequiredService<OrphanedClientSweep>();
+        var sweep = scope.ServiceProvider.GetRequiredService<OrphanedClientSweep>();
 
         await sweep.SweepAsync(cancellationToken);
     }
