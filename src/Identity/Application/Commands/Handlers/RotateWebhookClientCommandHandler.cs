@@ -317,6 +317,14 @@ public sealed class RotateWebhookClientCommandHandler(
             return false;
         }
 
+        return AcknowledgeRaceDisable(result, integrationName, clientId);
+    }
+
+    private bool AcknowledgeRaceDisable(
+        Result<RegisteredClientIdentifier, DisableWebhookClientError> result,
+        string integrationName,
+        ClientId clientId)
+    {
         if (result.IsFailure)
         {
             // The asynchronous WebhookIntegrationRevokedV1 handler can beat
