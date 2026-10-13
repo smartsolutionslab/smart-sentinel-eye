@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
@@ -126,6 +127,24 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
         DateTimeOffset now,
         CancellationToken cancellationToken)
     {
+        await using var context =
+            await contexts.CreateDbContextAsync(cancellationToken);
+        await using var command = CreateProvisionedFabsCommand(context, now);
+
+        await context.Database.OpenConnectionAsync(cancellationToken);
+        try
+        {
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+            return await ReadFabNamesAsync(reader, cancellationToken);
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
+    }
+
+    private static DbCommand CreateProvisionedFabsCommand(EventIngestionDbContext context, DateTimeOffset now)
+    {
         // Grandchildren, not children. A fab partition with no monthly range
         // child beneath it accepts nothing — the insert still raises 23514 — so
         // treating the fab partition alone as "ready" answers 202 and then drops
@@ -146,9 +165,7 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
               AND  month.relname = fab.relname || @monthSuffix;
             """;
 
-        await using var context =
-            await contexts.CreateDbContextAsync(cancellationToken);
-        await using var command = context.Database.GetDbConnection().CreateCommand();
+        var command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = sql;
 
         // A value, not an identifier, so it is parameterised. The suffix is the
@@ -158,25 +175,23 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
         monthSuffix.Value = $"_{now:yyyyMM}";
         command.Parameters.Add(monthSuffix);
 
-        await context.Database.OpenConnectionAsync(cancellationToken);
-        try
-        {
-            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-            HashSet<string> fabs = new(StringComparer.Ordinal);
-            while (await reader.ReadAsync(cancellationToken))
-            {
-                var relation = reader.GetString(0);
-                if (relation.StartsWith("events_", StringComparison.Ordinal))
-                {
-                    fabs.Add(relation["events_".Length..]);
-                }
-            }
+        return command;
+    }
 
-            return fabs.ToFrozenSet(StringComparer.Ordinal);
-        }
-        finally
+    private static async Task<FrozenSet<string>> ReadFabNamesAsync(
+        DbDataReader reader,
+        CancellationToken cancellationToken)
+    {
+        HashSet<string> fabs = new(StringComparer.Ordinal);
+        while (await reader.ReadAsync(cancellationToken))
         {
-            await context.Database.CloseConnectionAsync();
+            var relation = reader.GetString(0);
+            if (relation.StartsWith("events_", StringComparison.Ordinal))
+            {
+                fabs.Add(relation["events_".Length..]);
+            }
         }
+
+        return fabs.ToFrozenSet(StringComparer.Ordinal);
     }
 }
