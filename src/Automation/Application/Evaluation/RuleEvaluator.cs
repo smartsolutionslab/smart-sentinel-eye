@@ -58,13 +58,15 @@ public sealed class RuleEvaluator(
                 if (TryEvaluateValueExpression(rule, context, out var wireValue))
                 {
                     effects.Add(new RuleActionEffect.SetVariableValue(
-                        setValue.VariableName, wireValue));
+                        setValue.VariableName,
+                        wireValue));
                 }
                 break;
 
             case RuleAction.HighlightOverlay highlight:
                 effects.Add(new RuleActionEffect.HighlightOverlay(
-                    highlight.Overlay.Value, highlight.Duration.Value));
+                    highlight.Overlay.Value,
+                    highlight.Duration.Value));
                 break;
 
             case RuleAction.SwitchWallScene switchWallScene:
