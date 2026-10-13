@@ -45,35 +45,40 @@ public sealed class RuleEvaluator(
                 continue;
             }
 
-            switch (rule.Action)
-            {
-                case RuleAction.SetVariableValue setValue:
-                    if (TryEvaluateValueExpression(rule, context, out var wireValue))
-                    {
-                        effects.Add(new RuleActionEffect.SetVariableValue(
-                            setValue.VariableName, wireValue));
-                    }
-                    break;
-
-                case RuleAction.HighlightOverlay highlight:
-                    effects.Add(new RuleActionEffect.HighlightOverlay(
-                        highlight.Overlay.Value, highlight.Duration.Value));
-                    break;
-
-                case RuleAction.SwitchWallScene switchWallScene:
-                    effects.Add(new RuleActionEffect.SwitchWallScene(
-                        switchWallScene.Wall.Value,
-                        SceneTargetWireMapping.Literal(switchWallScene.Target),
-                        SceneTargetWireMapping.TargetLayout(switchWallScene.Target),
-                        rule.Identifier.Value));
-                    break;
-
-                default:
-                    logger.UnhandledRuleActionCase(rule.Action.GetType().Name, rule.Identifier);
-                    break;
-            }
+            AddEffect(rule, context, effects);
         }
         return effects;
+    }
+
+    private void AddEffect(CompiledRule rule, EvaluationContext context, List<RuleActionEffect> effects)
+    {
+        switch (rule.Action)
+        {
+            case RuleAction.SetVariableValue setValue:
+                if (TryEvaluateValueExpression(rule, context, out var wireValue))
+                {
+                    effects.Add(new RuleActionEffect.SetVariableValue(
+                        setValue.VariableName, wireValue));
+                }
+                break;
+
+            case RuleAction.HighlightOverlay highlight:
+                effects.Add(new RuleActionEffect.HighlightOverlay(
+                    highlight.Overlay.Value, highlight.Duration.Value));
+                break;
+
+            case RuleAction.SwitchWallScene switchWallScene:
+                effects.Add(new RuleActionEffect.SwitchWallScene(
+                    switchWallScene.Wall.Value,
+                    SceneTargetWireMapping.Literal(switchWallScene.Target),
+                    SceneTargetWireMapping.TargetLayout(switchWallScene.Target),
+                    rule.Identifier.Value));
+                break;
+
+            default:
+                logger.UnhandledRuleActionCase(rule.Action.GetType().Name, rule.Identifier);
+                break;
+        }
     }
 
     private bool TryEvaluatePredicate(CompiledRule rule, EvaluationContext context)
