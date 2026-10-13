@@ -65,6 +65,7 @@
     "./navigation/navManifest": "./src/navigation/navManifest.ts",
     "./navigation/grantedScopes": "./src/navigation/grantedScopes.ts",
     "./hooks": "./src/hooks/index.ts",
+    "./hooks/useCameraStream": "./src/hooks/useCameraStream.ts",
     "./types": "./src/types/index.ts"
   },
   "scripts": {
