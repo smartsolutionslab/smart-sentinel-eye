@@ -222,6 +222,18 @@ public sealed class MqttSubscriberHostedService(
             return new ParseResult(null, $"envelope parse failed: {ex.Message}");
         }
 
+        var address = new DeliveryAddress(
+            Fab: fab,
+            Source: source,
+            Device: device);
+
+        return ToEnvelope(address, payload);
+    }
+
+    private static ParseResult ToEnvelope(DeliveryAddress address, MqttIngressPayload payload)
+    {
+        var (fab, source, device) = address;
+
         Payload payloadVo;
         try
         {
@@ -256,6 +268,8 @@ public sealed class MqttSubscriberHostedService(
 
         return new ParseResult(envelope, null);
     }
+
+    private readonly record struct DeliveryAddress(FabIdentifier Fab, Source Source, DeviceIdentifier Device);
 
     /// <summary>
     /// The plant the delivery address establishes, or <c>null</c> when it
