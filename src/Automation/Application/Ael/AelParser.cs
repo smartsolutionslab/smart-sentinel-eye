@@ -160,14 +160,7 @@ public static class AelParser
                 return new AelExpression.Literal(new AelValue.BoolValue(false));
 
             case AelTokenKind.LeftParen:
-                cursor++;
-                var inner = ParseOr(tokens, ref cursor);
-                if (tokens[cursor].Kind != AelTokenKind.RightParen)
-                {
-                    throw new AelParseException("expected ')'", tokens[cursor].Position);
-                }
-                cursor++;
-                return inner;
+                return ParseParenthesised(tokens, ref cursor);
 
             case AelTokenKind.Dollar:
                 return ParseFieldAccess(tokens, ref cursor);
@@ -177,6 +170,18 @@ public static class AelParser
                     $"expected literal, field access, or '('; got '{token.Lexeme}'",
                     token.Position);
         }
+    }
+
+    private static AelExpression ParseParenthesised(IReadOnlyList<AelToken> tokens, ref int cursor)
+    {
+        cursor++;
+        var inner = ParseOr(tokens, ref cursor);
+        if (tokens[cursor].Kind != AelTokenKind.RightParen)
+        {
+            throw new AelParseException("expected ')'", tokens[cursor].Position);
+        }
+        cursor++;
+        return inner;
     }
 
     private static AelExpression.FieldAccess ParseFieldAccess(IReadOnlyList<AelToken> tokens, ref int cursor)
