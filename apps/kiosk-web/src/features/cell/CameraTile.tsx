@@ -1,4 +1,4 @@
-import { useCameraStream } from '@smart-sentinel-eye/shared/hooks';
+import { useCameraStream } from '@smart-sentinel-eye/shared/hooks/useCameraStream';
 import { CameraViewer } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 import type { CameraViewerProps } from '@smart-sentinel-eye/shared/ui/composites/CameraViewer';
 

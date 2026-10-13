@@ -7,4 +7,4 @@ export {
   type RevocationSource,
 } from './useRevocationFallback.js';
 export { useAssignedFabs } from './useAssignedFabs.js';
-export { useCameraStream } from './useCameraStream.js';
+// useCameraStream is imported by its own subpath: it pulls in streams.api, hence gateway.ts, which reads VITE_API_GATEWAY_URL at module load — a test that imports DEBOUNCE_MS from here would freeze the origin before it can stub it.
