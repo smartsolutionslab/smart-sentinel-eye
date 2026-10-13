@@ -24,6 +24,17 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
     {
         Ensure.That(builder).IsNotNull();
 
+        ConfigureKey(builder);
+        ConfigureScope(builder);
+        ConfigureTrigger(builder);
+        ConfigureBehaviour(builder);
+        ConfigureCreation(builder);
+        ConfigureLifecycle(builder);
+        ConfigureIndexes(builder);
+    }
+
+    private static void ConfigureKey(EntityTypeBuilder<RuleAggregate> builder)
+    {
         builder.ToTable("rules");
         builder.HasKey(rule => rule.Id);
 
@@ -31,7 +42,10 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasColumnName("rule_id")
             .HasConversion(id => id.Value, value => RuleIdentifier.From(value))
             .ValueGeneratedNever();
+    }
 
+    private static void ConfigureScope(EntityTypeBuilder<RuleAggregate> builder)
+    {
         builder.Property(rule => rule.Fab)
             .HasColumnName("fab")
             .HasMaxLength(FabIdentifier.MaximumLength)
@@ -43,7 +57,10 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasMaxLength(RuleName.MaximumLength)
             .HasConversion(name => name.Value, value => RuleName.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureTrigger(EntityTypeBuilder<RuleAggregate> builder)
+    {
         builder.Property(rule => rule.TriggerSource)
             .HasColumnName("trigger_source")
             .HasMaxLength(TriggerSource.MaximumLength)
@@ -55,7 +72,10 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasMaxLength(TriggerKind.MaximumLength)
             .HasConversion(kind => kind.Value, value => TriggerKind.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureBehaviour(EntityTypeBuilder<RuleAggregate> builder)
+    {
         builder.Property(rule => rule.Predicate)
             .HasColumnName("predicate")
             .HasMaxLength(RulePredicate.MaximumLength)
@@ -75,7 +95,10 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasMaxLength(16)
             .HasConversion(state => state.Value, value => RuleState.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureCreation(EntityTypeBuilder<RuleAggregate> builder)
+    {
         // Owned reference onto the two columns the pair occupied. The
         // Navigation(...).IsRequired() line keeps them NOT NULL; without it the
         // model silently diverges from the schema (#2022).
@@ -92,7 +115,10 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
                 .IsRequired();
         });
         builder.Navigation(rule => rule.Creation).IsRequired();
+    }
 
+    private static void ConfigureLifecycle(EntityTypeBuilder<RuleAggregate> builder)
+    {
         builder.Property(rule => rule.PublishedAt)
             .HasColumnName("published_at")
             .HasConversion(v => v!.Value, value => PublishedAt.From(value));
@@ -105,7 +131,10 @@ public sealed class RuleConfiguration : IEntityTypeConfiguration<RuleAggregate>
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken()
             .IsRequired();
+    }
 
+    private static void ConfigureIndexes(EntityTypeBuilder<RuleAggregate> builder)
+    {
         // FR-002 belt-and-braces: at most one non-Archived rule per
         // name *within a fab* (spec 013 FR-004). The application handler is
         // the authoritative source of truth; this partial unique index
