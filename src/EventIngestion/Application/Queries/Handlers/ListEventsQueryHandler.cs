@@ -80,6 +80,28 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
         var source =
             events.Where(eventEntity => query.Fabs.Contains(eventEntity.Fab));
 
+        source = FilterByOrigin(source, query);
+        source = FilterByTime(source, query);
+
+        if (cursor is { } c)
+        {
+            // Strict 'less than' for descending order. IngestedAt is
+            // microsecond-precision; the chance of two events colliding across
+            // a page boundary is negligible at 1k/s. The eventId in the cursor
+            // is reserved for a future tuple-compare tightening.
+            source = source.Where(eventEntity => eventEntity.IngestedAt < c.Ingested);
+        }
+
+        return source
+            .OrderByDescending(eventEntity => eventEntity.IngestedAt)
+            .ThenByDescending(eventEntity => eventEntity.Id)
+            .Take(pageSize + 1);
+    }
+
+    private static IQueryable<EventAggregate> FilterByOrigin(
+        IQueryable<EventAggregate> source,
+        ListEventsQuery query)
+    {
         if (query.Source is not null)
         {
             source = source.Where(eventEntity => eventEntity.Source == query.Source);
@@ -95,6 +117,13 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             source = source.Where(eventEntity => eventEntity.Kind == query.Kind);
         }
 
+        return source;
+    }
+
+    private static IQueryable<EventAggregate> FilterByTime(
+        IQueryable<EventAggregate> source,
+        ListEventsQuery query)
+    {
         if (query.OccurredAfter is { } occurredAfter)
         {
             source = source.Where(eventEntity => eventEntity.OccurredAt > occurredAfter);
@@ -115,19 +144,7 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             source = source.Where(eventEntity => eventEntity.IngestedAt < ingestedBefore);
         }
 
-        if (cursor is { } c)
-        {
-            // Strict 'less than' for descending order. IngestedAt is
-            // microsecond-precision; the chance of two events colliding across
-            // a page boundary is negligible at 1k/s. The eventId in the cursor
-            // is reserved for a future tuple-compare tightening.
-            source = source.Where(eventEntity => eventEntity.IngestedAt < c.Ingested);
-        }
-
-        return source
-            .OrderByDescending(eventEntity => eventEntity.IngestedAt)
-            .ThenByDescending(eventEntity => eventEntity.Id)
-            .Take(pageSize + 1);
+        return source;
     }
 
     private static string EncodeCursor(DateTimeOffset ingested, Guid eventId)
