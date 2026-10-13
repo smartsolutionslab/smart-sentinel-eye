@@ -88,9 +88,10 @@ public static class EventIngestionInfrastructureModule
             .AddSingleton<IClock, SystemClock>();
 
         // ADR-0142. Scoped alongside the DbContext it writes through.
-        services.AddScoped<IIdempotencyStore, IdempotencyStore<EventIngestionDbContext>>();
-        services.AddIdempotencyReservationSweep<EventIngestionDbContext>();
-        services.AddSingleton(TimeProvider.System);
+        services
+            .AddScoped<IIdempotencyStore, IdempotencyStore<EventIngestionDbContext>>()
+            .AddIdempotencyReservationSweep<EventIngestionDbContext>()
+            .AddSingleton(TimeProvider.System);
 
         // Spec 019: the write paths ask whether a fab can store anything before
         // touching the ingest channel. Registered here rather than in the
@@ -130,39 +131,41 @@ public static class EventIngestionInfrastructureModule
     private static void AddIngestAndWebhookCommandHandlers(IServiceCollection services)
     {
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
-        services.AddScoped<IngestEventCommandHandler>();
-        services.AddScoped<IngestEventBatchCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>,
-            IngestEventCommandHandler>();
-        services.AddScoped<RegisterWebhookIntegrationCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                RegisterWebhookIntegrationCommand,
-                Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>>,
-            RegisterWebhookIntegrationCommandHandler>();
-        services.AddScoped<RevokeWebhookIntegrationCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                RevokeWebhookIntegrationCommand,
-                Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>,
-            RevokeWebhookIntegrationCommandHandler>();
+        services
+            .AddScoped<IngestEventCommandHandler>()
+            .AddScoped<IngestEventBatchCommandHandler>()
+            .AddScoped<
+                ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>,
+                IngestEventCommandHandler>()
+            .AddScoped<RegisterWebhookIntegrationCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    RegisterWebhookIntegrationCommand,
+                    Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>>,
+                RegisterWebhookIntegrationCommandHandler>()
+            .AddScoped<RevokeWebhookIntegrationCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    RevokeWebhookIntegrationCommand,
+                    Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>,
+                RevokeWebhookIntegrationCommandHandler>();
     }
 
     private static void AddEventTypeCommandHandlers(IServiceCollection services)
     {
-        services.AddScoped<RegisterEventTypeCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                RegisterEventTypeCommand,
-                Result<RegisteredEventTypeIdentifier, RegisterEventTypeError>>,
-            RegisterEventTypeCommandHandler>();
-        services.AddScoped<RetireEventTypeCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                RetireEventTypeCommand,
-                Result<RegisteredEventTypeIdentifier, RetireEventTypeError>>,
-            RetireEventTypeCommandHandler>();
+        services
+            .AddScoped<RegisterEventTypeCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    RegisterEventTypeCommand,
+                    Result<RegisteredEventTypeIdentifier, RegisterEventTypeError>>,
+                RegisterEventTypeCommandHandler>()
+            .AddScoped<RetireEventTypeCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    RetireEventTypeCommand,
+                    Result<RegisteredEventTypeIdentifier, RetireEventTypeError>>,
+                RetireEventTypeCommandHandler>();
     }
 
     private static void AddSourceModeCommandHandlers(IServiceCollection services)
@@ -170,30 +173,33 @@ public static class EventIngestionInfrastructureModule
         // Spec 269: registered alongside T009's /event-sources mapping, the
         // first (and only) route that reaches them — see the comment this
         // replaces, above the repository/query-source registrations.
-        services.AddScoped<DeclareSourceModeCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                DeclareSourceModeCommand,
-                Result<SourceModeIdentifier, DeclareSourceModeError>>,
-            DeclareSourceModeCommandHandler>();
-        services.AddScoped<ChangeSourceModeCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                ChangeSourceModeCommand,
-                Result<SourceModeIdentifier, ChangeSourceModeError>>,
-            ChangeSourceModeCommandHandler>();
+        services
+            .AddScoped<DeclareSourceModeCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    DeclareSourceModeCommand,
+                    Result<SourceModeIdentifier, DeclareSourceModeError>>,
+                DeclareSourceModeCommandHandler>()
+            .AddScoped<ChangeSourceModeCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    ChangeSourceModeCommand,
+                    Result<SourceModeIdentifier, ChangeSourceModeError>>,
+                ChangeSourceModeCommandHandler>();
 
         // Spec 317 (#2325), FR-013/US4: the way back to undeclared.
-        services.AddScoped<UndeclareSourceModeCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                UndeclareSourceModeCommand,
-                Result<SourceModeIdentifier, UndeclareSourceModeError>>,
-            UndeclareSourceModeCommandHandler>();
+        services
+            .AddScoped<UndeclareSourceModeCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    UndeclareSourceModeCommand,
+                    Result<SourceModeIdentifier, UndeclareSourceModeError>>,
+                UndeclareSourceModeCommandHandler>();
     }
 
     private static void AddQueryHandlers(IServiceCollection services)
     {
+        // Query handlers.
         services
             .AddScoped<GetEventQueryHandler>()
             .AddScoped<ListEventsQueryHandler>()
@@ -211,9 +217,10 @@ public static class EventIngestionInfrastructureModule
         // if this factory ever runs more than once per process (e.g. a
         // future WebApplicationFactory-style test); today's single
         // registration is kept alive for the app's lifetime either way.
-        services.AddSingleton<BoundedIngestChannel>(_ => new BoundedIngestChannel());
-        services.AddSingleton<IDisposable>(
-            provider => IngestChannelSaturation.RegisterGauges(provider.GetRequiredService<BoundedIngestChannel>()));
+        services
+            .AddSingleton<BoundedIngestChannel>(_ => new BoundedIngestChannel())
+            .AddSingleton<IDisposable>(
+                provider => IngestChannelSaturation.RegisterGauges(provider.GetRequiredService<BoundedIngestChannel>()));
 
         // IIngestChannel's factory runs exactly once per app lifetime — the
         // guarantee the gauges rely on to keep reading one channel instance —
