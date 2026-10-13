@@ -23,64 +23,98 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
         // Value object, not .Value: Fab is value-converted, and a member
         // access on it throws at EF translation time rather than filtering.
         FabIdentifier[] scopedFabs = [.. fabs];
-        var filtered = rules.Rules.Where(rule => scopedFabs.Contains(rule.Fab));
+        var scoped = rules.Rules.Where(rule => scopedFabs.Contains(rule.Fab));
 
-        if (!string.IsNullOrWhiteSpace(state))
+        var byState = FilterByState(scoped, state);
+        if (byState.IsFailure)
         {
-            RuleState parsedState;
-            try
-            {
-                parsedState = RuleState.From(state);
-            }
-            catch (ArgumentException)
-            {
-                return Failure(ListRulesFailures.InvalidState(state));
-            }
-
-            filtered = filtered.Where(rule => rule.State == parsedState);
+            return Failure(byState.Error);
         }
 
-        if (!string.IsNullOrWhiteSpace(triggerSource))
+        var byTrigger = FilterByTrigger(byState.Value, triggerSource, triggerKind);
+        if (!byTrigger.HasValue)
         {
-            // A filter value that could never be a TriggerSource matches nothing —
-            // which is exactly what comparing it to the column did while this
-            // property was a string. Parsing and failing the request instead would
-            // turn a 200 with no rows into a 400, and the contract for this feature
-            // is that no status code moves.
-            TriggerSource parsedTriggerSource;
-            try
-            {
-                parsedTriggerSource = TriggerSource.From(triggerSource);
-            }
-            catch (ArgumentException)
-            {
-                return Success<IReadOnlyList<RuleDto>>([]);
-            }
-
-            filtered = filtered.Where(rule => rule.TriggerSource == parsedTriggerSource);
+            return Success<IReadOnlyList<RuleDto>>([]);
         }
 
-        if (!string.IsNullOrWhiteSpace(triggerKind))
-        {
-            TriggerKind parsedTriggerKind;
-            try
-            {
-                parsedTriggerKind = TriggerKind.From(triggerKind);
-            }
-            catch (ArgumentException)
-            {
-                return Success<IReadOnlyList<RuleDto>>([]);
-            }
-
-            filtered = filtered.Where(rule => rule.TriggerKind == parsedTriggerKind);
-        }
-
-        var matches = await filtered
+        var matches = await byTrigger.Value
             .OrderByDescending(rule => rule.Creation.At)
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<RuleDto> projected = matches.Select(RuleMapper.Map).ToList();
 
         return Success(projected);
+    }
+
+    private static Result<IQueryable<Rule>, ListRulesError> FilterByState(IQueryable<Rule> filtered, string? state)
+    {
+        if (string.IsNullOrWhiteSpace(state))
+        {
+            return Success(filtered);
+        }
+
+        RuleState parsedState;
+        try
+        {
+            parsedState = RuleState.From(state);
+        }
+        catch (ArgumentException)
+        {
+            return Failure(ListRulesFailures.InvalidState(state));
+        }
+
+        return Success(filtered.Where(rule => rule.State == parsedState));
+    }
+
+    private static Option<IQueryable<Rule>> FilterByTrigger(
+        IQueryable<Rule> filtered, string? triggerSource, string? triggerKind)
+    {
+        var bySource = FilterBySource(filtered, triggerSource);
+        return bySource.HasValue ? FilterByKind(bySource.Value, triggerKind) : bySource;
+    }
+
+    private static Option<IQueryable<Rule>> FilterBySource(IQueryable<Rule> filtered, string? triggerSource)
+    {
+        if (string.IsNullOrWhiteSpace(triggerSource))
+        {
+            return Option<IQueryable<Rule>>.Some(filtered);
+        }
+
+        // A filter value that could never be a TriggerSource matches nothing —
+        // which is exactly what comparing it to the column did while this
+        // property was a string. Parsing and failing the request instead would
+        // turn a 200 with no rows into a 400, and the contract for this feature
+        // is that no status code moves.
+        TriggerSource parsedTriggerSource;
+        try
+        {
+            parsedTriggerSource = TriggerSource.From(triggerSource);
+        }
+        catch (ArgumentException)
+        {
+            return Option<IQueryable<Rule>>.None;
+        }
+
+        return Option<IQueryable<Rule>>.Some(filtered.Where(rule => rule.TriggerSource == parsedTriggerSource));
+    }
+
+    private static Option<IQueryable<Rule>> FilterByKind(IQueryable<Rule> filtered, string? triggerKind)
+    {
+        if (string.IsNullOrWhiteSpace(triggerKind))
+        {
+            return Option<IQueryable<Rule>>.Some(filtered);
+        }
+
+        TriggerKind parsedTriggerKind;
+        try
+        {
+            parsedTriggerKind = TriggerKind.From(triggerKind);
+        }
+        catch (ArgumentException)
+        {
+            return Option<IQueryable<Rule>>.None;
+        }
+
+        return Option<IQueryable<Rule>>.Some(filtered.Where(rule => rule.TriggerKind == parsedTriggerKind));
     }
 }
