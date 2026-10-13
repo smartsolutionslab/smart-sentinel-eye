@@ -44,122 +44,15 @@ public static class IdentityInfrastructureModule
     {
         Ensure.That(builder).IsNotNull();
 
-        builder.AddIdentityPersistence();
-        builder.EnrichPostgresDbContext<IdentityDbContext>();
-
-        builder.Services.AddScoped<IRegisteredClientRepository, RegisteredClientRepository>();
-        builder.Services.AddScoped<IRegisteredClientQuerySource, RegisteredClientQuerySource>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
+        AddPersistenceAndClock(builder);
 
         builder.AddKeycloakAdminClient();
 
-        // Spec 318 (#2628): rotating a webhook client asks EventIngestion
-        // whether the integration is revoked, over its already-published HTTP
-        // API — the first synchronous cross-context call this context makes
-        // (plan.md §III bounded exception, spec 017's precedent). Write path
-        // only, carrying the caller's own token (plan §3), so an
-        // EventIngestion outage stops rotation and nothing else.
-        //
-        // Registered by resource name so Aspire service discovery rewrites
-        // "http://event-ingestion" — scheme included — to whatever that
-        // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
-        // literal; neither applies, because it is a logical name rather than
-        // an address.
-        builder.Services.AddHttpContextAccessor();
-        builder.Services.AddTransient<CallerTokenForwardingHandler>();
-        builder.Services.AddHttpClient<IWebhookIntegrationStatusLookup, EventIngestionWebhookIntegrationStatusLookup>(client =>
-        {
-#pragma warning disable S1075, S5332
-            client.BaseAddress = new Uri("http://event-ingestion");
-#pragma warning restore S1075, S5332
-        }).AddHttpMessageHandler<CallerTokenForwardingHandler>();
-
-        // Spec 092 / ADR-0134 Decision 1, which names a startup sweep and had
-        // nothing behind it. Scoped, because the pass takes the scoped
-        // IKeycloakAdminClient; the startup service is a singleton and resolves
-        // it through a scope rather than taking it.
-        //
-        // Here and deliberately not in AddKeycloakAdminClient, which
-        // MigrationRunner also calls: MigrationRunner runs to completion and
-        // exits, and a sweep there would race the migration it exists to run.
-        builder.Services.AddScoped<KioskPrivilegeSweep>();
-        builder.Services.AddHostedService<KioskPrivilegeSweepHostedService>();
-
-        // Spec 320 (#2181): a cancellation between creating a device/kiosk
-        // Keycloak client and saving its RegisteredClient row leaves the
-        // client live with no row. Startup + hourly (plan §4.4), unlike the
-        // kiosk sweep above: an orphan blocks an operator now, and a 24/7
-        // Identity API may not restart for weeks.
-        builder.Services.AddScoped<OrphanedClientSweep>();
-        builder.Services.AddHostedService<OrphanedClientSweepHostedService>();
-
-        // Domain event handler — fans out DeviceRegisteredV1 /
-        // KioskEnrolledV1.
-        builder.Services.AddScoped<
-            IDomainEventHandler<ClientRegisteredDomainEvent>,
-            ClientRegisteredDomainEventHandler>();
-
-        // Hand-rolled command handler registrations.
-        builder.Services.AddScoped<EnrollKioskCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<EnrollKioskCommand, Result<KioskCredentialsDto, EnrollKioskError>>,
-            EnrollKioskCommandHandler>();
-        builder.Services.AddScoped<DisableKioskCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<DisableKioskCommand, Result<RegisteredClientIdentifier, DisableKioskError>>,
-            DisableKioskCommandHandler>();
-        builder.Services.AddScoped<RegisterDeviceCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<RegisterDeviceCommand, Result<DeviceCredentialsDto, RegisterDeviceError>>,
-            RegisterDeviceCommandHandler>();
-        builder.Services.AddScoped<DisableDeviceCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<DisableDeviceCommand, Result<RegisteredClientIdentifier, DisableDeviceError>>,
-            DisableDeviceCommandHandler>();
-        builder.Services.AddScoped<DisableWebhookClientCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>>,
-            DisableWebhookClientCommandHandler>();
-        builder.Services.AddScoped<RotateWebhookClientCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<
-                RotateWebhookClientCommand,
-                Result<WebhookClientCredentialsDto, RotateWebhookClientError>>,
-            RotateWebhookClientCommandHandler>();
-
-        // Hand-rolled query handler registrations (read side; issues #826/#827).
-        builder.Services.AddScoped<ListDevicesQueryHandler>();
-
-        // ADR-0142. Scoped alongside the DbContext it writes through; the store is
-        // per context because there is no shared database to hold one table in.
-        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<IdentityDbContext>>();
-        builder.Services.AddIdempotencyReservationSweep<IdentityDbContext>();
-        builder.Services.AddScoped<ReplayRegisteredClientQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
-            ListDevicesQueryHandler>();
-        builder.Services.AddScoped<ListKiosksQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<ListKiosksQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
-            ListKiosksQueryHandler>();
-        builder.Services.AddScoped<ListWebhookClientsQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<ListWebhookClientsQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
-            ListWebhookClientsQueryHandler>();
-
-        // Spec 270 (ADR-0160 §3): Identity reads its own table for the
-        // revocation snapshot rather than calling its own API. Replace, not
-        // TryAdd — AddBearerAuthentication registers the default
-        // HttpRevokedClientSource with TryAddSingleton, and this is the one
-        // context that must not use it, regardless of registration order.
-        builder.Services.AddScoped<ListRevokedClientsQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<ListRevokedClientsQuery, Result<IReadOnlyList<RevokedClientEntry>, ListClientsError>>,
-            ListRevokedClientsQueryHandler>();
-        builder.Services.Replace(
-            ServiceDescriptor.Singleton<IRevokedClientSource, LocalRevokedClientSource>());
+        AddWebhookIntegrationStatusLookup(builder.Services);
+        AddStartupSweeps(builder.Services);
+        AddCommandHandlers(builder.Services);
+        AddQueryHandlers(builder.Services);
+        AddRevocationSource(builder.Services);
 
         builder.AddWolverineForContext<IdentityDbContext>(
             moduleQueuePrefix: ContextName,
@@ -177,6 +70,154 @@ public static class IdentityInfrastructureModule
             configureMore: ConfigureMessageHandling);
 
         return builder;
+    }
+
+    private static void AddPersistenceAndClock(IHostApplicationBuilder builder)
+    {
+        builder.AddIdentityPersistence();
+        builder.EnrichPostgresDbContext<IdentityDbContext>();
+
+        builder.Services.AddScoped<IRegisteredClientRepository, RegisteredClientRepository>();
+        builder.Services.AddScoped<IRegisteredClientQuerySource, RegisteredClientQuerySource>();
+        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+        builder.Services.AddSingleton<IClock, SystemClock>();
+        builder.Services.AddSingleton(TimeProvider.System);
+    }
+
+    private static void AddWebhookIntegrationStatusLookup(IServiceCollection services)
+    {
+        // Spec 318 (#2628): rotating a webhook client asks EventIngestion
+        // whether the integration is revoked, over its already-published HTTP
+        // API — the first synchronous cross-context call this context makes
+        // (plan.md §III bounded exception, spec 017's precedent). Write path
+        // only, carrying the caller's own token (plan §3), so an
+        // EventIngestion outage stops rotation and nothing else.
+        //
+        // Registered by resource name so Aspire service discovery rewrites
+        // "http://event-ingestion" — scheme included — to whatever that
+        // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
+        // literal; neither applies, because it is a logical name rather than
+        // an address.
+        services.AddHttpContextAccessor();
+        services.AddTransient<CallerTokenForwardingHandler>();
+        services.AddHttpClient<IWebhookIntegrationStatusLookup, EventIngestionWebhookIntegrationStatusLookup>(client =>
+        {
+#pragma warning disable S1075, S5332
+            client.BaseAddress = new Uri("http://event-ingestion");
+#pragma warning restore S1075, S5332
+        }).AddHttpMessageHandler<CallerTokenForwardingHandler>();
+    }
+
+    private static void AddStartupSweeps(IServiceCollection services)
+    {
+        // Spec 092 / ADR-0134 Decision 1, which names a startup sweep and had
+        // nothing behind it. Scoped, because the pass takes the scoped
+        // IKeycloakAdminClient; the startup service is a singleton and resolves
+        // it through a scope rather than taking it.
+        //
+        // Here and deliberately not in AddKeycloakAdminClient, which
+        // MigrationRunner also calls: MigrationRunner runs to completion and
+        // exits, and a sweep there would race the migration it exists to run.
+        services.AddScoped<KioskPrivilegeSweep>();
+        services.AddHostedService<KioskPrivilegeSweepHostedService>();
+
+        // Spec 320 (#2181): a cancellation between creating a device/kiosk
+        // Keycloak client and saving its RegisteredClient row leaves the
+        // client live with no row. Startup + hourly (plan §4.4), unlike the
+        // kiosk sweep above: an orphan blocks an operator now, and a 24/7
+        // Identity API may not restart for weeks.
+        services.AddScoped<OrphanedClientSweep>();
+        services.AddHostedService<OrphanedClientSweepHostedService>();
+    }
+
+    private static void AddCommandHandlers(IServiceCollection services)
+    {
+        // Domain event handler — fans out DeviceRegisteredV1 /
+        // KioskEnrolledV1.
+        services.AddScoped<
+            IDomainEventHandler<ClientRegisteredDomainEvent>,
+            ClientRegisteredDomainEventHandler>();
+
+        // Hand-rolled command handler registrations.
+        AddKioskCommandHandlers(services);
+        AddDeviceCommandHandlers(services);
+        AddWebhookCommandHandlers(services);
+    }
+
+    private static void AddKioskCommandHandlers(IServiceCollection services)
+    {
+        services.AddScoped<EnrollKioskCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<EnrollKioskCommand, Result<KioskCredentialsDto, EnrollKioskError>>,
+            EnrollKioskCommandHandler>();
+        services.AddScoped<DisableKioskCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<DisableKioskCommand, Result<RegisteredClientIdentifier, DisableKioskError>>,
+            DisableKioskCommandHandler>();
+    }
+
+    private static void AddDeviceCommandHandlers(IServiceCollection services)
+    {
+        services.AddScoped<RegisterDeviceCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<RegisterDeviceCommand, Result<DeviceCredentialsDto, RegisterDeviceError>>,
+            RegisterDeviceCommandHandler>();
+        services.AddScoped<DisableDeviceCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<DisableDeviceCommand, Result<RegisteredClientIdentifier, DisableDeviceError>>,
+            DisableDeviceCommandHandler>();
+    }
+
+    private static void AddWebhookCommandHandlers(IServiceCollection services)
+    {
+        services.AddScoped<DisableWebhookClientCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>>,
+            DisableWebhookClientCommandHandler>();
+        services.AddScoped<RotateWebhookClientCommandHandler>();
+        services.AddScoped<
+            ICommandHandler<
+                RotateWebhookClientCommand,
+                Result<WebhookClientCredentialsDto, RotateWebhookClientError>>,
+            RotateWebhookClientCommandHandler>();
+    }
+
+    private static void AddQueryHandlers(IServiceCollection services)
+    {
+        // Hand-rolled query handler registrations (read side; issues #826/#827).
+        services.AddScoped<ListDevicesQueryHandler>();
+
+        // ADR-0142. Scoped alongside the DbContext it writes through; the store is
+        // per context because there is no shared database to hold one table in.
+        services.AddScoped<IIdempotencyStore, IdempotencyStore<IdentityDbContext>>();
+        services.AddIdempotencyReservationSweep<IdentityDbContext>();
+        services.AddScoped<ReplayRegisteredClientQueryHandler>();
+        services.AddScoped<
+            IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+            ListDevicesQueryHandler>();
+        services.AddScoped<ListKiosksQueryHandler>();
+        services.AddScoped<
+            IQueryHandler<ListKiosksQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+            ListKiosksQueryHandler>();
+        services.AddScoped<ListWebhookClientsQueryHandler>();
+        services.AddScoped<
+            IQueryHandler<ListWebhookClientsQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+            ListWebhookClientsQueryHandler>();
+    }
+
+    private static void AddRevocationSource(IServiceCollection services)
+    {
+        // Spec 270 (ADR-0160 §3): Identity reads its own table for the
+        // revocation snapshot rather than calling its own API. Replace, not
+        // TryAdd — AddBearerAuthentication registers the default
+        // HttpRevokedClientSource with TryAddSingleton, and this is the one
+        // context that must not use it, regardless of registration order.
+        services.AddScoped<ListRevokedClientsQueryHandler>();
+        services.AddScoped<
+            IQueryHandler<ListRevokedClientsQuery, Result<IReadOnlyList<RevokedClientEntry>, ListClientsError>>,
+            ListRevokedClientsQueryHandler>();
+        services.Replace(
+            ServiceDescriptor.Singleton<IRevokedClientSource, LocalRevokedClientSource>());
     }
 
     /// <summary>
