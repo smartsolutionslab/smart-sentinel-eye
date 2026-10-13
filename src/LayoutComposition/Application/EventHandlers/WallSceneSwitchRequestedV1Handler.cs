@@ -52,7 +52,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
         var reserved = await dedup.TryReserveAsync(ruleIdentifier, causingEvent, wallIdentifier, cancellationToken);
         if (!reserved)
         {
-            logger.WallSwitchRequestDuplicate(wall, rule, causingEventIdentifier);
+            logger.WallSwitchRequestDuplicate(trace.Wall, trace.Rule, trace.CausingEvent);
             return;
         }
 
