@@ -58,36 +58,7 @@ public sealed class HttpKeycloakAdminClient(
 
         var realm = options.Value.Realm;
 
-        // Existence probe — Keycloak's create endpoint returns 409 on
-        // duplicate, but we want a typed exception either way.
-        // DisableClientAsync never deletes the Keycloak-side client, only
-        // flips `enabled`, so a previously disabled registration's clientId
-        // is still here on re-registration. That narrow case — disabled, and
-        // stamped with the same sse.kind (and sse.fab, where we have one) as
-        // the client being created now — is deleted and recreated rather
-        // than refused forever (#2728).
-        //
-        // Everything else conflicts: an active client (including a realm
-        // infrastructure client such as `management-web`, which carries no
-        // `sse.kind` at all and so never matches) is never deleted, and
-        // neither is a disabled client of a different kind or a different
-        // fab. A security review of the first cut of this fix found that an
-        // unconditional delete-on-hit let any caller holding
-        // `sse.identity.kiosks.write` take down an arbitrary realm client by
-        // naming it as the clientId of a kiosk enrolment.
-        var conflicting = await TryGetClientRowAsync(
-            realm, representation.ClientId, cancellationToken);
-        if (conflicting is not null)
-        {
-            if (!IsReplaceableDisabledClient(conflicting, representation))
-            {
-                throw new KeycloakClientAlreadyExistsException(representation.ClientId);
-            }
-
-            logger.ReplacedDisabledClient(representation.ClientId, conflicting.Id);
-            await TryDeleteClientAsync(
-                realm, representation.ClientId, conflicting.Id, cancellationToken);
-        }
+        await RefuseOrReplaceExistingAsync(realm, representation, cancellationToken);
 
         using HttpRequestMessage create = new(HttpMethod.Post, $"admin/realms/{realm}/clients")
         {
@@ -135,6 +106,43 @@ public sealed class HttpKeycloakAdminClient(
             await TryDeleteClientAsync(
                 realm, representation.ClientId, clientUuid, cancellationToken);
             throw;
+        }
+    }
+
+    private async Task RefuseOrReplaceExistingAsync(
+        string realm,
+        KeycloakClientRepresentation representation,
+        CancellationToken cancellationToken)
+    {
+        // Existence probe — Keycloak's create endpoint returns 409 on
+        // duplicate, but we want a typed exception either way.
+        // DisableClientAsync never deletes the Keycloak-side client, only
+        // flips `enabled`, so a previously disabled registration's clientId
+        // is still here on re-registration. That narrow case — disabled, and
+        // stamped with the same sse.kind (and sse.fab, where we have one) as
+        // the client being created now — is deleted and recreated rather
+        // than refused forever (#2728).
+        //
+        // Everything else conflicts: an active client (including a realm
+        // infrastructure client such as `management-web`, which carries no
+        // `sse.kind` at all and so never matches) is never deleted, and
+        // neither is a disabled client of a different kind or a different
+        // fab. A security review of the first cut of this fix found that an
+        // unconditional delete-on-hit let any caller holding
+        // `sse.identity.kiosks.write` take down an arbitrary realm client by
+        // naming it as the clientId of a kiosk enrolment.
+        var conflicting = await TryGetClientRowAsync(
+            realm, representation.ClientId, cancellationToken);
+        if (conflicting is not null)
+        {
+            if (!IsReplaceableDisabledClient(conflicting, representation))
+            {
+                throw new KeycloakClientAlreadyExistsException(representation.ClientId);
+            }
+
+            logger.ReplacedDisabledClient(representation.ClientId, conflicting.Id);
+            await TryDeleteClientAsync(
+                realm, representation.ClientId, conflicting.Id, cancellationToken);
         }
     }
 
