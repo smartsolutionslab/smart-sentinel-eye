@@ -7,7 +7,7 @@ internal static class WhepAuthorizeActionPartition
 {
     // ADR-0171 security review (#2862 blocker 2): MediaMTX's own control-API
     // calls and a real WHEP viewer's open both reach this one anonymous route
-    // from MediaMTX's own address, so the limiter below used to key on source
+    // from MediaMTX's own address, so the limiter in Program.cs used to key on source
     // address alone and put them in the same budget — the health sweep's batch
     // call (and this project's own fixture resets, in the integration lane)
     // could crowd out real viewers under load, and in CI it crowded out this
@@ -18,7 +18,7 @@ internal static class WhepAuthorizeActionPartition
     // RateLimiterMiddleware, ahead of the Minimal API model binding that would
     // otherwise read it. PeekMediaMtxActionAsync buffers and rewinds the body so
     // the real binder downstream still sees it untouched, then stashes a
-    // classification the partition key below reads back.
+    // classification the partition key in Program.cs reads back.
     private const string AuthorizeRoutePath = "/streams/authorize";
     private const string MediaMtxActionPartitionItemKey = "WhepAuthorize.ActionPartition";
     internal const string ApiActionPartition = "api";
@@ -76,7 +76,7 @@ internal static class WhepAuthorizeActionPartition
     // it).
     //
     // Spec 208 review S5: an IMemoryCache entry per partition, absolute-expiring
-    // after whepAuthorizeWindow, gives the same "re-arm once a full window has
+    // after the `window` parameter (the api or whep budget since #2871), gives the same "re-arm once a full window has
     // passed since the last logged transition" semantic a hand-rolled
     // ConcurrentDictionary<string, DateTimeOffset> computed via AddOrUpdate —
     // but with eviction built in. That dictionary never evicted an entry, so on
