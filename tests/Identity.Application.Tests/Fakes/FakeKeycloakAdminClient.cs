@@ -155,7 +155,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         }
         Stripped.Add(representation.ClientId);
 
-        string secret = $"secret-{representation.ClientId}";
+        var secret = $"secret-{representation.ClientId}";
         CurrentSecrets[representation.ClientId] = secret;
         return Task.FromResult(new KeycloakClientCredentials(secret));
     }
@@ -173,7 +173,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         {
             throw new KeycloakClientNotFoundException(clientId);
         }
-        string secret = $"secret-{clientId}-rotated";
+        var secret = $"secret-{clientId}-rotated";
         CurrentSecrets[clientId] = secret;
         return Task.FromResult(new KeycloakClientCredentials(secret));
     }
@@ -205,13 +205,13 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     {
         CallCount++;
         CallLog.Add(nameof(DisableClientAsync));
-        if (DisableFailsFor.TryGetValue(clientId, out Exception? perClientFailure))
+        if (DisableFailsFor.TryGetValue(clientId, out var perClientFailure))
         {
             throw perClientFailure;
         }
         if (FailNextDisableWith is not null)
         {
-            Exception toThrow = FailNextDisableWith;
+            var toThrow = FailNextDisableWith;
             FailNextDisableWith = null;
             throw toThrow;
         }
@@ -254,7 +254,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
     {
         CallCount++;
         CallLog.Add(nameof(GetServiceAccountCreatedAtAsync));
-        if (ServiceAccountCreatedAtThrows.TryGetValue(clientId, out Exception? toThrow))
+        if (ServiceAccountCreatedAtThrows.TryGetValue(clientId, out var toThrow))
         {
             throw toThrow;
         }
@@ -264,7 +264,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         }
 
         return Task.FromResult(
-            ServiceAccountCreatedAt.TryGetValue(clientId, out DateTimeOffset createdAt)
+            ServiceAccountCreatedAt.TryGetValue(clientId, out var createdAt)
                 ? Option<DateTimeOffset>.Some(createdAt)
                 : Option<DateTimeOffset>.None);
     }
@@ -288,7 +288,7 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         // stamps, not from a naming convention repeated here.
         IReadOnlyList<string> kiosks = clients
             .Where(entry => entry.Value.Attributes is not null
-                && entry.Value.Attributes.TryGetValue("sse.kind", out string? kind)
+                && entry.Value.Attributes.TryGetValue("sse.kind", out var kind)
                 && kind == "kiosk")
             .Select(entry => entry.Key)
             .ToArray();
@@ -334,14 +334,14 @@ public sealed class FakeKeycloakAdminClient : IKeycloakAdminClient
         // (#2139) — the dictionary miss is the fake's way of saying the group
         // is not there, which is the case the empty list used to swallow.
         return Task.FromResult(
-            SubGroups.TryGetValue(parentPath, out IReadOnlyList<string>? names)
+            SubGroups.TryGetValue(parentPath, out var names)
                 ? Option<IReadOnlyList<string>>.Some(names)
                 : Option<IReadOnlyList<string>>.None);
     }
 
     private void ThrowAndClear()
     {
-        string message = FailNextCall!;
+        var message = FailNextCall!;
         FailNextCall = null;
         // Surface as HttpRequestException so the handlers' generic
         // catch-all (not OperationCanceledException) treats it as

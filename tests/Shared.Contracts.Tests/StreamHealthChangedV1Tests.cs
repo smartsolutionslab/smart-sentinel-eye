@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.StreamDistribution;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -16,8 +15,8 @@ public class StreamHealthChangedV1Tests
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
-        Guid camera = Guid.CreateVersion7();
-        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        var camera = Guid.CreateVersion7();
+        var at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
         StreamHealthChangedV1 evt = new(camera, "Healthy", "Degraded", at, "source unreachable", Metadata: TestMetadata);
 
@@ -45,8 +44,8 @@ public class StreamHealthChangedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid camera = Guid.CreateVersion7();
-        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        var camera = Guid.CreateVersion7();
+        var at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
         StreamHealthChangedV1 first = new(camera, "Healthy", "Degraded", at, "boom", Metadata: TestMetadata);
         StreamHealthChangedV1 second = new(camera, "Healthy", "Degraded", at, "boom", Metadata: TestMetadata);
@@ -72,12 +71,12 @@ public class StreamHealthChangedV1Tests
     [Fact]
     public void JSON_round_trip_preserves_every_field_including_null_error()
     {
-        Guid camera = Guid.CreateVersion7();
-        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        var camera = Guid.CreateVersion7();
+        var at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
         StreamHealthChangedV1 original = new(camera, "Degraded", "Healthy", at, null, Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        StreamHealthChangedV1 deserialized = JsonSerializer.Deserialize<StreamHealthChangedV1>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<StreamHealthChangedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

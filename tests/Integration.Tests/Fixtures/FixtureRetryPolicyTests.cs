@@ -1,6 +1,4 @@
 using Microsoft.Extensions.Http.Resilience;
-using Shouldly;
-using Xunit;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -50,9 +48,9 @@ public class FixtureRetryPolicyTests
     [Fact]
     public async Task A_failing_POST_from_a_fixture_client_is_attempted_once()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.PostAsync(
+        using var response = await client.PostAsync(
             "https://x.test/devices/register", new StringContent("{}"), CancellationToken.None);
 
         server.Attempts.ShouldBe(1, "a POST gets one attempt; retrying it can duplicate the effect.");
@@ -66,7 +64,7 @@ public class FixtureRetryPolicyTests
     [Fact]
     public async Task A_thrown_POST_from_a_fixture_client_is_attempted_once()
     {
-        (HttpClient client, CountingHandler server) = Build(throwInstead: true);
+        (var client, var server) = Build(throwInstead: true);
 
         await Should.ThrowAsync<HttpRequestException>(
             () => client.PostAsync("https://x.test/devices/register", new StringContent("{}"), CancellationToken.None));
@@ -77,9 +75,9 @@ public class FixtureRetryPolicyTests
     [Fact]
     public async Task A_failing_GET_from_a_fixture_client_is_still_retried()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.GetAsync("https://x.test/devices", CancellationToken.None);
+        using var response = await client.GetAsync("https://x.test/devices", CancellationToken.None);
 
         server.Attempts.ShouldBe(4, "one attempt plus the standard handler's three retries.");
     }
@@ -87,9 +85,9 @@ public class FixtureRetryPolicyTests
     [Fact]
     public async Task A_failing_PUT_from_a_fixture_client_is_still_retried()
     {
-        (HttpClient client, CountingHandler server) = Build();
+        (var client, var server) = Build();
 
-        using HttpResponseMessage response = await client.PutAsync(
+        using var response = await client.PutAsync(
             "https://x.test/devices/one", new StringContent("{}"), CancellationToken.None);
 
         server.Attempts.ShouldBe(4, "PUT is idempotent under RFC 9110, so the retry must survive the fix.");
@@ -100,7 +98,7 @@ public class FixtureRetryPolicyTests
         CountingHandler server = new(throwInstead);
         ServiceCollection services = new();
 
-        IHttpClientBuilder builder = services
+        var builder = services
             .AddHttpClient(Client)
             .ConfigurePrimaryHttpMessageHandler(() => server);
 

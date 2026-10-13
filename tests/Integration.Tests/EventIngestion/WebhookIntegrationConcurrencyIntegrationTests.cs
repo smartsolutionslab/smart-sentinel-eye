@@ -50,11 +50,11 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_listed_version_tracks_what_the_service_persisted()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName();
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName();
         await RegisterAsync(events, name);
 
-        int onCreation = (await FindAsync(events, name)).GetProperty("version").GetInt32();
+        var onCreation = (await FindAsync(events, name)).GetProperty("version").GetInt32();
         onCreation.ShouldBe(0, "an Added root is not bumped by the interceptor");
 
         // Revoking through the API is the only way to observe a version the
@@ -64,7 +64,7 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
         (await events.SendAsync(Conditional(name, onCreation)))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        int afterRevoke = (await FindAsync(events, name, includeRevoked: true))
+        var afterRevoke = (await FindAsync(events, name, includeRevoked: true))
             .GetProperty("version").GetInt32();
 
         afterRevoke.ShouldBe(onCreation + 1);
@@ -73,11 +73,11 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_revoke_without_If_Match_is_refused_with_428_and_leaves_the_integration_live()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName();
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName();
         await RegisterAsync(events, name);
 
-        HttpResponseMessage refused = await events.DeleteAsync($"/webhook-integrations/{name}");
+        var refused = await events.DeleteAsync($"/webhook-integrations/{name}");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
 
@@ -92,24 +92,24 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_revoke_superseded_by_a_rotation_is_refused_with_409()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName();
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName();
         await RegisterAsync(events, name);
 
-        int readAt = (await FindAsync(events, name)).GetProperty("version").GetInt32();
+        var readAt = (await FindAsync(events, name)).GetProperty("version").GetInt32();
         await RotateOutOfBandAsync(name);
 
-        HttpResponseMessage refused = await events.SendAsync(Conditional(name, readAt));
+        var refused = await events.SendAsync(Conditional(name, readAt));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("WEBHOOK_INTEGRATION_STALE");
 
         // The rotation survives and the integration is still live — a
         // status-only assertion would pass even if the revoke had landed.
         // Queried with includeRevoked so a landed revoke would be visible
         // rather than silently filtered out of the result.
-        JsonElement row = await FindAsync(events, name, includeRevoked: true);
+        var row = await FindAsync(events, name, includeRevoked: true);
         row.GetProperty("revokedAt").ValueKind.ShouldBe(JsonValueKind.Null);
         row.GetProperty("version").GetInt32().ShouldBeGreaterThan(readAt);
     }
@@ -117,12 +117,12 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_revoke_carrying_the_listed_version_succeeds()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        string name = UniqueName();
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var name = UniqueName();
         await RegisterAsync(events, name);
-        int version = (await FindAsync(events, name)).GetProperty("version").GetInt32();
+        var version = (await FindAsync(events, name)).GetProperty("version").GetInt32();
 
-        HttpResponseMessage revoked = await events.SendAsync(Conditional(name, version));
+        var revoked = await events.SendAsync(Conditional(name, version));
 
         revoked.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(revoked));
         (await FindAsync(events, name, includeRevoked: true))
@@ -131,7 +131,7 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
 
     private static async Task RegisterAsync(HttpClient events, string name)
     {
-        HttpResponseMessage created = await events.PostAsJsonAsync(
+        var created = await events.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
     }
@@ -143,7 +143,7 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task RotateOutOfBandAsync(string name)
     {
-        string connectionString = await aspire.App
+        var connectionString = await aspire.App
             .GetConnectionStringAsync(AspireFixture.EventIngestionConnectionName)
             ?? throw new InvalidOperationException(
                 $"Connection string '{AspireFixture.EventIngestionConnectionName}' was not provisioned by Aspire.");
@@ -153,8 +153,8 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
         options.AddInterceptors(new AggregateVersionInterceptor());
 
         await using EventIngestionDbContext context = new(options.Options);
-        WebhookIntegrationName parsed = WebhookIntegrationName.From(name);
-        WebhookIntegration integration = await context.WebhookIntegrations
+        var parsed = WebhookIntegrationName.From(name);
+        var integration = await context.WebhookIntegrations
             .FirstAsync(candidate => candidate.Name == parsed);
 
         integration.MarkAsRotated(KeycloakClientIdentifier.From($"webhook-{name}"), new SystemClock());
@@ -169,11 +169,11 @@ public class WebhookIntegrationConcurrencyIntegrationTests(AspireFixture aspire)
     private static async Task<JsonElement> FindAsync(
         HttpClient events, string name, bool includeRevoked = false)
     {
-        HttpResponseMessage listed = await events.GetAsync(
+        var listed = await events.GetAsync(
             $"/webhook-integrations?includeRevoked={includeRevoked}");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.EnumerateArray().Single(row =>
             string.Equals(row.GetProperty("name").GetString(), name, StringComparison.Ordinal));

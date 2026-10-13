@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
-using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
@@ -32,7 +31,7 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -52,7 +51,7 @@ public class RegisterDeviceCommandHandlerTests
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
         await handler.HandleAsync(HappyCommand(), CancellationToken.None);
-        Result<DeviceCredentialsDto, RegisterDeviceError> second =
+        var second =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         second.IsSuccess.ShouldBeFalse();
@@ -77,18 +76,18 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        RegisterDeviceCommand munichCommand = HappyCommand();
-        Result<DeviceCredentialsDto, RegisterDeviceError> munichAttempt =
+        var munichCommand = HappyCommand();
+        var munichAttempt =
             await handler.HandleAsync(munichCommand, CancellationToken.None);
 
-        RegisterDeviceCommand dresdenCommand = munichCommand with
+        var dresdenCommand = munichCommand with
         {
             Fab = FabIdentifier.From("dresden"),
             RegisteredBy = OperatorIdentifier.From(Guid.CreateVersion7()),
         };
-        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
+        var dresdenAttempt =
             await handler.HandleAsync(dresdenCommand, CancellationToken.None);
-        Result<DeviceCredentialsDto, RegisterDeviceError> munichSecondAttempt =
+        var munichSecondAttempt =
             await handler.HandleAsync(munichCommand, CancellationToken.None);
 
         munichAttempt.IsSuccess.ShouldBeTrue();
@@ -145,16 +144,16 @@ public class RegisterDeviceCommandHandlerTests
             fabGroupPath: "/fabs/munich",
             CancellationToken.None);
 
-        RegisterDeviceCommand munichCommand = HappyCommand();
-        RegisterDeviceCommand dresdenCommand = munichCommand with
+        var munichCommand = HappyCommand();
+        var dresdenCommand = munichCommand with
         {
             Fab = FabIdentifier.From("dresden"),
             RegisteredBy = OperatorIdentifier.From(Guid.CreateVersion7()),
         };
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> munichAttempt =
+        var munichAttempt =
             await handler.HandleAsync(munichCommand, CancellationToken.None);
-        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
+        var dresdenAttempt =
             await handler.HandleAsync(dresdenCommand, CancellationToken.None);
 
         munichAttempt.IsSuccess.ShouldBeFalse(
@@ -181,7 +180,7 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(deviceType: badType), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -200,7 +199,7 @@ public class RegisterDeviceCommandHandlerTests
 
         // A deviceIdentifier containing whitespace yields a clientId
         // 'plc-has space' that fails the ClientId grammar.
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(
                 HappyCommand(deviceIdentifier: "has space"), CancellationToken.None);
 
@@ -228,7 +227,7 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(
                 HappyCommand(deviceType: deviceType, deviceIdentifier: deviceIdentifier!),
                 CancellationToken.None);
@@ -268,13 +267,13 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(
                 HappyCommand(deviceType: deviceType, deviceIdentifier: deviceIdentifier),
                 CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
-        RegisterDeviceError.InvalidDeviceIdentifier error =
+        var error =
             result.Error.ShouldBeOfType<RegisterDeviceError.InvalidDeviceIdentifier>();
         error.Reason.ShouldBe("each hyphen-separated segment must be one or more letters or digits.");
         repo.Clients.ShouldBeEmpty();
@@ -298,7 +297,7 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(
                 HappyCommand(deviceIdentifier: deviceIdentifier), CancellationToken.None);
 
@@ -315,7 +314,7 @@ public class RegisterDeviceCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<RegisterDeviceCommandHandler>.Instance);
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -348,9 +347,9 @@ public class RegisterDeviceCommandHandlerTests
         RegisterDeviceCommand dresdenTwoCommand = new(
             "plc", "press", FabIdentifier.From("dresden-2"), OperatorIdentifier.From(Guid.CreateVersion7()));
 
-        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenAttempt =
+        var dresdenAttempt =
             await handler.HandleAsync(dresdenCommand, CancellationToken.None);
-        Result<DeviceCredentialsDto, RegisterDeviceError> dresdenTwoAttempt =
+        var dresdenTwoAttempt =
             await handler.HandleAsync(dresdenTwoCommand, CancellationToken.None);
 
         dresdenAttempt.IsSuccess.ShouldBeTrue();

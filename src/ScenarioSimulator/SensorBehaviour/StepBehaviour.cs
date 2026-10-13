@@ -12,9 +12,9 @@ public sealed class StepBehaviour : ISensorBehaviour
 
     public double Sample(SensorDefinition sensor, double fraction, Random random)
     {
-        double before = sensor.Before ?? 0d;
-        double after = sensor.After ?? before;
-        double at = sensor.StepAtFraction ?? 0.5d;
+        var before = sensor.Before ?? 0d;
+        var after = sensor.After ?? before;
+        var at = sensor.StepAtFraction ?? 0.5d;
         return fraction < at ? before : after;
     }
 }

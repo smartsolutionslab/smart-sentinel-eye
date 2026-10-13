@@ -78,7 +78,7 @@ public class KioskPrivilegeSweepSteadyStateTests
 
         await new KioskPrivilegeSweep(keycloak, logger).SweepAsync(CancellationToken.None);
 
-        IReadOnlyList<LoggedEntry> completions = logger.Named(CompletionLine);
+        var completions = logger.Named(CompletionLine);
 
         completions.Count.ShouldBe(
             1,
@@ -150,7 +150,7 @@ public class KioskPrivilegeSweepSteadyStateTests
 
         await new KioskPrivilegeSweep(keycloak, logger).SweepAsync(CancellationToken.None);
 
-        IReadOnlyList<LoggedEntry> completions = logger.Named(CompletionLine);
+        var completions = logger.Named(CompletionLine);
 
         completions.Count.ShouldBe(
             1, "one line per pass, not one per kiosk and not one per repair");

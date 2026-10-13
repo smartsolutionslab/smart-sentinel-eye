@@ -31,7 +31,7 @@ public class EventRepositoryOutboxTests
         RecordingDispatcher dispatcher = new(order);
         RecordingCommit commit = new(order);
 
-        await using EventIngestionDbContext database = Database();
+        await using var database = Database();
         database.Events.Add(AnEvent());
 
         EventRepository repository = new(database, commit, dispatcher);
@@ -60,7 +60,7 @@ public class EventRepositoryOutboxTests
         List<string> order = [];
         RecordingCommit commit = new(order);
 
-        await using EventIngestionDbContext database = Database();
+        await using var database = Database();
         database.Events.Add(AnEvent());
 
         EventRepository repository = new(database, commit, new ThrowingDispatcher());

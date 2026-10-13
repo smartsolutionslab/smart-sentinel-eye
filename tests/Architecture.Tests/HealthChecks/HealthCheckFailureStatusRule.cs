@@ -50,17 +50,17 @@ internal static class HealthCheckFailureStatusRule
         }
         else if (selfCandidates.Count > 1)
         {
-            foreach (HealthCheckRegistration candidate in selfCandidates)
+            foreach (var candidate in selfCandidates)
             {
                 offenders.Add(Describe(candidate, services, $"more than one registration named \"{ExemptName}\" ({selfCandidates.Count} found)"));
             }
         }
-        else if (!IsExemptShape(selfCandidates[0], services, out string? shapeFailureReason))
+        else if (!IsExemptShape(selfCandidates[0], services, out var shapeFailureReason))
         {
             offenders.Add(Describe(selfCandidates[0], services, shapeFailureReason!));
         }
 
-        foreach (HealthCheckRegistration registration in registrations)
+        foreach (var registration in registrations)
         {
             if (string.Equals(registration.Name, ExemptName, StringComparison.Ordinal))
             {
@@ -86,7 +86,7 @@ internal static class HealthCheckFailureStatusRule
             return false;
         }
 
-        string? factoryTypeFullName = ResolveFactoryTypeFullName(registration, services);
+        var factoryTypeFullName = ResolveFactoryTypeFullName(registration, services);
         if (!string.Equals(factoryTypeFullName, ExemptFactoryTypeFullName, StringComparison.Ordinal))
         {
             failureReason = $"factory type is {factoryTypeFullName ?? "unknown"}, not {ExemptFactoryTypeFullName}";
@@ -105,16 +105,16 @@ internal static class HealthCheckFailureStatusRule
 
     private static string? ResolveFactoryTypeFullName(HealthCheckRegistration registration, IServiceProvider services)
     {
-        using IServiceScope scope = services.CreateScope();
-        IHealthCheck check = registration.Factory(scope.ServiceProvider);
+        using var scope = services.CreateScope();
+        var check = registration.Factory(scope.ServiceProvider);
 
         return check.GetType().FullName;
     }
 
     private static string Describe(HealthCheckRegistration registration, IServiceProvider services, string reason)
     {
-        string? type = ResolveFactoryTypeFullName(registration, services);
-        string tags = string.Join(", ", registration.Tags);
+        var type = ResolveFactoryTypeFullName(registration, services);
+        var tags = string.Join(", ", registration.Tags);
 
         return $"\"{registration.Name}\" (failureStatus={registration.FailureStatus}, tags=[{tags}], type={type}): {reason}";
     }

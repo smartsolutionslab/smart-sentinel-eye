@@ -32,9 +32,9 @@ public sealed record DeviceIdentifier : StringValueObject
             return false;
         }
 
-        for (int i = 1; i < s.Length; i++)
+        for (var i = 1; i < s.Length; i++)
         {
-            char c = s[i];
+            var c = s[i];
             if (!char.IsLetterOrDigit(c) && c != '.' && c != '_' && c != '-')
             {
                 return false;

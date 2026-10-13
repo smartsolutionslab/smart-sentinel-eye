@@ -63,11 +63,11 @@ public sealed class KioskPrivilegeSweep(
     /// </summary>
     public async Task<KioskSweepOutcome> SweepAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<string> kiosks = await keycloak.GetEnrolledKioskClientIdsAsync(cancellationToken);
+        var kiosks = await keycloak.GetEnrolledKioskClientIdsAsync(cancellationToken);
 
         List<string> unreachable = [];
-        int strippedCount = 0;
-        foreach (string clientId in kiosks)
+        var strippedCount = 0;
+        foreach (var clientId in kiosks)
         {
             try
             {

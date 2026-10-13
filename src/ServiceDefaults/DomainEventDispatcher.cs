@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
@@ -19,18 +18,18 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
     {
         Ensure.That(domainEvents).IsNotNull();
 
-        foreach (IDomainEvent domainEvent in domainEvents)
+        foreach (var domainEvent in domainEvents)
         {
-            DomainEventInvoker invoker = InvokersByEventType.GetOrAdd(domainEvent.GetType(), BuildInvoker);
+            var invoker = InvokersByEventType.GetOrAdd(domainEvent.GetType(), BuildInvoker);
             await invoker.InvokeAsync(services, domainEvent, cancellationToken);
         }
     }
 
     private static DomainEventInvoker BuildInvoker(Type eventType)
     {
-        Type handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
-        Type enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
-        MethodInfo handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle)) ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
+        var handlerType = typeof(IDomainEventHandler<>).MakeGenericType(eventType);
+        var enumerableType = typeof(IEnumerable<>).MakeGenericType(handlerType);
+        var handleMethod = handlerType.GetMethod(nameof(IDomainEventHandler<IDomainEvent>.Handle)) ?? throw new InvalidOperationException($"Expected Handle method on {handlerType.FullName}.");
 
         return new DomainEventInvoker(enumerableType, handleMethod);
     }
@@ -39,10 +38,10 @@ public sealed class DomainEventDispatcher(IServiceProvider services) : IDomainEv
     {
         public async Task InvokeAsync(IServiceProvider provider, IDomainEvent domainEvent, CancellationToken cancellationToken)
         {
-            object handlers = provider.GetRequiredService(enumerableHandlerType);
-            foreach (object handler in (System.Collections.IEnumerable)handlers)
+            var handlers = provider.GetRequiredService(enumerableHandlerType);
+            foreach (var handler in (System.Collections.IEnumerable)handlers)
             {
-                Task task = (Task)handleMethod.Invoke(handler, [domainEvent, cancellationToken])!;
+                var task = (Task)handleMethod.Invoke(handler, [domainEvent, cancellationToken])!;
                 await task;
             }
         }

@@ -1,9 +1,7 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -36,19 +34,19 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_removes_orphan_paths_and_preserves_paths_with_a_DB_stream()
     {
-        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
 
-        Guid keptCamera = Guid.CreateVersion7();
-        Guid orphanCamera = Guid.CreateVersion7();
-        MediaMtxPath keptPath = MediaMtxPath.For(CameraIdentifier.From(keptCamera));
-        MediaMtxPath orphanPath = MediaMtxPath.For(CameraIdentifier.From(orphanCamera));
+        var keptCamera = Guid.CreateVersion7();
+        var orphanCamera = Guid.CreateVersion7();
+        var keptPath = MediaMtxPath.For(CameraIdentifier.From(keptCamera));
+        var orphanPath = MediaMtxPath.For(CameraIdentifier.From(orphanCamera));
 
         await AddMediaMtxPathAsync(mediaMtx, keptPath, "rtsp://10.0.7.1/h264");
         await AddMediaMtxPathAsync(mediaMtx, orphanPath, "rtsp://10.0.7.2/h264");
-        await using (StreamDistributionDbContext context =
+        await using (var context =
             await aspire.CreateStreamDistributionDbContextAsync())
         {
-            Stream stream = Stream.Provision(
+            var stream = Stream.Provision(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(keptCamera),
                 StreamSourceUrl.From("rtsp://10.0.7.1/h264"),
@@ -58,10 +56,10 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
             await context.SaveChangesAsync();
         }
 
-        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        var reconciler = await BuildReconcilerAsync();
         await reconciler.ReconcileOnceAsync(CancellationToken.None);
 
-        IReadOnlyList<string> remaining = await ListMediaMtxPathNamesAsync(mediaMtx);
+        var remaining = await ListMediaMtxPathNamesAsync(mediaMtx);
         remaining.ShouldContain(keptPath.Value);
         remaining.ShouldNotContain(orphanPath.Value);
     }
@@ -77,17 +75,17 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_re_adds_a_missing_path_from_the_persisted_source_url()
     {
-        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
 
-        Guid camera = Guid.CreateVersion7();
-        MediaMtxPath missingPath = MediaMtxPath.For(CameraIdentifier.From(camera));
+        var camera = Guid.CreateVersion7();
+        var missingPath = MediaMtxPath.For(CameraIdentifier.From(camera));
         const string source = "rtsp://10.0.9.9/h264";
 
         // Stream row exists; MediaMTX knows nothing about it.
-        await using (StreamDistributionDbContext context =
+        await using (var context =
             await aspire.CreateStreamDistributionDbContextAsync())
         {
-            Stream stream = Stream.Provision(
+            var stream = Stream.Provision(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(camera),
                 StreamSourceUrl.From(source),
@@ -99,10 +97,10 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
 
         (await ListMediaMtxPathNamesAsync(mediaMtx)).ShouldNotContain(missingPath.Value);
 
-        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        var reconciler = await BuildReconcilerAsync();
         await reconciler.ReconcileOnceAsync(CancellationToken.None);
 
-        IReadOnlyList<string> configured = await ListMediaMtxPathNamesAsync(mediaMtx);
+        var configured = await ListMediaMtxPathNamesAsync(mediaMtx);
         configured.ShouldContain(missingPath.Value);
     }
 
@@ -117,26 +115,26 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_does_not_re_add_a_retired_stream_s_path()
     {
-        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
 
-        Guid liveCamera = Guid.CreateVersion7();
-        Guid retiredCamera = Guid.CreateVersion7();
-        MediaMtxPath livePath = MediaMtxPath.For(CameraIdentifier.From(liveCamera));
-        MediaMtxPath retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
+        var liveCamera = Guid.CreateVersion7();
+        var retiredCamera = Guid.CreateVersion7();
+        var livePath = MediaMtxPath.For(CameraIdentifier.From(liveCamera));
+        var retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
 
         // Neither path is configured in MediaMTX — the "MediaMTX restarted
         // and lost its runtime config" case the re-add half exists for.
-        await using (StreamDistributionDbContext context =
+        await using (var context =
             await aspire.CreateStreamDistributionDbContextAsync())
         {
-            Stream live = Stream.Provision(
+            var live = Stream.Provision(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(liveCamera),
                 StreamSourceUrl.From("rtsp://10.0.9.10/h264"),
                 OperatorIdentifier.From(Guid.CreateVersion7()),
                 new TestClock(DateTimeOffset.UtcNow));
 
-            Stream retired = Stream.Provision(
+            var retired = Stream.Provision(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(retiredCamera),
                 StreamSourceUrl.From("rtsp://10.0.9.11/h264"),
@@ -148,10 +146,10 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
             await context.SaveChangesAsync();
         }
 
-        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        var reconciler = await BuildReconcilerAsync();
         await reconciler.ReconcileOnceAsync(CancellationToken.None);
 
-        IReadOnlyList<string> configured = await ListMediaMtxPathNamesAsync(mediaMtx);
+        var configured = await ListMediaMtxPathNamesAsync(mediaMtx);
         configured.ShouldContain(livePath.Value);
         configured.ShouldNotContain(
             retiredPath.Value,
@@ -170,20 +168,20 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reconciler_removes_a_retired_stream_s_leftover_path_as_an_orphan()
     {
-        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
 
-        Guid retiredCamera = Guid.CreateVersion7();
-        MediaMtxPath retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
+        var retiredCamera = Guid.CreateVersion7();
+        var retiredPath = MediaMtxPath.For(CameraIdentifier.From(retiredCamera));
 
         // The path is still configured in MediaMTX — the stream's own
         // RemovePathAsync never completed, so the row is Retired but
         // MediaMTX was never told.
         await AddMediaMtxPathAsync(mediaMtx, retiredPath, "rtsp://10.0.9.12/h264");
 
-        await using (StreamDistributionDbContext context =
+        await using (var context =
             await aspire.CreateStreamDistributionDbContextAsync())
         {
-            Stream retired = Stream.Provision(
+            var retired = Stream.Provision(
                 FabIdentifier.From("munich"),
                 CameraIdentifier.From(retiredCamera),
                 StreamSourceUrl.From("rtsp://10.0.9.12/h264"),
@@ -195,10 +193,10 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
             await context.SaveChangesAsync();
         }
 
-        MediaMtxReconciler reconciler = await BuildReconcilerAsync();
+        var reconciler = await BuildReconcilerAsync();
         await reconciler.ReconcileOnceAsync(CancellationToken.None);
 
-        IReadOnlyList<string> configured = await ListMediaMtxPathNamesAsync(mediaMtx);
+        var configured = await ListMediaMtxPathNamesAsync(mediaMtx);
         configured.ShouldNotContain(
             retiredPath.Value,
             "a Retired stream's leftover path must be swept as an orphan, not kept alive because its row still exists");
@@ -206,14 +204,14 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private async Task<MediaMtxReconciler> BuildReconcilerAsync()
     {
-        string? connection = await aspire.App
+        var connection = await aspire.App
             .GetConnectionStringAsync(AspireFixture.StreamDistributionConnectionName);
         if (connection is null)
         {
             throw new InvalidOperationException("missing connection string");
         }
 
-        string? mediaMtxUrl = aspire.App.GetEndpoint("mediamtx", "api").ToString();
+        var mediaMtxUrl = aspire.App.GetEndpoint("mediamtx", "api").ToString();
         if (string.IsNullOrEmpty(mediaMtxUrl))
         {
             throw new InvalidOperationException("missing mediamtx api endpoint");
@@ -233,7 +231,7 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
         });
         services.AddSingleton<MediaMtxReconciler>();
 
-        ServiceProvider provider = services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
 
         // This harness only ever calls ReconcileOnceAsync directly, never
         // StartAsync, so the lifetime the fix added is never actually
@@ -266,23 +264,23 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
 
     private static async Task AddMediaMtxPathAsync(HttpClient client, MediaMtxPath path, string source)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             $"/v3/config/paths/add/{path.Value}", new { source });
         response.EnsureSuccessStatusCode();
     }
 
     private static async Task<IReadOnlyList<string>> ListMediaMtxPathNamesAsync(HttpClient client)
     {
-        HttpResponseMessage response = await client.GetAsync("/v3/config/paths/list");
+        var response = await client.GetAsync("/v3/config/paths/list");
         response.EnsureSuccessStatusCode();
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        if (!payload.TryGetProperty("items", out JsonElement items))
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        if (!payload.TryGetProperty("items", out var items))
         {
             return Array.Empty<string>();
         }
 
         return items.EnumerateArray()
-            .Select(item => item.TryGetProperty("name", out JsonElement name) ? name.GetString() ?? string.Empty : string.Empty)
+            .Select(item => item.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty)
             .Where(name => name.Length > 0)
             .ToArray();
     }

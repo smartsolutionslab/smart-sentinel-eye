@@ -7,7 +7,7 @@ public class StreamSourceUrlTests
     [Fact]
     public void From_accepts_an_rtsp_url()
     {
-        StreamSourceUrl url = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
+        var url = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
 
         url.Value.ShouldBe("rtsp://camera-sim:8554/station-4");
     }
@@ -36,7 +36,7 @@ public class StreamSourceUrlTests
     [Fact]
     public void From_rejects_a_url_above_the_maximum_length()
     {
-        string tooLong = "rtsp://host/" + new string('a', StreamSourceUrl.MaximumLength);
+        var tooLong = "rtsp://host/" + new string('a', StreamSourceUrl.MaximumLength);
 
         Should.Throw<ArgumentException>(() => StreamSourceUrl.From(tooLong));
     }
@@ -50,8 +50,8 @@ public class StreamSourceUrlTests
     [Fact]
     public void Two_urls_with_the_same_value_are_equal()
     {
-        StreamSourceUrl left = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
-        StreamSourceUrl right = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
+        var left = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
+        var right = StreamSourceUrl.From("rtsp://camera-sim:8554/station-4");
 
         left.ShouldBe(right);
     }

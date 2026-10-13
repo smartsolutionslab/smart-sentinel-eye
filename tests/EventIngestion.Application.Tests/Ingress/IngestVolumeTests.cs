@@ -23,7 +23,7 @@ public class IngestVolumeTests
 
         IngestVolume.Record(Source.Manual);
 
-        IngestMeasurement measurement = recorded.Measurements.ShouldHaveSingleItem();
+        var measurement = recorded.Measurements.ShouldHaveSingleItem();
         measurement.Count.ShouldBe(1);
         measurement.SourceTag.ShouldBe("manual");
     }
@@ -45,7 +45,7 @@ public class IngestVolumeTests
 
         IngestVolume.Record(Source.From(token));
 
-        IngestMeasurement measurement = recorded.Measurements.ShouldHaveSingleItem();
+        var measurement = recorded.Measurements.ShouldHaveSingleItem();
         measurement.Tags.Keys.ShouldBe([IngestVolume.SourceTag]);
         measurement.SourceTag.ShouldBe(token);
     }

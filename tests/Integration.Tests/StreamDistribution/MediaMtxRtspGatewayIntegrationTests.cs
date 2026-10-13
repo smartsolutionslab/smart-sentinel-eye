@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -28,23 +27,23 @@ public class MediaMtxRtspGatewayIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task Adding_a_path_that_already_exists_succeeds()
     {
-        MediaMtxRtspGateway gateway = NewGateway();
-        MediaMtxPath path = MediaMtxPath.For(CameraIdentifier.From(Guid.CreateVersion7()));
+        var gateway = NewGateway();
+        var path = MediaMtxPath.For(CameraIdentifier.From(Guid.CreateVersion7()));
         const string source = "rtsp://10.0.9.1/h264";
 
         await gateway.AddPathAsync(path, source, CancellationToken.None);
 
         await Should.NotThrowAsync(() => gateway.AddPathAsync(path, source, CancellationToken.None));
 
-        IReadOnlyList<string> names = await ListMediaMtxPathNamesAsync();
+        var names = await ListMediaMtxPathNamesAsync();
         names.Count(name => name == path.Value).ShouldBe(1);
     }
 
     [Fact]
     public async Task Adding_a_path_MediaMTX_rejects_for_another_reason_still_throws()
     {
-        MediaMtxRtspGateway gateway = NewGateway();
-        MediaMtxPath path = MediaMtxPath.For(CameraIdentifier.From(Guid.CreateVersion7()));
+        var gateway = NewGateway();
+        var path = MediaMtxPath.For(CameraIdentifier.From(Guid.CreateVersion7()));
 
         // A source MediaMTX cannot parse as an RTSP URL — a 400 that is not
         // "the path already exists" (it doesn't). FR-002 must not swallow
@@ -53,7 +52,7 @@ public class MediaMtxRtspGatewayIntegrationTests(AspireFixture aspire) : IAsyncL
         await Should.ThrowAsync<HttpRequestException>(
             () => gateway.AddPathAsync(path, "not-a-source", CancellationToken.None));
 
-        IReadOnlyList<string> names = await ListMediaMtxPathNamesAsync();
+        var names = await ListMediaMtxPathNamesAsync();
         names.ShouldNotContain(path.Value);
     }
 
@@ -62,17 +61,17 @@ public class MediaMtxRtspGatewayIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private async Task<IReadOnlyList<string>> ListMediaMtxPathNamesAsync()
     {
-        using HttpClient mediaMtx = aspire.CreateMediaMtxApiClient();
-        HttpResponseMessage response = await mediaMtx.GetAsync("/v3/config/paths/list");
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
+        var response = await mediaMtx.GetAsync("/v3/config/paths/list");
         response.EnsureSuccessStatusCode();
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        if (!payload.TryGetProperty("items", out JsonElement items))
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        if (!payload.TryGetProperty("items", out var items))
         {
             return Array.Empty<string>();
         }
 
         return items.EnumerateArray()
-            .Select(item => item.TryGetProperty("name", out JsonElement name) ? name.GetString() ?? string.Empty : string.Empty)
+            .Select(item => item.TryGetProperty("name", out var name) ? name.GetString() ?? string.Empty : string.Empty)
             .Where(name => name.Length > 0)
             .ToArray();
     }

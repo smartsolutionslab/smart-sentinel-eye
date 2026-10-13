@@ -81,21 +81,21 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_master_realm_is_brute_force_protected_with_the_application_realms_settings()
     {
-        using HttpClient admin = await MasterRealmAdminClientAsync(CancellationToken.None);
+        using var admin = await MasterRealmAdminClientAsync(CancellationToken.None);
 
-        JsonElement master = await RealmProbe.ReadJsonAsync(
+        var master = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{MasterRealm}", CancellationToken.None);
-        JsonElement application = await RealmProbe.ReadJsonAsync(
+        var application = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{RealmProbe.Realm}", CancellationToken.None);
 
         RequireProperty(master, "bruteForceProtected").GetBoolean().ShouldBeTrue(
             $"'{MasterRealm}' should be brute-force protected to match '{RealmProbe.Realm}'. "
             + $"master representation: {master}");
 
-        foreach (string field in MatchingFields)
+        foreach (var field in MatchingFields)
         {
-            JsonElement masterValue = RequireProperty(master, field);
-            JsonElement applicationValue = RequireProperty(application, field);
+            var masterValue = RequireProperty(master, field);
+            var applicationValue = RequireProperty(application, field);
 
             masterValue.GetRawText().ShouldBe(
                 applicationValue.GetRawText(),
@@ -117,16 +117,16 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_master_realm_account_is_refused_its_correct_password_after_too_many_wrong_ones()
     {
-        (string username, string id, int failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
+        (var username, var id, var failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
         try
         {
-            using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
-            string body = await response.Content.ReadAsStringAsync();
+            using var response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
+            var body = await response.Content.ReadAsStringAsync();
 
-            using JsonDocument document = JsonDocument.Parse(body);
-            bool hasAccessToken = document.RootElement.TryGetProperty("access_token", out _);
-            bool hasError = document.RootElement.TryGetProperty("error", out JsonElement error);
-            string? errorValue = hasError ? error.GetString() : null;
+            using var document = JsonDocument.Parse(body);
+            var hasAccessToken = document.RootElement.TryGetProperty("access_token", out _);
+            var hasError = document.RootElement.TryGetProperty("error", out var error);
+            var errorValue = hasError ? error.GetString() : null;
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.BadRequest,
@@ -169,23 +169,23 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_bootstrap_admin_still_authenticates_and_master_keeps_its_bootstrap_token_lifespan()
     {
-        using HttpResponseMessage response = await RequestTokenAsync(
+        using var response = await RequestTokenAsync(
             MasterRealmAdminUsername, MasterRealmAdminPassword, CancellationToken.None);
-        string body = await response.Content.ReadAsStringAsync();
+        var body = await response.Content.ReadAsStringAsync();
 
         response.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             $"the bootstrap admin's password grant against '{MasterRealm}' should keep succeeding; "
             + $"the shared AspireFixture depends on this account. status: {(int)response.StatusCode}");
 
-        using JsonDocument document = JsonDocument.Parse(body);
+        using var document = JsonDocument.Parse(body);
         document.RootElement.TryGetProperty("access_token", out _).ShouldBeTrue(
             "the bootstrap admin's grant should carry an access_token (body withheld from this "
             + "message — see BruteForceLockoutIntegrationTests for why raw grant bodies are never "
             + "logged).");
 
-        using HttpClient admin = await MasterRealmAdminClientAsync(CancellationToken.None);
-        JsonElement master = await RealmProbe.ReadJsonAsync(
+        using var admin = await MasterRealmAdminClientAsync(CancellationToken.None);
+        var master = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{MasterRealm}", CancellationToken.None);
 
         RequireProperty(master, "accessTokenLifespan").GetInt32().ShouldBe(
@@ -203,7 +203,7 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     /// </summary>
     private static JsonElement RequireProperty(JsonElement representation, string propertyName)
     {
-        representation.TryGetProperty(propertyName, out JsonElement value).ShouldBeTrue(
+        representation.TryGetProperty(propertyName, out var value).ShouldBeTrue(
             $"a master-admin read of a realm representation did not include '{propertyName}' at "
             + $"all. representation: {representation}");
         return value;
@@ -221,12 +221,12 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     private async Task<(string Username, string Id, int FailureFactor)> CreateAndLockProbeAsync(
         CancellationToken cancellationToken)
     {
-        (string username, string id) = await CreateProbeUserAsync(cancellationToken);
-        int failureFactor = await ReadFailureFactorAsync(cancellationToken);
+        (var username, var id) = await CreateProbeUserAsync(cancellationToken);
+        var failureFactor = await ReadFailureFactorAsync(cancellationToken);
 
-        for (int attempt = 1; attempt <= failureFactor + 1; attempt++)
+        for (var attempt = 1; attempt <= failureFactor + 1; attempt++)
         {
-            using HttpResponseMessage wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
+            using var wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
             wrong.IsSuccessStatusCode.ShouldBeFalse(
                 $"wrong-password grant #{attempt} of {failureFactor + 1} for '{username}' (in "
                 + $"'{MasterRealm}') unexpectedly succeeded; the throwaway account's password should "
@@ -238,8 +238,8 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
 
     private async Task<int> ReadFailureFactorAsync(CancellationToken cancellationToken)
     {
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
-        JsonElement representation = await RealmProbe.ReadJsonAsync(
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var representation = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{MasterRealm}", cancellationToken);
 
         return RequireProperty(representation, "failureFactor").GetInt32();
@@ -254,17 +254,17 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<HttpClient> MasterRealmAdminClientAsync(CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await RequestTokenAsync(
+        using var response = await RequestTokenAsync(
             MasterRealmAdminUsername, MasterRealmAdminPassword, cancellationToken);
-        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         response.IsSuccessStatusCode.ShouldBeTrue(
             $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; without "
             + $"it this file cannot read either realm's real configuration. body: {body}");
 
-        using JsonDocument document = JsonDocument.Parse(body);
-        string token = document.RootElement.GetProperty("access_token").GetString()!;
+        using var document = JsonDocument.Parse(body);
+        var token = document.RootElement.GetProperty("access_token").GetString()!;
 
-        HttpClient admin = aspire.CreateKeycloakClient();
+        var admin = aspire.CreateKeycloakClient();
         admin.DefaultRequestHeaders.Authorization = new("Bearer", token);
         return admin;
     }
@@ -282,10 +282,10 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<(string Username, string Id)> CreateProbeUserAsync(CancellationToken cancellationToken)
     {
-        string username = $"lockout-probe-{Guid.NewGuid():N}";
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var username = $"lockout-probe-{Guid.NewGuid():N}";
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{MasterRealm}/users",
             new { username, enabled = true },
             cancellationToken);
@@ -295,15 +295,15 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
             + $"{(int)created.StatusCode}; without it every assertion below proves nothing. body: "
             + $"{await created.Content.ReadAsStringAsync(cancellationToken)}");
 
-        string location = created.Headers.Location!.ToString();
-        string id = location[(location.LastIndexOf('/') + 1)..];
+        var location = created.Headers.Location!.ToString();
+        var id = location[(location.LastIndexOf('/') + 1)..];
 
         // From here on the user exists in the realm even though setup has
         // not finished. If the reset-password call throws, delete on the
         // way out instead of leaking it the way #2166 leaked clients.
         try
         {
-            HttpResponseMessage resetPassword = await admin.PutAsJsonAsync(
+            var resetPassword = await admin.PutAsJsonAsync(
                 $"admin/realms/{MasterRealm}/users/{id}/reset-password",
                 new { type = "password", value = ProbePassword, temporary = false },
                 cancellationToken);
@@ -328,8 +328,8 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task DeleteProbeUserAsync(string id, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
-        HttpResponseMessage deleted = await admin.DeleteAsync(
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var deleted = await admin.DeleteAsync(
             $"admin/realms/{MasterRealm}/users/{id}", cancellationToken);
 
         deleted.IsSuccessStatusCode.ShouldBeTrue(
@@ -348,7 +348,7 @@ public class MasterRealmBruteForceIntegrationTests(AspireFixture aspire)
     private async Task<HttpResponseMessage> RequestTokenAsync(
         string username, string password, CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",

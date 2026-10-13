@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using OpenTelemetry;
 using OpenTelemetry.Trace;
@@ -53,14 +52,14 @@ public class PostgresSpanIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_camera_catalog_query_produces_a_postgres_span()
     {
-        CancellationToken cancellationToken = CancellationToken.None;
+        var cancellationToken = CancellationToken.None;
 
-        string? connectionString = await aspire.App
+        var connectionString = await aspire.App
             .GetConnectionStringAsync(AspireFixture.CameraCatalogConnectionName, cancellationToken);
         connectionString.ShouldNotBeNull(
             $"Connection string '{AspireFixture.CameraCatalogConnectionName}' was not provisioned by Aspire.");
 
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:camera-catalog-db"] = connectionString,
@@ -76,7 +75,7 @@ public class PostgresSpanIntegrationTests(AspireFixture aspire)
         builder.Services.AddOpenTelemetry()
             .WithTracing(tracing => tracing.AddProcessor(new SimpleActivityExportProcessor(exporter)));
 
-        await using ServiceProvider provider = builder.Services
+        await using var provider = builder.Services
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
 
         // TracerProvider is a lazily-constructed singleton: resolving it is
@@ -88,13 +87,13 @@ public class PostgresSpanIntegrationTests(AspireFixture aspire)
         // — before the query runs, not after — or Npgsql's own
         // ActivitySource.HasListeners() check at command time sees no
         // listener and samples nothing, no matter how the exporter is wired.
-        TracerProvider tracerProvider = provider.GetRequiredService<TracerProvider>();
+        var tracerProvider = provider.GetRequiredService<TracerProvider>();
 
-        using (IServiceScope scope = provider.CreateScope())
+        using (var scope = provider.CreateScope())
         {
-            IDbContextFactory<CameraCatalogDbContext> factory =
+            var factory =
                 scope.ServiceProvider.GetRequiredService<IDbContextFactory<CameraCatalogDbContext>>();
-            using CameraCatalogDbContext dbContext = factory.CreateDbContext();
+            using var dbContext = factory.CreateDbContext();
 
             await dbContext.Database.ExecuteSqlRawAsync("SELECT 1", cancellationToken);
         }
@@ -119,7 +118,7 @@ public class PostgresSpanIntegrationTests(AspireFixture aspire)
 
         public override ExportResult Export(in Batch<Activity> batch)
         {
-            foreach (Activity activity in batch)
+            foreach (var activity in batch)
             {
                 Captured.Add(activity);
             }

@@ -1,5 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 using SmartSentinelEye.ScenarioSimulator.Configuration;

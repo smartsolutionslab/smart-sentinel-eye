@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using SmartSentinelEye.AuditObservability.Infrastructure;
@@ -47,9 +46,9 @@ internal static class AuditQueueProbe
     /// </summary>
     internal static async Task<HttpClient> ClientAsync(AspireFixture aspire, CancellationToken cancellationToken)
     {
-        Uri management = aspire.App.GetEndpoint("rabbitmq", "management");
-        string connection = await aspire.App.GetConnectionStringAsync("rabbitmq", cancellationToken) ?? "";
-        string userInfo = new Uri(connection).UserInfo;
+        var management = aspire.App.GetEndpoint("rabbitmq", "management");
+        var connection = await aspire.App.GetConnectionStringAsync("rabbitmq", cancellationToken) ?? "";
+        var userInfo = new Uri(connection).UserInfo;
 
         HttpClient client = new() { BaseAddress = management };
         client.DefaultRequestHeaders.Authorization = new(
@@ -72,7 +71,7 @@ internal static class AuditQueueProbe
     internal static async Task<(int Unacknowledged, string[] Queues)> ReadAsync(
         HttpClient broker, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage response = await broker.GetAsync("/api/queues", cancellationToken);
+        using var response = await broker.GetAsync("/api/queues", cancellationToken);
         if (!response.IsSuccessStatusCode)
         {
             throw new InvalidOperationException(
@@ -81,20 +80,20 @@ internal static class AuditQueueProbe
                 + "here would be reporting an unreachable broker as an empty queue.");
         }
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-        int unacknowledged = 0;
+        var unacknowledged = 0;
         List<string> queues = [];
-        foreach (JsonElement queue in payload.EnumerateArray())
+        foreach (var queue in payload.EnumerateArray())
         {
-            string name = queue.GetProperty("name").GetString() ?? "";
+            var name = queue.GetProperty("name").GetString() ?? "";
             if (!name.StartsWith(QueuePrefix, StringComparison.Ordinal))
             {
                 continue;
             }
 
             queues.Add(name[(name.LastIndexOf('.') + 1)..]);
-            if (queue.TryGetProperty("messages_unacknowledged", out JsonElement outstanding))
+            if (queue.TryGetProperty("messages_unacknowledged", out var outstanding))
             {
                 unacknowledged += outstanding.GetInt32();
             }
@@ -106,7 +105,7 @@ internal static class AuditQueueProbe
     /// <summary>Sums <c>messages_unacknowledged</c> across the audit queues.</summary>
     internal static async Task<int> UnacknowledgedAsync(HttpClient broker, CancellationToken cancellationToken)
     {
-        (int unacknowledged, _) = await ReadAsync(broker, cancellationToken);
+        (var unacknowledged, _) = await ReadAsync(broker, cancellationToken);
         return unacknowledged;
     }
 
@@ -118,8 +117,8 @@ internal static class AuditQueueProbe
     internal static async Task<(int Unacknowledged, string[] Queues)> WaitForQuiescenceReadingAsync(
         HttpClient broker, TimeSpan deadline, CancellationToken cancellationToken)
     {
-        DateTimeOffset until = DateTimeOffset.UtcNow + deadline;
-        (int unacknowledged, string[] queues) = await ReadAsync(broker, cancellationToken);
+        var until = DateTimeOffset.UtcNow + deadline;
+        (var unacknowledged, var queues) = await ReadAsync(broker, cancellationToken);
 
         while (unacknowledged > 0 && DateTimeOffset.UtcNow < until)
         {
@@ -137,7 +136,7 @@ internal static class AuditQueueProbe
     internal static async Task<int> WaitForQuiescenceAsync(
         HttpClient broker, TimeSpan deadline, CancellationToken cancellationToken)
     {
-        (int unacknowledged, _) = await WaitForQuiescenceReadingAsync(broker, deadline, cancellationToken);
+        (var unacknowledged, _) = await WaitForQuiescenceReadingAsync(broker, deadline, cancellationToken);
         return unacknowledged;
     }
 }

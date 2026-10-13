@@ -41,7 +41,7 @@ internal static class AelFixtures
     /// <summary>Returns a context whose root is the supplied object literal.</summary>
     public static EvaluationContext ContextFor(string json)
     {
-        JsonDocument doc = JsonDocument.Parse(json);
+        var doc = JsonDocument.Parse(json);
         return new EvaluationContext(doc.RootElement);
     }
 

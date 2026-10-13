@@ -41,7 +41,7 @@ internal static class OverridableParameters
         string fallback,
         bool secret = false)
     {
-        string? configured = builder.Configuration["Parameters:" + name];
+        var configured = builder.Configuration["Parameters:" + name];
 
         return builder.AddParameter(
             name,

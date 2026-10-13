@@ -69,5 +69,5 @@ public sealed record LoggedEntry(
     /// field carrying the wrong value.
     /// </summary>
     public string? Field(string name) =>
-        Fields.TryGetValue(name, out object? value) ? value?.ToString() : null;
+        Fields.TryGetValue(name, out var value) ? value?.ToString() : null;
 }

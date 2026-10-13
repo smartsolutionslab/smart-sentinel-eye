@@ -63,7 +63,7 @@ public class ResilienceHandlerNestingTests
         ServiceCollection services = new();
         services.AddHttpClient(Client).AddStandardResilienceHandler();
 
-        HttpStandardResilienceOptions options = services.BuildServiceProvider()
+        var options = services.BuildServiceProvider()
             .GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<HttpStandardResilienceOptions>>()
             .Get($"{Client}-standard");
 
@@ -74,12 +74,12 @@ public class ResilienceHandlerNestingTests
 
     private static int CountResilienceHandlers(IServiceCollection services)
     {
-        ServiceProvider provider = services.BuildServiceProvider();
-        HttpMessageHandler handler = provider
+        var provider = services.BuildServiceProvider();
+        var handler = provider
             .GetRequiredService<IHttpMessageHandlerFactory>()
             .CreateHandler(Client);
 
-        int found = 0;
+        var found = 0;
         object? current = handler;
         while (current is not null)
         {
@@ -88,7 +88,7 @@ public class ResilienceHandlerNestingTests
                 found++;
             }
 
-            PropertyInfo? inner = current.GetType().GetProperty(
+            var inner = current.GetType().GetProperty(
                 "InnerHandler", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
             current = inner?.GetValue(current);
         }

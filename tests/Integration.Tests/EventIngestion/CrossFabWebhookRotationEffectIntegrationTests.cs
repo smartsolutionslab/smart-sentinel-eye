@@ -1,10 +1,7 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
@@ -51,13 +48,13 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_munich_first_rotation_naming_an_unrotated_dresden_integration_leaves_it_on_static_hash()
     {
-        using HttpClient dresdenEvents = await aspire.CreateAuthenticatedClientAsync(
+        using var dresdenEvents = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", DresdenOperator, OperatorPassword);
-        string name = UniqueName("dresden-first");
-        string originalToken = await RegisterStaticHashIntegrationAsync(dresdenEvents, name);
+        var name = UniqueName("dresden-first");
+        var originalToken = await RegisterStaticHashIntegrationAsync(dresdenEvents, name);
 
-        using HttpClient munichIdentity = await aspire.CreateAdminClientAsync("identity");
-        HttpResponseMessage firstRotation = await munichIdentity.SendAsync(CreateConditional(name, "munich"));
+        using var munichIdentity = await aspire.CreateAdminClientAsync("identity");
+        var firstRotation = await munichIdentity.SendAsync(CreateConditional(name, "munich"));
 
         // Not asserted as a refusal: after US1, the Identity side legitimately
         // believes it is creating a brand-new client — there is genuinely no
@@ -72,10 +69,10 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
         // If it flips Dresden's integration at any point in this window, that
         // IS the vulnerability, so fail immediately with the state observed
         // rather than waiting out the rest of the window.
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
         while (DateTime.UtcNow < deadline)
         {
-            (BearerValidationMode mode, string? keycloakClientId) = await ReadStateAsync(name);
+            (var mode, var keycloakClientId) = await ReadStateAsync(name);
             mode.ShouldBe(
                 BearerValidationMode.StaticHash,
                 $"a munich-scoped first rotation naming Dresden's integration must never flip it to "
@@ -85,11 +82,11 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
             await Task.Delay(TimeSpan.FromMilliseconds(500));
         }
 
-        (BearerValidationMode finalMode, string? finalClientId) = await ReadStateAsync(name);
+        (var finalMode, var finalClientId) = await ReadStateAsync(name);
         finalMode.ShouldBe(BearerValidationMode.StaticHash);
         finalClientId.ShouldBeNull("Dresden's integration must never be pointed at the attacker's client");
 
-        HttpResponseMessage delivered = await PostWebhookAsync(name, "dresden", originalToken);
+        var delivered = await PostWebhookAsync(name, "dresden", originalToken);
         delivered.StatusCode.ShouldBe(
             HttpStatusCode.Created,
             "Dresden's original static bearer must still be accepted after the attempted takeover");
@@ -112,22 +109,22 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_dresden_first_rotation_naming_its_own_integration_flips_it_to_JWT_validation()
     {
-        using HttpClient dresdenEvents = await aspire.CreateAuthenticatedClientAsync(
+        using var dresdenEvents = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", DresdenOperator, OperatorPassword);
-        string name = UniqueName("dresden-own");
+        var name = UniqueName("dresden-own");
         await RegisterStaticHashIntegrationAsync(dresdenEvents, name);
 
-        using HttpClient dresdenIdentity = await aspire.CreateAuthenticatedClientAsync(
+        using var dresdenIdentity = await aspire.CreateAuthenticatedClientAsync(
             "identity", DresdenOperator, OperatorPassword);
-        HttpResponseMessage rotation = await dresdenIdentity.SendAsync(CreateConditional(name, "dresden"));
+        var rotation = await dresdenIdentity.SendAsync(CreateConditional(name, "dresden"));
 
         rotation.StatusCode.ShouldBe(
             HttpStatusCode.OK,
             $"a dresden operator rotating its own integration must succeed; got "
             + $"{(int)rotation.StatusCode} {await rotation.Content.ReadAsStringAsync()}");
 
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
-        (BearerValidationMode mode, string? keycloakClientId) = await ReadStateAsync(name);
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+        (var mode, var keycloakClientId) = await ReadStateAsync(name);
         while (mode != BearerValidationMode.Jwt && DateTime.UtcNow < deadline)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(500));
@@ -145,11 +142,11 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
 
     private static async Task<string> RegisterStaticHashIntegrationAsync(HttpClient dresdenEvents, string name)
     {
-        HttpResponseMessage created = await dresdenEvents.PostAsJsonAsync(
+        var created = await dresdenEvents.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        JsonElement body = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await created.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("token").GetString()!;
     }
 
@@ -166,9 +163,9 @@ public class CrossFabWebhookRotationEffectIntegrationTests(AspireFixture aspire)
 
     private async Task<(BearerValidationMode Mode, string? KeycloakClientId)> ReadStateAsync(string name)
     {
-        await using EventIngestionDbContext context = await aspire.CreateEventIngestionDbContextAsync();
-        WebhookIntegrationName parsed = WebhookIntegrationName.From(name);
-        WebhookIntegration integration = await context.WebhookIntegrations
+        await using var context = await aspire.CreateEventIngestionDbContextAsync();
+        var parsed = WebhookIntegrationName.From(name);
+        var integration = await context.WebhookIntegrations
             .AsNoTracking()
             .SingleAsync(candidate => candidate.Name == parsed);
 

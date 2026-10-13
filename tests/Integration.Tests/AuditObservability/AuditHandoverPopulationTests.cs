@@ -75,31 +75,31 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
     [Fact]
     public async Task Unacknowledged_deliveries_on_the_audit_queues_are_zero_when_quiescent_and_not_when_handlers_run()
     {
-        CancellationToken cancellationToken = CancellationToken.None;
+        var cancellationToken = CancellationToken.None;
 
-        using HttpClient broker = await AuditQueueProbe.ClientAsync(aspire, cancellationToken);
+        using var broker = await AuditQueueProbe.ClientAsync(aspire, cancellationToken);
 
-        (int quiescent, string[] queues) =
+        (var quiescent, var queues) =
             await AuditQueueProbe.WaitForQuiescenceReadingAsync(broker, QuiesceDeadline, cancellationToken);
         output.WriteLine($"audit queues seen: {(queues.Length == 0 ? "(none)" : string.Join(", ", queues))}");
         output.WriteLine($"quiescent  : messages_unacknowledged = {quiescent}");
 
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-        string[] names = new string[BurstWriters];
-        for (int writer = 0; writer < BurstWriters; writer++)
+        var names = new string[BurstWriters];
+        for (var writer = 0; writer < BurstWriters; writer++)
         {
             names[writer] = await IngestSpanMeasurement.DefineAsync(variables, cancellationToken);
         }
 
         using CancellationTokenSource sampling = new();
-        Task<(int Peak, int Samples, int NonZero)> sampler = SampleAsync(broker, sampling.Token);
+        var sampler = SampleAsync(broker, sampling.Token);
 
         await Task.WhenAll(names.Select(name => IngestSpanMeasurement.SetRepeatedlyAsync(
             variables, name, BurstEventsPerWriter, IngestSpanMeasurement.NoPacing, cancellationToken)));
 
         sampling.CancelAfter(DrainWindow);
-        (int peak, int samples, int nonZero) = await sampler;
+        (var peak, var samples, var nonZero) = await sampler;
 
         output.WriteLine(
             $"mid-flight : {samples} samples over the drive and {DrainWindow.TotalSeconds:F0}s of drain, "
@@ -126,13 +126,13 @@ public class AuditHandoverPopulationTests(AspireFixture aspire, ITestOutputHelpe
     /// <summary>Samples the count until cancelled, and answers the peak it saw.</summary>
     private static async Task<(int Peak, int Samples, int NonZero)> SampleAsync(HttpClient broker, CancellationToken cancellationToken)
     {
-        int peak = 0;
-        int samples = 0;
-        int nonZero = 0;
+        var peak = 0;
+        var samples = 0;
+        var nonZero = 0;
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            (int unacknowledged, _) = await AuditQueueProbe.ReadAsync(broker, cancellationToken);
+            (var unacknowledged, _) = await AuditQueueProbe.ReadAsync(broker, cancellationToken);
             peak = Math.Max(peak, unacknowledged);
             samples++;
             if (unacknowledged > 0)

@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 
@@ -41,7 +40,7 @@ public class ResolvedOverlayTextChangedV3HandlerTests
         ResolvedOverlayTextChangedV3Handler handler = new(
             broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV3Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         ResolvedOverlayTextChangedV3 message = new(
             Overlay: overlay,
             Texts: [new ResolvedOverlayTextV3("OEE: {{oee}}%", "OEE: 82.5%")],
@@ -50,9 +49,9 @@ public class ResolvedOverlayTextChangedV3HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        ResolvedOverlayTextChangedNotification notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        var notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
-        ResolvedOverlayText pair = notification.Texts.ShouldHaveSingleItem();
+        var pair = notification.Texts.ShouldHaveSingleItem();
         pair.Template.ShouldBe("OEE: {{oee}}%");
         pair.Resolved.ShouldBe("OEE: 82.5%");
         notification.Version.ShouldBe(7);
@@ -67,7 +66,7 @@ public class ResolvedOverlayTextChangedV3HandlerTests
         ResolvedOverlayTextChangedV3Handler handler = new(
             broadcaster, new RecordingLatencyBudget(), NullLogger<ResolvedOverlayTextChangedV3Handler>.Instance);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         ResolvedOverlayTextChangedV3 message = new(
             Overlay: overlay,
             Texts: [new ResolvedOverlayTextV3("A {{x}}", "OEE: 82.5%"), new ResolvedOverlayTextV3("B {{x}}", "Running")],
@@ -76,7 +75,7 @@ public class ResolvedOverlayTextChangedV3HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        ResolvedOverlayTextChangedNotification notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
+        var notification = broadcaster.ResolvedTextChanged.ShouldHaveSingleItem();
         notification.Texts.Count.ShouldBe(2);
         notification.Texts[0].Template.ShouldBe("A {{x}}");
         notification.Texts[0].Resolved.ShouldBe("OEE: 82.5%");
@@ -144,7 +143,7 @@ public class ResolvedOverlayTextChangedV3HandlerTests
             CancellationToken.None);
 
         latency.Recorded.ShouldHaveSingleItem().ShouldBe(Accepted);
-        DateTimeOffset observed = latency.ObservedAt.ShouldHaveSingleItem();
+        var observed = latency.ObservedAt.ShouldHaveSingleItem();
         (observed - Accepted).ShouldBeGreaterThanOrEqualTo(
             PushDuration,
             "the leg ends when the frame has been pushed, so the time the push "

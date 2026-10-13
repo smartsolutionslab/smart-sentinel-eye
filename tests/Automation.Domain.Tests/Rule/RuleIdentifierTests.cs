@@ -7,7 +7,7 @@ public class RuleIdentifierTests
     [Fact]
     public void New_mints_a_Guid_v7_identifier()
     {
-        RuleIdentifier id = RuleIdentifier.New();
+        var id = RuleIdentifier.New();
         id.Value.ShouldNotBe(Guid.Empty);
         id.Value.Version.ShouldBe(7);
     }
@@ -22,14 +22,14 @@ public class RuleIdentifierTests
     [Fact]
     public void From_round_trips_a_valid_guid()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         RuleIdentifier.From(guid).Value.ShouldBe(guid);
     }
 
     [Fact]
     public void Identifiers_with_the_same_guid_are_equal()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         RuleIdentifier.From(guid).ShouldBe(RuleIdentifier.From(guid));
     }
 }

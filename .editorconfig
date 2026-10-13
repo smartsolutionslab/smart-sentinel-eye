@@ -35,14 +35,16 @@ csharp_preserve_single_line_blocks = true
 csharp_using_directive_placement = outside_namespace:warning
 csharp_prefer_simple_using_statement = true:suggestion
 csharp_style_namespace_declarations = file_scoped:warning
-# var is allowed anywhere. :silent means neither rule of the pair fires —
-# IDE0008 ("use explicit type instead of var", which these keys switch on when
-# false) nor IDE0007 ("use var instead of explicit type", its inverse when
-# true). Both spellings are legal; pick whichever reads better at the call
-# site. ReSharper cleanup-on-save must not rewrite either way.
-csharp_style_var_for_built_in_types = true:silent
-csharp_style_var_when_type_is_apparent = true:silent
-csharp_style_var_elsewhere = true:silent
+# var everywhere it compiles. IDE0007 ("use var instead of explicit type")
+# fails the build: `Result<T, E> result = await ...` is written `var result`.
+# The explicit type survives only where var cannot express it (collection
+# expressions, target-typed new(), default); the analyzer does not flag those.
+csharp_style_var_for_built_in_types = true:warning
+csharp_style_var_when_type_is_apparent = true:warning
+csharp_style_var_elsewhere = true:warning
+# Redundant usings (ImplicitUsings is on) are noise. IDE0005 cannot fail the build
+# without GenerateDocumentationFile, so it is applied by `dotnet format style`.
+dotnet_diagnostic.IDE0005.severity = suggestion
 
 # Collections are the exception: declare them with an explicit type and a
 # collection expression — `List<Camera> cameras = [];`. var cannot express
@@ -189,7 +191,7 @@ dotnet_diagnostic.S125.severity = none
 [src/AppHost/**.cs]
 # AppHost is the Aspire composition root — framework builder code, already
 # excepted from several house rules (ADR-0105). The var keys that used to sit
-# here are gone: var is allowed everywhere now. Braces enforcement still does
+# here are gone: var is preferred everywhere now. Braces enforcement still does
 # not apply.
 csharp_prefer_braces = true:silent
 

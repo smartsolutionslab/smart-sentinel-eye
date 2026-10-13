@@ -5,7 +5,6 @@ using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Commands;
 
@@ -24,7 +23,7 @@ public class WebhookIntegrationCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<RegisterWebhookIntegrationCommandHandler>.Instance);
 
-        Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RegisterWebhookIntegrationCommand(
                     WebhookIntegrationName.From("qa"),
@@ -42,7 +41,7 @@ public class WebhookIntegrationCommandHandlerTests
     public async Task Register_with_a_taken_name_returns_WebhookIntegrationNameTaken()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration seeded, _) = WebhookIntegration.Register(
+        (var seeded, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
         repo.Add(seeded);
 
@@ -50,7 +49,7 @@ public class WebhookIntegrationCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<RegisterWebhookIntegrationCommandHandler>.Instance);
 
-        Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RegisterWebhookIntegrationCommand(
                     WebhookIntegrationName.From("qa"),
@@ -66,7 +65,7 @@ public class WebhookIntegrationCommandHandlerTests
     public async Task Revoke_flips_the_integration_state_and_returns_the_identifier()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration seeded, _) = WebhookIntegration.Register(
+        (var seeded, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"), FabIdentifier.From("munich"), Kind.From("QaResult"), new FakeClock(Now));
         repo.Add(seeded);
 
@@ -74,7 +73,7 @@ public class WebhookIntegrationCommandHandlerTests
             repo, new FakeClock(Now.AddHours(1)),
             NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
 
-        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
                 CancellationToken.None);
@@ -92,7 +91,7 @@ public class WebhookIntegrationCommandHandlerTests
     public async Task Revoke_of_an_integration_in_another_fab_returns_WebhookIntegrationNotFound()
     {
         InMemoryWebhookIntegrationRepository repo = new();
-        (WebhookIntegration seeded, _) = WebhookIntegration.Register(
+        (var seeded, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From("qa"), FabIdentifier.From("dresden"), Kind.From("QaResult"), new FakeClock(Now));
         repo.Add(seeded);
 
@@ -100,7 +99,7 @@ public class WebhookIntegrationCommandHandlerTests
             repo, new FakeClock(Now.AddHours(1)),
             NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
 
-        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("qa"), 0),
                 CancellationToken.None);
@@ -118,7 +117,7 @@ public class WebhookIntegrationCommandHandlerTests
             repo, new FakeClock(Now),
             NullLogger<RevokeWebhookIntegrationCommandHandler>.Instance);
 
-        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RevokeWebhookIntegrationCommand([Munich], WebhookIntegrationName.From("ghost"), 0),
                 CancellationToken.None);

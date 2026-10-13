@@ -34,13 +34,13 @@ public class OverlayFrameClaimTests
     [InlineData("CLAUDE.md")]
     public void No_document_claims_the_overlay_is_frame_synced(string relativePath)
     {
-        bool compositedIntoFrame = OverlayIsDrawnIntoTheFrame();
-        string text = ReadRepositoryFile(relativePath);
+        var compositedIntoFrame = OverlayIsDrawnIntoTheFrame();
+        var text = ReadRepositoryFile(relativePath);
 
         // A withdrawal necessarily names the phrase it withdraws, so only an
         // unqualified claim counts. Sentences that explain the withdrawal are
         // the correction, not a relapse.
-        bool claimsIt = text
+        var claimsIt = text
             .Split('\n')
             .Any(line => line.Contains("frame-synced", StringComparison.OrdinalIgnoreCase)
                 && !line.Contains("not frame-synced", StringComparison.OrdinalIgnoreCase)
@@ -99,7 +99,7 @@ public class OverlayFrameClaimTests
     [InlineData("End-to-end SLO: overlay rendered, frame-synced ≤ 800 ms.", true)]
     public void A_rewording_passes_and_only_a_restated_claim_fails(string line, bool expectedToBeAClaim)
     {
-        bool claimsIt = line.Contains("frame-synced", StringComparison.OrdinalIgnoreCase)
+        var claimsIt = line.Contains("frame-synced", StringComparison.OrdinalIgnoreCase)
             && !line.Contains("not frame-synced", StringComparison.OrdinalIgnoreCase)
             && !line.Contains("withdraw", StringComparison.OrdinalIgnoreCase)
             && !line.Contains("Originally", StringComparison.Ordinal);
@@ -119,7 +119,7 @@ public class OverlayFrameClaimTests
     /// </summary>
     private static bool OverlayIsDrawnIntoTheFrame()
     {
-        string viewer = ReadRepositoryFile(
+        var viewer = ReadRepositoryFile(
             Path.Combine("apps", "shared", "src", "ui", "composites", "CameraViewer.tsx"));
 
         // Drawing into the frame means a canvas or an encoded-frame transform.
@@ -132,7 +132,7 @@ public class OverlayFrameClaimTests
 
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        var path = Path.Combine(RepositoryRoot().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path);

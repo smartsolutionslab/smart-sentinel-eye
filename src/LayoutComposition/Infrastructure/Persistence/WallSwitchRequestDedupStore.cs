@@ -24,7 +24,7 @@ public sealed class WallSwitchRequestDedupStore(LayoutCompositionDbContext dbCon
             VALUES ({0}, {1}, {2}, NOW())
             ON CONFLICT (rule_id, causing_event_id) DO NOTHING;
             """;
-        int rowsAffected = await dbContext.Database
+        var rowsAffected = await dbContext.Database
             .ExecuteSqlRawAsync(sql, [rule.Value, causingEvent.Value, wall.Value], cancellationToken);
         return rowsAffected == 1;
     }

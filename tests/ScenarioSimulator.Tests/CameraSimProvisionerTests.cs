@@ -1,6 +1,5 @@
 using System.Net;
 using Microsoft.Extensions.Logging.Abstractions;
-using Shouldly;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
@@ -15,7 +14,7 @@ public sealed class CameraSimProvisionerTests
     public async Task The_provisioned_command_plays_the_clip_the_asset_named()
     {
         RecordingHandler handler = new();
-        CameraSimProvisioner provisioner = Build(handler);
+        var provisioner = Build(handler);
 
         await provisioner.ProvisionLoopPathAsync("paper-press-group", "paper-press-group.mp4", CancellationToken.None);
 
@@ -30,10 +29,10 @@ public sealed class CameraSimProvisionerTests
     public async Task Two_assets_with_different_clips_get_different_commands()
     {
         RecordingHandler handler = new();
-        CameraSimProvisioner provisioner = Build(handler);
+        var provisioner = Build(handler);
 
         await provisioner.ProvisionLoopPathAsync("a", "one.mp4", CancellationToken.None);
-        string first = handler.LastBody;
+        var first = handler.LastBody;
         await provisioner.ProvisionLoopPathAsync("b", "two.mp4", CancellationToken.None);
 
         first.ShouldNotBe(handler.LastBody);
@@ -51,7 +50,7 @@ public sealed class CameraSimProvisionerTests
         {
             FirstResponse = (HttpStatusCode.BadRequest, "path already exists"),
         };
-        CameraSimProvisioner provisioner = Build(handler);
+        var provisioner = Build(handler);
 
         await provisioner.ProvisionLoopPathAsync("station-4", "new-clip.mp4", CancellationToken.None);
 
@@ -69,10 +68,10 @@ public sealed class CameraSimProvisionerTests
     public async Task A_camera_with_no_asset_gets_its_name_drawn_and_its_own_hue()
     {
         RecordingHandler handler = new();
-        CameraSimProvisioner provisioner = Build(handler);
+        var provisioner = Build(handler);
 
         await provisioner.ProvisionLabelledPathAsync("bulk-a", "Line 7 Spare", Guid.NewGuid(), CancellationToken.None);
-        string first = handler.LastBody;
+        var first = handler.LastBody;
         await provisioner.ProvisionLabelledPathAsync("bulk-b", "Line 8 Spare", Guid.NewGuid(), CancellationToken.None);
 
         first.ShouldContain("drawtext");
@@ -101,7 +100,7 @@ public sealed class CameraSimProvisionerTests
     public async Task A_label_cannot_carry_quotes_or_shell_punctuation_into_the_command()
     {
         RecordingHandler handler = new();
-        CameraSimProvisioner provisioner = Build(handler);
+        var provisioner = Build(handler);
 
         await provisioner.ProvisionLabelledPathAsync(
             "bulk", "evil':x=0,y=0'; rm -rf /", Guid.NewGuid(), CancellationToken.None);
@@ -110,7 +109,7 @@ public sealed class CameraSimProvisionerTests
         // is harmless — it renders on the video and does nothing. What would not
         // be harmless is closing the drawtext argument and starting another, so
         // the quote, the semicolon and the slash are what must be gone.
-        string command = handler.LastBody;
+        var command = handler.LastBody;
         command.ShouldNotContain("'");
         command.ShouldNotContain(";");
         command.ShouldNotContain("/media/sim-loop.mp4 -vf \\u0022hue=h=0,drawtext=text=evil'");
@@ -135,8 +134,8 @@ public sealed class CameraSimProvisionerTests
             HttpRequestMessage request,
             CancellationToken cancellationToken)
         {
-            Uri uri = request.RequestUri ?? throw new InvalidOperationException("provisioner sent no URI");
-            HttpContent content = request.Content ?? throw new InvalidOperationException("provisioner sent no body");
+            var uri = request.RequestUri ?? throw new InvalidOperationException("provisioner sent no URI");
+            var content = request.Content ?? throw new InvalidOperationException("provisioner sent no body");
 
             Paths.Add(uri.AbsolutePath);
             LastBody = await content.ReadAsStringAsync(cancellationToken);

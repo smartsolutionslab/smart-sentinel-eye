@@ -30,7 +30,7 @@ public class CameraRegisteredDomainEventHandlerTests
 
         await handler.Handle(EventFor("dresden", "Line-1-North"), CancellationToken.None);
 
-        CameraRegisteredV1 published = bus.Published.OfType<CameraRegisteredV1>().ShouldHaveSingleItem();
+        var published = bus.Published.OfType<CameraRegisteredV1>().ShouldHaveSingleItem();
 
         // dresden, not munich: everything else in the system defaults to
         // munich, so a handler that hard-coded it would pass otherwise.
@@ -49,7 +49,7 @@ public class CameraRegisteredDomainEventHandlerTests
 
         await handler.Handle(EventFor("munich", "Line-2-East"), CancellationToken.None);
 
-        CameraRegisteredV1 published = bus.Published.OfType<CameraRegisteredV1>().ShouldHaveSingleItem();
+        var published = bus.Published.OfType<CameraRegisteredV1>().ShouldHaveSingleItem();
 
         published.Metadata.Fab.ShouldBe("munich");
         typeof(CameraRegisteredV1).GetProperty("Fab").ShouldBeNull();

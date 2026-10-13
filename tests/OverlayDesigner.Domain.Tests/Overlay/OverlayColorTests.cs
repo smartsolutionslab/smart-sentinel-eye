@@ -13,21 +13,21 @@ public class OverlayColorTests
     [Fact]
     public void From_canonicalises_a_six_digit_value_to_opaque_eight_digit_upper_case()
     {
-        OverlayColor color = OverlayColor.From("#d32f2f");
+        var color = OverlayColor.From("#d32f2f");
         color.Value.ShouldBe("#D32F2FFF");
     }
 
     [Fact]
     public void From_canonicalises_an_eight_digit_value_to_upper_case()
     {
-        OverlayColor color = OverlayColor.From("#ff000080");
+        var color = OverlayColor.From("#ff000080");
         color.Value.ShouldBe("#FF000080");
     }
 
     [Fact]
     public void From_preserves_an_already_canonical_value()
     {
-        OverlayColor color = OverlayColor.From("#D32F2FFF");
+        var color = OverlayColor.From("#D32F2FFF");
         color.Value.ShouldBe("#D32F2FFF");
     }
 
@@ -42,14 +42,14 @@ public class OverlayColorTests
     [InlineData("")]
     public void From_rejects_a_malformed_value_naming_the_parameter(string raw)
     {
-        ArgumentException exception = Should.Throw<ArgumentException>(() => OverlayColor.From(raw));
+        var exception = Should.Throw<ArgumentException>(() => OverlayColor.From(raw));
         exception.ParamName.ShouldBe("value");
     }
 
     [Fact]
     public void From_rejects_null_naming_the_parameter()
     {
-        ArgumentException exception = Should.Throw<ArgumentException>(() => OverlayColor.From(null!));
+        var exception = Should.Throw<ArgumentException>(() => OverlayColor.From(null!));
         exception.ParamName.ShouldBe("value");
     }
 
@@ -75,8 +75,8 @@ public class OverlayColorTests
     [Fact]
     public void Two_colors_with_the_same_canonical_value_are_equal()
     {
-        OverlayColor a = OverlayColor.From("#d32f2f");
-        OverlayColor b = OverlayColor.From("#D32F2FFF");
+        var a = OverlayColor.From("#d32f2f");
+        var b = OverlayColor.From("#D32F2FFF");
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
     }

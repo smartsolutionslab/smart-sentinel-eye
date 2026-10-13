@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.Identity.Api.Requests;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
@@ -26,7 +23,7 @@ public static class KiosksEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/kiosks")
+        var group = app.MapGroup("/kiosks")
             .RequireAuthorization(Scope.Sse.Identity.KioskClients.Write)
             .WithTags("IdentityKiosks");
 
@@ -61,7 +58,7 @@ public static class KiosksEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
 
-        RouteGroupBuilder reads = app.MapGroup("/kiosks")
+        var reads = app.MapGroup("/kiosks")
             .RequireAuthorization(Scope.Sse.Identity.KioskClients.Read)
             .WithTags("IdentityKiosks");
 
@@ -83,7 +80,7 @@ public static class KiosksEndpoints
         CancellationToken cancellationToken,
         [FromQuery] string fabId = "")
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await IdentityFabResolution.ResolveReadFabsAsync(
                 user, fabId, fabGuard, "KIOSK_INVALID_INPUT", cancellationToken);
         if (fabsResolution.IsFailure)
@@ -91,9 +88,9 @@ public static class KiosksEndpoints
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListKiosksQuery(fabs), cancellationToken);
 
         return result.Match<IResult>(
@@ -112,10 +109,10 @@ public static class KiosksEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
-        EnrollKioskCommandHandler handler = services.Handler;
+        var fabGuard = services.FabGuard;
+        var handler = services.Handler;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -134,7 +131,7 @@ public static class KiosksEndpoints
 
         await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
@@ -148,7 +145,7 @@ public static class KiosksEndpoints
                 services.Clock),
             async token =>
             {
-                Result<KioskCredentialsDto, EnrollKioskError> result = await handler.HandleAsync(
+                var result = await handler.HandleAsync(
                     new EnrollKioskCommand(body.Name, fab, actingOperator), token);
 
                 return result.Match(
@@ -158,7 +155,7 @@ public static class KiosksEndpoints
             },
             async (enrolled, token) =>
             {
-                Result<ReplayedClientDto, ReplayRegistrationError> replayed =
+                var replayed =
                     await services.Replay.HandleAsync(
                         new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(enrolled)), token);
 
@@ -225,7 +222,7 @@ public static class KiosksEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        Result<RegisteredClientIdentifier, DisableKioskError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new DisableKioskCommand(parsed, fab), cancellationToken);
 
         return result.Match<IResult>(

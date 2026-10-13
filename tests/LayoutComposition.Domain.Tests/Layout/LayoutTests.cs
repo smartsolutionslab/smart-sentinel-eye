@@ -20,9 +20,9 @@ public class LayoutTests
     [Fact]
     public void CreateDraft_records_when_it_happened_and_who_did_it_on_the_chain_and_its_revision()
     {
-        OperatorIdentifier createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var createdBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Domain.Layout.Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .At(FixedMoment)
             .CreatedBy(createdBy)
             .Build();
@@ -36,9 +36,9 @@ public class LayoutTests
     [Fact]
     public void CreateDraft_yields_revision_one_in_Draft_state_with_no_pending_events()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
 
-        Domain.Layout.Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .Named("Line-1 Entrance")
             .ForCamera(camera)
             .At(FixedMoment)
@@ -46,7 +46,7 @@ public class LayoutTests
 
         layout.Name.Value.ShouldBe("Line-1 Entrance");
         layout.Revisions.Count.ShouldBe(1);
-        Revision only = layout.Revisions[0];
+        var only = layout.Revisions[0];
         only.Number.ShouldBe(LayoutRevisionNumber.One);
         only.State.ShouldBe(LayoutRevisionState.Draft);
         only.Grid.ShouldBe(GridDimensions.Cell);
@@ -59,16 +59,16 @@ public class LayoutTests
     [Fact]
     public void CreateDraft_carries_the_full_multi_tile_grid()
     {
-        CameraIdentifier cameraA = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier cameraB = CameraIdentifier.From(Guid.CreateVersion7());
+        var cameraA = CameraIdentifier.From(Guid.CreateVersion7());
+        var cameraB = CameraIdentifier.From(Guid.CreateVersion7());
         IReadOnlyList<Tile> tiles = [TileAt(cameraA, 0, 0), TileAt(cameraB, 0, 1)];
 
-        Domain.Layout.Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .WithGrid(GridDimensions.From(1, 2))
             .WithTiles(tiles)
             .Build();
 
-        Revision only = layout.Revisions.Single();
+        var only = layout.Revisions.Single();
         only.Grid.ShouldBe(GridDimensions.From(1, 2));
         only.Tiles.Count.ShouldBe(2);
     }
@@ -76,8 +76,8 @@ public class LayoutTests
     [Fact]
     public void Publish_a_Draft_transitions_to_Published_and_raises_LayoutRevisionPublished()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Named("Line-1").Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Named("Line-1").Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
 
         layout.Publish(LayoutRevisionNumber.One, by, clock);
@@ -85,7 +85,7 @@ public class LayoutTests
         layout.Revisions.Single().State.ShouldBe(LayoutRevisionState.Published);
         layout.Revisions.Single().PublishedAt!.Value.ShouldBe(FixedMoment);
 
-        LayoutRevisionPublishedDomainEvent evt =
+        var evt =
             layout.PendingEvents.OfType<LayoutRevisionPublishedDomainEvent>().ShouldHaveSingleItem();
         evt.Layout.ShouldBe(layout.Id);
         evt.RevisionNumber.ShouldBe(LayoutRevisionNumber.One);
@@ -97,14 +97,14 @@ public class LayoutTests
     [Fact]
     public void BranchDraft_off_Published_yields_revision_two_in_Draft_with_the_same_tiles()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(camera).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().ForCamera(camera).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.ClearPendingEvents();
 
-        Revision draft = layout.BranchDraft(by, clock);
+        var draft = layout.BranchDraft(by, clock);
 
         draft.Number.Value.ShouldBe(2);
         draft.State.ShouldBe(LayoutRevisionState.Draft);
@@ -115,8 +115,8 @@ public class LayoutTests
     [Fact]
     public void BranchDraft_without_a_Published_revision_throws()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         Action act = () => layout.BranchDraft(by, new LayoutBuilder.TestClock(FixedMoment));
         act.ShouldThrow<InvalidOperationException>();
@@ -125,11 +125,11 @@ public class LayoutTests
     [Fact]
     public void Publish_a_new_revision_atomically_archives_the_previous_Published()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
-        Revision draftTwo = layout.BranchDraft(by, clock);
+        var draftTwo = layout.BranchDraft(by, clock);
         layout.ClearPendingEvents();
 
         layout.Publish(draftTwo.Number, by, clock);
@@ -151,14 +151,14 @@ public class LayoutTests
     [Fact]
     public void At_most_one_revision_is_Published_after_any_sequence_of_operations()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
 
         layout.Publish(LayoutRevisionNumber.One, by, clock);
-        Revision two = layout.BranchDraft(by, clock);
+        var two = layout.BranchDraft(by, clock);
         layout.Publish(two.Number, by, clock);
-        Revision three = layout.BranchDraft(by, clock);
+        var three = layout.BranchDraft(by, clock);
         layout.Publish(three.Number, by, clock);
 
         layout.Revisions.Count(r => r.State == LayoutRevisionState.Published).ShouldBe(1);
@@ -169,16 +169,16 @@ public class LayoutTests
     [Fact]
     public void EditDraft_in_place_replaces_the_tile_set_without_spawning_a_new_revision()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
-        CameraIdentifier cameraA = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier cameraB = CameraIdentifier.From(Guid.CreateVersion7());
+        var cameraA = CameraIdentifier.From(Guid.CreateVersion7());
+        var cameraB = CameraIdentifier.From(Guid.CreateVersion7());
         IReadOnlyList<Tile> tiles = [TileAt(cameraA, 0, 0), TileAt(cameraB, 1, 1)];
 
         layout.EditDraft(LayoutRevisionNumber.One, GridDimensions.Default, tiles, clock);
 
         layout.Revisions.Count.ShouldBe(1);
-        Revision only = layout.Revisions.Single();
+        var only = layout.Revisions.Single();
         only.State.ShouldBe(LayoutRevisionState.Draft);
         only.Grid.ShouldBe(GridDimensions.Default);
         only.Tiles.Count.ShouldBe(2);
@@ -187,8 +187,8 @@ public class LayoutTests
     [Fact]
     public void Revert_on_a_Published_revision_brings_it_back_to_Draft()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.ClearPendingEvents();
@@ -203,8 +203,8 @@ public class LayoutTests
     [Fact]
     public void Publishing_a_missing_revision_number_throws()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         Action act = () => layout.Publish(
             LayoutRevisionNumber.From(99), by, new LayoutBuilder.TestClock(FixedMoment));
@@ -214,10 +214,10 @@ public class LayoutTests
     [Fact]
     public void CreateDraft_carries_the_optional_overlay_on_its_tile()
     {
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
+        var overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().WithOverlay(overlay).Build();
 
-        Tile tile = layout.Revisions.Single().Tiles.ShouldHaveSingleItem();
+        var tile = layout.Revisions.Single().Tiles.ShouldHaveSingleItem();
         tile.Overlay.HasValue.ShouldBeTrue();
         tile.Overlay.Value.ShouldBe(overlay);
     }
@@ -225,13 +225,13 @@ public class LayoutTests
     [Fact]
     public void BranchDraft_carries_the_overlay_from_the_Published_revisions_tile()
     {
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().WithOverlay(overlay).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().WithOverlay(overlay).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
-        Revision draft = layout.BranchDraft(by, clock);
+        var draft = layout.BranchDraft(by, clock);
 
         draft.Tiles.ShouldHaveSingleItem().Overlay.Value.ShouldBe(overlay);
     }
@@ -239,8 +239,8 @@ public class LayoutTests
     [Fact]
     public void EditDraft_on_a_Published_revision_throws()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         IReadOnlyList<Tile> tiles = [TileAt(CameraIdentifier.From(Guid.CreateVersion7()), 0, 0)];
@@ -274,7 +274,7 @@ public class LayoutTests
     [Fact]
     public void ValidateGrid_rejects_an_empty_tile_set_as_Empty()
     {
-        Option<GridViolation> violation =
+        var violation =
             Domain.Layout.Layout.ValidateGrid(GridDimensions.Cell, Array.Empty<Tile>());
 
         violation.HasValue.ShouldBeTrue();
@@ -359,9 +359,9 @@ public class LayoutTests
     public void ValidateGrid_accepts_a_full_3x3_grid_of_1x1_tiles()
     {
         List<Tile> tiles = [];
-        for (int row = 0; row < 3; row++)
+        for (var row = 0; row < 3; row++)
         {
-            for (int col = 0; col < 3; col++)
+            for (var col = 0; col < 3; col++)
             {
                 tiles.Add(TileAt(CameraIdentifier.From(Guid.CreateVersion7()), row, col));
             }
@@ -393,7 +393,7 @@ public class LayoutTests
     [Fact]
     public void CreateDraft_records_the_fab_the_layout_belongs_to()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .WithFab(FabIdentifier.From("dresden"))
             .Build();
 
@@ -425,15 +425,15 @@ public class LayoutTests
     [Fact]
     public void The_fab_survives_every_revision_transition()
     {
-        FabIdentifier dresden = FabIdentifier.From("dresden");
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var dresden = FabIdentifier.From("dresden");
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         LayoutBuilder.TestClock clock = new(FixedMoment);
-        Domain.Layout.Layout layout = new LayoutBuilder().WithFab(dresden).Build();
+        var layout = new LayoutBuilder().WithFab(dresden).Build();
 
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.Fab.ShouldBe(dresden);
 
-        Revision draft = layout.BranchDraft(by, clock);
+        var draft = layout.BranchDraft(by, clock);
         layout.Fab.ShouldBe(dresden);
 
         layout.EditDraft(
@@ -468,22 +468,22 @@ public class LayoutTests
     [Fact]
     public void BranchDraft_on_a_fully_archived_chain_recovers_the_grid_and_every_tile()
     {
-        CameraIdentifier left = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier right = CameraIdentifier.From(Guid.CreateVersion7());
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        var left = CameraIdentifier.From(Guid.CreateVersion7());
+        var right = CameraIdentifier.From(Guid.CreateVersion7());
+        var overlay = OverlayIdentifier.From(Guid.CreateVersion7());
         Tile bound = new(left, Option<OverlayIdentifier>.Some(overlay), GridPosition.From(0, 0));
-        Domain.Layout.Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .WithGrid(GridDimensions.From(1, 2))
             .WithTiles([bound, TileAt(right, 0, 1)])
             .Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
 
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
         layout.ClearPendingEvents();
 
-        Revision recovered = layout.BranchDraft(by, clock);
+        var recovered = layout.BranchDraft(by, clock);
 
         recovered.Number.Value.ShouldBe(2);
         recovered.State.ShouldBe(LayoutRevisionState.Draft);
@@ -503,14 +503,14 @@ public class LayoutTests
     [Fact]
     public void A_recovered_draft_can_be_edited_and_published()
     {
-        CameraIdentifier replacement = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var replacement = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
 
-        Revision recovered = layout.BranchDraft(by, clock);
+        var recovered = layout.BranchDraft(by, clock);
         layout.EditDraft(recovered.Number, GridDimensions.Cell, [TileAt(replacement, 0, 0)], clock);
         layout.Publish(recovered.Number, by, clock);
 
@@ -528,18 +528,18 @@ public class LayoutTests
     [Fact]
     public void BranchDraft_prefers_the_Published_revision_over_an_archived_newer_one()
     {
-        CameraIdentifier live = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier abandoned = CameraIdentifier.From(Guid.CreateVersion7());
-        Domain.Layout.Layout layout = new LayoutBuilder().ForCamera(live).Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var live = CameraIdentifier.From(Guid.CreateVersion7());
+        var abandoned = CameraIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().ForCamera(live).Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
-        Revision draftTwo = layout.BranchDraft(by, clock);
+        var draftTwo = layout.BranchDraft(by, clock);
         layout.EditDraft(draftTwo.Number, GridDimensions.Cell, [TileAt(abandoned, 0, 0)], clock);
         layout.ArchiveRevision(draftTwo.Number, by, clock);
 
-        Revision draftThree = layout.BranchDraft(by, clock);
+        var draftThree = layout.BranchDraft(by, clock);
 
         draftThree.Number.Value.ShouldBe(3);
         draftThree.Tiles.ShouldHaveSingleItem().Camera.ShouldBe(live);

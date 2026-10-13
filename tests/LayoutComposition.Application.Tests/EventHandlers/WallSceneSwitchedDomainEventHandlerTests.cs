@@ -1,7 +1,6 @@
 using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
@@ -30,10 +29,10 @@ public class WallSceneSwitchedDomainEventHandlerTests
         FakeEventBus bus = new();
         WallSceneSwitchedDomainEventHandler handler = new(bus);
 
-        WallIdentifier wall = WallIdentifier.New();
-        LayoutIdentifier previous = LayoutIdentifier.New();
-        LayoutIdentifier current = LayoutIdentifier.New();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var wall = WallIdentifier.New();
+        var previous = LayoutIdentifier.New();
+        var current = LayoutIdentifier.New();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         WallSceneSwitchedDomainEvent domainEvent = new(
             Munich, wall, previous, current, SceneVersion.Initial.Next(),
             new SceneSwitchCause.Operator(by), FixedMoment);
@@ -41,7 +40,7 @@ public class WallSceneSwitchedDomainEventHandlerTests
         await handler.Handle(domainEvent, CancellationToken.None);
 
         bus.Published.ShouldHaveSingleItem();
-        WallSceneChangedV1 v1 = bus.Published.Single().ShouldBeOfType<WallSceneChangedV1>();
+        var v1 = bus.Published.Single().ShouldBeOfType<WallSceneChangedV1>();
         v1.Wall.ShouldBe(wall.Value);
         v1.PreviousLayout.ShouldBe(previous.Value);
         v1.CurrentLayout.ShouldBe(current.Value);
@@ -58,14 +57,14 @@ public class WallSceneSwitchedDomainEventHandlerTests
     {
         FakeEventBus bus = new();
         WallSceneSwitchedDomainEventHandler handler = new(bus);
-        OperatorIdentifier editor = OperatorIdentifier.From(Guid.CreateVersion7());
+        var editor = OperatorIdentifier.From(Guid.CreateVersion7());
         WallSceneSwitchedDomainEvent domainEvent = new(
             Munich, WallIdentifier.New(), LayoutIdentifier.New(), LayoutIdentifier.New(), SceneVersion.Initial.Next(),
             new SceneSwitchCause.Reconfigured(editor), FixedMoment);
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        WallSceneChangedV1 v1 = bus.Published.Single().ShouldBeOfType<WallSceneChangedV1>();
+        var v1 = bus.Published.Single().ShouldBeOfType<WallSceneChangedV1>();
         v1.Cause.ShouldBe("Reconfigured");
         v1.Rule.ShouldBeNull();
         v1.CausingEventIdentifier.ShouldBeNull();

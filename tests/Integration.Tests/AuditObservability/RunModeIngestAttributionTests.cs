@@ -1,6 +1,3 @@
-using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
-using SmartSentinelEye.Shared.Kernel;
 using Xunit.Abstractions;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
@@ -61,13 +58,13 @@ public class RunModeIngestAttributionTests(ITestOutputHelper output)
     [Fact]
     public async Task Where_the_ingest_span_goes_in_run_mode()
     {
-        Option<RunModeStackAddress> configured = RunModeStackAddress.FromEnvironment();
+        var configured = RunModeStackAddress.FromEnvironment();
 
         // **A refusal, not a fallback.** Spelled out rather than asserted with a
         // bare Shouldly call so the message carries the runbook.
         configured.HasValue.ShouldBeTrue(RunModeStackAddress.Missing);
 
-        RunModeStackAddress address = configured.Value;
+        var address = configured.Value;
 
         // **The endpoint before anything that can fail**, because the run that
         // most needs this line is the one that throws inside the drive — a wrong
@@ -78,10 +75,10 @@ public class RunModeIngestAttributionTests(ITestOutputHelper output)
         output.WriteLine($"endpoint reached                      : {address.Describe()}");
         output.WriteLine($"service log level                     : {ServiceLogLevel}");
 
-        using HttpClient variables = await address.CreateAuthenticatedClientAsync(CancellationToken.None);
-        await using AuditObservabilityDbContext context = address.CreateAuditContext();
+        using var variables = await address.CreateAuthenticatedClientAsync(CancellationToken.None);
+        await using var context = address.CreateAuditContext();
 
-        IngestSpanResult result = await IngestSpanMeasurement.RunAsync(
+        var result = await IngestSpanMeasurement.RunAsync(
             variables,
             context,
             environment: "run mode (AppHost)",

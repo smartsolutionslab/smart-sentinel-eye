@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using SmartSentinelEye.OverlayDesigner.Api.Requests;
 using SmartSentinelEye.OverlayDesigner.Application.Commands;
@@ -25,10 +24,10 @@ public static partial class OverlayEndpoints
     {
         Ensure.That(request).IsNotNull();
 
-        NormalizedPosition position = NormalizedPosition.From(request.NormalizedX, request.NormalizedY);
-        NormalizedSize size = NormalizedSize.From(request.NormalizedWidth, request.NormalizedHeight);
-        OverlayColor color = ParseColor(request.Color);
-        ElementKind kind = ParseKind(request.Kind);
+        var position = NormalizedPosition.From(request.NormalizedX, request.NormalizedY);
+        var size = NormalizedSize.From(request.NormalizedWidth, request.NormalizedHeight);
+        var color = ParseColor(request.Color);
+        var kind = ParseKind(request.Kind);
 
         return kind == ElementKind.Text
             ? ParseTextElement(request, position, size, color)
@@ -77,7 +76,11 @@ public static partial class OverlayEndpoints
     /// take no such arguments to silently drop.
     /// </summary>
     private static OverlayElement ParseShapeElement(
-        ElementKind kind, ElementRequest request, NormalizedPosition position, NormalizedSize size, OverlayColor color)
+        ElementKind kind,
+        ElementRequest request,
+        NormalizedPosition position,
+        NormalizedSize size,
+        OverlayColor color)
     {
         RequireNoTextFields(kind, request.Text, request.FontSizePx);
 
@@ -108,10 +111,13 @@ public static partial class OverlayEndpoints
     /// present-but-invalid value.
     /// </summary>
     private static OverlayElement ParseTextElement(
-        ElementRequest request, NormalizedPosition position, NormalizedSize size, OverlayColor color)
+        ElementRequest request,
+        NormalizedPosition position,
+        NormalizedSize size,
+        OverlayColor color)
     {
-        string text = request.Text ?? string.Empty;
-        int fontSizePx = request.FontSizePx ?? 0;
+        var text = request.Text ?? string.Empty;
+        var fontSizePx = request.FontSizePx ?? 0;
         return OverlayElement.TextElement(text, fontSizePx, position, size, color);
     }
 
@@ -125,9 +131,9 @@ public static partial class OverlayEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        CreateOverlayDraftCommandHandler handler = services.Handler;
+        var handler = services.Handler;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -148,7 +154,7 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
+        var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
@@ -195,22 +201,24 @@ public static partial class OverlayEndpoints
         if (!BoundaryParse.TryParse(
             () => OverlayRevisionNumber.From(revisionNumber),
             "OVERLAY_INVALID_INPUT",
-            out OverlayRevisionNumber number,
-            out IResult? problem))
+            out var number,
+            out var problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler
-            .HandleAsync(
-                new PublishRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator, expectedVersion),
-                cancellationToken);
+        var actingOperator = user.ToOperatorIdentifier();
+        var publishRevisionCommand = new PublishRevisionCommand(
+            OverlayIdentifier.From(overlayIdentifier),
+            number,
+            actingOperator,
+            expectedVersion);
+        var result = await handler.HandleAsync(publishRevisionCommand, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: published => Results.Ok(published.Value),
@@ -235,22 +243,24 @@ public static partial class OverlayEndpoints
         if (!BoundaryParse.TryParse(
             () => OverlayRevisionNumber.From(revisionNumber),
             "OVERLAY_INVALID_INPUT",
-            out OverlayRevisionNumber number,
-            out IResult? problem))
+            out var number,
+            out var problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler
-            .HandleAsync(
-                new ArchiveRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator, expectedVersion),
-                cancellationToken);
+        var actingOperator = user.ToOperatorIdentifier();
+        var archiveRevisionCommand = new ArchiveRevisionCommand(
+            OverlayIdentifier.From(overlayIdentifier),
+            number,
+            actingOperator,
+            expectedVersion);
+        var result = await handler.HandleAsync(archiveRevisionCommand, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: archived => Results.Ok(archived.Value),
@@ -272,16 +282,17 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler
-            .HandleAsync(
-                new BranchDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), actingOperator, expectedVersion),
-                cancellationToken);
+        var actingOperator = user.ToOperatorIdentifier();
+        var branchDraftRevisionCommand = new BranchDraftRevisionCommand(
+            OverlayIdentifier.From(overlayIdentifier),
+            actingOperator,
+            expectedVersion);
+        var result = await handler.HandleAsync(branchDraftRevisionCommand, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: branched => Results.Created(
@@ -321,15 +332,17 @@ public static partial class OverlayEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler
-            .HandleAsync(
-                new EditDraftRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, elements, expectedVersion),
-                cancellationToken);
+        var editDraftRevisionCommand = new EditDraftRevisionCommand(
+            OverlayIdentifier.From(overlayIdentifier),
+            number,
+            elements,
+            expectedVersion);
+        var result = await handler.HandleAsync(editDraftRevisionCommand, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: edited => Results.Ok(edited.Value),
@@ -354,22 +367,25 @@ public static partial class OverlayEndpoints
         if (!BoundaryParse.TryParse(
             () => OverlayRevisionNumber.From(revisionNumber),
             "OVERLAY_INVALID_INPUT",
-            out OverlayRevisionNumber number,
-            out IResult? problem))
+            out var number,
+            out var problem))
         {
             return problem;
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        OperatorIdentifier actingOperator = user.ToOperatorIdentifier();
-        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler
-            .HandleAsync(
-                new RevertRevisionCommand(OverlayIdentifier.From(overlayIdentifier), number, actingOperator, expectedVersion),
-                cancellationToken);
+        var actingOperator = user.ToOperatorIdentifier();
+
+        var revertRevisionCommand = new RevertRevisionCommand(
+            OverlayIdentifier.From(overlayIdentifier),
+            number,
+            actingOperator,
+            expectedVersion);
+        var result = await handler.HandleAsync(revertRevisionCommand, cancellationToken);
 
         return result.Match<IResult>(
             onSuccess: reverted => Results.Ok(reverted.Value),

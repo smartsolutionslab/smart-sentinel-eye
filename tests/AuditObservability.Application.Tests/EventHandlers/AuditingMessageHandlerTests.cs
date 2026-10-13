@@ -61,7 +61,7 @@ public class AuditingMessageHandlerTests
 
         CameraRegisteredV1 evt = new(
             Guid.CreateVersion7(), "north-gate", "rtsp://example/cam", Now, Guid.CreateVersion7(), Metadata: TestMetadata);
-        Guid eventId = Guid.CreateVersion7();
+        var eventId = Guid.CreateVersion7();
 
         await handler.HandleAsync(typeof(CameraRegisteredV1), evt, Envelope(evt, eventId), default);
         await handler.HandleAsync(typeof(CameraRegisteredV1), evt, Envelope(evt, eventId), default);

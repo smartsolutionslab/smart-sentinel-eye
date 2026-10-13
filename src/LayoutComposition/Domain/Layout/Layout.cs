@@ -85,9 +85,9 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         {
             return Option<GridViolation>.Some(GridViolation.OutOfBounds);
         }
-        for (int i = 0; i < tiles.Count; i++)
+        for (var i = 0; i < tiles.Count; i++)
         {
-            for (int j = i + 1; j < tiles.Count; j++)
+            for (var j = i + 1; j < tiles.Count; j++)
             {
                 if (tiles[i].Overlaps(tiles[j]))
                 {
@@ -110,7 +110,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// </summary>
     private static void RequireValidGrid(GridDimensions grid, IReadOnlyList<Tile> tiles)
     {
-        Option<GridViolation> violation = ValidateGrid(grid, tiles);
+        var violation = ValidateGrid(grid, tiles);
         if (violation.HasValue)
         {
             throw new InvalidOperationException(
@@ -141,7 +141,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         Ensure.That(clock).IsNotNull();
         RequireValidGrid(grid, tiles);
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         Layout layout = new()
         {
             Id = LayoutIdentifier.New(),
@@ -171,13 +171,13 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public Revision BranchDraft(OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision baseRevision = CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()
+        var baseRevision = CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()
             ?? throw new InvalidOperationException(
                 $"Layout {Id} has a Draft revision already; BranchDraft needs a Published revision or a fully-archived chain.");
 
-        DateTimeOffset now = clock.UtcNow;
-        LayoutRevisionNumber next = MaxRevisionNumber().Next();
-        Revision draft = Revision.Branch(
+        var now = clock.UtcNow;
+        var next = MaxRevisionNumber().Next();
+        var draft = Revision.Branch(
             next, baseRevision.Grid, baseRevision.Tiles, now, by);
         revisions.Add(draft);
         RecomputeArchival(now);
@@ -200,7 +200,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         Ensure.That(tiles).IsNotNull();
         Ensure.That(clock).IsNotNull();
         RequireValidGrid(grid, tiles);
-        Revision target = RequireRevision(number);
+        var target = RequireRevision(number);
         target.ReplaceTiles(grid, tiles);
         RecomputeArchival(clock.UtcNow);
     }
@@ -215,9 +215,9 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public void Publish(LayoutRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision target = RequireRevision(number);
-        Revision? prior = CurrentPublishedOrNull();
-        DateTimeOffset now = clock.UtcNow;
+        var target = RequireRevision(number);
+        var prior = CurrentPublishedOrNull();
+        var now = clock.UtcNow;
 
         target.Publish(now);
         if (prior is not null && prior.Number != number)
@@ -238,8 +238,8 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     public void Revert(LayoutRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        DateTimeOffset now = clock.UtcNow;
-        Revision target = RequireRevision(number);
+        var now = clock.UtcNow;
+        var target = RequireRevision(number);
         target.Revert();
         Raise(new LayoutRevisionArchivedDomainEvent(Fab, Id, number, now, by));
         RecomputeArchival(now);
@@ -255,15 +255,15 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         LayoutRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision target = RequireRevision(number);
-        DateTimeOffset now = clock.UtcNow;
+        var target = RequireRevision(number);
+        var now = clock.UtcNow;
         if (target.State == LayoutRevisionState.Archived)
         {
             RecomputeArchival(now);
             return;
         }
 
-        bool wasObservable = target.State == LayoutRevisionState.Published;
+        var wasObservable = target.State == LayoutRevisionState.Published;
         target.Archive(now);
         if (wasObservable)
         {
@@ -301,7 +301,7 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
     /// </summary>
     private void RecomputeArchival(DateTimeOffset now)
     {
-        bool fullyArchived = revisions.All(
+        var fullyArchived = revisions.All(
             revision => revision.State == LayoutRevisionState.Archived);
         ArchivedAt = fullyArchived ? (ArchivedAt ?? ArchivedAt.From(now)) : null;
     }

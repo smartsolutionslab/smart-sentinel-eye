@@ -1,6 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using MQTTnet;
 using MQTTnet.Exceptions;
@@ -127,8 +126,8 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     public async Task A_publish_without_the_scope_is_refused_though_the_connect_still_succeeds()
     {
         await DeleteProbeClientIfPresentAsync();
-        ClientCredentials probe = await CreateProbeClientAsync([AudienceScope]);
-        string token = await MintClientCredentialsTokenAsync(probe.ClientId, probe.ClientSecret);
+        var probe = await CreateProbeClientAsync([AudienceScope]);
+        var token = await MintClientCredentialsTokenAsync(probe.ClientId, probe.ClientSecret);
 
         ScopesOf(token).ShouldNotContain(PublishScope,
             customMessage: $"the probe '{probe.ClientId}' was created with default scopes "
@@ -139,10 +138,10 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
             + "azp == MQTT username. If they differ the CONNECT is refused for that reason and the "
             + "scope check is never reached.");
 
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
         try
         {
-            MqttConnectOutcome connected = await TryConnectAsync(client, probe.ClientId, token);
+            var connected = await TryConnectAsync(client, probe.ClientId, token);
             output.WriteLine($"AS-1 CONNECT: {connected}");
 
             connected.ResultCode.ShouldNotBeNull(
@@ -154,7 +153,7 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
                 + "realm-signed, correctly-audienced token — CONNECT must succeed regardless, "
                 + "because the scope is checked only on PUBLISH (spec decision table).");
 
-            MqttClientPublishResult published = await client.PublishAsync(ProbeMessage());
+            var published = await client.PublishAsync(ProbeMessage());
             output.WriteLine($"AS-1 PUBACK: {published.ReasonCode}");
 
             published.ReasonCode.ShouldBe(MqttClientPublishReasonCode.NotAuthorized,
@@ -178,18 +177,18 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     public async Task A_publish_with_the_scope_still_succeeds()
     {
         await DeleteProbeClientIfPresentAsync();
-        ClientCredentials probe = await CreateProbeClientAsync([AudienceScope, PublishScope]);
-        string token = await MintClientCredentialsTokenAsync(probe.ClientId, probe.ClientSecret);
+        var probe = await CreateProbeClientAsync([AudienceScope, PublishScope]);
+        var token = await MintClientCredentialsTokenAsync(probe.ClientId, probe.ClientSecret);
 
         ScopesOf(token).ShouldContain(PublishScope,
             customMessage: $"the probe '{probe.ClientId}' was created with '{PublishScope}' among its "
             + "default scopes, so its token must carry it. Without this the control proves nothing — "
             + "a publish refused here would be indistinguishable from AS-1's refusal.");
 
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
         try
         {
-            MqttConnectOutcome connected = await TryConnectAsync(client, probe.ClientId, token);
+            var connected = await TryConnectAsync(client, probe.ClientId, token);
             output.WriteLine($"AS-2 CONNECT: {connected}");
 
             connected.ResultCode.ShouldNotBeNull(
@@ -198,7 +197,7 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
                 customMessage: $"'{probe.ClientId}' holds a valid, correctly-audienced token and must "
                 + "be able to connect.");
 
-            MqttClientPublishResult published = await client.PublishAsync(ProbeMessage());
+            var published = await client.PublishAsync(ProbeMessage());
             output.WriteLine($"AS-2 PUBACK: {published.ReasonCode}");
 
             NonRefusalPublishReasonCodes.ShouldContain(published.ReasonCode,
@@ -229,21 +228,21 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     [Fact]
     public async Task A_registered_device_with_the_scope_is_still_refused_without_an_acl_row()
     {
-        string adminToken = await aspire.GetAdminAccessTokenAsync();
-        ClientCredentials device = await RegisterDeviceAsync(adminToken);
-        string token = await MintClientCredentialsTokenAsync(device.ClientId, device.ClientSecret);
+        var adminToken = await aspire.GetAdminAccessTokenAsync();
+        var device = await RegisterDeviceAsync(adminToken);
+        var token = await MintClientCredentialsTokenAsync(device.ClientId, device.ClientSecret);
 
         ScopesOf(token).ShouldContain(PublishScope,
             customMessage: $"'{device.ClientId}' was registered through POST /devices/register, which "
             + $"grants '{PublishScope}' via KeycloakScopeBundles.Device. Without the scope this fact "
             + "would be refused for the wrong reason and prove nothing about finding 2.");
 
-        string topic = $"fab/munich/plc/{device.ClientId}";
+        var topic = $"fab/munich/plc/{device.ClientId}";
 
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
         try
         {
-            MqttConnectOutcome connected = await TryConnectAsync(client, device.ClientId, token);
+            var connected = await TryConnectAsync(client, device.ClientId, token);
             output.WriteLine($"AS-3 CONNECT: {connected}");
 
             connected.ResultCode.ShouldNotBeNull(
@@ -252,7 +251,7 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
                 customMessage: $"a device registered through the Identity API must still be able to "
                 + "connect; this fact is about the publish, not the connect.");
 
-            MqttClientPublishResult published = await client.PublishAsync(
+            var published = await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
                     .WithPayload("spec-330-as-3-probe")
@@ -295,18 +294,18 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task DeleteProbeClientIfPresentAsync()
     {
-        string adminToken = await MintClientCredentialsTokenAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
-        using HttpClient keycloak = CreateAdminApiClient(adminToken);
+        var adminToken = await MintClientCredentialsTokenAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
+        using var keycloak = CreateAdminApiClient(adminToken);
 
-        using HttpResponseMessage response = await keycloak.GetAsync(
+        using var response = await keycloak.GetAsync(
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(ProbeClientId)}");
         response.EnsureSuccessStatusCode();
-        JsonElement rows = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await response.Content.ReadFromJsonAsync<JsonElement>();
 
-        foreach (JsonElement row in rows.EnumerateArray())
+        foreach (var row in rows.EnumerateArray())
         {
-            string uuid = row.GetProperty("id").GetString()!;
-            using HttpResponseMessage deleted = await keycloak.DeleteAsync(
+            var uuid = row.GetProperty("id").GetString()!;
+            using var deleted = await keycloak.DeleteAsync(
                 $"admin/realms/{RealmProbe.Realm}/clients/{uuid}");
             output.WriteLine(
                 $"delete-before-create: DELETE clients/{uuid} ('{ProbeClientId}') answered "
@@ -316,10 +315,10 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
 
     private async Task<ClientCredentials> CreateProbeClientAsync(IReadOnlyList<string> defaultClientScopes)
     {
-        string adminToken = await MintClientCredentialsTokenAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
-        using HttpClient keycloak = CreateAdminApiClient(adminToken);
+        var adminToken = await MintClientCredentialsTokenAsync(RealmProbe.AdminClientId, RealmProbe.AdminClientSecret);
+        using var keycloak = CreateAdminApiClient(adminToken);
 
-        using HttpResponseMessage created = await keycloak.PostAsJsonAsync(
+        using var created = await keycloak.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
@@ -336,28 +335,28 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
             });
         if (!created.IsSuccessStatusCode)
         {
-            string body = await created.Content.ReadAsStringAsync();
+            var body = await created.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
                 $"POST admin/realms/{RealmProbe.Realm}/clients failed with {(int)created.StatusCode} "
                 + $"{created.StatusCode}. Body: {body}");
         }
 
-        string uuid = await ReadClientUuidAsync(keycloak, ProbeClientId);
+        var uuid = await ReadClientUuidAsync(keycloak, ProbeClientId);
 
-        using HttpResponseMessage secret = await keycloak.GetAsync(
+        using var secret = await keycloak.GetAsync(
             $"admin/realms/{RealmProbe.Realm}/clients/{uuid}/client-secret");
         secret.EnsureSuccessStatusCode();
-        JsonElement credential = await secret.Content.ReadFromJsonAsync<JsonElement>();
+        var credential = await secret.Content.ReadFromJsonAsync<JsonElement>();
 
         return new ClientCredentials(ProbeClientId, credential.GetProperty("value").GetString()!);
     }
 
     private static async Task<string> ReadClientUuidAsync(HttpClient keycloak, string clientId)
     {
-        using HttpResponseMessage response = await keycloak.GetAsync(
+        using var response = await keycloak.GetAsync(
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}");
         response.EnsureSuccessStatusCode();
-        JsonElement rows = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.GetArrayLength() == 0
             ? throw new InvalidOperationException(
@@ -367,14 +366,14 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
 
     private HttpClient CreateAdminApiClient(string adminToken)
     {
-        HttpClient keycloak = aspire.CreateKeycloakClient();
+        var keycloak = aspire.CreateKeycloakClient();
         keycloak.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
         return keycloak;
     }
 
     private async Task<ClientCredentials> RegisterDeviceAsync(string adminToken)
     {
-        using HttpClient identity = aspire.CreateServiceClient("identity");
+        using var identity = aspire.CreateServiceClient("identity");
         using HttpRequestMessage request = new(HttpMethod.Post, "/devices/register?fabId=munich")
         {
             Content = JsonContent.Create(new
@@ -385,17 +384,17 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
         };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", adminToken);
 
-        using HttpResponseMessage response = await identity.SendAsync(request);
+        using var response = await identity.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
-            string body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
                 $"POST /devices/register failed with {(int)response.StatusCode} {response.StatusCode}. "
                 + $"Body: {body}{Environment.NewLine}identity log:{Environment.NewLine}"
                 + aspire.RecentLogs("identity"));
         }
 
-        JsonElement registered = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var registered = await response.Content.ReadFromJsonAsync<JsonElement>();
         return new ClientCredentials(
             registered.GetProperty("clientId").GetString()!,
             registered.GetProperty("clientSecret").GetString()!);
@@ -403,7 +402,7 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
 
     private async Task<string> MintClientCredentialsTokenAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -411,11 +410,11 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
             ["client_secret"] = clientSecret,
         });
 
-        using HttpResponseMessage response = await keycloak.PostAsync(
+        using var response = await keycloak.PostAsync(
             $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token", form);
         if (!response.IsSuccessStatusCode)
         {
-            string body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
                 $"client_credentials grant failed for '{clientId}': "
                 + $"{(int)response.StatusCode} {response.StatusCode}. Body: {body}");
@@ -437,8 +436,8 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     /// </summary>
     private async Task<MqttConnectOutcome> TryConnectAsync(IMqttClient client, string clientId, string jwt)
     {
-        Uri mqtt = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        MqttClientOptions options = new MqttClientOptionsBuilder()
+        var mqtt = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        var options = new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V500)
             .WithClientId($"{clientId}-{Guid.CreateVersion7():N}")
             .WithTcpServer(mqtt.Host, mqtt.Port)
@@ -449,7 +448,7 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
 
         try
         {
-            MqttClientConnectResult result = await client.ConnectAsync(options);
+            var result = await client.ConnectAsync(options);
             return new MqttConnectOutcome(result.ResultCode, Failure: null);
         }
         catch (MqttCommunicationException failure)
@@ -466,7 +465,7 @@ public class MqttPublishScopeIntegrationTests(AspireFixture aspire, ITestOutputH
     private static string[] ScopesOf(string token)
     {
         JwtSecurityTokenHandler handler = new() { MapInboundClaims = false };
-        string? scope = handler.ReadJwtToken(token).Claims
+        var scope = handler.ReadJwtToken(token).Claims
             .FirstOrDefault(claim => claim.Type == "scope")?.Value;
 
         return scope is null

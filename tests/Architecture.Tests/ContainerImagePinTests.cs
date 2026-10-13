@@ -89,7 +89,7 @@ public class ContainerImagePinTests
     [Fact]
     public void Every_literal_image_tag_written_in_the_app_host_is_pinned()
     {
-        Pin[] pins = AppHostPins();
+        var pins = AppHostPins();
 
         pins.Length.ShouldBeGreaterThan(
             0,
@@ -120,7 +120,7 @@ public class ContainerImagePinTests
             + $"and camera-sim — and the scan found {mediaMtx.Length}. Either a container was removed "
             + "(update this number and say why) or the scan no longer matches how they are declared.");
 
-        string[] tags = DistinctTags(mediaMtx);
+        var tags = DistinctTags(mediaMtx);
 
         tags.Length.ShouldBe(
             1,
@@ -138,14 +138,14 @@ public class ContainerImagePinTests
     [Fact]
     public void Every_written_media_mtx_reference_names_the_release_the_containers_run()
     {
-        string[] declared = DistinctTags([.. AppHostPins().Where(pin => pin.Image == MediaMtxImage)]);
+        var declared = DistinctTags([.. AppHostPins().Where(pin => pin.Image == MediaMtxImage)]);
 
         declared.Length.ShouldBe(
             1,
             "the MediaMTX containers do not agree on one tag, so there is nothing to check written "
             + $"references against. {nameof(The_media_mtx_containers_all_name_one_release)} says which.");
 
-        Pin[] written = WrittenReferences();
+        var written = WrittenReferences();
 
         written.Length.ShouldBeGreaterThan(
             0,
@@ -186,10 +186,10 @@ public class ContainerImagePinTests
 
     private static Pin[] AppHostPins()
     {
-        string[] lines = ReadLines(AppHost);
+        var lines = ReadLines(AppHost);
         List<Pin> pins = [];
 
-        for (int i = 0; i < lines.Length; i++)
+        for (var i = 0; i < lines.Length; i++)
         {
             foreach (Match match in ContainerDeclaration.Matches(lines[i]))
             {
@@ -216,9 +216,9 @@ public class ContainerImagePinTests
     /// </summary>
     private static string WithImageTagOwner(string[] lines, int index)
     {
-        for (int i = index; i >= 0 && index - i < 12; i--)
+        for (var i = index; i >= 0 && index - i < 12; i--)
         {
-            Match assignment = Regex.Match(lines[i], @"^var (?<name>[A-Za-z][A-Za-z0-9]*) = builder");
+            var assignment = Regex.Match(lines[i], @"^var (?<name>[A-Za-z][A-Za-z0-9]*) = builder");
             if (assignment.Success)
             {
                 return assignment.Groups["name"].Value;
@@ -230,7 +230,7 @@ public class ContainerImagePinTests
 
     private static Pin[] WrittenReferences()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         string[] files =
         [
@@ -242,11 +242,11 @@ public class ContainerImagePinTests
 
         List<Pin> written = [];
 
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string[] lines = ReadLines(file);
+            var lines = ReadLines(file);
 
-            for (int i = 0; i < lines.Length; i++)
+            for (var i = 0; i < lines.Length; i++)
             {
                 foreach (Match match in WrittenReference.Matches(lines[i]))
                 {
@@ -260,7 +260,7 @@ public class ContainerImagePinTests
 
     private static string[] ReadLines(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        var path = Path.Combine(RepositoryRoot().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllLines(path);

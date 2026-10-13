@@ -100,8 +100,8 @@ public sealed class FabEventIngestedV1Handler(
             return;
         }
 
-        DateTimeOffset requestedAt = clock.UtcNow;
-        foreach (RuleActionEffect effect in effects)
+        var requestedAt = clock.UtcNow;
+        foreach (var effect in effects)
         {
             switch (effect)
             {

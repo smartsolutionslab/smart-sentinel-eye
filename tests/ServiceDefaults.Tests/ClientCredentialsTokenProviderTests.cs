@@ -22,9 +22,9 @@ public class ClientCredentialsTokenProviderTests
     public async Task A_cold_provider_mints_a_token()
     {
         MintingHandler keycloak = new(expiresIn: 300);
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out _);
+        using var provider = Create(keycloak, out _);
 
-        string token = await provider.GetAccessTokenAsync(CancellationToken.None);
+        var token = await provider.GetAccessTokenAsync(CancellationToken.None);
 
         token.ShouldBe("token-1");
         keycloak.Mints.ShouldBe(1);
@@ -34,7 +34,7 @@ public class ClientCredentialsTokenProviderTests
     public async Task The_grant_is_posted_to_the_realms_token_endpoint()
     {
         MintingHandler keycloak = new(expiresIn: 300);
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out _);
+        using var provider = Create(keycloak, out _);
 
         await provider.GetAccessTokenAsync(CancellationToken.None);
 
@@ -49,11 +49,11 @@ public class ClientCredentialsTokenProviderTests
     public async Task A_second_call_inside_the_refresh_window_reuses_the_cached_token()
     {
         MintingHandler keycloak = new(expiresIn: 300);
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out AdvanceableClock clock);
+        using var provider = Create(keycloak, out var clock);
 
-        string first = await provider.GetAccessTokenAsync(CancellationToken.None);
+        var first = await provider.GetAccessTokenAsync(CancellationToken.None);
         clock.Advance(TimeSpan.FromSeconds(239));
-        string second = await provider.GetAccessTokenAsync(CancellationToken.None);
+        var second = await provider.GetAccessTokenAsync(CancellationToken.None);
 
         second.ShouldBe(first);
         keycloak.Mints.ShouldBe(1, "80 % of a 300 s lifetime is 240 s; at 239 s the cached token still stands.");
@@ -68,11 +68,11 @@ public class ClientCredentialsTokenProviderTests
     public async Task The_token_is_replaced_once_four_fifths_of_its_life_has_passed()
     {
         MintingHandler keycloak = new(expiresIn: 300);
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out AdvanceableClock clock);
+        using var provider = Create(keycloak, out var clock);
 
-        string first = await provider.GetAccessTokenAsync(CancellationToken.None);
+        var first = await provider.GetAccessTokenAsync(CancellationToken.None);
         clock.Advance(TimeSpan.FromSeconds(241));
-        string second = await provider.GetAccessTokenAsync(CancellationToken.None);
+        var second = await provider.GetAccessTokenAsync(CancellationToken.None);
 
         second.ShouldNotBe(first);
         keycloak.Mints.ShouldBe(2);
@@ -87,9 +87,9 @@ public class ClientCredentialsTokenProviderTests
     public async Task Concurrent_callers_on_a_cold_provider_mint_once_between_them()
     {
         MintingHandler keycloak = new(expiresIn: 300);
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out _);
+        using var provider = Create(keycloak, out _);
 
-        string[] tokens = await Task.WhenAll(
+        var tokens = await Task.WhenAll(
             Enumerable.Range(0, 16).Select(_ => provider.GetAccessTokenAsync(CancellationToken.None)));
 
         keycloak.Mints.ShouldBe(1);
@@ -100,13 +100,13 @@ public class ClientCredentialsTokenProviderTests
     public async Task A_refusing_Keycloak_surfaces_rather_than_caching_the_refusal()
     {
         MintingHandler keycloak = new(expiresIn: 300) { Status = HttpStatusCode.Unauthorized };
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out _);
+        using var provider = Create(keycloak, out _);
 
         await Should.ThrowAsync<HttpRequestException>(
             () => provider.GetAccessTokenAsync(CancellationToken.None));
 
         keycloak.Status = HttpStatusCode.OK;
-        string recovered = await provider.GetAccessTokenAsync(CancellationToken.None);
+        var recovered = await provider.GetAccessTokenAsync(CancellationToken.None);
 
         recovered.ShouldBe("token-1",
             "a failed mint must leave the cache untouched, so the next call retries rather than "
@@ -117,7 +117,7 @@ public class ClientCredentialsTokenProviderTests
     public async Task An_empty_body_is_refused_rather_than_cached_as_a_null_token()
     {
         MintingHandler keycloak = new(expiresIn: 300) { Body = "null" };
-        using ClientCredentialsTokenProvider provider = Create(keycloak, out _);
+        using var provider = Create(keycloak, out _);
 
         await Should.ThrowAsync<InvalidOperationException>(
             () => provider.GetAccessTokenAsync(CancellationToken.None));
@@ -135,7 +135,7 @@ public class ClientCredentialsTokenProviderTests
     {
         MintingHandler keycloak = new(expiresIn: 300);
         FakeHttpClientFactory factory = new(new HttpClient(keycloak));
-        using ClientCredentialsTokenProvider provider = Create(factory, out AdvanceableClock clock);
+        using var provider = Create(factory, out var clock);
 
         await provider.GetAccessTokenAsync(CancellationToken.None);
         clock.Advance(TimeSpan.FromSeconds(241));
@@ -153,7 +153,7 @@ public class ClientCredentialsTokenProviderTests
     {
         MintingHandler keycloak = new(expiresIn: 300);
         FakeHttpClientFactory factory = new(new HttpClient(keycloak));
-        using ClientCredentialsTokenProvider provider = Create(factory, out _);
+        using var provider = Create(factory, out _);
 
         await provider.GetAccessTokenAsync(CancellationToken.None);
         await provider.GetAccessTokenAsync(CancellationToken.None);
@@ -212,7 +212,7 @@ public class ClientCredentialsTokenProviderTests
         {
             LastUrl = request.RequestUri!.GetLeftPart(UriPartial.Path);
 
-            HttpContent? posted = request.Content;
+            var posted = request.Content;
             LastForm = posted is null ? string.Empty : await posted.ReadAsStringAsync(cancellationToken);
 
             if (Status != HttpStatusCode.OK)
@@ -220,8 +220,8 @@ public class ClientCredentialsTokenProviderTests
                 return new HttpResponseMessage(Status);
             }
 
-            int sequence = Interlocked.Increment(ref minted);
-            string body = Body
+            var sequence = Interlocked.Increment(ref minted);
+            var body = Body
                 ?? $$"""{"access_token":"token-{{sequence}}","expires_in":{{expiresIn}},"token_type":"Bearer"}""";
 
             return new HttpResponseMessage(HttpStatusCode.OK)

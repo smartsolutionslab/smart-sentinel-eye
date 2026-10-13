@@ -28,7 +28,7 @@ public class OutboxBacklogIsVisibleTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task The_tables_the_backlog_is_read_from_exist()
     {
-        string[] tables = await TablesAsync();
+        var tables = await TablesAsync();
         output.WriteLine($"{OutboxSchema}: {string.Join(", ", tables)}");
 
         tables.ShouldContain(
@@ -60,7 +60,7 @@ public class OutboxBacklogIsVisibleTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task The_backlog_can_be_counted_and_aged()
     {
-        string[] columns = await ColumnsAsync("wolverine_outgoing_envelopes");
+        var columns = await ColumnsAsync("wolverine_outgoing_envelopes");
         output.WriteLine($"outgoing columns: {string.Join(", ", columns)}");
 
         columns.ShouldContain(
@@ -68,8 +68,8 @@ public class OutboxBacklogIsVisibleTests(AspireFixture aspire, ITestOutputHelper
             "the health check reads this column to report whether delivery is stuck; "
             + "if it is not here the check reports on nothing");
 
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
-        long pending = await database.Database
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
+        var pending = await database.Database
             .SqlQueryRaw<long>(
                 $"SELECT count(*) AS \"Value\" FROM {OutboxSchema}.wolverine_outgoing_envelopes")
             .SingleAsync();
@@ -85,7 +85,7 @@ public class OutboxBacklogIsVisibleTests(AspireFixture aspire, ITestOutputHelper
 
     private async Task<string[]> ColumnsAsync(string table)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<string>(
                 "SELECT column_name AS \"Value\" FROM information_schema.columns "
@@ -97,7 +97,7 @@ public class OutboxBacklogIsVisibleTests(AspireFixture aspire, ITestOutputHelper
 
     private async Task<string[]> TablesAsync()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<string>(
                 "SELECT table_name AS \"Value\" FROM information_schema.tables WHERE table_schema = {0}",

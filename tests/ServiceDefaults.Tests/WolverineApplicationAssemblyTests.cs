@@ -54,7 +54,7 @@ public sealed class WolverineApplicationAssemblyTests
     {
         Assembly infrastructureAssembly = CreateDynamicAssembly($"Probe{Guid.NewGuid():N}.Infrastructure");
 
-        Assembly? result = Should.NotThrow(() => WolverineDefaults.TryLoadApplicationAssembly(infrastructureAssembly));
+        var result = Should.NotThrow(() => WolverineDefaults.TryLoadApplicationAssembly(infrastructureAssembly));
 
         result.ShouldBeNull();
     }
@@ -69,12 +69,12 @@ public sealed class WolverineApplicationAssemblyTests
     [Fact]
     public void An_assembly_outside_the_naming_convention_is_not_probed()
     {
-        string suffix = Guid.NewGuid().ToString("N");
+        var suffix = Guid.NewGuid().ToString("N");
         using ResolvingProbe probe = new($"Probe{suffix}.Application", _ => null);
 
         Assembly infrastructureAssembly = CreateDynamicAssembly($"Probe{suffix}.SomethingElse");
 
-        Assembly? result = Should.NotThrow(() => WolverineDefaults.TryLoadApplicationAssembly(infrastructureAssembly));
+        var result = Should.NotThrow(() => WolverineDefaults.TryLoadApplicationAssembly(infrastructureAssembly));
 
         result.ShouldBeNull();
         probe.InvocationCount.ShouldBe(0);
@@ -92,13 +92,13 @@ public sealed class WolverineApplicationAssemblyTests
     [Fact]
     public void A_corrupt_application_assembly_fails_the_host()
     {
-        string suffix = Guid.NewGuid().ToString("N");
-        string applicationName = $"Probe{suffix}.Application";
+        var suffix = Guid.NewGuid().ToString("N");
+        var applicationName = $"Probe{suffix}.Application";
         using ResolvingProbe probe = new(applicationName, _ => Assembly.Load([0x01, 0x02, 0x03, 0x04]));
 
         Assembly infrastructureAssembly = CreateDynamicAssembly($"Probe{suffix}.Infrastructure");
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(
+        var exception = Should.Throw<InvalidOperationException>(
             () => WolverineDefaults.TryLoadApplicationAssembly(infrastructureAssembly));
 
         exception.Message.ShouldContain(applicationName);
@@ -118,13 +118,13 @@ public sealed class WolverineApplicationAssemblyTests
     [Fact]
     public void An_application_assembly_that_is_present_but_unloadable_fails_the_host()
     {
-        string suffix = Guid.NewGuid().ToString("N");
-        string applicationName = $"Probe{suffix}.Application";
+        var suffix = Guid.NewGuid().ToString("N");
+        var applicationName = $"Probe{suffix}.Application";
         using ResolvingProbe probe = new(applicationName, _ => typeof(object).Assembly);
 
         Assembly infrastructureAssembly = CreateDynamicAssembly($"Probe{suffix}.Infrastructure");
 
-        InvalidOperationException exception = Should.Throw<InvalidOperationException>(
+        var exception = Should.Throw<InvalidOperationException>(
             () => WolverineDefaults.TryLoadApplicationAssembly(infrastructureAssembly));
 
         exception.Message.ShouldContain(applicationName);

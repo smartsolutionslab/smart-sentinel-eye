@@ -20,7 +20,7 @@ public sealed class TimescaleAuditChunkInventory(
     public async Task<IReadOnlyList<AuditChunk>> ListChunksOlderThanAsync(
         DateTimeOffset boundary, CancellationToken cancellationToken)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         // `range_end` is exclusive in TimescaleDB's chunk view —
@@ -50,7 +50,7 @@ public sealed class TimescaleAuditChunkInventory(
     {
         Ensure.That(chunk).IsNotNull();
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         // `drop_chunks` accepts a window and drops every chunk whose range
@@ -101,9 +101,9 @@ public sealed class TimescaleAuditChunkInventory(
     /// </summary>
     private static Guid DeterministicChunkIdentifier(string chunkName)
     {
-        byte[] hash = System.Security.Cryptography.SHA256.HashData(
+        var hash = System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(chunkName));
-        byte[] guidBytes = new byte[16];
+        var guidBytes = new byte[16];
         Array.Copy(hash, guidBytes, 16);
         return new Guid(guidBytes);
     }

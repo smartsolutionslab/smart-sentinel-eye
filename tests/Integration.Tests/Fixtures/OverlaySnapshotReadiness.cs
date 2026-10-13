@@ -33,7 +33,7 @@ internal static class OverlaySnapshotReadiness
     internal static async Task<string?> ResolvedTextAsync(
         HttpClient variables, Guid overlay, CancellationToken cancellationToken = default)
     {
-        using HttpResponseMessage snapshot = await SnapshotAsync(variables, overlay, cancellationToken);
+        using var snapshot = await SnapshotAsync(variables, overlay, cancellationToken);
         if (!snapshot.IsSuccessStatusCode)
         {
             return null;
@@ -56,8 +56,8 @@ internal static class OverlaySnapshotReadiness
         int ceilingMs = 30_000,
         CancellationToken cancellationToken = default)
     {
-        string literal = $"{{{{{variableName}}}}}";
-        Stopwatch stopwatch = Stopwatch.StartNew();
+        var literal = $"{{{{{variableName}}}}}";
+        var stopwatch = Stopwatch.StartNew();
         string? resolved = null;
 
         while (stopwatch.ElapsedMilliseconds < ceilingMs)
@@ -87,7 +87,7 @@ internal static class OverlaySnapshotReadiness
     /// </summary>
     internal static string ResolvedTextIn(string body)
     {
-        using JsonDocument payload = JsonDocument.Parse(body);
+        using var payload = JsonDocument.Parse(body);
 
         return payload.RootElement.GetProperty("texts")
             .EnumerateArray()

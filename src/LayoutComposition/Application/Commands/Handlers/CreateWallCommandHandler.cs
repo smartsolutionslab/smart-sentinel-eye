@@ -18,27 +18,27 @@ public sealed class CreateWallCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (FabIdentifier fab, WallName name, IReadOnlyList<LayoutIdentifier> scenes, OperatorIdentifier by) = command;
+        (var fab, var name, var scenes, var by) = command;
 
-        Option<SceneSetViolation> setViolation = Wall.ValidateScenes(scenes);
+        var setViolation = Wall.ValidateScenes(scenes);
         if (setViolation.HasValue)
         {
             return Failure(CreateWallFailures.FromViolation(setViolation.Value, scenes.Count));
         }
 
-        CreateWallError? sceneError = await ValidateScenesAsync(scenes, fab, cancellationToken);
+        var sceneError = await ValidateScenesAsync(scenes, fab, cancellationToken);
         if (sceneError is not null)
         {
             return Failure(sceneError);
         }
 
-        Option<Wall> existingName = await walls.FindByNameAsync(fab, name, cancellationToken);
+        var existingName = await walls.FindByNameAsync(fab, name, cancellationToken);
         if (existingName.HasValue)
         {
             return Failure(CreateWallFailures.NameTaken(name.Value));
         }
 
-        Wall wall = Wall.Create(fab, name, scenes, by, clock);
+        var wall = Wall.Create(fab, name, scenes, by, clock);
         walls.Add(wall);
         await walls.SaveAsync(cancellationToken);
 
@@ -56,12 +56,12 @@ public sealed class CreateWallCommandHandler(
     private async Task<CreateWallError?> ValidateScenesAsync(
         IReadOnlyList<LayoutIdentifier> scenes, FabIdentifier fab, CancellationToken cancellationToken)
     {
-        IReadOnlyDictionary<LayoutIdentifier, FabIdentifier> fabsOf =
+        var fabsOf =
             await lookup.FabsOf(scenes, cancellationToken);
 
-        foreach (LayoutIdentifier scene in scenes)
+        foreach (var scene in scenes)
         {
-            if (!fabsOf.TryGetValue(scene, out FabIdentifier? sceneFab))
+            if (!fabsOf.TryGetValue(scene, out var sceneFab))
             {
                 return CreateWallFailures.SceneNotFound(scene.Value);
             }
@@ -71,8 +71,8 @@ public sealed class CreateWallCommandHandler(
             }
         }
 
-        IReadOnlySet<LayoutIdentifier> published = await lookup.PublishedAmong(scenes, fab, cancellationToken);
-        LayoutIdentifier? unpublished = scenes
+        var published = await lookup.PublishedAmong(scenes, fab, cancellationToken);
+        var unpublished = scenes
             .Where(candidate => !published.Contains(candidate))
             .Cast<LayoutIdentifier?>()
             .FirstOrDefault();

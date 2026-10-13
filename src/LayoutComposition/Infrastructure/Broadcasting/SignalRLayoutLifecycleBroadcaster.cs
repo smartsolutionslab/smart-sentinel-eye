@@ -70,7 +70,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
         // One send per fab that references the overlay (FR-010), and none at
         // all when nothing does (FR-011) — the loop simply has nothing to
         // iterate, rather than sending to an empty group.
-        foreach (FabIdentifier fab in notification.Fabs)
+        foreach (var fab in notification.Fabs)
         {
             await BroadcastAsync(
                 () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(fab.Value))
@@ -89,7 +89,7 @@ public sealed class SignalRLayoutLifecycleBroadcaster(
             ArchivedAt: notification.ArchivedAt);
 
         // Per fab, and nothing for an empty set — as the published frame above.
-        foreach (FabIdentifier fab in notification.Fabs)
+        foreach (var fab in notification.Fabs)
         {
             await BroadcastAsync(
                 () => hub.Clients.Group(LayoutLifecycleHub.FabGroup(fab.Value))

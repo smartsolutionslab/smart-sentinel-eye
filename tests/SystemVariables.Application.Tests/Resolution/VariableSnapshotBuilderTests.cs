@@ -27,10 +27,10 @@ public class VariableSnapshotBuilderTests
 
         VariableSnapshotBuilder builder = new(repo);
 
-        IReadOnlyList<PlaceholderResolution> resolutions =
+        var resolutions =
             await builder.BuildAsync([Munich], "{{temperature}}", CancellationToken.None);
 
-        PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
+        var resolution = resolutions.ShouldHaveSingleItem();
         resolution.Name.ShouldBe("temperature");
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Resolved);
         resolution.Fab.ShouldBe(Munich);
@@ -44,10 +44,10 @@ public class VariableSnapshotBuilderTests
         InMemoryVariableRepository repo = new();
         VariableSnapshotBuilder builder = new(repo);
 
-        IReadOnlyList<PlaceholderResolution> resolutions =
+        var resolutions =
             await builder.BuildAsync([Munich], "{{temperatuer}}", CancellationToken.None);
 
-        PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
+        var resolution = resolutions.ShouldHaveSingleItem();
         resolution.Name.ShouldBe("temperatuer");
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Unknown);
         resolution.Fab.ShouldBeNull();
@@ -63,10 +63,10 @@ public class VariableSnapshotBuilderTests
 
         VariableSnapshotBuilder builder = new(repo);
 
-        IReadOnlyList<PlaceholderResolution> resolutions =
+        var resolutions =
             await builder.BuildAsync([Munich], "{{shift}}", CancellationToken.None);
 
-        PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
+        var resolution = resolutions.ShouldHaveSingleItem();
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Unset);
         // S2 — Unset carries the fab it was found in, same as Resolved
         // (plan.md:170); nothing pinned this before.
@@ -78,18 +78,18 @@ public class VariableSnapshotBuilderTests
     public async Task An_archived_variable_is_Archived()
     {
         InMemoryVariableRepository repo = new();
-        VariableBuilder builder = new VariableBuilder().WithFab("munich").Named("oldOne")
+        var builder = new VariableBuilder().WithFab("munich").Named("oldOne")
             .OfType(VariableType.String).WithInitialValue(new VariableValue.StringValue("x"));
-        Variable variable = builder.Build();
+        var variable = builder.Build();
         variable.Archive(builder.Operator, builder.Clock);
         repo.Add(variable);
 
         VariableSnapshotBuilder snapshotBuilder = new(repo);
 
-        IReadOnlyList<PlaceholderResolution> resolutions =
+        var resolutions =
             await snapshotBuilder.BuildAsync([Munich], "{{oldOne}}", CancellationToken.None);
 
-        PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
+        var resolution = resolutions.ShouldHaveSingleItem();
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Archived);
         // Archived stays null — it is the not-found path, and
         // ExistsArchivedInAnyFabAsync only ever returns a bool (S2).
@@ -108,15 +108,15 @@ public class VariableSnapshotBuilderTests
         repo.Add(new VariableBuilder().WithFab("munich").Named("temperature")
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(23.4)).Build());
         repo.Add(new VariableBuilder().WithFab("munich").Named("shift").OfType(VariableType.String).Build());
-        VariableBuilder archivedBuilder = new VariableBuilder().WithFab("munich").Named("oldOne")
+        var archivedBuilder = new VariableBuilder().WithFab("munich").Named("oldOne")
             .OfType(VariableType.String).WithInitialValue(new VariableValue.StringValue("x"));
-        Variable archived = archivedBuilder.Build();
+        var archived = archivedBuilder.Build();
         archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
         repo.Add(archived);
 
         VariableSnapshotBuilder snapshotBuilder = new(repo);
 
-        IReadOnlyList<PlaceholderResolution> resolutions = await snapshotBuilder.BuildAsync(
+        var resolutions = await snapshotBuilder.BuildAsync(
             [Munich], "{{temperature}} {{shift}} {{oldOne}} {{unknownName}}", CancellationToken.None);
 
         resolutions.Count.ShouldBe(4);
@@ -143,10 +143,10 @@ public class VariableSnapshotBuilderTests
 
         // Named in reverse ordinal order — "dresden" still wins because it
         // sorts first, not because it was listed first.
-        IReadOnlyList<PlaceholderResolution> resolutions =
+        var resolutions =
             await builder.BuildAsync([Munich, Dresden], "{{oee}}", CancellationToken.None);
 
-        PlaceholderResolution resolution = resolutions.ShouldHaveSingleItem();
+        var resolution = resolutions.ShouldHaveSingleItem();
         resolution.Outcome.ShouldBe(PlaceholderOutcome.Resolved);
         resolution.Fab.ShouldBe(Dresden);
         resolution.Entry.ShouldNotBeNull();

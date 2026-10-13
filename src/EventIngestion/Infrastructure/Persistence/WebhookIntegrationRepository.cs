@@ -15,7 +15,7 @@ public sealed class WebhookIntegrationRepository(
         WebhookIntegrationName name, CancellationToken cancellationToken)
     {
         Ensure.That(name).IsNotNull();
-        WebhookIntegration? found = await dbContext.WebhookIntegrations
+        var found = await dbContext.WebhookIntegrations
             .Where(integration => integration.Name == name)
             .FirstOrDefaultAsync(cancellationToken);
         return found is null ? Option<WebhookIntegration>.None : Option<WebhookIntegration>.Some(found);
@@ -31,7 +31,7 @@ public sealed class WebhookIntegrationRepository(
         // integration registered in another fab is never materialised, so it
         // cannot be mutated by a caller that forgets to compare (mirrors
         // RegisteredClientRepository.GetWithinFabAsync, spec 180).
-        WebhookIntegration? found = await dbContext.WebhookIntegrations
+        var found = await dbContext.WebhookIntegrations
             .Where(integration => integration.Name == name)
             .Where(integration => integration.Fab == fab)
             .FirstOrDefaultAsync(cancellationToken);
@@ -58,7 +58,7 @@ public sealed class WebhookIntegrationRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        WebhookIntegration[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<WebhookIntegration>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -73,9 +73,9 @@ public sealed class WebhookIntegrationRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (WebhookIntegration integration in tracked)
+        foreach (var integration in tracked)
         {
-            IDomainEvent[] events = integration.PendingEvents.ToArray();
+            var events = integration.PendingEvents.ToArray();
             integration.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

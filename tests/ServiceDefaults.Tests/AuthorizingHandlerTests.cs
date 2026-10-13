@@ -14,7 +14,7 @@ public class AuthorizingHandlerTests
     public async Task The_credential_is_set_on_the_request()
     {
         RecordingHandler downstream = new();
-        using HttpClient client = Compose(new StubAuthorizingHandler(_ => new("Bearer", "a-token")), downstream);
+        using var client = Compose(new StubAuthorizingHandler(_ => new("Bearer", "a-token")), downstream);
 
         await client.GetAsync("https://catalog.test/cameras", CancellationToken.None);
 
@@ -32,15 +32,15 @@ public class AuthorizingHandlerTests
     public async Task Two_requests_through_one_client_carry_their_own_credentials()
     {
         RecordingHandler downstream = new();
-        int call = 0;
-        using HttpClient client = Compose(
+        var call = 0;
+        using var client = Compose(
             new StubAuthorizingHandler(_ => new("Bearer", $"token-{++call}")), downstream);
 
         await client.GetAsync("https://catalog.test/one", CancellationToken.None);
-        string? first = downstream.LastAuthorization?.Parameter;
+        var first = downstream.LastAuthorization?.Parameter;
 
         await client.GetAsync("https://catalog.test/two", CancellationToken.None);
-        string? second = downstream.LastAuthorization?.Parameter;
+        var second = downstream.LastAuthorization?.Parameter;
 
         first.ShouldBe("token-1");
         second.ShouldBe("token-2");
@@ -55,7 +55,7 @@ public class AuthorizingHandlerTests
     public async Task An_absent_credential_sends_no_authorization_header_at_all()
     {
         RecordingHandler downstream = new();
-        using HttpClient client = Compose(new StubAuthorizingHandler(_ => null), downstream);
+        using var client = Compose(new StubAuthorizingHandler(_ => null), downstream);
 
         await client.GetAsync("https://catalog.test/cameras", CancellationToken.None);
 
@@ -68,9 +68,9 @@ public class AuthorizingHandlerTests
     {
         RecordingHandler downstream = new();
         using CancellationTokenSource cts = new();
-        CancellationToken observed = CancellationToken.None;
+        var observed = CancellationToken.None;
 
-        using HttpClient client = Compose(
+        using var client = Compose(
             new StubAuthorizingHandler(token =>
             {
                 observed = token;

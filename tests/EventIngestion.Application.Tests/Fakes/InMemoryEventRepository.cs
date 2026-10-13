@@ -23,7 +23,7 @@ public sealed class InMemoryEventRepository : IEventRepository
     public Task<Option<EventAggregate>> GetByIdentifierAsync(
         FabIdentifier fab, EventIdentifier identifier, CancellationToken cancellationToken)
     {
-        EventAggregate? found = events.SingleOrDefault(e =>
+        var found = events.SingleOrDefault(e =>
             e.Fab == fab && e.Id == identifier);
         return Task.FromResult(found is null
             ? Option<EventAggregate>.None
@@ -54,7 +54,7 @@ public sealed class InMemoryEventRepository : IEventRepository
         }
 
         committed = events.Count;
-        foreach (EventAggregate e in events)
+        foreach (var e in events)
         {
             e.ClearPendingEvents();
         }

@@ -24,7 +24,7 @@ public sealed class RenameCameraCommandHandler(
         // predicate, so the row is never materialised rather than materialised
         // and refused — and every later step here would otherwise leak its
         // existence by answering something more specific than 404.
-        Option<Camera> found = await cameras.GetWithinFabAsync(fab, camera, cancellationToken);
+        var found = await cameras.GetWithinFabAsync(fab, camera, cancellationToken);
 
         if (!found.HasValue)
         {
@@ -32,7 +32,7 @@ public sealed class RenameCameraCommandHandler(
             return Failure(RenameCameraFailures.CameraNotFound(camera.Value));
         }
 
-        Camera renaming = found.Value;
+        var renaming = found.Value;
 
         // Version before terminal state, matching the address correction: a
         // caller working from a stale read should be told their view is stale,
@@ -54,7 +54,7 @@ public sealed class RenameCameraCommandHandler(
         // holds the invariant under a race. Both are required and they do
         // different jobs; concluding the index makes this redundant is the
         // defect spec 028 found on this same predicate.
-        bool taken = await cameras.ExistsByNameAsync(
+        var taken = await cameras.ExistsByNameAsync(
             fab, name, Option<CameraIdentifier>.Some(camera), cancellationToken);
 
         if (taken)

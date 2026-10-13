@@ -41,7 +41,7 @@ public class VariableStaleErrorTests
     [Fact]
     public void The_message_names_the_variable_and_both_versions()
     {
-        foreach (ApiError error in EveryStaleCase())
+        foreach (var error in EveryStaleCase())
         {
             error.Message.ShouldContain("oeeLine1");
             error.Message.ShouldContain("3");

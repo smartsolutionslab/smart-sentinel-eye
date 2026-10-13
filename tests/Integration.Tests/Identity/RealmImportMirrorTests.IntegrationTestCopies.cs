@@ -1,5 +1,4 @@
 using System.Reflection;
-using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.EventIngestion;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Integration.Tests.StreamDistribution;
@@ -53,7 +52,7 @@ public partial class RealmImportMirrorTests
     {
         TheoryData<Type, string> data = [];
 
-        foreach ((Type type, string clientIdField, _) in IntegrationTestCopySites)
+        foreach ((var type, var clientIdField, _) in IntegrationTestCopySites)
         {
             data.Add(type, clientIdField);
         }
@@ -66,7 +65,7 @@ public partial class RealmImportMirrorTests
     {
         TheoryData<Type, string, string> data = [];
 
-        foreach ((Type type, string clientIdField, string secretField) in IntegrationTestCopySites)
+        foreach ((var type, var clientIdField, var secretField) in IntegrationTestCopySites)
         {
             data.Add(type, clientIdField, secretField);
         }
@@ -78,10 +77,10 @@ public partial class RealmImportMirrorTests
     [MemberData(nameof(ClientIdRows))]
     public void A_test_sides_client_id_const_names_exactly_one_realm_client(Type type, string clientIdField)
     {
-        string clientId = ConstantOf(type, clientIdField);
+        var clientId = ConstantOf(type, clientIdField);
 
-        using JsonDocument import = ReadRealmImport();
-        JsonElement[] matches = ClientsNamed(import, clientId);
+        using var import = ReadRealmImport();
+        var matches = ClientsNamed(import, clientId);
 
         matches.Length.ShouldBe(
             1,
@@ -97,11 +96,11 @@ public partial class RealmImportMirrorTests
     public void A_test_sides_secret_const_is_the_secret_the_import_seeds_for_that_client(
         Type type, string clientIdField, string secretField)
     {
-        string clientId = ConstantOf(type, clientIdField);
-        string secret = ConstantOf(type, secretField);
+        var clientId = ConstantOf(type, clientIdField);
+        var secret = ConstantOf(type, secretField);
 
-        using JsonDocument import = ReadRealmImport();
-        string expected = SecretForClient(
+        using var import = ReadRealmImport();
+        var expected = SecretForClient(
             import,
             clientId,
             nameof(A_test_sides_client_id_const_names_exactly_one_realm_client));
@@ -125,8 +124,8 @@ public partial class RealmImportMirrorTests
     /// </summary>
     private static string ConstantOf(Type type, string fieldName)
     {
-        FieldInfo? field = type.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
-        object? value = field is { IsLiteral: true } ? field.GetRawConstantValue() : null;
+        var field = type.GetField(fieldName, BindingFlags.NonPublic | BindingFlags.Static);
+        var value = field is { IsLiteral: true } ? field.GetRawConstantValue() : null;
 
         if (value is not string constant)
         {

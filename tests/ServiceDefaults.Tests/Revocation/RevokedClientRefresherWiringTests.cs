@@ -21,14 +21,14 @@ public sealed class RevokedClientRefresherWiringTests
     [Fact]
     public void The_hosted_refresher_is_the_same_instance_the_health_check_reads()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
 
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
+        using var provider = builder.Services.BuildServiceProvider();
 
-        RevokedClientRefresher resolvedDirectly = provider.GetRequiredService<RevokedClientRefresher>();
+        var resolvedDirectly = provider.GetRequiredService<RevokedClientRefresher>();
         IHostedService hostedRefresher = provider.GetServices<IHostedService>()
             .OfType<RevokedClientRefresher>()
             .ShouldHaveSingleItem(

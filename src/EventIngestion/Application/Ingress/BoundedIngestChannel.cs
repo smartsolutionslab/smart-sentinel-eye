@@ -71,7 +71,7 @@ public sealed class BoundedIngestChannel : IIngestChannel
             return;
         }
 
-        long start = Stopwatch.GetTimestamp();
+        var start = Stopwatch.GetTimestamp();
         await channel.Writer.WriteAsync(delivery, cancellationToken);
         IngestChannelSaturation.RecordBlocked(Stopwatch.GetElapsedTime(start));
         Interlocked.Exchange(ref lastWriteTimestamp, Stopwatch.GetTimestamp());
@@ -92,7 +92,7 @@ public sealed class BoundedIngestChannel : IIngestChannel
         }
 
         List<IngestDelivery> batch = [];
-        while (batch.Count < maximum && channel.Reader.TryRead(out IngestDelivery? delivery))
+        while (batch.Count < maximum && channel.Reader.TryRead(out var delivery))
         {
             batch.Add(delivery);
         }
@@ -105,7 +105,7 @@ public sealed class BoundedIngestChannel : IIngestChannel
         Ensure.That(maximum).AtLeast(0);
 
         List<IngestDelivery> available = [];
-        while (available.Count < maximum && channel.Reader.TryRead(out IngestDelivery? delivery))
+        while (available.Count < maximum && channel.Reader.TryRead(out var delivery))
         {
             available.Add(delivery);
         }

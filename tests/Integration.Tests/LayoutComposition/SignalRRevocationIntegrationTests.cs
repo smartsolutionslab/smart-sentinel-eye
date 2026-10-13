@@ -50,11 +50,11 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire, ITestOutput
     [Fact]
     public async Task Archive_force_disconnects_connected_kiosks_within_one_second()
     {
-        using HttpClient admin = await aspire.CreateAdminClientAsync("layout-composition");
-        string accessToken = await aspire.GetAdminAccessTokenAsync();
+        using var admin = await aspire.CreateAdminClientAsync("layout-composition");
+        var accessToken = await aspire.GetAdminAccessTokenAsync();
 
         // Create + publish a layout so there's something to archive.
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -63,14 +63,14 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire, ITestOutput
                 tiles = new[] { new { cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
             });
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage publish = await LayoutRequests.PostAsync(admin, layoutIdentifier, "revisions/1/publish");
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var publish = await LayoutRequests.PostAsync(admin, layoutIdentifier, "revisions/1/publish");
         publish.EnsureSuccessStatusCode();
 
-        Uri hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
+        var hubUri = aspire.HubUri("layout-composition", LayoutLifecycleHub.Path);
 
-        await using HubConnection alpha = BuildClient(hubUri, accessToken);
-        await using HubConnection beta = BuildClient(hubUri, accessToken);
+        await using var alpha = BuildClient(hubUri, accessToken);
+        await using var beta = BuildClient(hubUri, accessToken);
 
         TaskCompletionSource<LayoutRevisionArchivedHubMessage> alphaSeen = new();
         TaskCompletionSource<LayoutRevisionArchivedHubMessage> betaSeen = new();
@@ -84,16 +84,16 @@ public class SignalRRevocationIntegrationTests(AspireFixture aspire, ITestOutput
 
         // Read the precondition before the clock starts: this window measures
         // archive→push, not the version lookup.
-        int archiveVersion = await LayoutRequests.VersionAsync(admin, layoutIdentifier);
+        var archiveVersion = await LayoutRequests.VersionAsync(admin, layoutIdentifier);
         HttpRequestMessage archiveRequest = new(HttpMethod.Post, $"/layouts/{layoutIdentifier}/revisions/1/archive");
         archiveRequest.Headers.TryAddWithoutValidation("If-Match", $"\"{archiveVersion}\"");
 
-        Stopwatch sw = Stopwatch.StartNew();
-        HttpResponseMessage archived = await admin.SendAsync(archiveRequest);
+        var sw = Stopwatch.StartNew();
+        var archived = await admin.SendAsync(archiveRequest);
         archived.EnsureSuccessStatusCode();
 
         using CancellationTokenSource budget = new(TimeSpan.FromSeconds(5));
-        LayoutRevisionArchivedHubMessage[] both =
+        var both =
             await Task.WhenAll(alphaSeen.Task.WaitAsync(budget.Token), betaSeen.Task.WaitAsync(budget.Token));
         sw.Stop();
 

@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -39,12 +38,12 @@ internal static class LayoutRequests
     internal static async Task<Guid> RegisterCameraAsync(
         AspireFixture aspire, string fab = "munich")
     {
-        using HttpClient cameras = fab == "munich"
+        using var cameras = fab == "munich"
             ? await aspire.CreateAdminClientAsync("camera-catalog")
             : await aspire.CreateAuthenticatedClientAsync(
                 "camera-catalog", "op-multi@smart-sentinel-eye.test", SeededCredentials.OpMulti);
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             fab == "munich" ? "/cameras" : $"/cameras?fabId={fab}",
             new
             {
@@ -58,9 +57,9 @@ internal static class LayoutRequests
 
     internal static async Task<int> VersionAsync(HttpClient layouts, Guid layoutIdentifier)
     {
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("version").GetInt32();
     }
@@ -89,7 +88,7 @@ internal static class LayoutRequests
     private static async Task AddPreconditionAsync(
         HttpRequestMessage request, HttpClient layouts, Guid layoutIdentifier)
     {
-        int version = await VersionAsync(layouts, layoutIdentifier);
+        var version = await VersionAsync(layouts, layoutIdentifier);
         request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
     }
 }

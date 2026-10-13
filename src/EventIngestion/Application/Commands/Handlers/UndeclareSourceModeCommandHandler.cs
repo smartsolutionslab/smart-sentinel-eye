@@ -24,13 +24,13 @@ public sealed class UndeclareSourceModeCommandHandler(
 
         var (fab, source, expectedVersion, undeclaredBy) = command;
 
-        Option<SourceMode> found = await sourceModes.GetAsync(fab, source, cancellationToken);
+        var found = await sourceModes.GetAsync(fab, source, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(UndeclareSourceModeFailures.SourceModeNotDeclared(fab.Value, source.Value));
         }
 
-        SourceMode sourceMode = found.Value;
+        var sourceMode = found.Value;
 
         if (sourceMode.Version != expectedVersion)
         {

@@ -1,5 +1,4 @@
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 
 namespace SmartSentinelEye.EventIngestion.Application.Ingress;
 
@@ -33,7 +32,7 @@ public sealed class EventTypeAdmission(IEventTypeAdmissionSource source)
         }
 
         FabIdentifier[] fabs = [.. envelopes.Select(envelope => envelope.Fab).Distinct()];
-        IReadOnlyDictionary<(FabIdentifier Fab, Source Source), EventTypeMode> declaredModes =
+        var declaredModes =
             await source.DeclaredSourceModesAsync(fabs, cancellationToken);
 
         if (declaredModes.Count == 0)
@@ -42,7 +41,7 @@ public sealed class EventTypeAdmission(IEventTypeAdmissionSource source)
         }
 
         Dictionary<FabIdentifier, IReadOnlySet<Kind>> registeredKindsByFab = [];
-        foreach (IGrouping<FabIdentifier, EventEnvelope> group in envelopes
+        foreach (var group in envelopes
             .Where(envelope => declaredModes.ContainsKey((envelope.Fab, envelope.Source)))
             .GroupBy(envelope => envelope.Fab))
         {

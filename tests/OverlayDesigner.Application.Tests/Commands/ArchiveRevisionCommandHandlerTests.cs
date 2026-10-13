@@ -16,7 +16,7 @@ public class ArchiveRevisionCommandHandlerTests
 
     private static Overlay Seed(InMemoryOverlayRepository overlays, FakeClock clock)
     {
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .WithLabel(OverlayElement.TextElement("Hello", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
             .Build();
@@ -29,11 +29,11 @@ public class ArchiveRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
 
         ArchiveRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -50,7 +50,7 @@ public class ArchiveRevisionCommandHandlerTests
         ArchiveRevisionCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<ArchiveRevisionCommandHandler>.Instance);
 
-        Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRevisionCommand(
                 OverlayIdentifier.New(), OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -65,11 +65,11 @@ public class ArchiveRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
 
         ArchiveRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.From(99),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),

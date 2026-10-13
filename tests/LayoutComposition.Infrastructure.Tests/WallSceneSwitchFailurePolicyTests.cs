@@ -1,12 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using SmartSentinelEye.LayoutComposition.Infrastructure;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using Wolverine;
-using Wolverine.ErrorHandling;
-using Wolverine.Runtime;
 using Wolverine.Runtime.Handlers;
 
 namespace SmartSentinelEye.LayoutComposition.Infrastructure.Tests;
@@ -62,7 +59,7 @@ public class WallSceneSwitchFailurePolicyTests
 {
     private static async Task<HandlerGraph> DiscoverAsync()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.UseWolverine(opts =>
         {
             // Anchored on a type that already exists today, so this test's
@@ -74,9 +71,9 @@ public class WallSceneSwitchFailurePolicyTests
             opts.StubAllExternalTransports();
         });
 
-        using IHost host = builder.Build();
+        using var host = builder.Build();
         await host.StartAsync();
-        HandlerGraph graph = host.Services.GetRequiredService<HandlerGraph>();
+        var graph = host.Services.GetRequiredService<HandlerGraph>();
         await host.StopAsync();
         return graph;
     }
@@ -84,11 +81,11 @@ public class WallSceneSwitchFailurePolicyTests
     [Fact]
     public async Task A_lost_concurrency_race_is_mapped_to_the_dead_letter_queue_with_no_retry()
     {
-        HandlerGraph graph = await DiscoverAsync();
-        HandlerChain? chain = graph.ChainFor<WallSceneSwitchRequestedV1>();
+        var graph = await DiscoverAsync();
+        var chain = graph.ChainFor<WallSceneSwitchRequestedV1>();
         chain.ShouldNotBeNull();
 
-        FailureRule rule = chain.Failures.ShouldHaveSingleItem();
+        var rule = chain.Failures.ShouldHaveSingleItem();
         rule.Match.Matches(new DbUpdateConcurrencyException()).ShouldBeTrue();
         rule.Match.Matches(new InvalidOperationException()).ShouldBeFalse(
             "scoped to the one exception type FR-011 names, not every exception");
@@ -100,8 +97,8 @@ public class WallSceneSwitchFailurePolicyTests
         {
             Attempts = 1,
         };
-        bool created = rule.TryCreateContinuation(
-            new DbUpdateConcurrencyException(), envelope, out IContinuation continuation);
+        var created = rule.TryCreateContinuation(
+            new DbUpdateConcurrencyException(), envelope, out var continuation);
 
         created.ShouldBeTrue();
         // MoveToErrorQueue (Wolverine.ErrorHandling) is internal to Wolverine,
@@ -116,13 +113,13 @@ public class WallSceneSwitchFailurePolicyTests
     [Fact]
     public async Task No_other_discovered_chain_gained_a_failure_rule()
     {
-        HandlerGraph graph = await DiscoverAsync();
+        var graph = await DiscoverAsync();
 
         HandlerChain[] others = [.. graph.AllChains()
             .Where(chain => chain.MessageType != typeof(WallSceneSwitchRequestedV1))];
         others.ShouldNotBeEmpty("otherwise this proves nothing about scoping");
 
-        foreach (HandlerChain chain in others)
+        foreach (var chain in others)
         {
             chain.Failures.ShouldBeEmpty(
                 $"{chain.MessageType.Name}'s chain gained a failure rule nothing asked it to have");

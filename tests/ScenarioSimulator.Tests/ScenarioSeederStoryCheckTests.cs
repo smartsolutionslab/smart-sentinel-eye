@@ -40,7 +40,7 @@ public sealed class ScenarioSeederStoryCheckTests
     [Fact]
     public async Task An_orphan_reaction_is_still_seeded_and_the_warning_is_logged_once()
     {
-        AssetDefinition asset = Asset("coiler", "coiler.mp4");
+        var asset = Asset("coiler", "coiler.mp4");
         asset.Highlight = new HighlightDefinition
         {
             TriggerKind = "CoilWeight",
@@ -73,7 +73,7 @@ public sealed class ScenarioSeederStoryCheckTests
         automation.Creates.Count.ShouldBe(2);
         automation.Creates.ShouldContain(call => call.Body.Name == "rolling-mill-coiler-person-in-exclusion");
 
-        List<string> findingWarnings = RelevantWarnings(log, "coiler", "person-in-exclusion");
+        var findingWarnings = RelevantWarnings(log, "coiler", "person-in-exclusion");
         findingWarnings.Count.ShouldBe(1, string.Join(" | ", findingWarnings));
         findingWarnings[0].ShouldContain("inference", Case.Insensitive);
         findingWarnings[0].ShouldContain("ObjectDetected", Case.Sensitive);
@@ -90,7 +90,7 @@ public sealed class ScenarioSeederStoryCheckTests
     [Fact]
     public async Task A_refused_manifest_reaction_logs_both_the_existing_and_the_new_warning()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             // Refused: AtMs (25000) is past the declared 20000ms duration.
@@ -104,7 +104,7 @@ public sealed class ScenarioSeederStoryCheckTests
                 }
                 """);
 
-            AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+            var asset = Asset("station-4-roughing", "mill-roughing.mp4");
             asset.Highlight = new HighlightDefinition
             {
                 TriggerKind = "Temperature",
@@ -135,7 +135,7 @@ public sealed class ScenarioSeederStoryCheckTests
             automation.Creates.Count.ShouldBe(1);
             automation.Creates[0].Body.Name.ShouldBe("rolling-mill-station-4-roughing-highlight");
 
-            List<string> findingWarnings = RelevantWarnings(log, "station-4-roughing", "person-in-exclusion");
+            var findingWarnings = RelevantWarnings(log, "station-4-roughing", "person-in-exclusion");
             findingWarnings.Count.ShouldBe(2, string.Join(" | ", findingWarnings));
             findingWarnings.ShouldContain(message => message.Contains("refused", StringComparison.OrdinalIgnoreCase));
         }
@@ -153,7 +153,7 @@ public sealed class ScenarioSeederStoryCheckTests
     [Fact]
     public async Task A_highlight_whose_kind_no_sensor_or_valid_cue_emits_is_seeded_with_plc_and_reported()
     {
-        AssetDefinition asset = Asset("coiler", "coiler.mp4");
+        var asset = Asset("coiler", "coiler.mp4");
         asset.Highlight = new HighlightDefinition
         {
             TriggerKind = "CoilWeight",
@@ -173,7 +173,7 @@ public sealed class ScenarioSeederStoryCheckTests
         automation.Creates.Count.ShouldBe(1);
         automation.Creates[0].Body.TriggerSource.ShouldBe("plc");
 
-        List<string> findingWarnings = RelevantWarnings(log, "coiler", "CoilWeight");
+        var findingWarnings = RelevantWarnings(log, "coiler", "CoilWeight");
         findingWarnings.ShouldNotBeEmpty();
     }
 
@@ -189,7 +189,7 @@ public sealed class ScenarioSeederStoryCheckTests
     [Fact]
     public async Task A_highlight_whose_kind_matches_no_sensor_but_matches_a_valid_cue_is_seeded_with_that_cues_source()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             await File.WriteAllTextAsync(
@@ -202,7 +202,7 @@ public sealed class ScenarioSeederStoryCheckTests
                 }
                 """);
 
-            AssetDefinition asset = Asset("coiler", "coiler.mp4");
+            var asset = Asset("coiler", "coiler.mp4");
             asset.Highlight = new HighlightDefinition
             {
                 TriggerKind = "ObjectDetected",
@@ -262,7 +262,7 @@ public sealed class ScenarioSeederStoryCheckTests
         ScenarioOptions options, RecordingAutomationHandler automation, string clipsDirectory, ILogger<ScenarioSeeder> log)
     {
         options.ClipsDirectory = clipsDirectory;
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
+        var wrapped = Options.Create(options);
         AssetCorrelationTable correlation = new();
 
         ScenarioSeeder seeder = new(
@@ -281,7 +281,7 @@ public sealed class ScenarioSeederStoryCheckTests
                 NullLogger<WallSeeder>.Instance),
             log);
 
-        int expectedCreates = options.Scenarios.Values.Sum(scenario =>
+        var expectedCreates = options.Scenarios.Values.Sum(scenario =>
             scenario.Assets.Count(a => a.Highlight is not null)
             + scenario.Assets.Sum(a => a.Reactions?.Count ?? 0));
 
@@ -300,7 +300,7 @@ public sealed class ScenarioSeederStoryCheckTests
     /// </summary>
     private static async Task WaitForCreatesAsync(RecordingAutomationHandler automation, int atLeast)
     {
-        for (int attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             if (automation.Creates.Count >= atLeast)
             {
@@ -314,7 +314,7 @@ public sealed class ScenarioSeederStoryCheckTests
 
     private static string CreateTempClipsDirectory()
     {
-        string directory = Path.Combine(Path.GetTempPath(), "sse-story-check-" + Guid.NewGuid());
+        var directory = Path.Combine(Path.GetTempPath(), "sse-story-check-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         return directory;
     }
@@ -356,12 +356,12 @@ public sealed class ScenarioSeederStoryCheckTests
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string pathAndQuery = request.RequestUri!.PathAndQuery;
+            var pathAndQuery = request.RequestUri!.PathAndQuery;
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath == "/rules")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                RuleBody body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Rule create body did not deserialize.");
                 lock (Creates)
                 {
@@ -373,7 +373,7 @@ public sealed class ScenarioSeederStoryCheckTests
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath.EndsWith("/publish", StringComparison.Ordinal))
             {
-                string ifMatch = request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                var ifMatch = request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values) : string.Empty;
                 lock (Publishes)
                 {

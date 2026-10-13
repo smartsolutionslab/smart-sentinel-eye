@@ -66,7 +66,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     /// </summary>
     private static void RequireValidElements(IReadOnlyList<OverlayElement> elements)
     {
-        Option<ElementSetViolation> violation = ValidateElements(elements);
+        var violation = ValidateElements(elements);
         if (violation.HasValue)
         {
             throw new InvalidOperationException(
@@ -92,7 +92,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
         Ensure.That(clock).IsNotNull();
         RequireValidElements(elements);
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         Overlay overlay = new()
         {
             Id = OverlayIdentifier.New(),
@@ -121,13 +121,13 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     public Revision BranchDraft(OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision baseRevision = CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()
+        var baseRevision = CurrentPublishedOrNull() ?? NewestWhenFullyArchivedOrNull()
             ?? throw new InvalidOperationException(
                 $"Overlay {Id} has a Draft revision already; BranchDraft needs a Published revision or a fully-archived chain.");
 
-        DateTimeOffset now = clock.UtcNow;
-        OverlayRevisionNumber next = MaxRevisionNumber().Next();
-        Revision draft = Revision.Branch(next, baseRevision.Elements, now, by);
+        var now = clock.UtcNow;
+        var next = MaxRevisionNumber().Next();
+        var draft = Revision.Branch(next, baseRevision.Elements, now, by);
         revisions.Add(draft);
         RecomputeArchival(now);
         return draft;
@@ -147,7 +147,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
         Ensure.That(elements).IsNotNull();
         Ensure.That(clock).IsNotNull();
         RequireValidElements(elements);
-        Revision target = RequireRevision(number);
+        var target = RequireRevision(number);
         target.ReplaceElements(elements);
         RecomputeArchival(clock.UtcNow);
     }
@@ -161,9 +161,9 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     public void Publish(OverlayRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision target = RequireRevision(number);
-        Revision? prior = CurrentPublishedOrNull();
-        DateTimeOffset now = clock.UtcNow;
+        var target = RequireRevision(number);
+        var prior = CurrentPublishedOrNull();
+        var now = clock.UtcNow;
 
         target.Publish(now);
         if (prior is not null && prior.Number != number)
@@ -184,8 +184,8 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     public void Revert(OverlayRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        DateTimeOffset now = clock.UtcNow;
-        Revision target = RequireRevision(number);
+        var now = clock.UtcNow;
+        var target = RequireRevision(number);
         target.Revert();
         Raise(new OverlayRevisionArchivedDomainEvent(Id, number, now, by));
         RecomputeArchival(now);
@@ -201,15 +201,15 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
         OverlayRevisionNumber number, OperatorIdentifier by, IClock clock)
     {
         Ensure.That(clock).IsNotNull();
-        Revision target = RequireRevision(number);
-        DateTimeOffset now = clock.UtcNow;
+        var target = RequireRevision(number);
+        var now = clock.UtcNow;
         if (target.State == OverlayRevisionState.Archived)
         {
             RecomputeArchival(now);
             return;
         }
 
-        bool wasObservable = target.State == OverlayRevisionState.Published;
+        var wasObservable = target.State == OverlayRevisionState.Published;
         target.Archive(now);
         if (wasObservable)
         {
@@ -247,7 +247,7 @@ public sealed class Overlay : AggregateRoot<OverlayIdentifier>
     /// </summary>
     private void RecomputeArchival(DateTimeOffset now)
     {
-        bool fullyArchived = revisions.All(
+        var fullyArchived = revisions.All(
             revision => revision.State == OverlayRevisionState.Archived);
         ArchivedAt = fullyArchived ? (ArchivedAt ?? ArchivedAt.From(now)) : null;
     }

@@ -7,7 +7,7 @@ public class PayloadSizeBytesTests
     [Fact]
     public void Accepts_a_measured_byte_count()
     {
-        PayloadSizeBytes size = PayloadSizeBytes.From(42);
+        var size = PayloadSizeBytes.From(42);
         size.Value.ShouldBe(42);
     }
 

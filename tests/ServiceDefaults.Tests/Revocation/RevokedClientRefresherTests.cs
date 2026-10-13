@@ -90,7 +90,7 @@ public class RevokedClientRefresherTests
         RevokedClientRefresher refresher = new(source, registry, clock, NullLogger<RevokedClientRefresher>.Instance);
         RevokedClientSnapshotHealthCheck health = new(refresher, clock);
 
-        HealthCheckResult result = await health.CheckHealthAsync(new HealthCheckContext());
+        var result = await health.CheckHealthAsync(new HealthCheckContext());
 
         result.Status.ShouldBe(HealthStatus.Degraded);
     }
@@ -105,7 +105,7 @@ public class RevokedClientRefresherTests
         RevokedClientSnapshotHealthCheck health = new(refresher, clock);
         await refresher.RefreshOnceAsync(CancellationToken.None);
 
-        HealthCheckResult result = await health.CheckHealthAsync(new HealthCheckContext());
+        var result = await health.CheckHealthAsync(new HealthCheckContext());
 
         result.Status.ShouldBe(HealthStatus.Healthy);
     }
@@ -120,10 +120,10 @@ public class RevokedClientRefresherTests
         RevokedClientSnapshotHealthCheck health = new(refresher, clock);
         await refresher.RefreshOnceAsync(CancellationToken.None);
 
-        TimeSpan sixPeriods = TimeSpan.FromTicks(RevokedClientRefresher.RefreshPeriod.Ticks * 6);
+        var sixPeriods = TimeSpan.FromTicks(RevokedClientRefresher.RefreshPeriod.Ticks * 6);
         clock.Advance(sixPeriods + TimeSpan.FromSeconds(1));
 
-        HealthCheckResult result = await health.CheckHealthAsync(new HealthCheckContext());
+        var result = await health.CheckHealthAsync(new HealthCheckContext());
 
         result.Status.ShouldBe(
             HealthStatus.Degraded,

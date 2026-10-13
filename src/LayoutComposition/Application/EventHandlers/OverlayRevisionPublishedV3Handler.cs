@@ -33,7 +33,7 @@ public sealed class OverlayRevisionPublishedV3Handler(
         // there would make it the only piece of Infrastructure/Broadcasting
         // that reads state. An overlay nobody references resolves to an empty
         // set and therefore reaches nobody (FR-011).
-        IReadOnlyList<FabIdentifier> fabs = await referencingFabs.HandleAsync(overlay, cancellationToken);
+        var fabs = await referencingFabs.HandleAsync(overlay, cancellationToken);
 
         await broadcaster.OverlayPublishedAsync(
             new OverlayLifecyclePublishedNotification(

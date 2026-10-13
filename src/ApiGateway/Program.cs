@@ -1,8 +1,6 @@
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
-using SmartSentinelEye.ServiceDefaults;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 
@@ -10,7 +8,7 @@ builder.AddServiceDefaults();
 // edge instead of per service. Allowed origins come from config
 // (Cors:AllowedOrigins) so each environment sets its own; every proxy route
 // opts in via "CorsPolicy": "gateway".
-string[] corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
 builder.Services.AddCors(options =>
     options.AddPolicy("gateway", policy =>
         policy.WithOrigins(corsOrigins)
@@ -28,8 +26,8 @@ builder.Services.AddCors(options =>
 // rotating it, so the partition is the connection, never the request. The
 // policy is named and attached per route below, so the gateway's own health
 // endpoints and the k8s liveness and readiness probes are never throttled.
-int permitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimit") ?? 100;
-TimeSpan window = builder.Configuration.GetValue<TimeSpan?>("RateLimiting:Window") ?? TimeSpan.FromMinutes(1);
+var permitLimit = builder.Configuration.GetValue<int?>("RateLimiting:PermitLimit") ?? 100;
+var window = builder.Configuration.GetValue<TimeSpan?>("RateLimiting:Window") ?? TimeSpan.FromMinutes(1);
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -56,7 +54,7 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddServiceDiscoveryDestinationResolver();
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 app.MapDefaultEndpoints();
 app.UseCors();
@@ -97,6 +95,6 @@ await app.RunAsync();
 // different partition for itself (#2283).
 static string ResolveSourcePartition(HttpContext context)
 {
-    string remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+    var remoteIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     return $"ip:{remoteIp}";
 }

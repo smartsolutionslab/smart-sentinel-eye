@@ -35,15 +35,15 @@ public static class AelInterpreter
 
     private static AelValue ResolveField(AelExpression.FieldAccess fieldAccess, EvaluationContext context)
     {
-        JsonElement current = context.Root;
-        foreach (string segment in fieldAccess.Segments)
+        var current = context.Root;
+        foreach (var segment in fieldAccess.Segments)
         {
             if (current.ValueKind != JsonValueKind.Object)
             {
                 return AelValue.NullValue.Instance;
             }
 
-            if (!current.TryGetProperty(segment, out JsonElement next))
+            if (!current.TryGetProperty(segment, out var next))
             {
                 return AelValue.NullValue.Instance;
             }
@@ -59,8 +59,8 @@ public static class AelInterpreter
             JsonValueKind.True => new AelValue.BoolValue(true),
             JsonValueKind.False => new AelValue.BoolValue(false),
             JsonValueKind.String => new AelValue.StringValue(element.GetString() ?? string.Empty),
-            JsonValueKind.Number when element.TryGetInt64(out long integer) => new AelValue.IntValue(integer),
-            JsonValueKind.Number when element.TryGetDecimal(out decimal fraction) => new AelValue.DecimalValue(fraction),
+            JsonValueKind.Number when element.TryGetInt64(out var integer) => new AelValue.IntValue(integer),
+            JsonValueKind.Number when element.TryGetDecimal(out var fraction) => new AelValue.DecimalValue(fraction),
             // A JSON number outside decimal's range is unaddressable, not fatal — GetDecimal() throws FormatException (#2427).
             JsonValueKind.Number => AelValue.NullValue.Instance,
             JsonValueKind.Null => AelValue.NullValue.Instance,
@@ -69,7 +69,7 @@ public static class AelInterpreter
 
     private static AelValue EvalUnary(AelExpression.Unary unary, EvaluationContext context)
     {
-        AelValue operand = Eval(unary.Operand, context);
+        var operand = Eval(unary.Operand, context);
         return unary.Operator switch
         {
             UnaryOperator.Negate => operand switch
@@ -91,8 +91,8 @@ public static class AelInterpreter
 
     private static AelValue.BoolValue EvalLogical(AelExpression.Logical logical, EvaluationContext context)
     {
-        AelValue left = Eval(logical.Left, context);
-        bool leftBool = left is AelValue.BoolValue leftBoolValue
+        var left = Eval(logical.Left, context);
+        var leftBool = left is AelValue.BoolValue leftBoolValue
             ? leftBoolValue.Value
             : throw new InvalidOperationException(
                 $"logical operand must be bool; got {left.GetType().Name}");
@@ -108,8 +108,8 @@ public static class AelInterpreter
             return new AelValue.BoolValue(true);
         }
 
-        AelValue right = Eval(logical.Right, context);
-        bool rightBool = right is AelValue.BoolValue rightBoolValue
+        var right = Eval(logical.Right, context);
+        var rightBool = right is AelValue.BoolValue rightBoolValue
             ? rightBoolValue.Value
             : throw new InvalidOperationException(
                 $"logical operand must be bool; got {right.GetType().Name}");
@@ -120,8 +120,8 @@ public static class AelInterpreter
 
     private static AelValue EvalBinary(AelExpression.Binary binary, EvaluationContext context)
     {
-        AelValue left = Eval(binary.Left, context);
-        AelValue right = Eval(binary.Right, context);
+        var left = Eval(binary.Left, context);
+        var right = Eval(binary.Right, context);
 
         return binary.Operator switch
         {
@@ -140,10 +140,10 @@ public static class AelInterpreter
 
     private static AelValue.BoolValue EvalContains(AelValue left, AelValue right)
     {
-        string lhs = (left as AelValue.StringValue)?.Value
+        var lhs = (left as AelValue.StringValue)?.Value
             ?? throw new InvalidOperationException(
                 $"'contains' left side must be string; got {left.GetType().Name}");
-        string rhs = (right as AelValue.StringValue)?.Value
+        var rhs = (right as AelValue.StringValue)?.Value
             ?? throw new InvalidOperationException(
                 $"'contains' right side must be string; got {right.GetType().Name}");
         return new AelValue.BoolValue(lhs.Contains(rhs, StringComparison.Ordinal));
@@ -189,15 +189,15 @@ public static class AelInterpreter
         {
             return new AelValue.IntValue(intOperation(leftInt.Value, rightInt.Value));
         }
-        decimal leftDecimal = ToDecimal(left);
-        decimal rightDecimal = ToDecimal(right);
+        var leftDecimal = ToDecimal(left);
+        var rightDecimal = ToDecimal(right);
         return new AelValue.DecimalValue(decimalOperation(leftDecimal, rightDecimal));
     }
 
     private static AelValue.BoolValue Compare(AelValue left, AelValue right, Func<decimal, decimal, bool> comparison)
     {
-        decimal leftDecimal = ToDecimal(left);
-        decimal rightDecimal = ToDecimal(right);
+        var leftDecimal = ToDecimal(left);
+        var rightDecimal = ToDecimal(right);
         return new AelValue.BoolValue(comparison(leftDecimal, rightDecimal));
     }
 
@@ -207,7 +207,7 @@ public static class AelInterpreter
             AelValue.IntValue intValue => intValue.Value,
             AelValue.DecimalValue decimalValue => decimalValue.Value,
             AelValue.StringValue stringValue when decimal.TryParse(
-                stringValue.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal parsed)
+                stringValue.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
                 => parsed,
             _ => throw new InvalidOperationException(
                 $"cannot coerce {value.GetType().Name} to a number"),

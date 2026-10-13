@@ -7,7 +7,7 @@ public class ResourceIdentifierTests
     [Fact]
     public void Accepts_a_short_string()
     {
-        ResourceIdentifier id = ResourceIdentifier.From("rule-pilot");
+        var id = ResourceIdentifier.From("rule-pilot");
         id.Value.ShouldBe("rule-pilot");
     }
 

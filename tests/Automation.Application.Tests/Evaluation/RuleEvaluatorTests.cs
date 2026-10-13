@@ -7,7 +7,6 @@ using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Tests.Rule;
-using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Evaluation;
@@ -35,7 +34,7 @@ public class RuleEvaluatorTests
         string name, RuleAction action, DateTimeOffset createdAt,
         string predicate, bool publish, string fab = "munich")
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithFab(fab)
             .WithName(name)
             .WithPredicate(predicate)
@@ -63,11 +62,11 @@ public class RuleEvaluatorTests
             BaseMoment));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
-        RuleActionEffect.SetVariableValue effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
         effect.Name.ShouldBe("oeeLine1");
         effect.Value.ShouldBe("46");
@@ -84,7 +83,7 @@ public class RuleEvaluatorTests
             predicate: "$.payload.cycleTime > 999"));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -94,7 +93,7 @@ public class RuleEvaluatorTests
     [Fact]
     public void HighlightOverlay_action_yields_an_overlay_effect()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
         cache.Upsert(ActiveRule(
             "rule-a",
@@ -102,11 +101,11 @@ public class RuleEvaluatorTests
             BaseMoment));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
-        RuleActionEffect.HighlightOverlay effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.HighlightOverlay>();
         effect.Overlay.ShouldBe(overlay);
         effect.DurationMs.ShouldBe(5_000);
@@ -117,20 +116,20 @@ public class RuleEvaluatorTests
     [Fact]
     public void SwitchWallScene_action_with_Next_target_yields_an_effect_carrying_the_rule_identifier()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
-        RuleAggregate rule = ActiveRule(
+        var rule = ActiveRule(
             "rule-a",
             RuleAction.SwitchWallScene.From(wall, "Next", null),
             BaseMoment);
         cache.Upsert(rule);
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
-        RuleActionEffect.SwitchWallScene effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SwitchWallScene>();
         effect.Wall.ShouldBe(wall);
         effect.Target.ShouldBe("Next");
@@ -141,21 +140,21 @@ public class RuleEvaluatorTests
     [Fact]
     public void SwitchWallScene_action_with_Layout_target_yields_the_target_layout_in_the_effect()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid layout = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
-        RuleAggregate rule = ActiveRule(
+        var rule = ActiveRule(
             "rule-a",
             RuleAction.SwitchWallScene.From(wall, "Layout", layout),
             BaseMoment);
         cache.Upsert(rule);
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
-        RuleActionEffect.SwitchWallScene effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SwitchWallScene>();
         effect.Wall.ShouldBe(wall);
         effect.Target.ShouldBe("Layout");
@@ -167,11 +166,11 @@ public class RuleEvaluatorTests
     public void Two_switch_wall_scene_rules_on_the_same_event_each_carry_their_own_rule_identifier()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate ruleA = ActiveRule(
+        var ruleA = ActiveRule(
             "rule-a",
             RuleAction.SwitchWallScene.From(Guid.CreateVersion7(), "Next", null),
             BaseMoment);
-        RuleAggregate ruleB = ActiveRule(
+        var ruleB = ActiveRule(
             "rule-b",
             RuleAction.SwitchWallScene.From(Guid.CreateVersion7(), "Next", null),
             BaseMoment.AddMinutes(5));
@@ -179,7 +178,7 @@ public class RuleEvaluatorTests
         cache.Upsert(ruleB);
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -203,7 +202,7 @@ public class RuleEvaluatorTests
             BaseMoment.AddMinutes(5)));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -218,7 +217,7 @@ public class RuleEvaluatorTests
     [Fact]
     public void Two_highlight_actions_on_the_same_overlay_both_yield_an_effect()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
         // The five-minute gap is load-bearing, not decoration: the cache orders
         // the bucket with an unstable List.Sort on CreatedAt (FR-012), so equal
@@ -234,7 +233,7 @@ public class RuleEvaluatorTests
             BaseMoment.AddMinutes(5)));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -243,11 +242,11 @@ public class RuleEvaluatorTests
         // overlap by later expiry (CellPage.test.tsx:491), so the producer
         // hands it both windows rather than picking one; the durations
         // differ so there is something to discriminate.
-        RuleActionEffect.HighlightOverlay first =
+        var first =
             effects[0].ShouldBeOfType<RuleActionEffect.HighlightOverlay>();
         first.Overlay.ShouldBe(overlay);
         first.DurationMs.ShouldBe(5_000);
-        RuleActionEffect.HighlightOverlay second =
+        var second =
             effects[1].ShouldBeOfType<RuleActionEffect.HighlightOverlay>();
         second.Overlay.ShouldBe(overlay);
         second.DurationMs.ShouldBe(12_000);
@@ -267,7 +266,7 @@ public class RuleEvaluatorTests
             BaseMoment.AddMinutes(5)));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -294,7 +293,7 @@ public class RuleEvaluatorTests
             BaseMoment.AddMinutes(5)));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -317,12 +316,12 @@ public class RuleEvaluatorTests
     public void An_oversized_payload_number_skips_its_own_rule_and_no_other()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate alarm = ActiveRule(
+        var alarm = ActiveRule(
             "alarm",
             RuleAction.SetVariableValue.From("alarmFlag", "1"),
             BaseMoment,
             predicate: "$.payload.v > 100");
-        RuleAggregate healthy = ActiveRule(
+        var healthy = ActiveRule(
             "healthy",
             RuleAction.SetVariableValue.From("oeeLine1", "99"),
             BaseMoment.AddMinutes(5));
@@ -331,20 +330,20 @@ public class RuleEvaluatorTests
 
         CapturingLogger<RuleEvaluator> logger = new();
         RuleEvaluator evaluator = new(cache, logger);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(OversizedNumberContext));
 
         // The surviving rule still fires — the oversized field belongs to
         // "alarm" alone, and "healthy" never touches it.
-        RuleActionEffect.SetVariableValue effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
         effect.Name.ShouldBe("oeeLine1");
         effect.Value.ShouldBe("99");
 
         // Named, not merely present: an assertion that cannot tell "alarm"
         // apart from "healthy" would also pass against a swap.
-        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        var warning = logger.Entries.ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
         warning.Message.ShouldContain(alarm.Id.ToString());
         warning.Message.ShouldNotContain(healthy.Id.ToString());
@@ -372,10 +371,10 @@ public class RuleEvaluatorTests
             }
             """;
 
-        RuleActionEffect.SetVariableValue oversized = evaluator.Evaluate(
+        var oversized = evaluator.Evaluate(
                 FabIdentifier.From("munich"), "plc", "PlcCycleStart", Context(OversizedNumberContext))
             .ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
-        RuleActionEffect.SetVariableValue missing = evaluator.Evaluate(
+        var missing = evaluator.Evaluate(
                 FabIdentifier.From("munich"), "plc", "PlcCycleStart", Context(missingFieldContext))
             .ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
 
@@ -411,7 +410,7 @@ public class RuleEvaluatorTests
             }
             """;
 
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"), "plc", "PlcCycleStart", Context(oversizedOnlyContext));
 
         // Nothing failed: the comparison is simply false, same as it is for
@@ -438,12 +437,12 @@ public class RuleEvaluatorTests
     public void A_decimal_overflow_in_a_predicate_skips_its_own_rule_and_no_other()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate mul = ActiveRule(
+        var mul = ActiveRule(
             "mul",
             RuleAction.SetVariableValue.From("mulFlag", "1"),
             BaseMoment,
             predicate: "$.payload.big * 10 > 0");
-        RuleAggregate healthy = ActiveRule(
+        var healthy = ActiveRule(
             "healthy",
             RuleAction.SetVariableValue.From("oeeLine1", "99"),
             BaseMoment.AddMinutes(5));
@@ -452,16 +451,16 @@ public class RuleEvaluatorTests
 
         CapturingLogger<RuleEvaluator> logger = new();
         RuleEvaluator evaluator = new(cache, logger);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(DecimalOverflowContext));
 
-        RuleActionEffect.SetVariableValue effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
         effect.Name.ShouldBe("oeeLine1");
         effect.Value.ShouldBe("99");
 
-        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        var warning = logger.Entries.ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
         warning.Message.ShouldContain(mul.Id.ToString());
         warning.Message.ShouldNotContain(healthy.Id.ToString());
@@ -483,7 +482,7 @@ public class RuleEvaluatorTests
             """;
 
         InMemoryRuleCache cache = new();
-        RuleAggregate divideRule = ActiveRule(
+        var divideRule = ActiveRule(
             "divide-rule",
             RuleAction.SetVariableValue.From("oeeLine1", "1"),
             BaseMoment,
@@ -492,13 +491,13 @@ public class RuleEvaluatorTests
 
         CapturingLogger<RuleEvaluator> logger = new();
         RuleEvaluator evaluator = new(cache, logger);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(longMinValueContext));
 
         effects.ShouldBeEmpty();
 
-        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        var warning = logger.Entries.ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
         warning.Message.ShouldContain(divideRule.Id.ToString());
         warning.Exception.ShouldBeOfType<OverflowException>();
@@ -508,7 +507,7 @@ public class RuleEvaluatorTests
     public void A_decimal_overflow_in_a_value_expression_skips_the_action_not_the_event()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate rule = ActiveRule(
+        var rule = ActiveRule(
             "value-overflow",
             RuleAction.SetVariableValue.From("x", "$.payload.big * 10"),
             BaseMoment);
@@ -516,7 +515,7 @@ public class RuleEvaluatorTests
 
         CapturingLogger<RuleEvaluator> logger = new();
         RuleEvaluator evaluator = new(cache, logger);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(DecimalOverflowContext));
 
@@ -524,7 +523,7 @@ public class RuleEvaluatorTests
         // expression overflows — the action is skipped, not the whole event.
         effects.ShouldBeEmpty();
 
-        (LogLevel Level, string Message, Exception? Exception) warning = logger.Entries.ShouldHaveSingleItem();
+        var warning = logger.Entries.ShouldHaveSingleItem();
         warning.Level.ShouldBe(LogLevel.Warning);
         // The value-expression-specific message, not the predicate one — the
         // two LoggerMessage definitions read almost identically and differ
@@ -556,7 +555,7 @@ public class RuleEvaluatorTests
             fab: "dresden"));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
@@ -589,11 +588,11 @@ public class RuleEvaluatorTests
             fab: "dresden"));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("munich"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 
-        RuleActionEffect.SetVariableValue effect =
+        var effect =
             effects.ShouldHaveSingleItem().ShouldBeOfType<RuleActionEffect.SetVariableValue>();
         effect.Name.ShouldBe("oeeLine1");
     }
@@ -609,7 +608,7 @@ public class RuleEvaluatorTests
             fab: "munich"));
 
         RuleEvaluator evaluator = new(cache, NullLogger<RuleEvaluator>.Instance);
-        IReadOnlyList<RuleActionEffect> effects = evaluator.Evaluate(
+        var effects = evaluator.Evaluate(
             FabIdentifier.From("berlin"),
             "plc", "PlcCycleStart", Context(PlcCycleStartContext));
 

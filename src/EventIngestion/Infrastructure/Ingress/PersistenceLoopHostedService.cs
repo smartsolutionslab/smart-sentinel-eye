@@ -182,7 +182,7 @@ public sealed class PersistenceLoopHostedService(
                 : [];
         }
 
-        int stored = 0;
+        var stored = 0;
         if (arrived.Count > 0)
         {
             stored += await StoreArrivalsAsync(arrived, cancellationToken);
@@ -212,7 +212,7 @@ public sealed class PersistenceLoopHostedService(
     private async Task<int> StoreArrivalsAsync(
         IReadOnlyList<IngestDelivery> arrived, CancellationToken cancellationToken)
     {
-        Option<IngestEventBatchResult> result = await TryStoreBatchAsync(arrived, cancellationToken);
+        var result = await TryStoreBatchAsync(arrived, cancellationToken);
         if (!result.HasValue)
         {
             return await RetryAsync(arrived, cancellationToken);
@@ -229,14 +229,14 @@ public sealed class PersistenceLoopHostedService(
         // is the only producer today and it already de-duplicates, so this is
         // a tolerance kept rather than a bug being fixed.
         Dictionary<EventIdentifier, IngestEventError> refused = [];
-        foreach (RefusedEnvelope refusal in result.Value.Refused)
+        foreach (var refusal in result.Value.Refused)
         {
             refused[refusal.Envelope.Identifier] = refusal.Reason;
         }
 
-        foreach (IngestDelivery delivery in arrived)
+        foreach (var delivery in arrived)
         {
-            Ending ending = refused.TryGetValue(delivery.Envelope.Identifier, out IngestEventError? reason)
+            var ending = refused.TryGetValue(delivery.Envelope.Identifier, out var reason)
                 ? Ending.Rejected(Because(reason))
                 : Ending.Stored;
 
@@ -252,12 +252,12 @@ public sealed class PersistenceLoopHostedService(
     private async Task<int> RetryAsync(
         IReadOnlyList<IngestDelivery> deliveries, CancellationToken cancellationToken)
     {
-        TimeSpan window = retry.Value.MaximumRetryWindow;
-        int stored = 0;
+        var window = retry.Value.MaximumRetryWindow;
+        var stored = 0;
 
-        foreach (IngestDelivery delivery in deliveries)
+        foreach (var delivery in deliveries)
         {
-            Ending ending = await StoreOneAsync(delivery, cancellationToken);
+            var ending = await StoreOneAsync(delivery, cancellationToken);
             if (ending.Outcome == Outcome.Failed && Exhausted(delivery.Envelope.Identifier, window))
             {
                 ending = Ending.Rejected(RejectionReason.From($"not storable after {window} of retrying"));
@@ -289,7 +289,7 @@ public sealed class PersistenceLoopHostedService(
     private async Task CompleteAsync(
         IngestDelivery delivery, Ending ending, CancellationToken cancellationToken)
     {
-        EventIdentifier identifier = delivery.Envelope.Identifier;
+        var identifier = delivery.Envelope.Identifier;
 
         if (ending.Outcome == Outcome.Failed)
         {
@@ -344,12 +344,12 @@ public sealed class PersistenceLoopHostedService(
     private async Task<bool> RecordRejectionAsync(
         IngestDelivery delivery, RejectionReason reason, CancellationToken cancellationToken)
     {
-        EventEnvelope envelope = delivery.Envelope;
+        var envelope = delivery.Envelope;
 
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            IDeadLetterRepository deadLetters =
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var deadLetters =
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
 
             deadLetters.Add(Domain.DeadLetter.DeadLetter.Capture(
@@ -391,7 +391,7 @@ public sealed class PersistenceLoopHostedService(
     /// </summary>
     internal static RejectionReason Because(IngestEventError error)
     {
-        string text = $"{error.Code}: {error.Message}";
+        var text = $"{error.Code}: {error.Message}";
 
         // Truncated rather than left to RejectionReason.From's own bound check:
         // that throw is caught by RecordRejectionAsync's catch, which returns
@@ -408,8 +408,8 @@ public sealed class PersistenceLoopHostedService(
     {
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            IngestEventBatchCommandHandler handler =
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var handler =
                 scope.ServiceProvider.GetRequiredService<IngestEventBatchCommandHandler>();
 
             return Option<IngestEventBatchResult>.Some(await handler.HandleAsync(
@@ -426,14 +426,14 @@ public sealed class PersistenceLoopHostedService(
     private async Task<Ending> StoreOneAsync(
         IngestDelivery delivery, CancellationToken cancellationToken)
     {
-        EventEnvelope envelope = delivery.Envelope;
+        var envelope = delivery.Envelope;
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            IngestEventCommandHandler handler =
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var handler =
                 scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
 
-            Result<EventIdentifier, IngestEventError> result = await handler
+            var result = await handler
                 .HandleAsync(new IngestEventCommand(envelope), cancellationToken);
 
             if (result.IsSuccess)
@@ -485,7 +485,7 @@ public sealed class PersistenceLoopHostedService(
     /// </summary>
     private void NoteProgress(int stored, int failed)
     {
-        IngestRetryOptions options = retry.Value;
+        var options = retry.Value;
 
         if (failed > 0 && affected == 0)
         {
@@ -549,7 +549,7 @@ public sealed class PersistenceLoopHostedService(
     }
 
     private bool Exhausted(EventIdentifier identifier, TimeSpan window) =>
-        failingSince.TryGetValue(identifier, out DateTimeOffset since)
+        failingSince.TryGetValue(identifier, out var since)
         && clock.UtcNow - since >= window;
 
     /// <summary>

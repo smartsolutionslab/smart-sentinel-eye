@@ -238,20 +238,20 @@ public class MotionLanguageTests
     [Fact]
     public void Every_scanned_tree_exists_and_is_non_empty()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         string[] scannedTrees = [ManagementSrc, ManagementCamerasSrc, ManagementEventIngestionSrc, KioskSrc, SharedUiSrc];
         List<string> problems = [];
 
-        foreach (string tree in scannedTrees)
+        foreach (var tree in scannedTrees)
         {
-            string full = Path.Combine(root.FullName, tree);
+            var full = Path.Combine(root.FullName, tree);
             if (!Directory.Exists(full))
             {
                 problems.Add($"{tree} does not exist.");
                 continue;
             }
 
-            bool hasAnyFile = Directory
+            var hasAnyFile = Directory
                 .EnumerateFiles(full, "*", SearchOption.AllDirectories)
                 .Any(file =>
                     file.EndsWith(".ts", StringComparison.Ordinal)
@@ -281,15 +281,15 @@ public class MotionLanguageTests
     [Fact]
     public void The_wall_has_no_motion_but_its_signal()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        HashSet<string> reachSet = KioskReachClosure(root);
+        var root = RepositorySource.Root();
+        var reachSet = KioskReachClosure(root);
 
         List<string> violations = [];
 
-        foreach (string relativePath in reachSet)
+        foreach (var relativePath in reachSet)
         {
-            string fullPath = Path.Combine(root.FullName, relativePath);
-            string raw = File.ReadAllText(fullPath);
+            var fullPath = Path.Combine(root.FullName, relativePath);
+            var raw = File.ReadAllText(fullPath);
 
             if (relativePath.EndsWith(".css", StringComparison.Ordinal))
             {
@@ -297,8 +297,8 @@ public class MotionLanguageTests
                 continue;
             }
 
-            string stripped = StripComments(raw, CommentStyle.TsAndBlock);
-            string literalContent = TypeScriptSource.StringLiteralContent(raw);
+            var stripped = StripComments(raw, CommentStyle.TsAndBlock);
+            var literalContent = TypeScriptSource.StringLiteralContent(raw);
 
             foreach (Match match in MotionUtilityToken.Matches(literalContent))
             {
@@ -326,7 +326,7 @@ public class MotionLanguageTests
 
         // Prohibition by absence (plan.md §4 fact 1): the kiosk's own index.css must
         // never import motion.css, regardless of what the closure above finds.
-        string kioskIndexCss = StripComments(
+        var kioskIndexCss = StripComments(
             File.ReadAllText(Path.Combine(root.FullName, KioskIndexCssPath)), CommentStyle.CssOnly);
         if (kioskIndexCss.Contains("motion.css", StringComparison.Ordinal)
             || kioskIndexCss.Contains("ui/motion", StringComparison.Ordinal))
@@ -350,8 +350,8 @@ public class MotionLanguageTests
     [Fact]
     public void The_kiosk_reach_set_includes_a_known_shared_member()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        HashSet<string> reachSet = KioskReachClosure(root);
+        var root = RepositorySource.Root();
+        var reachSet = KioskReachClosure(root);
 
         reachSet.ShouldContain(
             "apps/shared/src/ui/composites/CameraViewer.tsx",
@@ -364,7 +364,7 @@ public class MotionLanguageTests
     {
         List<string> violations = [];
 
-        foreach (CssRule rule in ParseCssRules(css))
+        foreach (var rule in ParseCssRules(css))
         {
             if (IsAllowlistedPulseRule(WallMotionAllowlist, relativePath, rule))
             {
@@ -378,7 +378,7 @@ public class MotionLanguageTests
                 continue;
             }
 
-            foreach ((string prop, string value) in rule.Declarations)
+            foreach ((var prop, var value) in rule.Declarations)
             {
                 if (CssMotionDeclaration.IsMatch($"{prop}:"))
                 {
@@ -398,14 +398,14 @@ public class MotionLanguageTests
     [Fact]
     public void A_paint_transition_is_deliberate()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         HashSet<string> paintAllowlistPaths = [.. PaintTransitionAllowlist.Select(entry => entry.RelativePath)];
 
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedTsFiles(root))
+        foreach (var relativePath in ScannedTsFiles(root))
         {
-            string literalContent = TypeScriptSource.StringLiteralContent(
+            var literalContent = TypeScriptSource.StringLiteralContent(
                 File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in BannedTransitionUtility.Matches(literalContent))
@@ -440,15 +440,15 @@ public class MotionLanguageTests
     [Fact]
     public void Every_transition_names_its_role()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedTsFiles(root))
+        foreach (var relativePath in ScannedTsFiles(root))
         {
-            string literalContent = TypeScriptSource.StringLiteralContent(
+            var literalContent = TypeScriptSource.StringLiteralContent(
                 File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
-            foreach (string literal in literalContent.Split('\n'))
+            foreach (var literal in literalContent.Split('\n'))
             {
                 if (SuffixedTransitionUtility.IsMatch(literal)
                     && (!RoleDurationToken.IsMatch(literal) || !RoleEaseToken.IsMatch(literal)))
@@ -483,14 +483,14 @@ public class MotionLanguageTests
     [Fact]
     public void Every_keyframe_composites()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedCssFiles(root))
+        foreach (var relativePath in ScannedCssFiles(root))
         {
-            string css = StripComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)), CommentStyle.CssOnly);
+            var css = StripComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)), CommentStyle.CssOnly);
 
-            foreach (CssRule rule in ParseCssRules(css))
+            foreach (var rule in ParseCssRules(css))
             {
                 if (!rule.AtRuleChain.Any(part => part.TrimStart().StartsWith("@keyframes", StringComparison.Ordinal)))
                 {
@@ -502,7 +502,7 @@ public class MotionLanguageTests
                     continue;
                 }
 
-                foreach ((string prop, string value) in rule.Declarations)
+                foreach ((var prop, var value) in rule.Declarations)
                 {
                     if (!CompositorProperties.Contains(prop, StringComparer.Ordinal))
                     {
@@ -530,7 +530,7 @@ public class MotionLanguageTests
     [Fact]
     public void Reduced_motion_redesigns_rather_than_deletes()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
         // (a) + (c): CSS reduce-media deletions, and travel-property keyframes missing an
@@ -544,31 +544,31 @@ public class MotionLanguageTests
         // launder a dishonest sibling.
         var reduceKeyframeAllFramesOpacityOnly = new Dictionary<string, bool>(StringComparer.Ordinal);
 
-        foreach (string relativePath in ScannedCssFiles(root))
+        foreach (var relativePath in ScannedCssFiles(root))
         {
-            string css = StripComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)), CommentStyle.CssOnly);
-            List<CssRule> rules = ParseCssRules(css);
+            var css = StripComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)), CommentStyle.CssOnly);
+            var rules = ParseCssRules(css);
 
-            foreach (CssRule rule in rules)
+            foreach (var rule in rules)
             {
-                bool insideReduceMedia = rule.AtRuleChain.Any(IsReducedMotionMediaPrelude);
-                string? keyframeName = KeyframeNameFromChain(rule.AtRuleChain);
+                var insideReduceMedia = rule.AtRuleChain.Any(IsReducedMotionMediaPrelude);
+                var keyframeName = KeyframeNameFromChain(rule.AtRuleChain);
 
                 if (keyframeName is not null)
                 {
-                    string key = $"{relativePath}::{keyframeName}";
+                    var key = $"{relativePath}::{keyframeName}";
 
                     if (insideReduceMedia)
                     {
-                        bool frameOpacityOnly = rule.Declarations.All(d => d.Prop == "opacity");
+                        var frameOpacityOnly = rule.Declarations.All(d => d.Prop == "opacity");
                         reduceKeyframeAllFramesOpacityOnly[key] = reduceKeyframeAllFramesOpacityOnly.TryGetValue(
-                            key, out bool allSoFar)
+                            key, out var allSoFar)
                             ? allSoFar && frameOpacityOnly
                             : frameOpacityOnly;
                     }
                     else if (rule.Declarations.Any(d => TravelProperties.Contains(d.Prop, StringComparer.Ordinal)))
                     {
-                        if (!travelKeyframes.TryGetValue(relativePath, out HashSet<string>? names))
+                        if (!travelKeyframes.TryGetValue(relativePath, out var names))
                         {
                             names = [];
                             travelKeyframes[relativePath] = names;
@@ -583,17 +583,17 @@ public class MotionLanguageTests
                     continue;
                 }
 
-                bool ruleIsAllowlistedPulse = IsAllowlistedPulseRule(ReducedMotionDeletionAllowlist, relativePath, rule);
+                var ruleIsAllowlistedPulse = IsAllowlistedPulseRule(ReducedMotionDeletionAllowlist, relativePath, rule);
 
-                foreach ((string prop, string value) in rule.Declarations)
+                foreach ((var prop, var value) in rule.Declarations)
                 {
-                    string declarationText = $"{prop}: {value};";
+                    var declarationText = $"{prop}: {value};";
 
                     // Scoped to the exact allowlisted declaration, not the whole rule: a
                     // zero-duration or a second `animation: none` sharing the pulse's rule must
                     // still be caught, and only "animation: none;" itself is the documented
                     // exception (ADR-0146: the looping signal, static ring left in place).
-                    bool isExemptDeclaration = ruleIsAllowlistedPulse && declarationText == "animation: none;";
+                    var isExemptDeclaration = ruleIsAllowlistedPulse && declarationText == "animation: none;";
 
                     if (CssNoneValue.IsMatch(declarationText) && !isExemptDeclaration)
                     {
@@ -613,12 +613,12 @@ public class MotionLanguageTests
             }
         }
 
-        foreach ((string relativePath, HashSet<string> names) in travelKeyframes)
+        foreach ((var relativePath, var names) in travelKeyframes)
         {
-            foreach (string name in names)
+            foreach (var name in names)
             {
-                string key = $"{relativePath}::{name}";
-                bool redesigned = reduceKeyframeAllFramesOpacityOnly.TryGetValue(key, out bool allFramesOpacityOnly)
+                var key = $"{relativePath}::{name}";
+                var redesigned = reduceKeyframeAllFramesOpacityOnly.TryGetValue(key, out var allFramesOpacityOnly)
                     && allFramesOpacityOnly;
 
                 if (!redesigned)
@@ -632,9 +632,9 @@ public class MotionLanguageTests
         }
 
         // (b): no motion-reduce:(animate|transition)-none utility anywhere.
-        foreach (string relativePath in ScannedTsFiles(root))
+        foreach (var relativePath in ScannedTsFiles(root))
         {
-            string literalContent = TypeScriptSource.StringLiteralContent(
+            var literalContent = TypeScriptSource.StringLiteralContent(
                 File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in MotionReduceNoneUtility.Matches(literalContent))
@@ -657,7 +657,7 @@ public class MotionLanguageTests
     [Fact]
     public void Each_allowlist_entry_still_applies()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
         (string RelativePath, string Match, string Reason)[] allEntries =
@@ -667,14 +667,14 @@ public class MotionLanguageTests
             .. ReducedMotionDeletionAllowlist,
         ];
 
-        foreach ((string relativePath, string match, string reason) in allEntries)
+        foreach ((var relativePath, var match, var reason) in allEntries)
         {
             if (reason.Length == 0)
             {
                 problems.Add($"{relativePath} ({match}) has no reason recorded.");
             }
 
-            string path = Path.Combine(root.FullName, relativePath);
+            var path = Path.Combine(root.FullName, relativePath);
             if (!File.Exists(path))
             {
                 problems.Add($"{relativePath} no longer exists — remove its allowlist entry.");
@@ -684,10 +684,10 @@ public class MotionLanguageTests
             // Comment-stripped: a comment mentioning the marker (e.g. left behind after the real
             // rule it described was deleted) must not launder this check — the marker has to be
             // live code, not prose.
-            CommentStyle style = relativePath.EndsWith(".css", StringComparison.Ordinal)
+            var style = relativePath.EndsWith(".css", StringComparison.Ordinal)
                 ? CommentStyle.CssOnly
                 : CommentStyle.TsAndBlock;
-            string liveText = StripComments(File.ReadAllText(path), style);
+            var liveText = StripComments(File.ReadAllText(path), style);
 
             if (!liveText.Contains(match, StringComparison.Ordinal))
             {
@@ -708,10 +708,10 @@ public class MotionLanguageTests
     [Fact]
     public void The_transition_default_is_the_state_role()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        string tokensCss = StripComments(
+        var root = RepositorySource.Root();
+        var tokensCss = StripComments(
             File.ReadAllText(Path.Combine(root.FullName, TokensCssPath)), CommentStyle.CssOnly);
-        Dictionary<string, string> rootMap = RootDeclarations(tokensCss);
+        var rootMap = RootDeclarations(tokensCss);
 
         string[] requiredRoles =
         [
@@ -724,8 +724,8 @@ public class MotionLanguageTests
             $"{TokensCssPath} declares no {string.Join(", ", missing)} — spec 292's eight motion-role "
             + "tokens do not exist yet.");
 
-        rootMap.TryGetValue("--default-transition-duration", out string? defaultDuration);
-        rootMap.TryGetValue("--default-transition-timing-function", out string? defaultEasing);
+        rootMap.TryGetValue("--default-transition-duration", out var defaultDuration);
+        rootMap.TryGetValue("--default-transition-timing-function", out var defaultEasing);
 
         defaultDuration.ShouldBe(
             rootMap["--duration-state"],
@@ -737,15 +737,15 @@ public class MotionLanguageTests
 
         List<string> outOfRange = [];
         string[] roles = ["state", "enter", "exit", "route"];
-        foreach (string role in roles)
+        foreach (var role in roles)
         {
-            string name = $"--duration-{role}";
+            var name = $"--duration-{role}";
             if (!rootMap.ContainsKey(name))
             {
                 continue;
             }
 
-            int milliseconds = ResolveDurationMs(name, rootMap, []);
+            var milliseconds = ResolveDurationMs(name, rootMap, []);
             if (milliseconds < 120 || milliseconds > 200)
             {
                 outOfRange.Add($"{name} resolves to {milliseconds}ms, outside ADR-0146's 120-200ms");
@@ -757,18 +757,18 @@ public class MotionLanguageTests
 
     private static int ResolveDurationMs(string name, Dictionary<string, string> map, HashSet<string> seen)
     {
-        bool found = map.TryGetValue(name, out string? value);
+        var found = map.TryGetValue(name, out var value);
         found.ShouldBeTrue($"{name} has no declaration to resolve.");
-        string trimmed = value.ShouldNotBeNull().Trim();
+        var trimmed = value.ShouldNotBeNull().Trim();
 
-        Match varMatch = Regex.Match(trimmed, @"^var\((?<name>--[A-Za-z0-9-]+)\)$");
+        var varMatch = Regex.Match(trimmed, @"^var\((?<name>--[A-Za-z0-9-]+)\)$");
         if (varMatch.Success)
         {
             seen.Add(name).ShouldBeTrue($"circular var() reference resolving {name}.");
             return ResolveDurationMs(varMatch.Groups["name"].Value, map, seen);
         }
 
-        Match msMatch = Regex.Match(trimmed, @"^(?<n>\d+)ms$");
+        var msMatch = Regex.Match(trimmed, @"^(?<n>\d+)ms$");
         msMatch.Success.ShouldBeTrue($"{name} resolves to '{trimmed}', not a var() or a plain 'Nms' literal.");
         return int.Parse(msMatch.Groups["n"].Value, System.Globalization.CultureInfo.InvariantCulture);
     }
@@ -782,7 +782,7 @@ public class MotionLanguageTests
         var visited = new HashSet<string>(StringComparer.Ordinal);
         var queue = new Queue<string>();
 
-        foreach (string relativePath in ScannedFiles(root, KioskSrc, [".ts", ".tsx", ".css"]))
+        foreach (var relativePath in ScannedFiles(root, KioskSrc, [".ts", ".tsx", ".css"]))
         {
             visited.Add(relativePath);
             queue.Enqueue(relativePath);
@@ -790,13 +790,13 @@ public class MotionLanguageTests
 
         while (queue.Count > 0)
         {
-            string current = queue.Dequeue();
-            string fullPath = Path.Combine(root.FullName, current);
-            string text = File.ReadAllText(fullPath);
+            var current = queue.Dequeue();
+            var fullPath = Path.Combine(root.FullName, current);
+            var text = File.ReadAllText(fullPath);
 
-            foreach (string specifier in ImportSpecifiers(text))
+            foreach (var specifier in ImportSpecifiers(text))
             {
-                string? resolved = ResolveImport(root, current, specifier);
+                var resolved = ResolveImport(root, current, specifier);
                 if (resolved is null
                     || !resolved.StartsWith("apps/shared/", StringComparison.Ordinal)
                     || resolved.Contains(".test.", StringComparison.Ordinal)
@@ -850,10 +850,10 @@ public class MotionLanguageTests
             return null;
         }
 
-        string importerDirectory = Path.GetDirectoryName(Path.Combine(root.FullName, importerRelativePath))!;
-        string combined = Path.GetFullPath(Path.Combine(importerDirectory, specifier));
+        var importerDirectory = Path.GetDirectoryName(Path.Combine(root.FullName, importerRelativePath))!;
+        var combined = Path.GetFullPath(Path.Combine(importerDirectory, specifier));
 
-        string? resolved = ResolveFileCandidate(combined);
+        var resolved = ResolveFileCandidate(combined);
         return resolved is null ? null : RepositorySource.RelativePath(root, resolved);
     }
 
@@ -866,9 +866,9 @@ public class MotionLanguageTests
 
         if (combinedPath.EndsWith(".js", StringComparison.Ordinal))
         {
-            string withoutJs = combinedPath[..^3];
+            var withoutJs = combinedPath[..^3];
             string[] extensions = [".ts", ".tsx"];
-            foreach (string extension in extensions)
+            foreach (var extension in extensions)
             {
                 if (File.Exists(withoutJs + extension))
                 {
@@ -884,7 +884,7 @@ public class MotionLanguageTests
             combinedPath + ".ts", combinedPath + ".tsx",
             Path.Combine(combinedPath, "index.ts"), Path.Combine(combinedPath, "index.tsx"),
         ];
-        foreach (string candidate in candidates)
+        foreach (var candidate in candidates)
         {
             if (File.Exists(candidate))
             {
@@ -897,33 +897,33 @@ public class MotionLanguageTests
 
     private static string? ResolveSharedExport(DirectoryInfo root, string subpath)
     {
-        string packageJsonPath = Path.Combine(root.FullName, SharedPackageJsonPath);
-        JsonNode package = JsonNode.Parse(File.ReadAllText(packageJsonPath))
+        var packageJsonPath = Path.Combine(root.FullName, SharedPackageJsonPath);
+        var package = JsonNode.Parse(File.ReadAllText(packageJsonPath))
             ?? throw new InvalidOperationException($"{SharedPackageJsonPath} did not parse as JSON.");
-        JsonObject exports = package["exports"]?.AsObject()
+        var exports = package["exports"]?.AsObject()
             ?? throw new InvalidOperationException($"{SharedPackageJsonPath} has no \"exports\" map.");
 
-        string exactKey = subpath.Length == 0 ? "." : "./" + subpath;
-        if (exports.TryGetPropertyValue(exactKey, out JsonNode? exactValue) && exactValue is not null)
+        var exactKey = subpath.Length == 0 ? "." : "./" + subpath;
+        if (exports.TryGetPropertyValue(exactKey, out var exactValue) && exactValue is not null)
         {
             return NormalizeSharedTarget(exactValue.GetValue<string>());
         }
 
-        foreach ((string key, JsonNode? value) in exports)
+        foreach ((var key, var value) in exports)
         {
             if (!key.StartsWith("./", StringComparison.Ordinal) || !key.EndsWith("/*", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string prefix = key[2..^2];
+            var prefix = key[2..^2];
             if (!subpath.StartsWith(prefix + "/", StringComparison.Ordinal) || value is null)
             {
                 continue;
             }
 
-            string suffix = subpath[(prefix.Length + 1)..];
-            string template = value.GetValue<string>();
+            var suffix = subpath[(prefix.Length + 1)..];
+            var template = value.GetValue<string>();
             return NormalizeSharedTarget(template.Replace("*", suffix));
         }
 
@@ -968,20 +968,20 @@ public class MotionLanguageTests
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root, string treeRelative, string[] extensions)
     {
-        string full = Path.Combine(root.FullName, treeRelative);
+        var full = Path.Combine(root.FullName, treeRelative);
         if (!Directory.Exists(full))
         {
             yield break;
         }
 
-        foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
         {
             if (!extensions.Any(extension => file.EndsWith(extension, StringComparison.Ordinal)))
             {
                 continue;
             }
 
-            string relative = RepositorySource.RelativePath(root, file);
+            var relative = RepositorySource.RelativePath(root, file);
             if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
             {
                 continue;
@@ -1006,10 +1006,10 @@ public class MotionLanguageTests
 
     private static void ParseCssBlock(string css, int start, int end, List<string> chain, List<CssRule> rules)
     {
-        int i = start;
+        var i = start;
         while (i < end)
         {
-            int braceIndex = css.IndexOf('{', i);
+            var braceIndex = css.IndexOf('{', i);
             if (braceIndex == -1 || braceIndex >= end)
             {
                 break;
@@ -1022,17 +1022,17 @@ public class MotionLanguageTests
             // before it is a sibling statement with no brace body, and is discarded here rather
             // than concatenated onto the prelude (which broke `StartsWith("@keyframes", ...)` for
             // exactly the block most likely to follow an `@import` chain).
-            string preludeSpan = css[i..braceIndex];
-            int lastTopLevelSemicolon = preludeSpan.LastIndexOf(';');
-            string prelude = (lastTopLevelSemicolon >= 0 ? preludeSpan[(lastTopLevelSemicolon + 1)..] : preludeSpan)
+            var preludeSpan = css[i..braceIndex];
+            var lastTopLevelSemicolon = preludeSpan.LastIndexOf(';');
+            var prelude = (lastTopLevelSemicolon >= 0 ? preludeSpan[(lastTopLevelSemicolon + 1)..] : preludeSpan)
                 .Trim();
 
-            int closeIndex = FindMatchingBrace(css, braceIndex);
-            string body = css[(braceIndex + 1)..closeIndex];
+            var closeIndex = FindMatchingBrace(css, braceIndex);
+            var body = css[(braceIndex + 1)..closeIndex];
 
             if (prelude.Length > 0)
             {
-                int nestedBraceIndex = body.IndexOf('{');
+                var nestedBraceIndex = body.IndexOf('{');
 
                 if (nestedBraceIndex == -1)
                 {
@@ -1047,8 +1047,8 @@ public class MotionLanguageTests
                     // would swallow it into the nested rule's prelude (silently dropped there by
                     // the trim above, since it ends in a semicolon) and this rule would report no
                     // declarations at all.
-                    string ownDeclarationsText = body[..nestedBraceIndex];
-                    (string Prop, string Value)[] ownDeclarations = ParseDeclarations(ownDeclarationsText);
+                    var ownDeclarationsText = body[..nestedBraceIndex];
+                    var ownDeclarations = ParseDeclarations(ownDeclarationsText);
                     if (ownDeclarations.Length > 0)
                     {
                         rules.Add(new CssRule([.. chain], prelude, [.. ownDeclarations]));
@@ -1070,15 +1070,15 @@ public class MotionLanguageTests
                 .Where(declaration => declaration.Length > 0 && declaration.Contains(':'))
                 .Select(declaration =>
                 {
-                    int colon = declaration.IndexOf(':');
+                    var colon = declaration.IndexOf(':');
                     return (declaration[..colon].Trim(), declaration[(colon + 1)..].Trim());
                 }),
         ];
 
     private static int FindMatchingBrace(string css, int openIndex)
     {
-        int depth = 0;
-        for (int j = openIndex; j < css.Length; j++)
+        var depth = 0;
+        for (var j = openIndex; j < css.Length; j++)
         {
             if (css[j] == '{')
             {
@@ -1117,9 +1117,9 @@ public class MotionLanguageTests
 
     private static string? KeyframeNameFromChain(string[] atRuleChain)
     {
-        foreach (string part in atRuleChain)
+        foreach (var part in atRuleChain)
         {
-            string trimmed = part.TrimStart();
+            var trimmed = part.TrimStart();
             if (trimmed.StartsWith("@keyframes", StringComparison.Ordinal))
             {
                 return trimmed["@keyframes".Length..].Trim();
@@ -1133,14 +1133,14 @@ public class MotionLanguageTests
     {
         var map = new Dictionary<string, string>(StringComparer.Ordinal);
 
-        foreach (CssRule rule in ParseCssRules(css))
+        foreach (var rule in ParseCssRules(css))
         {
             if (rule.AtRuleChain.Length != 0 || rule.Selector.Trim() != ":root")
             {
                 continue;
             }
 
-            foreach ((string prop, string value) in rule.Declarations)
+            foreach ((var prop, var value) in rule.Declarations)
             {
                 map[prop] = value;
             }
@@ -1157,7 +1157,7 @@ public class MotionLanguageTests
 
     private static string StripComments(string text, CommentStyle style)
     {
-        string withoutBlockComments = Regex.Replace(text, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
+        var withoutBlockComments = Regex.Replace(text, @"/\*.*?\*/", string.Empty, RegexOptions.Singleline);
 
         return style == CommentStyle.TsAndBlock
             ? Regex.Replace(withoutBlockComments, @"//[^\n]*", string.Empty)

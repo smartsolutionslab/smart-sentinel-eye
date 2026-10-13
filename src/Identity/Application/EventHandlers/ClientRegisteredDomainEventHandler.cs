@@ -37,7 +37,7 @@ public sealed class ClientRegisteredDomainEventHandler(
 
         if (kind == ClientKind.Device)
         {
-            (string deviceType, string deviceIdentifier) = SplitDeviceClientId(clientId.Value);
+            (var deviceType, var deviceIdentifier) = SplitDeviceClientId(clientId.Value);
             await events.PublishAsync(
                 new DeviceRegisteredV1(
                     RegisteredClientIdentifier: client.Value,
@@ -72,7 +72,7 @@ public sealed class ClientRegisteredDomainEventHandler(
 
     private static (string DeviceType, string DeviceIdentifier) SplitDeviceClientId(string clientId)
     {
-        int sep = clientId.IndexOf('-', StringComparison.Ordinal);
+        var sep = clientId.IndexOf('-', StringComparison.Ordinal);
         if (sep <= 0 || sep == clientId.Length - 1)
         {
             return (clientId, string.Empty);

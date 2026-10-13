@@ -42,10 +42,10 @@ public class SharedUiDependencyUsageTests
     [Fact]
     public void Every_radix_package_the_shared_workspace_declares_is_imported()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
 
-        IReadOnlyList<string> radixPackages = DeclaredRadixPackages(root);
-        string sourceText = CommentStrippedSharedUiSource(root);
+        var radixPackages = DeclaredRadixPackages(root);
+        var sourceText = CommentStrippedSharedUiSource(root);
 
         List<string> unused = [.. radixPackages.Where(package => !ImportsPackage(sourceText, package))];
 
@@ -65,8 +65,8 @@ public class SharedUiDependencyUsageTests
 
     private static IReadOnlyList<string> DeclaredRadixPackages(DirectoryInfo root)
     {
-        string packageJsonPath = Path.Combine(root.FullName, PackageJsonRelativePath.Replace('/', Path.DirectorySeparatorChar));
-        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(packageJsonPath));
+        var packageJsonPath = Path.Combine(root.FullName, PackageJsonRelativePath.Replace('/', Path.DirectorySeparatorChar));
+        using var document = JsonDocument.Parse(File.ReadAllText(packageJsonPath));
 
         return [.. document.RootElement.GetProperty("dependencies")
             .EnumerateObject()
@@ -86,16 +86,16 @@ public class SharedUiDependencyUsageTests
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        string full = Path.Combine(root.FullName, SharedUiSourceRoot.Replace('/', Path.DirectorySeparatorChar));
+        var full = Path.Combine(root.FullName, SharedUiSourceRoot.Replace('/', Path.DirectorySeparatorChar));
 
-        foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
         {
             if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string relative = RepositorySource.RelativePath(root, file);
+            var relative = RepositorySource.RelativePath(root, file);
 
             if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains("/test/", StringComparison.Ordinal))
             {
@@ -108,7 +108,7 @@ public class SharedUiDependencyUsageTests
 
     private static string StripComments(string source)
     {
-        string withoutBlockComments = BlockComment.Replace(source, string.Empty);
+        var withoutBlockComments = BlockComment.Replace(source, string.Empty);
         return LineComment.Replace(withoutBlockComments, string.Empty);
     }
 }

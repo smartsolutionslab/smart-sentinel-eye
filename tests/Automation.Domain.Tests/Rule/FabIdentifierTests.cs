@@ -51,7 +51,7 @@ public class FabIdentifierTests
     [Fact]
     public void Rejects_a_value_past_the_maximum_length()
     {
-        string tooLong = "f" + new string('a', FabIdentifier.MaximumLength);
+        var tooLong = "f" + new string('a', FabIdentifier.MaximumLength);
 
         Should.Throw<ArgumentException>(() => FabIdentifier.From(tooLong));
     }
@@ -59,7 +59,7 @@ public class FabIdentifierTests
     [Fact]
     public void Accepts_a_value_at_exactly_the_maximum_length()
     {
-        string atLimit = "f" + new string('a', FabIdentifier.MaximumLength - 1);
+        var atLimit = "f" + new string('a', FabIdentifier.MaximumLength - 1);
 
         FabIdentifier.From(atLimit).Value.Length.ShouldBe(FabIdentifier.MaximumLength);
     }
@@ -89,7 +89,7 @@ public class RuleFabLifetimeTests
     public void The_fab_survives_publish_and_archive()
     {
         Fakes.FakeClock clock = new(DateTimeOffset.UnixEpoch);
-        SmartSentinelEye.Automation.Domain.Rule.Rule rule =
+        var rule =
             new RuleBuilder().WithFab("dresden").Build();
 
         rule.Fab.Value.ShouldBe("dresden");
@@ -107,7 +107,7 @@ public class RuleFabLifetimeTests
         // Structural: relocation is out of scope by design (spec 013
         // Assumptions), and a public setter appearing later would be a silent
         // widening of what a rule can do.
-        System.Reflection.PropertyInfo fab =
+        var fab =
             typeof(SmartSentinelEye.Automation.Domain.Rule.Rule).GetProperty("Fab")!;
 
         fab.SetMethod?.IsPublic.ShouldNotBe(true);
@@ -118,8 +118,8 @@ public class RuleFabLifetimeTests
     [Fact]
     public void Orders_two_fabs_ordinally()
     {
-        FabIdentifier earlier = FabIdentifier.From("aachen");
-        FabIdentifier later = FabIdentifier.From("munich");
+        var earlier = FabIdentifier.From("aachen");
+        var later = FabIdentifier.From("munich");
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         later.CompareTo(earlier).ShouldBeGreaterThan(0);

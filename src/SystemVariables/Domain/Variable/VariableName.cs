@@ -37,9 +37,9 @@ public sealed record VariableName : StringValueObject
             return false;
         }
 
-        for (int i = 1; i < s.Length; i++)
+        for (var i = 1; i < s.Length; i++)
         {
-            char c = s[i];
+            var c = s[i];
             if (!char.IsLetterOrDigit(c) && c != '_')
             {
                 return false;

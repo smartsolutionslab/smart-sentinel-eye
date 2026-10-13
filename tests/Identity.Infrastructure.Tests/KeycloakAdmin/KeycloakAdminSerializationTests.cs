@@ -37,7 +37,7 @@ public class KeycloakAdminSerializationTests
 
         await CreateAsync(keycloak);
 
-        Dictionary<string, JsonElement> body = BodyOf(keycloak.Only("POST", "/clients"));
+        var body = BodyOf(keycloak.Only("POST", "/clients"));
 
         // The control: a flag whose value is not the default has always been
         // sent, so an assertion that can see this one is reading the body
@@ -60,7 +60,7 @@ public class KeycloakAdminSerializationTests
 
         await CreateAsync(keycloak);
 
-        Dictionary<string, JsonElement> body = BodyOf(keycloak.Only("POST", "/clients"));
+        var body = BodyOf(keycloak.Only("POST", "/clients"));
 
         // #2165 measured both of these as stored false. They are stored false
         // because Keycloak's default agrees, not because the value was sent —
@@ -81,7 +81,7 @@ public class KeycloakAdminSerializationTests
 
         await ClientOver(keycloak).DisableClientAsync("kiosk-a", CancellationToken.None);
 
-        Dictionary<string, JsonElement> body = BodyOf(keycloak.Only("PUT", $"/clients/{ClientUuid}"));
+        var body = BodyOf(keycloak.Only("PUT", $"/clients/{ClientUuid}"));
 
         // DisableClientAsync carries its whole intent in one false boolean, so
         // the same condition empties the body outright. A PUT of {} updates

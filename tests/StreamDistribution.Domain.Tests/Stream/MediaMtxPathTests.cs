@@ -7,10 +7,10 @@ public class MediaMtxPathTests
     [Fact]
     public void For_camera_produces_cam_dash_guid()
     {
-        Guid raw = Guid.CreateVersion7();
-        CameraIdentifier camera = CameraIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var camera = CameraIdentifier.From(raw);
 
-        MediaMtxPath path = MediaMtxPath.For(camera);
+        var path = MediaMtxPath.For(camera);
 
         path.Value.ShouldBe($"cam-{raw}");
     }
@@ -26,9 +26,9 @@ public class MediaMtxPathTests
     [Fact]
     public void From_accepts_the_cam_dash_guid_format()
     {
-        Guid raw = Guid.CreateVersion7();
+        var raw = Guid.CreateVersion7();
 
-        MediaMtxPath path = MediaMtxPath.From($"cam-{raw}");
+        var path = MediaMtxPath.From($"cam-{raw}");
 
         path.Value.ShouldBe($"cam-{raw}");
     }
@@ -36,9 +36,9 @@ public class MediaMtxPathTests
     [Fact]
     public void Two_paths_with_the_same_value_are_equal()
     {
-        Guid raw = Guid.CreateVersion7();
-        MediaMtxPath first = MediaMtxPath.From($"cam-{raw}");
-        MediaMtxPath second = MediaMtxPath.From($"cam-{raw}");
+        var raw = Guid.CreateVersion7();
+        var first = MediaMtxPath.From($"cam-{raw}");
+        var second = MediaMtxPath.From($"cam-{raw}");
 
         first.ShouldBe(second);
         first.GetHashCode().ShouldBe(second.GetHashCode());

@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -48,12 +46,12 @@ public class CrossFabRegistrationConflictIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_cross_fab_registration_with_the_same_device_identifier_now_succeeds_in_both_fabs()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string device = NewDeviceIdentifier();
-        string munichClientId = await RegisterAsync(munich, device, "munich", HttpStatusCode.Created);
+        using var munich = await MunichClientAsync();
+        var device = NewDeviceIdentifier();
+        var munichClientId = await RegisterAsync(munich, device, "munich", HttpStatusCode.Created);
 
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await RegisterAsync(dresden, device, "dresden", HttpStatusCode.Created);
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await RegisterAsync(dresden, device, "dresden", HttpStatusCode.Created);
 
         dresdenClientId.ShouldNotBe(
             munichClientId,
@@ -71,44 +69,44 @@ public class CrossFabRegistrationConflictIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_cross_fab_registration_creates_its_own_client_without_disturbing_the_other_fab()
     {
-        using HttpClient munich = await MunichClientAsync();
-        string device = NewDeviceIdentifier();
-        string munichClientId = await RegisterAsync(munich, device, "munich", HttpStatusCode.Created);
+        using var munich = await MunichClientAsync();
+        var device = NewDeviceIdentifier();
+        var munichClientId = await RegisterAsync(munich, device, "munich", HttpStatusCode.Created);
 
-        using HttpClient dresden = await DresdenClientAsync();
-        string dresdenClientId = await RegisterAsync(dresden, device, "dresden", HttpStatusCode.Created);
+        using var dresden = await DresdenClientAsync();
+        var dresdenClientId = await RegisterAsync(dresden, device, "dresden", HttpStatusCode.Created);
 
-        HttpResponseMessage dresdenList = await dresden.GetAsync("/devices?fabId=dresden");
+        var dresdenList = await dresden.GetAsync("/devices?fabId=dresden");
         dresdenList.StatusCode.ShouldBe(
             HttpStatusCode.OK, await aspire.DiagnoseAsync("identity", dresdenList));
-        JsonElement dresdenRows = await dresdenList.Content.ReadFromJsonAsync<JsonElement>();
+        var dresdenRows = await dresdenList.Content.ReadFromJsonAsync<JsonElement>();
         ClientIds(dresdenRows).ShouldContain(
             dresdenClientId,
             "dresden's own registration must appear in its own device list");
 
-        HttpResponseMessage munichList = await munich.GetAsync("/devices?fabId=munich");
+        var munichList = await munich.GetAsync("/devices?fabId=munich");
         munichList.StatusCode.ShouldBe(
             HttpStatusCode.OK, await aspire.DiagnoseAsync("identity", munichList));
-        JsonElement munichRows = await munichList.Content.ReadFromJsonAsync<JsonElement>();
+        var munichRows = await munichList.Content.ReadFromJsonAsync<JsonElement>();
         ClientIds(munichRows).ShouldContain(
             munichClientId,
             "munich's original registration must still exist, untouched by dresden's later one");
 
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        JsonElement munichKeycloakClients = await RealmProbe.ReadJsonAsync(
+        var munichKeycloakClients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(munichClientId)}",
             CancellationToken.None);
-        JsonElement munichKeycloakClient = munichKeycloakClients.EnumerateArray().ShouldHaveSingleItem(
+        var munichKeycloakClient = munichKeycloakClients.EnumerateArray().ShouldHaveSingleItem(
             $"exactly one Keycloak client must exist for '{munichClientId}'");
         munichKeycloakClient.GetProperty("attributes").GetProperty("sse.fab").GetString().ShouldBe("munich");
 
-        JsonElement dresdenKeycloakClients = await RealmProbe.ReadJsonAsync(
+        var dresdenKeycloakClients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(dresdenClientId)}",
             CancellationToken.None);
-        JsonElement dresdenKeycloakClient = dresdenKeycloakClients.EnumerateArray().ShouldHaveSingleItem(
+        var dresdenKeycloakClient = dresdenKeycloakClients.EnumerateArray().ShouldHaveSingleItem(
             $"exactly one Keycloak client must exist for '{dresdenClientId}'");
         dresdenKeycloakClient.GetProperty("attributes").GetProperty("sse.fab").GetString().ShouldBe("dresden");
     }
@@ -124,7 +122,7 @@ public class CrossFabRegistrationConflictIntegrationTests(AspireFixture aspire)
     private static async Task<string> RegisterAsync(
         HttpClient client, string device, string fab, HttpStatusCode expected)
     {
-        HttpResponseMessage response = await SendRegisterAsync(client, device, fab);
+        var response = await SendRegisterAsync(client, device, fab);
         response.StatusCode.ShouldBe(expected, await response.Content.ReadAsStringAsync());
 
         return (await response.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("clientId").GetString()!;

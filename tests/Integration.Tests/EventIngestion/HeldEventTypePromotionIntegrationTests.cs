@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Integration.Tests.Identity;
 using static SmartSentinelEye.Integration.Tests.EventIngestion.EventSourceModeApi;
@@ -32,9 +31,9 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Registering_a_held_kind_promotes_only_that_fabs_rows_and_admits_the_next_event()
     {
-        string kind = EventTypeRegistryApi.UniqueKind();
-        using HttpClient berlin = await ClientFor(BerlinOperator);
-        using HttpClient munich = await ClientFor(MunichOperator);
+        var kind = EventTypeRegistryApi.UniqueKind();
+        using var berlin = await ClientFor(BerlinOperator);
+        using var munich = await ClientFor(MunichOperator);
 
         try
         {
@@ -42,27 +41,27 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
             await SetAsync(munich, "manual", "discovery");
 
             // Three held rows in berlin, one in munich — all for the same kind.
-            for (int i = 0; i < 3; i++)
+            for (var i = 0; i < 3; i++)
             {
-                HttpResponseMessage held = await IngestManualAsync(berlin, kind);
+                var held = await IngestManualAsync(berlin, kind);
                 held.StatusCode.ShouldBe(HttpStatusCode.Accepted, await Diagnose(held));
             }
-            HttpResponseMessage munichHeld = await IngestManualAsync(munich, kind);
+            var munichHeld = await IngestManualAsync(munich, kind);
             munichHeld.StatusCode.ShouldBe(HttpStatusCode.Accepted, await Diagnose(munichHeld));
 
             await WaitForHeldCountAsync(berlin, kind, 3, TimeSpan.FromMinutes(2));
             await WaitForHeldCountAsync(munich, kind, 1, TimeSpan.FromMinutes(2));
 
-            HttpResponseMessage registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
+            var registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
             registered.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(registered));
 
-            int berlinPromoted = await WaitForPromotedCountAsync(berlin, kind, 3, TimeSpan.FromMinutes(2));
+            var berlinPromoted = await WaitForPromotedCountAsync(berlin, kind, 3, TimeSpan.FromMinutes(2));
             berlinPromoted.ShouldBe(3, "every berlin row for this kind must be promoted");
 
-            int munichHeldAfter = await CountByStateAsync(munich, kind, "Held");
+            var munichHeldAfter = await CountByStateAsync(munich, kind, "Held");
             munichHeldAfter.ShouldBe(1, "a different fab's held row for the same kind must be untouched");
 
-            HttpResponseMessage nextEvent = await IngestManualAsync(berlin, kind);
+            var nextEvent = await IngestManualAsync(berlin, kind);
             nextEvent.StatusCode.ShouldBe(
                 HttpStatusCode.Created,
                 await Diagnose(nextEvent) + Environment.NewLine + "registering the kind must open the door");
@@ -84,15 +83,15 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_refused_row_for_the_same_fab_and_kind_is_not_promoted()
     {
-        string kind = EventTypeRegistryApi.UniqueKind();
-        using HttpClient berlin = await ClientFor(BerlinOperator);
+        var kind = EventTypeRegistryApi.UniqueKind();
+        using var berlin = await ClientFor(BerlinOperator);
 
         try
         {
             await SetAsync(berlin, "manual", "discovery");
             await SetAsync(berlin, "inference", "strict");
 
-            HttpResponseMessage held = await IngestManualAsync(berlin, kind);
+            var held = await IngestManualAsync(berlin, kind);
             held.StatusCode.ShouldBe(HttpStatusCode.Accepted, await Diagnose(held));
 
             await PublishAsync($"fab/berlin/inference/promotion-probe-1", kind);
@@ -100,11 +99,11 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
             await WaitForHeldCountAsync(berlin, kind, 1, TimeSpan.FromMinutes(2));
             await WaitForReasonCountAsync(berlin, kind, "Refused", 1, TimeSpan.FromMinutes(2));
 
-            HttpResponseMessage registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
+            var registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
             registered.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(registered));
 
             await WaitForPromotedCountAsync(berlin, kind, 1, TimeSpan.FromMinutes(2));
-            int refusedStillHeld = await CountByReasonAndStateAsync(berlin, kind, "Refused", "Held");
+            var refusedStillHeld = await CountByReasonAndStateAsync(berlin, kind, "Refused", "Held");
             refusedStillHeld.ShouldBe(1, "a Refused row must never be promoted, whatever its (fab, kind)");
         }
         finally
@@ -125,16 +124,16 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_lingering_held_row_for_an_already_registered_kind_is_promoted_by_a_409_registration()
     {
-        string kind = EventTypeRegistryApi.UniqueKind();
-        using HttpClient berlin = await ClientFor(BerlinOperator);
+        var kind = EventTypeRegistryApi.UniqueKind();
+        using var berlin = await ClientFor(BerlinOperator);
 
-        HttpResponseMessage registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
+        var registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
         registered.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(registered));
 
         await SeedHeldRowAsync("berlin", kind);
         await WaitForHeldCountAsync(berlin, kind, 1, TimeSpan.FromMinutes(2));
 
-        HttpResponseMessage retry = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
+        var retry = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
         retry.StatusCode.ShouldBe(HttpStatusCode.Conflict, await Diagnose(retry));
         (await EventTypeRegistryApi.TitleOfAsync(retry)).ShouldBe("EVENT_TYPE_ALREADY_REGISTERED");
 
@@ -144,13 +143,13 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Bad_filter_values_answer_400()
     {
-        using HttpClient berlin = await ClientFor(BerlinOperator);
+        using var berlin = await ClientFor(BerlinOperator);
 
-        HttpResponseMessage badReason = await berlin.GetAsync("/events/dead-letters?reason=Unknown");
+        var badReason = await berlin.GetAsync("/events/dead-letters?reason=Unknown");
         badReason.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(badReason));
         (await TitleOfAsync(badReason)).ShouldBe("DEAD_LETTER_INVALID_FILTER");
 
-        HttpResponseMessage badState = await berlin.GetAsync("/events/dead-letters?state=Released");
+        var badState = await berlin.GetAsync("/events/dead-letters?state=Released");
         badState.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(badState));
         (await TitleOfAsync(badState)).ShouldBe("DEAD_LETTER_INVALID_FILTER");
     }
@@ -163,23 +162,23 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_caller_holding_only_events_write_cannot_promote_a_held_kind()
     {
-        string kind = EventTypeRegistryApi.UniqueKind();
-        using HttpClient berlin = await ClientFor(BerlinOperator);
+        var kind = EventTypeRegistryApi.UniqueKind();
+        using var berlin = await ClientFor(BerlinOperator);
 
         try
         {
             await SetAsync(berlin, "manual", "discovery");
-            HttpResponseMessage held = await IngestManualAsync(berlin, kind);
+            var held = await IngestManualAsync(berlin, kind);
             held.StatusCode.ShouldBe(HttpStatusCode.Accepted, await Diagnose(held));
             await WaitForHeldCountAsync(berlin, kind, 1, TimeSpan.FromMinutes(2));
 
-            string clientId = $"event-source-promote-probe-{Guid.CreateVersion7():N}";
+            var clientId = $"event-source-promote-probe-{Guid.CreateVersion7():N}";
             await PlantEventSourceClientAsync(clientId);
             try
             {
-                using HttpClient source = await EventSourceClientAsync(clientId);
+                using var source = await EventSourceClientAsync(clientId);
 
-                HttpResponseMessage refused = await EventTypeRegistryApi.RegisterAsync(source, kind);
+                var refused = await EventTypeRegistryApi.RegisterAsync(source, kind);
 
                 refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await Diagnose(refused));
             }
@@ -188,7 +187,7 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
                 await realm.DeleteAsync(clientId, CancellationToken.None);
             }
 
-            int stillHeld = await CountByStateAsync(berlin, kind, "Held");
+            var stillHeld = await CountByStateAsync(berlin, kind, "Held");
             stillHeld.ShouldBe(1, "a 403 must not have promoted the row");
         }
         finally
@@ -208,22 +207,22 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task PublishAsync(string topic, string kind)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -233,7 +232,7 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        MqttClientPublishResult published = await client.PublishAsync(
+        var published = await client.PublishAsync(
             new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(JsonSerializer.Serialize(new
@@ -252,36 +251,36 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task<int> CountByReasonAsync(HttpClient client, string kind, string reason)
     {
-        HttpResponseMessage listed = await client.GetAsync($"/events/dead-letters?reason={reason}&limit=1000");
+        var listed = await client.GetAsync($"/events/dead-letters?reason={reason}&limit=1000");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return rows.EnumerateArray().Count(row =>
             row.GetProperty("kind").GetString() == kind);
     }
 
     private async Task<int> CountByStateAsync(HttpClient client, string kind, string state)
     {
-        HttpResponseMessage listed = await client.GetAsync($"/events/dead-letters?state={state}&limit=1000");
+        var listed = await client.GetAsync($"/events/dead-letters?state={state}&limit=1000");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return rows.EnumerateArray().Count(row => row.GetProperty("kind").GetString() == kind);
     }
 
     private async Task<int> CountByReasonAndStateAsync(HttpClient client, string kind, string reason, string state)
     {
-        HttpResponseMessage listed = await client.GetAsync(
+        var listed = await client.GetAsync(
             $"/events/dead-letters?reason={reason}&state={state}&limit=1000");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return rows.EnumerateArray().Count(row => row.GetProperty("kind").GetString() == kind);
     }
 
     private async Task<int> WaitForHeldCountAsync(HttpClient client, string kind, int expected, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            int count = await CountByReasonAndStateAsync(client, kind, "UnknownEventType", "Held");
+            var count = await CountByReasonAndStateAsync(client, kind, "UnknownEventType", "Held");
             if (count >= expected || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -292,10 +291,10 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task<int> WaitForPromotedCountAsync(HttpClient client, string kind, int expected, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            int count = await CountByReasonAndStateAsync(client, kind, "UnknownEventType", "Promoted");
+            var count = await CountByReasonAndStateAsync(client, kind, "UnknownEventType", "Promoted");
             if (count >= expected || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -306,10 +305,10 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task<int> WaitForReasonCountAsync(HttpClient client, string kind, string reason, int expected, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            int count = await CountByReasonAsync(client, kind, reason);
+            var count = await CountByReasonAsync(client, kind, reason);
             if (count >= expected || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -326,7 +325,7 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task SeedHeldRowAsync(string fab, string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         await database.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO dead_letters (dead_letter_id, topic, fab, raw_payload, error, reason, kind, state, rejected_at, version)
             VALUES ({Guid.CreateVersion7()}, {$"event/{fab}/manual/promotion-race-probe"}, {fab}, {"{}"},
@@ -336,9 +335,9 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task PlantEventSourceClientAsync(string clientId)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
@@ -360,9 +359,9 @@ public class HeldEventTypePromotionIntegrationTests(AspireFixture aspire)
 
     private async Task<HttpClient> EventSourceClientAsync(string clientId)
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
+        var jwt = await aspire.GetAccessTokenForClientAsync(clientId, DresdenOperator, DresdenOperatorPassword, "openid");
 
-        HttpClient client = aspire.CreateServiceClient(ResourceName);
+        var client = aspire.CreateServiceClient(ResourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
 
         return client;

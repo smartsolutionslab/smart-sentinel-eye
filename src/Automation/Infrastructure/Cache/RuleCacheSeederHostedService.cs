@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Automation.Application.Evaluation;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Infrastructure.Persistence;
-using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Infrastructure.Cache;
 
@@ -31,15 +30,15 @@ public sealed class RuleCacheSeederHostedService(
     {
         try
         {
-            await using AutomationDbContext context = await dbContextFactory
+            await using var context = await dbContextFactory
                 .CreateDbContextAsync(cancellationToken);
 
-            List<RuleAggregate> active = await context.Rules
+            var active = await context.Rules
                 .Where(rule => rule.State == RuleState.Active)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken);
 
-            foreach (RuleAggregate rule in active)
+            foreach (var rule in active)
             {
                 cache.Upsert(rule);
             }

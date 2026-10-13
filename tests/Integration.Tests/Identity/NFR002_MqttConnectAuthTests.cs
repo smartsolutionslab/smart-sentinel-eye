@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
 using System.Text.Json;
 using MQTTnet;
 using MQTTnet.Formatter;
@@ -126,32 +125,32 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task Mqtt_CONNECT_to_CONNACK_median_stays_within_the_transport_budget()
     {
-        string adminToken = await aspire.GetAdminAccessTokenAsync();
+        var adminToken = await aspire.GetAdminAccessTokenAsync();
 
-        DeviceCredentials device = await RegisterDeviceAsync(adminToken);
-        string deviceJwt = await MintDeviceTokenAsync(device);
+        var device = await RegisterDeviceAsync(adminToken);
+        var deviceJwt = await MintDeviceTokenAsync(device);
 
-        Uri mqtt = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        string host = mqtt.Host;
-        int port = mqtt.Port;
+        var mqtt = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        var host = mqtt.Host;
+        var port = mqtt.Port;
 
-        for (int i = 0; i < WarmupIterations; i++)
+        for (var i = 0; i < WarmupIterations; i++)
         {
             await ConnectOnceAsync(host, port, device.ClientId, deviceJwt);
         }
 
-        double[] elapsedMs = new double[MeasureIterations];
-        for (int i = 0; i < MeasureIterations; i++)
+        var elapsedMs = new double[MeasureIterations];
+        for (var i = 0; i < MeasureIterations; i++)
         {
-            long start = Stopwatch.GetTimestamp();
+            var start = Stopwatch.GetTimestamp();
             await ConnectOnceAsync(host, port, device.ClientId, deviceJwt);
             elapsedMs[i] = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
         }
 
         Array.Sort(elapsedMs);
-        double p50 = elapsedMs[MeasureIterations / 2];
-        double p99 = elapsedMs[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
-        double max = elapsedMs[^1];
+        var p50 = elapsedMs[MeasureIterations / 2];
+        var p99 = elapsedMs[(int)Math.Ceiling(MeasureIterations * 0.99) - 1];
+        var max = elapsedMs[^1];
 
         output.WriteLine(
             $"CONNECT→CONNACK over {MeasureIterations} connections: p50 = {p50:F2} ms, p99 = {p99:F2} ms, max = {max:F2} ms "
@@ -175,7 +174,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
 
     private async Task<DeviceCredentials> RegisterDeviceAsync(string adminToken)
     {
-        using HttpClient identity = aspire.CreateServiceClient("identity");
+        using var identity = aspire.CreateServiceClient("identity");
         using HttpRequestMessage request = new(HttpMethod.Post, "/devices/register?fabId=munich")
         {
             Content = JsonContent.Create(new
@@ -186,14 +185,14 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
         };
         request.Headers.Authorization = new("Bearer", adminToken);
 
-        HttpResponseMessage response = await identity.SendAsync(request);
+        var response = await identity.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
-            string failureBody = await response.Content.ReadAsStringAsync();
+            var failureBody = await response.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
                 $"POST /devices/register failed with {(int)response.StatusCode} {response.StatusCode}. Body: {failureBody}");
         }
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return new DeviceCredentials(
             body.GetProperty("clientId").GetString()!,
             body.GetProperty("clientSecret").GetString()!);
@@ -201,25 +200,25 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
 
     private async Task<string> MintDeviceTokenAsync(DeviceCredentials device)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = device.ClientId,
             ["client_secret"] = device.ClientSecret,
         };
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token",
             new FormUrlEncodedContent(form));
         response.EnsureSuccessStatusCode();
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("access_token").GetString()!;
     }
 
     private static async Task ConnectOnceAsync(string host, int port, string clientId, string jwt)
     {
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientOptions options = new MqttClientOptionsBuilder()
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var options = new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{clientId}-{Guid.CreateVersion7():N}")
             .WithTcpServer(host, port)
@@ -228,7 +227,7 @@ public class NFR002_MqttConnectAuthTests(AspireFixture aspire, ITestOutputHelper
             .WithTimeout(TimeSpan.FromSeconds(5))
             .Build();
 
-        MqttClientConnectResult result = await client.ConnectAsync(options);
+        var result = await client.ConnectAsync(options);
         if (result.ResultCode != MqttClientConnectResultCode.Success)
         {
             throw new InvalidOperationException(

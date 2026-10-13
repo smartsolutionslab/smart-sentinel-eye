@@ -37,7 +37,7 @@ public sealed class FakeWebhookIntegrationStatusLookup : IWebhookIntegrationStat
     /// </summary>
     public void EnqueueStatuses(params WebhookIntegrationStatus[] statuses)
     {
-        foreach (WebhookIntegrationStatus status in statuses)
+        foreach (var status in statuses)
         {
             queued.Enqueue(status);
         }

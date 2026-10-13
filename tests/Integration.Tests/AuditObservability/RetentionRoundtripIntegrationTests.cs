@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
@@ -47,7 +46,7 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
         DateTimeOffset[] seeded =
             [.. SeededAgesInDays.Select(age => DateTimeOffset.UtcNow.AddDays(-age))];
 
-        foreach (DateTimeOffset occurredAt in seeded)
+        foreach (var occurredAt in seeded)
         {
             await SeedBackdatedRowAsync(occurredAt);
         }
@@ -56,11 +55,11 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
             "the back-dated inserts must create two chunks past the 90-day boundary, "
             + "or this test cannot distinguish announcing every chunk from announcing the first");
 
-        IReadOnlyList<JsonElement> archived = await PollForArchivesAsync(seeded);
+        var archived = await PollForArchivesAsync(seeded);
 
         // AuditChunkArchivedV1 payload (PascalCase — serialised with default
         // options) proves the blob upload + the archived row count.
-        foreach (JsonElement announcement in archived)
+        foreach (var announcement in archived)
         {
             announcement.GetProperty("RowCount").GetInt32().ShouldBeGreaterThanOrEqualTo(1);
             announcement.GetProperty("ArchiveObjectKey").GetString().ShouldNotBeNullOrEmpty();
@@ -72,10 +71,10 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
 
     private async Task SeedBackdatedRowAsync(DateTimeOffset occurredAt)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        string emptyJson = "{}";
+        var emptyJson = "{}";
         await context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO audit_events (
                 audit_id, occurred_at, received_at, fab_id, event_kind,
@@ -91,10 +90,10 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
 
     private async Task<int> CountChunksPastBoundaryAsync()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> result = await context.Database
+        var result = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM timescaledb_information.chunks
@@ -116,7 +115,7 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
     {
         IReadOnlyList<JsonElement> announcements = [];
 
-        for (int attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             announcements = await ReadArchiveAnnouncementsAsync();
 
@@ -133,7 +132,7 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
         }
 
         // Says which half failed, because this is adjudicated from CI logs.
-        int remaining = await CountChunksPastBoundaryAsync();
+        var remaining = await CountChunksPastBoundaryAsync();
         throw new Xunit.Sdk.XunitException(
             $"Seeded {seeded.Length} aged chunks; {announcements.Count} AuditChunkArchivedV1 "
             + $"announcement(s) arrived within 30s and {remaining} chunk(s) remain past the "
@@ -143,10 +142,10 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
 
     private async Task<IReadOnlyList<JsonElement>> ReadArchiveAnnouncementsAsync()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<string> payloads = await context.Database
+        var payloads = await context.Database
             .SqlQuery<string>($"""
                 SELECT payload::text AS "Value"
                 FROM audit_events
@@ -159,8 +158,8 @@ public class RetentionRoundtripIntegrationTests(AspireFixture aspire)
 
     private static bool Covers(JsonElement announcement, DateTimeOffset moment)
     {
-        DateTimeOffset from = announcement.GetProperty("OccurredFrom").GetDateTimeOffset();
-        DateTimeOffset until = announcement.GetProperty("OccurredUntil").GetDateTimeOffset();
+        var from = announcement.GetProperty("OccurredFrom").GetDateTimeOffset();
+        var until = announcement.GetProperty("OccurredUntil").GetDateTimeOffset();
 
         return moment >= from && moment < until;
     }

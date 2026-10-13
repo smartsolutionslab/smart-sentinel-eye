@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Kernel;
@@ -41,19 +40,19 @@ public sealed class WallSceneSwitchRequestedV1Handler(
 
         var (wall, target, targetLayout, rule, _, causingEventIdentifier, metadata) = message;
 
-        Option<FabIdentifier> fab = TryResolveFab(metadata, wall, rule, causingEventIdentifier);
+        var fab = TryResolveFab(metadata, wall, rule, causingEventIdentifier);
         if (!fab.HasValue)
         {
             return;
         }
 
-        Option<(WallIdentifier Identifier, Wall Wall)> loaded =
+        var loaded =
             await TryLoadWall(wall, fab.Value, rule, causingEventIdentifier, cancellationToken);
         if (!loaded.HasValue)
         {
             return;
         }
-        (WallIdentifier wallIdentifier, Wall targetWall) = loaded.Value;
+        (var wallIdentifier, var targetWall) = loaded.Value;
 
         SceneTarget parsedTarget;
         try
@@ -66,15 +65,15 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return;
         }
 
-        Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)> identifiers =
+        var identifiers =
             TryResolveRuleAndEvent(wall, rule, causingEventIdentifier);
         if (!identifiers.HasValue)
         {
             return;
         }
-        (RuleIdentifier ruleIdentifier, CausingEventIdentifier causingEvent) = identifiers.Value;
+        (var ruleIdentifier, var causingEvent) = identifiers.Value;
 
-        bool reserved = await dedup.TryReserveAsync(ruleIdentifier, causingEvent, wallIdentifier, cancellationToken);
+        var reserved = await dedup.TryReserveAsync(ruleIdentifier, causingEvent, wallIdentifier, cancellationToken);
         if (!reserved)
         {
             logger.WallSwitchRequestDuplicate(wall, rule, causingEventIdentifier);
@@ -137,7 +136,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return Option<(WallIdentifier Identifier, Wall Wall)>.None;
         }
 
-        Option<Wall> found = await walls.FindAsync(wallIdentifier, [fab], cancellationToken);
+        var found = await walls.FindAsync(wallIdentifier, [fab], cancellationToken);
         if (found.HasValue)
         {
             return Option<(WallIdentifier Identifier, Wall Wall)>.Some((wallIdentifier, found.Value));
@@ -151,7 +150,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
         WallIdentifier wallIdentifier, FabIdentifier requestFab, Guid wall, Guid rule, Guid causingEventIdentifier,
         CancellationToken cancellationToken)
     {
-        Option<FabIdentifier> actualFab = await walls.FindFabAsync(wallIdentifier, cancellationToken);
+        var actualFab = await walls.FindFabAsync(wallIdentifier, cancellationToken);
         if (actualFab.HasValue)
         {
             logger.WallSwitchRequestForWallInAnotherFab(wall, rule, causingEventIdentifier, requestFab, actualFab.Value);
@@ -183,7 +182,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
         Wall targetWall, SceneTarget parsedTarget, RuleIdentifier ruleIdentifier, CausingEventIdentifier causingEvent,
         Guid wall, Guid rule, Guid causingEventIdentifier, CancellationToken cancellationToken)
     {
-        IReadOnlySet<LayoutIdentifier> publishable =
+        var publishable =
             await lookup.PublishedAmong(targetWall.Scenes, targetWall.Fab, cancellationToken);
 
         if (parsedTarget is SceneTarget.Layout notPublished && !publishable.Contains(notPublished.Value))
@@ -192,7 +191,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return;
         }
 
-        Option<WallSceneSwitchedDomainEvent> switched = targetWall.SwitchTo(
+        var switched = targetWall.SwitchTo(
             parsedTarget, publishable, new SceneSwitchCause.Rule(ruleIdentifier, causingEvent), clock);
         await walls.SaveAsync(cancellationToken);
 

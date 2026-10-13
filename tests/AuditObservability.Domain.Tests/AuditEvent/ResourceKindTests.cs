@@ -19,14 +19,14 @@ public class ResourceKindTests
     [InlineData("wall")]
     public void Accepts_every_member_of_the_v1_vocabulary(string member)
     {
-        ResourceKind kind = ResourceKind.From(member);
+        var kind = ResourceKind.From(member);
         kind.Value.ShouldBe(member);
     }
 
     [Fact]
     public void Rejects_an_unknown_string()
     {
-        ArgumentException ex = Should.Throw<ArgumentException>(
+        var ex = Should.Throw<ArgumentException>(
             () => ResourceKind.From("audit"));
         ex.ParamName.ShouldBe("value");
     }

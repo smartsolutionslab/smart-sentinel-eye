@@ -1,9 +1,4 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
-using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -21,7 +16,7 @@ public static partial class EventsEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder writes = app.MapGroup("/events").WithTags("Events");
+        var writes = app.MapGroup("/events").WithTags("Events");
 
         // 403 became reachable with spec 018: the caller may name a fab they do
         // not hold, or hold none at all. 400 was already declared but now
@@ -80,7 +75,7 @@ public static partial class EventsEndpoints
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
 
-        RouteGroupBuilder reads = app.MapGroup("/events")
+        var reads = app.MapGroup("/events")
             .RequireAuthorization(Scope.Sse.Events.Read)
             .WithTags("EventsRead");
 

@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
@@ -37,7 +36,7 @@ public sealed class CameraRegisteredSimHandler(
 
         var (camera, name, url, _, _, _) = message;
 
-        if (!RtspPath.TryExtract(url, out string path))
+        if (!RtspPath.TryExtract(url, out var path))
         {
             // Cameras not registered by this simulator (no path component) are
             // none of our business — log and drop, don't retry.
@@ -58,7 +57,7 @@ public sealed class CameraRegisteredSimHandler(
         // A scenario asset plays its own clip; anything else — hand-registered, or
         // whatever a test run left behind — gets the shared clip with its name
         // drawn on it, so it is still answerable by looking (FR-004).
-        if (TryFindAssetClip(path, out string clip))
+        if (TryFindAssetClip(path, out var clip))
         {
             await provisioner.ProvisionLoopPathAsync(path, clip, cancellationToken);
             return;
@@ -69,16 +68,16 @@ public sealed class CameraRegisteredSimHandler(
 
     private bool TryFindAssetClip(string path, out string clip)
     {
-        ScenarioOptions scenarios = scenarioOptions.Value;
+        var scenarios = scenarioOptions.Value;
 
-        foreach (string key in scenarios.Active)
+        foreach (var key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
+            if (!scenarios.Scenarios.TryGetValue(key, out var scenario))
             {
                 continue;
             }
 
-            AssetDefinition? asset = scenario.Assets
+            var asset = scenario.Assets
                 .FirstOrDefault(candidate => string.Equals(candidate.Camera.Path, path, StringComparison.Ordinal));
 
             if (asset is not null)

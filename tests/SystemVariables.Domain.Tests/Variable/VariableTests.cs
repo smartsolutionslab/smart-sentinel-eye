@@ -12,7 +12,7 @@ public class VariableTests
     {
         VariableBuilder builder = new();
 
-        Domain.Variable.Variable variable = builder.Build();
+        var variable = builder.Build();
 
         variable.Creation.At.Value.ShouldBe(builder.Clock.UtcNow);
         variable.Creation.By.ShouldBe(builder.Operator);
@@ -21,7 +21,7 @@ public class VariableTests
     [Fact]
     public void Define_with_no_initial_value_starts_Unset_in_Defined_state()
     {
-        Domain.Variable.Variable v = new VariableBuilder()
+        var v = new VariableBuilder()
             .Named("oeeLine1").OfType(VariableType.Number).Build();
 
         v.Name.Value.ShouldBe("oeeLine1");
@@ -34,14 +34,14 @@ public class VariableTests
     [Fact]
     public void Define_raises_a_VariableDefinedDomainEvent()
     {
-        Domain.Variable.Variable v = new VariableBuilder().Build();
+        var v = new VariableBuilder().Build();
         v.PendingEvents.OfType<VariableDefinedDomainEvent>().ShouldHaveSingleItem();
     }
 
     [Fact]
     public void Define_with_an_initial_value_carries_it()
     {
-        Domain.Variable.Variable v = new VariableBuilder()
+        var v = new VariableBuilder()
             .OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(82.4))
             .Build();
@@ -80,14 +80,14 @@ public class VariableTests
     [Fact]
     public void SetValue_replaces_the_value_and_raises_VariableValueChangedDomainEvent()
     {
-        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder().OfType(VariableType.Number);
+        var v = b.Build();
         v.ClearPendingEvents();
 
         v.SetValue(new VariableValue.NumberValue(99.0), b.Operator, b.Clock, Option<DateTimeOffset>.None);
 
         v.Value.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(99.0);
-        VariableValueChangedDomainEvent evt =
+        var evt =
             v.PendingEvents.OfType<VariableValueChangedDomainEvent>().ShouldHaveSingleItem();
         evt.Value.ShouldBeOfType<VariableValue.NumberValue>().Value.ShouldBe(99.0);
         evt.RootIngestedAt.ShouldBe(Option<DateTimeOffset>.None);
@@ -102,14 +102,14 @@ public class VariableTests
     [Fact]
     public void SetValue_stamps_the_causing_events_acceptance_moment_on_the_event()
     {
-        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder().OfType(VariableType.Number);
+        var v = b.Build();
         v.ClearPendingEvents();
 
-        DateTimeOffset accepted = b.Clock.UtcNow.AddMilliseconds(-750);
+        var accepted = b.Clock.UtcNow.AddMilliseconds(-750);
         v.SetValue(new VariableValue.NumberValue(99.0), b.Operator, b.Clock, Option<DateTimeOffset>.Some(accepted));
 
-        VariableValueChangedDomainEvent evt =
+        var evt =
             v.PendingEvents.OfType<VariableValueChangedDomainEvent>().ShouldHaveSingleItem();
         evt.RootIngestedAt.ShouldBe(Option<DateTimeOffset>.Some(accepted));
         evt.ChangedAt.ShouldNotBe(accepted, "the two moments are the ends of the leg, not one field reused");
@@ -118,8 +118,8 @@ public class VariableTests
     [Fact]
     public void SetValue_with_mismatched_type_throws()
     {
-        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder().OfType(VariableType.Number);
+        var v = b.Build();
 
         Action act = () => v.SetValue(new VariableValue.StringValue("nope"), b.Operator, b.Clock, Option<DateTimeOffset>.None);
         act.ShouldThrow<ArgumentException>();
@@ -128,8 +128,8 @@ public class VariableTests
     [Fact]
     public void SetValue_on_archived_throws()
     {
-        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder().OfType(VariableType.Number);
+        var v = b.Build();
         v.Archive(b.Operator, b.Clock);
 
         Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), b.Operator, b.Clock, Option<DateTimeOffset>.None);
@@ -139,10 +139,10 @@ public class VariableTests
     [Fact]
     public void Archive_transitions_state_and_clears_value()
     {
-        VariableBuilder b = new VariableBuilder()
+        var b = new VariableBuilder()
             .OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(82.4));
-        Domain.Variable.Variable v = b.Build();
+        var v = b.Build();
         v.ClearPendingEvents();
 
         v.Archive(b.Operator, b.Clock);
@@ -155,8 +155,8 @@ public class VariableTests
     [Fact]
     public void Archive_is_idempotent()
     {
-        VariableBuilder b = new VariableBuilder();
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder();
+        var v = b.Build();
         v.Archive(b.Operator, b.Clock);
         v.ClearPendingEvents();
 

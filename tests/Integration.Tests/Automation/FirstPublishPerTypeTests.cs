@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -52,13 +51,13 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
     [Fact]
     public async Task Whether_the_cost_is_paid_once_per_message_type()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
         // Connected once, before anything is published, so hub setup is not
         // charged to whichever highlight round happens to be first.
         ConcurrentFrames frames = new();
-        await using HubConnection kiosk = await ListenAsync(frames);
+        await using var kiosk = await ListenAsync(frames);
 
         // Which queues exist before anything is published decides whether the
         // per-type cost can be broker provisioning at all: a queue that already
@@ -79,24 +78,24 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
     private async Task VariableRoundAsync(
         HttpClient variables, HttpClient rules, string round, string newTypes)
     {
-        string variable = $"perty{Guid.NewGuid():N}"[..16];
-        string kind = $"PlcKind{round}";
+        var variable = $"perty{Guid.NewGuid():N}"[..16];
+        var kind = $"PlcKind{round}";
         await DefineVariableAsync(variables, variable);
         await ActivateVariableRuleAsync(rules, variable, kind);
 
-        DateTimeOffset t0 = DateTimeOffset.UtcNow;
+        var t0 = DateTimeOffset.UtcNow;
         await plant.PublishAsync(kind, cycleTime: 10);
 
-        TimeSpan? applied = await WaitForAsync(async () =>
+        var applied = await WaitForAsync(async () =>
         {
-            HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{variable}");
+            var fetched = await variables.GetAsync($"/system-variables/{variable}");
             if (!fetched.IsSuccessStatusCode)
             {
                 return false;
             }
 
-            JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-            return body.TryGetProperty("value", out JsonElement value) && value.GetString() == "80";
+            var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+            return body.TryGetProperty("value", out var value) && value.GetString() == "80";
         }, t0);
 
         Report(round, kind, newTypes, applied);
@@ -105,14 +104,14 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
     private async Task HighlightRoundAsync(
         HttpClient rules, ConcurrentFrames kiosk, string round, string newTypes)
     {
-        Guid overlay = Guid.NewGuid();
-        string kind = $"PlcKind{round}";
+        var overlay = Guid.NewGuid();
+        var kind = $"PlcKind{round}";
         await ActivateHighlightRuleAsync(rules, overlay, kind);
 
-        DateTimeOffset t0 = DateTimeOffset.UtcNow;
+        var t0 = DateTimeOffset.UtcNow;
         await plant.PublishAsync(kind, cycleTime: 10);
 
-        TimeSpan? seen = await WaitForAsync(() => Task.FromResult(kiosk.Contains(overlay)), t0);
+        var seen = await WaitForAsync(() => Task.FromResult(kiosk.Contains(overlay)), t0);
 
         Report(round, kind, newTypes, seen);
     }
@@ -125,29 +124,29 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
     /// </summary>
     private async Task<string> QueueNamesAsync()
     {
-        Uri management = aspire.App.GetEndpoint("rabbitmq", "management");
+        var management = aspire.App.GetEndpoint("rabbitmq", "management");
 
         // Credentials off the connection string rather than guessed: the broker
         // user is whatever the AppHost parameterised, and a 401 here would look
         // exactly like "no queues" while meaning "no answer".
-        string connection = await aspire.App.GetConnectionStringAsync("rabbitmq") ?? "";
-        string userInfo = new Uri(connection).UserInfo;
+        var connection = await aspire.App.GetConnectionStringAsync("rabbitmq") ?? "";
+        var userInfo = new Uri(connection).UserInfo;
 
         using HttpClient client = new() { BaseAddress = management };
         client.DefaultRequestHeaders.Authorization = new("Basic",
             Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(Uri.UnescapeDataString(userInfo))));
 
-        HttpResponseMessage response = await client.GetAsync("/api/queues");
+        var response = await client.GetAsync("/api/queues");
         if (!response.IsSuccessStatusCode)
         {
             return "(management API said " + (int)response.StatusCode + ")";
         }
 
-        JsonElement queues = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var queues = await response.Content.ReadFromJsonAsync<JsonElement>();
         List<string> names = [];
-        foreach (JsonElement queue in queues.EnumerateArray())
+        foreach (var queue in queues.EnumerateArray())
         {
-            string name = queue.GetProperty("name").GetString() ?? "";
+            var name = queue.GetProperty("name").GetString() ?? "";
             if (name.Contains("V1", StringComparison.Ordinal))
             {
                 names.Add(name[(name.LastIndexOf('.') + 1)..]);
@@ -164,7 +163,7 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
 
     private static async Task<TimeSpan?> WaitForAsync(Func<Task<bool>> observed, DateTimeOffset from)
     {
-        DateTimeOffset deadline = from + Deadline;
+        var deadline = from + Deadline;
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (await observed())
@@ -180,9 +179,9 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
 
     private async Task<HubConnection> ListenAsync(ConcurrentFrames frames)
     {
-        string token = await aspire.GetAdminAccessTokenAsync();
+        var token = await aspire.GetAdminAccessTokenAsync();
 
-        HubConnection kiosk = new HubConnectionBuilder()
+        var kiosk = new HubConnectionBuilder()
             .WithUrl(
                 aspire.HubUri("layout-composition", LayoutLifecycleHub.Path),
                 options => options.AccessTokenProvider = () => Task.FromResult<string?>(token))
@@ -207,7 +206,7 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
 
     private static async Task DefineVariableAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables", new
+        var defined = await variables.PostAsJsonAsync("/system-variables", new
         {
             name,
             type = "Number",
@@ -251,12 +250,12 @@ public class FirstPublishPerTypeTests(AspireFixture aspire, ITestOutputHelper ou
     {
         string name = definition.name;
 
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", (object)definition);
+        var created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", (object)definition);
         created.EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
+        var fetched = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
         fetched.EnsureSuccessStatusCode();
-        int version = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var version = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("version").GetInt32();
 
         using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={Fab}");

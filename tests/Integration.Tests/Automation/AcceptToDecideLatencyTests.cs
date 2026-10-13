@@ -204,12 +204,12 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     /// </summary>
     public async Task DisposeAsync()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        foreach (string rule in activatedRules)
+        foreach (var rule in activatedRules)
         {
-            using HttpResponseMessage archived = await RuleRequests.PostAsync(rules, rule, "archive");
+            using var archived = await RuleRequests.PostAsync(rules, rule, "archive");
             archived.EnsureSuccessStatusCode();
         }
 
@@ -263,8 +263,8 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
         string artefact,
         CancellationToken cancellationToken)
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables", cancellationToken);
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation", cancellationToken);
+        using var variables = await aspire.CreateAdminClientAsync("system-variables", cancellationToken);
+        using var rules = await aspire.CreateAdminClientAsync("automation", cancellationToken);
 
         // **v4, not v7.** A Guid v7's leading hex digits are the top bits of its
         // millisecond timestamp, so the first eight are the same for roughly a
@@ -273,24 +273,24 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
         // answers 400, and the run fails in arrange for a reason that looks
         // nothing like its cause. Observed, not theorised: it is what the second
         // clean run of this file did.
-        string suffix = Guid.NewGuid().ToString("N")[..8];
+        var suffix = Guid.NewGuid().ToString("N")[..8];
 
         // Two variables and two rules, so the warm-up's rows are kept out of the
         // population **by construction**: the query selects on the measured
         // variable's name, so warm-up rows are never selected rather than trimmed
         // afterwards on an ordering the query does not guarantee.
-        string warmVariable = $"warm{suffix}";
-        string measuredVariable = $"meas{suffix}";
+        var warmVariable = $"warm{suffix}";
+        var measuredVariable = $"meas{suffix}";
         await DefineVariableAsync(variables, warmVariable, cancellationToken);
         await DefineVariableAsync(variables, measuredVariable, cancellationToken);
 
-        string warmKind = $"PlcWarm{suffix}";
-        string measuredKind = $"PlcMeas{suffix}";
+        var warmKind = $"PlcWarm{suffix}";
+        var measuredKind = $"PlcMeas{suffix}";
         await ActivateRuleAsync(rules, $"lw{suffix}", warmVariable, warmKind, cancellationToken);
         await ActivateRuleAsync(rules, $"lm{suffix}", measuredVariable, measuredKind, cancellationToken);
 
         await DriveAsync(variables, warmKind, warmVariable, index: 0, ReadinessDeadline, cancellationToken);
-        for (int index = 1; index <= warmup; index++)
+        for (var index = 1; index <= warmup; index++)
         {
             await DriveAsync(variables, warmKind, warmVariable, index, EffectDeadline, cancellationToken);
         }
@@ -302,7 +302,7 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
             $"warmed up over {warmup + 1} events on {warmVariable} — one readiness event, then {warmup}");
 
         HashSet<string> expectedValues = new(StringComparer.Ordinal);
-        for (int index = 0; index < measured; index++)
+        for (var index = 0; index < measured; index++)
         {
             expectedValues.Add(ExpectedValue(index));
             await DriveAsync(variables, measuredKind, measuredVariable, index, EffectDeadline, cancellationToken);
@@ -310,11 +310,11 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
 
         output.WriteLine($"drove {measured} measured events on {measuredVariable}");
 
-        await using AuditObservabilityDbContext audit =
+        await using var audit =
             await aspire.CreateAuditObservabilityDbContextAsync(cancellationToken);
         await SettleAsync(audit, measuredVariable, measured, cancellationToken);
 
-        AcceptToDecideSpan span = await SpanAsync(audit, measuredVariable, [.. expectedValues], cancellationToken);
+        var span = await SpanAsync(audit, measuredVariable, [.. expectedValues], cancellationToken);
 
         // (1) before anything is printed as if it meant something: a percentile
         // over an empty set is NULL, so a test asserting only the percentile
@@ -344,13 +344,13 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
         // Invariant, because this line is quoted into a PR body and read on
         // other machines: under a German locale `{p95:F1}` renders 28.6 as
         // "28,6", which a reader elsewhere may take for 286.
-        string figures = string.Create(
+        var figures = string.Create(
             CultureInfo.InvariantCulture,
             $"n={span.TotalRows} min={span.Min:F1} p50={span.P50:F1} p95={span.P95:F1} p99={span.P99:F1} max={span.Max:F1} ms — budget {budgetMilliseconds:F0} ms");
 
         output.WriteLine($"{artefact} {figures}. {SpanDefinition}");
 
-        string breach = string.Create(
+        var breach = string.Create(
             CultureInfo.InvariantCulture,
             $"the p95 of the accept→decide span was {span.P95:F1} ms over {span.TotalRows} events, against a budget of {budgetMilliseconds:F0} ms");
 
@@ -395,7 +395,7 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
         TimeSpan deadline,
         CancellationToken cancellationToken)
     {
-        string expected = ExpectedValue(index);
+        var expected = ExpectedValue(index);
         await plant.PublishRawAsync(PlantFloor.Payload(kind, CycleTime(index)));
         await WaitForValueAsync(variables, variable, expected, index, deadline, cancellationToken);
     }
@@ -428,9 +428,9 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
         TimeSpan deadline,
         CancellationToken cancellationToken)
     {
-        DateTimeOffset expiry = DateTimeOffset.UtcNow + deadline;
+        var expiry = DateTimeOffset.UtcNow + deadline;
         string? observed = null;
-        bool everAnswered = false;
+        var everAnswered = false;
 
         while (DateTimeOffset.UtcNow < expiry)
         {
@@ -444,10 +444,10 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
             await Task.Delay(PollInterval, cancellationToken);
         }
 
-        string neverCarried = everAnswered
+        var neverCarried = everAnswered
             ? "the last read was not a 200, though the endpoint had answered earlier in this wait"
             : "the endpoint never answered 200 for that variable";
-        string diagnosis = observed is null
+        var diagnosis = observed is null
             ? neverCarried
             : $"a 200 carrying '{observed}' rather than '{expected}'";
 
@@ -462,15 +462,15 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     private static async Task<string?> ReadValueAsync(
         HttpClient variables, string name, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage fetched =
+        using var fetched =
             await variables.GetAsync($"/system-variables/{name}", cancellationToken);
         if (!fetched.IsSuccessStatusCode)
         {
             return null;
         }
 
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-        return body.TryGetProperty("value", out JsonElement value) ? value.GetString() : null;
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        return body.TryGetProperty("value", out var value) ? value.GetString() : null;
     }
 
     // ---- measuring -----------------------------------------------------------
@@ -486,11 +486,11 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     private static async Task SettleAsync(
         AuditObservabilityDbContext audit, string variable, int measured, CancellationToken cancellationToken)
     {
-        DateTimeOffset expiry = DateTimeOffset.UtcNow + SettleDeadline;
+        var expiry = DateTimeOffset.UtcNow + SettleDeadline;
 
         while (DateTimeOffset.UtcNow < expiry)
         {
-            List<long> counted = await audit.Database
+            var counted = await audit.Database
                 .SqlQueryRaw<long>(
                     "SELECT count(*) AS \"Value\" FROM audit_events "
                     + "WHERE event_kind = 'SystemVariableValueRequestedV1' AND payload->>'Name' = {0}",
@@ -546,7 +546,7 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     {
         object[] arguments = [variable, expectedValues];
 
-        List<double> figures = await audit.Database
+        var figures = await audit.Database
             .SqlQueryRaw<double>(
                 "SELECT unnest(ARRAY["
                 + "count(*)::float8, "
@@ -589,7 +589,7 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     private async Task DefineVariableAsync(
         HttpClient variables, string name, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage defined = await variables.PostAsJsonAsync(
+        using var defined = await variables.PostAsJsonAsync(
             "/system-variables",
             new
             {
@@ -619,7 +619,7 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
     private async Task ActivateRuleAsync(
         HttpClient rules, string name, string variable, string triggerKind, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage created = await rules.PostAsJsonAsync(
+        using var created = await rules.PostAsJsonAsync(
             $"/rules?fabId={Fab}",
             new
             {
@@ -639,12 +639,12 @@ public class AcceptToDecideLatencyTests(AspireFixture aspire, ITestOutputHelper 
             HttpStatusCode.Created, await created.Content.ReadAsStringAsync(cancellationToken));
         activatedRules.Add(name);
 
-        using HttpResponseMessage published = await RuleRequests.PostAsync(rules, name, "publish");
+        using var published = await RuleRequests.PostAsync(rules, name, "publish");
         published.EnsureSuccessStatusCode();
 
-        using HttpResponseMessage readBack = await rules.GetAsync($"/rules/{name}?fabId={Fab}", cancellationToken);
+        using var readBack = await rules.GetAsync($"/rules/{name}?fabId={Fab}", cancellationToken);
         readBack.EnsureSuccessStatusCode();
-        JsonElement body = await readBack.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+        var body = await readBack.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
         body.GetProperty("state").GetString().ShouldBe(
             "Active",

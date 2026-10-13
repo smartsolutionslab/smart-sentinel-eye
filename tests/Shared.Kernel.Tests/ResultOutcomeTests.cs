@@ -71,7 +71,7 @@ public class ResultOutcomeTests
     public void Both_entry_points_agree_with_the_structs_own_factories()
     {
         Result<int, SampleError> viaEntryPoint = Success(1);
-        Result<int, SampleError> viaStruct = Result<int, SampleError>.Success(1);
+        var viaStruct = Result<int, SampleError>.Success(1);
 
         viaEntryPoint.IsSuccess.ShouldBe(viaStruct.IsSuccess);
         viaEntryPoint.Value.ShouldBe(viaStruct.Value);

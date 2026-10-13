@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -91,7 +90,7 @@ public sealed class ScenarioSeederVariableFailureTests
         ILogger<ScenarioSeeder> log)
     {
         options.ClipsDirectory = string.Empty;
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
+        var wrapped = Options.Create(options);
         AssetCorrelationTable correlation = new();
 
         ScenarioSeeder seeder = new(
@@ -128,7 +127,7 @@ public sealed class ScenarioSeederVariableFailureTests
 
     private static async Task WaitForSettledAsync(RecordingAutomationHandler automation, RecordingCameraCatalogHandler cameras)
     {
-        for (int attempt = 0; attempt < 60; attempt++)
+        for (var attempt = 0; attempt < 60; attempt++)
         {
             if (automation.Publishes.Count > 0 && cameras.Registrations.Count > 0)
             {
@@ -187,12 +186,12 @@ public sealed class ScenarioSeederVariableFailureTests
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string pathAndQuery = request.RequestUri!.PathAndQuery;
+            var pathAndQuery = request.RequestUri!.PathAndQuery;
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath == "/rules")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                RuleBody body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Rule create body did not deserialize.");
                 lock (Creates)
                 {
@@ -204,7 +203,7 @@ public sealed class ScenarioSeederVariableFailureTests
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath.EndsWith("/publish", StringComparison.Ordinal))
             {
-                string ifMatch = request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                var ifMatch = request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values) : string.Empty;
                 lock (Publishes)
                 {
@@ -228,8 +227,8 @@ public sealed class ScenarioSeederVariableFailureTests
         {
             if (request.Method == HttpMethod.Post && request.RequestUri!.AbsolutePath == "/cameras")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                RegisterCameraBody body = JsonSerializer.Deserialize<RegisterCameraBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<RegisterCameraBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Camera register body did not deserialize.");
                 lock (Registrations)
                 {

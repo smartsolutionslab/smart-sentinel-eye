@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
@@ -23,7 +22,7 @@ public static class OverlayDesignerPersistenceModule
     {
         Ensure.That(builder).IsNotNull();
 
-        string connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
+        var connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
 
         builder.Services.AddDbContextFactory<OverlayDesignerDbContext>(options =>
             options.UseNpgsql(connectionString)

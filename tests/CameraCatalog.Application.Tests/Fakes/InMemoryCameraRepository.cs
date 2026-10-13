@@ -18,7 +18,7 @@ public sealed class InMemoryCameraRepository : ICameraRepository
 
     public Task<Option<Camera>> GetByIdentifierAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Camera? found = cameras.FirstOrDefault(candidate => candidate.Id.Equals(camera));
+        var found = cameras.FirstOrDefault(candidate => candidate.Id.Equals(camera));
         return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));
     }
 
@@ -30,7 +30,7 @@ public sealed class InMemoryCameraRepository : ICameraRepository
     public Task<Option<Camera>> GetWithinFabAsync(
         FabIdentifier fab, CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Camera? found = cameras.FirstOrDefault(
+        var found = cameras.FirstOrDefault(
             candidate => candidate.Id.Equals(camera) && candidate.Fab.Equals(fab));
 
         return Task.FromResult(found is null ? Option<Camera>.None : Option<Camera>.Some(found));

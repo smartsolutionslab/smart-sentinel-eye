@@ -1,7 +1,6 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Automation.Domain.Rule;
-using SmartSentinelEye.Automation.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
@@ -65,9 +64,9 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         await SeedActiveRuleAsync("munich", "munich-rule", "oeeLine1");
         await SeedActiveRuleAsync("dresden", "dresden-rule", "oeeLine9");
 
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+        await using var context = await aspire.CreateAutomationDbContextAsync();
 
-        List<RuleAggregate> stored = await context.Rules
+        var stored = await context.Rules
             .Where(rule => rule.State == RuleState.Active)
             .ToListAsync();
 
@@ -85,8 +84,8 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         await SeedActiveRuleAsync("munich", "shared-name", "oeeLine1");
         await SeedActiveRuleAsync("dresden", "shared-name", "oeeLine9");
 
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
-        RuleName name = RuleName.From("shared-name");
+        await using var context = await aspire.CreateAutomationDbContextAsync();
+        var name = RuleName.From("shared-name");
 
         (await context.Rules.CountAsync(rule => rule.Name == name)).ShouldBe(2);
     }
@@ -94,10 +93,10 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task A_rule_authored_through_the_api_lands_in_the_requested_fab()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
 
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId=munich", new
+        var created = await rules.PostAsJsonAsync($"/rules?fabId=munich", new
         {
             name,
             triggerSource = "plc",
@@ -111,9 +110,9 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
-        RuleName parsed = RuleName.From(name);
-        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+        await using var context = await aspire.CreateAutomationDbContextAsync();
+        var parsed = RuleName.From(name);
+        var stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
 
         stored.Fab.Value.ShouldBe("munich");
     }
@@ -132,11 +131,11 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Authoring_without_naming_a_fab_infers_the_operators_own()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
 
         // No ?fabId= — deliberately.
-        HttpResponseMessage created = await rules.PostAsJsonAsync("/rules", new
+        var created = await rules.PostAsJsonAsync("/rules", new
         {
             name,
             triggerSource = "plc",
@@ -150,9 +149,9 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
         });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
-        RuleName parsed = RuleName.From(name);
-        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+        await using var context = await aspire.CreateAutomationDbContextAsync();
+        var parsed = RuleName.From(name);
+        var stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
 
         stored.Fab.Value.ShouldBe("munich");
     }
@@ -163,10 +162,10 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     /// </summary>
     private async Task SeedActiveRuleAsync(string fab, string name, string variable)
     {
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+        await using var context = await aspire.CreateAutomationDbContextAsync();
 
         SystemClock clock = new();
-        RuleAggregate rule = RuleAggregate.Create(
+        var rule = RuleAggregate.Create(
             FabIdentifier.From(fab),
             RuleName.From(name),
             TriggerSource.From("plc"),
@@ -185,9 +184,9 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     /// <summary>Left in Draft, so a state filter has something to exclude.</summary>
     private async Task SeedDraftRuleAsync(string fab, string name)
     {
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
+        await using var context = await aspire.CreateAutomationDbContextAsync();
 
-        RuleAggregate rule = RuleAggregate.Create(
+        var rule = RuleAggregate.Create(
             FabIdentifier.From(fab),
             RuleName.From(name),
             TriggerSource.From("plc"),
@@ -218,13 +217,13 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Reading_another_fabs_rule_is_indistinguishable_from_one_that_never_existed()
     {
-        string foreign = UniqueName();
+        var foreign = UniqueName();
         await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
 
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        HttpResponseMessage notYours = await rules.GetAsync($"/rules/{foreign}");
-        HttpResponseMessage neverExisted = await rules.GetAsync($"/rules/{UniqueName()}");
+        var notYours = await rules.GetAsync($"/rules/{foreign}");
+        var neverExisted = await rules.GetAsync($"/rules/{UniqueName()}");
 
         notYours.StatusCode.ShouldBe(HttpStatusCode.NotFound);
         neverExisted.StatusCode.ShouldBe(notYours.StatusCode);
@@ -234,42 +233,42 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Publishing_another_fabs_rule_is_refused_and_leaves_it_active()
     {
-        string foreign = UniqueName();
+        var foreign = UniqueName();
         await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
 
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
         using HttpRequestMessage request = new(HttpMethod.Post, $"/rules/{foreign}/publish");
         request.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
 
-        HttpResponseMessage refused = await rules.SendAsync(request);
+        var refused = await rules.SendAsync(request);
 
         // 404, not 409: the fab check runs before the version comparison, so
         // the concurrency layer never gets to reveal that the rule is there.
         refused.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
-        RuleName parsed = RuleName.From(foreign);
-        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+        await using var context = await aspire.CreateAutomationDbContextAsync();
+        var parsed = RuleName.From(foreign);
+        var stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
         stored.State.ShouldBe(RuleState.Active);
     }
 
     [Fact]
     public async Task Archiving_another_fabs_rule_is_refused_and_leaves_it_active()
     {
-        string foreign = UniqueName();
+        var foreign = UniqueName();
         await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
 
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
         using HttpRequestMessage request = new(HttpMethod.Post, $"/rules/{foreign}/archive");
         request.Headers.TryAddWithoutValidation("If-Match", "\"0\"");
 
-        HttpResponseMessage refused = await rules.SendAsync(request);
+        var refused = await rules.SendAsync(request);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.NotFound);
 
-        await using AutomationDbContext context = await aspire.CreateAutomationDbContextAsync();
-        RuleName parsed = RuleName.From(foreign);
-        RuleAggregate stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
+        await using var context = await aspire.CreateAutomationDbContextAsync();
+        var parsed = RuleName.From(foreign);
+        var stored = await context.Rules.SingleAsync(rule => rule.Name == parsed);
         stored.State.ShouldBe(RuleState.Active);
     }
 
@@ -278,12 +277,12 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     {
         // A trial run persists nothing, which is exactly why it would make a
         // convenient side channel for learning how another fab's rule behaves.
-        string foreign = UniqueName();
+        var foreign = UniqueName();
         await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
 
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+        var refused = await rules.PostAsJsonAsync(
             $"/rules/{foreign}/dry-run", new { sampleEvent = "{\"payload\":{\"cycleTime\":27}}" });
 
         refused.StatusCode.ShouldBe(HttpStatusCode.NotFound);
@@ -297,16 +296,16 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task The_listing_omits_another_fabs_rules()
     {
-        string foreign = UniqueName();
-        string own = UniqueName();
+        var foreign = UniqueName();
+        var own = UniqueName();
         await SeedActiveRuleAsync("dresden", foreign, "oeeLine9");
         await SeedActiveRuleAsync("munich", own, "oeeLine1");
 
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage listed = await rules.GetAsync("/rules");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var listed = await rules.GetAsync("/rules");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(listed));
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         string[] names = [.. rows.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
 
         names.ShouldContain(own);
@@ -322,16 +321,16 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task The_listing_still_filters_when_a_filter_is_supplied()
     {
-        string draft = UniqueName();
-        string active = UniqueName();
+        var draft = UniqueName();
+        var active = UniqueName();
         await SeedDraftRuleAsync("munich", draft);
         await SeedActiveRuleAsync("munich", active, "oeeLine1");
 
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage listed = await rules.GetAsync("/rules?state=Active");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var listed = await rules.GetAsync("/rules?state=Active");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(listed));
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
         string[] names = [.. rows.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
 
         names.ShouldContain(active);
@@ -348,7 +347,7 @@ public class CrossFabEvaluationIntegrationTests(AspireFixture aspire) : IAsyncLi
     /// </summary>
     private static async Task<string> BodyWithoutDetailAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return string.Join(
             "|",

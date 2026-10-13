@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -46,7 +45,7 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_minted_token_names_the_api_it_is_for()
     {
-        string token = await aspire.GetAccessTokenAsync(
+        var token = await aspire.GetAccessTokenAsync(
             AspireFixture.AdminUsername, AspireFixture.AdminPassword);
 
         AudiencesOf(token).ShouldContain(ApiAudience,
@@ -59,7 +58,7 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_service_accounts_token_names_it_too()
     {
-        string token = await MintClientCredentialsTokenAsync(SimulatorClientId, SimulatorClientSecret);
+        var token = await MintClientCredentialsTokenAsync(SimulatorClientId, SimulatorClientSecret);
 
         AudiencesOf(token).ShouldContain(ApiAudience,
             customMessage: $"the '{SimulatorClientId}' service account mints a token that does not "
@@ -77,10 +76,10 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_client_enrolled_at_runtime_mints_a_token_that_names_it()
     {
-        string adminToken = await aspire.GetAdminAccessTokenAsync();
+        var adminToken = await aspire.GetAdminAccessTokenAsync();
 
-        (string clientId, string clientSecret) = await RegisterDeviceAsync(adminToken);
-        string token = await MintClientCredentialsTokenAsync(clientId, clientSecret);
+        (var clientId, var clientSecret) = await RegisterDeviceAsync(adminToken);
+        var token = await MintClientCredentialsTokenAsync(clientId, clientSecret);
 
         AudiencesOf(token).ShouldContain(ApiAudience,
             customMessage: $"'{clientId}' was created at runtime and mints a token that does not "
@@ -90,7 +89,7 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
 
     private async Task<(string ClientId, string ClientSecret)> RegisterDeviceAsync(string adminToken)
     {
-        using HttpClient identity = aspire.CreateServiceClient("identity");
+        using var identity = aspire.CreateServiceClient("identity");
         using HttpRequestMessage request = new(HttpMethod.Post, "/devices/register?fabId=munich")
         {
             Content = JsonContent.Create(new
@@ -101,24 +100,24 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
         };
         request.Headers.Authorization = new("Bearer", adminToken);
 
-        HttpResponseMessage response = await identity.SendAsync(request);
+        var response = await identity.SendAsync(request);
         if (!response.IsSuccessStatusCode)
         {
-            string body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
             throw new InvalidOperationException(
                 $"POST /devices/register failed with {(int)response.StatusCode} {response.StatusCode}. "
                 + $"Body: {body}{Environment.NewLine}identity log:{Environment.NewLine}"
                 + aspire.RecentLogs("identity"));
         }
 
-        JsonElement registered = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var registered = await response.Content.ReadFromJsonAsync<JsonElement>();
         return (registered.GetProperty("clientId").GetString()!,
             registered.GetProperty("clientSecret").GetString()!);
     }
 
     private async Task<string> MintClientCredentialsTokenAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -126,7 +125,7 @@ public class TokenAudienceIntegrationTests(AspireFixture aspire)
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         response.EnsureSuccessStatusCode();
 

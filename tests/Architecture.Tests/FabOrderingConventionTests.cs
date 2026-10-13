@@ -48,7 +48,7 @@ public class FabOrderingConventionTests
     [Fact]
     public void Every_FabIdentifier_can_be_ordered()
     {
-        Dictionary<string, string> copies = ReadFabIdentifiers();
+        var copies = ReadFabIdentifiers();
 
         string[] withoutOrdering = [.. copies
             .Where(copy => !ComparableDeclaration.IsMatch(copy.Value))
@@ -87,7 +87,7 @@ public class FabOrderingConventionTests
     [Fact]
     public void Every_FabIdentifier_orders_ordinally()
     {
-        Dictionary<string, string> copies = ReadFabIdentifiers();
+        var copies = ReadFabIdentifiers();
 
         string[] withoutOrdinal = [.. copies
             .Where(copy => !copy.Value.Contains("StringComparison.Ordinal", StringComparison.Ordinal))
@@ -110,7 +110,7 @@ public class FabOrderingConventionTests
     [Fact]
     public void The_scan_finds_every_context_that_defines_a_fab_identifier()
     {
-        Dictionary<string, string> copies = ReadFabIdentifiers();
+        var copies = ReadFabIdentifiers();
 
         copies.Count.ShouldBeGreaterThanOrEqualTo(8,
             $"found {copies.Count} FabIdentifier files, and eight bounded contexts define one. "
@@ -131,11 +131,11 @@ public class FabOrderingConventionTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateFiles(src, "FabIdentifier.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

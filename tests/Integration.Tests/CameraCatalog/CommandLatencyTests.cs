@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Http.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
@@ -60,14 +59,14 @@ public class CommandLatencyTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task POST_cameras_p95_stays_within_the_command_path_budget()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         List<double> latencies = new(capacity: SampleCount);
 
-        for (int index = 0; index < SampleCount + WarmupCount; index++)
+        for (var index = 0; index < SampleCount + WarmupCount; index++)
         {
-            Stopwatch sw = Stopwatch.StartNew();
-            HttpResponseMessage response = await client.PostAsJsonAsync(
+            var sw = Stopwatch.StartNew();
+            var response = await client.PostAsJsonAsync(
                 "/cameras",
                 new { name = $"Cam-Latency-{index:D4}", rtspUrl = $"rtsp://10.0.5.{index % 250}/h264" });
             sw.Stop();
@@ -81,8 +80,8 @@ public class CommandLatencyTests(AspireFixture aspire) : IAsyncLifetime
         }
 
         latencies.Sort();
-        double p95 = latencies[(int)Math.Ceiling(0.95 * latencies.Count) - 1];
-        double median = latencies[latencies.Count / 2];
+        var p95 = latencies[(int)Math.Ceiling(0.95 * latencies.Count) - 1];
+        var median = latencies[latencies.Count / 2];
 
         // Surface the measurement in test output regardless of pass/fail.
         Console.WriteLine($"POST /cameras: n={latencies.Count} median={median:F1}ms p95={p95:F1}ms budget={BudgetMilliseconds}ms");

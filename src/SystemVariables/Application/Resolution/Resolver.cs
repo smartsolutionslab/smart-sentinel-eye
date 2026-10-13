@@ -14,7 +14,7 @@ public sealed class Resolver : IResolver
         Ensure.That(labelText).IsNotNull();
         Ensure.That(snapshot).IsNotNull();
         return PlaceholderParser.Substitute(labelText, name =>
-            snapshot.TryGetValue(name, out VariableSnapshotEntry? entry)
+            snapshot.TryGetValue(name, out var entry)
                 ? entry.Value.Render(entry.BooleanLabels ?? BooleanLabels.Default)
                 : null);
     }

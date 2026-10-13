@@ -2,7 +2,6 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using SmartSentinelEye.ServiceDefaults.Authorization;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests.Authorization;
 
@@ -33,7 +32,7 @@ public class FabResolutionTests
     [Fact]
     public async Task One_fab_and_none_named_is_inferred()
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         resolution.IsSuccess.ShouldBeTrue();
@@ -43,7 +42,7 @@ public class FabResolutionTests
     [Fact]
     public async Task One_fab_and_that_fab_named_is_accepted()
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich"), fabId: "munich", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         resolution.IsSuccess.ShouldBeTrue();
@@ -54,11 +53,11 @@ public class FabResolutionTests
     [Fact]
     public async Task Several_fabs_and_none_named_is_refused_rather_than_guessed()
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         resolution.IsFailure.ShouldBeTrue();
-        ProblemHttpResult result = resolution.Error.ShouldBeOfType<ProblemHttpResult>();
+        var result = resolution.Error.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(Ambiguous);
     }
@@ -66,7 +65,7 @@ public class FabResolutionTests
     [Fact]
     public async Task Several_fabs_and_one_of_theirs_named_is_accepted()
     {
-        Result<string, IResult> resolution = await FabResolution.ResolveForWriteAsync(
+        var resolution = await FabResolution.ResolveForWriteAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "dresden", new DefaultFabAuthorizationGuard(), Ambiguous, default);
 
         resolution.IsSuccess.ShouldBeTrue();
@@ -101,7 +100,7 @@ public class FabResolutionTests
     [Fact]
     public async Task The_no_fab_refusal_does_not_invent_a_fab_name()
     {
-        FabAuthorizationException refusal = await Should.ThrowAsync<FabAuthorizationException>(() =>
+        var refusal = await Should.ThrowAsync<FabAuthorizationException>(() =>
             FabResolution.ResolveForWriteAsync(
                 With("/operators"), fabId: "", new DefaultFabAuthorizationGuard(), Ambiguous, default));
 
@@ -114,7 +113,7 @@ public class FabResolutionTests
     [Fact]
     public async Task A_read_spans_every_fab_the_caller_holds()
     {
-        IReadOnlyList<string> fabs = await FabResolution.ResolveForReadAsync(
+        var fabs = await FabResolution.ResolveForReadAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "", new DefaultFabAuthorizationGuard(), default);
 
         // No RULE_FAB_REQUIRED here: listing does not have to choose, which is
@@ -125,7 +124,7 @@ public class FabResolutionTests
     [Fact]
     public async Task A_read_narrowed_to_one_fab_returns_only_that_one()
     {
-        IReadOnlyList<string> fabs = await FabResolution.ResolveForReadAsync(
+        var fabs = await FabResolution.ResolveForReadAsync(
             With("/fabs/munich", "/fabs/dresden"), fabId: "munich", new DefaultFabAuthorizationGuard(), default);
 
         fabs.ShouldBe(["munich"]);

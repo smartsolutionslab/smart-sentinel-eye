@@ -86,17 +86,17 @@ public class ExternalFontHostTests
     [Fact]
     public void No_stylesheet_under_apps_references_an_absolute_url()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
-        int importMatches = 0;
+        var importMatches = 0;
 
-        foreach (string relativePath in CssFiles(root))
+        foreach (var relativePath in CssFiles(root))
         {
-            string css = StripCssComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var css = StripCssComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in UrlFunction.Matches(css))
             {
-                string target = match.Groups["target"].Value;
+                var target = match.Groups["target"].Value;
                 if (IsAbsolute(target))
                 {
                     violations.Add($"{relativePath}:{LineOf(css, match.Index)} url({target})");
@@ -106,7 +106,7 @@ public class ExternalFontHostTests
             foreach (Match match in ImportStatement.Matches(css))
             {
                 importMatches++;
-                string target = match.Groups["target"].Value;
+                var target = match.Groups["target"].Value;
                 if (IsAbsolute(target))
                 {
                     violations.Add($"{relativePath}:{LineOf(css, match.Index)} @import {target}");
@@ -140,26 +140,26 @@ public class ExternalFontHostTests
     [Fact]
     public void No_index_html_link_loads_from_an_absolute_url()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
-        int scannedFiles = 0;
-        int hrefsParsed = 0;
+        var scannedFiles = 0;
+        var hrefsParsed = 0;
 
-        foreach (string relativePath in IndexHtmlFiles(root))
+        foreach (var relativePath in IndexHtmlFiles(root))
         {
             scannedFiles++;
-            string html = File.ReadAllText(Path.Combine(root.FullName, relativePath));
+            var html = File.ReadAllText(Path.Combine(root.FullName, relativePath));
 
             foreach (Match link in LinkTag.Matches(html))
             {
-                Match href = HrefAttribute.Match(link.Value);
+                var href = HrefAttribute.Match(link.Value);
                 if (!href.Success)
                 {
                     continue;
                 }
 
                 hrefsParsed++;
-                string target = href.Groups["value"].Value;
+                var target = href.Groups["value"].Value;
                 if (IsAbsolute(target))
                 {
                     violations.Add($"{relativePath}: <link ... href=\"{target}\">");
@@ -191,12 +191,12 @@ public class ExternalFontHostTests
     [Fact]
     public void Every_font_face_url_names_a_file_that_exists()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<(string RelativePath, string Url)> urlSources = [];
 
-        foreach (string relativePath in CssFiles(root))
+        foreach (var relativePath in CssFiles(root))
         {
-            string css = StripCssComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var css = StripCssComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match face in FontFaceBlock.Matches(css))
             {
@@ -217,7 +217,7 @@ public class ExternalFontHostTests
 
         List<string> missing = [];
 
-        foreach ((string relativePath, string url) in urlSources)
+        foreach ((var relativePath, var url) in urlSources)
         {
             if (IsAbsolute(url))
             {
@@ -226,8 +226,8 @@ public class ExternalFontHostTests
                 continue;
             }
 
-            string stylesheetDirectory = Path.GetDirectoryName(Path.Combine(root.FullName, relativePath))!;
-            string resolved = Path.GetFullPath(Path.Combine(stylesheetDirectory, url));
+            var stylesheetDirectory = Path.GetDirectoryName(Path.Combine(root.FullName, relativePath))!;
+            var resolved = Path.GetFullPath(Path.Combine(stylesheetDirectory, url));
 
             if (!File.Exists(resolved))
             {
@@ -250,20 +250,20 @@ public class ExternalFontHostTests
     [Fact]
     public void No_font_face_mixes_local_and_url_sources()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in CssFiles(root))
+        foreach (var relativePath in CssFiles(root))
         {
-            string css = StripCssComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
+            var css = StripCssComments(File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match face in FontFaceBlock.Matches(css))
             {
                 foreach (Match src in SrcDeclaration.Matches(face.Groups["body"].Value))
                 {
-                    string value = src.Groups["value"].Value;
-                    bool hasUrl = UrlFunction.IsMatch(value);
-                    bool hasLocal = value.Contains("local(", StringComparison.OrdinalIgnoreCase);
+                    var value = src.Groups["value"].Value;
+                    var hasUrl = UrlFunction.IsMatch(value);
+                    var hasLocal = value.Contains("local(", StringComparison.OrdinalIgnoreCase);
 
                     if (hasUrl && hasLocal)
                     {
@@ -288,8 +288,8 @@ public class ExternalFontHostTests
 
     private static int LineOf(string text, int index)
     {
-        int line = 1;
-        for (int i = 0; i < index && i < text.Length; i++)
+        var line = 1;
+        for (var i = 0; i < index && i < text.Length; i++)
         {
             if (text[i] == '\n')
             {
@@ -315,11 +315,11 @@ public class ExternalFontHostTests
 
     private static IEnumerable<string> CssFiles(DirectoryInfo root)
     {
-        string appsPath = Path.Combine(root.FullName, AppsTree);
+        var appsPath = Path.Combine(root.FullName, AppsTree);
 
-        foreach (string file in Directory.EnumerateFiles(appsPath, "*.css", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(appsPath, "*.css", SearchOption.AllDirectories))
         {
-            string relative = RepositorySource.RelativePath(root, file);
+            var relative = RepositorySource.RelativePath(root, file);
 
             if (ExcludedSegments.Any(segment => relative.Split('/').Contains(segment)))
             {
@@ -332,11 +332,11 @@ public class ExternalFontHostTests
 
     private static IEnumerable<string> IndexHtmlFiles(DirectoryInfo root)
     {
-        string appsPath = Path.Combine(root.FullName, AppsTree);
+        var appsPath = Path.Combine(root.FullName, AppsTree);
 
-        foreach (string appDirectory in Directory.EnumerateDirectories(appsPath))
+        foreach (var appDirectory in Directory.EnumerateDirectories(appsPath))
         {
-            string indexHtml = Path.Combine(appDirectory, "index.html");
+            var indexHtml = Path.Combine(appDirectory, "index.html");
             if (File.Exists(indexHtml))
             {
                 yield return RepositorySource.RelativePath(root, indexHtml);

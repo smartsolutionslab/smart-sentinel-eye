@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
-using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
@@ -43,10 +42,10 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Re_rotating_on_a_stale_version_leaves_the_live_secret_alone()
     {
-        (RotateWebhookClientCommandHandler handler, FakeKeycloakAdminClient keycloak, _) = Registered();
-        string live = keycloak.CurrentSecrets["webhook-qa"];
+        (var handler, var keycloak, _) = Registered();
+        var live = keycloak.CurrentSecrets["webhook-qa"];
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(Update(Stale), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -63,7 +62,7 @@ public class StaleVersionRejectionTests
         InMemoryRegisteredClientRepository clients = new();
         FakeKeycloakAdminClient keycloak = new();
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await Rotator(clients, keycloak, new FakeEventBus())
                 .HandleAsync(Update(3), CancellationToken.None);
 
@@ -79,10 +78,10 @@ public class StaleVersionRejectionTests
         // The replayed first-time rotation. Version 0 cannot distinguish this
         // from a legitimate re-rotation — the interceptor leaves Added roots at
         // 0 — which is why the intent rides If-None-Match rather than a value.
-        (RotateWebhookClientCommandHandler handler, FakeKeycloakAdminClient keycloak, _) = Registered();
-        string live = keycloak.CurrentSecrets["webhook-qa"];
+        (var handler, var keycloak, _) = Registered();
+        var live = keycloak.CurrentSecrets["webhook-qa"];
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(Create(), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -96,7 +95,7 @@ public class StaleVersionRejectionTests
         InMemoryRegisteredClientRepository clients = new();
         FakeKeycloakAdminClient keycloak = new();
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await Rotator(clients, keycloak, new FakeEventBus())
                 .HandleAsync(Create(), CancellationToken.None);
 
@@ -113,13 +112,13 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task The_gate_compares_the_real_version_not_the_default()
     {
-        (RotateWebhookClientCommandHandler handler,
-            FakeKeycloakAdminClient keycloak,
-            InMemoryRegisteredClientRepository clients) = Registered();
+        (var handler,
+            var keycloak,
+            var clients) = Registered();
         AggregateVersions.SetTo(clients.Clients[0], 7);
-        string live = keycloak.CurrentSecrets["webhook-qa"];
+        var live = keycloak.CurrentSecrets["webhook-qa"];
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> atZero =
+        var atZero =
             await handler.HandleAsync(Update(0), CancellationToken.None);
 
         atZero.IsFailure.ShouldBeTrue();
@@ -127,7 +126,7 @@ public class StaleVersionRejectionTests
         atZero.Error.Message.ShouldContain("7");
         keycloak.CurrentSecrets["webhook-qa"].ShouldBe(live);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> atSeven =
+        var atSeven =
             await handler.HandleAsync(Update(7), CancellationToken.None);
 
         atSeven.IsSuccess.ShouldBeTrue();
@@ -141,11 +140,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task A_committed_rotation_moves_the_version_and_returns_the_new_one()
     {
-        (RotateWebhookClientCommandHandler handler, _, InMemoryRegisteredClientRepository clients) =
+        (var handler, _, var clients) =
             Registered();
         AggregateVersions.SetTo(clients.Clients[0], 3);
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> rotated =
+        var rotated =
             await handler.HandleAsync(Update(3), CancellationToken.None);
 
         rotated.IsSuccess.ShouldBeTrue();
@@ -156,12 +155,12 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task The_matching_version_rolls_the_secret()
     {
-        (RotateWebhookClientCommandHandler handler,
-            FakeKeycloakAdminClient keycloak,
-            InMemoryRegisteredClientRepository clients) = Registered();
-        string before = keycloak.CurrentSecrets["webhook-qa"];
+        (var handler,
+            var keycloak,
+            var clients) = Registered();
+        var before = keycloak.CurrentSecrets["webhook-qa"];
 
-        Result<WebhookClientCredentialsDto, RotateWebhookClientError> result =
+        var result =
             await handler.HandleAsync(Update(clients.Clients[0].Version), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -194,7 +193,7 @@ public class StaleVersionRejectionTests
     {
         InMemoryRegisteredClientRepository clients = new();
         FakeKeycloakAdminClient keycloak = new();
-        RotateWebhookClientCommandHandler handler = Rotator(clients, keycloak, new FakeEventBus());
+        var handler = Rotator(clients, keycloak, new FakeEventBus());
 
         handler.HandleAsync(Create(), CancellationToken.None)
             .GetAwaiter().GetResult().IsSuccess.ShouldBeTrue();

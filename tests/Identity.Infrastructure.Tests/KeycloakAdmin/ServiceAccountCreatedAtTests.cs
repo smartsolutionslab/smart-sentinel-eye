@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Tests.KeycloakAdmin;
 
@@ -27,7 +26,7 @@ public class ServiceAccountCreatedAtTests
         StubKeycloakHandler keycloak = new(
             Flow($$"""{"id":"sa-1","createdTimestamp":{{epochMilliseconds}}}"""));
 
-        Option<DateTimeOffset> createdAt = await ClientOver(keycloak)
+        var createdAt = await ClientOver(keycloak)
             .GetServiceAccountCreatedAtAsync("plc-a", CancellationToken.None);
 
         createdAt.HasValue.ShouldBeTrue();
@@ -41,7 +40,7 @@ public class ServiceAccountCreatedAtTests
         // client deleted (or never created) looks like.
         StubKeycloakHandler keycloak = new((_, _) => "[]");
 
-        Option<DateTimeOffset> createdAt = await ClientOver(keycloak)
+        var createdAt = await ClientOver(keycloak)
             .GetServiceAccountCreatedAtAsync("plc-missing", CancellationToken.None);
 
         createdAt.HasValue.ShouldBeFalse();
@@ -55,7 +54,7 @@ public class ServiceAccountCreatedAtTests
             Refuse = request => IsServiceAccountUserRequest(request) ? HttpStatusCode.NotFound : null,
         };
 
-        Option<DateTimeOffset> createdAt = await ClientOver(keycloak)
+        var createdAt = await ClientOver(keycloak)
             .GetServiceAccountCreatedAtAsync("plc-a", CancellationToken.None);
 
         createdAt.HasValue.ShouldBeFalse();
@@ -69,7 +68,7 @@ public class ServiceAccountCreatedAtTests
         // defensive case should a future version ever omit the field.
         StubKeycloakHandler keycloak = new(Flow("""{"id":"sa-1"}"""));
 
-        Option<DateTimeOffset> createdAt = await ClientOver(keycloak)
+        var createdAt = await ClientOver(keycloak)
             .GetServiceAccountCreatedAtAsync("plc-a", CancellationToken.None);
 
         createdAt.HasValue.ShouldBeFalse();

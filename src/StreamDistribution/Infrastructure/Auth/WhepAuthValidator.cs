@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -79,7 +78,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     {
         Ensure.That(options).IsNotNull();
         Ensure.That(environment).IsNotNull();
-        string authority = options.Value.Authority.TrimEnd('/');
+        var authority = options.Value.Authority.TrimEnd('/');
 
         // Spec 340 (#2238): strict everywhere except Development, through the
         // same policy AuthenticationDefaults defines for the nine REST APIs —
@@ -176,13 +175,13 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
 
         try
         {
-            TokenValidationParameters validationParameters = parameters.Clone();
+            var validationParameters = parameters.Clone();
             validationParameters.ValidIssuers = [configuration.Issuer];
             validationParameters.IssuerSigningKeys = configuration.SigningKeys;
 
-            ClaimsPrincipal principal = handler.ValidateToken(bearerToken, validationParameters, out SecurityToken validated);
+            var principal = handler.ValidateToken(bearerToken, validationParameters, out var validated);
 
-            string? subject = principal.FindFirst("sub")?.Value;
+            var subject = principal.FindFirst("sub")?.Value;
             if (subject is null)
             {
                 return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
@@ -192,21 +191,21 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             // after it was minted. No RequestRefreshIfAStaleDocumentCouldExplain
             // here — a fresher discovery document cannot cure a revocation
             // (plan.md §4.4).
-            string? azp = principal.FindFirst("azp")?.Value;
+            var azp = principal.FindFirst("azp")?.Value;
             if (revokedClients.Refuses(azp, IssuedAtOf(validated)))
             {
                 logger.TokenRefusedAsRevoked(azp ?? string.Empty);
                 return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
             }
 
-            string scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
-            string[] scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
+            var scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
             // ADR-0161: the same groups-claim parsing every other fab-checked
             // endpoint uses, read off this hand-validated principal since this
             // hook has no ASP.NET Core authenticated-request principal to run
             // IFabAuthorizationGuard against.
-            IReadOnlyList<string> fabs = FabClaims.AssignedFabs(principal);
+            var fabs = FabClaims.AssignedFabs(principal);
 
             return Result<WhepAuthSubject, WhepAuthFailure>.Success(new WhepAuthSubject(subject, scopes, fabs));
         }

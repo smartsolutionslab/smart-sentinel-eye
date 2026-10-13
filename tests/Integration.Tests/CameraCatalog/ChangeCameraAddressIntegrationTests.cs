@@ -1,6 +1,4 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -54,15 +52,15 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task Correcting_the_address_stores_it_and_advances_the_version()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
-        int version = await VersionOfAsync(cameras, camera);
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
+        var version = await VersionOfAsync(cameras, camera);
 
-        HttpResponseMessage changed = await PatchAsync(cameras, camera, CorrectedUrl, version);
+        var changed = await PatchAsync(cameras, camera, CorrectedUrl, version);
 
         changed.StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        JsonElement after = await ReadAsync(cameras, camera);
+        var after = await ReadAsync(cameras, camera);
         after.GetProperty("rtspUrl").GetString().ShouldBe(CorrectedUrl);
 
         // The version has to move, or a second change could quote the first
@@ -73,9 +71,9 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_stale_version_is_refused_and_the_address_is_untouched()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
-        int version = await VersionOfAsync(cameras, camera);
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
+        var version = await VersionOfAsync(cameras, camera);
 
         (await PatchAsync(cameras, camera, CorrectedUrl, version))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
@@ -92,7 +90,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         (await VersionOfAsync(cameras, camera)).ShouldNotBe(version);
 
         // The same version again — now stale.
-        HttpResponseMessage replayed = await PatchAsync(cameras, camera, "rtsp://10.0.5.99/h264", version);
+        var replayed = await PatchAsync(cameras, camera, "rtsp://10.0.5.99/h264", version);
 
         replayed.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
 
@@ -102,7 +100,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
         // ProblemDetails.title, which is where ApiErrorResults.ToProblem puts
         // the code — if that mapping broke, the handler unit test would still
         // pass and every operator would still be told the wrong thing.
-        JsonElement problem = JsonDocument.Parse(await replayed.Content.ReadAsStringAsync()).RootElement;
+        var problem = JsonDocument.Parse(await replayed.Content.ReadAsStringAsync()).RootElement;
         problem.GetProperty("title").GetString().ShouldBe("CAMERA_VERSION_STALE");
 
         // FR-010: a rejected change leaves the camera exactly as it was.
@@ -117,15 +115,15 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_change_without_an_If_Match_is_refused()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
 
         HttpRequestMessage request = new(HttpMethod.Patch, $"/cameras/{camera}")
         {
             Content = Body(CorrectedUrl),
         };
 
-        HttpResponseMessage response = await cameras.SendAsync(request);
+        var response = await cameras.SendAsync(request);
 
         response.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
         (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString().ShouldNotBe(CorrectedUrl);
@@ -139,13 +137,13 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task A_retired_cameras_address_cannot_be_changed()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
 
         (await cameras.PostAsync($"/cameras/{camera}/retire", null))
             .StatusCode.ShouldBe(HttpStatusCode.NoContent);
 
-        int version = await VersionOfAsync(cameras, camera);
+        var version = await VersionOfAsync(cameras, camera);
 
         (await PatchAsync(cameras, camera, CorrectedUrl, version))
             .StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -154,10 +152,10 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
     [Fact]
     public async Task An_unusable_address_is_refused_and_the_stored_one_is_unchanged()
     {
-        using HttpClient cameras = await ClientFor(MunichOperator);
-        Guid camera = await RegisterAsync(cameras);
-        int version = await VersionOfAsync(cameras, camera);
-        string original = (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString()!;
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras);
+        var version = await VersionOfAsync(cameras, camera);
+        var original = (await ReadAsync(cameras, camera)).GetProperty("rtspUrl").GetString()!;
 
         (await PatchAsync(cameras, camera, "http://not-rtsp.example/stream", version))
             .StatusCode.ShouldBe(HttpStatusCode.BadRequest);
@@ -186,7 +184,7 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private static async Task<JsonElement> ReadAsync(HttpClient cameras, Guid camera)
     {
-        HttpResponseMessage response = await cameras.GetAsync($"/cameras/{camera}");
+        var response = await cameras.GetAsync($"/cameras/{camera}");
         response.EnsureSuccessStatusCode();
 
         return await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -197,9 +195,9 @@ public class ChangeCameraAddressIntegrationTests(AspireFixture aspire) : IAsyncL
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras)
     {
-        string name = $"edit-{Guid.CreateVersion7():N}"[..24];
+        var name = $"edit-{Guid.CreateVersion7():N}"[..24];
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync("/cameras", new
+        var created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
             rtspUrl = OriginalUrl,

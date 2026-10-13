@@ -61,15 +61,15 @@ public class RtspTestSourceHealthTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_camera_pointed_at_the_fixture_source_reaches_Healthy()
     {
-        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
-        Guid camera = await RegisterAsync(
+        var camera = await RegisterAsync(
             cameraClient,
             $"Cam-Fixture-Source-{Guid.NewGuid():N}",
             AspireFixture.RtspTestSourceUrl);
 
-        string state = await WaitForStateAsync(streamClient, camera, "Healthy", SettleTimeout);
+        var state = await WaitForStateAsync(streamClient, camera, "Healthy", SettleTimeout);
 
         state.ShouldBe("Healthy");
     }
@@ -83,22 +83,22 @@ public class RtspTestSourceHealthTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_camera_at_an_unreachable_address_reaches_Degraded()
     {
-        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
-        Guid camera = await RegisterAsync(
+        var camera = await RegisterAsync(
             cameraClient,
             $"Cam-Unreachable-{Guid.NewGuid():N}",
             UnreachableRtspUrl);
 
-        string state = await WaitForStateAsync(streamClient, camera, "Degraded", SettleTimeout);
+        var state = await WaitForStateAsync(streamClient, camera, "Degraded", SettleTimeout);
 
         state.ShouldBe("Degraded");
     }
 
     private static async Task<Guid> RegisterAsync(HttpClient client, string name, string rtspUrl)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras", new { name, rtspUrl });
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>();
@@ -122,17 +122,17 @@ public class RtspTestSourceHealthTests(AspireFixture aspire) : IAsyncLifetime
     private static async Task<string> WaitForStateAsync(
         HttpClient streamClient, Guid camera, string expectedState, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
-        string lastObserved = "<no response yet>";
+        var deadline = DateTime.UtcNow + timeout;
+        var lastObserved = "<no response yet>";
 
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await streamClient.GetAsync(
+            var response = await streamClient.GetAsync(
                 $"/streams?cameraIdentifiers={camera}");
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                JsonElement items = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var items = await response.Content.ReadFromJsonAsync<JsonElement>();
                 if (items.GetArrayLength() == 1)
                 {
                     lastObserved = items[0].GetProperty("state").GetString() ?? "<null state>";

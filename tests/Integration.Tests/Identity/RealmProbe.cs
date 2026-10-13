@@ -67,9 +67,9 @@ public sealed class RealmProbe(AspireFixture aspire)
         IReadOnlyDictionary<string, string> attributes,
         CancellationToken cancellationToken)
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{Realm}/clients",
             new
             {
@@ -101,9 +101,9 @@ public sealed class RealmProbe(AspireFixture aspire)
         IReadOnlyList<string> defaultClientScopes,
         CancellationToken cancellationToken)
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{Realm}/clients",
             new
             {
@@ -131,13 +131,13 @@ public sealed class RealmProbe(AspireFixture aspire)
     public async Task<IReadOnlyList<string>> EffectiveRealmRolesAsync(
         string clientId, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
 
-        JsonElement clients = await ReadJsonAsync(
+        var clients = await ReadJsonAsync(
             admin, $"admin/realms/{Realm}/clients?clientId={Uri.EscapeDataString(clientId)}", cancellationToken);
-        string uuid = clients.EnumerateArray().First().GetProperty("id").GetString()!;
+        var uuid = clients.EnumerateArray().First().GetProperty("id").GetString()!;
 
-        JsonElement serviceAccount = await ReadJsonAsync(
+        var serviceAccount = await ReadJsonAsync(
             admin, $"admin/realms/{Realm}/clients/{uuid}/service-account-user", cancellationToken);
 
         return await CompositeRealmRolesAsync(
@@ -152,13 +152,13 @@ public sealed class RealmProbe(AspireFixture aspire)
     public async Task<IReadOnlyList<string>> EffectiveRealmRolesOfUserAsync(
         string username, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
 
-        JsonElement users = await ReadJsonAsync(
+        var users = await ReadJsonAsync(
             admin,
             $"admin/realms/{Realm}/users?username={Uri.EscapeDataString(username)}&exact=true",
             cancellationToken);
-        string id = users.EnumerateArray().First().GetProperty("id").GetString()!;
+        var id = users.EnumerateArray().First().GetProperty("id").GetString()!;
 
         return await CompositeRealmRolesAsync(admin, id, cancellationToken);
     }
@@ -184,13 +184,13 @@ public sealed class RealmProbe(AspireFixture aspire)
     /// </summary>
     public async Task DeleteAsync(string clientId, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await AuthorisedAdminClientAsync(cancellationToken);
+        using var admin = await AuthorisedAdminClientAsync(cancellationToken);
 
-        JsonElement clients = await ReadJsonAsync(
+        var clients = await ReadJsonAsync(
             admin, $"admin/realms/{Realm}/clients?clientId={Uri.EscapeDataString(clientId)}", cancellationToken);
-        foreach (JsonElement client in clients.EnumerateArray())
+        foreach (var client in clients.EnumerateArray())
         {
-            HttpResponseMessage deleted = await admin.DeleteAsync(
+            var deleted = await admin.DeleteAsync(
                 $"admin/realms/{Realm}/clients/{client.GetProperty("id").GetString()}", cancellationToken);
 
             deleted.IsSuccessStatusCode.ShouldBeTrue(
@@ -202,7 +202,7 @@ public sealed class RealmProbe(AspireFixture aspire)
 
     public async Task<HttpClient> AuthorisedAdminClientAsync(CancellationToken cancellationToken)
     {
-        HttpClient http = aspire.CreateKeycloakClient();
+        var http = aspire.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),
@@ -221,7 +221,7 @@ public sealed class RealmProbe(AspireFixture aspire)
             TimeProvider.System,
             NullLogger<KeycloakAdminTokenProvider>.Instance);
 
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
+        var token = await tokens.GetAccessTokenAsync(cancellationToken);
         http.DefaultRequestHeaders.Authorization = new("Bearer", token);
         return http;
     }
@@ -229,10 +229,10 @@ public sealed class RealmProbe(AspireFixture aspire)
     public static async Task<JsonElement> ReadJsonAsync(
         HttpClient admin, string url, CancellationToken cancellationToken)
     {
-        HttpResponseMessage response = await admin.GetAsync(url, cancellationToken);
+        var response = await admin.GetAsync(url, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        using JsonDocument document = JsonDocument.Parse(
+        using var document = JsonDocument.Parse(
             await response.Content.ReadAsStringAsync(cancellationToken));
         return document.RootElement.Clone();
     }
@@ -240,7 +240,7 @@ public sealed class RealmProbe(AspireFixture aspire)
     private static async Task<IReadOnlyList<string>> CompositeRealmRolesAsync(
         HttpClient admin, string userId, CancellationToken cancellationToken)
     {
-        JsonElement roles = await ReadJsonAsync(
+        var roles = await ReadJsonAsync(
             admin, $"admin/realms/{Realm}/users/{userId}/role-mappings/realm/composite", cancellationToken);
 
         return roles.EnumerateArray()

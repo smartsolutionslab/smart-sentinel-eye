@@ -3,7 +3,6 @@ using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Commands.Handlers;
 
@@ -23,9 +22,9 @@ public sealed class DisableWebhookClientCommandHandler(
         DisableWebhookClientCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (ClientId clientId, FabIdentifier fab) = command;
+        (var clientId, var fab) = command;
 
-        Option<RegisteredClientAggregate> found = await clients
+        var found = await clients
             .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (!found.HasValue || found.Value.Kind != ClientKind.WebhookIntegration)
         {
@@ -41,7 +40,7 @@ public sealed class DisableWebhookClientCommandHandler(
             return Failure(DisableWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
 
-        RegisteredClientAggregate client = found.Value;
+        var client = found.Value;
         client.Disable(clock);
         await clients.SaveAsync(cancellationToken);
 

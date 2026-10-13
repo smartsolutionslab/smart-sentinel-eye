@@ -19,7 +19,7 @@ public sealed class EnrollKioskCommandHandler(
         EnrollKioskCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (string? name, FabIdentifier? fab, OperatorIdentifier enrolledBy) = command;
+        (var name, var fab, var enrolledBy) = command;
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -42,7 +42,7 @@ public sealed class EnrollKioskCommandHandler(
             return Failure(EnrollKioskFailures.InvalidName(ex.Message));
         }
 
-        Option<RegisteredClientAggregate> existing = await clients
+        var existing = await clients
             .GetWithinFabAsync(fab, clientId, cancellationToken);
         if (existing.HasValue)
         {
@@ -82,7 +82,7 @@ public sealed class EnrollKioskCommandHandler(
             return Failure(EnrollKioskFailures.KeycloakUnavailable(ex.Message));
         }
 
-        RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
+        var registered = RegisteredClientAggregate.Register(
             clientId, ClientKind.Kiosk, fab, enrolledBy, clock);
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken);

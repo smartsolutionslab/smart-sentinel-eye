@@ -18,9 +18,9 @@ public sealed class RetireStreamCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        CameraIdentifier camera = command.Camera;
+        var camera = command.Camera;
 
-        Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
+        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (!existing.HasValue)
         {
@@ -28,7 +28,7 @@ public sealed class RetireStreamCommandHandler(
             return Success(Option<StreamIdentifier>.None);
         }
 
-        Stream stream = existing.Value;
+        var stream = existing.Value;
 
         stream.Retire(clock);
 

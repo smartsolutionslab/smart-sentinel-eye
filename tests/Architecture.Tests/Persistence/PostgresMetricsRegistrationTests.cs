@@ -45,14 +45,14 @@ public class PostgresMetricsRegistrationTests
     {
         CapturingExporter exporter = new();
 
-        using ServiceProvider provider = PostgresComposition.Compose(contextName, builder =>
+        using var provider = PostgresComposition.Compose(contextName, builder =>
             builder.Services.AddOpenTelemetry()
                 .WithMetrics(metrics => metrics.AddReader(new BaseExportingMetricReader(exporter))));
 
-        MeterProvider meterProvider = provider.GetRequiredService<MeterProvider>();
+        var meterProvider = provider.GetRequiredService<MeterProvider>();
 
         using Meter probe = new(NpgsqlMeterName);
-        Counter<long> counter = probe.CreateCounter<long>(ProbeInstrumentName);
+        var counter = probe.CreateCounter<long>(ProbeInstrumentName);
         counter.Add(1);
         meterProvider.ForceFlush();
 
@@ -73,7 +73,7 @@ public class PostgresMetricsRegistrationTests
 
         public override ExportResult Export(in Batch<Metric> batch)
         {
-            foreach (Metric metric in batch)
+            foreach (var metric in batch)
             {
                 Names.Add(metric.Name);
             }

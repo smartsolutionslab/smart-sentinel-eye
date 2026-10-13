@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.SystemVariables.Api;
 using SmartSentinelEye.SystemVariables.Domain.Variable;
@@ -39,12 +38,12 @@ public class SystemVariableRouteShadowingTests
     [Fact]
     public void No_literal_route_segment_that_is_a_legal_variable_name_shares_a_position_with_an_unconstrained_name_parameter()
     {
-        List<(string[] Verbs, string[] Segments)> endpoints = MappedEndpoints();
+        var endpoints = MappedEndpoints();
 
         List<string> shadowed = [];
-        foreach ((string[] verbsA, string[] segmentsA) in endpoints)
+        foreach ((var verbsA, var segmentsA) in endpoints)
         {
-            foreach ((string[] verbsB, string[] segmentsB) in endpoints)
+            foreach ((var verbsB, var segmentsB) in endpoints)
             {
                 if (ReferenceEquals(segmentsA, segmentsB)
                     || segmentsA.Length != segmentsB.Length
@@ -53,7 +52,7 @@ public class SystemVariableRouteShadowingTests
                     continue;
                 }
 
-                for (int position = 0; position < segmentsA.Length; position++)
+                for (var position = 0; position < segmentsA.Length; position++)
                 {
                     if (IsLiteral(segmentsA[position])
                         && IsUnconstrainedParameter(segmentsB[position])
@@ -104,7 +103,7 @@ public class SystemVariableRouteShadowingTests
 
     private static bool SameElsewhere(string[] a, string[] b, int except)
     {
-        for (int i = 0; i < a.Length; i++)
+        for (var i = 0; i < a.Length; i++)
         {
             if (i != except && !string.Equals(a[i], b[i], StringComparison.Ordinal))
             {
@@ -117,11 +116,11 @@ public class SystemVariableRouteShadowingTests
 
     private static List<(string[] Verbs, string[] Segments)> MappedEndpoints()
     {
-        WebApplication app = WebApplication.CreateBuilder([]).Build();
+        var app = WebApplication.CreateBuilder([]).Build();
         app.MapSystemVariableEndpoints();
 
         List<(string[] Verbs, string[] Segments)> endpoints = [];
-        foreach (Endpoint endpoint in ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints))
+        foreach (var endpoint in ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints))
         {
             if (endpoint is not RouteEndpoint route)
             {
@@ -137,7 +136,7 @@ public class SystemVariableRouteShadowingTests
 
     private static string[] SegmentsOf(RouteEndpoint route)
     {
-        string raw = (route.RoutePattern.RawText ?? string.Empty).Trim('/');
+        var raw = (route.RoutePattern.RawText ?? string.Empty).Trim('/');
 
         return raw.Length == 0 ? [] : raw.Split('/');
     }

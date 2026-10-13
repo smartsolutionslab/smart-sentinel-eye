@@ -1,6 +1,4 @@
 using System.Net;
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
@@ -17,7 +15,7 @@ public class GetVariableQueryHandlerTests
         TestVariableQuerySource source = new([]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("ghost")), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -29,12 +27,12 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task The_dto_carries_the_aggregate_version()
     {
-        Variable variable = new VariableBuilder()
+        var variable = new VariableBuilder()
             .Named("oeeLine2").OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(1)).Build();
 
         GetVariableQueryHandler handler = new(new TestVariableQuerySource([variable]));
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], variable.Name), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -44,14 +42,14 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task Returns_a_mapped_DTO_when_the_variable_exists()
     {
-        Variable variable = new VariableBuilder()
+        var variable = new VariableBuilder()
             .Named("oeeLine1").OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(82.5)).Build();
 
         TestVariableQuerySource source = new([variable]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("oeeLine1")), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -64,13 +62,13 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task Maps_Unset_value_to_null_on_the_DTO()
     {
-        Variable variable = new VariableBuilder()
+        var variable = new VariableBuilder()
             .Named("shift").OfType(VariableType.String).Build();
 
         TestVariableQuerySource source = new([variable]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("shift")), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -85,14 +83,14 @@ public class GetVariableQueryHandlerTests
         // FR-009: byte-identical to a name that was never used. A 403 would
         // confirm it exists and let an operator enumerate another fab's names
         // one guess at a time.
-        Variable foreign = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
+        var foreign = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
         TestVariableQuerySource source = new([foreign]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> notYours = await handler.HandleAsync(
+        var notYours = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("oeeLine1")),
             CancellationToken.None);
-        Result<VariableDto, GetVariableError> neverExisted = await handler.HandleAsync(
+        var neverExisted = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("ghost")),
             CancellationToken.None);
 
@@ -104,19 +102,19 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task A_name_held_in_two_of_the_callers_fabs_names_its_candidates()
     {
-        Variable munich = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
-        Variable dresden = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
+        var munich = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
+        var dresden = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
         TestVariableQuerySource source = new([munich, dresden]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery(
                 [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
                 VariableName.From("oeeLine1")),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        GetVariableError.VariableFabAmbiguous ambiguous =
+        var ambiguous =
             result.Error.ShouldBeOfType<GetVariableError.VariableFabAmbiguous>();
         // Naming them leaks nothing: they are all fabs this caller already
         // reads. Without the names the operator cannot act on the message.
@@ -126,11 +124,11 @@ public class GetVariableQueryHandlerTests
     [Fact]
     public async Task The_dto_carries_the_fab()
     {
-        Variable variable = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
+        var variable = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
         TestVariableQuerySource source = new([variable]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("dresden")], VariableName.From("oeeLine1")),
             CancellationToken.None);
 
@@ -144,16 +142,16 @@ public class GetVariableQueryHandlerTests
     {
         // FR-005: archiving releases the name within its fab, so a second
         // "reused" in munich is a legal re-definition, not a duplicate.
-        VariableBuilder archivedBuilder = new VariableBuilder().WithFab("munich").Named("reused");
-        Variable archived = archivedBuilder.Build();
+        var archivedBuilder = new VariableBuilder().WithFab("munich").Named("reused");
+        var archived = archivedBuilder.Build();
         archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
 
-        Variable live = new VariableBuilder().WithFab("munich").Named("reused").Build();
+        var live = new VariableBuilder().WithFab("munich").Named("reused").Build();
 
         TestVariableQuerySource source = new([archived, live]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("reused")),
             CancellationToken.None);
 
@@ -169,19 +167,19 @@ public class GetVariableQueryHandlerTests
     {
         // The deliberate narrowing (spec 239): a by-name read agrees with
         // GetByNameAsync and no longer answers for an archived-only name.
-        VariableBuilder builder = new VariableBuilder().WithFab("munich").Named("gone");
-        Variable archived = builder.Build();
+        var builder = new VariableBuilder().WithFab("munich").Named("gone");
+        var archived = builder.Build();
         archived.Archive(builder.Operator, builder.Clock);
 
         TestVariableQuerySource source = new([archived]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery([FabIdentifier.From("munich")], VariableName.From("gone")),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        GetVariableError.VariableNotFound notFound =
+        var notFound =
             result.Error.ShouldBeOfType<GetVariableError.VariableNotFound>();
         notFound.Status.ShouldBe(HttpStatusCode.NotFound);
     }
@@ -192,24 +190,24 @@ public class GetVariableQueryHandlerTests
         // Assert the collection, not the rendered message: a
         // Message.ShouldContain would pass against the duplicate-fab bug this
         // test exists to catch, a missing distinct on the candidate fabs.
-        VariableBuilder archivedBuilder = new VariableBuilder().WithFab("munich").Named("shared");
-        Variable archivedMunich = archivedBuilder.Build();
+        var archivedBuilder = new VariableBuilder().WithFab("munich").Named("shared");
+        var archivedMunich = archivedBuilder.Build();
         archivedMunich.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
 
-        Variable liveMunich = new VariableBuilder().WithFab("munich").Named("shared").Build();
-        Variable liveDresden = new VariableBuilder().WithFab("dresden").Named("shared").Build();
+        var liveMunich = new VariableBuilder().WithFab("munich").Named("shared").Build();
+        var liveDresden = new VariableBuilder().WithFab("dresden").Named("shared").Build();
 
         TestVariableQuerySource source = new([archivedMunich, liveMunich, liveDresden]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery(
                 [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
                 VariableName.From("shared")),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        GetVariableError.VariableFabAmbiguous ambiguous =
+        var ambiguous =
             result.Error.ShouldBeOfType<GetVariableError.VariableFabAmbiguous>();
         ambiguous.Candidates.ShouldBe(["dresden", "munich"]);
     }
@@ -223,21 +221,21 @@ public class GetVariableQueryHandlerTests
         // duplicate-free without it. TestVariableQuerySource has no such
         // constraint, so two *live* rows can share a fab here and pin
         // .Distinct(StringComparer.Ordinal) on its own terms.
-        Variable liveMunichFirst = new VariableBuilder().WithFab("munich").Named("shared").Build();
-        Variable liveMunichSecond = new VariableBuilder().WithFab("munich").Named("shared").Build();
-        Variable liveDresden = new VariableBuilder().WithFab("dresden").Named("shared").Build();
+        var liveMunichFirst = new VariableBuilder().WithFab("munich").Named("shared").Build();
+        var liveMunichSecond = new VariableBuilder().WithFab("munich").Named("shared").Build();
+        var liveDresden = new VariableBuilder().WithFab("dresden").Named("shared").Build();
 
         TestVariableQuerySource source = new([liveMunichFirst, liveMunichSecond, liveDresden]);
         GetVariableQueryHandler handler = new(source);
 
-        Result<VariableDto, GetVariableError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetVariableQuery(
                 [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
                 VariableName.From("shared")),
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        GetVariableError.VariableFabAmbiguous ambiguous =
+        var ambiguous =
             result.Error.ShouldBeOfType<GetVariableError.VariableFabAmbiguous>();
         ambiguous.Candidates.ShouldBe(["dresden", "munich"]);
     }

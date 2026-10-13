@@ -1,5 +1,4 @@
 using System.Globalization;
-using SmartSentinelEye.CameraCatalog.Application.DTOs;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
@@ -43,12 +42,12 @@ public class ListCamerasPagingOrderTests
         // The partial unique index is filtered on `status <> 'Decommissioned'`
         // precisely so retiring releases the name, so this pair is legal and
         // ties on (Name, Fab) — the pair the sort used to stop at.
-        Camera other = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-A");
-        Camera retired = RegisterCameraAt("2026-05-21T10:00:00Z", "Shared-Name");
+        var other = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-A");
+        var retired = RegisterCameraAt("2026-05-21T10:00:00Z", "Shared-Name");
         retired.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-22T10:00:00Z", CultureInfo.InvariantCulture)));
-        Camera replacement = RegisterCameraAt("2026-05-23T10:00:00Z", "Shared-Name");
+        var replacement = RegisterCameraAt("2026-05-23T10:00:00Z", "Shared-Name");
 
-        IReadOnlyList<Guid> paged = await PageThroughAsync(
+        var paged = await PageThroughAsync(
             ByName(),
             [other, retired, replacement],
             [other, replacement, retired]);
@@ -65,11 +64,11 @@ public class ListCamerasPagingOrderTests
     {
         // No index claims this pair is unique at all: registeredAt ties among
         // live rows too, so `includeRetired` is not what makes it reachable.
-        Camera earliest = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-Early");
-        Camera first = RegisterCameraAt("2026-05-21T10:00:00Z", "Cam-Tied-One");
-        Camera second = RegisterCameraAt("2026-05-21T10:00:00Z", "Cam-Tied-Two");
+        var earliest = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-Early");
+        var first = RegisterCameraAt("2026-05-21T10:00:00Z", "Cam-Tied-One");
+        var second = RegisterCameraAt("2026-05-21T10:00:00Z", "Cam-Tied-Two");
 
-        IReadOnlyList<Guid> paged = await PageThroughAsync(
+        var paged = await PageThroughAsync(
             ByRegisteredAt(),
             [earliest, first, second],
             [earliest, second, first]);
@@ -99,7 +98,7 @@ public class ListCamerasPagingOrderTests
     {
         ListCamerasQueryHandler handler = new(new InMemoryCameraQuerySource([.. cameras]));
 
-        Result<CameraListPageDto, ListCamerasError> result =
+        var result =
             await handler.HandleAsync(query, CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

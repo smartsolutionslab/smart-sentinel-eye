@@ -26,14 +26,14 @@ public sealed class MediaMtxApiAuthenticator(IOptions<MediaMtxApiOptions> option
             return false;
         }
 
-        string secret = options.Value.Secret;
+        var secret = options.Value.Secret;
         if (string.IsNullOrEmpty(secret))
         {
             return false;
         }
 
-        byte[] presented = SHA256.HashData(Encoding.UTF8.GetBytes(password));
-        byte[] configured = SHA256.HashData(Encoding.UTF8.GetBytes(secret));
+        var presented = SHA256.HashData(Encoding.UTF8.GetBytes(password));
+        var configured = SHA256.HashData(Encoding.UTF8.GetBytes(secret));
 
         return CryptographicOperations.FixedTimeEquals(presented, configured);
     }

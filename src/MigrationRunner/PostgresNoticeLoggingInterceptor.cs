@@ -1,6 +1,5 @@
 using System.Data.Common;
 using Microsoft.EntityFrameworkCore.Diagnostics;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace SmartSentinelEye.MigrationRunner;
@@ -93,7 +92,7 @@ internal sealed class PostgresNoticeLoggingInterceptor(
 
     private void OnNotice(object sender, NpgsqlNoticeEventArgs args)
     {
-        PostgresNotice notice = args.Notice;
+        var notice = args.Notice;
 
         // Severity is mapped, not flattened. A migration's RAISE WARNING
         // arriving at Debug would be filtered out by default, which is the

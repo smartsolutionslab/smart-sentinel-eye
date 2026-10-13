@@ -29,7 +29,7 @@ public sealed class MosquittoConnectionFactory(
 {
     public async Task<MqttConnection> CreateAsync(CancellationToken cancellationToken)
     {
-        MosquittoOptions opts = options.Value;
+        var opts = options.Value;
 
         TokenHolder token = new();
 
@@ -66,7 +66,7 @@ public sealed class MosquittoConnectionFactory(
         // measured against, so pinning it restores the protocol rather than
         // changing it. Moving to MQTT 5 semantics is a protocol decision, not
         // part of a library port.
-        MqttClientOptionsBuilder clientOptions = new MqttClientOptionsBuilder()
+        var clientOptions = new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId(opts.ClientId)
             .WithTcpServer(opts.Host, opts.Port)

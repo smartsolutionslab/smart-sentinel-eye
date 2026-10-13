@@ -80,18 +80,18 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     [Fact]
     public async Task A_camera_registration_reaches_the_camera_catalog_log_tail()
     {
-        string token = InventedToken("logtail-camera");
+        var token = InventedToken("logtail-camera");
 
-        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+        using var cameras = await aspire.CreateAuthenticatedClientAsync(
             CameraCatalogResource, MultiFabOperator, OperatorPassword);
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             "/cameras?fabId=munich",
             new { name = token, rtspUrl = "rtsp://10.0.5.42/h264" });
         created.StatusCode.ShouldBe(
             HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        string tail = await PollForAsync(CameraCatalogResource, token);
+        var tail = await PollForAsync(CameraCatalogResource, token);
 
         ShouldCarry(CameraCatalogResource, token, tail);
     }
@@ -129,14 +129,14 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     [Fact]
     public async Task A_capture_keeps_a_line_the_tail_has_already_evicted()
     {
-        using LogCapture capture = aspire.CaptureLogs(CameraCatalogResource);
+        using var capture = aspire.CaptureLogs(CameraCatalogResource);
 
-        string token = InventedToken("logtail-capture");
+        var token = InventedToken("logtail-capture");
 
-        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+        using var cameras = await aspire.CreateAuthenticatedClientAsync(
             CameraCatalogResource, MultiFabOperator, OperatorPassword);
 
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             "/cameras?fabId=munich",
             new { name = token, rtspUrl = "rtsp://10.0.5.43/h264" });
         created.StatusCode.ShouldBe(
@@ -146,7 +146,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
         // exercises below — otherwise a capture that only ever saw
         // RecordLogLine's synthetic input would prove nothing about the
         // production path this spec exists to fix.
-        bool delivered = await PollCaptureAsync(capture, token);
+        var delivered = await PollCaptureAsync(capture, token);
         delivered.ShouldBeTrue(
             $"'{token}' never reached the capture within {DeliveryTimeoutSeconds}s — the camera "
             + "registration itself did not log, which the eviction assertions below cannot then "
@@ -156,7 +156,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
         // lines — more than the ring's own capacity, so the real line above
         // (already the newest entry when the poll succeeded) is guaranteed to
         // be pushed out. Not the token's own text: see the class doc.
-        for (int i = 0; i < 401; i++)
+        for (var i = 0; i < 401; i++)
         {
             aspire.RecordLogLine(
                 CameraCatalogResource,
@@ -194,11 +194,11 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     [Fact]
     public async Task Every_tailed_resource_has_delivered_log_content()
     {
-        string[] tailed = TailedResourceNames();
+        var tailed = TailedResourceNames();
         tailed.ShouldNotBeEmpty("AspireFixture.TailedResources is empty; this test would prove nothing.");
 
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
-        List<string> placeholders = PlaceholdersAmong(tailed);
+        var deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
+        var placeholders = PlaceholdersAmong(tailed);
 
         while (placeholders.Count > 0 && DateTimeOffset.UtcNow < deadline)
         {
@@ -215,7 +215,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     private List<string> PlaceholdersAmong(string[] tailed)
     {
         List<string> placeholders = [];
-        foreach (string resourceName in tailed)
+        foreach (var resourceName in tailed)
         {
             if (PlaceholderIn(aspire.RecentLogs(resourceName)) is string placeholder)
             {
@@ -261,18 +261,18 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     {
         await RestartAsync(EventIngestionResource);
 
-        string token = InventedToken("logtail-webhook");
+        var token = InventedToken("logtail-webhook");
 
-        using HttpClient events = await aspire.CreateAuthenticatedClientAsync(
+        using var events = await aspire.CreateAuthenticatedClientAsync(
             EventIngestionResource, MultiFabOperator, OperatorPassword);
 
-        HttpResponseMessage created = await events.PostAsJsonAsync(
+        var created = await events.PostAsJsonAsync(
             "/webhook-integrations?fabId=munich",
             new { name = token, defaultKind = "WebhookAlarm" });
         created.StatusCode.ShouldBe(
             HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        string tail = await PollForAsync(EventIngestionResource, token);
+        var tail = await PollForAsync(EventIngestionResource, token);
 
         ShouldCarry(EventIngestionResource, token, tail);
     }
@@ -284,8 +284,8 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// </summary>
     private async Task<string> PollForAsync(string resourceName, string token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
-        string tail = aspire.RecentLogs(resourceName);
+        var deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
+        var tail = aspire.RecentLogs(resourceName);
 
         while (!tail.Contains(token, StringComparison.Ordinal) && DateTimeOffset.UtcNow < deadline)
         {
@@ -303,7 +303,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// </summary>
     private static async Task<bool> PollCaptureAsync(LogCapture capture, string token)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
+        var deadline = DateTimeOffset.UtcNow + DeliveryTimeout;
 
         while (!capture.Contains(token) && DateTimeOffset.UtcNow < deadline)
         {
@@ -345,7 +345,7 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// </summary>
     private static string[] TailedResourceNames()
     {
-        FieldInfo? field = typeof(AspireFixture).GetField(
+        var field = typeof(AspireFixture).GetField(
             "TailedResources", BindingFlags.NonPublic | BindingFlags.Static);
 
         field.ShouldNotBeNull(
@@ -371,12 +371,12 @@ public class LogTailDeliversIntegrationTests(AspireFixture aspire, ITestOutputHe
     /// </summary>
     private async Task RestartAsync(string resourceName)
     {
-        ResourceCommandService commands =
+        var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
         try
         {
-            ExecuteCommandResult result = await commands.ExecuteCommandAsync(
+            var result = await commands.ExecuteCommandAsync(
                 resourceName, KnownResourceCommands.RestartCommand, CancellationToken.None);
             result.Success.ShouldBeTrue($"could not restart {resourceName}: {result.Message}");
         }

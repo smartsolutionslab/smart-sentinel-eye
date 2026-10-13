@@ -9,8 +9,8 @@ public sealed class RampBehaviour : ISensorBehaviour
 
     public double Sample(SensorDefinition sensor, double fraction, Random random)
     {
-        double min = sensor.Min ?? 0d;
-        double max = sensor.Max ?? min;
+        var min = sensor.Min ?? 0d;
+        var max = sensor.Max ?? min;
         return min + ((max - min) * fraction);
     }
 }

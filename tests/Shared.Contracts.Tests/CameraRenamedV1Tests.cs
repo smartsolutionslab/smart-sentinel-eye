@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -25,8 +24,8 @@ public class CameraRenamedV1Tests
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
-        Guid camera = Guid.CreateVersion7();
-        Guid operatorId = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
+        var operatorId = Guid.CreateVersion7();
 
         CameraRenamedV1 evt = new(
             camera, "munich", "line-3-inlet", "line-4-inlet", RenamedAt, operatorId, Metadata: TestMetadata);
@@ -61,8 +60,8 @@ public class CameraRenamedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid camera = Guid.CreateVersion7();
-        Guid operatorId = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
+        var operatorId = Guid.CreateVersion7();
 
         CameraRenamedV1 first = new(
             camera, "munich", "line-3-inlet", "line-4-inlet", RenamedAt, operatorId, Metadata: TestMetadata);
@@ -83,8 +82,8 @@ public class CameraRenamedV1Tests
     [Fact]
     public void A_case_only_rename_is_not_equal_to_no_rename_at_all()
     {
-        Guid camera = Guid.CreateVersion7();
-        Guid operatorId = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
+        var operatorId = Guid.CreateVersion7();
 
         CameraRenamedV1 cased = new(
             camera, "munich", "Line-3-Inlet", "line-3-inlet", RenamedAt, operatorId, Metadata: TestMetadata);
@@ -98,14 +97,14 @@ public class CameraRenamedV1Tests
     [Fact]
     public void JSON_round_trip_preserves_every_field()
     {
-        Guid camera = Guid.CreateVersion7();
-        Guid operatorId = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
+        var operatorId = Guid.CreateVersion7();
 
         CameraRenamedV1 original = new(
             camera, "munich", "line-3-inlet", "line-4-inlet", RenamedAt, operatorId, Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        CameraRenamedV1 deserialized = JsonSerializer.Deserialize<CameraRenamedV1>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<CameraRenamedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

@@ -65,7 +65,7 @@ public sealed class Revision
         // under that revision; reusing the same instances would make EF see
         // one owned entity under two owners and throw on save. Cloning is a
         // harmless copy on the create path (fresh grid + tiles).
-        foreach (Tile tile in tiles)
+        foreach (var tile in tiles)
         {
             revision.tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position, tile.Span));
         }

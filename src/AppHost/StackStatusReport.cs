@@ -140,8 +140,8 @@ public static class StackStatusReport
             return;
         }
 
-        DistributedApplicationModel model = app.Services.GetRequiredService<DistributedApplicationModel>();
-        IReadOnlyList<string> names = ExpectedResourceNames(model.Resources);
+        var model = app.Services.GetRequiredService<DistributedApplicationModel>();
+        var names = ExpectedResourceNames(model.Resources);
         HashSet<string> expectedNames = new(names, StringComparer.Ordinal);
 
         // Keyed by "the most specific identity known so far": the bare
@@ -162,7 +162,7 @@ public static class StackStatusReport
         // the report's one-line-per-resource-name shape (plan.md §2.4, which
         // the gate parses byte-for-byte) never has to change.
         Dictionary<string, ResourceStatusLine> instances = new(StringComparer.Ordinal);
-        foreach (string name in names)
+        foreach (var name in names)
         {
             instances[name] = new ResourceStatusLine(name, NotReported, string.Empty);
         }
@@ -172,7 +172,7 @@ public static class StackStatusReport
         // ILogger<StackStatusReport> does not compile — this is a static
         // class, and static types cannot be generic type arguments (CS0718)
         // — so the category name is created directly instead.
-        ILogger logger = app.Services.GetRequiredService<ILoggerFactory>()
+        var logger = app.Services.GetRequiredService<ILoggerFactory>()
             .CreateLogger(typeof(StackStatusReport).FullName ?? nameof(StackStatusReport));
 
         app.Services.GetRequiredService<IDistributedApplicationEventing>()
@@ -208,9 +208,9 @@ public static class StackStatusReport
     {
         try
         {
-            await foreach (ResourceEvent resourceEvent in notifications.WatchAsync(cancellationToken))
+            await foreach (var resourceEvent in notifications.WatchAsync(cancellationToken))
             {
-                string name = resourceEvent.Resource.Name;
+                var name = resourceEvent.Resource.Name;
                 if (!expectedNames.Contains(name))
                 {
                     // Not part of the expected set (e.g. a ParameterResource,
@@ -220,7 +220,7 @@ public static class StackStatusReport
                     continue;
                 }
 
-                string instanceKey = string.IsNullOrEmpty(resourceEvent.ResourceId) ? name : resourceEvent.ResourceId;
+                var instanceKey = string.IsNullOrEmpty(resourceEvent.ResourceId) ? name : resourceEvent.ResourceId;
                 instances[instanceKey] = new ResourceStatusLine(
                     name,
                     resourceEvent.Snapshot.State?.Text ?? NotReported,
@@ -312,8 +312,8 @@ public static class StackStatusReport
             reportLines.Add(watchEndedComment);
         }
 
-        string directory = Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".";
-        string tempPath = Path.Combine(directory, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
+        var directory = Path.GetDirectoryName(Path.GetFullPath(path)) ?? ".";
+        var tempPath = Path.Combine(directory, $".{Path.GetFileName(path)}.{Guid.NewGuid():N}.tmp");
 
         File.WriteAllLines(tempPath, reportLines);
         File.Move(tempPath, path, overwrite: true);

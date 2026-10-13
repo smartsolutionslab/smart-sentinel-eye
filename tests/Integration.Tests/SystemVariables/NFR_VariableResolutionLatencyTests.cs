@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Net.Http.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.SystemVariables;
@@ -149,10 +148,10 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     [Fact]
     public async Task Value_change_reaches_the_resolved_overlay_text_within_the_leg_budget()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
 
-        string variableName = VariableRequests.UniqueName();
+        var variableName = VariableRequests.UniqueName();
         (await variables.PostAsJsonAsync("/system-variables", new
         {
             name = variableName,
@@ -162,7 +161,7 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
             falsyLabel = (string?)null,
         })).EnsureSuccessStatusCode();
 
-        Guid overlay = await OverlayRequests.PublishWithLabelAsync(
+        var overlay = await OverlayRequests.PublishWithLabelAsync(
             overlays, $"Line 1: {{{{{variableName}}}}}", "Nfr");
 
         // The index is populated by an integration event, so the overlay is not
@@ -172,20 +171,20 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
         await OverlaySnapshotReadiness.WaitUntilResolvableAsync(variables, overlay, variableName);
 
         List<long> warmups = [];
-        for (int round = 0; round < WarmupRounds; round++)
+        for (var round = 0; round < WarmupRounds; round++)
         {
             warmups.Add(await MeasureOneChangeAsync(variables, overlay, variableName, 1000 + round));
         }
 
         List<long> measured = [];
-        for (int round = 0; round < MeasuredRounds; round++)
+        for (var round = 0; round < MeasuredRounds; round++)
         {
             measured.Add(await MeasureOneChangeAsync(variables, overlay, variableName, 2000 + round));
         }
 
         measured.Sort();
-        long median = measured[measured.Count / 2];
-        long worst = measured[^1];
+        var median = measured[measured.Count / 2];
+        var worst = measured[^1];
 
         // The artefact. Recorded in the test output so the figure survives the
         // run and T039 has something to compare against.
@@ -213,16 +212,16 @@ public class NFR_VariableResolutionLatencyTests(AspireFixture aspire) : IAsyncLi
     private static async Task<long> MeasureOneChangeAsync(
         HttpClient variables, Guid overlay, string variableName, int value)
     {
-        HttpResponseMessage written = await VariableRequests.SetValueAsync(
+        var written = await VariableRequests.SetValueAsync(
             variables, variableName, value.ToString(CultureInfo.InvariantCulture));
         written.EnsureSuccessStatusCode();
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        string expected = value.ToString(CultureInfo.InvariantCulture);
+        var stopwatch = Stopwatch.StartNew();
+        var expected = value.ToString(CultureInfo.InvariantCulture);
 
         while (stopwatch.ElapsedMilliseconds < 10_000)
         {
-            string? resolved = await OverlaySnapshotReadiness.ResolvedTextAsync(variables, overlay);
+            var resolved = await OverlaySnapshotReadiness.ResolvedTextAsync(variables, overlay);
 
             // A non-200 meant "not a match" before this method returned string.Empty for
             // it, and it must go on meaning exactly that now that it returns null (#2201) —

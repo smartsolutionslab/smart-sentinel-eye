@@ -17,7 +17,7 @@ public sealed class MediaMtxWhepUrlBuilder(IOptions<MediaMtxOptions> options) : 
     {
         Ensure.That(path).IsNotNull();
 
-        string baseUrl = options.Value.WhepBaseUrl.TrimEnd('/');
+        var baseUrl = options.Value.WhepBaseUrl.TrimEnd('/');
         return $"{baseUrl}/{path.Value}/whep";
     }
 }

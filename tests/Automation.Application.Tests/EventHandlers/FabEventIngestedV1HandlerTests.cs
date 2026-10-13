@@ -11,7 +11,6 @@ using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
-using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.EventHandlers;
@@ -45,7 +44,7 @@ public class FabEventIngestedV1HandlerTests
     private static RuleAggregate ActiveSetVariableRule(
         string predicate, string valueExpression, string fab = "munich", string name = "test-rule")
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithFab(fab)
             .WithName(name)
             .WithPredicate(predicate)
@@ -59,7 +58,7 @@ public class FabEventIngestedV1HandlerTests
     private static RuleAggregate ActiveHighlightRule(
         string name, Guid overlay, int durationMs, DateTimeOffset createdAt)
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName(name)
             .WithAction(RuleAction.HighlightOverlay.From(overlay, durationMs))
             .WithClock(createdAt)
@@ -71,7 +70,7 @@ public class FabEventIngestedV1HandlerTests
     private static RuleAggregate ActiveSwitchWallSceneRule(
         string name, Guid wall, string target, Guid? layout, DateTimeOffset createdAt, string fab = "munich")
     {
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName(name)
             .WithFab(fab)
             .WithAction(RuleAction.SwitchWallScene.From(wall, target, layout))
@@ -96,10 +95,10 @@ public class FabEventIngestedV1HandlerTests
             new FakeClock(BaseMoment.AddSeconds(0.05)),
             NullLogger<FabEventIngestedV1Handler>.Instance);
 
-        FabEventIngestedV1 ingested = PlcCycleStart();
+        var ingested = PlcCycleStart();
         await handler.Handle(ingested, CancellationToken.None);
 
-        SystemVariableValueRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<SystemVariableValueRequestedV1>()
             .ShouldHaveSingleItem();
         published.Name.ShouldBe("oeeLine1");
@@ -126,13 +125,13 @@ public class FabEventIngestedV1HandlerTests
         cache.Upsert(ActiveSetVariableRule("$.payload.cycleTime <= 30", "$.payload.station"));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
-        FabEventIngestedV1 ingested = PlcCycleStart(
+        var ingested = PlcCycleStart(
             payload: "{\"cycleTime\":27,\"station\":\"station-4-east\"}");
         await handler.Handle(ingested, CancellationToken.None);
 
-        SystemVariableValueRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<SystemVariableValueRequestedV1>()
             .ShouldHaveSingleItem();
         published.Value.ShouldBe("station-4-east");
@@ -141,10 +140,10 @@ public class FabEventIngestedV1HandlerTests
     [Fact]
     public async Task HighlightOverlay_action_publishes_OverlayHighlightRequestedV1()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
 
-        RuleAggregate rule = new RuleBuilder()
+        var rule = new RuleBuilder()
             .WithName("highlight-rule")
             .WithAction(RuleAction.HighlightOverlay.From(overlay, 10_000))
             .WithClock(BaseMoment)
@@ -161,7 +160,7 @@ public class FabEventIngestedV1HandlerTests
 
         await handler.Handle(PlcCycleStart(), CancellationToken.None);
 
-        OverlayHighlightRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<OverlayHighlightRequestedV1>()
             .ShouldHaveSingleItem();
         published.OverlayIdentifier.ShouldBe(overlay);
@@ -171,7 +170,7 @@ public class FabEventIngestedV1HandlerTests
     [Fact]
     public async Task Two_highlight_actions_on_the_same_overlay_both_publish()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
         // Both survive the upsert: InMemoryRuleCache removes by rule identifier,
         // and Rule.Create mints a fresh one per Build. The names are only labels.
@@ -183,16 +182,16 @@ public class FabEventIngestedV1HandlerTests
             "highlight-rule-b", overlay, 12_000, BaseMoment.AddMinutes(5)));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
-        FabEventIngestedV1 ingested = PlcCycleStart();
+        var ingested = PlcCycleStart();
         await handler.Handle(ingested, CancellationToken.None);
 
         // Both windows ride the bus; the kiosk ORs them by later expiry
         // (CellPage.test.tsx:491), so the producer emits both rather than
         // picking. The shared CausingEventIdentifier is what tells "two
         // rules, one event" from "one rule, two events".
-        OverlayHighlightRequestedV1[] published = bus.Published
+        var published = bus.Published
             .OfType<OverlayHighlightRequestedV1>().ToArray();
         published.Length.ShouldBe(2);
         published.Select(p => p.OverlayIdentifier).ShouldBe([overlay, overlay]);
@@ -206,18 +205,18 @@ public class FabEventIngestedV1HandlerTests
     [Fact]
     public async Task SwitchWallScene_action_with_Next_target_publishes_WallSceneSwitchRequestedV1()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
-        RuleAggregate rule = ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment);
+        var rule = ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment);
         cache.Upsert(rule);
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
-        FabEventIngestedV1 ingested = PlcCycleStart();
+        var ingested = PlcCycleStart();
         await handler.Handle(ingested, CancellationToken.None);
 
-        WallSceneSwitchRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<WallSceneSwitchRequestedV1>()
             .ShouldHaveSingleItem();
         published.Wall.ShouldBe(wall);
@@ -230,18 +229,18 @@ public class FabEventIngestedV1HandlerTests
     [Fact]
     public async Task SwitchWallScene_action_with_Layout_target_publishes_the_target_layout()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid layout = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var layout = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
-        RuleAggregate rule = ActiveSwitchWallSceneRule("switch-rule", wall, "Layout", layout, BaseMoment);
+        var rule = ActiveSwitchWallSceneRule("switch-rule", wall, "Layout", layout, BaseMoment);
         cache.Upsert(rule);
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
         await handler.Handle(PlcCycleStart(), CancellationToken.None);
 
-        WallSceneSwitchRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<WallSceneSwitchRequestedV1>()
             .ShouldHaveSingleItem();
         published.Target.ShouldBe("Layout");
@@ -257,17 +256,17 @@ public class FabEventIngestedV1HandlerTests
     [Fact]
     public async Task SwitchWallScene_metadata_matches_the_highlight_branchs_own()
     {
-        Guid wall = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
         InMemoryRuleCache cache = new();
         cache.Upsert(ActiveSwitchWallSceneRule("switch-rule", wall, "Next", null, BaseMoment, fab: "dresden"));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
-        FabEventIngestedV1 ingested = PlcCycleStart(fab: "dresden");
+        var ingested = PlcCycleStart(fab: "dresden");
         await handler.Handle(ingested, CancellationToken.None);
 
-        WallSceneSwitchRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<WallSceneSwitchRequestedV1>()
             .ShouldHaveSingleItem();
         published.Metadata.Fab.ShouldBe("dresden");
@@ -279,20 +278,20 @@ public class FabEventIngestedV1HandlerTests
     public async Task Two_switch_wall_scene_rules_on_the_same_event_publish_two_requests_with_distinct_Rule()
     {
         InMemoryRuleCache cache = new();
-        RuleAggregate ruleA = ActiveSwitchWallSceneRule(
+        var ruleA = ActiveSwitchWallSceneRule(
             "switch-rule-a", Guid.CreateVersion7(), "Next", null, BaseMoment);
-        RuleAggregate ruleB = ActiveSwitchWallSceneRule(
+        var ruleB = ActiveSwitchWallSceneRule(
             "switch-rule-b", Guid.CreateVersion7(), "Next", null, BaseMoment.AddMinutes(5));
         cache.Upsert(ruleA);
         cache.Upsert(ruleB);
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
-        FabEventIngestedV1 ingested = PlcCycleStart();
+        var ingested = PlcCycleStart();
         await handler.Handle(ingested, CancellationToken.None);
 
-        WallSceneSwitchRequestedV1[] published = bus.Published
+        var published = bus.Published
             .OfType<WallSceneSwitchRequestedV1>().ToArray();
         published.Length.ShouldBe(2);
         published.Select(p => p.Rule).ShouldBe([ruleA.Id.Value, ruleB.Id.Value]);
@@ -332,7 +331,7 @@ public class FabEventIngestedV1HandlerTests
             "$.payload.cycleTime <= 30", "1", fab: "dresden", name: "dresden-rule"));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
         await handler.Handle(PlcCycleStart(fab: "munich"), CancellationToken.None);
 
@@ -356,11 +355,11 @@ public class FabEventIngestedV1HandlerTests
             "$.payload.cycleTime <= 30", "999", fab: "dresden", name: "dresden-rule"));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
         await handler.Handle(PlcCycleStart(fab: "munich"), CancellationToken.None);
 
-        SystemVariableValueRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<SystemVariableValueRequestedV1>()
             .ShouldHaveSingleItem();
         published.Value.ShouldBe("46");
@@ -377,11 +376,11 @@ public class FabEventIngestedV1HandlerTests
             "$.payload.cycleTime <= 30", "1", fab: "dresden", name: "dresden-rule"));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
         await handler.Handle(PlcCycleStart(fab: "dresden"), CancellationToken.None);
 
-        SystemVariableValueRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<SystemVariableValueRequestedV1>()
             .ShouldHaveSingleItem();
         published.Metadata.Fab.ShouldBe("dresden");
@@ -399,7 +398,7 @@ public class FabEventIngestedV1HandlerTests
         cache.Upsert(ActiveSetVariableRule("$.payload.cycleTime <= 30", "1"));
 
         FakeEventBus bus = new();
-        FabEventIngestedV1Handler handler = HandlerFor(cache, bus);
+        var handler = HandlerFor(cache, bus);
 
         await handler.Handle(PlcCycleStart(fab: fab), CancellationToken.None);
 
@@ -433,7 +432,7 @@ public class FabEventIngestedV1HandlerTests
 
         await handler.Handle(PlcCycleStart(fab: "NotAFab"), CancellationToken.None);
 
-        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        var entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Message.ShouldContain("NotAFab");
         entry.Exception.ShouldBeOfType<ArgumentException>();
@@ -452,7 +451,7 @@ public class FabEventIngestedV1HandlerTests
 
         // The same event identifier on both, or the rendered messages differ
         // on the id alone and this passes however identical the templates are.
-        Guid causing = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
         await HandlerWith(absent).Handle(PlcCycleStart(causing, ""), CancellationToken.None);
         await HandlerWith(unparseable).Handle(PlcCycleStart(causing, "NotAFab"), CancellationToken.None);
 
@@ -485,10 +484,10 @@ public class FabEventIngestedV1HandlerTests
             new FakeClock(BaseMoment.AddSeconds(0.05)),
             logger);
 
-        FabEventIngestedV1 ingested = PlcCycleStart(payload: Nested(depth));
+        var ingested = PlcCycleStart(payload: Nested(depth));
         await handler.Handle(ingested, CancellationToken.None);
 
-        SystemVariableValueRequestedV1 published = bus.Published
+        var published = bus.Published
             .OfType<SystemVariableValueRequestedV1>()
             .ShouldHaveSingleItem();
         published.Name.ShouldBe("oeeLine1");
@@ -511,11 +510,11 @@ public class FabEventIngestedV1HandlerTests
             new FakeClock(BaseMoment.AddSeconds(0.05)),
             logger);
 
-        FabEventIngestedV1 ingested = PlcCycleStart(payload: Nested(depth));
+        var ingested = PlcCycleStart(payload: Nested(depth));
         await handler.Handle(ingested, CancellationToken.None);
 
         bus.Published.ShouldBeEmpty();
-        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        var entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Exception.ShouldBeAssignableTo<JsonException>();
     }
@@ -539,11 +538,11 @@ public class FabEventIngestedV1HandlerTests
             new FakeClock(BaseMoment.AddSeconds(0.05)),
             logger);
 
-        FabEventIngestedV1 ingested = PlcCycleStart(payload: payload);
+        var ingested = PlcCycleStart(payload: payload);
         await handler.Handle(ingested, CancellationToken.None);
 
         bus.Published.ShouldBeEmpty();
-        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        var entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Exception.ShouldBeAssignableTo<JsonException>();
         entry.Message.ShouldContain(ingested.EventIdentifier.ToString());
@@ -564,11 +563,11 @@ public class FabEventIngestedV1HandlerTests
             new FakeClock(BaseMoment.AddSeconds(0.05)),
             logger);
 
-        FabEventIngestedV1 ingested = PlcCycleStart(payload: null!);
+        var ingested = PlcCycleStart(payload: null!);
         await handler.Handle(ingested, CancellationToken.None);
 
         bus.Published.ShouldBeEmpty();
-        (LogLevel Level, string Message, Exception? Exception) entry = logger.Entries.ShouldHaveSingleItem();
+        var entry = logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Exception.ShouldBeAssignableTo<JsonException>();
         entry.Message.ShouldContain(ingested.EventIdentifier.ToString());
@@ -586,15 +585,15 @@ public class FabEventIngestedV1HandlerTests
         CapturingLogger<FabEventIngestedV1Handler> unparseableFab = new();
         CapturingLogger<FabEventIngestedV1Handler> unparseablePayload = new();
 
-        Guid causing = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
         await HandlerWith(absentFab).Handle(PlcCycleStart(causing, ""), CancellationToken.None);
         await HandlerWith(unparseableFab).Handle(PlcCycleStart(causing, "NotAFab"), CancellationToken.None);
         await HandlerWith(unparseablePayload).Handle(
             PlcCycleStart(causing, "munich", "not json"), CancellationToken.None);
 
-        string absentFabMessage = absentFab.Entries.ShouldHaveSingleItem().Message;
-        string unparseableFabMessage = unparseableFab.Entries.ShouldHaveSingleItem().Message;
-        string unparseablePayloadMessage = unparseablePayload.Entries.ShouldHaveSingleItem().Message;
+        var absentFabMessage = absentFab.Entries.ShouldHaveSingleItem().Message;
+        var unparseableFabMessage = unparseableFab.Entries.ShouldHaveSingleItem().Message;
+        var unparseablePayloadMessage = unparseablePayload.Entries.ShouldHaveSingleItem().Message;
 
         unparseablePayloadMessage.ShouldNotBe(absentFabMessage);
         unparseablePayloadMessage.ShouldNotBe(unparseableFabMessage);
@@ -604,14 +603,14 @@ public class FabEventIngestedV1HandlerTests
     public async Task An_unparseable_payload_log_carries_its_length_not_its_text()
     {
         const int length = 60_000;
-        string payload = "not json".PadRight(length, 'x');
+        var payload = "not json".PadRight(length, 'x');
 
         CapturingLogger<FabEventIngestedV1Handler> logger = new();
-        FabEventIngestedV1Handler handler = HandlerWith(logger);
+        var handler = HandlerWith(logger);
 
         await handler.Handle(PlcCycleStart(payload: payload), CancellationToken.None);
 
-        string message = logger.Entries.ShouldHaveSingleItem().Message;
+        var message = logger.Entries.ShouldHaveSingleItem().Message;
         message.ShouldNotContain(payload[..200]);
         message.ShouldContain(length.ToString(CultureInfo.InvariantCulture));
     }

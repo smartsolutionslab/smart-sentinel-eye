@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 
@@ -29,16 +27,16 @@ public sealed class CameraSimReconciler(
 {
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        ScenarioOptions scenarios = scenarioOptions.Value;
+        var scenarios = scenarioOptions.Value;
 
-        int reconciled = 0;
-        int total = 0;
+        var reconciled = 0;
+        var total = 0;
 
         // Every active scenario, and a missing key skips only its own — one bad
         // entry in the list must not take the other plants down with it.
-        foreach (string key in scenarios.Active)
+        foreach (var key in scenarios.Active)
         {
-            if (!scenarios.Scenarios.TryGetValue(key, out ScenarioDefinition? scenario))
+            if (!scenarios.Scenarios.TryGetValue(key, out var scenario))
             {
                 logger.ScenarioNotFound(key);
                 continue;
@@ -46,7 +44,7 @@ public sealed class CameraSimReconciler(
 
             total += scenario.Assets.Count;
 
-            foreach (CameraDefinition sim in scenario.Assets.Select(asset => asset.Camera))
+            foreach (var sim in scenario.Assets.Select(asset => asset.Camera))
             {
                 // FR-007. An asset naming a clip that is not there provisions a
                 // path that never becomes ready, which on the wall is

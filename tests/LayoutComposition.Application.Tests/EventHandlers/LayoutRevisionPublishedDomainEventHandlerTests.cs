@@ -1,10 +1,8 @@
 using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.EventHandlers;
 
@@ -22,11 +20,11 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
         FakeLayoutLifecycleBroadcaster broadcaster = new();
         LayoutRevisionPublishedDomainEventHandler handler = new(bus, broadcaster);
 
-        LayoutIdentifier layout = LayoutIdentifier.New();
-        CameraIdentifier cameraA = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier cameraB = CameraIdentifier.From(Guid.CreateVersion7());
-        OverlayIdentifier overlay = OverlayIdentifier.From(Guid.CreateVersion7());
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = LayoutIdentifier.New();
+        var cameraA = CameraIdentifier.From(Guid.CreateVersion7());
+        var cameraB = CameraIdentifier.From(Guid.CreateVersion7());
+        var overlay = OverlayIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IReadOnlyList<Tile> tiles =
         [
             new Tile(cameraA, Option<OverlayIdentifier>.Some(overlay), GridPosition.From(0, 0)),
@@ -39,7 +37,7 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
         await handler.Handle(domainEvent, CancellationToken.None);
 
         bus.Published.ShouldHaveSingleItem();
-        LayoutRevisionPublishedV2 v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
+        var v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
         v2.Layout.ShouldBe(layout.Value);
         v2.RevisionNumber.ShouldBe(1);
         v2.Name.ShouldBe("Line-1");
@@ -47,7 +45,7 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
         v2.GridCols.ShouldBe(2);
         v2.PublishedBy.ShouldBe(by.Value);
         v2.Tiles.Count.ShouldBe(2);
-        LayoutTileV2 first = v2.Tiles.Single(tile => tile.Camera == cameraA.Value);
+        var first = v2.Tiles.Single(tile => tile.Camera == cameraA.Value);
         first.Overlay.ShouldBe(overlay.Value);
         first.Row.ShouldBe(0);
         first.Col.ShouldBe(0);
@@ -64,10 +62,10 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
         FakeEventBus bus = new();
         LayoutRevisionPublishedDomainEventHandler handler = new(bus, new FakeLayoutLifecycleBroadcaster());
 
-        LayoutIdentifier layout = LayoutIdentifier.New();
-        CameraIdentifier hero = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier filler = CameraIdentifier.From(Guid.CreateVersion7());
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = LayoutIdentifier.New();
+        var hero = CameraIdentifier.From(Guid.CreateVersion7());
+        var filler = CameraIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IReadOnlyList<Tile> tiles =
         [
             new Tile(hero, Option<OverlayIdentifier>.None, GridPosition.From(0, 0), TileSpan.From(2, 2)),
@@ -79,11 +77,11 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        LayoutRevisionPublishedV2 v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
-        LayoutTileV2 heroTile = v2.Tiles.Single(tile => tile.Camera == hero.Value);
+        var v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
+        var heroTile = v2.Tiles.Single(tile => tile.Camera == hero.Value);
         heroTile.RowSpan.ShouldBe(2);
         heroTile.ColSpan.ShouldBe(2);
-        LayoutTileV2 fillerTile = v2.Tiles.Single(tile => tile.Camera == filler.Value);
+        var fillerTile = v2.Tiles.Single(tile => tile.Camera == filler.Value);
         fillerTile.RowSpan.ShouldBe(1);
         fillerTile.ColSpan.ShouldBe(1);
     }
@@ -112,7 +110,7 @@ public class LayoutRevisionPublishedDomainEventHandlerTests
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        LayoutRevisionPublishedV2 v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
+        var v2 = bus.Published.Single().ShouldBeOfType<LayoutRevisionPublishedV2>();
         v2.Metadata.Fab.ShouldBe("munich");
     }
 }

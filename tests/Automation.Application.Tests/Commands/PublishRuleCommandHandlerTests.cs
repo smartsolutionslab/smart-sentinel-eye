@@ -5,7 +5,6 @@ using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Tests.Rule;
-using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Commands;
@@ -17,7 +16,7 @@ public class PublishRuleCommandHandlerTests
 
     private static RuleAggregate Seed(InMemoryRuleRepository repo, string name = "high-oee-on-fast-cycle")
     {
-        RuleAggregate rule = new RuleBuilder().WithName(name).WithClock(Now).Build();
+        var rule = new RuleBuilder().WithName(name).WithClock(Now).Build();
         repo.Add(rule);
         return rule;
     }
@@ -27,13 +26,13 @@ public class PublishRuleCommandHandlerTests
     {
         InMemoryRuleRepository repo = new();
         InMemoryRuleCache cache = new();
-        RuleAggregate seeded = Seed(repo);
+        var seeded = Seed(repo);
 
         PublishRuleCommandHandler handler = new(
             repo, cache, new FakeClock(Now.AddHours(1)),
             NullLogger<PublishRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -51,7 +50,7 @@ public class PublishRuleCommandHandlerTests
             repo, cache, new FakeClock(Now),
             NullLogger<PublishRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, PublishRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRuleCommand(FabIdentifier.From("munich"), RuleName.From("ghost"), 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -63,14 +62,14 @@ public class PublishRuleCommandHandlerTests
     {
         InMemoryRuleRepository repo = new();
         InMemoryRuleCache cache = new();
-        RuleAggregate seeded = Seed(repo);
+        var seeded = Seed(repo);
 
         PublishRuleCommandHandler handler = new(
             repo, cache, new FakeClock(Now.AddHours(1)),
             NullLogger<PublishRuleCommandHandler>.Instance);
 
         await handler.HandleAsync(new PublishRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
-        Result<RuleIdentifier, PublishRuleError> second = await handler.HandleAsync(
+        var second = await handler.HandleAsync(
             new PublishRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
 
         second.IsSuccess.ShouldBeTrue();

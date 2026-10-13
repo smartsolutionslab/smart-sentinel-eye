@@ -1,6 +1,5 @@
 using System.Globalization;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Domain.Tests.Layout;
 
@@ -18,7 +17,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void LayoutRevisionPublishedNotification_exposes_every_field()
     {
-        LayoutIdentifier layout = LayoutIdentifier.New();
+        var layout = LayoutIdentifier.New();
 
         LayoutRevisionPublishedNotification notification = new(
             FabIdentifier.From("dresden"), layout, LayoutRevisionNumber.One,
@@ -36,7 +35,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void LayoutRevisionArchivedNotification_exposes_every_field()
     {
-        LayoutIdentifier layout = LayoutIdentifier.New();
+        var layout = LayoutIdentifier.New();
 
         LayoutRevisionArchivedNotification notification = new(
             FabIdentifier.From("dresden"), layout, LayoutRevisionNumber.One, FixedMoment);
@@ -50,7 +49,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void OverlayLifecyclePublishedNotification_exposes_every_field()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         OverlayLifecyclePublishedNotification notification = new(
             [FabIdentifier.From("munich"), FabIdentifier.From("dresden")],
@@ -65,7 +64,7 @@ public class LifecycleNotificationTests
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(1);
         notification.Name.ShouldBe("Line-1 Title");
-        OverlayLifecycleElement element = notification.Elements.ShouldHaveSingleItem();
+        var element = notification.Elements.ShouldHaveSingleItem();
         element.Kind.ShouldBe("Text");
         element.Text.ShouldBe("Production Line 1");
         element.NormalizedX.ShouldBe(0.5m);
@@ -84,7 +83,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void OverlayLifecyclePublishedNotification_carries_every_element_in_order()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         OverlayLifecyclePublishedNotification notification = new(
             [FabIdentifier.From("munich")],
@@ -107,7 +106,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void OverlayLifecyclePublishedNotification_carries_a_non_text_element_with_null_text_and_font_size()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         OverlayLifecyclePublishedNotification notification = new(
             [FabIdentifier.From("munich")],
@@ -115,7 +114,7 @@ public class LifecycleNotificationTests
             [new OverlayLifecycleElement("Box", "#D32F2F00", 0.1m, 0.2m, 0.4m, 0.5m, null, null)],
             FixedMoment);
 
-        OverlayLifecycleElement element = notification.Elements.ShouldHaveSingleItem();
+        var element = notification.Elements.ShouldHaveSingleItem();
         element.Kind.ShouldBe("Box");
         element.Text.ShouldBeNull();
         element.FontSizePx.ShouldBeNull();
@@ -132,7 +131,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void ResolvedOverlayTextChangedNotification_carries_every_resolved_pair_by_template()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         ResolvedOverlayTextChangedNotification notification = new(
             overlay,
@@ -153,7 +152,7 @@ public class LifecycleNotificationTests
     [Fact]
     public void OverlayLifecycleArchivedNotification_exposes_every_field()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
         // An empty set is legitimate and load-bearing: an overlay no published
         // layout references reaches nobody (FR-011).

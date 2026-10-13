@@ -14,8 +14,8 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Draft_to_Published_is_allowed_and_raises_OverlayRevisionPublished()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         overlay.Publish(OverlayRevisionNumber.One, by, new OverlayBuilder.TestClock(FixedMoment));
 
@@ -26,8 +26,8 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Draft_to_Archived_is_allowed_and_raises_no_event()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         overlay.ArchiveRevision(OverlayRevisionNumber.One, by, new OverlayBuilder.TestClock(FixedMoment));
 
@@ -39,8 +39,8 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Published_to_Draft_via_Revert_raises_Archived_for_kiosks()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
         overlay.ClearPendingEvents();
@@ -54,8 +54,8 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Published_to_Archived_via_ArchiveRevision_raises_Archived()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
         overlay.ClearPendingEvents();
@@ -69,8 +69,8 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Archived_to_anything_else_is_forbidden()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
 
@@ -81,8 +81,8 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Re_archiving_an_Archived_revision_is_idempotent_and_silent()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.ArchiveRevision(OverlayRevisionNumber.One, by, clock);
         overlay.ClearPendingEvents();
@@ -96,12 +96,12 @@ public class OverlayRevisionStateMachineTests
     [Fact]
     public void Editing_a_Published_revision_in_place_throws()
     {
-        Domain.Overlay.Overlay overlay = new OverlayBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var overlay = new OverlayBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new OverlayBuilder.TestClock(FixedMoment);
         overlay.Publish(OverlayRevisionNumber.One, by, clock);
 
-        OverlayElement newLabel = OverlayElement.TextElement("Different", 20, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
+        var newLabel = OverlayElement.TextElement("Different", 20, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.2m, 0.2m), OverlayColor.Default);
         Action act = () => overlay.EditDraft(OverlayRevisionNumber.One, [newLabel], clock);
         act.ShouldThrow<InvalidOperationException>();
     }

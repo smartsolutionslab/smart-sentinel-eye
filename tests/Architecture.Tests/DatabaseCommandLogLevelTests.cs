@@ -71,7 +71,7 @@ public class DatabaseCommandLogLevelTests
     [Fact]
     public void Every_shipped_settings_file_that_logs_at_information_silences_the_sql_command_category()
     {
-        Settings[] shipped = ShippedSettings();
+        var shipped = ShippedSettings();
 
         shipped.Length.ShouldBeGreaterThanOrEqualTo(
             20,
@@ -105,7 +105,7 @@ public class DatabaseCommandLogLevelTests
     /// </summary>
     private static Settings[] ShippedSettings()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return
         [
@@ -124,12 +124,12 @@ public class DatabaseCommandLogLevelTests
     /// </summary>
     private static Settings? Read(DirectoryInfo root, string file)
     {
-        IConfigurationRoot configuration = new ConfigurationBuilder()
+        var configuration = new ConfigurationBuilder()
             .AddJsonFile(file, optional: false)
             .Build();
 
-        IConfigurationSection levels = configuration.GetSection("Logging:LogLevel");
-        string? declared = levels["Default"];
+        var levels = configuration.GetSection("Logging:LogLevel");
+        var declared = levels["Default"];
 
         if (!Enum.TryParse(declared, ignoreCase: true, out LogLevel initial) || initial >= QuietEnough)
         {
@@ -140,7 +140,7 @@ public class DatabaseCommandLogLevelTests
         // category against exact keys, then longest prefix, then Default — three
         // rules this guard would otherwise have to restate, and a restatement
         // that drifted would fail files that are correct.
-        using ILoggerFactory factory = LoggerFactory.Create(builder =>
+        using var factory = LoggerFactory.Create(builder =>
         {
             builder.AddConfiguration(configuration.GetSection("Logging"));
             builder.AddProvider(new AlwaysEnabledProvider());

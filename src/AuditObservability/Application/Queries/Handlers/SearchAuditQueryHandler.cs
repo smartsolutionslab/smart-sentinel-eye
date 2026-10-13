@@ -3,7 +3,6 @@ using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using DomainResourceKind = SmartSentinelEye.AuditObservability.Domain.AuditEvent.ResourceKind;
 
 namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
@@ -19,10 +18,10 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
     {
         Ensure.That(query).IsNotNull();
 
-        (string? fab, IReadOnlyList<string>? callerFabs, Guid? actor, string? actorUsername, string? eventKind, string? resourceKind,
-            string? resourceIdentifier, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
+        (var fab, var callerFabs, var actor, var actorUsername, var eventKind, var resourceKind,
+            var resourceIdentifier, var since, var until, var rawPageSize, var rawCursor) = query;
 
-        int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
+        var pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
             return Failure(SearchAuditFailures.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
@@ -43,7 +42,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             }
         }
 
-        IQueryable<AuditEventEntity> source = events.AuditEvents;
+        var source = events.AuditEvents;
 
         // Compare value objects directly (not their `.Value`): EF Core
         // translates equality on a value-converted property to a column
@@ -51,7 +50,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         // CLR type (`a.EventKind.Value == x` throws "could not be translated").
         if (fab is not null)
         {
-            FabIdentifier fabId = FabIdentifier.From(fab);
+            var fabId = FabIdentifier.From(fab);
             source = source.Where(auditEvent => auditEvent.Fab == fabId);
         }
         else
@@ -62,7 +61,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             // the per-entry skip pattern commit e9afe03e established. Not
             // normalised into validity either: a wrong-case claim is not the
             // fab it resembles.
-            List<FabIdentifier> allowed = ParseUsableFabs(callerFabs);
+            var allowed = ParseUsableFabs(callerFabs);
             if (allowed.Count > 0)
             {
                 // Cross-fab rows (fab = null) are included, not excluded. They
@@ -91,7 +90,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
 
         if (actor is { } actorValue)
         {
-            ActorIdentifier actorId = ActorIdentifier.From(actorValue);
+            var actorId = ActorIdentifier.From(actorValue);
             source = source.Where(auditEvent => auditEvent.Actor == actorId);
         }
         if (actorUsername is not null)
@@ -114,17 +113,17 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
         if (eventKind is not null)
         {
-            EventKind kind = EventKind.From(eventKind);
+            var kind = EventKind.From(eventKind);
             source = source.Where(auditEvent => auditEvent.EventKind == kind);
         }
         if (resourceKind is not null)
         {
-            DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
+            var resourceKindFilter = DomainResourceKind.From(resourceKind);
             source = source.Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter);
         }
         if (resourceIdentifier is not null)
         {
-            ResourceIdentifier resId = ResourceIdentifier.From(resourceIdentifier);
+            var resId = ResourceIdentifier.From(resourceIdentifier);
             source = source.Where(auditEvent => auditEvent.ResourceIdentifier == resId);
         }
         if (since is { } sinceFrom)
@@ -147,7 +146,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
                 (auditEvent.OccurredAt == c.OccurredAt && ((Guid)auditEvent.Id).CompareTo(c.AuditIdentifier) < 0));
         }
 
-        List<AuditEventEntity> rows = await source
+        var rows = await source
             .OrderByDescending(auditEvent => auditEvent.OccurredAt)
             .ThenByDescending(auditEvent => auditEvent.Id)
             .Take(pageSize + 1)
@@ -156,12 +155,12 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         string? nextCursor = null;
         if (rows.Count > pageSize)
         {
-            AuditEventEntity last = rows[pageSize - 1];
+            var last = rows[pageSize - 1];
             nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
             rows = rows.Take(pageSize).ToList();
         }
 
-        AuditRowDto[] dtos = rows.Select(AuditRowMapper.Map).ToArray();
+        var dtos = rows.Select(AuditRowMapper.Map).ToArray();
         return Success(new AuditPageDto(dtos, nextCursor));
     }
 
@@ -172,7 +171,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
     private static List<FabIdentifier> ParseUsableFabs(IReadOnlyList<string> candidates)
     {
         List<FabIdentifier> fabs = [];
-        foreach (string candidate in candidates)
+        foreach (var candidate in candidates)
         {
             try
             {

@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -19,11 +18,11 @@ public class LayoutRevisionPublishedV2Tests
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
-        Guid layout = Guid.CreateVersion7();
-        Guid camera = Guid.CreateVersion7();
-        Guid overlay = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
-        DateTimeOffset at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
+        var layout = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
+        var at = DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture);
 
         LayoutRevisionPublishedV2 evt = new(
             layout, 1, "Line-1", Tiles(camera, overlay), 1, 2, at, by, Metadata: TestMetadata);
@@ -69,10 +68,10 @@ public class LayoutRevisionPublishedV2Tests
     [Fact]
     public void A_tile_serialised_before_this_feature_deserialises_as_1x1()
     {
-        Guid camera = Guid.CreateVersion7();
-        string json = $$"""{"Camera":"{{camera}}","Overlay":null,"Row":0,"Col":0}""";
+        var camera = Guid.CreateVersion7();
+        var json = $$"""{"Camera":"{{camera}}","Overlay":null,"Row":0,"Col":0}""";
 
-        LayoutTileV2 tile = JsonSerializer.Deserialize<LayoutTileV2>(json)!;
+        var tile = JsonSerializer.Deserialize<LayoutTileV2>(json)!;
 
         tile.Camera.ShouldBe(camera);
         tile.Row.ShouldBe(0);
@@ -86,8 +85,8 @@ public class LayoutRevisionPublishedV2Tests
     {
         LayoutTileV2 original = new(Guid.CreateVersion7(), Guid.CreateVersion7(), 0, 0, RowSpan: 2, ColSpan: 2);
 
-        string json = JsonSerializer.Serialize(original);
-        LayoutTileV2 deserialized = JsonSerializer.Deserialize<LayoutTileV2>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<LayoutTileV2>(json)!;
 
         deserialized.ShouldBe(original);
         deserialized.RowSpan.ShouldBe(2);
@@ -108,8 +107,8 @@ public class LayoutRevisionPublishedV2Tests
             Guid.CreateVersion7(),
             Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        LayoutRevisionPublishedV2 deserialized = JsonSerializer.Deserialize<LayoutRevisionPublishedV2>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<LayoutRevisionPublishedV2>(json)!;
 
         deserialized.Layout.ShouldBe(original.Layout);
         deserialized.GridRows.ShouldBe(original.GridRows);

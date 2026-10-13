@@ -101,16 +101,16 @@ public class WallStatusChipTests
     [Fact]
     public void No_triad_colour_used_as_affordance_on_the_wall()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> violations = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
             HashSet<string> allowedMatches = [
                 .. Allowlist.Where(entry => entry.RelativePath == relativePath).Select(entry => entry.Match),
             ];
 
-            string literalContent = TypeScriptSource.StringLiteralContent(
+            var literalContent = TypeScriptSource.StringLiteralContent(
                 File.ReadAllText(Path.Combine(root.FullName, relativePath)));
 
             foreach (Match match in TriadColourAsAffordance.Matches(literalContent))
@@ -177,22 +177,22 @@ public class WallStatusChipTests
     [Fact]
     public void Each_wall_allowlist_entry_still_matches()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach ((string relativePath, string match, string reason) in Allowlist)
+        foreach ((var relativePath, var match, var reason) in Allowlist)
         {
             IssueReference.IsMatch(reason).ShouldBeTrue(
                 $"{relativePath}'s allowlist entry ({match}) must name the issue that owns it (e.g. #1234).");
 
-            string path = Path.Combine(root.FullName, relativePath);
+            var path = Path.Combine(root.FullName, relativePath);
             if (!File.Exists(path))
             {
                 problems.Add($"{relativePath} no longer exists — remove its allowlist entry.");
                 continue;
             }
 
-            string literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
+            var literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
             if (!literalContent.Contains(match, StringComparison.Ordinal))
             {
                 problems.Add(
@@ -206,9 +206,9 @@ public class WallStatusChipTests
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        string full = Path.Combine(root.FullName, KioskSrc);
+        var full = Path.Combine(root.FullName, KioskSrc);
 
-        foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
         {
             if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
             {
@@ -218,7 +218,7 @@ public class WallStatusChipTests
             // Slash-normalised (repo memory: Path.GetRelativePath returns the
             // platform separator — a backslash-literal filter is green on
             // Windows and red on Linux CI).
-            string relative = RepositorySource.RelativePath(root, file);
+            var relative = RepositorySource.RelativePath(root, file);
 
             if (relative.Contains(".test.", StringComparison.Ordinal) || relative.Contains(".spec.", StringComparison.Ordinal))
             {

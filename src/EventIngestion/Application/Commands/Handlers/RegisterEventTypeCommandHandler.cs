@@ -29,14 +29,14 @@ public sealed class RegisterEventTypeCommandHandler(
 
         var (fab, kind, registeredBy) = command;
 
-        Option<RegisteredEventType> existing = await eventTypes.GetRegisteredAsync(fab, kind, cancellationToken);
+        var existing = await eventTypes.GetRegisteredAsync(fab, kind, cancellationToken);
         if (existing.HasValue)
         {
             await PromoteAsync(fab, kind, cancellationToken);
             return Failure(RegisterEventTypeFailures.EventTypeAlreadyRegistered(fab.Value, kind.Value));
         }
 
-        RegisteredEventType eventType = RegisteredEventType.Register(fab, kind, registeredBy, clock);
+        var eventType = RegisteredEventType.Register(fab, kind, registeredBy, clock);
         eventTypes.Add(eventType);
         await eventTypes.SaveAsync(cancellationToken);
 
@@ -49,7 +49,7 @@ public sealed class RegisterEventTypeCommandHandler(
 
     private async Task PromoteAsync(FabIdentifier fab, Kind kind, CancellationToken cancellationToken)
     {
-        int promoted = await deadLetters.PromoteHeldAsync(fab, kind, cancellationToken);
+        var promoted = await deadLetters.PromoteHeldAsync(fab, kind, cancellationToken);
         if (promoted > 0)
         {
             logger.HeldRowsPromoted(fab, kind, promoted);

@@ -55,7 +55,7 @@ public sealed class ClientSecret : IValueObject<string>, IEquatable<ClientSecret
                 throw new InvalidOperationException(
                     "ClientSecret can be revealed exactly once.");
             }
-            string secret = plaintext;
+            var secret = plaintext;
             plaintext = null;
             revealed = true;
             return secret;
@@ -73,7 +73,7 @@ public sealed class ClientSecret : IValueObject<string>, IEquatable<ClientSecret
 
     private static string HashOf(string plaintext)
     {
-        byte[] bytes = SHA256.HashData(Encoding.UTF8.GetBytes(plaintext));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(plaintext));
         return Convert.ToBase64String(bytes);
     }
 }

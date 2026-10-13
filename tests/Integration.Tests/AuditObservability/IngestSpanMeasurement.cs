@@ -1,7 +1,5 @@
 using System.Diagnostics;
 using System.Globalization;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
@@ -102,14 +100,14 @@ public static class IngestSpanMeasurement
     {
         Interlocked.Increment(ref pacedDrives);
 
-        Stopwatch pacing = Stopwatch.StartNew();
+        var pacing = Stopwatch.StartNew();
         long issued = 0;
 
         return async () =>
         {
-            long slot = Interlocked.Increment(ref issued) - 1;
-            double dueMs = slot * slotIntervalMs;
-            double waitMs = dueMs - pacing.Elapsed.TotalMilliseconds;
+            var slot = Interlocked.Increment(ref issued) - 1;
+            var dueMs = slot * slotIntervalMs;
+            var waitMs = dueMs - pacing.Elapsed.TotalMilliseconds;
 
             if (waitMs > 0)
             {
@@ -139,7 +137,7 @@ public static class IngestSpanMeasurement
         Ensure.That(variables).IsNotNull();
         Ensure.That(context).IsNotNull();
 
-        string warmName = await DefineAsync(variables, cancellationToken);
+        var warmName = await DefineAsync(variables, cancellationToken);
         await SetRepeatedlyAsync(variables, warmName, IngestRunShape.WarmupEvents, NoPacing, cancellationToken);
 
         // **Concurrent writers, because one is not a load.** A single sequential
@@ -147,37 +145,37 @@ public static class IngestSpanMeasurement
         // below the knee this requirement lives at. The writers take a variable
         // each: the version travels in an `If-Match`, so two callers on one
         // variable collide on optimistic concurrency rather than generate load.
-        string[] measureNames = new string[IngestRunShape.Writers];
-        for (int writer = 0; writer < IngestRunShape.Writers; writer++)
+        var measureNames = new string[IngestRunShape.Writers];
+        for (var writer = 0; writer < IngestRunShape.Writers; writer++)
         {
             measureNames[writer] = await DefineAsync(variables, cancellationToken);
         }
 
         // **Paced to the rate, not driven flat out.** Every writer draws its slot
         // from one counter, so the pacing is global rather than per-writer.
-        Func<Task> pace = PaceTo(IngestRunShape.SlotIntervalMs, cancellationToken);
+        var pace = PaceTo(IngestRunShape.SlotIntervalMs, cancellationToken);
 
-        DateTimeOffset started = DateTimeOffset.UtcNow;
-        string[] measured = await Task.WhenAll(
+        var started = DateTimeOffset.UtcNow;
+        var measured = await Task.WhenAll(
             measureNames.Select(name =>
                 SetRepeatedlyAsync(variables, name, IngestRunShape.EventsPerWriter, pace, cancellationToken)));
-        TimeSpan drove = DateTimeOffset.UtcNow - started;
+        var drove = DateTimeOffset.UtcNow - started;
 
-        int landed = await WaitForRowsAsync(context, measured, cancellationToken);
-        double achieved = IngestRunShape.MeasuredEvents / drove.TotalSeconds;
+        var landed = await WaitForRowsAsync(context, measured, cancellationToken);
+        var achieved = IngestRunShape.MeasuredEvents / drove.TotalSeconds;
 
         // **Both bands, because the requirement is a p99 and the median is not
         // it.** The tail band is the rows at or above the p99 of the total: each
         // row's parts sum to its own total exactly, so the band's parts still
         // divide the band's span rather than being three unrelated percentiles
         // added together.
-        IngestAttribution typical = await AttributionAsync(context, measured, tailOnly: false, cancellationToken);
-        IngestAttribution tail = await AttributionAsync(context, measured, tailOnly: true, cancellationToken);
+        var typical = await AttributionAsync(context, measured, tailOnly: false, cancellationToken);
+        var tail = await AttributionAsync(context, measured, tailOnly: true, cancellationToken);
 
-        ClockOffset offset = await ClockOffsetProbe.MeasureBestOfAsync(
+        var offset = await ClockOffsetProbe.MeasureBestOfAsync(
             context.Database.GetConnectionString()!, readings: 20, cancellationToken);
 
-        AttributionVerdict verdict = AttributionVerdict.For(
+        var verdict = AttributionVerdict.For(
             RelativeSkew.Between(offset, new ClockOffset(TimeSpan.Zero, TimeSpan.Zero)));
 
         IngestRunConditions conditions = new(
@@ -219,7 +217,7 @@ public static class IngestSpanMeasurement
     /// </summary>
     internal static async Task<int> StampedCountAsync(AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
-        List<long> counted = await context.Database
+        var counted = await context.Database
             .SqlQueryRaw<long>(
                 "SELECT count(*) AS \"Value\" FROM audit_events "
                 + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0}) "
@@ -232,7 +230,7 @@ public static class IngestSpanMeasurement
 
     internal static async Task<string> DefineAsync(HttpClient variables, CancellationToken cancellationToken)
     {
-        string name = $"{VariablePrefix}{Guid.NewGuid():N}"[..16];
+        var name = $"{VariablePrefix}{Guid.NewGuid():N}"[..16];
 
         // Deliberately no initialValue. Setting a variable to the value it
         // already holds is a no-op: it answers 200, raises nothing, and leaves
@@ -240,7 +238,7 @@ public static class IngestSpanMeasurement
         // because the next write's If-Match would carry a version that never
         // came to exist. Defining without a value means every write below is a
         // real change.
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables", new
+        var defined = await variables.PostAsJsonAsync("/system-variables", new
         {
             name,
             type = "Number",
@@ -268,9 +266,9 @@ public static class IngestSpanMeasurement
     internal static async Task<string> SetRepeatedlyAsync(
         HttpClient variables, string name, int times, Func<Task> pace, CancellationToken cancellationToken)
     {
-        int first = await ReadVersionAsync(variables, name, cancellationToken);
+        var first = await ReadVersionAsync(variables, name, cancellationToken);
 
-        for (int version = first; version < first + times; version++)
+        for (var version = first; version < first + times; version++)
         {
             await pace();
 
@@ -280,7 +278,7 @@ public static class IngestSpanMeasurement
             request.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
             request.Content = JsonContent.Create(new { value = (version + 1).ToString(CultureInfo.InvariantCulture) });
 
-            using HttpResponseMessage response = await variables.SendAsync(request, cancellationToken);
+            using var response = await variables.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 // **A 401 here is not an optimistic-concurrency failure**, and
@@ -298,8 +296,8 @@ public static class IngestSpanMeasurement
                         + "not an If-Match problem.");
                 }
 
-                string detail = await response.Content.ReadAsStringAsync(cancellationToken);
-                int actual = await ReadVersionAsync(variables, name, cancellationToken);
+                var detail = await response.Content.ReadAsStringAsync(cancellationToken);
+                var actual = await ReadVersionAsync(variables, name, cancellationToken);
                 throw new InvalidOperationException(
                     $"set #{version - first + 1} of {times} on '{name}' sent If-Match \"{version}\" "
                     + $"and got {(int)response.StatusCode}; the variable now reads version {actual}. {detail}");
@@ -317,7 +315,7 @@ public static class IngestSpanMeasurement
 
     internal static async Task<JsonElement> ReadAsync(HttpClient variables, string name, CancellationToken cancellationToken)
     {
-        using HttpResponseMessage read = await variables.GetAsync($"/system-variables/{name}?fabId=munich", cancellationToken);
+        using var read = await variables.GetAsync($"/system-variables/{name}?fabId=munich", cancellationToken);
         read.EnsureSuccessStatusCode();
 
         return await read.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
@@ -325,8 +323,8 @@ public static class IngestSpanMeasurement
 
     internal static async Task<int> WaitForRowsAsync(AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + IngestDeadline;
-        int landed = 0;
+        var deadline = DateTimeOffset.UtcNow + IngestDeadline;
+        var landed = 0;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -344,7 +342,7 @@ public static class IngestSpanMeasurement
 
     internal static async Task<int> CountAsync(AuditObservabilityDbContext context, string[] identifiers, CancellationToken cancellationToken)
     {
-        List<long> counted = await context.Database
+        var counted = await context.Database
             .SqlQueryRaw<long>(
                 "SELECT count(*) AS \"Value\" FROM audit_events "
                 + "WHERE event_kind = 'SystemVariableValueChangedV1' AND resource_identifier = ANY({0})",
@@ -380,7 +378,7 @@ public static class IngestSpanMeasurement
         // band of rows still has a span to divide.
         object[] arguments = [identifiers, tailOnly];
 
-        List<double> parts = await context.Database
+        var parts = await context.Database
             .SqlQueryRaw<double>(
                 "WITH samples AS ("
                 // **No COALESCE to zero.** An unstamped row has no parts, and
@@ -437,7 +435,7 @@ public static class IngestSpanMeasurement
         AuditObservabilityDbContext context,
         string[] identifiers, CancellationToken cancellationToken)
     {
-        List<double> percentiles = await context.Database
+        var percentiles = await context.Database
             .SqlQueryRaw<double>(
                 "SELECT unnest(ARRAY["
                 + "percentile_cont(0.50) WITHIN GROUP (ORDER BY delta), "

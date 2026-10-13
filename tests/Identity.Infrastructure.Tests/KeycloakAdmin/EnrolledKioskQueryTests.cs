@@ -56,7 +56,7 @@ public class EnrolledKioskQueryTests
     {
         StubKeycloakHandler keycloak = new((_, _) => AllClients);
 
-        IReadOnlyList<string> enrolled = await ClientOver(keycloak)
+        var enrolled = await ClientOver(keycloak)
             .GetEnrolledKioskClientIdsAsync(CancellationToken.None);
 
         // The sweep strips every directly-assigned realm privilege from whatever
@@ -96,7 +96,7 @@ public class EnrolledKioskQueryTests
 
         await ClientOver(keycloak).StripInheritedRealmRolesAsync("kiosk-a", CancellationToken.None);
 
-        RecordedRequest removal = keycloak.Only("DELETE", "/role-mappings/realm");
+        var removal = keycloak.Only("DELETE", "/role-mappings/realm");
         removal.Body.ShouldContain(
             "default-roles-smart-sentinel-eye",
             customMessage: "the delete only recognises the role objects the realm reports as "

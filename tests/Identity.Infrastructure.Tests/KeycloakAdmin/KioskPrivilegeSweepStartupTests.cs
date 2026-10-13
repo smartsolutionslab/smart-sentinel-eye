@@ -41,7 +41,7 @@ public class KioskPrivilegeSweepStartupTests
     public async Task A_provider_it_cannot_reach_does_not_stop_the_host_from_starting()
     {
         UnreachableKeycloakAdminClient keycloak = new();
-        using ServiceProvider provider = Compose(keycloak, out Type[] startupServices);
+        using var provider = Compose(keycloak, out var startupServices);
 
         // ShouldContain, not ShouldNotBeEmpty: the message names
         // KioskPrivilegeSweep's pass, and a count-only assertion stays green
@@ -53,7 +53,7 @@ public class KioskPrivilegeSweepStartupTests
             + "so there is nothing to drive: the pass that would have to survive an unreachable "
             + "provider does not run at all (issue #2132).");
 
-        Exception? thrown = await Record.ExceptionAsync(() => StartAllAsync(startupServices, provider));
+        var thrown = await Record.ExceptionAsync(() => StartAllAsync(startupServices, provider));
 
         thrown.ShouldBeNull(
             "the enumeration that opens SweepAsync (KioskPrivilegeSweep.cs:56) is outside the "
@@ -70,9 +70,9 @@ public class KioskPrivilegeSweepStartupTests
 
     private static async Task StartAllAsync(Type[] startupServices, IServiceProvider provider)
     {
-        foreach (Type startupService in startupServices)
+        foreach (var startupService in startupServices)
         {
-            IHostedService service = (IHostedService)ActivatorUtilities.CreateInstance(provider, startupService);
+            var service = (IHostedService)ActivatorUtilities.CreateInstance(provider, startupService);
             await service.StartAsync(CancellationToken.None);
         }
     }
@@ -86,7 +86,7 @@ public class KioskPrivilegeSweepStartupTests
     private static ServiceProvider Compose(
         IKeycloakAdminClient keycloak, out Type[] startupServices)
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
 
         // Read while registering, and never connected to: the host is not
         // started, so Wolverine's broker and the DbContext's server are only

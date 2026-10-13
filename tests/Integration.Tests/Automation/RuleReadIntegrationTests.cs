@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -31,11 +30,11 @@ public class RuleReadIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_rule_can_be_read_back_by_name()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}");
+        var fetched = await rules.GetAsync($"/rules/{name}");
 
         fetched.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(fetched));
         (await fetched.Content.ReadFromJsonAsync<JsonElement>())
@@ -45,9 +44,9 @@ public class RuleReadIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task An_unknown_rule_reads_as_404_not_500()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{UniqueName()}");
+        var fetched = await rules.GetAsync($"/rules/{UniqueName()}");
 
         fetched.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(fetched));
     }
@@ -57,9 +56,9 @@ public class RuleReadIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task A_malformed_rule_name_reads_as_404_not_500()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        HttpResponseMessage fetched = await rules.GetAsync("/rules/NOT_A_VALID_NAME");
+        var fetched = await rules.GetAsync("/rules/NOT_A_VALID_NAME");
 
         fetched.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(fetched));
     }
@@ -67,11 +66,11 @@ public class RuleReadIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Dry_run_resolves_the_rule_instead_of_500ing()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
 
-        HttpResponseMessage dryRun = await rules.PostAsJsonAsync(
+        var dryRun = await rules.PostAsJsonAsync(
             $"/rules/{name}/dry-run",
             new
             {

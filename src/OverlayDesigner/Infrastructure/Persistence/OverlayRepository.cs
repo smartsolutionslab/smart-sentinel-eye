@@ -13,7 +13,7 @@ public sealed class OverlayRepository(
     public async Task<Option<Overlay>> GetByIdentifierAsync(
         OverlayIdentifier overlay, CancellationToken cancellationToken)
     {
-        Overlay? found = await dbContext.Overlays
+        var found = await dbContext.Overlays
             .FirstOrDefaultAsync(candidate => candidate.Id == overlay, cancellationToken);
         return found is null ? Option<Overlay>.None : Option<Overlay>.Some(found);
     }
@@ -28,7 +28,7 @@ public sealed class OverlayRepository(
         // would be a create the handler admits and Postgres refuses, reaching
         // the caller as the generic RESOURCE_ALREADY_EXISTS where the specific
         // OVERLAY_NAME_TAKEN was earned.
-        Overlay? found = await dbContext.Overlays
+        var found = await dbContext.Overlays
             .Where(candidate => candidate.Name == name)
             .Where(candidate => candidate.ArchivedAt == null)
             .FirstOrDefaultAsync(cancellationToken);
@@ -43,7 +43,7 @@ public sealed class OverlayRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Overlay[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<Overlay>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -58,9 +58,9 @@ public sealed class OverlayRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (Overlay overlay in tracked)
+        foreach (var overlay in tracked)
         {
-            IDomainEvent[] events = overlay.PendingEvents.ToArray();
+            var events = overlay.PendingEvents.ToArray();
             overlay.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

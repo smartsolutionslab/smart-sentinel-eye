@@ -14,12 +14,12 @@ public sealed class FakeAuditChunkArchiver : IAuditChunkArchiver
     {
         if (FailNextCall is not null)
         {
-            Exception toThrow = FailNextCall;
+            var toThrow = FailNextCall;
             FailNextCall = null;
             throw toThrow;
         }
 
-        if (store.TryGetValue(chunk.ChunkIdentifier, out ChunkArchiveResult? cached))
+        if (store.TryGetValue(chunk.ChunkIdentifier, out var cached))
         {
             ArchivedChunks.Add(chunk);
             return Task.FromResult(cached with { AlreadyArchived = true });

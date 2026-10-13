@@ -20,11 +20,11 @@ public class BadHttpRequestExceptionHandlerTests
         using MemoryStream captured = new();
         context.Response.Body = captured;
 
-        bool handled = await new BadHttpRequestExceptionHandler()
+        var handled = await new BadHttpRequestExceptionHandler()
             .TryHandleAsync(context, exception, CancellationToken.None);
 
         captured.Position = 0;
-        JsonElement body = captured.Length == 0
+        var body = captured.Length == 0
             ? default
             : await JsonSerializer.DeserializeAsync<JsonElement>(captured);
 
@@ -40,7 +40,7 @@ public class BadHttpRequestExceptionHandlerTests
             "Required parameter \"string fabId\" was not provided from query string.",
             StatusCodes.Status400BadRequest);
 
-        (int status, JsonElement body, bool handled) = await HandleAsync(missing);
+        (var status, var body, var handled) = await HandleAsync(missing);
 
         handled.ShouldBeTrue();
         status.ShouldBe(StatusCodes.Status400BadRequest);
@@ -57,7 +57,7 @@ public class BadHttpRequestExceptionHandlerTests
             "Required parameter \"string fabId\" was not provided from query string.",
             StatusCodes.Status400BadRequest);
 
-        (_, JsonElement body, _) = await HandleAsync(missing);
+        (_, var body, _) = await HandleAsync(missing);
 
         body.GetProperty("detail").GetString()!.ShouldContain("fabId");
     }
@@ -74,7 +74,7 @@ public class BadHttpRequestExceptionHandlerTests
         BadHttpRequestException tooLarge = new(
             "Request body too large.", StatusCodes.Status413PayloadTooLarge);
 
-        (int status, JsonElement body, bool handled) = await HandleAsync(tooLarge);
+        (var status, var body, var handled) = await HandleAsync(tooLarge);
 
         handled.ShouldBeTrue();
         status.ShouldBe(StatusCodes.Status413PayloadTooLarge);
@@ -86,7 +86,7 @@ public class BadHttpRequestExceptionHandlerTests
     {
         // Declining is the important half: a real fault must keep reaching the
         // 500 handler, or this would hide server bugs behind a 400.
-        (_, _, bool handled) = await HandleAsync(new InvalidOperationException("something broke"));
+        (_, _, var handled) = await HandleAsync(new InvalidOperationException("something broke"));
 
         handled.ShouldBeFalse();
     }

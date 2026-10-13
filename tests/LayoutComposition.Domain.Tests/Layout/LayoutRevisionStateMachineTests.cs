@@ -14,8 +14,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Draft_to_Published_is_allowed_and_raises_LayoutRevisionPublished()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         layout.Publish(LayoutRevisionNumber.One, by, new LayoutBuilder.TestClock(FixedMoment));
 
@@ -26,8 +26,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Draft_to_Archived_is_allowed_via_ArchiveRevision_and_raises_no_event()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         layout.ArchiveRevision(LayoutRevisionNumber.One, by, new LayoutBuilder.TestClock(FixedMoment));
 
@@ -39,8 +39,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Published_to_Draft_is_allowed_via_Revert_and_raises_Archived_for_kiosks()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.ClearPendingEvents();
@@ -54,8 +54,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Published_to_Archived_is_allowed_via_ArchiveRevision_and_raises_Archived()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
         layout.ClearPendingEvents();
@@ -63,7 +63,7 @@ public class LayoutRevisionStateMachineTests
         layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
 
         layout.Revisions.Single().State.ShouldBe(LayoutRevisionState.Archived);
-        LayoutRevisionArchivedDomainEvent evt =
+        var evt =
             layout.PendingEvents.OfType<LayoutRevisionArchivedDomainEvent>().ShouldHaveSingleItem();
         evt.RevisionNumber.ShouldBe(LayoutRevisionNumber.One);
     }
@@ -71,8 +71,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Archived_to_anything_else_is_forbidden()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
 
@@ -83,8 +83,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Re_archiving_an_already_archived_revision_is_idempotent_and_silent()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.ArchiveRevision(LayoutRevisionNumber.One, by, clock);
         layout.ClearPendingEvents();
@@ -98,8 +98,8 @@ public class LayoutRevisionStateMachineTests
     [Fact]
     public void Editing_a_Published_revision_in_place_is_forbidden()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().Build();
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 

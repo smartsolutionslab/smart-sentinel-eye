@@ -19,8 +19,8 @@ public sealed class BurstBehaviour : ISensorBehaviour
             return sensor.Peak.Value;
         }
 
-        double mean = sensor.Mean ?? 0d;
-        double jitter = sensor.Jitter ?? 0d;
+        var mean = sensor.Mean ?? 0d;
+        var jitter = sensor.Jitter ?? 0d;
         return mean + (((random.NextDouble() * 2d) - 1d) * jitter);
     }
 }

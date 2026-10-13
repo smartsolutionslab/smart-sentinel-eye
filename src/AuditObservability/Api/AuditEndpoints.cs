@@ -25,7 +25,7 @@ public static class AuditEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/audit")
+        var group = app.MapGroup("/audit")
             .RequireAuthorization(Scope.Sse.Audit.Read)
             .WithTags("Audit");
 
@@ -85,7 +85,7 @@ public static class AuditEndpoints
                 () => FabIdentifier.From(fabId),
                 "AUDIT_INVALID_INPUT",
                 out var parsed,
-                out IResult? fabProblem))
+                out var fabProblem))
             {
                 return fabProblem;
             }
@@ -94,7 +94,7 @@ public static class AuditEndpoints
             await fabGuard.EnsureAccessAsync(user, parsed.Value, cancellationToken);
         }
 
-        IReadOnlyList<string> callerFabs = FabClaims.AssignedFabs(user);
+        var callerFabs = FabClaims.AssignedFabs(user);
 
         SearchAuditQuery query = new(
             Fab: parsedFab?.Value,
@@ -108,7 +108,7 @@ public static class AuditEndpoints
             Until: until,
             PageSize: pageSize ?? 0,
             Cursor: cursor);
-        Result<AuditPageDto, SearchAuditError> result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         return result.Match<IResult>(onSuccess: Results.Ok, onFailure: error => error.ToProblem());
     }
@@ -140,7 +140,7 @@ public static class AuditEndpoints
             () => FabIdentifier.From(fabId),
             "AUDIT_INVALID_INPUT",
             out var parsedFab,
-            out IResult? fabProblem))
+            out var fabProblem))
         {
             return fabProblem;
         }
@@ -151,12 +151,12 @@ public static class AuditEndpoints
             () => ResourceIdentifier.From(resourceIdentifier),
             "AUDIT_INVALID_INPUT",
             out var parsedResourceIdentifier,
-            out IResult? resourceProblem))
+            out var resourceProblem))
         {
             return resourceProblem;
         }
 
-        Result<AuditPageDto, GetResourceTimelineError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetResourceTimelineQuery(
                 ResourceKind: resourceKind,
                 ResourceIdentifier: parsedResourceIdentifier,
@@ -192,7 +192,7 @@ public static class AuditEndpoints
         }
 
         GetAuditEventQuery query = new(parsedIdentifier);
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(query, cancellationToken);
+        var result = await handler.HandleAsync(query, cancellationToken);
 
         if (result.IsFailure)
         {
@@ -201,7 +201,7 @@ public static class AuditEndpoints
                 statusCode: (int)result.Error.Status);
         }
 
-        AuditRowDto row = result.Value;
+        var row = result.Value;
         if (row.Fab is not null)
         {
             await fabGuard.EnsureAccessAsync(user, row.Fab, cancellationToken);

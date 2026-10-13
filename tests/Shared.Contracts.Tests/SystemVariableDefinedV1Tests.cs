@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -18,8 +17,8 @@ public class SystemVariableDefinedV1Tests
     [Fact]
     public void Exposes_all_payload_fields_via_the_positional_constructor()
     {
-        Guid variable = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
+        var variable = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
 
         SystemVariableDefinedV1 evt = new(variable, "oeeLine1", "Number", FixedMoment, by, Metadata: TestMetadata);
 
@@ -41,8 +40,8 @@ public class SystemVariableDefinedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid variable = Guid.CreateVersion7();
-        Guid by = Guid.CreateVersion7();
+        var variable = Guid.CreateVersion7();
+        var by = Guid.CreateVersion7();
 
         SystemVariableDefinedV1 a = new(variable, "x", "Number", FixedMoment, by, Metadata: TestMetadata);
         SystemVariableDefinedV1 b = new(variable, "x", "Number", FixedMoment, by, Metadata: TestMetadata);
@@ -57,8 +56,8 @@ public class SystemVariableDefinedV1Tests
         SystemVariableDefinedV1 original = new(
             Guid.CreateVersion7(), "oeeLine1", "Number", FixedMoment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        SystemVariableDefinedV1 deserialized =
+        var json = JsonSerializer.Serialize(original);
+        var deserialized =
             JsonSerializer.Deserialize<SystemVariableDefinedV1>(json)!;
 
         deserialized.ShouldBe(original);

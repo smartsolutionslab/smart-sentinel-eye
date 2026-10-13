@@ -97,19 +97,19 @@ public class StreamHealthTransitionTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task Stopping_the_RTSP_source_transitions_to_Degraded_within_15_seconds()
     {
-        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
-        Guid camera = await RegisterAsync(
+        var camera = await RegisterAsync(
             cameraClient,
             $"Cam-Source-Stops-{Guid.NewGuid():N}",
             AspireFixture.RtspTestSourceUrl);
 
         await WaitForStateAsync(streamClient, camera, "Healthy", SettleTimeout);
 
-        string path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
+        var path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
         Stopwatch sinceOutage = new();
-        string state = "<not observed>";
+        var state = "<not observed>";
 
         try
         {
@@ -160,17 +160,17 @@ public class StreamHealthTransitionTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task Restarting_the_RTSP_source_transitions_back_to_Healthy_within_15_seconds()
     {
-        using HttpClient cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
-        using HttpClient streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
+        using var cameraClient = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var streamClient = await aspire.CreateAdminClientAsync("stream-distribution");
 
-        Guid camera = await RegisterAsync(
+        var camera = await RegisterAsync(
             cameraClient,
             $"Cam-Source-Returns-{Guid.NewGuid():N}",
             AspireFixture.RtspTestSourceUrl);
 
         await WaitForStateAsync(streamClient, camera, "Healthy", SettleTimeout);
 
-        string path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
+        var path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
         Stopwatch sinceRestore = new();
 
         await aspire.RepointMediaMtxPathAsync(path, UnreachableRtspUrl);
@@ -187,7 +187,7 @@ public class StreamHealthTransitionTests(AspireFixture aspire, ITestOutputHelper
             await aspire.RepointMediaMtxPathAsync(path, AspireFixture.RtspTestSourceUrl);
         }
 
-        string state = await WaitForStateAsync(streamClient, camera, "Healthy", TransitionTimeout);
+        var state = await WaitForStateAsync(streamClient, camera, "Healthy", TransitionTimeout);
         sinceRestore.Stop();
 
         output.WriteLine(
@@ -200,7 +200,7 @@ public class StreamHealthTransitionTests(AspireFixture aspire, ITestOutputHelper
 
     private static async Task<Guid> RegisterAsync(HttpClient client, string name, string rtspUrl)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras", new { name, rtspUrl });
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Guid>();
@@ -221,17 +221,17 @@ public class StreamHealthTransitionTests(AspireFixture aspire, ITestOutputHelper
     private static async Task<string> WaitForStateAsync(
         HttpClient streamClient, Guid camera, string expectedState, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
-        string lastObserved = "<no response yet>";
+        var deadline = DateTime.UtcNow + timeout;
+        var lastObserved = "<no response yet>";
 
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await streamClient.GetAsync(
+            var response = await streamClient.GetAsync(
                 $"/streams?cameraIdentifiers={camera}");
 
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                JsonElement items = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var items = await response.Content.ReadFromJsonAsync<JsonElement>();
                 if (items.GetArrayLength() == 1)
                 {
                     lastObserved = items[0].GetProperty("state").GetString() ?? "<null state>";

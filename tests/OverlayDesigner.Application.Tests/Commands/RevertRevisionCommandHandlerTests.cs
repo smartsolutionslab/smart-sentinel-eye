@@ -16,7 +16,7 @@ public class RevertRevisionCommandHandlerTests
 
     private static Overlay Seed(InMemoryOverlayRepository overlays, FakeClock clock)
     {
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named("Line-1")
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -30,12 +30,12 @@ public class RevertRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
         overlay.Publish(OverlayRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
 
         RevertRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -52,7 +52,7 @@ public class RevertRevisionCommandHandlerTests
         RevertRevisionCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<RevertRevisionCommandHandler>.Instance);
 
-        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 OverlayIdentifier.New(), OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -67,11 +67,11 @@ public class RevertRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
 
         RevertRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.From(42),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -86,11 +86,11 @@ public class RevertRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
 
         RevertRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),

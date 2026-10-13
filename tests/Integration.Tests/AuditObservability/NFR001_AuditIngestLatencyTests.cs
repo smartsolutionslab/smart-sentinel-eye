@@ -1,9 +1,4 @@
-using System.Diagnostics;
 using System.Globalization;
-using System.Net.Http.Json;
-using System.Text.Json;
-using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -135,12 +130,12 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     [Fact]
     public async Task Where_the_ingest_span_goes()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
-        IngestSpanResult result = await IngestSpanMeasurement.RunAsync(
+        var result = await IngestSpanMeasurement.RunAsync(
             variables,
             context,
             environment: "Aspire test fixture",
@@ -234,9 +229,9 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     [Fact]
     public async Task Requirement_span_at_100_events_per_second_is_an_interval_not_a_verdict()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
         // **The paced shape, and it is the fact's whole subject.** Fifty writers
@@ -247,7 +242,7 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
         // construction rather than by prose. The single sequential writer this
         // fact was first wired to sustains 45-58 ev/s cold, which is the rate the
         // guard below refused at phase 4a.
-        IngestSpanResult result = await IngestSpanMeasurement.RunAsync(
+        var result = await IngestSpanMeasurement.RunAsync(
             variables,
             context,
             environment: "Aspire test fixture",
@@ -256,9 +251,9 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
             logLevelWasChosen: ServiceLogLevelWasChosen,
             CancellationToken.None);
 
-        IngestRunConditions conditions = result.Conditions;
-        IngestAttribution typical = result.Typical;
-        IngestAttribution tail = result.Tail;
+        var conditions = result.Conditions;
+        var typical = result.Typical;
+        var tail = result.Tail;
 
         // The conditions before anything that can fail, so a refused run still
         // says what it was refused for.
@@ -345,7 +340,7 @@ public class NFR001_AuditIngestLatencyTests(AspireFixture aspire, ITestOutputHel
     /// </summary>
     private static string BudgetPlacement(string band, IngestAttribution attribution)
     {
-        string placement = "inside the interval — this run cannot say whether NFR-001 was met or missed";
+        var placement = "inside the interval — this run cannot say whether NFR-001 was met or missed";
 
         if (P99BudgetMs < attribution.RequirementSpanFloorMs)
         {

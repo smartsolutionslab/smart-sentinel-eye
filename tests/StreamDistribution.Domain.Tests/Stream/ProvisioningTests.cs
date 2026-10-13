@@ -12,9 +12,9 @@ public class ProvisioningTests
     [Fact]
     public void Carries_both_halves()
     {
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Provisioning provisioning = Provisioning.From(ProvisionedAt.From(Moment), by);
+        var provisioning = Provisioning.From(ProvisionedAt.From(Moment), by);
 
         provisioning.At.Value.ShouldBe(Moment);
         provisioning.By.ShouldBe(by);
@@ -30,7 +30,7 @@ public class ProvisioningTests
     [Fact]
     public void Two_provisionings_of_the_same_moment_and_operator_are_equal()
     {
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         Provisioning.From(ProvisionedAt.From(Moment), by)
             .ShouldBe(Provisioning.From(ProvisionedAt.From(Moment), by));
@@ -39,7 +39,7 @@ public class ProvisioningTests
     [Fact]
     public void A_different_operator_is_a_different_provisioning()
     {
-        ProvisionedAt at = ProvisionedAt.From(Moment);
+        var at = ProvisionedAt.From(Moment);
 
         Provisioning.From(at, OperatorIdentifier.From(Guid.CreateVersion7()))
             .ShouldNotBe(Provisioning.From(at, OperatorIdentifier.From(Guid.CreateVersion7())));

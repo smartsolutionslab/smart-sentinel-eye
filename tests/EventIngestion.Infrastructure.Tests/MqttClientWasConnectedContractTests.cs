@@ -80,10 +80,10 @@ public class MqttClientWasConnectedContractTests
         using CancellationTokenSource stop = new(TimeSpan.FromSeconds(20));
         TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
-        Task serving = ServeAsync(listener, returnCode, ending, stop.Token);
+        var serving = ServeAsync(listener, returnCode, ending, stop.Token);
 
         TaskCompletionSource<bool> observed = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
         client.DisconnectedAsync += args =>
         {
             observed.TrySetResult(args.ClientWasConnected);
@@ -92,7 +92,7 @@ public class MqttClientWasConnectedContractTests
 
         await AttemptAsync(client, ((IPEndPoint)listener.LocalEndpoint).Port, ending, stop.Token);
 
-        Task first = await Task.WhenAny(observed.Task, Task.Delay(TimeSpan.FromSeconds(10), stop.Token));
+        var first = await Task.WhenAny(observed.Task, Task.Delay(TimeSpan.FromSeconds(10), stop.Token));
         await stop.CancelAsync();
         listener.Stop();
         await serving;
@@ -139,8 +139,8 @@ public class MqttClientWasConnectedContractTests
     {
         try
         {
-            using TcpClient peer = await listener.AcceptTcpClientAsync(cancellationToken);
-            await using NetworkStream stream = peer.GetStream();
+            using var peer = await listener.AcceptTcpClientAsync(cancellationToken);
+            await using var stream = peer.GetStream();
 
             await ReadPacketAsync(stream, cancellationToken);
             await stream.WriteAsync(new byte[] { 0x20, 0x02, 0x00, returnCode }, cancellationToken);
@@ -167,11 +167,11 @@ public class MqttClientWasConnectedContractTests
     /// <summary>Reads one MQTT packet: type byte, the varint remaining length, then that many bytes.</summary>
     private static async Task ReadPacketAsync(NetworkStream stream, CancellationToken cancellationToken)
     {
-        byte[] one = new byte[1];
+        var one = new byte[1];
         await stream.ReadExactlyAsync(one, cancellationToken);
 
-        int multiplier = 1;
-        int length = 0;
+        var multiplier = 1;
+        var length = 0;
         byte digit;
         do
         {

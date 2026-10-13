@@ -154,7 +154,7 @@ internal sealed class FakeMqttClient : IMqttClient
     /// </summary>
     public async Task RaiseStaleDisconnectAsync()
     {
-        Func<MqttClientDisconnectedEventArgs, Task>? handler = DisconnectedAsync;
+        var handler = DisconnectedAsync;
         if (handler is not null)
         {
             await handler(new MqttClientDisconnectedEventArgs(
@@ -187,7 +187,7 @@ internal sealed class FakeMqttClient : IMqttClient
     {
         IsConnected = false;
 
-        Func<MqttClientDisconnectedEventArgs, Task>? handler = DisconnectedAsync;
+        var handler = DisconnectedAsync;
         if (handler is not null)
         {
             await handler(new MqttClientDisconnectedEventArgs(
@@ -261,7 +261,7 @@ internal sealed class FakeMqttClient : IMqttClient
                 "It is not allowed to connect with a server after the connection is established.");
         }
 
-        string presented = System.Text.Encoding.UTF8.GetString(options.Credentials?.GetPassword(options) ?? []);
+        var presented = System.Text.Encoding.UTF8.GetString(options.Credentials?.GetPassword(options) ?? []);
 
         if (connectGate is not null)
         {

@@ -66,7 +66,7 @@ public class StreamErrorTests
     {
         string tooLong = new('x', StreamError.MaximumLength + 500);
 
-        StreamError clipped = StreamError.Truncating(tooLong);
+        var clipped = StreamError.Truncating(tooLong);
 
         clipped.Value.Length.ShouldBe(StreamError.MaximumLength);
     }

@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -22,16 +21,16 @@ internal static class VariableRequests
 
     internal static async Task<int> VersionAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
+        var fetched = await variables.GetAsync($"/system-variables/{name}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("version").GetInt32();
     }
 
     internal static HttpRequestMessage Conditional(HttpMethod method, string name, string relativeUrl, int version)
     {
-        string url = relativeUrl.Length == 0
+        var url = relativeUrl.Length == 0
             ? $"/system-variables/{name}"
             : $"/system-variables/{name}/{relativeUrl}";
         HttpRequestMessage request = new(method, url);
@@ -42,7 +41,7 @@ internal static class VariableRequests
 
     internal static async Task<HttpResponseMessage> SetValueAsync(HttpClient variables, string name, string value)
     {
-        HttpRequestMessage request = Conditional(
+        var request = Conditional(
             HttpMethod.Put, name, "value", await VersionAsync(variables, name));
         request.Content = JsonContent.Create(new { value });
 
@@ -77,16 +76,16 @@ internal static class VariableRequests
     internal static async Task<int> ArchiveAllAsync(
         HttpClient variables, IReadOnlyList<string> names, CancellationToken cancellationToken)
     {
-        int archived = 0;
-        foreach (string name in names)
+        var archived = 0;
+        foreach (var name in names)
         {
-            HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}", cancellationToken);
+            var fetched = await variables.GetAsync($"/system-variables/{name}", cancellationToken);
             fetched.EnsureSuccessStatusCode();
-            JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
 
-            using HttpRequestMessage request =
+            using var request =
                 Conditional(HttpMethod.Post, name, "archive", payload.GetProperty("version").GetInt32());
-            using HttpResponseMessage response = await variables.SendAsync(request, cancellationToken);
+            using var response = await variables.SendAsync(request, cancellationToken);
             response.EnsureSuccessStatusCode();
 
             archived++;

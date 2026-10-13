@@ -18,9 +18,9 @@ internal static class RuleRequests
 {
     internal static async Task<int> VersionAsync(HttpClient rules, string name)
     {
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}");
+        var fetched = await rules.GetAsync($"/rules/{name}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("version").GetInt32();
     }

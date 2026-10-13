@@ -44,9 +44,9 @@ public sealed class FakeOverlayTextVersions : IOverlayTextVersions
         AdvanceCalls.Add([.. overlayIdentifiers]);
 
         Dictionary<Guid, long> advanced = [];
-        foreach (Guid overlayIdentifier in overlayIdentifiers.Distinct())
+        foreach (var overlayIdentifier in overlayIdentifiers.Distinct())
         {
-            long next = versions.TryGetValue(overlayIdentifier, out long current) ? current + 1 : Floor;
+            var next = versions.TryGetValue(overlayIdentifier, out var current) ? current + 1 : Floor;
             versions[overlayIdentifier] = next;
             advanced[overlayIdentifier] = next;
         }
@@ -59,7 +59,7 @@ public sealed class FakeOverlayTextVersions : IOverlayTextVersions
         CurrentAsyncCalls.Add(overlayIdentifier);
         CallOrder?.Add("VersionRead");
 
-        return Task.FromResult(versions.TryGetValue(overlayIdentifier, out long version) ? version : 0);
+        return Task.FromResult(versions.TryGetValue(overlayIdentifier, out var version) ? version : 0);
     }
 
     /// <summary>

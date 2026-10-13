@@ -35,15 +35,15 @@ public class VariableValueRequestDedupStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task Two_fabs_reserve_the_same_name_and_causing_event_independently()
     {
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
         VariableValueRequestDedupStore store = new(context);
 
-        Guid causing = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
 
-        bool munich = await store.TryReserveAsync(
+        var munich = await store.TryReserveAsync(
             FabIdentifier.From("munich"), "oeeLine1", causing, CancellationToken.None);
-        bool dresden = await store.TryReserveAsync(
+        var dresden = await store.TryReserveAsync(
             FabIdentifier.From("dresden"), "oeeLine1", causing, CancellationToken.None);
 
         munich.ShouldBeTrue();
@@ -57,15 +57,15 @@ public class VariableValueRequestDedupStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_redelivery_within_one_fab_still_does_not_reserve()
     {
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
         VariableValueRequestDedupStore store = new(context);
 
-        Guid causing = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
 
-        bool first = await store.TryReserveAsync(
+        var first = await store.TryReserveAsync(
             FabIdentifier.From("munich"), "oeeLine1", causing, CancellationToken.None);
-        bool redelivery = await store.TryReserveAsync(
+        var redelivery = await store.TryReserveAsync(
             FabIdentifier.From("munich"), "oeeLine1", causing, CancellationToken.None);
 
         first.ShouldBeTrue();
@@ -79,15 +79,15 @@ public class VariableValueRequestDedupStoreIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task Two_variables_in_one_fab_reserve_independently()
     {
-        await using SystemVariablesDbContext context =
+        await using var context =
             await aspire.CreateSystemVariablesDbContextAsync();
         VariableValueRequestDedupStore store = new(context);
 
-        Guid causing = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
 
-        bool first = await store.TryReserveAsync(
+        var first = await store.TryReserveAsync(
             FabIdentifier.From("munich"), "oeeLine1", causing, CancellationToken.None);
-        bool second = await store.TryReserveAsync(
+        var second = await store.TryReserveAsync(
             FabIdentifier.From("munich"), "oeeLine2", causing, CancellationToken.None);
 
         first.ShouldBeTrue();

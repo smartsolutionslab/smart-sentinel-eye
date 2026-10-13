@@ -25,11 +25,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Publish_rejects_a_stale_version_and_leaves_the_revision_in_Draft()
     {
-        (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
+        (var overlays, var clock, var overlay) = Seeded();
 
         PublishRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(overlay.Id, OverlayRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
@@ -40,11 +40,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Archive_rejects_a_stale_version_and_leaves_the_revision_in_Draft()
     {
-        (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
+        (var overlays, var clock, var overlay) = Seeded();
 
         ArchiveRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<ArchiveRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, ArchiveRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRevisionCommand(overlay.Id, OverlayRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
@@ -55,12 +55,12 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task BranchDraft_rejects_a_stale_version_and_adds_no_revision()
     {
-        (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
+        (var overlays, var clock, var overlay) = Seeded();
         overlay.Publish(OverlayRevisionNumber.One, Editor(), clock);
 
         BranchDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<BranchDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, BranchDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new BranchDraftRevisionCommand(overlay.Id, Editor(), Stale),
             CancellationToken.None);
 
@@ -71,12 +71,12 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Revert_rejects_a_stale_version_and_leaves_the_revision_Published()
     {
-        (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
+        (var overlays, var clock, var overlay) = Seeded();
         overlay.Publish(OverlayRevisionNumber.One, Editor(), clock);
 
         RevertRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<RevertRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, RevertRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RevertRevisionCommand(overlay.Id, OverlayRevisionNumber.One, Editor(), Stale),
             CancellationToken.None);
 
@@ -87,12 +87,12 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task EditDraft_rejects_a_stale_version_and_leaves_the_label_untouched()
     {
-        (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
-        string originalText = overlay.Revisions.Single().Elements.Single().Text!.Value;
+        (var overlays, var clock, var overlay) = Seeded();
+        var originalText = overlay.Revisions.Single().Elements.Single().Text!.Value;
 
         EditDraftRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<EditDraftRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, EditDraftRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new EditDraftRevisionCommand(
                 overlay.Id,
                 OverlayRevisionNumber.One,
@@ -107,11 +107,11 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task The_matching_version_is_accepted()
     {
-        (InMemoryOverlayRepository overlays, FakeClock clock, Overlay overlay) = Seeded();
+        (var overlays, var clock, var overlay) = Seeded();
 
         PublishRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(overlay.Id, OverlayRevisionNumber.One, Editor(), overlay.Version),
             CancellationToken.None);
 
@@ -130,7 +130,7 @@ public class StaleVersionRejectionTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = new OverlayBuilder().At(clock.UtcNow).Build();
+        var overlay = new OverlayBuilder().At(clock.UtcNow).Build();
         overlays.Add(overlay);
 
         return (overlays, clock, overlay);

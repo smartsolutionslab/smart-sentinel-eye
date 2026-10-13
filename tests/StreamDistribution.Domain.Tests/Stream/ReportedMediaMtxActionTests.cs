@@ -1,4 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 
 namespace SmartSentinelEye.StreamDistribution.Domain.Tests.Stream;
@@ -19,7 +18,7 @@ public class ReportedMediaMtxActionTests
     [Fact]
     public void TryFrom_keeps_the_text_that_arrived()
     {
-        Option<ReportedMediaMtxAction> reported = ReportedMediaMtxAction.TryFrom("stream");
+        var reported = ReportedMediaMtxAction.TryFrom("stream");
 
         reported.HasValue.ShouldBeTrue();
         reported.Value.Value.ShouldBe("stream");
@@ -40,7 +39,7 @@ public class ReportedMediaMtxActionTests
     [Fact]
     public void From_caps_a_long_value_and_marks_it_truncated()
     {
-        ReportedMediaMtxAction reported = ReportedMediaMtxAction.From(new string('a', 200));
+        var reported = ReportedMediaMtxAction.From(new string('a', 200));
 
         reported.Value.Length.ShouldBe(ReportedMediaMtxAction.MaximumLength + 1);
         reported.Value.ShouldBe(new string('a', ReportedMediaMtxAction.MaximumLength) + "…");
@@ -49,7 +48,7 @@ public class ReportedMediaMtxActionTests
     [Fact]
     public void From_leaves_a_value_at_the_cap_unmarked()
     {
-        ReportedMediaMtxAction reported =
+        var reported =
             ReportedMediaMtxAction.From(new string('a', ReportedMediaMtxAction.MaximumLength));
 
         reported.Value.ShouldBe(new string('a', ReportedMediaMtxAction.MaximumLength));
@@ -62,7 +61,7 @@ public class ReportedMediaMtxActionTests
     [Fact]
     public void From_neutralises_control_characters_so_a_value_cannot_forge_a_log_line()
     {
-        ReportedMediaMtxAction reported = ReportedMediaMtxAction.From("read\r\nwarn: authorized");
+        var reported = ReportedMediaMtxAction.From("read\r\nwarn: authorized");
 
         reported.Value.ShouldNotContain("\n");
         reported.Value.ShouldNotContain("\r");
@@ -87,9 +86,9 @@ public class ReportedMediaMtxActionTests
     [InlineData(0x0007)]  // Cc - the category the old filter already caught
     public void From_neutralises_characters_that_rewrite_the_line_around_them(int codePoint)
     {
-        string dangerous = char.ConvertFromUtf32(codePoint);
+        var dangerous = char.ConvertFromUtf32(codePoint);
 
-        ReportedMediaMtxAction reported = ReportedMediaMtxAction.From("read" + dangerous + "publish");
+        var reported = ReportedMediaMtxAction.From("read" + dangerous + "publish");
 
         reported.Value.ShouldNotContain(dangerous);
         reported.Value.ShouldBe("read�publish");
@@ -102,9 +101,9 @@ public class ReportedMediaMtxActionTests
     [Fact]
     public void From_never_splits_a_surrogate_pair_at_the_cap()
     {
-        string astral = string.Concat(Enumerable.Repeat("\U0001F4F7", 100));
+        var astral = string.Concat(Enumerable.Repeat("\U0001F4F7", 100));
 
-        ReportedMediaMtxAction reported = ReportedMediaMtxAction.From(astral);
+        var reported = ReportedMediaMtxAction.From(astral);
 
         reported.Value.ShouldBe(
             string.Concat(Enumerable.Repeat("\U0001F4F7", ReportedMediaMtxAction.MaximumLength)) + "…");

@@ -1,8 +1,6 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -22,16 +20,16 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     public async Task Munich_member_reads_its_own_fab_timeline_but_is_refused_another_fab()
     {
         // admin@munich.test is a member of /fabs/munich only.
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
-        Guid overlayId = Guid.CreateVersion7();
+        var overlayId = Guid.CreateVersion7();
 
-        HttpResponseMessage ownFab = await client.GetAsync($"/audit/overlay/{overlayId}?fabId=munich");
+        var ownFab = await client.GetAsync($"/audit/overlay/{overlayId}?fabId=munich");
         ownFab.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        HttpResponseMessage otherFab = await client.GetAsync($"/audit/overlay/{overlayId}?fabId=berlin");
+        var otherFab = await client.GetAsync($"/audit/overlay/{overlayId}?fabId=berlin");
         otherFab.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        JsonElement problem = await otherFab.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await otherFab.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
     }
 
@@ -53,18 +51,18 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_fab_neutral_row_is_returned_by_a_fab_scoped_resource_timeline()
     {
-        Guid overlayIdentifier = Guid.CreateVersion7();
+        var overlayIdentifier = Guid.CreateVersion7();
         await SeedAsync(
             OverlayRow(overlayIdentifier, fab: null),
             OverlayRow(overlayIdentifier, fab: "berlin"));
 
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
-        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=munich");
+        var response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=munich");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
 
         string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
@@ -98,13 +96,13 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     {
         await SeedAsync(Row("berlin"), Row(fab: null));
 
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
-        HttpResponseMessage response = await client.GetAsync("/audit?pageSize=200");
+        var response = await client.GetAsync("/audit?pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
 
         string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
@@ -135,17 +133,17 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_variable_archived_in_munich_is_not_returned_to_a_berlin_only_operator()
     {
-        string name = $"fab{Guid.NewGuid():N}"[..16];
+        var name = $"fab{Guid.NewGuid():N}"[..16];
         await ArchiveInMunichAsync(name);
         await SeedAsync(Row(fab: null));
 
-        using HttpClient munich = await aspire.CreateAuthenticatedClientAsync(
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
-        JsonElement archived = await PollForArchiveRowAsync(munich, name);
+        var archived = await PollForArchiveRowAsync(munich, name);
 
-        using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
+        using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "op-berlin@berlin.test", SeededCredentials.OpBerlin);
-        JsonElement[] visible = await ArchiveRowsAsync(berlin);
+        var visible = await ArchiveRowsAsync(berlin);
 
         string[] leaked = [.. visible
             .Select(row => row.GetProperty("payload").GetString()!)
@@ -158,9 +156,9 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
 
         // #1300, unchanged: a row that genuinely has no fab still reaches
         // everyone. Scoping must not be bought by excluding it again.
-        HttpResponseMessage unfiltered = await berlin.GetAsync("/audit?pageSize=200");
+        var unfiltered = await berlin.GetAsync("/audit?pageSize=200");
         unfiltered.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement page = await unfiltered.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await unfiltered.Content.ReadFromJsonAsync<JsonElement>();
         page.GetProperty("rows").EnumerateArray()
             .Select(row => row.GetProperty("fab").GetString())
             .ShouldContain((string?)null, "a cross-fab row must stay readable by a fab-assigned caller");
@@ -177,14 +175,14 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_empty_fab_on_a_resource_timeline_is_a_client_error()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
-        Guid overlayIdentifier = Guid.CreateVersion7();
+        var overlayIdentifier = Guid.CreateVersion7();
 
-        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
+        var response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
     }
 
@@ -197,14 +195,14 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_whitespace_fab_on_a_resource_timeline_is_a_client_error()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
-        Guid overlayIdentifier = Guid.CreateVersion7();
+        var overlayIdentifier = Guid.CreateVersion7();
 
-        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=%20");
+        var response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=%20");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
     }
 
@@ -223,13 +221,13 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     {
         await SeedAsync(Row("munich"), Row("berlin"));
 
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
-        HttpResponseMessage response = await client.GetAsync("/audit?fabId=&pageSize=200");
+        var response = await client.GetAsync("/audit?fabId=&pageSize=200");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
 
         string?[] fabs = [.. rows.Select(row => row.GetProperty("fab").GetString())];
@@ -249,15 +247,15 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_cross_fab_timeline_is_refused_before_a_malformed_resource_is_parsed()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
         string malformedResourceIdentifier = new('a', ResourceIdentifier.MaximumLength + 1);
 
-        HttpResponseMessage response = await client.GetAsync(
+        var response = await client.GetAsync(
             $"/audit/overlay/{malformedResourceIdentifier}?fabId=berlin");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
     }
 
@@ -277,14 +275,14 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_malformed_fab_grammar_now_gets_a_client_error_not_an_authorization_refusal()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
-        Guid overlayIdentifier = Guid.CreateVersion7();
+        var overlayIdentifier = Guid.CreateVersion7();
 
-        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=NOT_A_FAB");
+        var response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=NOT_A_FAB");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
     }
 
@@ -302,13 +300,13 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_malformed_fab_on_the_audit_search_is_a_client_error_not_an_authorization_refusal()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
-        HttpResponseMessage response = await client.GetAsync("/audit?fabId=NOT_A_FAB");
+        var response = await client.GetAsync("/audit?fabId=NOT_A_FAB");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("AUDIT_INVALID_INPUT");
     }
 
@@ -323,11 +321,11 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_omitted_fab_keeps_the_frameworks_own_refusal()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
-        Guid overlayIdentifier = Guid.CreateVersion7();
+        var overlayIdentifier = Guid.CreateVersion7();
 
-        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}");
+        var response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}");
 
         response.StatusCode.ShouldBe(HttpStatusCode.BadRequest);
     }
@@ -341,13 +339,13 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_cross_fab_audit_search_is_still_refused()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
 
-        HttpResponseMessage response = await client.GetAsync("/audit?fabId=berlin");
+        var response = await client.GetAsync("/audit?fabId=berlin");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
     }
 
@@ -359,35 +357,35 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_unauthenticated_empty_fab_request_is_challenged()
     {
-        using HttpClient client = aspire.CreateServiceClient("audit-observability");
-        Guid overlayIdentifier = Guid.CreateVersion7();
+        using var client = aspire.CreateServiceClient("audit-observability");
+        var overlayIdentifier = Guid.CreateVersion7();
 
-        HttpResponseMessage response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
+        var response = await client.GetAsync($"/audit/overlay/{overlayIdentifier}?fabId=");
 
         response.StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
     }
 
     private async Task ArchiveInMunichAsync(string name)
     {
-        using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
+        using var variables = await aspire.CreateAuthenticatedClientAsync(
             "system-variables", "admin@munich.test", SeededCredentials.AdminMunich);
 
-        HttpResponseMessage defined = await variables.PostAsJsonAsync(
+        var defined = await variables.PostAsJsonAsync(
             "/system-variables",
             new { name, type = "Number", initialValue = "1" });
         defined.StatusCode.ShouldBe(HttpStatusCode.Created, await defined.Content.ReadAsStringAsync());
 
-        HttpResponseMessage archived = await VariableRequests.ArchiveAsync(variables, name);
+        var archived = await VariableRequests.ArchiveAsync(variables, name);
         archived.IsSuccessStatusCode.ShouldBeTrue(await archived.Content.ReadAsStringAsync());
     }
 
     private static async Task<JsonElement[]> ArchiveRowsAsync(HttpClient audit)
     {
-        HttpResponseMessage response = await audit.GetAsync(
+        var response = await audit.GetAsync(
             "/audit?eventKind=SystemVariableArchivedV1&pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         return [.. page.GetProperty("rows").EnumerateArray()];
     }
 
@@ -397,10 +395,10 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
     /// </summary>
     private static async Task<JsonElement> PollForArchiveRowAsync(HttpClient audit, string name)
     {
-        for (int attempt = 0; attempt < 40; attempt++)
+        for (var attempt = 0; attempt < 40; attempt++)
         {
-            JsonElement[] rows = await ArchiveRowsAsync(audit);
-            foreach (JsonElement row in rows)
+            var rows = await ArchiveRowsAsync(audit);
+            foreach (var row in rows)
             {
                 if (row.GetProperty("payload").GetString()!.Contains(name, StringComparison.Ordinal))
                 {
@@ -454,7 +452,7 @@ public class CrossFabReadGuardIntegrationTests(AspireFixture aspire)
 
     private async Task SeedAsync(params AuditEvent[] events)
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
 
         context.AuditEvents.AddRange(events);

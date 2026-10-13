@@ -3,10 +3,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Layout.Events;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
@@ -23,11 +21,11 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draft = new LayoutBuilder().At(FixedMoment).Build();
+        var draft = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand([Munich],
                 draft.Id,
                 LayoutRevisionNumber.One,
@@ -46,7 +44,7 @@ public class PublishRevisionCommandHandlerTests
         FakeClock clock = new(FixedMoment);
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
 
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand([Munich],
                 LayoutIdentifier.New(),
                 LayoutRevisionNumber.One,
@@ -62,11 +60,11 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draft = new LayoutBuilder().At(FixedMoment).Build();
+        var draft = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand([Munich],
                 draft.Id,
                 LayoutRevisionNumber.From(99),
@@ -82,13 +80,13 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout draft = new LayoutBuilder().At(FixedMoment).Build();
+        var draft = new LayoutBuilder().At(FixedMoment).Build();
         draft.Publish(LayoutRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
         draft.ClearPendingEvents();
         layouts.Add(draft);
 
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand([Munich],
                 draft.Id,
                 LayoutRevisionNumber.One,
@@ -104,10 +102,10 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
-        Layout layout = new LayoutBuilder().CreatedBy(op).At(FixedMoment).Build();
+        var op = OperatorIdentifier.From(Guid.CreateVersion7());
+        var layout = new LayoutBuilder().CreatedBy(op).At(FixedMoment).Build();
         layout.Publish(LayoutRevisionNumber.One, op, clock);
-        Revision draftTwo = layout.BranchDraft(op, clock);
+        var draftTwo = layout.BranchDraft(op, clock);
         layout.ClearPendingEvents();
         layouts.Add(layout);
 
@@ -170,11 +168,11 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout inMunich = new LayoutBuilder().WithFab(Munich).At(FixedMoment).Build();
+        var inMunich = new LayoutBuilder().WithFab(Munich).At(FixedMoment).Build();
         layouts.Add(inMunich);
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
 
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 [Dresden],
                 inMunich.Id,
@@ -199,11 +197,11 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryLayoutRepository layouts = new();
         FakeClock clock = new(FixedMoment);
-        Layout inMunich = new LayoutBuilder().WithFab(Munich).At(FixedMoment).Build();
+        var inMunich = new LayoutBuilder().WithFab(Munich).At(FixedMoment).Build();
         layouts.Add(inMunich);
         PublishRevisionCommandHandler handler = new(layouts, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
 
-        Result<LayoutRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 [Dresden],
                 inMunich.Id,

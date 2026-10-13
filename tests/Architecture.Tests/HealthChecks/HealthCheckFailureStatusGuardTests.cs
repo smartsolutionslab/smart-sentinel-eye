@@ -37,7 +37,7 @@ public class HealthCheckFailureStatusGuardTests
     public void Every_health_check_on_a_host_serving_health_declares_a_failure_status_other_than_unhealthy(
         string assemblyName)
     {
-        List<string> offenders = CaptureOffenders(assemblyName, configureServices: null);
+        var offenders = CaptureOffenders(assemblyName, configureServices: null);
 
         offenders.ShouldBeEmpty(
             $"{assemblyName} registers a health check whose failure status is the framework default "
@@ -55,7 +55,7 @@ public class HealthCheckFailureStatusGuardTests
     [Fact]
     public void The_guard_reports_a_check_registered_without_a_failure_status()
     {
-        List<string> offenders = CaptureOffenders(
+        var offenders = CaptureOffenders(
             "SmartSentinelEye.ApiGateway",
             configureServices: builder => builder.ConfigureServices(
                 services => services.AddHealthChecks().AddCheck("planted", () => HealthCheckResult.Healthy())));
@@ -77,7 +77,7 @@ public class HealthCheckFailureStatusGuardTests
     [Fact]
     public void The_guard_reports_a_check_registered_with_an_explicit_unhealthy_failure_status()
     {
-        List<string> offenders = CaptureOffenders(
+        var offenders = CaptureOffenders(
             "SmartSentinelEye.ApiGateway",
             configureServices: builder => builder.ConfigureServices(
                 services => services.AddHealthChecks()
@@ -99,12 +99,12 @@ public class HealthCheckFailureStatusGuardTests
     [Fact]
     public void A_check_named_self_with_a_different_tag_does_not_inherit_the_exemption()
     {
-        List<string> offenders = CaptureOffenders(
+        var offenders = CaptureOffenders(
             "SmartSentinelEye.ApiGateway",
             configureServices: builder => builder.ConfigureServices(
                 services => services.Configure<HealthCheckServiceOptions>(options =>
                 {
-                    HealthCheckRegistration self = options.Registrations.Single(
+                    var self = options.Registrations.Single(
                         registration => registration.Name == "self");
                     self.Tags.Clear();
                     self.Tags.Add("ready");
@@ -122,7 +122,7 @@ public class HealthCheckFailureStatusGuardTests
     [Fact]
     public void A_second_check_named_self_does_not_inherit_the_exemption()
     {
-        List<string> offenders = CaptureOffenders(
+        var offenders = CaptureOffenders(
             "SmartSentinelEye.ApiGateway",
             configureServices: builder => builder.ConfigureServices(
                 services => services.AddHealthChecks().AddCheck("self", () => HealthCheckResult.Healthy(), ["live"])));
@@ -143,12 +143,12 @@ public class HealthCheckFailureStatusGuardTests
     [Fact]
     public void A_check_named_self_backed_by_a_different_factory_type_does_not_inherit_the_exemption()
     {
-        List<string> offenders = CaptureOffenders(
+        var offenders = CaptureOffenders(
             "SmartSentinelEye.ApiGateway",
             configureServices: builder => builder.ConfigureServices(
                 services => services.Configure<HealthCheckServiceOptions>(options =>
                 {
-                    HealthCheckRegistration self = options.Registrations.Single(
+                    var self = options.Registrations.Single(
                         registration => registration.Name == "self");
                     options.Registrations.Remove(self);
                     options.Registrations.Add(new HealthCheckRegistration(
@@ -169,12 +169,12 @@ public class HealthCheckFailureStatusGuardTests
     [Fact]
     public void No_check_named_self_at_all_is_reported_missing()
     {
-        List<string> offenders = CaptureOffenders(
+        var offenders = CaptureOffenders(
             "SmartSentinelEye.ApiGateway",
             configureServices: builder => builder.ConfigureServices(
                 services => services.Configure<HealthCheckServiceOptions>(options =>
                 {
-                    HealthCheckRegistration self = options.Registrations.Single(
+                    var self = options.Registrations.Single(
                         registration => registration.Name == "self");
                     options.Registrations.Remove(self);
                 })));
@@ -200,17 +200,17 @@ public class HealthCheckFailureStatusGuardTests
 
     private static List<string> CaptureOffenders(string assemblyName, Action<IHostBuilder>? configureServices)
     {
-        ServedHealthHosts.Host host = ServedHealthHosts.Resolve(assemblyName);
+        var host = ServedHealthHosts.Resolve(assemblyName);
 
-        using IHost composed = ComposedHost.Capture(
+        using var composed = ComposedHost.Capture(
             host.AssemblyName,
             ServedHealthHosts.ContentRootOf(host),
             ServedHealthHosts.PlaceholderConfiguration,
             configureServices,
             CaptureTimeout);
 
-        using IServiceScope scope = composed.Services.CreateScope();
-        HealthCheckServiceOptions options =
+        using var scope = composed.Services.CreateScope();
+        var options =
             scope.ServiceProvider.GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value;
 
         return [.. HealthCheckFailureStatusRule.Offenders([.. options.Registrations], scope.ServiceProvider)];

@@ -5,7 +5,6 @@ using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Tests.Rule;
-using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Commands;
@@ -26,10 +25,10 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Publish_rejects_a_stale_version_and_leaves_the_rule_in_Draft()
     {
-        (InMemoryRuleRepository rules, RuleAggregate rule) = Seeded();
-        RuleState before = rule.State;
+        (var rules, var rule) = Seeded();
+        var before = rule.State;
 
-        Result<RuleIdentifier, PublishRuleError> result = await Publisher(rules).HandleAsync(
+        var result = await Publisher(rules).HandleAsync(
             new PublishRuleCommand(FabIdentifier.From("munich"), rule.Name, Stale), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -40,10 +39,10 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task Archive_rejects_a_stale_version_and_leaves_the_state_alone()
     {
-        (InMemoryRuleRepository rules, RuleAggregate rule) = Seeded();
-        RuleState before = rule.State;
+        (var rules, var rule) = Seeded();
+        var before = rule.State;
 
-        Result<RuleIdentifier, ArchiveRuleError> result = await Archiver(rules).HandleAsync(
+        var result = await Archiver(rules).HandleAsync(
             new ArchiveRuleCommand(FabIdentifier.From("munich"), rule.Name, Stale), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -54,9 +53,9 @@ public class StaleVersionRejectionTests
     [Fact]
     public async Task The_matching_version_is_accepted()
     {
-        (InMemoryRuleRepository rules, RuleAggregate rule) = Seeded();
+        (var rules, var rule) = Seeded();
 
-        Result<RuleIdentifier, PublishRuleError> result = await Publisher(rules).HandleAsync(
+        var result = await Publisher(rules).HandleAsync(
             new PublishRuleCommand(FabIdentifier.From("munich"), rule.Name, rule.Version), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -71,7 +70,7 @@ public class StaleVersionRejectionTests
     private static (InMemoryRuleRepository, RuleAggregate) Seeded()
     {
         InMemoryRuleRepository rules = new();
-        RuleAggregate rule = new RuleBuilder().WithName("high-oee").WithClock(Moment).Build();
+        var rule = new RuleBuilder().WithName("high-oee").WithClock(Moment).Build();
         rules.Add(rule);
 
         return (rules, rule);

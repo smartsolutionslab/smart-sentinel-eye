@@ -32,7 +32,7 @@ public class IngestAttributionTests
     [Fact]
     public void A_median_gap_is_not_an_apparatus_fault()
     {
-        IngestAttribution attribution =
+        var attribution =
             Attribution(total: 85, beforeHandler: 20, inHandler: 5, write: 3, perRowResidual: 0);
 
         attribution.UnattributedMs.ShouldBe(60, 0.001, "the printed figures do not reconcile");
@@ -46,7 +46,7 @@ public class IngestAttributionTests
     [Fact]
     public void Figures_that_reconcile_can_still_rest_on_broken_stamps()
     {
-        IngestAttribution attribution =
+        var attribution =
             Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5, perRowResidual: 4.2);
 
         attribution.UnattributedMs.ShouldBe(0, 0.001, "the printed figures reconcile exactly");
@@ -75,7 +75,7 @@ public class IngestAttributionTests
     [Fact]
     public void A_span_its_parts_cover_leaves_nothing_over()
     {
-        IngestAttribution attribution = Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5);
+        var attribution = Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5);
 
         attribution.UnattributedMs.ShouldBe(0, 0.001);
         attribution.AttributedFraction.ShouldBe(1, 0.001);
@@ -96,7 +96,7 @@ public class IngestAttributionTests
     [Fact]
     public void A_breakdown_that_does_not_add_up_says_so()
     {
-        IngestAttribution attribution = Attribution(total: 85, beforeHandler: 20, inHandler: 5, write: 3);
+        var attribution = Attribution(total: 85, beforeHandler: 20, inHandler: 5, write: 3);
 
         attribution.UnattributedMs.ShouldBe(60, 0.001);
         attribution.AttributedFraction.ShouldBeLessThan(0.8);
@@ -111,7 +111,7 @@ public class IngestAttributionTests
     [Fact]
     public void The_requirement_span_is_bounded_rather_than_measured()
     {
-        IngestAttribution attribution = Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5);
+        var attribution = Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5);
 
         attribution.RequirementSpanFloorMs.ShouldBe(25, 0.001, "from handler entry, which is after the handover");
         attribution.RequirementSpanCeilingMs.ShouldBe(85, 0.001, "as if the handover happened at the change itself");
@@ -129,7 +129,7 @@ public class IngestAttributionTests
     [InlineData(0, 0, 0, 0)]
     public void The_floor_never_exceeds_the_ceiling(double total, double before, double inHandler, double write)
     {
-        IngestAttribution attribution = Attribution(total, before, inHandler, write);
+        var attribution = Attribution(total, before, inHandler, write);
 
         attribution.RequirementSpanFloorMs.ShouldBeLessThanOrEqualTo(attribution.RequirementSpanCeilingMs);
     }
@@ -142,7 +142,7 @@ public class IngestAttributionTests
     [Fact]
     public void The_difference_between_the_spans_is_split_front_and_back()
     {
-        IngestAttribution attribution = Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5);
+        var attribution = Attribution(total: 80, beforeHandler: 60, inHandler: 20, write: 5);
 
         attribution.FrontOverhangMs.ShouldBe(60, 0.001, "in the historic figure, outside the requirement");
         attribution.BackShortfallMs.ShouldBe(5, 0.001, "in the requirement, outside the historic figure");
@@ -170,7 +170,7 @@ public class IngestAttributionTests
     [Fact]
     public void Rows_that_arrived_without_stamps_are_counted()
     {
-        IngestAttribution attribution = Attribution(80, 60, 20, 5, rows: 1_000, missing: 12);
+        var attribution = Attribution(80, 60, 20, 5, rows: 1_000, missing: 12);
 
         attribution.EveryRowStamped.ShouldBeFalse();
         attribution.Describe().ShouldContain("12 missing stamps");
@@ -187,7 +187,7 @@ public class IngestAttributionTests
     [Fact]
     public void The_description_carries_both_spans_and_the_remainder()
     {
-        string description = Attribution(80, 60, 20, 5).Describe();
+        var description = Attribution(80, 60, 20, 5).Describe();
 
         description.ShouldContain("observed span");
         description.ShouldContain("requirement span");
@@ -203,7 +203,7 @@ public class IngestAttributionTests
     [Fact]
     public void The_write_leg_is_the_one_labelled_as_crossing_clocks()
     {
-        string description = Attribution(80, 60, 20, 5).Describe();
+        var description = Attribution(80, 60, 20, 5).Describe();
 
         description.ShouldContain("write (two clocks");
         description.ShouldContain("before handler (two processes, one clock)");

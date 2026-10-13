@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-using Shouldly;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 using SmartSentinelEye.Identity.Infrastructure.Tests.Fakes;
@@ -47,7 +46,7 @@ public class DisabledClientReregistrationTests
     {
         StubKeycloakHandler keycloak = new(DisabledClientStillPresentFlow);
 
-        KeycloakClientAlreadyExistsException thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
+        var thrown = await Should.ThrowAsync<KeycloakClientAlreadyExistsException>(
             () => CreateAsync(keycloak));
 
         thrown.ClientId.ShouldBe(
@@ -66,7 +65,7 @@ public class DisabledClientReregistrationTests
     {
         StubKeycloakHandler keycloak = new(DisabledClientIsReplacedFlow);
 
-        KeycloakClientCredentials credentials = await CreateAsync(keycloak);
+        var credentials = await CreateAsync(keycloak);
 
         credentials.ClientSecret.ShouldBe(
             "fresh-secret-after-reregistration",

@@ -41,7 +41,7 @@ public sealed class EventIngestedDomainEventHandler(
         // origin is less code, produces a joined trace, and reads as correct
         // from the effect end while merging two hundred unrelated journeys
         // (FR-006).
-        using IJourney journey = journeys.Begin(OriginName);
+        using var journey = journeys.Begin(OriginName);
 
         try
         {

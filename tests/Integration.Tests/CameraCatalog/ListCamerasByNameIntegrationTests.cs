@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -36,13 +35,13 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_fragment_finds_a_camera_whose_name_does_not_start_with_it()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Line 2 Furnace", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Furnace 3", "rtsp://10.0.5.2/h264");
         await RegisterAsync(client, "Bay 4 Inlet", "rtsp://10.0.5.3/h264");
 
-        JsonElement page = await ListAsync(client, "?name=furn");
+        var page = await ListAsync(client, "?name=furn");
 
         page.GetProperty("items").GetArrayLength().ShouldBe(2);
         page.GetProperty("count").GetInt32().ShouldBe(
@@ -53,12 +52,12 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task The_match_ignores_case_through_the_real_column()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Line 2 Furnace", "rtsp://10.0.5.1/h264");
 
-        JsonElement upper = await ListAsync(client, "?name=FURN");
-        JsonElement lower = await ListAsync(client, "?name=furn");
+        var upper = await ListAsync(client, "?name=FURN");
+        var lower = await ListAsync(client, "?name=furn");
 
         upper.GetProperty("count").GetInt32().ShouldBe(1);
         lower.GetProperty("count").GetInt32().ShouldBe(1);
@@ -88,13 +87,13 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task An_accented_name_normalises_the_same_way_on_both_sides()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Fürnace", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Fuernace", "rtsp://10.0.5.2/h264");
 
-        JsonElement accented = await ListAsync(client, "?name=f%C3%BCr");
-        JsonElement plain = await ListAsync(client, "?name=fur");
+        var accented = await ListAsync(client, "?name=f%C3%BCr");
+        var plain = await ListAsync(client, "?name=fur");
 
         // The accented fragment finds the accented name: the two upper-casings
         // agree, case-insensitively, on a character outside ASCII.
@@ -114,13 +113,13 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_wildcard_character_is_matched_literally()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "50% Load", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Bay 4 Inlet", "rtsp://10.0.5.2/h264");
         await RegisterAsync(client, "Coiler", "rtsp://10.0.5.3/h264");
 
-        JsonElement page = await ListAsync(client, "?name=%25");
+        var page = await ListAsync(client, "?name=%25");
 
         page.GetProperty("count").GetInt32().ShouldBe(
             1,
@@ -136,12 +135,12 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task An_underscore_is_matched_literally()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Bay_4", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Bay 4", "rtsp://10.0.5.2/h264");
 
-        JsonElement page = await ListAsync(client, "?name=Bay_4");
+        var page = await ListAsync(client, "?name=Bay_4");
 
         page.GetProperty("count").GetInt32().ShouldBe(
             1,
@@ -158,12 +157,12 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task An_empty_fragment_in_the_query_string_returns_everything()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Line 2 Furnace", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Bay 4 Inlet", "rtsp://10.0.5.2/h264");
 
-        JsonElement page = await ListAsync(client, "?name=");
+        var page = await ListAsync(client, "?name=");
 
         page.GetProperty("count").GetInt32().ShouldBe(2);
         page.GetProperty("items").GetArrayLength().ShouldBe(2);
@@ -177,14 +176,14 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task A_fragment_nothing_matches_is_an_empty_page_rather_than_an_error()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Line 2 Furnace", "rtsp://10.0.5.1/h264");
 
-        HttpResponseMessage response = await client.GetAsync("/cameras?name=nothingiscalledthis");
+        var response = await client.GetAsync("/cameras?name=nothingiscalledthis");
 
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         page.GetProperty("count").GetInt32().ShouldBe(0);
         page.GetProperty("items").GetArrayLength().ShouldBe(0);
     }
@@ -196,14 +195,14 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task Filtering_and_paging_compose_through_the_endpoint()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
         await RegisterAsync(client, "Furnace A", "rtsp://10.0.5.1/h264");
         await RegisterAsync(client, "Furnace B", "rtsp://10.0.5.2/h264");
         await RegisterAsync(client, "Furnace C", "rtsp://10.0.5.3/h264");
         await RegisterAsync(client, "Bay 4 Inlet", "rtsp://10.0.5.4/h264");
 
-        JsonElement second = await ListAsync(client, "?name=furnace&sort=name&order=asc&offset=2&limit=2");
+        var second = await ListAsync(client, "?name=furnace&sort=name&order=asc&offset=2&limit=2");
 
         second.GetProperty("count").GetInt32().ShouldBe(3, "the match count, not the catalogue, on a later page");
         second.GetProperty("items").GetArrayLength().ShouldBe(1);
@@ -212,7 +211,7 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<JsonElement> ListAsync(HttpClient client, string query)
     {
-        HttpResponseMessage response = await client.GetAsync($"/cameras{query}");
+        var response = await client.GetAsync($"/cameras{query}");
         response.StatusCode.ShouldBe(HttpStatusCode.OK);
 
         return await response.Content.ReadFromJsonAsync<JsonElement>();
@@ -220,7 +219,7 @@ public class ListCamerasByNameIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task RegisterAsync(HttpClient client, string name, string rtspUrl)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras", new { name, rtspUrl });
         response.EnsureSuccessStatusCode();
     }

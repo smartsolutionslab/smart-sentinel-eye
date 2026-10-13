@@ -11,7 +11,7 @@ public sealed class InMemoryVariableRepository : IVariableRepository
 
     public Task<Option<Variable>> GetByIdentifierAsync(VariableIdentifier variable, CancellationToken cancellationToken)
     {
-        Variable? found = variables.SingleOrDefault(v => v.Id == variable);
+        var found = variables.SingleOrDefault(v => v.Id == variable);
         return Task.FromResult(found is null ? Option<Variable>.None : Option<Variable>.Some(found));
     }
 
@@ -23,7 +23,7 @@ public sealed class InMemoryVariableRepository : IVariableRepository
         // Fab is part of the match, not a filter applied afterwards: keyed on
         // the name alone this SingleOrDefault would throw the moment two fabs
         // use one name, which is the whole point of the feature.
-        Variable? found = variables.SingleOrDefault(v =>
+        var found = variables.SingleOrDefault(v =>
             v.Fab == fab && v.Name == name && v.State != VariableState.Archived);
         return Task.FromResult(found is null ? Option<Variable>.None : Option<Variable>.Some(found));
     }
@@ -32,7 +32,7 @@ public sealed class InMemoryVariableRepository : IVariableRepository
     {
         Ensure.That(fab).IsNotNull();
         Ensure.That(name).IsNotNull();
-        bool exists = variables.Any(variable => variable.Fab == fab && variable.Name == name);
+        var exists = variables.Any(variable => variable.Fab == fab && variable.Name == name);
         return Task.FromResult(exists);
     }
 
@@ -54,11 +54,11 @@ public sealed class InMemoryVariableRepository : IVariableRepository
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (Variable v in variables)
+        foreach (var v in variables)
         {
             if (OnDomainEvent is { } handle)
             {
-                foreach (IDomainEvent pending in v.PendingEvents.ToArray())
+                foreach (var pending in v.PendingEvents.ToArray())
                 {
                     await handle(pending, cancellationToken);
                 }

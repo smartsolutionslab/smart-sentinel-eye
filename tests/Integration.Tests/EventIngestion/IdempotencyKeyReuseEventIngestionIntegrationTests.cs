@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using static SmartSentinelEye.Integration.Tests.EventIngestion.EventSourceModeApi;
@@ -44,22 +43,22 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_key_reused_to_declare_a_different_source_is_refused()
     {
-        string key = $"key-{Guid.CreateVersion7():N}";
-        using HttpClient berlin = await ClientFor(BerlinOperator);
+        var key = $"key-{Guid.CreateVersion7():N}";
+        using var berlin = await ClientFor(BerlinOperator);
 
         try
         {
-            HttpResponseMessage first = await DeclareWithKeyAsync(berlin, "plc", "strict", key, Fab);
+            var first = await DeclareWithKeyAsync(berlin, "plc", "strict", key, Fab);
             first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
 
-            HttpResponseMessage second = await DeclareWithKeyAsync(berlin, "webhook", "strict", key, Fab);
+            var second = await DeclareWithKeyAsync(berlin, "webhook", "strict", key, Fab);
 
             second.StatusCode.ShouldBe(
                 HttpStatusCode.UnprocessableEntity,
                 "a key already used to declare plc must not be honoured for webhook: " + await Diagnose(second));
             (await TitleOfAsync(second)).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
-            JsonElement rows = await ListRowsAsync(berlin, await Diagnose(second));
+            var rows = await ListRowsAsync(berlin, await Diagnose(second));
             RowFor(rows, "webhook").ShouldBeNull("webhook must never have been declared by the refused request");
         }
         finally
@@ -78,15 +77,15 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
     [Fact]
     public async Task A_key_reused_for_a_different_manual_event_is_refused()
     {
-        string key = $"key-{Guid.CreateVersion7():N}";
-        string firstKind = $"T302First{Guid.NewGuid():N}"[..24];
-        string secondKind = $"T302Second{Guid.NewGuid():N}"[..24];
-        using HttpClient events = await ClientFor(BerlinOperator);
+        var key = $"key-{Guid.CreateVersion7():N}";
+        var firstKind = $"T302First{Guid.NewGuid():N}"[..24];
+        var secondKind = $"T302Second{Guid.NewGuid():N}"[..24];
+        using var events = await ClientFor(BerlinOperator);
 
-        HttpResponseMessage first = await IngestManualAsync(events, firstKind, key);
+        var first = await IngestManualAsync(events, firstKind, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(first));
 
-        HttpResponseMessage second = await IngestManualAsync(events, secondKind, key);
+        var second = await IngestManualAsync(events, secondKind, key);
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -121,9 +120,9 @@ public class IdempotencyKeyReuseEventIngestionIntegrationTests(AspireFixture asp
 
     private static async Task<int> CountOfKindAsync(HttpClient events, string kind)
     {
-        HttpResponseMessage listed = await events.GetAsync($"/events?fabId={Fab}&kind={kind}");
+        var listed = await events.GetAsync($"/events?fabId={Fab}&kind={kind}");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return page.GetProperty("items").GetArrayLength();
     }

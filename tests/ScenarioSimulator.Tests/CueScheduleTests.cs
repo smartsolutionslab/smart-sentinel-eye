@@ -1,5 +1,4 @@
 using SmartSentinelEye.ScenarioSimulator.Cues;
-using SmartSentinelEye.ScenarioSimulator.Scenario;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
 
@@ -52,23 +51,23 @@ public sealed class CueScheduleTests
     [Fact]
     public void The_first_cue_of_loop_zero_is_picked_when_nothing_has_been_emitted_yet()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
+        var manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
 
-        CueDecision decision = CueSchedule.Next(Anchor, Anchor, manifest, lastEmitted: null);
+        var decision = CueSchedule.Next(Anchor, Anchor, manifest, lastEmitted: null);
 
-        CueDecision.Wait wait = decision.ShouldBeOfType<CueDecision.Wait>();
+        var wait = decision.ShouldBeOfType<CueDecision.Wait>();
         wait.Delay.ShouldBe(TimeSpan.FromMilliseconds(4_000));
     }
 
     [Fact]
     public void A_cue_due_now_is_emitted()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(4_000);
+        var manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
+        var now = Anchor + TimeSpan.FromMilliseconds(4_000);
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted: null);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted: null);
 
-        CueDecision.Emit emit = decision.ShouldBeOfType<CueDecision.Emit>();
+        var emit = decision.ShouldBeOfType<CueDecision.Emit>();
         emit.Loop.ShouldBe(0);
         emit.Index.ShouldBe(0);
         emit.Cue.AtMs.ShouldBe(4_000);
@@ -79,13 +78,13 @@ public sealed class CueScheduleTests
     [Fact]
     public void After_the_last_cue_of_a_loop_the_schedule_wraps_to_the_first_cue_of_the_next_loop()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
+        var manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
         CueCursor lastEmitted = new(Anchor, Loop: 0, Index: 1); // the 12_000ms cue, already emitted
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(20_000 + 4_000); // loop 1's first cue is due
+        var now = Anchor + TimeSpan.FromMilliseconds(20_000 + 4_000); // loop 1's first cue is due
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
 
-        CueDecision.Emit emit = decision.ShouldBeOfType<CueDecision.Emit>();
+        var emit = decision.ShouldBeOfType<CueDecision.Emit>();
         emit.Loop.ShouldBe(1);
         emit.Index.ShouldBe(0);
         emit.Cue.AtMs.ShouldBe(4_000);
@@ -95,16 +94,16 @@ public sealed class CueScheduleTests
     [Fact]
     public void A_cue_already_recorded_as_emitted_is_never_offered_again_in_the_same_loop()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
+        var manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
         // The 4_000ms cue (index 0) was already emitted; the schedule must move on
         // to index 1, not re-offer index 0 even though "now" has looped back to it
         // logically (it hasn't — this call only ever advances forward from the cursor).
         CueCursor lastEmitted = new(Anchor, Loop: 0, Index: 0);
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(12_000);
+        var now = Anchor + TimeSpan.FromMilliseconds(12_000);
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
 
-        CueDecision.Emit emit = decision.ShouldBeOfType<CueDecision.Emit>();
+        var emit = decision.ShouldBeOfType<CueDecision.Emit>();
         emit.Loop.ShouldBe(0);
         emit.Index.ShouldBe(1);
     }
@@ -112,31 +111,31 @@ public sealed class CueScheduleTests
     [Fact]
     public void A_changed_anchor_is_treated_as_a_restart_and_the_stale_cursor_is_ignored()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
-        DateTimeOffset oldAnchor = Anchor - TimeSpan.FromMinutes(5);
+        var manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
+        var oldAnchor = Anchor - TimeSpan.FromMinutes(5);
         CueCursor staleCursor = new(oldAnchor, Loop: 3, Index: 1);
 
         // The path restarted: readyTime moved to `Anchor`. `now` is exactly the new
         // anchor, so the fresh search must start at loop 0 / the first cue, not
         // wherever the stale (old-anchor) cursor left off.
-        CueDecision decision = CueSchedule.Next(Anchor, Anchor, manifest, staleCursor);
+        var decision = CueSchedule.Next(Anchor, Anchor, manifest, staleCursor);
 
-        CueDecision.Wait wait = decision.ShouldBeOfType<CueDecision.Wait>();
+        var wait = decision.ShouldBeOfType<CueDecision.Wait>();
         wait.Delay.ShouldBe(TimeSpan.FromMilliseconds(4_000));
     }
 
     [Fact]
     public void A_cue_more_than_250ms_late_is_skipped_rather_than_emitted()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
+        var manifest = Manifest(20_000, Cue(4_000), Cue(12_000));
         CueCursor lastEmitted = new(Anchor, Loop: 0, Index: 0); // index 1 (12_000ms) is next
         // The caller only got around to asking 400ms after the cue's own due time —
         // a slow HTTP round trip to camera-sim, or a delayed wake-up.
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(12_400);
+        var now = Anchor + TimeSpan.FromMilliseconds(12_400);
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
 
-        CueDecision.Skip skip = decision.ShouldBeOfType<CueDecision.Skip>();
+        var skip = decision.ShouldBeOfType<CueDecision.Skip>();
         skip.Loop.ShouldBe(0);
         skip.Index.ShouldBe(1);
         skip.Cue.AtMs.ShouldBe(12_000);
@@ -147,11 +146,11 @@ public sealed class CueScheduleTests
     [Fact]
     public void A_cue_exactly_at_the_250ms_tolerance_boundary_is_still_emitted()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000));
+        var manifest = Manifest(20_000, Cue(4_000));
         CueCursor lastEmitted = new(Anchor, Loop: -1, Index: 0); // forces Advance() to (loop 0, index 0)
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(4_000) + CueSchedule.LateTolerance;
+        var now = Anchor + TimeSpan.FromMilliseconds(4_000) + CueSchedule.LateTolerance;
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
 
         decision.ShouldBeOfType<CueDecision.Emit>();
     }
@@ -174,12 +173,12 @@ public sealed class CueScheduleTests
     [Fact]
     public void A_cold_start_wake_up_a_few_milliseconds_late_still_emits_this_loops_cue_rather_than_skipping_a_whole_loop()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000));
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(4_000) + TimeSpan.FromMilliseconds(5);
+        var manifest = Manifest(20_000, Cue(4_000));
+        var now = Anchor + TimeSpan.FromMilliseconds(4_000) + TimeSpan.FromMilliseconds(5);
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted: null);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted: null);
 
-        CueDecision.Emit emit = decision.ShouldBeOfType<CueDecision.Emit>(
+        var emit = decision.ShouldBeOfType<CueDecision.Emit>(
             "a 5ms-late cold-start wake-up must still catch this loop's cue (well inside the 250ms "
             + "tolerance), not silently roll forward to the next loop's copy of it");
         emit.Loop.ShouldBe(0);
@@ -189,25 +188,25 @@ public sealed class CueScheduleTests
     [Fact]
     public void A_future_anchor_from_clock_skew_makes_the_schedule_wait_rather_than_throw()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000));
-        DateTimeOffset now = Anchor - TimeSpan.FromSeconds(2); // camera-sim's readyTime is "ahead" of our clock
+        var manifest = Manifest(20_000, Cue(4_000));
+        var now = Anchor - TimeSpan.FromSeconds(2); // camera-sim's readyTime is "ahead" of our clock
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted: null);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted: null);
 
-        CueDecision.Wait wait = decision.ShouldBeOfType<CueDecision.Wait>();
+        var wait = decision.ShouldBeOfType<CueDecision.Wait>();
         wait.Delay.ShouldBe(TimeSpan.FromSeconds(2) + TimeSpan.FromMilliseconds(4_000));
     }
 
     [Fact]
     public void A_manifest_with_a_single_cue_still_loops()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(4_000));
+        var manifest = Manifest(20_000, Cue(4_000));
         CueCursor lastEmitted = new(Anchor, Loop: 0, Index: 0);
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(20_000 + 4_000);
+        var now = Anchor + TimeSpan.FromMilliseconds(20_000 + 4_000);
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
 
-        CueDecision.Emit emit = decision.ShouldBeOfType<CueDecision.Emit>();
+        var emit = decision.ShouldBeOfType<CueDecision.Emit>();
         emit.Loop.ShouldBe(1);
         emit.Index.ShouldBe(0);
     }
@@ -215,13 +214,13 @@ public sealed class CueScheduleTests
     [Fact]
     public void A_cue_at_AtMs_zero_lands_exactly_on_the_loop_boundary()
     {
-        ClipManifest manifest = Manifest(20_000, Cue(0), Cue(12_000));
+        var manifest = Manifest(20_000, Cue(0), Cue(12_000));
         CueCursor lastEmitted = new(Anchor, Loop: 0, Index: 1); // 12_000ms cue already emitted
-        DateTimeOffset now = Anchor + TimeSpan.FromMilliseconds(20_000); // exactly loop 1's start
+        var now = Anchor + TimeSpan.FromMilliseconds(20_000); // exactly loop 1's start
 
-        CueDecision decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
+        var decision = CueSchedule.Next(Anchor, now, manifest, lastEmitted);
 
-        CueDecision.Emit emit = decision.ShouldBeOfType<CueDecision.Emit>();
+        var emit = decision.ShouldBeOfType<CueDecision.Emit>();
         emit.Loop.ShouldBe(1);
         emit.Index.ShouldBe(0);
         emit.DueAt.ShouldBe(Anchor + TimeSpan.FromMilliseconds(20_000));

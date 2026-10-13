@@ -19,7 +19,7 @@ public class ResolvedTextPairsTests
         params (string name, VariableValue value)[] entries)
     {
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
-        foreach ((string name, VariableValue value) in entries)
+        foreach ((var name, var value) in entries)
         {
             snapshot[name] = new VariableSnapshotEntry(value, BooleanLabels: null);
         }
@@ -30,7 +30,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void Skips_shapes_drops_duplicates_and_keeps_order()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             ["", "A {{x}}", "B {{x}}", "A {{x}}"],
             RealResolver,
             Snapshot(("x", new VariableValue.NumberValue(7))));
@@ -41,7 +41,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void Skips_an_empty_string_contributed_by_a_shape()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             [string.Empty, "OEE: {{oee}}%"],
             RealResolver,
             Snapshot(("oee", new VariableValue.NumberValue(82.5))));
@@ -52,7 +52,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void Drops_a_template_already_seen_by_ordinal_comparison_keeping_the_first_occurrence()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             ["A {{x}}", "A {{x}}", "A {{x}}"],
             RealResolver,
             Snapshot(("x", new VariableValue.NumberValue(1))));
@@ -67,7 +67,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void Treats_templates_differing_only_by_case_as_distinct()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             ["{{x}}", "{{X}}"],
             RealResolver,
             Snapshot());
@@ -78,7 +78,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void Keeps_the_order_of_first_appearance()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             ["Second {{b}}", "First {{a}}", "Second {{b}}"],
             RealResolver,
             Snapshot(("a", new VariableValue.StringValue("A")), ("b", new VariableValue.StringValue("B"))));
@@ -91,7 +91,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void A_template_with_no_entry_in_the_snapshot_resolves_to_its_own_literal()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             ["Shift: {{shift}}"],
             RealResolver,
             Snapshot());
@@ -102,7 +102,7 @@ public class ResolvedTextPairsTests
     [Fact]
     public void Returns_an_empty_list_when_every_template_is_empty()
     {
-        IReadOnlyList<(string Template, string Resolved)> pairs = ResolvedTextPairs.Build(
+        var pairs = ResolvedTextPairs.Build(
             [string.Empty, string.Empty],
             RealResolver,
             Snapshot());

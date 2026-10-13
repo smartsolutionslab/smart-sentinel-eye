@@ -24,10 +24,10 @@ public class StreamFabAttributionTests
     [Fact]
     public void A_stream_takes_the_fab_of_its_own_camera()
     {
-        StreamAggregate munich = Unattributed();
-        StreamAggregate dresden = Unattributed();
+        var munich = Unattributed();
+        var dresden = Unattributed();
 
-        int attributed = StreamFabAttributionService.Attribute(
+        var attributed = StreamFabAttributionService.Attribute(
             [munich, dresden],
             new Dictionary<Guid, string>
             {
@@ -49,10 +49,10 @@ public class StreamFabAttributionTests
     [Fact]
     public void A_stream_whose_camera_cannot_be_resolved_stays_unattributed()
     {
-        StreamAggregate known = Unattributed();
-        StreamAggregate orphan = Unattributed();
+        var known = Unattributed();
+        var orphan = Unattributed();
 
-        int attributed = StreamFabAttributionService.Attribute(
+        var attributed = StreamFabAttributionService.Attribute(
             [known, orphan],
             new Dictionary<Guid, string> { [known.Camera.Value] = "munich" });
 
@@ -98,12 +98,12 @@ public class StreamFabAttributionTests
     [Fact]
     public void The_pass_raises_nothing_a_direct_commit_would_drop()
     {
-        StreamAggregate munich = Unattributed();
-        StreamAggregate dresden = Unattributed();
+        var munich = Unattributed();
+        var dresden = Unattributed();
         munich.ClearPendingEvents();
         dresden.ClearPendingEvents();
 
-        int attributed = StreamFabAttributionService.Attribute(
+        var attributed = StreamFabAttributionService.Attribute(
             [munich, dresden],
             new Dictionary<Guid, string>
             {
@@ -125,7 +125,7 @@ public class StreamFabAttributionTests
     /// </summary>
     private static StreamAggregate Unattributed()
     {
-        StreamAggregate stream = new StreamBuilder().Build();
+        var stream = new StreamBuilder().Build();
 
         typeof(StreamAggregate)
             .GetProperty(nameof(StreamAggregate.Fab), BindingFlags.Public | BindingFlags.Instance)!

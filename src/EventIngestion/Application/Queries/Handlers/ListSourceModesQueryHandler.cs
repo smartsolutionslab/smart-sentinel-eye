@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
-using SmartSentinelEye.EventIngestion.Domain.SourceMode;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -14,7 +13,7 @@ public sealed class ListSourceModesQueryHandler(ISourceModeQuerySource sourceMod
     {
         Ensure.That(query).IsNotNull();
 
-        List<SourceMode> rows = await sourceModes.SourceModes
+        var rows = await sourceModes.SourceModes
             .Where(sourceMode => query.Fabs.Contains(sourceMode.Fab))
             .ToListAsync(cancellationToken);
 

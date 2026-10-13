@@ -71,7 +71,7 @@ public class AppHostMigrationGateTests
     [MemberData(nameof(ContextServices))]
     public async Task A_run_mode_service_waits_for_the_migration_run_to_finish(string serviceName)
     {
-        WaitAnnotation wait = await MigrationWaitAsync(RunModeArguments, serviceName);
+        var wait = await MigrationWaitAsync(RunModeArguments, serviceName);
 
         wait.WaitType.ShouldBe(
             WaitType.WaitForCompletion,
@@ -89,7 +89,7 @@ public class AppHostMigrationGateTests
     public async Task A_run_mode_service_requires_the_migration_run_to_have_succeeded(
         string serviceName)
     {
-        WaitAnnotation wait = await MigrationWaitAsync(RunModeArguments, serviceName);
+        var wait = await MigrationWaitAsync(RunModeArguments, serviceName);
 
         wait.ExitCode.ShouldBe(
             0,
@@ -105,7 +105,7 @@ public class AppHostMigrationGateTests
     [MemberData(nameof(ContextServices))]
     public async Task The_fixture_lane_keeps_the_gate_it_already_had(string serviceName)
     {
-        WaitAnnotation wait = await MigrationWaitAsync(FixtureArguments, serviceName);
+        var wait = await MigrationWaitAsync(FixtureArguments, serviceName);
 
         wait.WaitType.ShouldBe(WaitType.WaitForCompletion);
         wait.ExitCode.ShouldBe(0);
@@ -115,11 +115,11 @@ public class AppHostMigrationGateTests
         string[] arguments,
         string serviceName)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 
-        IResource service = builder.Resources.Single(resource => resource.Name == serviceName);
+        var service = builder.Resources.Single(resource => resource.Name == serviceName);
 
         WaitAnnotation[] waits =
         [

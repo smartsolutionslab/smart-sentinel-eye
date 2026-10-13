@@ -31,7 +31,7 @@ public class MqttPublisherCredentialTests
     [Fact]
     public async Task Each_attempt_presents_a_freshly_minted_credential()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create();
+        await using var publisher = PublisherUnderTest.Create();
         publisher.Client.RefuseNextConnects(2);
 
         await publisher.Publisher.StartAsync(CancellationToken.None);
@@ -93,7 +93,7 @@ public class MqttPublisherCredentialTests
 
         public static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan? within = null)
         {
-            DateTimeOffset deadline = DateTimeOffset.UtcNow + (within ?? TimeSpan.FromSeconds(10));
+            var deadline = DateTimeOffset.UtcNow + (within ?? TimeSpan.FromSeconds(10));
             while (DateTimeOffset.UtcNow < deadline)
             {
                 if (condition())
@@ -125,7 +125,7 @@ public class MqttPublisherCredentialTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            int number = Interlocked.Increment(ref minted);
+            var number = Interlocked.Increment(ref minted);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(

@@ -19,7 +19,7 @@ public class OverlayRevisionArchivedV1HandlerTests
     public async Task Removes_the_overlay_from_the_reverse_index()
     {
         InMemoryReverseIndex index = new();
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oee}}%"]);
         index.LookupOverlays("oee").ShouldHaveSingleItem();
 

@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
@@ -20,9 +19,9 @@ internal static class OverlayRequests
 {
     internal static async Task<int> VersionAsync(HttpClient overlays, Guid overlayIdentifier)
     {
-        HttpResponseMessage fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var fetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("version").GetInt32();
     }
@@ -38,7 +37,7 @@ internal static class OverlayRequests
     internal static async Task<HttpResponseMessage> PostAsync(
         HttpClient overlays, Guid overlayIdentifier, string relativeUrl)
     {
-        int version = await VersionAsync(overlays, overlayIdentifier);
+        var version = await VersionAsync(overlays, overlayIdentifier);
 
         return await overlays.SendAsync(Conditional(HttpMethod.Post, overlayIdentifier, relativeUrl, version));
     }
@@ -46,8 +45,8 @@ internal static class OverlayRequests
     internal static async Task<HttpResponseMessage> PatchAsync(
         HttpClient overlays, Guid overlayIdentifier, string relativeUrl, object body)
     {
-        int version = await VersionAsync(overlays, overlayIdentifier);
-        HttpRequestMessage request = Conditional(HttpMethod.Patch, overlayIdentifier, relativeUrl, version);
+        var version = await VersionAsync(overlays, overlayIdentifier);
+        var request = Conditional(HttpMethod.Patch, overlayIdentifier, relativeUrl, version);
         request.Content = JsonContent.Create(body);
 
         return await overlays.SendAsync(request);
@@ -66,7 +65,7 @@ internal static class OverlayRequests
     internal static async Task<Guid> PublishWithLabelAsync(
         HttpClient overlays, string labelText, string namePrefix)
     {
-        HttpResponseMessage created = await overlays.PostAsJsonAsync("/overlays", new
+        var created = await overlays.PostAsJsonAsync("/overlays", new
         {
             name = $"{namePrefix}-{Guid.NewGuid():N}"[..16],
             elements = new[]
@@ -86,7 +85,7 @@ internal static class OverlayRequests
         });
         created.EnsureSuccessStatusCode();
 
-        Guid overlay = await created.Content.ReadFromJsonAsync<Guid>();
+        var overlay = await created.Content.ReadFromJsonAsync<Guid>();
         (await PostAsync(overlays, overlay, "revisions/1/publish")).EnsureSuccessStatusCode();
 
         return overlay;

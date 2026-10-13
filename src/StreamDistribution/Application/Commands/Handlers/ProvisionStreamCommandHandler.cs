@@ -18,7 +18,7 @@ public sealed class ProvisionStreamCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (FabIdentifier fab, CameraIdentifier camera, string? rtspSourceUrl, OperatorIdentifier provisionedBy) = command;
+        (var fab, var camera, var rtspSourceUrl, var provisionedBy) = command;
 
         if (string.IsNullOrWhiteSpace(rtspSourceUrl))
         {
@@ -37,11 +37,11 @@ public sealed class ProvisionStreamCommandHandler(
             return Failure(ProvisionStreamFailures.InvalidRtspSource(ex.Message));
         }
 
-        Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
+        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (existing.HasValue)
         {
-            Stream existingStream = existing.Value;
+            var existingStream = existing.Value;
             logger.StreamAlreadyExists(camera);
 
             if (existingStream.State == StreamState.Retired)
@@ -67,7 +67,7 @@ public sealed class ProvisionStreamCommandHandler(
         // (spec 309 FR-001). A failed add after the save is unfinished work
         // the outbox redelivers, and the existing-row branch above finishes
         // it.
-        Stream stream = Stream.Provision(fab, camera, sourceUrl, provisionedBy, clock);
+        var stream = Stream.Provision(fab, camera, sourceUrl, provisionedBy, clock);
         streams.Add(stream);
         await streams.SaveAsync(cancellationToken);
 
@@ -93,7 +93,7 @@ public sealed class ProvisionStreamCommandHandler(
         // removal wins either way (spec 318 §1.3).
         if (!await streams.IsUnchangedSinceLoadAsync(stream, cancellationToken))
         {
-            StreamState committed = await streams.ReadCommittedStateAsync(stream.Id, cancellationToken);
+            var committed = await streams.ReadCommittedStateAsync(stream.Id, cancellationToken);
 
             if (committed == StreamState.Retired)
             {

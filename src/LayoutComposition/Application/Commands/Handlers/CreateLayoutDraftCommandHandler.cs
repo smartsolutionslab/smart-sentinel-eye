@@ -18,9 +18,9 @@ public sealed class CreateLayoutDraftCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (FabIdentifier fab, LayoutName? name, GridDimensions grid, IReadOnlyList<Tile> tiles, OperatorIdentifier createdBy) = command;
+        (var fab, var name, var grid, var tiles, var createdBy) = command;
 
-        Option<GridViolation> violation = Layout.ValidateGrid(grid, tiles);
+        var violation = Layout.ValidateGrid(grid, tiles);
         if (violation.HasValue)
         {
             return Failure(CreateLayoutDraftError.FromViolation(violation.Value));
@@ -29,7 +29,7 @@ public sealed class CreateLayoutDraftCommandHandler(
         // FR-014: every tile's camera must be in this layout's fab. Checked
         // before the name lookup because a cross-fab tile is a boundary
         // violation, and a name collision is not.
-        IReadOnlyList<CameraIdentifier> outside = await cameraFabs
+        var outside = await cameraFabs
             .CamerasOutsideFabAsync(fab, [.. tiles.Select(tile => tile.Camera)], cancellationToken);
         if (outside.Count > 0)
         {
@@ -41,14 +41,14 @@ public sealed class CreateLayoutDraftCommandHandler(
         // Scoped to the fab (FR-019). A global check would answer
         // LAYOUT_NAME_TAKEN for a layout in another plant, which both blocks a
         // legitimate name and confirms that the other layout exists.
-        Option<Layout> existing = await layouts
+        var existing = await layouts
             .GetByNameAsync(fab, name, cancellationToken);
         if (existing.HasValue)
         {
             return Failure(CreateLayoutDraftFailures.LayoutNameTaken(name.Value));
         }
 
-        Layout layout = Layout.CreateDraft(fab, name, grid, tiles, createdBy, clock);
+        var layout = Layout.CreateDraft(fab, name, grid, tiles, createdBy, clock);
         layouts.Add(layout);
         await layouts.SaveAsync(cancellationToken);
 

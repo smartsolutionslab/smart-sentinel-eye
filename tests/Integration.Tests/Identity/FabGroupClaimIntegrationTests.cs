@@ -1,5 +1,4 @@
 using System.IdentityModel.Tokens.Jwt;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -43,7 +42,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     {
         // What the group is for. Before this, every /rules endpoint answered
         // the operator 403 — including the ones e2e/rules.spec.ts drives.
-        HttpResponseMessage created = await AuthorRuleAsync(await OperatorTokenAsync(), null, UniqueName());
+        var created = await AuthorRuleAsync(await OperatorTokenAsync(), null, UniqueName());
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
     }
@@ -51,7 +50,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_scenario_simulator_service_account_arrives_with_its_fab_group()
     {
-        string token = await ServiceAccountTokenAsync();
+        var token = await ServiceAccountTokenAsync();
 
         GroupsOf(token).ShouldContain(FabGroup);
     }
@@ -61,9 +60,9 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     {
         // The seeder names its fab explicitly, so this covers the guard path
         // the simulator actually takes on startup.
-        string token = await ServiceAccountTokenAsync();
+        var token = await ServiceAccountTokenAsync();
 
-        HttpResponseMessage created = await AuthorRuleAsync(token, "munich", UniqueName());
+        var created = await AuthorRuleAsync(token, "munich", UniqueName());
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
     }
@@ -78,29 +77,29 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_rule_can_be_read_back_by_name_with_its_state_and_version()
     {
-        string token = await ServiceAccountTokenAsync();
-        string name = UniqueName();
+        var token = await ServiceAccountTokenAsync();
+        var name = UniqueName();
 
-        HttpResponseMessage created = await AuthorRuleAsync(token, "munich", name);
+        var created = await AuthorRuleAsync(token, "munich", name);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
-        using HttpClient rules = aspire.CreateServiceClient("automation");
+        using var rules = aspire.CreateServiceClient("automation");
         rules.DefaultRequestHeaders.Authorization = new("Bearer", token);
 
-        HttpResponseMessage read = await rules.GetAsync($"/rules/{name}?fabId=munich");
+        var read = await rules.GetAsync($"/rules/{name}?fabId=munich");
         read.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(read));
 
-        JsonElement rule = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var rule = await read.Content.ReadFromJsonAsync<JsonElement>();
         rule.GetProperty("state").GetString().ShouldBe("Draft");
         rule.GetProperty("version").GetInt32().ShouldBe(0);
     }
 
     private async Task<HttpResponseMessage> AuthorRuleAsync(string token, string? fabId, string name)
     {
-        using HttpClient rules = aspire.CreateServiceClient("automation");
+        using var rules = aspire.CreateServiceClient("automation");
         rules.DefaultRequestHeaders.Authorization = new("Bearer", token);
 
-        string path = fabId is null ? "/rules" : $"/rules?fabId={fabId}";
+        var path = fabId is null ? "/rules" : $"/rules?fabId={fabId}";
 
         return await rules.PostAsJsonAsync(path, new
         {
@@ -134,7 +133,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_operators_ID_token_carries_the_fab_group_too()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
 
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
@@ -145,12 +144,12 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
             ["scope"] = "openid",
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
-        string identityToken = payload.GetProperty("id_token").GetString()!;
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var identityToken = payload.GetProperty("id_token").GetString()!;
 
         GroupsOf(identityToken).ShouldContain(FabGroup);
     }
@@ -173,7 +172,7 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<string> ServiceAccountTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
 
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
@@ -182,11 +181,11 @@ public class FabGroupClaimIntegrationTests(AspireFixture aspire)
             ["client_secret"] = SimulatorClientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement payload = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var payload = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return payload.GetProperty("access_token").GetString()!;
     }

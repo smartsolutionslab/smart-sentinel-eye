@@ -63,7 +63,7 @@ public class MqttPublisherProtocolPinTests
 
     private static async Task<bool> WaitUntilAsync(Func<bool> condition)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow.AddSeconds(10);
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (condition())

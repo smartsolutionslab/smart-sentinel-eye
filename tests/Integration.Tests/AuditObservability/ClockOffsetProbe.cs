@@ -57,12 +57,12 @@ public static class ClockOffsetProbe
         // residual until the result said nothing.
         await ReadServerTimeAsync(connection, cancellationToken);
 
-        DateTimeOffset before = DateTimeOffset.UtcNow;
-        DateTimeOffset serverTime = await ReadServerTimeAsync(connection, cancellationToken);
-        DateTimeOffset after = DateTimeOffset.UtcNow;
+        var before = DateTimeOffset.UtcNow;
+        var serverTime = await ReadServerTimeAsync(connection, cancellationToken);
+        var after = DateTimeOffset.UtcNow;
 
-        TimeSpan roundTrip = after - before;
-        DateTimeOffset localMidpoint = before + (roundTrip / 2);
+        var roundTrip = after - before;
+        var localMidpoint = before + (roundTrip / 2);
 
         return new ClockOffset(
             Offset: serverTime - localMidpoint,
@@ -85,10 +85,10 @@ public static class ClockOffsetProbe
     {
         Ensure.That(readings).AtLeast(1);
 
-        ClockOffset best = await MeasureAsync(connectionString, cancellationToken);
-        for (int reading = 1; reading < readings; reading += 1)
+        var best = await MeasureAsync(connectionString, cancellationToken);
+        for (var reading = 1; reading < readings; reading += 1)
         {
-            ClockOffset candidate = await MeasureAsync(connectionString, cancellationToken);
+            var candidate = await MeasureAsync(connectionString, cancellationToken);
             if (candidate.Residual < best.Residual)
             {
                 best = candidate;
@@ -101,14 +101,14 @@ public static class ClockOffsetProbe
     private static async Task<DateTimeOffset> ReadServerTimeAsync(
         DbConnection connection, CancellationToken cancellationToken)
     {
-        await using DbCommand command = connection.CreateCommand();
+        await using var command = connection.CreateCommand();
 
         // clock_timestamp(), not now(): now() returns the time the surrounding
         // transaction began, which for a measurement of the clock itself would
         // report when we started asking rather than when it answered.
         command.CommandText = "SELECT clock_timestamp() AT TIME ZONE 'UTC'";
 
-        object? value = await command.ExecuteScalarAsync(cancellationToken);
+        var value = await command.ExecuteScalarAsync(cancellationToken);
         return new DateTimeOffset((DateTime)value!, TimeSpan.Zero);
     }
 }

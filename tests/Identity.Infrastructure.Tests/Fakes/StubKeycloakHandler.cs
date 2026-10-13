@@ -53,7 +53,7 @@ public sealed class StubKeycloakHandler(
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        string body = request.Content is null
+        var body = request.Content is null
             ? string.Empty
             : await request.Content.ReadAsStringAsync(cancellationToken);
 
@@ -63,7 +63,7 @@ public sealed class StubKeycloakHandler(
             body);
         requests.Add(recorded);
 
-        HttpStatusCode? refusal = Refuse?.Invoke(recorded);
+        var refusal = Refuse?.Invoke(recorded);
         if (refusal is not null)
         {
             // A body, because Keycloak sends one with every refusal it makes
@@ -76,7 +76,7 @@ public sealed class StubKeycloakHandler(
             };
         }
 
-        string? payload = respond(this, recorded);
+        var payload = respond(this, recorded);
         return payload is null
             ? new HttpResponseMessage(HttpStatusCode.NoContent)
             : new HttpResponseMessage(HttpStatusCode.OK)

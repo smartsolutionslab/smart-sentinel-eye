@@ -19,23 +19,23 @@ public class LayoutBranchSpanTests
     [Fact]
     public void BranchDraft_of_a_published_hero_wall_keeps_the_2x2_span()
     {
-        CameraIdentifier hero = CameraIdentifier.From(Guid.CreateVersion7());
+        var hero = CameraIdentifier.From(Guid.CreateVersion7());
         Tile heroTile = new(
             hero, Option<OverlayIdentifier>.None, GridPosition.From(0, 0), TileSpan.From(2, 2));
         Tile filler = new(
             CameraIdentifier.From(Guid.CreateVersion7()), Option<OverlayIdentifier>.None,
             GridPosition.From(2, 2));
-        Domain.Layout.Layout layout = new LayoutBuilder()
+        var layout = new LayoutBuilder()
             .WithGrid(GridDimensions.From(3, 3))
             .WithTiles([heroTile, filler])
             .Build();
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         layout.Publish(LayoutRevisionNumber.One, by, clock);
 
-        Revision draft = layout.BranchDraft(by, clock);
+        var draft = layout.BranchDraft(by, clock);
 
-        Tile branchedHero = draft.Tiles.Single(tile => tile.Camera == hero);
+        var branchedHero = draft.Tiles.Single(tile => tile.Camera == hero);
         branchedHero.Span.ShouldBe(TileSpan.From(2, 2));
     }
 }

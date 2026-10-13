@@ -55,14 +55,14 @@ public class NameMutabilityConventionTests
     [Fact]
     public void A_context_addressed_by_a_name_does_not_offer_to_change_it()
     {
-        Dictionary<string, string> sources = ReadSources();
+        var sources = ReadSources();
 
         Dictionary<string, string> addressedByValue = new(StringComparer.Ordinal);
         HashSet<string> offersRename = new(StringComparer.Ordinal);
 
-        foreach ((string path, string source) in sources)
+        foreach ((var path, var source) in sources)
         {
-            string context = ContextOf(path);
+            var context = ContextOf(path);
             if (context.Length == 0)
             {
                 continue;
@@ -70,7 +70,7 @@ public class NameMutabilityConventionTests
 
             foreach (Match match in RouteParameter.Matches(source))
             {
-                string parameter = match.Groups["parameter"].Value;
+                var parameter = match.Groups["parameter"].Value;
 
                 // A constraint means the value is a typed identifier, not a name.
                 if (match.Groups["constraint"].Success
@@ -121,13 +121,13 @@ public class NameMutabilityConventionTests
     [Fact]
     public void The_name_addressed_contexts_are_still_found()
     {
-        Dictionary<string, string> sources = ReadSources();
+        var sources = ReadSources();
 
         HashSet<string> addressedByValue = new(StringComparer.Ordinal);
 
-        foreach ((string path, string source) in sources)
+        foreach ((var path, var source) in sources)
         {
-            string context = ContextOf(path);
+            var context = ContextOf(path);
             if (context.Length == 0)
             {
                 continue;
@@ -166,7 +166,7 @@ public class NameMutabilityConventionTests
     /// <summary>The bounded context a source file belongs to, or empty.</summary>
     private static string ContextOf(string relativePath)
     {
-        string[] segments = relativePath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+        var segments = relativePath.Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
 
         return segments.Length >= 2 && string.Equals(segments[0], "src", StringComparison.Ordinal)
             ? segments[1]
@@ -181,11 +181,11 @@ public class NameMutabilityConventionTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

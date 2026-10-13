@@ -51,14 +51,14 @@ public sealed class OverlayTextVersionStore(SystemVariablesDbContext dbContext) 
             RETURNING overlay_identifier AS "OverlayIdentifier", version AS "Version";
             """;
 
-        List<OverlayTextVersionRow> rows = await dbContext.Database
+        var rows = await dbContext.Database
             .SqlQueryRaw<OverlayTextVersionRow>(sql, [distinctIdentifiers, Floor])
             .ToListAsync(cancellationToken);
 
-        Dictionary<Guid, long> versionByOverlay = rows.ToDictionary(row => row.OverlayIdentifier, row => row.Version);
+        var versionByOverlay = rows.ToDictionary(row => row.OverlayIdentifier, row => row.Version);
 
         Dictionary<Guid, long> advanced = [];
-        foreach (Guid overlayIdentifier in overlayIdentifiers)
+        foreach (var overlayIdentifier in overlayIdentifiers)
         {
             advanced[overlayIdentifier] = versionByOverlay[overlayIdentifier];
         }
@@ -73,7 +73,7 @@ public sealed class OverlayTextVersionStore(SystemVariablesDbContext dbContext) 
             SELECT version AS "Value" FROM overlay_text_version WHERE overlay_identifier = {0};
             """;
 
-        long[] versions = await dbContext.Database
+        var versions = await dbContext.Database
             .SqlQueryRaw<long>(sql, overlayIdentifier)
             .ToArrayAsync(cancellationToken);
 

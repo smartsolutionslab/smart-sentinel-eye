@@ -21,7 +21,7 @@ public class SourceModeTests
     [Fact]
     public void Declare_sets_the_declared_mode()
     {
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var sourceMode = new SourceModeBuilder()
             .WithMode(Domain.SourceMode.EventTypeMode.Strict)
             .Build();
 
@@ -31,9 +31,9 @@ public class SourceModeTests
     [Fact]
     public void Declare_records_who_declared_it_and_when()
     {
-        OperatorIdentifier declaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var declaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var sourceMode = new SourceModeBuilder()
             .DeclaredBy(declaredBy)
             .At(Now)
             .Build();
@@ -45,13 +45,13 @@ public class SourceModeTests
     [Fact]
     public void Declare_raises_a_SourceModeDeclaredDomainEvent_naming_fab_source_and_mode()
     {
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var sourceMode = new SourceModeBuilder()
             .WithFab("dresden")
             .WithSource(Source.Manual)
             .WithMode(Domain.SourceMode.EventTypeMode.Strict)
             .Build();
 
-        SourceModeDeclaredDomainEvent raised = sourceMode.PendingEvents
+        var raised = sourceMode.PendingEvents
             .OfType<SourceModeDeclaredDomainEvent>()
             .ShouldHaveSingleItem();
 
@@ -63,7 +63,7 @@ public class SourceModeTests
     [Fact]
     public void Change_to_a_different_mode_flips_it_and_raises_a_SourceModeChangedDomainEvent()
     {
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var sourceMode = new SourceModeBuilder()
             .WithMode(Domain.SourceMode.EventTypeMode.Strict)
             .Build();
         sourceMode.ClearPendingEvents();
@@ -74,7 +74,7 @@ public class SourceModeTests
             new FakeClock(Now.AddHours(1)));
 
         sourceMode.Mode.ShouldBe(Domain.SourceMode.EventTypeMode.Discovery);
-        SourceModeChangedDomainEvent raised = sourceMode.PendingEvents
+        var raised = sourceMode.PendingEvents
             .OfType<SourceModeChangedDomainEvent>()
             .ShouldHaveSingleItem();
         raised.From.ShouldBe(Domain.SourceMode.EventTypeMode.Strict);
@@ -84,11 +84,11 @@ public class SourceModeTests
     [Fact]
     public void Change_to_the_same_mode_raises_nothing_and_leaves_the_declaration()
     {
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var sourceMode = new SourceModeBuilder()
             .WithMode(Domain.SourceMode.EventTypeMode.Strict)
             .At(Now)
             .Build();
-        Domain.SourceMode.Declaration originalDeclaration = sourceMode.Declaration;
+        var originalDeclaration = sourceMode.Declaration;
         sourceMode.ClearPendingEvents();
 
         sourceMode.Change(
@@ -104,11 +104,11 @@ public class SourceModeTests
     [Fact]
     public void Change_records_who_changed_it_and_when()
     {
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var sourceMode = new SourceModeBuilder()
             .WithMode(Domain.SourceMode.EventTypeMode.Discovery)
             .Build();
-        OperatorIdentifier changedBy = OperatorIdentifier.From(Guid.CreateVersion7());
-        DateTimeOffset changedAt = Now.AddHours(2);
+        var changedBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var changedAt = Now.AddHours(2);
 
         sourceMode.Change(Domain.SourceMode.EventTypeMode.Strict, changedBy, new FakeClock(changedAt));
 
@@ -165,8 +165,8 @@ public class SourceModeTests
     [Fact]
     public void Undeclare_raises_a_SourceModeUndeclaredDomainEvent_naming_fab_source_and_prior_mode()
     {
-        OperatorIdentifier undeclaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
-        Domain.SourceMode.SourceMode sourceMode = new SourceModeBuilder()
+        var undeclaredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var sourceMode = new SourceModeBuilder()
             .WithFab("berlin")
             .WithSource(Source.Manual)
             .WithMode(Domain.SourceMode.EventTypeMode.Discovery)
@@ -175,7 +175,7 @@ public class SourceModeTests
 
         sourceMode.Undeclare(undeclaredBy, new FakeClock(Now.AddHours(1)));
 
-        Domain.SourceMode.Events.SourceModeUndeclaredDomainEvent raised = sourceMode.PendingEvents
+        var raised = sourceMode.PendingEvents
             .OfType<Domain.SourceMode.Events.SourceModeUndeclaredDomainEvent>()
             .ShouldHaveSingleItem();
         raised.Fab.ShouldBe(FabIdentifier.From("berlin"));

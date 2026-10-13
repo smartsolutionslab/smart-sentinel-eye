@@ -40,8 +40,8 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void RealmProbe_Realm_is_the_realm_the_import_defines()
     {
-        using JsonDocument import = ReadRealmImport();
-        string expected = DeclaredRealm(import);
+        using var import = ReadRealmImport();
+        var expected = DeclaredRealm(import);
 
         RealmProbe.Realm.ShouldBe(
             expected,
@@ -54,8 +54,8 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void RealmProbe_AdminClientId_names_a_client_the_import_seeds()
     {
-        using JsonDocument import = ReadRealmImport();
-        JsonElement[] matches = ClientsNamed(import, RealmProbe.AdminClientId);
+        using var import = ReadRealmImport();
+        var matches = ClientsNamed(import, RealmProbe.AdminClientId);
 
         matches.Length.ShouldBe(
             1,
@@ -69,8 +69,8 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void RealmProbe_AdminClientSecret_is_the_secret_the_import_seeds_for_that_client()
     {
-        using JsonDocument import = ReadRealmImport();
-        string expected = SecretForClient(
+        using var import = ReadRealmImport();
+        var expected = SecretForClient(
             import,
             RealmProbe.AdminClientId,
             nameof(RealmProbe_AdminClientId_names_a_client_the_import_seeds));
@@ -95,8 +95,8 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void AspireFixture_HarnessClientId_names_a_client_the_import_seeds()
     {
-        using JsonDocument import = ReadRealmImport();
-        JsonElement[] matches = ClientsNamed(import, AspireFixture.HarnessClientId);
+        using var import = ReadRealmImport();
+        var matches = ClientsNamed(import, AspireFixture.HarnessClientId);
 
         matches.Length.ShouldBe(
             1,
@@ -116,8 +116,8 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void AspireFixture_HarnessClientSecret_is_the_secret_the_import_seeds_for_that_client()
     {
-        using JsonDocument import = ReadRealmImport();
-        string expected = SecretForClient(
+        using var import = ReadRealmImport();
+        var expected = SecretForClient(
             import,
             AspireFixture.HarnessClientId,
             nameof(AspireFixture_HarnessClientId_names_a_client_the_import_seeds));
@@ -134,9 +134,9 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void KeycloakAdminOptions_default_Realm_is_the_realm_the_import_defines()
     {
-        using JsonDocument import = ReadRealmImport();
-        string expected = DeclaredRealm(import);
-        string actual = new KeycloakAdminOptions().Realm;
+        using var import = ReadRealmImport();
+        var expected = DeclaredRealm(import);
+        var actual = new KeycloakAdminOptions().Realm;
 
         actual.ShouldBe(
             expected,
@@ -151,9 +151,9 @@ public partial class RealmImportMirrorTests
     [Fact]
     public void KeycloakAdminOptions_default_AdminClientId_names_a_client_the_import_seeds()
     {
-        using JsonDocument import = ReadRealmImport();
-        string clientId = new KeycloakAdminOptions().AdminClientId;
-        JsonElement[] matches = ClientsNamed(import, clientId);
+        using var import = ReadRealmImport();
+        var clientId = new KeycloakAdminOptions().AdminClientId;
+        var matches = ClientsNamed(import, clientId);
 
         matches.Length.ShouldBe(
             1,
@@ -178,22 +178,22 @@ public partial class RealmImportMirrorTests
     [Fact]
     public async Task The_AppHost_default_IdentityAdminClientSecret_is_the_secret_the_import_seeds_for_Identitys_client()
     {
-        using JsonDocument import = ReadRealmImport();
-        string clientId = new KeycloakAdminOptions().AdminClientId;
-        string expected = SecretForClient(
+        using var import = ReadRealmImport();
+        var clientId = new KeycloakAdminOptions().AdminClientId;
+        var expected = SecretForClient(
             import,
             clientId,
             nameof(KeycloakAdminOptions_default_AdminClientId_names_a_client_the_import_seeds));
 
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>([]);
 
-        ParameterResource parameter = builder.Resources
+        var parameter = builder.Resources
             .OfType<ParameterResource>()
             .Single(candidate => candidate.Name == IdentityAdminClientSecretParameter);
 
-        string? actual = await ValueAsync(parameter);
+        var actual = await ValueAsync(parameter);
 
         actual.ShouldBe(
             expected,
@@ -220,7 +220,7 @@ public partial class RealmImportMirrorTests
 
     private static string SecretForClient(JsonDocument import, string clientId, string likelyCauseFact)
     {
-        JsonElement[] matches = ClientsNamed(import, clientId);
+        var matches = ClientsNamed(import, clientId);
 
         if (matches.Length != 1)
         {
@@ -235,7 +235,7 @@ public partial class RealmImportMirrorTests
 
     private static JsonElement[] ClientsNamed(JsonDocument import, string clientId)
     {
-        if (!import.RootElement.TryGetProperty("clients", out JsonElement clients)
+        if (!import.RootElement.TryGetProperty("clients", out var clients)
             || clients.ValueKind != JsonValueKind.Array)
         {
             throw new InvalidOperationException(
@@ -246,7 +246,7 @@ public partial class RealmImportMirrorTests
         return
         [
             .. clients.EnumerateArray()
-                .Where(client => client.TryGetProperty("clientId", out JsonElement id)
+                .Where(client => client.TryGetProperty("clientId", out var id)
                     && id.ValueKind == JsonValueKind.String
                     && id.GetString() == clientId),
         ];
@@ -254,7 +254,7 @@ public partial class RealmImportMirrorTests
 
     private static string SecretOf(JsonElement client, string clientId)
     {
-        if (!client.TryGetProperty("secret", out JsonElement secret) || secret.ValueKind != JsonValueKind.String)
+        if (!client.TryGetProperty("secret", out var secret) || secret.ValueKind != JsonValueKind.String)
         {
             throw new InvalidOperationException(
                 $"the '{clientId}' client in {FullRealmImportPath()} has no string 'secret' "
@@ -266,7 +266,7 @@ public partial class RealmImportMirrorTests
 
     private static string DeclaredRealm(JsonDocument import)
     {
-        if (!import.RootElement.TryGetProperty("realm", out JsonElement realm) || realm.ValueKind != JsonValueKind.String)
+        if (!import.RootElement.TryGetProperty("realm", out var realm) || realm.ValueKind != JsonValueKind.String)
         {
             throw new InvalidOperationException(
                 $"{FullRealmImportPath()} has no string 'realm' field at its root — the realm "
@@ -278,7 +278,7 @@ public partial class RealmImportMirrorTests
 
     private static JsonDocument ReadRealmImport()
     {
-        string path = FullRealmImportPath();
+        var path = FullRealmImportPath();
 
         if (!System.IO.File.Exists(path))
         {
@@ -287,7 +287,7 @@ public partial class RealmImportMirrorTests
                 + "compare any copy against it.");
         }
 
-        string text = System.IO.File.ReadAllText(path);
+        var text = System.IO.File.ReadAllText(path);
         return JsonDocument.Parse(text);
     }
 

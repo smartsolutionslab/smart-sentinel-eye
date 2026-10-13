@@ -41,7 +41,7 @@ public class WebhookIntegrationRevokedIntegrationEventHandlerTests
             new WebhookIntegrationRevokedV1("w", RevokedAtMoment, MetadataWithFab("munich")),
             CancellationToken.None);
 
-        DisableWebhookClientCommand sent = handler.Sent.ShouldHaveSingleItem();
+        var sent = handler.Sent.ShouldHaveSingleItem();
         sent.ClientId.ShouldBe(ClientId.From("webhook-w"));
         sent.Fab.ShouldBe(FabIdentifier.From("munich"));
     }

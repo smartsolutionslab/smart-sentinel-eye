@@ -18,7 +18,7 @@ public class OverlayRevisionStateTests
     [InlineData("Archived")]
     public void From_round_trips_canonical_strings(string raw)
     {
-        OverlayRevisionState parsed = OverlayRevisionState.From(raw);
+        var parsed = OverlayRevisionState.From(raw);
         parsed.Value.ShouldBe(raw);
     }
 

@@ -1,7 +1,5 @@
 using System.Globalization;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using static SmartSentinelEye.Integration.Tests.EventIngestion.EventTypeRegistryApi;
 
@@ -50,9 +48,9 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_partial_unique_index_exists_on_the_pair_the_lookup_reads()
     {
-        await using EventIngestionDbContext dbContext = await aspire.CreateEventIngestionDbContextAsync();
+        await using var dbContext = await aspire.CreateEventIngestionDbContextAsync();
 
-        string[] definitions = await dbContext.Database
+        var definitions = await dbContext.Database
             .SqlQueryRaw<string>(
                 """
                 SELECT indexdef AS "Value"
@@ -61,7 +59,7 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
                 """)
             .ToArrayAsync();
 
-        string? unique = definitions.FirstOrDefault(definition =>
+        var unique = definitions.FirstOrDefault(definition =>
             definition.Contains("UNIQUE", StringComparison.OrdinalIgnoreCase)
             && definition.Contains("fab", StringComparison.OrdinalIgnoreCase)
             && definition.Contains("kind", StringComparison.OrdinalIgnoreCase));
@@ -90,13 +88,13 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Simultaneous_registrations_of_one_kind_leave_exactly_one_entry()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage[] answers = await Task.WhenAll(
+        var answers = await Task.WhenAll(
             Enumerable.Range(0, Racers).Select(_ => RegisterAsync(dresden, kind)));
 
-        string answered = Describe(answers);
+        var answered = Describe(answers);
         answers.Count(answer => answer.StatusCode == HttpStatusCode.Created)
             .ShouldBe(1, $"exactly one racer may create the row. Answers: {answered}");
         answers.Count(answer => answer.StatusCode == HttpStatusCode.Conflict)
@@ -105,7 +103,7 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
                 + "with no UniqueConstraintExceptionHandler in the way — a server fault for asking "
                 + $"about a name that was free when it asked. Answers: {answered}");
 
-        JsonElement rows = await ListRowsAsync(dresden, answered);
+        var rows = await ListRowsAsync(dresden, answered);
         CountOf(rows, kind).ShouldBe(1, $"one registered entry per (fab, kind). Answers: {answered}");
     }
 
@@ -117,19 +115,19 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Simultaneous_registrations_of_one_kind_in_two_fabs_both_succeed()
     {
-        string kind = UniqueKind();
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var kind = UniqueKind();
+        using var multi = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage[] answers = await Task.WhenAll(
+        var answers = await Task.WhenAll(
             RegisterAsync(multi, kind, fabId: "dresden"),
             RegisterAsync(multi, kind, fabId: "munich"));
 
-        string answered = Describe(answers);
+        var answered = Describe(answers);
         answers.ShouldAllBe(
             answer => answer.StatusCode == HttpStatusCode.Created,
             customMessage: $"a kind is unique within a fab, not across the estate. Answers: {answered}");
 
-        JsonElement rows = await ListRowsAsync(multi, answered);
+        var rows = await ListRowsAsync(multi, answered);
         CountOf(rows, kind).ShouldBe(2, $"one entry per fab. Answers: {answered}");
     }
 
@@ -142,15 +140,15 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Simultaneous_retires_of_one_entry_leave_one_winner()
     {
-        string kind = UniqueKind();
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        var kind = UniqueKind();
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, kind)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage[] answers = await Task.WhenAll(
+        var answers = await Task.WhenAll(
             RetireAsync(dresden, kind, expectedVersion: 0),
             RetireAsync(dresden, kind, expectedVersion: 0));
 
-        string answered = Describe(answers);
+        var answered = Describe(answers);
         answers.Count(answer => answer.StatusCode == HttpStatusCode.OK)
             .ShouldBe(1, $"only one retire may apply. Answers: {answered}");
         answers.Count(answer =>
@@ -160,7 +158,7 @@ public class EventTypeRegistryConcurrencyIntegrationTests(AspireFixture aspire)
                 + "404 if the winner had already left the registered set — either is a correct "
                 + $"refusal; a second 200 is a lost update. Answers: {answered}");
 
-        JsonElement rows = await ListRowsAsync(dresden, answered);
+        var rows = await ListRowsAsync(dresden, answered);
         CountOf(rows, kind).ShouldBe(0, $"the entry is retired and the list excludes it. Answers: {answered}");
     }
 

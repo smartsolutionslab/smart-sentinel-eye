@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -39,28 +38,28 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     {
         // Not inferred, and not tie-broken: either would place the variable in
         // a fab the operator never chose (ADR-0114).
-        using HttpClient variables = await ClientFor(MultiFabOperator);
+        using var variables = await ClientFor(MultiFabOperator);
 
-        HttpResponseMessage refused = await variables.PostAsJsonAsync("/system-variables", Body(UniqueName()));
+        var refused = await variables.PostAsJsonAsync("/system-variables", Body(UniqueName()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("VARIABLE_FAB_REQUIRED");
     }
 
     [Fact]
     public async Task A_multi_fab_operator_naming_one_of_their_fabs_is_accepted()
     {
-        using HttpClient variables = await ClientFor(MultiFabOperator);
-        string name = UniqueName();
+        using var variables = await ClientFor(MultiFabOperator);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await variables.PostAsJsonAsync(
+        var created = await variables.PostAsJsonAsync(
             "/system-variables?fabId=dresden", Body(name));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        HttpResponseMessage read = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
+        var read = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
         read.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(read));
-        JsonElement variable = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var variable = await read.Content.ReadFromJsonAsync<JsonElement>();
         variable.GetProperty("fab").GetString().ShouldBe("dresden");
     }
 
@@ -70,9 +69,9 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
         // The dresden-only operator against munich: 403, not 404. Nothing is
         // hidden here — the caller named a fab, and the answer is about the
         // fab, not about whether a variable exists in it.
-        using HttpClient variables = await ClientFor(DresdenOperator);
+        using var variables = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await variables.PostAsJsonAsync(
+        var refused = await variables.PostAsJsonAsync(
             "/system-variables?fabId=munich", Body(UniqueName()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
@@ -81,35 +80,35 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task A_single_fab_operator_has_dresden_inferred_not_the_default()
     {
-        using HttpClient variables = await ClientFor(DresdenOperator);
-        string name = UniqueName();
+        using var variables = await ClientFor(DresdenOperator);
+        var name = UniqueName();
 
-        HttpResponseMessage created = await variables.PostAsJsonAsync("/system-variables", Body(name));
+        var created = await variables.PostAsJsonAsync("/system-variables", Body(name));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        HttpResponseMessage read = await variables.GetAsync($"/system-variables/{name}");
-        JsonElement variable = await read.Content.ReadFromJsonAsync<JsonElement>();
+        var read = await variables.GetAsync($"/system-variables/{name}");
+        var variable = await read.Content.ReadFromJsonAsync<JsonElement>();
         variable.GetProperty("fab").GetString().ShouldBe("dresden");
     }
 
     [Fact]
     public async Task A_name_held_in_two_of_the_callers_fabs_is_refused_as_ambiguous()
     {
-        using HttpClient variables = await ClientFor(MultiFabOperator);
-        string shared = UniqueName();
+        using var variables = await ClientFor(MultiFabOperator);
+        var shared = UniqueName();
 
         (await variables.PostAsJsonAsync("/system-variables?fabId=munich", Body(shared)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
         (await variables.PostAsJsonAsync("/system-variables?fabId=dresden", Body(shared)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage ambiguous = await variables.GetAsync($"/system-variables/{shared}");
+        var ambiguous = await variables.GetAsync($"/system-variables/{shared}");
 
         ambiguous.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await BodyAsync(ambiguous));
-        JsonElement problem = await ambiguous.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await ambiguous.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("VARIABLE_FAB_AMBIGUOUS");
         // Names the candidates, so the caller can retry without guessing.
-        string detail = problem.GetProperty("detail").GetString()!;
+        var detail = problem.GetProperty("detail").GetString()!;
         detail.ShouldContain("dresden");
         detail.ShouldContain("munich");
     }
@@ -117,16 +116,16 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task Naming_the_fab_resolves_the_ambiguity()
     {
-        using HttpClient variables = await ClientFor(MultiFabOperator);
-        string shared = UniqueName();
+        using var variables = await ClientFor(MultiFabOperator);
+        var shared = UniqueName();
 
         await variables.PostAsJsonAsync("/system-variables?fabId=munich", Body(shared));
         await variables.PostAsJsonAsync("/system-variables?fabId=dresden", Body(shared));
 
-        HttpResponseMessage resolved = await variables.GetAsync($"/system-variables/{shared}?fabId=munich");
+        var resolved = await variables.GetAsync($"/system-variables/{shared}?fabId=munich");
 
         resolved.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(resolved));
-        JsonElement variable = await resolved.Content.ReadFromJsonAsync<JsonElement>();
+        var variable = await resolved.Content.ReadFromJsonAsync<JsonElement>();
         variable.GetProperty("fab").GetString().ShouldBe("munich");
     }
 
@@ -139,15 +138,15 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task Another_fabs_variable_is_indistinguishable_from_one_that_never_existed()
     {
-        using HttpClient owner = await ClientFor(MultiFabOperator);
-        string foreign = UniqueName();
+        using var owner = await ClientFor(MultiFabOperator);
+        var foreign = UniqueName();
         (await owner.PostAsJsonAsync("/system-variables?fabId=munich", Body(foreign)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient outsider = await ClientFor(DresdenOperator);
+        using var outsider = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage notYours = await outsider.GetAsync($"/system-variables/{foreign}");
-        HttpResponseMessage neverExisted = await outsider.GetAsync($"/system-variables/{UniqueName()}");
+        var notYours = await outsider.GetAsync($"/system-variables/{foreign}");
+        var neverExisted = await outsider.GetAsync($"/system-variables/{UniqueName()}");
 
         notYours.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(notYours));
         neverExisted.StatusCode.ShouldBe(notYours.StatusCode);
@@ -159,17 +158,17 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     {
         // FR-008, and the asymmetry with the write path: a read does not have
         // to choose.
-        using HttpClient variables = await ClientFor(MultiFabOperator);
-        string inMunich = UniqueName();
-        string inDresden = UniqueName();
+        using var variables = await ClientFor(MultiFabOperator);
+        var inMunich = UniqueName();
+        var inDresden = UniqueName();
 
         await variables.PostAsJsonAsync("/system-variables?fabId=munich", Body(inMunich));
         await variables.PostAsJsonAsync("/system-variables?fabId=dresden", Body(inDresden));
 
-        HttpResponseMessage listed = await variables.GetAsync("/system-variables");
+        var listed = await variables.GetAsync("/system-variables");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         string[] names = [.. page.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
 
         names.ShouldContain(inMunich);
@@ -179,16 +178,16 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task The_listing_omits_a_fab_the_caller_does_not_hold()
     {
-        using HttpClient owner = await ClientFor(MultiFabOperator);
-        string inMunich = UniqueName();
+        using var owner = await ClientFor(MultiFabOperator);
+        var inMunich = UniqueName();
         (await owner.PostAsJsonAsync("/system-variables?fabId=munich", Body(inMunich)))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient outsider = await ClientFor(DresdenOperator);
-        HttpResponseMessage listed = await outsider.GetAsync("/system-variables");
+        using var outsider = await ClientFor(DresdenOperator);
+        var listed = await outsider.GetAsync("/system-variables");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
 
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         string[] names = [.. page.EnumerateArray().Select(row => row.GetProperty("name").GetString()!)];
 
         names.ShouldNotContain(inMunich);
@@ -227,7 +226,7 @@ public class VariableFabResolutionIntegrationTests(AspireFixture aspire) : IAsyn
     /// </summary>
     private static async Task<string> ComparableBodyAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return string.Join(
             "|",

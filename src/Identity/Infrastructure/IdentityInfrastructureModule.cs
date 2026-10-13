@@ -251,10 +251,10 @@ public static class IdentityInfrastructureModule
 
     private static void ConfigureHttpClient(IServiceProvider sp, HttpClient client)
     {
-        KeycloakAdminOptions opts = sp.GetRequiredService<
+        var opts = sp.GetRequiredService<
             Microsoft.Extensions.Options.IOptions<KeycloakAdminOptions>>().Value;
 #pragma warning disable S1075
-        string baseUrl = opts.BaseUrl.EndsWith('/') ? opts.BaseUrl : opts.BaseUrl + '/';
+        var baseUrl = opts.BaseUrl.EndsWith('/') ? opts.BaseUrl : opts.BaseUrl + '/';
 #pragma warning restore S1075
         client.BaseAddress = new Uri(baseUrl);
 

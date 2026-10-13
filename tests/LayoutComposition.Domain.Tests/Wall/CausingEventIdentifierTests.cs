@@ -23,15 +23,15 @@ public class CausingEventIdentifierTests
     [Fact]
     public void From_round_trips_a_non_empty_Guid()
     {
-        Guid value = Guid.CreateVersion7();
-        CausingEventIdentifier id = CausingEventIdentifier.From(value);
+        var value = Guid.CreateVersion7();
+        var id = CausingEventIdentifier.From(value);
         id.Value.ShouldBe(value);
     }
 
     [Fact]
     public void Implicitly_unwraps_to_its_guid()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         Guid unwrapped = CausingEventIdentifier.From(guid);
         unwrapped.ShouldBe(guid);
     }
@@ -39,7 +39,7 @@ public class CausingEventIdentifierTests
     [Fact]
     public void Two_identifiers_with_the_same_guid_are_equal()
     {
-        Guid value = Guid.CreateVersion7();
+        var value = Guid.CreateVersion7();
         CausingEventIdentifier.From(value).ShouldBe(CausingEventIdentifier.From(value));
     }
 
@@ -52,8 +52,8 @@ public class CausingEventIdentifierTests
     [Fact]
     public void Comparison_operators_order_by_the_underlying_guid()
     {
-        CausingEventIdentifier earlier = CausingEventIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
-        CausingEventIdentifier later = CausingEventIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
+        var earlier = CausingEventIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
+        var later = CausingEventIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         (earlier < later).ShouldBeTrue();

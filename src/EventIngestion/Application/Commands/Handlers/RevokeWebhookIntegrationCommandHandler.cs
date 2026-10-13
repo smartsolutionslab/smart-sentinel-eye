@@ -19,13 +19,13 @@ public sealed class RevokeWebhookIntegrationCommandHandler(
 
         var (fabs, name, expectedVersion) = command;
 
-        Option<WebhookIntegration> found = await integrations.GetByNameAsync(name, cancellationToken);
+        var found = await integrations.GetByNameAsync(name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RevokeWebhookIntegrationFailures.WebhookIntegrationNotFound(name.Value));
         }
 
-        WebhookIntegration integration = found.Value;
+        var integration = found.Value;
 
         // An integration in a plant the caller does not hold is reported exactly
         // as one that never existed (#1545) — the same 404, by the same path, so

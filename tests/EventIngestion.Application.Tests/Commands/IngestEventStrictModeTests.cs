@@ -5,7 +5,6 @@ using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
-using SmartSentinelEye.Shared.Kernel;
 using EventAggregate = SmartSentinelEye.EventIngestion.Domain.Event.Event;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Commands;
@@ -55,9 +54,9 @@ public class IngestEventStrictModeTests
         InMemoryEventRepository repo = new();
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(Dresden, Source.Manual);
-        EventEnvelope envelope = BuildEnvelope();
+        var envelope = BuildEnvelope();
 
-        Result<EventIdentifier, IngestEventError> result =
+        var result =
             await Handler(repo, source).HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -76,8 +75,8 @@ public class IngestEventStrictModeTests
     public async Task A_redelivery_is_still_a_redelivery_under_strict()
     {
         InMemoryEventRepository repo = new();
-        EventIdentifier identifier = EventIdentifier.New();
-        EventEnvelope envelope = BuildEnvelope(identifier);
+        var identifier = EventIdentifier.New();
+        var envelope = BuildEnvelope(identifier);
         repo.Add(EventAggregate.Ingest(
             envelope.Identifier, envelope.Fab, envelope.Source, envelope.Device,
             envelope.Kind, envelope.OccurredAt, envelope.Payload, new FakeClock(Now)));
@@ -86,7 +85,7 @@ public class IngestEventStrictModeTests
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(Dresden, Source.Manual); // now strict; the kind is still unregistered
 
-        Result<EventIdentifier, IngestEventError> result =
+        var result =
             await Handler(repo, source).HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -102,9 +101,9 @@ public class IngestEventStrictModeTests
         InMemoryEventRepository repo = new();
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(Dresden, Source.Manual);
-        EventEnvelope envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6));
+        var envelope = BuildEnvelope(occurredAt: Now.AddMinutes(6));
 
-        Result<EventIdentifier, IngestEventError> result =
+        var result =
             await Handler(repo, source).HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.Error.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>();
@@ -116,9 +115,9 @@ public class IngestEventStrictModeTests
         InMemoryEventRepository repo = new();
         InMemoryEventTypeAdmissionSource source = new();
         source.DeclareStrict(Dresden, Source.Manual);
-        EventEnvelope envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
+        var envelope = BuildEnvelope(kind: "NobodyDeclaredThis");
 
-        Result<EventIdentifier, IngestEventError> result =
+        var result =
             await Handler(repo, source).HandleAsync(new IngestEventCommand(envelope), CancellationToken.None);
 
         result.Error.Message.ShouldContain("dresden");

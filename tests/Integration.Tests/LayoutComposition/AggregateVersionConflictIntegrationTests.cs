@@ -40,13 +40,13 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task The_second_of_two_concurrent_writers_is_rejected()
     {
-        Guid layoutIdentifier = await SeedDraftAsync();
+        var layoutIdentifier = await SeedDraftAsync();
 
-        await using LayoutCompositionDbContext first = await VersionedContextAsync();
-        await using LayoutCompositionDbContext second = await VersionedContextAsync();
+        await using var first = await VersionedContextAsync();
+        await using var second = await VersionedContextAsync();
 
-        Layout firstCopy = await LoadAsync(first, layoutIdentifier);
-        Layout secondCopy = await LoadAsync(second, layoutIdentifier);
+        var firstCopy = await LoadAsync(first, layoutIdentifier);
+        var secondCopy = await LoadAsync(second, layoutIdentifier);
 
         firstCopy.Publish(LayoutRevisionNumber.From(1), Editor, new SystemClock());
         await first.SaveChangesAsync();
@@ -59,17 +59,17 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task The_first_writer_moves_the_version_off_its_loaded_value()
     {
-        Guid layoutIdentifier = await SeedDraftAsync();
+        var layoutIdentifier = await SeedDraftAsync();
 
-        await using LayoutCompositionDbContext writer = await VersionedContextAsync();
-        Layout layout = await LoadAsync(writer, layoutIdentifier);
+        await using var writer = await VersionedContextAsync();
+        var layout = await LoadAsync(writer, layoutIdentifier);
         int loaded = layout.Version;
 
         layout.Publish(LayoutRevisionNumber.From(1), Editor, new SystemClock());
         await writer.SaveChangesAsync();
 
-        await using LayoutCompositionDbContext reader = await VersionedContextAsync();
-        Layout reloaded = await LoadAsync(reader, layoutIdentifier);
+        await using var reader = await VersionedContextAsync();
+        var reloaded = await LoadAsync(reader, layoutIdentifier);
 
         reloaded.Version.Value.ShouldBe(loaded + 1);
     }
@@ -83,13 +83,13 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
     [Fact]
     public async Task Without_the_interceptor_both_writers_commit_and_one_update_is_lost()
     {
-        Guid layoutIdentifier = await SeedDraftAsync();
+        var layoutIdentifier = await SeedDraftAsync();
 
-        await using LayoutCompositionDbContext first = await PlainContextAsync();
-        await using LayoutCompositionDbContext second = await PlainContextAsync();
+        await using var first = await PlainContextAsync();
+        await using var second = await PlainContextAsync();
 
-        Layout firstCopy = await LoadAsync(first, layoutIdentifier);
-        Layout secondCopy = await LoadAsync(second, layoutIdentifier);
+        var firstCopy = await LoadAsync(first, layoutIdentifier);
+        var secondCopy = await LoadAsync(second, layoutIdentifier);
 
         firstCopy.Publish(LayoutRevisionNumber.From(1), Editor, new SystemClock());
         await first.SaveChangesAsync();
@@ -97,17 +97,17 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
         secondCopy.Publish(LayoutRevisionNumber.From(1), Editor, new SystemClock());
         await second.SaveChangesAsync();
 
-        await using LayoutCompositionDbContext reader = await PlainContextAsync();
-        Layout reloaded = await LoadAsync(reader, layoutIdentifier);
+        await using var reader = await PlainContextAsync();
+        var reloaded = await LoadAsync(reader, layoutIdentifier);
         reloaded.Version.Value.ShouldBe(0);
     }
 
     private async Task<Guid> SeedDraftAsync()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        string name = $"Cnc-{Guid.NewGuid():N}"[..16];
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var name = $"Cnc-{Guid.NewGuid():N}"[..16];
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync("/layouts", new
+        var created = await layouts.PostAsJsonAsync("/layouts", new
         {
             name,
             grid = new { rows = 1, cols = 1 },
@@ -129,7 +129,7 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
 
     private async Task<LayoutCompositionDbContext> BuildContextAsync(bool withVersionBump)
     {
-        string connectionString = await aspire.App
+        var connectionString = await aspire.App
             .GetConnectionStringAsync(AspireFixture.LayoutCompositionConnectionName)
             ?? throw new InvalidOperationException(
                 $"Connection string '{AspireFixture.LayoutCompositionConnectionName}' was not provisioned by Aspire.");
@@ -147,7 +147,7 @@ public class AggregateVersionConflictIntegrationTests(AspireFixture aspire) : IA
 
     private static async Task<Layout> LoadAsync(LayoutCompositionDbContext context, Guid layoutIdentifier)
     {
-        LayoutIdentifier identifier = LayoutIdentifier.From(layoutIdentifier);
+        var identifier = LayoutIdentifier.From(layoutIdentifier);
 
         return await context.Layouts.FirstAsync(layout => layout.Id == identifier);
     }

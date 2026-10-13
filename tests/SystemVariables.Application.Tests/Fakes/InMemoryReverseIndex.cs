@@ -20,9 +20,9 @@ public sealed class InMemoryReverseIndex : IReverseIndex
         // Drop the overlay's old entries, then re-insert from the new labels.
         RemoveOverlayInternal(overlayIdentifier);
         labelsByOverlay[overlayIdentifier] = labelTexts;
-        foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
+        foreach (var name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
         {
-            HashSet<Guid> set = byName.GetOrAdd(name, _ => []);
+            var set = byName.GetOrAdd(name, _ => []);
             lock (set)
             { set.Add(overlayIdentifier); }
         }
@@ -36,7 +36,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 
     private void RemoveOverlayInternal(Guid overlayIdentifier)
     {
-        foreach (KeyValuePair<string, HashSet<Guid>> kv in byName)
+        foreach (var kv in byName)
         {
             lock (kv.Value)
             { kv.Value.Remove(overlayIdentifier); }
@@ -45,7 +45,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
 
     public IReadOnlyCollection<Guid> LookupOverlays(string variableName)
     {
-        if (!byName.TryGetValue(variableName, out HashSet<Guid>? set))
+        if (!byName.TryGetValue(variableName, out var set))
         {
             return Array.Empty<Guid>();
         }
@@ -55,7 +55,7 @@ public sealed class InMemoryReverseIndex : IReverseIndex
     }
 
     public IReadOnlyList<string>? LookupLabelTexts(Guid overlayIdentifier) =>
-        labelsByOverlay.TryGetValue(overlayIdentifier, out IReadOnlyList<string>? labels) ? labels : null;
+        labelsByOverlay.TryGetValue(overlayIdentifier, out var labels) ? labels : null;
 
     public IReadOnlyCollection<Guid> AllOverlays() => labelsByOverlay.Keys.ToArray();
 }

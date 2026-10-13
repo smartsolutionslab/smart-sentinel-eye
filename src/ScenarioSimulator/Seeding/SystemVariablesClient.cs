@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.Shared.Kernel;
@@ -35,7 +34,7 @@ public sealed class SystemVariablesClient(
     {
         Ensure.That(definition).IsNotNull();
 
-        string token = await tokens.GetAccessTokenAsync(cancellationToken);
+        var token = await tokens.GetAccessTokenAsync(cancellationToken);
 
         using HttpRequestMessage create = new(HttpMethod.Post, $"/system-variables?fabId={FabId}")
         {
@@ -43,7 +42,7 @@ public sealed class SystemVariablesClient(
                 definition.Name, definition.Type, null, definition.TruthyLabel, definition.FalsyLabel)),
         };
         create.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage created = await http.SendAsync(create, cancellationToken);
+        using var created = await http.SendAsync(create, cancellationToken);
 
         if (created.StatusCode == HttpStatusCode.Conflict)
         {
@@ -65,10 +64,10 @@ public sealed class SystemVariablesClient(
     {
         using HttpRequestMessage read = new(HttpMethod.Get, $"/system-variables/{definition.Name}?fabId={FabId}");
         read.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        using HttpResponseMessage response = await http.SendAsync(read, cancellationToken);
+        using var response = await http.SendAsync(read, cancellationToken);
         response.EnsureSuccessStatusCode();
 
-        VariableSummary existing = await response.Content.ReadFromJsonAsync<VariableSummary>(cancellationToken)
+        var existing = await response.Content.ReadFromJsonAsync<VariableSummary>(cancellationToken)
             ?? throw new InvalidOperationException($"Variable '{definition.Name}' conflicted but could not be read back.");
 
         if (string.Equals(existing.Type, definition.Type, StringComparison.Ordinal))
@@ -77,7 +76,7 @@ public sealed class SystemVariablesClient(
             return new VariableSeedResult.Seeded();
         }
 
-        string reason =
+        var reason =
             $"variable '{definition.Name}' already exists as {existing.Type ?? "an unknown type"}, but this asset declares it as {definition.Type}.";
         logger.VariableRefused(definition.Name, reason);
         return new VariableSeedResult.Refused(reason);
@@ -93,7 +92,7 @@ public sealed class SystemVariablesClient(
         string reason;
         try
         {
-            ProblemDetailsBody? problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
+            var problem = await response.Content.ReadFromJsonAsync<ProblemDetailsBody>(cancellationToken);
             reason = problem?.Detail ?? "the request was rejected (400) with no problem detail.";
         }
         catch (JsonException)

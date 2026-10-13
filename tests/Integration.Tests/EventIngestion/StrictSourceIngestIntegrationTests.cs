@@ -52,13 +52,13 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_strict_manual_source_refuses_an_unregistered_kind_with_400()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
             await SetAsync(berlin, "manual", "strict");
-            string kind = UniqueKind();
+            var kind = UniqueKind();
 
-            HttpResponseMessage refused = await IngestManualAsync(berlin, kind);
+            var refused = await IngestManualAsync(berlin, kind);
 
             refused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(refused));
             (await TitleOfAsync(refused)).ShouldBe("EVENT_TYPE_NOT_REGISTERED");
@@ -73,16 +73,16 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_strict_manual_source_admits_a_registered_kind()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
-            string kind = UniqueKind();
-            HttpResponseMessage registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
+            var kind = UniqueKind();
+            var registered = await EventTypeRegistryApi.RegisterAsync(berlin, kind);
             registered.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(registered));
 
             await SetAsync(berlin, "manual", "strict");
 
-            HttpResponseMessage created = await IngestManualAsync(berlin, kind);
+            var created = await IngestManualAsync(berlin, kind);
 
             created.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(created));
         }
@@ -102,15 +102,15 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_strict_inference_source_dead_letters_an_unregistered_kind_published_over_MQTT()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
             await SetAsync(berlin, "inference", "strict");
-            string kind = UniqueKind();
+            var kind = UniqueKind();
 
             await PublishAsync($"fab/{Fab}/inference/strict-mqtt-1", kind);
 
-            string reason = await WaitForDeadLetterReasonAsync(berlin, kind, TimeSpan.FromMinutes(2));
+            var reason = await WaitForDeadLetterReasonAsync(berlin, kind, TimeSpan.FromMinutes(2));
             reason.ShouldNotBeNullOrEmpty($"no dead letter matching '{kind}' was found within the wait window");
             reason.ShouldStartWith("EVENT_TYPE_NOT_REGISTERED:");
             (await CountStoredAsync(berlin, kind)).ShouldBe(0);
@@ -128,15 +128,15 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Strict_on_inference_leaves_plc_in_the_same_fab_open()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
             await SetAsync(berlin, "inference", "strict");
-            string kind = UniqueKind();
+            var kind = UniqueKind();
 
             await PublishAsync($"fab/{Fab}/plc/strict-mqtt-2", kind);
 
-            int count = await WaitForStoredCountAsync(berlin, kind, TimeSpan.FromMinutes(2));
+            var count = await WaitForStoredCountAsync(berlin, kind, TimeSpan.FromMinutes(2));
             count.ShouldBe(1, "plc is undeclared in berlin, so an unregistered kind on it must still be admitted");
         }
         finally
@@ -148,16 +148,16 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Switching_back_to_discovery_holds_the_unknown_kind_for_review()
     {
-        using HttpClient berlin = await BerlinClientAsync();
+        using var berlin = await BerlinClientAsync();
         try
         {
             await SetAsync(berlin, "manual", "strict");
-            HttpResponseMessage stillRefused = await IngestManualAsync(berlin, UniqueKind());
+            var stillRefused = await IngestManualAsync(berlin, UniqueKind());
             stillRefused.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await Diagnose(stillRefused));
 
             await SetAsync(berlin, "manual", "discovery");
-            string kind = UniqueKind();
-            HttpResponseMessage held = await IngestManualAsync(berlin, kind);
+            var kind = UniqueKind();
+            var held = await IngestManualAsync(berlin, kind);
 
             held.StatusCode.ShouldBe(
                 HttpStatusCode.Accepted,
@@ -167,7 +167,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
                 + "named in plan.md §9's sanctioned-edit table.");
             (await CountStoredAsync(berlin, kind)).ShouldBe(0, "a held event must not be stored");
 
-            bool wasHeld = await WaitForHeldAsync(berlin, kind, TimeSpan.FromMinutes(2));
+            var wasHeld = await WaitForHeldAsync(berlin, kind, TimeSpan.FromMinutes(2));
             wasHeld.ShouldBeTrue($"no dead letter with reason UnknownEventType and kind '{kind}' was found");
         }
         finally
@@ -180,10 +180,10 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_undeclared_source_still_ingests_an_unknown_kind()
     {
-        using HttpClient dresden = await aspire.CreateAuthenticatedClientAsync(
+        using var dresden = await aspire.CreateAuthenticatedClientAsync(
             ResourceName, DresdenOperator, DresdenOperatorPassword);
 
-        HttpResponseMessage created = await IngestManualAsync(dresden, UniqueKind());
+        var created = await IngestManualAsync(dresden, UniqueKind());
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await Diagnose(created));
     }
@@ -199,18 +199,18 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
 
     private async Task<int> CountStoredAsync(HttpClient client, string kind)
     {
-        HttpResponseMessage listed = await client.GetAsync($"/events?fabId={Fab}&kind={kind}");
+        var listed = await client.GetAsync($"/events?fabId={Fab}&kind={kind}");
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-        JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
         return page.GetProperty("items").GetArrayLength();
     }
 
     private async Task<int> WaitForStoredCountAsync(HttpClient client, string kind, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            int count = await CountStoredAsync(client, kind);
+            var count = await CountStoredAsync(client, kind);
             if (count > 0 || DateTime.UtcNow >= deadline)
             {
                 return count;
@@ -234,12 +234,12 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<bool> WaitForHeldAsync(HttpClient client, string kind, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            HttpResponseMessage listed = await client.GetAsync("/events/dead-letters?reason=UnknownEventType&limit=1000");
+            var listed = await client.GetAsync("/events/dead-letters?reason=UnknownEventType&limit=1000");
             listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-            JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+            var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
             if (rows.EnumerateArray().Any(row => row.GetProperty("kind").GetString() == kind))
             {
                 return true;
@@ -256,13 +256,13 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
 
     private async Task<string> WaitForDeadLetterReasonAsync(HttpClient client, string kind, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
+        var deadline = DateTime.UtcNow + timeout;
         while (true)
         {
-            HttpResponseMessage listed = await client.GetAsync("/events/dead-letters?limit=1000");
+            var listed = await client.GetAsync("/events/dead-letters?limit=1000");
             listed.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(listed));
-            JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
-            foreach (JsonElement row in rows.EnumerateArray())
+            var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+            foreach (var row in rows.EnumerateArray())
             {
                 if (row.GetProperty("rawPayload").GetString()?.Contains(kind, StringComparison.Ordinal) == true)
                 {
@@ -281,22 +281,22 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
 
     private async Task PublishAsync(string topic, string kind)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        using var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)
@@ -306,7 +306,7 @@ public class StrictSourceIngestIntegrationTests(AspireFixture aspire)
             .Build());
         connected.ResultCode.ShouldBe(MqttClientConnectResultCode.Success);
 
-        MqttClientPublishResult published = await client.PublishAsync(
+        var published = await client.PublishAsync(
             new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(Payload(kind))

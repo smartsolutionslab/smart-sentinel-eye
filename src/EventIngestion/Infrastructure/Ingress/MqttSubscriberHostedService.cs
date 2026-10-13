@@ -81,7 +81,7 @@ public sealed class MqttSubscriberHostedService(
             return;
         }
 
-        IMqttClient stopping = connection.Client;
+        var stopping = connection.Client;
         stopping.ApplicationMessageReceivedAsync -= OnMessageReceived;
 
         if (loopCancellation is not null)
@@ -126,10 +126,10 @@ public sealed class MqttSubscriberHostedService(
         // waits for the write and travels with the envelope.
         args.AutoAcknowledge = false;
 
-        string topic = args.ApplicationMessage.Topic;
-        ReadOnlyMemory<byte> body = Body(args.ApplicationMessage);
+        var topic = args.ApplicationMessage.Topic;
+        var body = Body(args.ApplicationMessage);
 
-        ParseResult result = TryParseEnvelope(topic, body);
+        var result = TryParseEnvelope(topic, body);
         if (result.Envelope is null)
         {
             // A delivery that cannot be parsed will not parse on redelivery
@@ -198,7 +198,7 @@ public sealed class MqttSubscriberHostedService(
     internal static ParseResult TryParseEnvelope(string topic, ReadOnlyMemory<byte> body)
     {
         // Topic shape: fab/{fabId}/{source}/{deviceId}
-        string[] segments = topic.Split('/');
+        var segments = topic.Split('/');
         if (segments.Length != 4 || segments[0] != "fab")
         {
             return new ParseResult(null, $"Unexpected MQTT topic shape: '{topic}'.");
@@ -277,7 +277,7 @@ public sealed class MqttSubscriberHostedService(
     /// </summary>
     private static FabIdentifier? TryParseFab(string topic)
     {
-        string[] segments = topic.Split('/');
+        var segments = topic.Split('/');
         if (segments.Length != 4 || segments[0] != "fab")
         {
             return null;
@@ -297,7 +297,7 @@ public sealed class MqttSubscriberHostedService(
     {
         logger.RejectingMqttDelivery(topic, error);
 
-        FabIdentifier? fab = TryParseFab(topic);
+        var fab = TryParseFab(topic);
         if (fab is null)
         {
             // FR-012. The row is about to become visible to nobody (FR-011),
@@ -308,11 +308,11 @@ public sealed class MqttSubscriberHostedService(
             logger.UnattributableDeadLetter(topic, Interlocked.Increment(ref unattributableDeadLetters));
         }
 
-        string raw = Encoding.UTF8.GetString(body.Span);
+        var raw = Encoding.UTF8.GetString(body.Span);
         try
         {
-            await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-            IDeadLetterRepository deadLetters =
+            await using var scope = scopeFactory.CreateAsyncScope();
+            var deadLetters =
                 scope.ServiceProvider.GetRequiredService<IDeadLetterRepository>();
             deadLetters.Add(DeadLetter.Capture(
                 DeliveryTopic.From(topic), fab, RawPayload.From(raw), RejectionReason.From(error),

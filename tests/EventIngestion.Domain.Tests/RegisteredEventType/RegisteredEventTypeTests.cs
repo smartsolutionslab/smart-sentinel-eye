@@ -21,7 +21,7 @@ public class RegisteredEventTypeTests
     [Fact]
     public void Register_puts_the_type_in_the_Registered_state()
     {
-        Domain.RegisteredEventType.RegisteredEventType eventType = new RegisteredEventTypeBuilder().Build();
+        var eventType = new RegisteredEventTypeBuilder().Build();
 
         eventType.State.ShouldBe(Domain.RegisteredEventType.RegistrationState.Registered);
     }
@@ -29,9 +29,9 @@ public class RegisteredEventTypeTests
     [Fact]
     public void Register_records_who_registered_it_and_when()
     {
-        OperatorIdentifier registeredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var registeredBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Domain.RegisteredEventType.RegisteredEventType eventType = new RegisteredEventTypeBuilder()
+        var eventType = new RegisteredEventTypeBuilder()
             .RegisteredBy(registeredBy)
             .At(Now)
             .Build();
@@ -44,12 +44,12 @@ public class RegisteredEventTypeTests
     [Fact]
     public void Register_raises_an_EventTypeRegisteredDomainEvent_naming_the_fab_and_kind()
     {
-        Domain.RegisteredEventType.RegisteredEventType eventType = new RegisteredEventTypeBuilder()
+        var eventType = new RegisteredEventTypeBuilder()
             .WithFab("dresden")
             .WithKind("PersonInRestrictedZone")
             .Build();
 
-        EventTypeRegisteredDomainEvent raised = eventType.PendingEvents
+        var raised = eventType.PendingEvents
             .OfType<EventTypeRegisteredDomainEvent>()
             .ShouldHaveSingleItem();
 
@@ -60,7 +60,7 @@ public class RegisteredEventTypeTests
     [Fact]
     public void Retire_flips_the_state_to_Retired()
     {
-        Domain.RegisteredEventType.RegisteredEventType eventType = new RegisteredEventTypeBuilder().Build();
+        var eventType = new RegisteredEventTypeBuilder().Build();
 
         eventType.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
 
@@ -70,7 +70,7 @@ public class RegisteredEventTypeTests
     [Fact]
     public void Retire_raises_an_EventTypeRetiredDomainEvent()
     {
-        Domain.RegisteredEventType.RegisteredEventType eventType = new RegisteredEventTypeBuilder().Build();
+        var eventType = new RegisteredEventTypeBuilder().Build();
         eventType.ClearPendingEvents();
 
         eventType.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
@@ -81,7 +81,7 @@ public class RegisteredEventTypeTests
     [Fact]
     public void Retire_is_idempotent_on_an_already_retired_type()
     {
-        Domain.RegisteredEventType.RegisteredEventType eventType = new RegisteredEventTypeBuilder().Build();
+        var eventType = new RegisteredEventTypeBuilder().Build();
         eventType.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
         eventType.ClearPendingEvents();
 

@@ -41,16 +41,16 @@ public class IngestWriteConcurrencyRegistrationTests
     [Fact]
     public void A_configured_concurrency_bounds_the_registered_limiter()
     {
-        Dictionary<string, string?> configuration = Configuration;
+        var configuration = Configuration;
         configuration["EventIngestion:IngestWrite:Concurrency"] = "2";
 
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(configuration);
 
         builder.AddEventIngestionInfrastructure();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        IngestWriteLimiter limiter = provider.GetRequiredService<IngestWriteLimiter>();
+        using var provider = builder.Services.BuildServiceProvider();
+        var limiter = provider.GetRequiredService<IngestWriteLimiter>();
 
         limiter.TryAcquire().Acquired.ShouldBeTrue();
         limiter.TryAcquire().Acquired.ShouldBeTrue();
@@ -70,16 +70,16 @@ public class IngestWriteConcurrencyRegistrationTests
     [Fact]
     public void The_unconfigured_registration_still_bounds_writes_at_sixty_four()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(Configuration);
 
         builder.AddEventIngestionInfrastructure();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        IngestWriteLimiter limiter = provider.GetRequiredService<IngestWriteLimiter>();
+        using var provider = builder.Services.BuildServiceProvider();
+        var limiter = provider.GetRequiredService<IngestWriteLimiter>();
 
         List<bool> granted = [];
-        for (int writer = 0; writer < IngestWriteLimiter.DefaultConcurrency; writer++)
+        for (var writer = 0; writer < IngestWriteLimiter.DefaultConcurrency; writer++)
         {
             granted.Add(limiter.TryAcquire().Acquired);
         }

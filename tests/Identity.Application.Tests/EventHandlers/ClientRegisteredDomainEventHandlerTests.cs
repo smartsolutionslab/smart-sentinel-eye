@@ -31,7 +31,7 @@ public class ClientRegisteredDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        DeviceRegisteredV1 v1 = bus.Published
+        var v1 = bus.Published
             .OfType<DeviceRegisteredV1>().ShouldHaveSingleItem();
         v1.DeviceType.ShouldBe("plc");
         v1.DeviceIdentifier.ShouldBe("station-4");
@@ -55,7 +55,7 @@ public class ClientRegisteredDomainEventHandlerTests
                 OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        KioskEnrolledV1 v1 = bus.Published
+        var v1 = bus.Published
             .OfType<KioskEnrolledV1>().ShouldHaveSingleItem();
         v1.ClientId.ShouldBe("kiosk-3");
         v1.Fab.ShouldBe("munich");

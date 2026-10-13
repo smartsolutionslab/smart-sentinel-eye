@@ -82,7 +82,7 @@ public class IdempotencyReservationSweepRegistrationTests
     /// </summary>
     private static IServiceCollection Automation()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@127.0.0.1:5672",
@@ -97,7 +97,7 @@ public class IdempotencyReservationSweepRegistrationTests
 
     private static IServiceCollection CameraCatalog()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@127.0.0.1:5672",
@@ -112,7 +112,7 @@ public class IdempotencyReservationSweepRegistrationTests
 
     private static IServiceCollection EventIngestion()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@127.0.0.1:5672",
@@ -129,7 +129,7 @@ public class IdempotencyReservationSweepRegistrationTests
 
     private static IServiceCollection Identity()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:keycloak"] = "http://127.0.0.1:8080",
@@ -145,7 +145,7 @@ public class IdempotencyReservationSweepRegistrationTests
 
     private static IServiceCollection LayoutComposition()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@127.0.0.1:5672",
@@ -160,7 +160,7 @@ public class IdempotencyReservationSweepRegistrationTests
 
     private static IServiceCollection OverlayDesigner()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@127.0.0.1:5672",
@@ -175,7 +175,7 @@ public class IdempotencyReservationSweepRegistrationTests
 
     private static IServiceCollection SystemVariables()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:rabbitmq"] = "amqp://guest:guest@127.0.0.1:5672",
@@ -201,9 +201,9 @@ public class IdempotencyReservationSweepRegistrationTests
     private static void SweepIsRegisteredFor<TDbContext>(IServiceCollection services, string contextName)
         where TDbContext : DbContext
     {
-        Type expected = typeof(IdempotencyReservationSweepHostedService<TDbContext>);
+        var expected = typeof(IdempotencyReservationSweepHostedService<TDbContext>);
 
-        bool registered = services.Any(descriptor =>
+        var registered = services.Any(descriptor =>
             descriptor.ServiceType == typeof(IHostedService)
             && descriptor.ImplementationType == expected);
 

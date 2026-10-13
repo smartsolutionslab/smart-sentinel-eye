@@ -15,8 +15,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void A_modified_root_has_its_version_incremented_by_one()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 7);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 7);
 
         root.Name = "renamed";
         AggregateVersionInterceptor.BumpVersions(context);
@@ -27,8 +27,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void An_added_root_is_not_bumped()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = NewRoot();
+        using var context = VersionTestContext.Create();
+        var root = NewRoot();
 
         context.Roots.Add(root);
         AggregateVersionInterceptor.BumpVersions(context);
@@ -39,8 +39,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void An_untouched_root_is_neither_bumped_nor_marked_modified()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 3);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 3);
 
         AggregateVersionInterceptor.BumpVersions(context);
 
@@ -51,13 +51,13 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void The_bump_leaves_the_original_value_so_the_where_clause_still_targets_the_loaded_row()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 12);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 12);
 
         root.Name = "renamed";
         AggregateVersionInterceptor.BumpVersions(context);
 
-        PropertyEntry version = VersionOf(context, root);
+        var version = VersionOf(context, root);
         version.OriginalValue.ShouldBe(AggregateVersion.From(12));
         version.CurrentValue.ShouldBe(AggregateVersion.From(13));
     }
@@ -69,8 +69,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void A_modified_owned_child_bumps_the_root_and_promotes_it_to_modified()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 4);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 4);
 
         root.Revisions[0].Label = "edited";
         AggregateVersionInterceptor.BumpVersions(context);
@@ -82,8 +82,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void An_added_owned_child_bumps_the_root()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 4);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 4);
 
         root.Revisions.Add(new TestRevision { Id = Guid.CreateVersion7(), Label = "second" });
         AggregateVersionInterceptor.BumpVersions(context);
@@ -94,8 +94,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void A_removed_owned_child_bumps_the_root()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 4);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 4);
 
         root.Revisions.RemoveAt(0);
         AggregateVersionInterceptor.BumpVersions(context);
@@ -106,8 +106,8 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void A_change_nested_two_levels_deep_bumps_the_root()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot root = AttachedRoot(context, version: 4);
+        using var context = VersionTestContext.Create();
+        var root = AttachedRoot(context, version: 4);
 
         root.Revisions[0].Tiles[0].CameraName = "camera-2";
         AggregateVersionInterceptor.BumpVersions(context);
@@ -118,9 +118,9 @@ public class AggregateVersionInterceptorTests
     [Fact]
     public void A_second_root_is_untouched_when_only_the_first_one_changes()
     {
-        using VersionTestContext context = VersionTestContext.Create();
-        TestRoot changed = AttachedRoot(context, version: 4);
-        TestRoot untouched = AttachedRoot(context, version: 9);
+        using var context = VersionTestContext.Create();
+        var changed = AttachedRoot(context, version: 4);
+        var untouched = AttachedRoot(context, version: 9);
 
         changed.Revisions[0].Label = "edited";
         AggregateVersionInterceptor.BumpVersions(context);
@@ -131,7 +131,7 @@ public class AggregateVersionInterceptorTests
 
     private static TestRoot AttachedRoot(VersionTestContext context, int version)
     {
-        TestRoot root = NewRoot();
+        var root = NewRoot();
         root.Version = AggregateVersion.From(version);
         context.Attach(root);
 

@@ -17,9 +17,9 @@ public static class AelParser
 {
     public static AelExpression Parse(string source)
     {
-        IReadOnlyList<AelToken> tokens = AelLexer.Tokenize(source);
-        int cursor = 0;
-        AelExpression expression = ParseOr(tokens, ref cursor);
+        var tokens = AelLexer.Tokenize(source);
+        var cursor = 0;
+        var expression = ParseOr(tokens, ref cursor);
         if (tokens[cursor].Kind != AelTokenKind.EndOfFile)
         {
             throw new AelParseException(
@@ -31,11 +31,11 @@ public static class AelParser
 
     private static AelExpression ParseOr(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelExpression left = ParseAnd(tokens, ref cursor);
+        var left = ParseAnd(tokens, ref cursor);
         while (tokens[cursor].Kind == AelTokenKind.OrOr)
         {
             cursor++;
-            AelExpression right = ParseAnd(tokens, ref cursor);
+            var right = ParseAnd(tokens, ref cursor);
             left = new AelExpression.Logical(LogicalOperator.Or, left, right);
         }
         return left;
@@ -43,11 +43,11 @@ public static class AelParser
 
     private static AelExpression ParseAnd(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelExpression left = ParseNot(tokens, ref cursor);
+        var left = ParseNot(tokens, ref cursor);
         while (tokens[cursor].Kind == AelTokenKind.AndAnd)
         {
             cursor++;
-            AelExpression right = ParseNot(tokens, ref cursor);
+            var right = ParseNot(tokens, ref cursor);
             left = new AelExpression.Logical(LogicalOperator.And, left, right);
         }
         return left;
@@ -58,7 +58,7 @@ public static class AelParser
         if (tokens[cursor].Kind == AelTokenKind.Bang)
         {
             cursor++;
-            AelExpression operand = ParseNot(tokens, ref cursor);
+            var operand = ParseNot(tokens, ref cursor);
             return new AelExpression.Unary(UnaryOperator.Not, operand);
         }
         return ParseComparison(tokens, ref cursor);
@@ -66,7 +66,7 @@ public static class AelParser
 
     private static AelExpression ParseComparison(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelExpression left = ParseAdditive(tokens, ref cursor);
+        var left = ParseAdditive(tokens, ref cursor);
         BinaryOperator? binaryOperator = tokens[cursor].Kind switch
         {
             AelTokenKind.Equal => BinaryOperator.Equal,
@@ -84,20 +84,20 @@ public static class AelParser
         }
 
         cursor++;
-        AelExpression right = ParseAdditive(tokens, ref cursor);
+        var right = ParseAdditive(tokens, ref cursor);
         return new AelExpression.Binary(binaryOperator.Value, left, right);
     }
 
     private static AelExpression ParseAdditive(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelExpression left = ParseMultiplicative(tokens, ref cursor);
+        var left = ParseMultiplicative(tokens, ref cursor);
         while (tokens[cursor].Kind is AelTokenKind.Plus or AelTokenKind.Minus)
         {
-            BinaryOperator binaryOperator = tokens[cursor].Kind == AelTokenKind.Plus
+            var binaryOperator = tokens[cursor].Kind == AelTokenKind.Plus
                 ? BinaryOperator.Add
                 : BinaryOperator.Subtract;
             cursor++;
-            AelExpression right = ParseMultiplicative(tokens, ref cursor);
+            var right = ParseMultiplicative(tokens, ref cursor);
             left = new AelExpression.Binary(binaryOperator, left, right);
         }
         return left;
@@ -105,17 +105,17 @@ public static class AelParser
 
     private static AelExpression ParseMultiplicative(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelExpression left = ParseUnary(tokens, ref cursor);
+        var left = ParseUnary(tokens, ref cursor);
         while (tokens[cursor].Kind is AelTokenKind.Star or AelTokenKind.Slash or AelTokenKind.Percent)
         {
-            BinaryOperator binaryOperator = tokens[cursor].Kind switch
+            var binaryOperator = tokens[cursor].Kind switch
             {
                 AelTokenKind.Star => BinaryOperator.Multiply,
                 AelTokenKind.Slash => BinaryOperator.Divide,
                 _ => BinaryOperator.Modulo,
             };
             cursor++;
-            AelExpression right = ParseUnary(tokens, ref cursor);
+            var right = ParseUnary(tokens, ref cursor);
             left = new AelExpression.Binary(binaryOperator, left, right);
         }
         return left;
@@ -126,7 +126,7 @@ public static class AelParser
         if (tokens[cursor].Kind == AelTokenKind.Minus)
         {
             cursor++;
-            AelExpression operand = ParseUnary(tokens, ref cursor);
+            var operand = ParseUnary(tokens, ref cursor);
             return new AelExpression.Unary(UnaryOperator.Negate, operand);
         }
         return ParsePrimary(tokens, ref cursor);
@@ -134,7 +134,7 @@ public static class AelParser
 
     private static AelExpression ParsePrimary(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelToken token = tokens[cursor];
+        var token = tokens[cursor];
         switch (token.Kind)
         {
             case AelTokenKind.IntLiteral:
@@ -161,7 +161,7 @@ public static class AelParser
 
             case AelTokenKind.LeftParen:
                 cursor++;
-                AelExpression inner = ParseOr(tokens, ref cursor);
+                var inner = ParseOr(tokens, ref cursor);
                 if (tokens[cursor].Kind != AelTokenKind.RightParen)
                 {
                     throw new AelParseException("expected ')'", tokens[cursor].Position);
@@ -181,7 +181,7 @@ public static class AelParser
 
     private static AelExpression.FieldAccess ParseFieldAccess(IReadOnlyList<AelToken> tokens, ref int cursor)
     {
-        AelToken dollar = tokens[cursor];
+        var dollar = tokens[cursor];
         cursor++; // consume $
         if (tokens[cursor].Kind != AelTokenKind.Dot)
         {
@@ -190,7 +190,7 @@ public static class AelParser
                 tokens[cursor].Position);
         }
 
-        ImmutableArray<string>.Builder segments = ImmutableArray.CreateBuilder<string>();
+        var segments = ImmutableArray.CreateBuilder<string>();
         while (tokens[cursor].Kind == AelTokenKind.Dot)
         {
             cursor++; // consume '.'

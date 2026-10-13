@@ -7,7 +7,7 @@ public class StreamIdentifierTests
     [Fact]
     public void New_returns_a_non_empty_Guid_v7()
     {
-        StreamIdentifier identifier = StreamIdentifier.New();
+        var identifier = StreamIdentifier.New();
 
         identifier.Value.ShouldNotBe(Guid.Empty);
         identifier.Value.Version.ShouldBe(7);
@@ -16,8 +16,8 @@ public class StreamIdentifierTests
     [Fact]
     public void From_with_a_non_empty_Guid_succeeds()
     {
-        Guid raw = Guid.CreateVersion7();
-        StreamIdentifier identifier = StreamIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var identifier = StreamIdentifier.From(raw);
 
         identifier.Value.ShouldBe(raw);
     }
@@ -33,8 +33,8 @@ public class StreamIdentifierTests
     [Fact]
     public void ToString_returns_the_Guid_string()
     {
-        Guid raw = Guid.CreateVersion7();
-        StreamIdentifier identifier = StreamIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var identifier = StreamIdentifier.From(raw);
 
         identifier.ToString().ShouldBe(raw.ToString());
     }
@@ -42,7 +42,7 @@ public class StreamIdentifierTests
     [Fact]
     public void Implicitly_unwraps_to_its_guid()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         Guid unwrapped = StreamIdentifier.From(guid);
         unwrapped.ShouldBe(guid);
     }
@@ -50,8 +50,8 @@ public class StreamIdentifierTests
     [Fact]
     public void Comparison_operators_order_by_the_underlying_guid()
     {
-        StreamIdentifier earlier = StreamIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
-        StreamIdentifier later = StreamIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
+        var earlier = StreamIdentifier.From(new Guid("01900000-0000-7000-8000-000000000001"));
+        var later = StreamIdentifier.From(new Guid("01900000-0000-7000-8000-000000000002"));
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         (earlier < later).ShouldBeTrue();

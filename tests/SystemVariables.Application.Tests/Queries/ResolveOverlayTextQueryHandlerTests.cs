@@ -1,5 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
@@ -28,12 +26,12 @@ public class ResolveOverlayTextQueryHandlerTests
         repo.Add(new VariableBuilder().WithFab("munich").Named("temperature")
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(23.4)).Build());
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await HandlerOver(repo).HandleAsync(
+        var result = await HandlerOver(repo).HandleAsync(
             new ResolveOverlayTextQuery([Munich], "Line 1: {{temperature}}"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.ResolvedText.ShouldBe("Line 1: 23.4");
-        PlaceholderResolutionDto entry = result.Value.Placeholders.ShouldHaveSingleItem();
+        var entry = result.Value.Placeholders.ShouldHaveSingleItem();
         entry.Name.ShouldBe("temperature");
         entry.Outcome.ShouldBe("Resolved");
         entry.Fab.ShouldBe("munich");
@@ -53,7 +51,7 @@ public class ResolveOverlayTextQueryHandlerTests
         repo.Add(new VariableBuilder().WithFab("munich").Named("temperature")
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(23.4)).Build());
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await HandlerOver(repo).HandleAsync(
+        var result = await HandlerOver(repo).HandleAsync(
             new ResolveOverlayTextQuery([Munich], "{{temperature}}"), CancellationToken.None);
 
         result.Value.Placeholders.Single().RenderedValue.ShouldBe("23.4");
@@ -72,7 +70,7 @@ public class ResolveOverlayTextQueryHandlerTests
             .WithBooleanLabels(BooleanLabels.From("RUNNING", "STOPPED"))
             .Build());
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await HandlerOver(repo).HandleAsync(
+        var result = await HandlerOver(repo).HandleAsync(
             new ResolveOverlayTextQuery([Munich], "{{lineRunning}}"), CancellationToken.None);
 
         result.Value.Placeholders.Single().RenderedValue.ShouldBe("RUNNING");
@@ -87,21 +85,21 @@ public class ResolveOverlayTextQueryHandlerTests
     {
         InMemoryVariableRepository repo = new();
         repo.Add(new VariableBuilder().WithFab("munich").Named("shift").OfType(VariableType.String).Build());
-        VariableBuilder archivedBuilder = new VariableBuilder().WithFab("munich").Named("oldOne")
+        var archivedBuilder = new VariableBuilder().WithFab("munich").Named("oldOne")
             .OfType(VariableType.String).WithInitialValue(new VariableValue.StringValue("x"));
-        Variable archived = archivedBuilder.Build();
+        var archived = archivedBuilder.Build();
         archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
         repo.Add(archived);
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await HandlerOver(repo).HandleAsync(
+        var result = await HandlerOver(repo).HandleAsync(
             new ResolveOverlayTextQuery([Munich], "{{shift}} {{oldOne}} {{unknownName}}"), CancellationToken.None);
 
         result.Value.ResolvedText.ShouldBe("{{shift}} {{oldOne}} {{unknownName}}");
-        PlaceholderResolutionDto shift = result.Value.Placeholders.Single(p => p.Name == "shift");
+        var shift = result.Value.Placeholders.Single(p => p.Name == "shift");
         shift.Outcome.ShouldBe("Unset");
         // S2 — Unset carries the fab it was found in, same as Resolved.
         shift.Fab.ShouldBe("munich");
-        PlaceholderResolutionDto oldOne = result.Value.Placeholders.Single(p => p.Name == "oldOne");
+        var oldOne = result.Value.Placeholders.Single(p => p.Name == "oldOne");
         oldOne.Outcome.ShouldBe("Archived");
         // Archived stays null — it is the not-found path (plan.md:170).
         oldOne.Fab.ShouldBeNull();
@@ -113,7 +111,7 @@ public class ResolveOverlayTextQueryHandlerTests
     {
         InMemoryVariableRepository repo = new();
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await HandlerOver(repo).HandleAsync(
+        var result = await HandlerOver(repo).HandleAsync(
             new ResolveOverlayTextQuery([Munich], "PRODUCTION LINE 1"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -131,7 +129,7 @@ public class ResolveOverlayTextQueryHandlerTests
         repo.Add(new VariableBuilder().WithFab("munich").Named("oee")
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(41)).Build());
 
-        Result<ResolvedTextPreviewDto, ResolveOverlayTextError> result = await HandlerOver(repo).HandleAsync(
+        var result = await HandlerOver(repo).HandleAsync(
             new ResolveOverlayTextQuery([Munich, Dresden], "{{oee}}"), CancellationToken.None);
 
         result.Value.ResolvedText.ShouldBe("7");

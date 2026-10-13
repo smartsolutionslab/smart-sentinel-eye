@@ -29,7 +29,7 @@ public class AuditObservabilityHealthCheckRegistrationTests
 {
     private static ServiceProvider Compose()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
 
         // Nothing here is dialled: AddAuditObservabilityInfrastructure only parses these
         // while registering (mirrors PostgresComposition's audit-observability case).
@@ -49,10 +49,10 @@ public class AuditObservabilityHealthCheckRegistrationTests
     [Fact]
     public void No_registered_health_check_names_or_reaches_the_blob_store()
     {
-        using ServiceProvider provider = Compose();
-        using IServiceScope scope = provider.CreateScope();
+        using var provider = Compose();
+        using var scope = provider.CreateScope();
 
-        HealthCheckServiceOptions options = scope.ServiceProvider
+        var options = scope.ServiceProvider
             .GetRequiredService<IOptions<HealthCheckServiceOptions>>().Value;
 
         List<string> offenders = [.. options.Registrations

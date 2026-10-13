@@ -58,13 +58,13 @@ public static class WolverineDefaults
         // of the DbContext's — same connection string, separate
         // NpgsqlDataSource. It is half the platform's connection demand and is
         // budgeted as such (ADR-0125).
-        string postgresConnection = builder.GetBoundedPostgresConnectionString(postgresConnectionName);
+        var postgresConnection = builder.GetBoundedPostgresConnectionString(postgresConnectionName);
 
-        string rabbitConnection =
+        var rabbitConnection =
             builder.Configuration.GetConnectionString(rabbitConnectionName)
             ?? throw new InvalidOperationException($"Connection string '{rabbitConnectionName}' is required for Wolverine RabbitMQ transport.");
 
-        Assembly? applicationAssembly = TryLoadApplicationAssembly(typeof(TDbContext).Assembly);
+        var applicationAssembly = TryLoadApplicationAssembly(typeof(TDbContext).Assembly);
 
         builder.UseWolverine(opts =>
         {
@@ -228,13 +228,13 @@ public static class WolverineDefaults
     internal static Assembly? TryLoadApplicationAssembly(Assembly infrastructureAssembly)
     {
         const string InfrastructureSuffix = ".Infrastructure";
-        string name = infrastructureAssembly.GetName().Name ?? string.Empty;
+        var name = infrastructureAssembly.GetName().Name ?? string.Empty;
         if (!name.EndsWith(InfrastructureSuffix, StringComparison.Ordinal))
         {
             return null;
         }
 
-        string applicationName = string.Concat(name.AsSpan(0, name.Length - InfrastructureSuffix.Length), ".Application");
+        var applicationName = string.Concat(name.AsSpan(0, name.Length - InfrastructureSuffix.Length), ".Application");
 
         try
         {

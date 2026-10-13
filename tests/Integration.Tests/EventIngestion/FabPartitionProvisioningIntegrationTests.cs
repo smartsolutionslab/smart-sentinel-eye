@@ -1,5 +1,4 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -29,7 +28,7 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Every_fab_in_the_realm_has_event_storage()
     {
-        IReadOnlyList<string> partitions = await FabPartitionsAsync();
+        var partitions = await FabPartitionsAsync();
 
         // munich and dresden were provisioned by hand; berlin was provisioned
         // from the realm by the migration job that ran before this fixture
@@ -51,11 +50,11 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_newly_provisioned_fab_has_this_month_and_next()
     {
-        DateTime now = DateTime.UtcNow;
-        string thisMonth = now.ToString("yyyyMM", CultureInfo.InvariantCulture);
-        string nextMonth = now.AddMonths(1).ToString("yyyyMM", CultureInfo.InvariantCulture);
+        var now = DateTime.UtcNow;
+        var thisMonth = now.ToString("yyyyMM", CultureInfo.InvariantCulture);
+        var nextMonth = now.AddMonths(1).ToString("yyyyMM", CultureInfo.InvariantCulture);
 
-        IReadOnlyList<string> monthly = await MonthlyPartitionsAsync("events_berlin");
+        var monthly = await MonthlyPartitionsAsync("events_berlin");
 
         monthly.ShouldContain($"events_berlin_{thisMonth}");
         monthly.ShouldContain($"events_berlin_{nextMonth}");
@@ -68,12 +67,12 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_event_filed_by_an_operator_of_a_realm_only_fab_is_stored()
     {
-        string kind = $"Provisioned{Guid.CreateVersion7():N}"[..24];
+        var kind = $"Provisioned{Guid.CreateVersion7():N}"[..24];
 
-        using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
+        using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", BerlinOperator, OperatorPassword);
 
-        HttpResponseMessage filed = await berlin.PostAsJsonAsync("/events/manual", new
+        var filed = await berlin.PostAsJsonAsync("/events/manual", new
         {
             deviceId = "provisioning-device",
             kind,
@@ -82,15 +81,15 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
         });
         filed.StatusCode.ShouldBe(HttpStatusCode.Created, await filed.Content.ReadAsStringAsync());
 
-        int found = 0;
-        DateTime deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        var found = 0;
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
         while (DateTime.UtcNow < deadline && found == 0)
         {
             await Task.Delay(TimeSpan.FromMilliseconds(500));
-            HttpResponseMessage listed = await berlin.GetAsync($"/events?kind={kind}");
+            var listed = await berlin.GetAsync($"/events?kind={kind}");
             if (listed.IsSuccessStatusCode)
             {
-                JsonElement page = await listed.Content.ReadFromJsonAsync<JsonElement>();
+                var page = await listed.Content.ReadFromJsonAsync<JsonElement>();
                 found = page.GetProperty("items").GetArrayLength();
             }
         }
@@ -111,29 +110,29 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Provisioning_the_same_fab_twice_changes_nothing()
     {
-        FabIdentifier munich = FabIdentifier.From("munich");
+        var munich = FabIdentifier.From("munich");
         FabPartitionProvisioner provisioner = new(NullLogger<FabPartitionProvisioner>.Instance);
 
-        await using (EventIngestionDbContext first = await aspire.CreateEventIngestionDbContextAsync())
+        await using (var first = await aspire.CreateEventIngestionDbContextAsync())
         {
             await provisioner.ProvisionAsync(first, [munich], CancellationToken.None);
         }
 
-        IReadOnlyList<string> before = await FabPartitionsAsync();
+        var before = await FabPartitionsAsync();
 
-        await using (EventIngestionDbContext second = await aspire.CreateEventIngestionDbContextAsync())
+        await using (var second = await aspire.CreateEventIngestionDbContextAsync())
         {
             await provisioner.ProvisionAsync(second, [munich], CancellationToken.None);
         }
 
-        IReadOnlyList<string> after = await FabPartitionsAsync();
+        var after = await FabPartitionsAsync();
 
         after.ShouldBe(before, ignoreOrder: true, "a second provisioning pass changed the partition set");
     }
 
     private async Task<IReadOnlyList<string>> FabPartitionsAsync()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<string>("""
                 SELECT child.relname AS "Value"
@@ -147,7 +146,7 @@ public class FabPartitionProvisioningIntegrationTests(AspireFixture aspire)
 
     private async Task<IReadOnlyList<string>> MonthlyPartitionsAsync(string fabPartition)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<string>("""
                 SELECT child.relname AS "Value"

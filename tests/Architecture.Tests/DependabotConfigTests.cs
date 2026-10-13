@@ -30,7 +30,7 @@ public class DependabotConfigTests
     [Fact]
     public void The_config_declares_schema_version_2()
     {
-        string[] lines = ReadLines();
+        var lines = ReadLines();
 
         lines.ShouldContain(line => Regex.IsMatch(line, @"^\s*version:\s*2\s*$"));
     }
@@ -38,7 +38,7 @@ public class DependabotConfigTests
     [Fact]
     public void Every_ecosystem_this_repository_has_is_declared_exactly_once()
     {
-        EcosystemBlock[] blocks = EcosystemBlocks();
+        var blocks = EcosystemBlocks();
 
         string[] declared = [.. blocks.Select(block => block.Ecosystem).OrderBy(e => e, StringComparer.Ordinal)];
         string[] expected = [.. ExpectedEcosystems.OrderBy(e => e, StringComparer.Ordinal)];
@@ -49,7 +49,7 @@ public class DependabotConfigTests
     [Fact]
     public void Every_entry_targets_develop_explicitly_not_the_dependabot_default()
     {
-        EcosystemBlock[] blocks = EcosystemBlocks();
+        var blocks = EcosystemBlocks();
 
         EcosystemBlock[] missingTarget = [.. blocks.Where(block => !block.Lines.Any(TargetsDevelop))];
 
@@ -61,7 +61,7 @@ public class DependabotConfigTests
     [Fact]
     public void Every_entry_carries_the_dependencies_label()
     {
-        EcosystemBlock[] blocks = EcosystemBlocks();
+        var blocks = EcosystemBlocks();
 
         EcosystemBlock[] unlabelled = [.. blocks.Where(block => !block.Lines.Any(HasDependenciesLabel))];
 
@@ -73,7 +73,7 @@ public class DependabotConfigTests
     [Fact]
     public void Every_entry_polls_weekly()
     {
-        EcosystemBlock[] blocks = EcosystemBlocks();
+        var blocks = EcosystemBlocks();
 
         EcosystemBlock[] offCadence = [.. blocks.Where(block => !block.Lines.Any(IsWeeklyInterval))];
 
@@ -90,7 +90,7 @@ public class DependabotConfigTests
     [Fact]
     public void Minor_and_patch_updates_are_grouped_but_major_updates_are_not()
     {
-        EcosystemBlock[] blocks = EcosystemBlocks();
+        var blocks = EcosystemBlocks();
 
         EcosystemBlock[] notGrouped = [.. blocks.Where(block => !block.Lines.Any(line => line.Contains("groups:")))];
         notGrouped.ShouldBeEmpty(
@@ -122,20 +122,20 @@ public class DependabotConfigTests
     /// </summary>
     private static EcosystemBlock[] EcosystemBlocks()
     {
-        string[] lines = ReadLines();
+        var lines = ReadLines();
         List<EcosystemBlock> blocks = [];
 
-        int index = 0;
+        var index = 0;
         while (index < lines.Length)
         {
-            Match match = EcosystemLine.Match(lines[index]);
+            var match = EcosystemLine.Match(lines[index]);
             if (!match.Success)
             {
                 index++;
                 continue;
             }
 
-            string ecosystem = match.Groups["ecosystem"].Value;
+            var ecosystem = match.Groups["ecosystem"].Value;
             List<string> blockLines = [lines[index]];
             index++;
 
@@ -153,7 +153,7 @@ public class DependabotConfigTests
 
     private static string[] ReadLines()
     {
-        string path = Path.Combine(RepositoryRoot().FullName, ConfigPath);
+        var path = Path.Combine(RepositoryRoot().FullName, ConfigPath);
         File.Exists(path).ShouldBeTrue(
             $"expected {ConfigPath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllLines(path);

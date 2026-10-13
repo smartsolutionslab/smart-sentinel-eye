@@ -3,7 +3,6 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.EventHandlers;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.OverlayDesigner;
@@ -30,9 +29,9 @@ public class OverlayRevisionPublishedV3HandlerTests
     public async Task Relays_the_overlay_publish_onto_the_broadcaster_with_every_field_mapped()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionPublishedV3Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
+        var handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionPublishedV3 message = new(
             Overlay: overlay,
             RevisionNumber: 3,
@@ -44,11 +43,11 @@ public class OverlayRevisionPublishedV3HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        OverlayLifecyclePublishedNotification notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
+        var notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
         notification.Overlay.ShouldBe(overlay);
         notification.RevisionNumber.ShouldBe(3);
         notification.Name.ShouldBe("Line-1");
-        OverlayLifecycleElement element = notification.Elements.ShouldHaveSingleItem();
+        var element = notification.Elements.ShouldHaveSingleItem();
         element.Kind.ShouldBe("Text");
         element.Color.ShouldBe("#FFFFFFD9");
         element.Text.ShouldBe("Hello");
@@ -63,9 +62,9 @@ public class OverlayRevisionPublishedV3HandlerTests
     public async Task Relays_every_element_of_the_set_in_order()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionPublishedV3Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
+        var handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionPublishedV3 message = new(
             Overlay: overlay,
             RevisionNumber: 1,
@@ -81,7 +80,7 @@ public class OverlayRevisionPublishedV3HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        OverlayLifecyclePublishedNotification notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
+        var notification = broadcaster.OverlaysPublished.ShouldHaveSingleItem();
         notification.Elements.Count.ShouldBe(2);
         notification.Elements[0].Text.ShouldBe("First");
         notification.Elements[1].Text.ShouldBe("Second");
@@ -92,9 +91,9 @@ public class OverlayRevisionPublishedV3HandlerTests
     public async Task Relays_a_non_text_element_with_null_text_and_font_size()
     {
         FakeLayoutLifecycleBroadcaster broadcaster = new();
-        OverlayRevisionPublishedV3Handler handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
+        var handler = NewHandler(broadcaster, new InMemoryLayoutRepository());
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         OverlayRevisionPublishedV3 message = new(
             Overlay: overlay,
             RevisionNumber: 1,
@@ -106,7 +105,7 @@ public class OverlayRevisionPublishedV3HandlerTests
 
         await handler.Handle(message, CancellationToken.None);
 
-        OverlayLifecycleElement element = broadcaster.OverlaysPublished.ShouldHaveSingleItem().Elements.ShouldHaveSingleItem();
+        var element = broadcaster.OverlaysPublished.ShouldHaveSingleItem().Elements.ShouldHaveSingleItem();
         element.Kind.ShouldBe("Box");
         element.Text.ShouldBeNull();
         element.FontSizePx.ShouldBeNull();
@@ -116,7 +115,7 @@ public class OverlayRevisionPublishedV3HandlerTests
     [Fact]
     public async Task An_overlay_used_by_one_fab_is_announced_to_that_fab_only()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryLayoutRepository layouts = new();
         Seed(layouts, Dresden, overlay, publish: true);
         Seed(layouts, Munich, Guid.CreateVersion7(), publish: true);
@@ -135,7 +134,7 @@ public class OverlayRevisionPublishedV3HandlerTests
     [Fact]
     public async Task An_overlay_used_by_both_fabs_is_announced_to_both()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryLayoutRepository layouts = new();
         Seed(layouts, Munich, overlay, publish: true);
         Seed(layouts, Dresden, overlay, publish: true);
@@ -173,7 +172,7 @@ public class OverlayRevisionPublishedV3HandlerTests
     [Fact]
     public async Task An_overlay_referenced_only_by_a_draft_is_announced_to_nobody()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryLayoutRepository layouts = new();
         Seed(layouts, Dresden, overlay, publish: false);
 
@@ -192,12 +191,12 @@ public class OverlayRevisionPublishedV3HandlerTests
     private static void Seed(
         InMemoryLayoutRepository layouts, FabIdentifier fab, Guid overlay, bool publish)
     {
-        LayoutBuilder builder = new LayoutBuilder()
+        var builder = new LayoutBuilder()
             .WithFab(fab)
             .Named($"L-{Guid.NewGuid():N}"[..12])
             .WithOverlay(OverlayIdentifier.From(overlay))
             .At(FixedMoment);
-        Layout layout = builder.Build();
+        var layout = builder.Build();
         if (publish)
         {
             layout.Publish(LayoutRevisionNumber.One, builder.Operator, builder.Clock);

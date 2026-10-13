@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests.LayoutComposition;
@@ -22,9 +21,9 @@ public class WallConfiguredV1Tests
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid sceneA = Guid.CreateVersion7();
-        Guid sceneB = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var sceneA = Guid.CreateVersion7();
+        var sceneB = Guid.CreateVersion7();
         WallConfiguredV1 evt = new(wall, "Line 3 rotation", [sceneA, sceneB], sceneA, Moment, Metadata: TestMetadata);
 
         evt.Wall.ShouldBe(wall);
@@ -38,7 +37,7 @@ public class WallConfiguredV1Tests
     [Fact]
     public void Implements_IIntegrationEvent_so_Wolverine_can_route_it()
     {
-        Guid sceneA = Guid.CreateVersion7();
+        var sceneA = Guid.CreateVersion7();
         WallConfiguredV1 evt = new(
             Guid.CreateVersion7(), "Line 3 rotation", [sceneA], sceneA, Moment, Metadata: TestMetadata);
         evt.ShouldBeAssignableTo<IIntegrationEvent>();
@@ -47,9 +46,9 @@ public class WallConfiguredV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid sceneA = Guid.CreateVersion7();
-        Guid sceneB = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var sceneA = Guid.CreateVersion7();
+        var sceneB = Guid.CreateVersion7();
         WallConfiguredV1 a = new(wall, "Line 3 rotation", [sceneA, sceneB], sceneA, Moment, Metadata: TestMetadata);
         WallConfiguredV1 b = new(wall, "Line 3 rotation", [sceneA, sceneB], sceneA, Moment, Metadata: TestMetadata);
 
@@ -60,13 +59,13 @@ public class WallConfiguredV1Tests
     [Fact]
     public void JSON_round_trip_preserves_every_field()
     {
-        Guid sceneA = Guid.CreateVersion7();
-        Guid sceneB = Guid.CreateVersion7();
+        var sceneA = Guid.CreateVersion7();
+        var sceneB = Guid.CreateVersion7();
         WallConfiguredV1 original = new(
             Guid.CreateVersion7(), "Line 3 rotation", [sceneA, sceneB], sceneA, Moment, Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        WallConfiguredV1 deserialized = JsonSerializer.Deserialize<WallConfiguredV1>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<WallConfiguredV1>(json)!;
 
         deserialized.ShouldBe(original);
     }

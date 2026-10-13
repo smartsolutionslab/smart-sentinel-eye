@@ -120,10 +120,10 @@ public sealed class WhepValidatorRotationTests : IDisposable
     public async Task A_token_signed_with_the_rotated_key_is_authorized_on_a_later_call()
     {
         WhepAuthValidator validator = new(MetadataOver(RotatingKeys()), new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(rotatedKey, RotatedKeyIdentifier, RealmIssuer);
+        var token = TokenFor(rotatedKey, RotatedKeyIdentifier, RealmIssuer);
 
-        Result<WhepAuthSubject, WhepAuthFailure> firstCall = await validator.ValidateAsync(token, CancellationToken.None);
-        Result<WhepAuthSubject, WhepAuthFailure> laterCall = await ValidateUntilAcceptedAsync(validator, token);
+        var firstCall = await validator.ValidateAsync(token, CancellationToken.None);
+        var laterCall = await ValidateUntilAcceptedAsync(validator, token);
 
         firstCall.IsSuccess.ShouldBeFalse(
             customMessage: "the WHEP hook accepted a token signed with a key its cached discovery "
@@ -148,10 +148,10 @@ public sealed class WhepValidatorRotationTests : IDisposable
     public async Task A_token_carrying_the_rotated_issuer_is_authorized_on_a_later_call()
     {
         WhepAuthValidator validator = new(MetadataOver(RotatingIssuer()), new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
-        string token = TokenFor(originalKey, OriginalKeyIdentifier, RotatedIssuer);
+        var token = TokenFor(originalKey, OriginalKeyIdentifier, RotatedIssuer);
 
-        Result<WhepAuthSubject, WhepAuthFailure> firstCall = await validator.ValidateAsync(token, CancellationToken.None);
-        Result<WhepAuthSubject, WhepAuthFailure> laterCall = await ValidateUntilAcceptedAsync(validator, token);
+        var firstCall = await validator.ValidateAsync(token, CancellationToken.None);
+        var laterCall = await ValidateUntilAcceptedAsync(validator, token);
 
         firstCall.IsSuccess.ShouldBeFalse(
             customMessage: "the WHEP hook accepted a token whose issuer its cached discovery document "
@@ -174,15 +174,15 @@ public sealed class WhepValidatorRotationTests : IDisposable
     [Fact]
     public async Task A_token_signed_with_the_superseded_key_is_refused_once_the_rotation_has_landed()
     {
-        ConfigurationManager<OpenIdConnectConfiguration> metadata = MetadataOver(RotatingKeys());
+        var metadata = MetadataOver(RotatingKeys());
         WhepAuthValidator validator = new(metadata, new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
-        string superseded = TokenFor(originalKey, OriginalKeyIdentifier, RealmIssuer);
+        var superseded = TokenFor(originalKey, OriginalKeyIdentifier, RealmIssuer);
 
-        Result<WhepAuthSubject, WhepAuthFailure> beforeRotation = await validator.ValidateAsync(superseded, CancellationToken.None);
+        var beforeRotation = await validator.ValidateAsync(superseded, CancellationToken.None);
         metadata.RequestRefresh();
-        Result<WhepAuthSubject, WhepAuthFailure> rotated = await ValidateUntilAcceptedAsync(
+        var rotated = await ValidateUntilAcceptedAsync(
             validator, TokenFor(rotatedKey, RotatedKeyIdentifier, RealmIssuer));
-        Result<WhepAuthSubject, WhepAuthFailure> afterRotation = await validator.ValidateAsync(superseded, CancellationToken.None);
+        var afterRotation = await validator.ValidateAsync(superseded, CancellationToken.None);
 
         beforeRotation.IsSuccess.ShouldBeTrue(
             customMessage: "the harness never accepted key A even before the rotation, so refusing it "
@@ -203,8 +203,8 @@ public sealed class WhepValidatorRotationTests : IDisposable
     private static async Task<Result<WhepAuthSubject, WhepAuthFailure>> ValidateUntilAcceptedAsync(
         WhepAuthValidator validator, string bearerToken)
     {
-        DateTime deadline = DateTime.UtcNow.Add(RefreshLandingWindow);
-        Result<WhepAuthSubject, WhepAuthFailure> subject =
+        var deadline = DateTime.UtcNow.Add(RefreshLandingWindow);
+        var subject =
             Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
 
         while (!subject.IsSuccess && DateTime.UtcNow < deadline)
@@ -244,9 +244,9 @@ public sealed class WhepValidatorRotationTests : IDisposable
 
     private static string JsonWebKeySetFor(RSA key, string keyIdentifier)
     {
-        RSAParameters publicKey = key.ExportParameters(includePrivateParameters: false);
-        string modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
-        string exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
+        var publicKey = key.ExportParameters(includePrivateParameters: false);
+        var modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
+        var exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
 
         return $$"""
             {"keys":[{"kty":"RSA","use":"sig","alg":"RS256","kid":"{{keyIdentifier}}","n":"{{modulus}}","e":"{{exponent}}"}]}

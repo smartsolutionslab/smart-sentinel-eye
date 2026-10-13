@@ -14,7 +14,7 @@ public sealed class RegisteredClientRepository(
     public async Task<Option<RegisteredClientAggregate>> GetByIdentifierAsync(
         RegisteredClientIdentifier identifier, CancellationToken cancellationToken)
     {
-        RegisteredClientAggregate? found = await dbContext.RegisteredClients
+        var found = await dbContext.RegisteredClients
             .FirstOrDefaultAsync(client => client.Id == identifier, cancellationToken);
         return found is null
             ? Option<RegisteredClientAggregate>.None
@@ -27,7 +27,7 @@ public sealed class RegisteredClientRepository(
         Ensure.That(clientId).IsNotNull();
         // Disabled rows release the clientId for re-registration
         // (mirrors spec 005's archived-name pattern).
-        RegisteredClientAggregate? found = await dbContext.RegisteredClients
+        var found = await dbContext.RegisteredClients
             .Where(client => client.ClientId == clientId)
             .Where(client => client.DisabledAt == null)
             .FirstOrDefaultAsync(cancellationToken);
@@ -46,7 +46,7 @@ public sealed class RegisteredClientRepository(
         // fab's client is never materialised, so it cannot be leaked by a
         // caller that forgets to compare (mirrors CameraRepository.GetWithinFabAsync,
         // spec 180 US1). Disabled rows are excluded, matching GetByClientIdAsync.
-        RegisteredClientAggregate? found = await dbContext.RegisteredClients
+        var found = await dbContext.RegisteredClients
             .Where(client => client.ClientId == clientId)
             .Where(client => client.Fab == fab)
             .Where(client => client.DisabledAt == null)
@@ -64,7 +64,7 @@ public sealed class RegisteredClientRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        RegisteredClientAggregate[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<RegisteredClientAggregate>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -79,9 +79,9 @@ public sealed class RegisteredClientRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (RegisteredClientAggregate client in tracked)
+        foreach (var client in tracked)
         {
-            IDomainEvent[] events = client.PendingEvents.ToArray();
+            var events = client.PendingEvents.ToArray();
             client.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }
@@ -93,7 +93,7 @@ public sealed class RegisteredClientRepository(
     // filter, of any kind.
     public async Task<IReadOnlySet<ClientId>> GetActiveClientIdsAsync(CancellationToken cancellationToken)
     {
-        List<ClientId> active = await dbContext.RegisteredClients
+        var active = await dbContext.RegisteredClients
             .AsNoTracking()
             .Where(client => client.DisabledAt == null)
             .Select(client => client.ClientId)

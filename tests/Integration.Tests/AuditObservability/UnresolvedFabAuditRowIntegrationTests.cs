@@ -2,9 +2,7 @@ using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
-using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 using Xunit.Abstractions;
-using StreamAggregate = SmartSentinelEye.StreamDistribution.Domain.Stream.Stream;
 
 namespace SmartSentinelEye.Integration.Tests.AuditObservability;
 
@@ -75,7 +73,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task A_stream_with_no_fab_records_a_null_fab_on_its_health_audit_row()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.NullFabRow.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
         arranged.NullFabRow.GetProperty("resourceKind").GetString().ShouldBe("stream");
@@ -88,7 +86,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task The_same_cameras_earlier_transition_recorded_its_fab()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.MunichRow.GetProperty("fab").GetString().ShouldBe("munich");
         arranged.NullFabRow.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
@@ -105,7 +103,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task The_null_fab_health_row_is_marked_unresolved()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.NullFabRow.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
         arranged.NullFabRow.GetProperty("fabAttribution").GetString().ShouldBe("Unresolved",
@@ -116,7 +114,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task The_same_cameras_earlier_row_is_marked_resolved()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.MunichRow.GetProperty("fab").GetString().ShouldBe("munich");
         arranged.MunichRow.GetProperty("fabAttribution").GetString().ShouldBe("Resolved",
@@ -127,17 +125,17 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task The_fab_scoped_timeline_returns_the_null_fab_row()
     {
-        Arrangement arranged = await ArrangedAsync();
-        Guid nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+        var arranged = await ArrangedAsync();
+        var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
 
-        using HttpClient munich = await aspire.CreateAuthenticatedClientAsync(
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
 
-        HttpResponseMessage response = await munich.GetAsync(
+        var response = await munich.GetAsync(
             $"/audit/stream/{arranged.Camera}?fabId=munich&pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        Guid[] identifiers = await AuditIdentifiersAsync(response);
+        var identifiers = await AuditIdentifiersAsync(response);
         identifiers.ShouldContain(nullFabAuditIdentifier,
             "SC-3 (#2506): the widened per-resource timeline must return the null-fab row to its own fab's operator");
     }
@@ -145,18 +143,18 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task The_fab_scoped_search_does_not_return_the_null_fab_row()
     {
-        Arrangement arranged = await ArrangedAsync();
-        Guid nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
-        Guid munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
+        var arranged = await ArrangedAsync();
+        var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+        var munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
 
-        using HttpClient munich = await aspire.CreateAuthenticatedClientAsync(
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
 
-        HttpResponseMessage response = await munich.GetAsync(
+        var response = await munich.GetAsync(
             "/audit?fabId=munich&eventKind=StreamHealthChangedV1&pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        Guid[] identifiers = await AuditIdentifiersAsync(response);
+        var identifiers = await AuditIdentifiersAsync(response);
         identifiers.ShouldNotContain(nullFabAuditIdentifier,
             "SC-4 / F3: the explicitly-fab-scoped search must exclude the null-fab row");
         identifiers.ShouldContain(munichAuditIdentifier,
@@ -181,17 +179,17 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task An_unscoped_search_returns_the_null_fab_row_to_another_fabs_operator()
     {
-        Arrangement arranged = await ArrangedAsync();
-        Guid nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+        var arranged = await ArrangedAsync();
+        var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
 
-        using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
+        using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", BerlinOperatorUsername, BerlinOperatorPassword);
 
-        HttpResponseMessage response = await berlin.GetAsync(
+        var response = await berlin.GetAsync(
             "/audit?eventKind=StreamHealthChangedV1&pageSize=200");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
         Guid[] identifiers = [.. rows.Select(row => row.GetProperty("auditIdentifier").GetGuid())];
 
@@ -222,16 +220,16 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task Get_single_returns_the_null_fab_row_to_another_fabs_operator()
     {
-        Arrangement arranged = await ArrangedAsync();
-        Guid nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
+        var arranged = await ArrangedAsync();
+        var nullFabAuditIdentifier = arranged.NullFabRow.GetProperty("auditIdentifier").GetGuid();
 
-        using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
+        using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", BerlinOperatorUsername, BerlinOperatorPassword);
 
-        HttpResponseMessage response = await berlin.GetAsync($"/audit/{nullFabAuditIdentifier}");
+        var response = await berlin.GetAsync($"/audit/{nullFabAuditIdentifier}");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement row = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var row = await response.Content.ReadFromJsonAsync<JsonElement>();
         row.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null,
             "SC-6 / F0: GetSingle skips the fab guard entirely when the row's fab is null");
         // As above: what the foreign-fab operator actually receives.
@@ -242,44 +240,44 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     [Fact]
     public async Task Get_single_refuses_the_same_cameras_munich_row_to_that_operator()
     {
-        Arrangement arranged = await ArrangedAsync();
-        Guid munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
+        var arranged = await ArrangedAsync();
+        var munichAuditIdentifier = arranged.MunichRow.GetProperty("auditIdentifier").GetGuid();
 
-        using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
+        using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", BerlinOperatorUsername, BerlinOperatorPassword);
 
-        HttpResponseMessage response = await berlin.GetAsync($"/audit/{munichAuditIdentifier}");
+        var response = await berlin.GetAsync($"/audit/{munichAuditIdentifier}");
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
     }
 
     [Fact]
     public async Task A_cross_fab_timeline_is_still_refused()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
-        using HttpClient munich = await aspire.CreateAuthenticatedClientAsync(
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
 
-        HttpResponseMessage response = await munich.GetAsync($"/audit/stream/{arranged.Camera}?fabId=berlin");
+        var response = await munich.GetAsync($"/audit/stream/{arranged.Camera}?fabId=berlin");
         response.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
     }
 
     [Fact]
     public async Task The_pivot_identifier_is_not_listable_by_another_fabs_operator()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
-        using HttpClient berlin = await aspire.CreateAuthenticatedClientAsync(
+        using var berlin = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", BerlinOperatorUsername, BerlinOperatorPassword);
 
-        HttpResponseMessage response = await berlin.GetAsync("/cameras?limit=200&includeRetired=true");
+        var response = await berlin.GetAsync("/cameras?limit=200&includeRetired=true");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         Guid[] identifiers = [.. page.GetProperty("items").EnumerateArray()
             .Select(item => item.GetProperty("cameraIdentifier").GetGuid())];
 
@@ -308,19 +306,19 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         await aspire.ResetStreamDistributionAsync();
         await aspire.ResetCameraCatalogAsync();
 
-        using HttpClient munichCameras = await aspire.CreateAuthenticatedClientAsync(
+        using var munichCameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", MunichAdminUsername, MunichAdminPassword);
-        using HttpClient munichStreams = await aspire.CreateAuthenticatedClientAsync(
+        using var munichStreams = await aspire.CreateAuthenticatedClientAsync(
             "stream-distribution", MunichAdminUsername, MunichAdminPassword);
-        using HttpClient munichAudit = await aspire.CreateAuthenticatedClientAsync(
+        using var munichAudit = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
 
-        Guid camera = await RegisterCameraAsync(
+        var camera = await RegisterCameraAsync(
             munichCameras, $"Cam-NullFab-{Guid.NewGuid():N}", AspireFixture.RtspTestSourceUrl);
 
         await WaitForStreamStateAsync(munichStreams, camera, "Healthy", SettleTimeout);
 
-        JsonElement munichRow = await PollForTimelineRowAsync(
+        var munichRow = await PollForTimelineRowAsync(
             munichAudit, camera,
             rows => rows.Length > 0 ? rows[0] : null,
             "the first (munich) StreamHealthChangedV1");
@@ -328,7 +326,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
 
         await BlankTheFabAsync(camera);
 
-        string path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
+        var path = MediaMtxPath.For(CameraIdentifier.From(camera)).Value;
         try
         {
             await aspire.RepointMediaMtxPathAsync(path, UnreachableRtspUrl);
@@ -353,8 +351,8 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
             }
         }
 
-        Guid munichAuditIdentifier = munichRow.GetProperty("auditIdentifier").GetGuid();
-        JsonElement nullFabRow = await PollForTimelineRowAsync(
+        var munichAuditIdentifier = munichRow.GetProperty("auditIdentifier").GetGuid();
+        var nullFabRow = await PollForTimelineRowAsync(
             munichAudit, camera,
             rows => rows.FirstOrDefault(row => row.GetProperty("auditIdentifier").GetGuid() != munichAuditIdentifier)
                 is { ValueKind: not JsonValueKind.Undefined } found ? found : null,
@@ -368,9 +366,9 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
         // confusing downstream one.
         AssertIsHealthTransition(nullFabRow, "Degraded");
 
-        using HttpClient berlinCameras = await aspire.CreateAuthenticatedClientAsync(
+        using var berlinCameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", BerlinOperatorUsername, BerlinOperatorPassword);
-        Guid berlinCamera = await RegisterCameraAsync(
+        var berlinCamera = await RegisterCameraAsync(
             berlinCameras, $"Cam-BerlinControl-{Guid.NewGuid():N}",
             $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264");
 
@@ -381,7 +379,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
 
     private static async Task<Guid> RegisterCameraAsync(HttpClient client, string name, string rtspUrl)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync("/cameras", new { name, rtspUrl });
+        var response = await client.PostAsJsonAsync("/cameras", new { name, rtspUrl });
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
         return await response.Content.ReadFromJsonAsync<Guid>();
     }
@@ -394,7 +392,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     /// </summary>
     private async Task BlankTheFabAsync(Guid camera)
     {
-        await using StreamDistributionDbContext context = await aspire.CreateStreamDistributionDbContextAsync();
+        await using var context = await aspire.CreateStreamDistributionDbContextAsync();
         await context.Database.ExecuteSqlAsync($"UPDATE streams SET fab = NULL WHERE camera_id = {camera}");
     }
 
@@ -408,13 +406,13 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     /// </summary>
     private async Task<StreamState> WaitForStreamStateInStoreAsync(Guid camera, StreamState expected, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
-        string lastObserved = "<no row found>";
+        var deadline = DateTime.UtcNow + timeout;
+        var lastObserved = "<no row found>";
 
         while (DateTime.UtcNow < deadline)
         {
-            await using StreamDistributionDbContext context = await aspire.CreateStreamDistributionDbContextAsync();
-            StreamAggregate? stream = await context.Streams.AsNoTracking()
+            await using var context = await aspire.CreateStreamDistributionDbContextAsync();
+            var stream = await context.Streams.AsNoTracking()
                 .SingleOrDefaultAsync(candidate => candidate.Camera == CameraIdentifier.From(camera));
 
             if (stream is not null)
@@ -437,15 +435,15 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     private static async Task<string> WaitForStreamStateAsync(
         HttpClient streamClient, Guid camera, string expectedState, TimeSpan timeout)
     {
-        DateTime deadline = DateTime.UtcNow + timeout;
-        string lastObserved = "<no response yet>";
+        var deadline = DateTime.UtcNow + timeout;
+        var lastObserved = "<no response yet>";
 
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await streamClient.GetAsync($"/streams?cameraIdentifiers={camera}");
+            var response = await streamClient.GetAsync($"/streams?cameraIdentifiers={camera}");
             if (response.StatusCode == HttpStatusCode.OK)
             {
-                JsonElement items = await response.Content.ReadFromJsonAsync<JsonElement>();
+                var items = await response.Content.ReadFromJsonAsync<JsonElement>();
                 if (items.GetArrayLength() == 1)
                 {
                     lastObserved = items[0].GetProperty("state").GetString() ?? "<null state>";
@@ -481,13 +479,13 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
     private static async Task<JsonElement> PollForTimelineRowAsync(
         HttpClient audit, Guid camera, Func<JsonElement[], JsonElement?> select, string what)
     {
-        DateTime deadline = DateTime.UtcNow + AuditPollTimeout;
+        var deadline = DateTime.UtcNow + AuditPollTimeout;
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await audit.GetAsync($"/audit/stream/{camera}?fabId=munich&pageSize=200");
+            var response = await audit.GetAsync($"/audit/stream/{camera}?fabId=munich&pageSize=200");
             response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
             JsonElement[] rows = [.. page.GetProperty("rows").EnumerateArray()];
 
             if (select(rows) is { } found)
@@ -519,7 +517,7 @@ public class UnresolvedFabAuditRowIntegrationTests(AspireFixture aspire, ITestOu
 
     private static async Task<Guid[]> AuditIdentifiersAsync(HttpResponseMessage response)
     {
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         return [.. page.GetProperty("rows").EnumerateArray()
             .Select(row => row.GetProperty("auditIdentifier").GetGuid())];
     }

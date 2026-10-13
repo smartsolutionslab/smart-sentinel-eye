@@ -47,7 +47,7 @@ public class IngestEventBatchCommandHandlerTests
     {
         InMemoryEventRepository repository = new();
 
-        IngestEventBatchResult result = await Handler(repository).HandleAsync(
+        var result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(), BuildEnvelope(), BuildEnvelope()]),
             CancellationToken.None);
 
@@ -62,13 +62,13 @@ public class IngestEventBatchCommandHandlerTests
     [Fact]
     public async Task An_event_already_stored_is_not_inserted_again_but_is_still_acknowledged()
     {
-        EventIdentifier identifier = EventIdentifier.New();
+        var identifier = EventIdentifier.New();
         InMemoryEventRepository repository = new();
 
         await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(identifier)]), CancellationToken.None);
 
-        IngestEventBatchResult result = await Handler(repository).HandleAsync(
+        var result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(identifier)]), CancellationToken.None);
 
         repository.Events.Count.ShouldBe(1, "the redelivery was stored a second time");
@@ -85,10 +85,10 @@ public class IngestEventBatchCommandHandlerTests
     [Fact]
     public async Task A_duplicate_inside_one_batch_is_inserted_once()
     {
-        EventIdentifier identifier = EventIdentifier.New();
+        var identifier = EventIdentifier.New();
         InMemoryEventRepository repository = new();
 
-        IngestEventBatchResult result = await Handler(repository).HandleAsync(
+        var result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([BuildEnvelope(identifier), BuildEnvelope(identifier)]),
             CancellationToken.None);
 
@@ -107,14 +107,14 @@ public class IngestEventBatchCommandHandlerTests
     public async Task An_envelope_no_rule_will_ever_accept_is_left_out_but_does_not_fail_the_batch()
     {
         InMemoryEventRepository repository = new();
-        EventEnvelope healthy = BuildEnvelope();
-        EventEnvelope skewed = BuildEnvelope(occurredAt: Now.AddDays(30));
+        var healthy = BuildEnvelope();
+        var skewed = BuildEnvelope(occurredAt: Now.AddDays(30));
 
-        IngestEventBatchResult result = await Handler(repository).HandleAsync(
+        var result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([skewed, healthy]), CancellationToken.None);
 
         repository.Events.ShouldHaveSingleItem().Id.ShouldBe(healthy.Identifier);
-        RefusedEnvelope refused = result.Refused.ShouldHaveSingleItem();
+        var refused = result.Refused.ShouldHaveSingleItem();
         refused.Envelope.Identifier.ShouldBe(skewed.Identifier);
         refused.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>();
         refused.Reason.Code.ShouldBe("EVENT_OCCURRED_AT_TOO_FAR_IN_FUTURE");
@@ -132,11 +132,11 @@ public class IngestEventBatchCommandHandlerTests
     public async Task Two_refused_envelopes_are_each_paired_with_their_own_reason()
     {
         InMemoryEventRepository repository = new();
-        EventEnvelope healthy = BuildEnvelope();
-        EventEnvelope firstSkewed = BuildEnvelope(occurredAt: Now.AddDays(30));
-        EventEnvelope secondSkewed = BuildEnvelope(occurredAt: Now.AddDays(60));
+        var healthy = BuildEnvelope();
+        var firstSkewed = BuildEnvelope(occurredAt: Now.AddDays(30));
+        var secondSkewed = BuildEnvelope(occurredAt: Now.AddDays(60));
 
-        IngestEventBatchResult result = await Handler(repository).HandleAsync(
+        var result = await Handler(repository).HandleAsync(
             new IngestEventBatchCommand([firstSkewed, healthy, secondSkewed]), CancellationToken.None);
 
         result.Refused.Count.ShouldBe(2);
@@ -144,12 +144,12 @@ public class IngestEventBatchCommandHandlerTests
         result.Refused.ShouldContain(r => r.Envelope.Identifier == secondSkewed.Identifier);
         result.Refused.ShouldNotContain(r => r.Envelope.Identifier == healthy.Identifier);
 
-        RefusedEnvelope firstRefusal =
+        var firstRefusal =
             result.Refused.Single(r => r.Envelope.Identifier == firstSkewed.Identifier);
         firstRefusal.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>()
             .OccurredAt.ShouldBe(firstSkewed.OccurredAt.Value);
 
-        RefusedEnvelope secondRefusal =
+        var secondRefusal =
             result.Refused.Single(r => r.Envelope.Identifier == secondSkewed.Identifier);
         secondRefusal.Reason.ShouldBeOfType<IngestEventError.OccurredAtTooFarInFuture>()
             .OccurredAt.ShouldBe(secondSkewed.OccurredAt.Value);
@@ -207,7 +207,7 @@ public class IngestEventBatchCommandHandlerTests
     public async Task A_duplicate_within_a_batch_is_counted_once()
     {
         using RecordedIngestVolume recorded = new();
-        EventIdentifier identifier = EventIdentifier.New();
+        var identifier = EventIdentifier.New();
         InMemoryEventRepository repository = new();
 
         await Handler(repository).HandleAsync(
@@ -265,8 +265,8 @@ public class IngestEventBatchCommandHandlerTests
     {
         using RecordedIngestVolume recorded = new();
         InMemoryEventRepository repository = new() { SaveFailure = new InvalidOperationException("insert refused") };
-        EventEnvelope first = BuildEnvelope();
-        EventEnvelope second = BuildEnvelope();
+        var first = BuildEnvelope();
+        var second = BuildEnvelope();
 
         await Should.ThrowAsync<InvalidOperationException>(() =>
             Handler(repository).HandleAsync(

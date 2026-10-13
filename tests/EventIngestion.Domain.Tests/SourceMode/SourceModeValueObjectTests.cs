@@ -60,7 +60,7 @@ public class SourceModeValueObjectTests
     {
         DateTimeOffset nonUtc = new(2026, 5, 28, 10, 14, 33, TimeSpan.FromHours(2));
 
-        DeclaredAt at = DeclaredAt.From(nonUtc);
+        var at = DeclaredAt.From(nonUtc);
 
         at.Value.Offset.ShouldBe(TimeSpan.Zero, "a non-UTC instant must come back UTC");
         at.Value.ShouldBe(nonUtc.ToUniversalTime());
@@ -74,8 +74,8 @@ public class SourceModeValueObjectTests
     [Fact]
     public void DeclaredAt_orders_by_instant()
     {
-        DeclaredAt earlier = DeclaredAt.From(Now);
-        DeclaredAt later = DeclaredAt.From(Now.AddMinutes(1));
+        var earlier = DeclaredAt.From(Now);
+        var later = DeclaredAt.From(Now.AddMinutes(1));
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         (earlier < later).ShouldBeTrue();
@@ -103,7 +103,7 @@ public class SourceModeValueObjectTests
     [Fact]
     public void SourceModeIdentifier_New_is_a_version_7_guid()
     {
-        SourceModeIdentifier id = SourceModeIdentifier.New();
+        var id = SourceModeIdentifier.New();
 
         id.Value.ShouldNotBe(Guid.Empty);
         id.Value.Version.ShouldBe(7);

@@ -21,7 +21,7 @@ public class CameraRetirementTests
     [Fact]
     public void Retiring_a_camera_moves_it_to_the_terminal_state()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().Build();
+        var camera = new CameraBuilder().Build();
 
         camera.Retire(Operator, new FixedClock(RetiredAt));
 
@@ -31,12 +31,12 @@ public class CameraRetirementTests
     [Fact]
     public void Retiring_a_camera_raises_the_retirement()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithFab("dresden").WithName("line-3-inlet").Build();
+        var camera = new CameraBuilder().WithFab("dresden").WithName("line-3-inlet").Build();
         camera.ClearPendingEvents();
 
         camera.Retire(Operator, new FixedClock(RetiredAt));
 
-        CameraRetiredDomainEvent retired = camera.PendingEvents
+        var retired = camera.PendingEvents
             .OfType<CameraRetiredDomainEvent>()
             .ShouldHaveSingleItem();
 
@@ -57,7 +57,7 @@ public class CameraRetirementTests
     [Fact]
     public void Retiring_an_already_retired_camera_raises_nothing_further()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().Build();
+        var camera = new CameraBuilder().Build();
         camera.Retire(Operator, new FixedClock(RetiredAt));
         camera.ClearPendingEvents();
 
@@ -76,7 +76,7 @@ public class CameraRetirementTests
     [Fact]
     public void A_retired_camera_keeps_what_it_was()
     {
-        Domain.Camera.Camera camera = new CameraBuilder()
+        var camera = new CameraBuilder()
             .WithFab("dresden")
             .WithName("line-3-inlet")
             .WithUrl("rtsp://10.0.0.9:554/h264")
@@ -105,10 +105,10 @@ public class CameraRetirementTests
     [Fact]
     public void Registering_a_replacement_leaves_the_retired_camera_retired()
     {
-        Domain.Camera.Camera retired = new CameraBuilder().WithName("line-3-inlet").Build();
+        var retired = new CameraBuilder().WithName("line-3-inlet").Build();
         retired.Retire(Operator, new FixedClock(RetiredAt));
 
-        Domain.Camera.Camera replacement = new CameraBuilder().WithName("line-3-inlet").Build();
+        var replacement = new CameraBuilder().WithName("line-3-inlet").Build();
 
         replacement.Id.ShouldNotBe(retired.Id);
         replacement.Status.ShouldBe(CameraStatus.Registered);

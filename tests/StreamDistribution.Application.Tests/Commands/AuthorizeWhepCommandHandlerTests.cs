@@ -85,7 +85,7 @@ public class AuthorizeWhepCommandHandlerTests
         InMemoryStreamRepository streams = new();
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.xyz",
@@ -113,9 +113,9 @@ public class AuthorizeWhepCommandHandlerTests
         };
         InMemoryStreamRepository streams = new();
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
-        MediaMtxPath path = MediaMtxPath.For(SomeCamera());
+        var path = MediaMtxPath.For(SomeCamera());
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 path,
                 "Bearer.xyz",
@@ -142,7 +142,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -158,7 +158,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "",
@@ -182,7 +182,7 @@ public class AuthorizeWhepCommandHandlerTests
         FakeWhepAuthValidator validator = new() { Subject = Option<WhepAuthSubject>.None };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.invalid",
@@ -203,7 +203,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.scoped-wrong",
@@ -218,9 +218,9 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task Authorize_for_an_Offline_stream_returns_StreamUnavailable()
     {
-        CameraIdentifier camera = SomeCamera();
+        var camera = SomeCamera();
         InMemoryStreamRepository streams = new();
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .ForCamera(camera)
             .ProvisionedBy(AnAdmin)
             .At(FixedMoment)
@@ -240,7 +240,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(camera),
                 "Bearer.xyz",
@@ -266,7 +266,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -292,7 +292,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.xyz",
@@ -316,7 +316,7 @@ public class AuthorizeWhepCommandHandlerTests
     {
         AuthorizeWhepCommandHandler handler = new(new FakeWhepAuthValidator(), new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "",
@@ -342,7 +342,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -373,7 +373,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -397,7 +397,7 @@ public class AuthorizeWhepCommandHandlerTests
         CapturingLogger<AuthorizeWhepCommandHandler> logger = new();
         AuthorizeWhepCommandHandler handler = new(AKioskValidator(), new InMemoryStreamRepository(), logger);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -417,7 +417,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task An_absent_action_and_an_unrecognised_one_are_refused_with_different_messages()
     {
-        MediaMtxPath path = MediaMtxPath.For(SomeCamera());
+        var path = MediaMtxPath.For(SomeCamera());
         CapturingLogger<AuthorizeWhepCommandHandler> absentLogger = new();
         CapturingLogger<AuthorizeWhepCommandHandler> reportedLogger = new();
 
@@ -431,8 +431,8 @@ public class AuthorizeWhepCommandHandlerTests
                 new AuthorizeWhepCommand(path, "Bearer.kiosk", MediaMtxAction.TryFrom("stream"), ReportedMediaMtxAction.TryFrom("stream")),
                 CancellationToken.None);
 
-        string absent = absentLogger.Entries.ShouldHaveSingleItem().Message;
-        string reported = reportedLogger.Entries.ShouldHaveSingleItem().Message;
+        var absent = absentLogger.Entries.ShouldHaveSingleItem().Message;
+        var reported = reportedLogger.Entries.ShouldHaveSingleItem().Message;
 
         absent.ShouldNotBe(reported);
         absent.ShouldContain("absent");
@@ -455,7 +455,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task An_empty_action_field_is_refused_differently_from_an_absent_one()
     {
-        MediaMtxPath path = MediaMtxPath.For(SomeCamera());
+        var path = MediaMtxPath.For(SomeCamera());
         CapturingLogger<AuthorizeWhepCommandHandler> absentLogger = new();
         CapturingLogger<AuthorizeWhepCommandHandler> emptyLogger = new();
 
@@ -464,7 +464,7 @@ public class AuthorizeWhepCommandHandlerTests
                 new AuthorizeWhepCommand(path, "Bearer.kiosk", Option<MediaMtxAction>.None, Option<ReportedMediaMtxAction>.None),
                 CancellationToken.None);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result =
+        var result =
             await new AuthorizeWhepCommandHandler(AKioskValidator(), new InMemoryStreamRepository(), emptyLogger)
                 .HandleAsync(
                     new AuthorizeWhepCommand(path, "Bearer.kiosk", MediaMtxAction.TryFrom(""), ReportedMediaMtxAction.TryFrom("")),
@@ -472,8 +472,8 @@ public class AuthorizeWhepCommandHandlerTests
 
         result.Error.ShouldBeOfType<AuthorizeWhepError.ActionUnknown>();
 
-        string absent = absentLogger.Entries.ShouldHaveSingleItem().Message;
-        string empty = emptyLogger.Entries.ShouldHaveSingleItem().Message;
+        var absent = absentLogger.Entries.ShouldHaveSingleItem().Message;
+        var empty = emptyLogger.Entries.ShouldHaveSingleItem().Message;
 
         // The quotes are the fix: they make "a value arrived and it was empty"
         // legible as itself rather than as a gap in the sentence.
@@ -492,7 +492,7 @@ public class AuthorizeWhepCommandHandlerTests
         CapturingLogger<AuthorizeWhepCommandHandler> logger = new();
         AuthorizeWhepCommandHandler handler = new(AKioskValidator(), new InMemoryStreamRepository(), logger);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -516,7 +516,7 @@ public class AuthorizeWhepCommandHandlerTests
         CapturingLogger<AuthorizeWhepCommandHandler> logger = new();
         AuthorizeWhepCommandHandler handler = new(AKioskValidator(), new InMemoryStreamRepository(), logger);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -526,7 +526,7 @@ public class AuthorizeWhepCommandHandlerTests
 
         result.Error.ShouldBeOfType<AuthorizeWhepError.ActionUnknown>();
 
-        string message = logger.Entries.ShouldHaveSingleItem().Message;
+        var message = logger.Entries.ShouldHaveSingleItem().Message;
         message.ShouldNotContain(raw);
         message.ShouldContain(new string('a', ReportedMediaMtxAction.MaximumLength) + "…");
     }
@@ -544,7 +544,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(SomeCamera()),
                 "Bearer.kiosk",
@@ -570,9 +570,9 @@ public class AuthorizeWhepCommandHandlerTests
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("kiosk-id", AKioskPersona, [])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, new InMemoryStreamRepository(), NullLogger<AuthorizeWhepCommandHandler>.Instance);
-        MediaMtxPath path = MediaMtxPath.For(SomeCamera());
+        var path = MediaMtxPath.For(SomeCamera());
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(path, "Bearer.kiosk", Option<MediaMtxAction>.Some(MediaMtxAction.Read), ReportedMediaMtxAction.TryFrom("read")),
             CancellationToken.None);
 
@@ -587,7 +587,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task Authorize_for_a_stream_in_a_fab_the_caller_does_not_hold_is_refused()
     {
-        CameraIdentifier camera = SomeCamera();
+        var camera = SomeCamera();
         InMemoryStreamRepository streams = new();
         streams.Add(new StreamBuilder().ForCamera(camera).WithFab(FabIdentifier.From("munich")).At(FixedMoment).Build());
         await streams.SaveAsync(CancellationToken.None);
@@ -599,7 +599,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(camera),
                 "Bearer.wall-berlin",
@@ -621,7 +621,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task Authorize_for_a_stream_in_the_second_of_the_callers_two_fabs_returns_success()
     {
-        CameraIdentifier camera = SomeCamera();
+        var camera = SomeCamera();
         InMemoryStreamRepository streams = new();
         streams.Add(new StreamBuilder().ForCamera(camera).WithFab(FabIdentifier.From("dresden")).At(FixedMoment).Build());
         await streams.SaveAsync(CancellationToken.None);
@@ -631,9 +631,9 @@ public class AuthorizeWhepCommandHandlerTests
             Subject = Option<WhepAuthSubject>.Some(new WhepAuthSubject("multi-fab-id", AKioskPersona, ["munich", "dresden"])),
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
-        MediaMtxPath path = MediaMtxPath.For(camera);
+        var path = MediaMtxPath.For(camera);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 path,
                 "Bearer.multi-fab",
@@ -653,7 +653,7 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task Authorize_for_a_stream_with_no_fab_attributed_yet_is_refused()
     {
-        CameraIdentifier camera = SomeCamera();
+        var camera = SomeCamera();
         InMemoryStreamRepository streams = new();
         streams.Add(Unattributed(camera));
         await streams.SaveAsync(CancellationToken.None);
@@ -664,7 +664,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(camera),
                 "Bearer.kiosk",
@@ -686,9 +686,9 @@ public class AuthorizeWhepCommandHandlerTests
     [Fact]
     public async Task A_stream_both_offline_and_in_another_fab_answers_the_fab_refusal_not_StreamUnavailable()
     {
-        CameraIdentifier camera = SomeCamera();
+        var camera = SomeCamera();
         InMemoryStreamRepository streams = new();
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .ForCamera(camera)
             .WithFab(FabIdentifier.From("munich"))
             .ProvisionedBy(AnAdmin)
@@ -706,7 +706,7 @@ public class AuthorizeWhepCommandHandlerTests
         };
         AuthorizeWhepCommandHandler handler = new(validator, streams, NullLogger<AuthorizeWhepCommandHandler>.Instance);
 
-        Result<MediaMtxPath, AuthorizeWhepError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeWhepCommand(
                 MediaMtxPath.For(camera),
                 "Bearer.wall-berlin",
@@ -732,7 +732,7 @@ public class AuthorizeWhepCommandHandlerTests
     /// </summary>
     private static Domain.Stream.Stream Unattributed(CameraIdentifier camera)
     {
-        Domain.Stream.Stream stream = new StreamBuilder().ForCamera(camera).At(FixedMoment).Build();
+        var stream = new StreamBuilder().ForCamera(camera).At(FixedMoment).Build();
 
         typeof(Domain.Stream.Stream)
             .GetProperty(nameof(Domain.Stream.Stream.Fab), BindingFlags.Public | BindingFlags.Instance)!

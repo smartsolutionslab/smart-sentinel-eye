@@ -7,8 +7,6 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Revocation;
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
@@ -160,9 +158,9 @@ public sealed class WhepValidatorRefreshRestraintTests : IDisposable
         CountingMetadata retriever = new(DiscoveryDocument, JsonWebKeySet());
         WhepAuthValidator validator = new(MetadataOver(retriever), new RevokedClientRegistry(), NullLogger<WhepAuthValidator>.Instance);
 
-        Result<WhepAuthSubject, WhepAuthFailure> firstCall = await validator.ValidateAsync(bearerToken, CancellationToken.None);
-        Result<WhepAuthSubject, WhepAuthFailure> secondCall = await validator.ValidateAsync(bearerToken, CancellationToken.None);
-        int fetches = await FetchesAfterSettlingAsync(retriever);
+        var firstCall = await validator.ValidateAsync(bearerToken, CancellationToken.None);
+        var secondCall = await validator.ValidateAsync(bearerToken, CancellationToken.None);
+        var fetches = await FetchesAfterSettlingAsync(retriever);
 
         firstCall.IsSuccess.ShouldBeFalse(
             customMessage: $"the WHEP hook authorized a stream for a token {failure}. The fetch-count "
@@ -187,7 +185,7 @@ public sealed class WhepValidatorRefreshRestraintTests : IDisposable
     /// </summary>
     private static async Task<int> FetchesAfterSettlingAsync(CountingMetadata retriever)
     {
-        DateTime deadline = DateTime.UtcNow.Add(RefetchWindow);
+        var deadline = DateTime.UtcNow.Add(RefetchWindow);
 
         while (retriever.DiscoveryFetches == 1 && DateTime.UtcNow < deadline)
         {
@@ -211,9 +209,9 @@ public sealed class WhepValidatorRefreshRestraintTests : IDisposable
 
     private string JsonWebKeySet()
     {
-        RSAParameters publicKey = signingKey.ExportParameters(includePrivateParameters: false);
-        string modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
-        string exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
+        var publicKey = signingKey.ExportParameters(includePrivateParameters: false);
+        var modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
+        var exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
 
         return $$"""
             {"keys":[{"kty":"RSA","use":"sig","alg":"RS256","kid":"{{SigningKeyIdentifier}}","n":"{{modulus}}","e":"{{exponent}}"}]}

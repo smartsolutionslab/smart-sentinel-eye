@@ -30,8 +30,8 @@ public class TimestampOrderingTests
     private static void OrdersByItsMoment<T>(Func<DateTimeOffset, T> from)
         where T : class, IComparable<T>
     {
-        T earlier = from(Earlier);
-        T later = from(Later);
+        var earlier = from(Earlier);
+        var later = from(Later);
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         later.CompareTo(earlier).ShouldBeGreaterThan(0);
@@ -50,8 +50,8 @@ public class TimestampOrderingTests
         Func<T, T, bool> lessOrEqual,
         Func<T, T, bool> greaterOrEqual)
     {
-        T earlier = from(Earlier);
-        T later = from(Later);
+        var earlier = from(Earlier);
+        var later = from(Later);
 
         lessThan(earlier, later).ShouldBeTrue();
         lessThan(later, earlier).ShouldBeFalse();
@@ -69,7 +69,7 @@ public class TimestampOrderingTests
         Func<DateTimeOffset, T> from, Func<T, DateTimeOffset> unwrap)
     {
         DateTimeOffset elsewhere = new(2026, 9, 2, 10, 0, 0, TimeSpan.FromHours(2));
-        T instant = from(elsewhere);
+        var instant = from(elsewhere);
 
         unwrap(instant).Offset.ShouldBe(TimeSpan.Zero);
         unwrap(instant).ShouldBe(elsewhere);

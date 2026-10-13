@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -34,13 +33,13 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task A_created_rule_is_readable_by_name_and_starts_as_Draft()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
 
-        HttpResponseMessage created = await CreateAsync(rules, name);
+        var created = await CreateAsync(rules, name);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
-        JsonElement payload = await ReadAsync(rules, name);
+        var payload = await ReadAsync(rules, name);
         payload.GetProperty("name").GetString().ShouldBe(name);
         payload.GetProperty("state").GetString().ShouldBe("Draft");
         payload.GetProperty("version").GetInt32().ShouldBeGreaterThanOrEqualTo(0);
@@ -49,8 +48,8 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task Publishing_moves_the_rule_from_Draft_to_Active()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
 
         (await RuleRequests.PostAsync(rules, name, "publish")).EnsureSuccessStatusCode();
@@ -61,13 +60,13 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task Reading_a_rule_returns_an_ETag_matching_the_version_in_the_body()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}");
+        var fetched = await rules.GetAsync($"/rules/{name}");
         fetched.EnsureSuccessStatusCode();
-        int version = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var version = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("version").GetInt32();
 
         fetched.Headers.ETag.ShouldNotBeNull();
@@ -79,11 +78,11 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task A_mutation_without_If_Match_is_refused_with_428()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
 
-        HttpResponseMessage refused = await rules.PostAsync($"/rules/{name}/publish?fabId=munich", content: null);
+        var refused = await rules.PostAsync($"/rules/{name}/publish?fabId=munich", content: null);
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
     }
@@ -91,18 +90,18 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task A_mutation_carrying_a_superseded_version_is_refused_with_409()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
-        int readAt = await RuleRequests.VersionAsync(rules, name);
+        var readAt = await RuleRequests.VersionAsync(rules, name);
 
         (await RuleRequests.PostAsync(rules, name, "publish")).EnsureSuccessStatusCode();
 
-        HttpResponseMessage refused = await rules.SendAsync(
+        var refused = await rules.SendAsync(
             RuleRequests.Conditional(name, "archive", readAt));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RULE_STALE");
 
         // The first writer's publish survives — a status-only assertion would
@@ -123,34 +122,34 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task A_name_freed_by_archiving_is_readable_and_publishable_again()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
 
-        HttpResponseMessage created = await CreateAsync(rules, name);
+        var created = await CreateAsync(rules, name);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
-        HttpResponseMessage archived = await rules.SendAsync(RuleRequests.Conditional(name, "archive", 0));
+        var archived = await rules.SendAsync(RuleRequests.Conditional(name, "archive", 0));
         archived.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archived));
 
         // Arrange, asserted explicitly (FR-002 already permits this and it
         // already works): a silent failure here would masquerade as the
         // defect this test exists to expose.
-        HttpResponseMessage recreated = await CreateAsync(rules, name);
+        var recreated = await CreateAsync(rules, name);
         recreated.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(recreated));
 
         // The assertion. Today this is 400 RULE_FAB_AMBIGUOUS — the archived
         // row and the re-created row both match by name in the one fab the
         // caller holds — and DiagnoseAsync's body dump names "munich" twice
         // inside a sentence claiming more than one fab.
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}");
+        var fetched = await rules.GetAsync($"/rules/{name}");
         fetched.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(fetched));
 
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         body.GetProperty("state").GetString().ShouldBe("Draft");
         fetched.Headers.ETag.ShouldNotBeNull();
         fetched.Headers.ETag.Tag.ShouldBe($"\"{body.GetProperty("version").GetInt32()}\"");
 
-        HttpResponseMessage published = await rules.SendAsync(
+        var published = await rules.SendAsync(
             RuleRequests.Conditional(name, "publish", body.GetProperty("version").GetInt32()));
         published.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(published));
 
@@ -165,15 +164,15 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task Publishing_an_archived_rule_is_refused_as_not_found()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
         (await CreateAsync(rules, name)).EnsureSuccessStatusCode();
-        int version = await RuleRequests.VersionAsync(rules, name);
+        var version = await RuleRequests.VersionAsync(rules, name);
 
-        HttpResponseMessage archived = await rules.SendAsync(RuleRequests.Conditional(name, "archive", version));
+        var archived = await rules.SendAsync(RuleRequests.Conditional(name, "archive", version));
         archived.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archived));
 
-        HttpResponseMessage refused = await rules.SendAsync(RuleRequests.Conditional(name, "publish", version));
+        var refused = await rules.SendAsync(RuleRequests.Conditional(name, "publish", version));
 
         refused.StatusCode.ShouldBe(
             HttpStatusCode.NotFound,
@@ -189,15 +188,15 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
     [Fact]
     public async Task An_oversized_literal_in_a_predicate_is_a_400_not_a_500()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        string name = UniqueName();
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var name = UniqueName();
 
-        HttpResponseMessage created = await CreateAsync(
+        var created = await CreateAsync(
             rules, name, predicate: "$.payload.v > 999999999999999999999999999999999999");
 
         created.StatusCode.ShouldBe(HttpStatusCode.BadRequest, await DiagnoseAsync(created));
 
-        JsonElement problem = await created.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await created.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("RULE_PREDICATE_PARSE_FAILED");
     }
 
@@ -221,7 +220,7 @@ public class RuleLifecycleIntegrationTests(AspireFixture aspire) : IAsyncLifetim
 
     private static async Task<JsonElement> ReadAsync(HttpClient rules, string name)
     {
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}");
+        var fetched = await rules.GetAsync($"/rules/{name}");
         fetched.EnsureSuccessStatusCode();
 
         return await fetched.Content.ReadFromJsonAsync<JsonElement>();

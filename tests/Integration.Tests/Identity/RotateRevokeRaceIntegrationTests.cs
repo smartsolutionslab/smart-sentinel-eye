@@ -1,6 +1,4 @@
 using System.Diagnostics;
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -77,8 +75,8 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
         // (ADR-0143), as RegisteredClientConcurrencyIntegrationTests does: a race
         // whose first request also pays listener, JWKS and EF model start-up
         // measures start-up, not the interleaving.
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity", cts.Token);
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion", cts.Token);
+        using var identity = await aspire.CreateAdminClientAsync("identity", cts.Token);
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion", cts.Token);
         (await identity.GetAsync($"/webhook-integrations?fabId={Fab}", cts.Token)).EnsureSuccessStatusCode();
         (await events.GetAsync("/webhook-integrations?includeRevoked=true", cts.Token)).EnsureSuccessStatusCode();
     }
@@ -94,32 +92,32 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_refused_rotation_leaves_the_revoked_integration_in_event_ingestion_untouched()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string revoked = UniqueName("rr-quiet");
-        string control = UniqueName("rr-ctl");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var revoked = UniqueName("rr-quiet");
+        var control = UniqueName("rr-ctl");
 
         await RegisterAsync(events, revoked);
         await RegisterAsync(events, control);
         (await RevokeAsync(events, revoked, await VersionAsync(events, revoked)))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
-        int revokedVersion = await VersionAsync(events, revoked);
-        int controlVersion = await VersionAsync(events, control);
+        var revokedVersion = await VersionAsync(events, revoked);
+        var controlVersion = await VersionAsync(events, control);
 
-        Answer refusedOrNot = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(revoked)));
-        Answer controlRotation = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(control)));
+        var refusedOrNot = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(revoked)));
+        var controlRotation = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(control)));
         controlRotation.Status.ShouldBe(
             HttpStatusCode.OK,
             $"the control integration is active and must rotate — this is the control, not the claim. {controlRotation}");
 
-        int controlNow = await PollVersionUntilAsync(events, control, version => version != controlVersion);
+        var controlNow = await PollVersionUntilAsync(events, control, version => version != controlVersion);
         controlNow.ShouldNotBe(
             controlVersion,
             $"the control's WebhookIntegrationRotatedV1 must reach EventIngestion within {Settle.TotalSeconds} s; "
             + "without that, 'the revoked row did not move' would prove nothing");
 
         await Task.Delay(TimeSpan.FromSeconds(2));
-        int revokedNow = await VersionAsync(events, revoked);
+        var revokedNow = await VersionAsync(events, revoked);
 
         revokedNow.ShouldBe(
             revokedVersion,
@@ -141,19 +139,19 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_rotation_after_the_revoke_answered_is_refused_even_when_the_same_integration_just_rotated()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueName("rr-warm");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueName("rr-warm");
 
         await RegisterAsync(events, name);
-        Answer created = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(name)));
+        var created = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(name)));
         created.Status.ShouldBe(HttpStatusCode.OK, $"control: the active integration must create. {created}");
-        Answer rolled = await ReadAnswerAsync(await identity.SendAsync(RotateIntent(name, created.Version())));
+        var rolled = await ReadAnswerAsync(await identity.SendAsync(RotateIntent(name, created.Version())));
         rolled.Status.ShouldBe(HttpStatusCode.OK, $"control: the active integration must rotate. {rolled}");
 
         await RevokeSettledAsync(events, name);
 
-        Answer after = await ReadAnswerAsync(await identity.SendAsync(RotateIntent(name, rolled.Version())));
+        var after = await ReadAnswerAsync(await identity.SendAsync(RotateIntent(name, rolled.Version())));
 
         after.Status.ShouldBe(
             HttpStatusCode.Conflict,
@@ -177,20 +175,20 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_revoke_racing_a_first_rotation_never_leaves_a_revoked_integration_with_an_enabled_client()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
 
         List<string> rounds = [];
         List<string> violations = [];
-        int overlapped = 0;
+        var overlapped = 0;
 
-        foreach (int stagger in StaggersMilliseconds)
+        foreach (var stagger in StaggersMilliseconds)
         {
-            string name = UniqueName("rr-new");
+            var name = UniqueName("rr-new");
             await RegisterAsync(events, name);
-            int version = await VersionAsync(events, name);
+            var version = await VersionAsync(events, name);
 
-            Race race = await RaceAsync(
+            var race = await RaceAsync(
                 () => RevokeAsync(events, name, version),
                 () => identity.SendAsync(CreateIntent(name)),
                 stagger);
@@ -199,7 +197,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
             overlapped += race.Overlapped ? 1 : 0;
         }
 
-        string report = string.Join(Environment.NewLine, rounds);
+        var report = string.Join(Environment.NewLine, rounds);
         violations.ShouldBeEmpty(
             $"create branch, {StaggersMilliseconds.Length} rounds:{Environment.NewLine}{report}");
         overlapped.ShouldBeGreaterThan(
@@ -216,29 +214,29 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_revoke_racing_a_secret_roll_never_leaves_a_usable_secret_behind()
     {
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
 
         List<string> rounds = [];
         List<string> violations = [];
-        int overlapped = 0;
+        var overlapped = 0;
 
-        foreach (int stagger in StaggersMilliseconds)
+        foreach (var stagger in StaggersMilliseconds)
         {
-            string name = UniqueName("rr-roll");
+            var name = UniqueName("rr-roll");
             await RegisterAsync(events, name);
-            int registered = await VersionAsync(events, name);
+            var registered = await VersionAsync(events, name);
 
-            Answer created = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(name)));
+            var created = await ReadAnswerAsync(await identity.SendAsync(CreateIntent(name)));
             created.Status.ShouldBe(HttpStatusCode.OK, $"control: the active integration must create. {created}");
 
             // The first rotation's announcement moves EventIngestion's version
             // (MarkAsRotated). Wait for it, or the racing revoke's If-Match is
             // stale for a reason that has nothing to do with the race.
-            int version = await PollVersionUntilAsync(events, name, v => v != registered);
+            var version = await PollVersionUntilAsync(events, name, v => v != registered);
             version.ShouldNotBe(registered, "control: WebhookIntegrationRotatedV1 must reach EventIngestion");
 
-            Race race = await RaceAsync(
+            var race = await RaceAsync(
                 () => RevokeAsync(events, name, version),
                 () => identity.SendAsync(RotateIntent(name, created.Version())),
                 stagger);
@@ -253,7 +251,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
             overlapped += race.Overlapped ? 1 : 0;
         }
 
-        string report = string.Join(Environment.NewLine, rounds);
+        var report = string.Join(Environment.NewLine, rounds);
         violations.ShouldBeEmpty(
             $"rotate branch, {StaggersMilliseconds.Length} rounds:{Environment.NewLine}{report}");
         overlapped.ShouldBeGreaterThan(
@@ -269,8 +267,8 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
         List<string> rounds,
         List<string> violations)
     {
-        bool isRevoked = await IsRevokedAsync(events, name);
-        int enabled = isRevoked ? await EnabledClientCountAfterSettlingAsync($"webhook-{name}") : -1;
+        var isRevoked = await IsRevokedAsync(events, name);
+        var enabled = isRevoked ? await EnabledClientCountAfterSettlingAsync($"webhook-{name}") : -1;
 
         List<string> broken = [];
         if (race.RevokeAnsweredFirst && race.Rotate.Status != HttpStatusCode.Conflict)
@@ -291,7 +289,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
 
         if (isRevoked)
         {
-            foreach (string secret in secretsIssued)
+            foreach (var secret in secretsIssued)
             {
                 if (await CanAuthenticateAsync($"webhook-{name}", secret))
                 {
@@ -300,7 +298,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
             }
         }
 
-        string line = $"stagger {stagger,3} ms | revoke {(int)race.Revoke.Status} | rotate {(int)race.Rotate.Status} "
+        var line = $"stagger {stagger,3} ms | revoke {(int)race.Revoke.Status} | rotate {(int)race.Rotate.Status} "
             + $"{race.Rotate.Title ?? string.Empty} | {(race.RevokeAnsweredFirst ? $"revoke answered {race.GapMilliseconds} ms before rotate was sent" : "overlapped")} "
             + $"| revoked={isRevoked} enabledClients={(enabled < 0 ? "n/a" : enabled.ToString(System.Globalization.CultureInfo.InvariantCulture))}"
             + (broken.Count == 0 ? string.Empty : $" | VIOLATION: {string.Join("; ", broken)}");
@@ -322,12 +320,12 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
         Func<Task<HttpResponseMessage>> rotate,
         int staggerMilliseconds)
     {
-        Stopwatch clock = Stopwatch.StartNew();
-        long revokeAnsweredAt = long.MaxValue;
+        var clock = Stopwatch.StartNew();
+        var revokeAnsweredAt = long.MaxValue;
 
-        Task<Answer> revoking = Task.Run(async () =>
+        var revoking = Task.Run(async () =>
         {
-            HttpResponseMessage response = await revoke();
+            var response = await revoke();
             Interlocked.Exchange(ref revokeAnsweredAt, clock.ElapsedTicks);
             return await ReadAnswerAsync(response);
         });
@@ -337,14 +335,14 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
             await Task.Delay(staggerMilliseconds);
         }
 
-        long rotateSentAt = clock.ElapsedTicks;
-        Task<Answer> rotating = Task.Run(async () => await ReadAnswerAsync(await rotate()));
+        var rotateSentAt = clock.ElapsedTicks;
+        var rotating = Task.Run(async () => await ReadAnswerAsync(await rotate()));
 
-        Answer[] answers = await Task.WhenAll(revoking, rotating);
-        long answered = Interlocked.Read(ref revokeAnsweredAt);
+        var answers = await Task.WhenAll(revoking, rotating);
+        var answered = Interlocked.Read(ref revokeAnsweredAt);
 
-        bool revokeFirst = answers[0].Status == HttpStatusCode.OK && answered < rotateSentAt;
-        long gap = revokeFirst ? (rotateSentAt - answered) * 1000 / Stopwatch.Frequency : 0;
+        var revokeFirst = answers[0].Status == HttpStatusCode.OK && answered < rotateSentAt;
+        var gap = revokeFirst ? (rotateSentAt - answered) * 1000 / Stopwatch.Frequency : 0;
 
         return new Race(answers[0], answers[1], revokeFirst, !revokeFirst && answers[0].Status == HttpStatusCode.OK, gap);
     }
@@ -357,8 +355,8 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     /// </summary>
     private async Task<int> EnabledClientCountAfterSettlingAsync(string clientId)
     {
-        DateTime deadline = DateTime.UtcNow + Settle;
-        int enabled = await EnabledClientCountAsync(clientId);
+        var deadline = DateTime.UtcNow + Settle;
+        var enabled = await EnabledClientCountAsync(clientId);
         while (enabled > 0 && DateTime.UtcNow < deadline)
         {
             await Task.Delay(Poll);
@@ -371,8 +369,8 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     private async Task<int> EnabledClientCountAsync(string clientId)
     {
         RealmProbe realm = new(aspire);
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-        JsonElement clients = await RealmProbe.ReadJsonAsync(
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        var clients = await RealmProbe.ReadJsonAsync(
             admin,
             $"admin/realms/{RealmProbe.Realm}/clients?clientId={Uri.EscapeDataString(clientId)}",
             CancellationToken.None);
@@ -382,7 +380,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private async Task<bool> CanAuthenticateAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -390,7 +388,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token", form);
 
         return token.IsSuccessStatusCode;
@@ -398,7 +396,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task RegisterAsync(HttpClient events, string name)
     {
-        HttpResponseMessage registered = await events.PostAsJsonAsync(
+        var registered = await events.PostAsJsonAsync(
             "/webhook-integrations", new { name, defaultKind = "WebhookAlarm" });
         registered.StatusCode.ShouldBe(
             HttpStatusCode.Created, await registered.Content.ReadAsStringAsync());
@@ -420,7 +418,7 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     /// </summary>
     private static async Task RevokeSettledAsync(HttpClient events, string name)
     {
-        DateTime deadline = DateTime.UtcNow + Settle;
+        var deadline = DateTime.UtcNow + Settle;
         HttpResponseMessage revoked;
         do
         {
@@ -439,8 +437,8 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<int> PollVersionUntilAsync(HttpClient events, string name, Func<int, bool> moved)
     {
-        DateTime deadline = DateTime.UtcNow + Settle;
-        int version = await VersionAsync(events, name);
+        var deadline = DateTime.UtcNow + Settle;
+        var version = await VersionAsync(events, name);
         while (!moved(version) && DateTime.UtcNow < deadline)
         {
             await Task.Delay(Poll);
@@ -458,10 +456,10 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<JsonElement> FindAsync(HttpClient events, string name)
     {
-        HttpResponseMessage listed = await events.GetAsync("/webhook-integrations?includeRevoked=true");
+        var listed = await events.GetAsync("/webhook-integrations?includeRevoked=true");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.EnumerateArray().Single(row =>
             string.Equals(row.GetProperty("name").GetString(), name, StringComparison.Ordinal));
@@ -489,13 +487,13 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<Answer> ReadAnswerAsync(HttpResponseMessage response)
     {
-        string raw = await response.Content.ReadAsStringAsync();
+        var raw = await response.Content.ReadAsStringAsync();
         string? title = null;
         try
         {
-            using JsonDocument document = JsonDocument.Parse(raw);
+            using var document = JsonDocument.Parse(raw);
             if (document.RootElement.ValueKind == JsonValueKind.Object
-                && document.RootElement.TryGetProperty("title", out JsonElement titleElement))
+                && document.RootElement.TryGetProperty("title", out var titleElement))
             {
                 title = titleElement.GetString();
             }
@@ -514,13 +512,13 @@ public class RotateRevokeRaceIntegrationTests(AspireFixture aspire) : IAsyncLife
     {
         public int Version()
         {
-            using JsonDocument document = JsonDocument.Parse(Raw);
+            using var document = JsonDocument.Parse(Raw);
             return document.RootElement.GetProperty("version").GetInt32();
         }
 
         public string Secret()
         {
-            using JsonDocument document = JsonDocument.Parse(Raw);
+            using var document = JsonDocument.Parse(Raw);
             return document.RootElement.GetProperty("clientSecret").GetString()!;
         }
 

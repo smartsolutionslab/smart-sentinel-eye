@@ -46,7 +46,7 @@ public sealed class MqttTokenProvider(
     /// </summary>
     private static ClientCredentials Credentials(IOptions<MosquittoOptions> options)
     {
-        MosquittoOptions opts = options.Value;
+        var opts = options.Value;
         return new ClientCredentials(opts.KeycloakUrl, opts.Realm, opts.Username, opts.ClientSecret);
     }
 }

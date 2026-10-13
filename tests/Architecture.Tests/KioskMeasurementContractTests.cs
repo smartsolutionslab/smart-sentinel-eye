@@ -31,8 +31,8 @@ public class KioskMeasurementContractTests
     [Fact]
     public void The_kiosk_and_the_server_accept_the_same_measurement_names()
     {
-        HashSet<string> client = ClientMeasurements();
-        HashSet<string> server = ServerMeasurements();
+        var client = ClientMeasurements();
+        var server = ServerMeasurements();
 
         client.ShouldNotBeEmpty("the client union should have parsed");
         server.ShouldNotBeEmpty("the server's accepted names should have parsed");
@@ -55,13 +55,13 @@ public class KioskMeasurementContractTests
     [Fact]
     public void The_refusal_names_every_value_it_would_have_accepted()
     {
-        string endpoints = ReadEndpoints();
-        string message = Regex.Match(endpoints, @"""must be '.*?'""", RegexOptions.Singleline).Value
+        var endpoints = ReadEndpoints();
+        var message = Regex.Match(endpoints, @"""must be '.*?'""", RegexOptions.Singleline).Value
             + Regex.Match(endpoints, @"\+ ""'.*?'""", RegexOptions.Singleline).Value;
 
         message.ShouldNotBeEmpty("the validation message should have parsed");
 
-        foreach (string measurement in ServerMeasurements())
+        foreach (var measurement in ServerMeasurements())
         {
             message.ShouldContain($"'{measurement}'", Case.Sensitive);
         }
@@ -82,7 +82,7 @@ public class KioskMeasurementContractTests
     [InlineData("label_delay", "LabelDelay.Record")]
     public void A_name_that_is_not_a_segment_reaches_its_own_instrument(string measurement, string recorder)
     {
-        string endpoints = ReadEndpoints();
+        var endpoints = ReadEndpoints();
 
         endpoints.ShouldContain($"\"{measurement}\"");
         endpoints.ShouldContain(recorder);
@@ -100,8 +100,8 @@ public class KioskMeasurementContractTests
     /// </summary>
     private static HashSet<string> ClientMeasurements()
     {
-        string source = ReadRepositoryFile("apps", "shared", "src", "observability", "kioskLatency.ts");
-        Match declaration = Regex.Match(
+        var source = ReadRepositoryFile("apps", "shared", "src", "observability", "kioskLatency.ts");
+        var declaration = Regex.Match(
             source,
             @"export type KioskMeasurement\s*=(?<body>.*?);",
             RegexOptions.Singleline);
@@ -119,13 +119,13 @@ public class KioskMeasurementContractTests
     /// </summary>
     private static HashSet<string> ServerMeasurements()
     {
-        string source = ReadEndpoints();
+        var source = ReadEndpoints();
 
-        IEnumerable<string> segments = Regex
+        var segments = Regex
             .Matches(source, @"""(?<name>[a-z_]+)""\s*=>\s*LatencySegment\.")
             .Select(match => match.Groups["name"].Value);
 
-        IEnumerable<string> routed = Regex
+        var routed = Regex
             .Matches(source, @"report\.Measurement\s*==\s*""(?<name>[a-z_]+)""")
             .Select(match => match.Groups["name"].Value);
 
@@ -143,11 +143,11 @@ public class KioskMeasurementContractTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine([root.FullName, .. segments]);
+        var path = Path.Combine([root.FullName, .. segments]);
         File.Exists(path).ShouldBeTrue($"the guarded file should be at {path}");
         return File.ReadAllText(path);
     }

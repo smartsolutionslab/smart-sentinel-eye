@@ -71,7 +71,7 @@ public class AppHostCamerasRemoteTests
     [Fact]
     public async Task The_resource_exists()
     {
-        IResource resource = await ResourceAsync();
+        var resource = await ResourceAsync();
 
         resource.Name.ShouldBe("management-cameras");
     }
@@ -79,12 +79,12 @@ public class AppHostCamerasRemoteTests
     [Fact]
     public async Task The_resource_runs_npm_run_dev()
     {
-        IResource resource = await ResourceAsync();
-        ExecutableResource executable = (ExecutableResource)resource;
+        var resource = await ResourceAsync();
+        var executable = (ExecutableResource)resource;
 
         executable.Command.ShouldBe("npm");
 
-        IReadOnlyList<string> arguments = await ArgumentValuesAsync(executable);
+        var arguments = await ArgumentValuesAsync(executable);
 
         arguments.ShouldBe(["run", "dev"]);
     }
@@ -92,8 +92,8 @@ public class AppHostCamerasRemoteTests
     [Fact]
     public async Task The_resource_s_working_directory_is_apps_management_cameras()
     {
-        IResource resource = await ResourceAsync();
-        ExecutableResource executable = (ExecutableResource)resource;
+        var resource = await ResourceAsync();
+        var executable = (ExecutableResource)resource;
 
         NormalizeSeparators(executable.WorkingDirectory).ShouldEndWith(
             "apps/management-cameras",
@@ -105,7 +105,7 @@ public class AppHostCamerasRemoteTests
     [Fact]
     public async Task The_resource_exposes_exactly_one_fixed_unproxied_http_endpoint_on_5176()
     {
-        IResource resource = await ResourceAsync();
+        var resource = await ResourceAsync();
 
         EndpointAnnotation[] endpoints = [.. resource.Annotations.OfType<EndpointAnnotation>()];
 
@@ -120,7 +120,7 @@ public class AppHostCamerasRemoteTests
     [Fact]
     public async Task The_resource_is_a_child_of_the_api_gateway()
     {
-        IResource resource = await ResourceAsync();
+        var resource = await ResourceAsync();
 
         ResourceRelationshipAnnotation[] parents =
         [
@@ -144,20 +144,20 @@ public class AppHostCamerasRemoteTests
     [Fact]
     public async Task Management_web_s_environment_carries_the_cameras_remote_url_key()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(SimulatorDisabledArguments);
 
-        IResource managementWeb = builder.Resources.Single(resource => resource.Name == "management-web");
+        var managementWeb = builder.Resources.Single(resource => resource.Name == "management-web");
 
-        Dictionary<string, object> environment = await RawEnvironmentAsync(managementWeb);
+        var environment = await RawEnvironmentAsync(managementWeb);
 
         environment.Keys.ShouldContain("VITE_CAMERAS_REMOTE_URL");
     }
 
     private static async Task<IResource> ResourceAsync()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(SimulatorDisabledArguments);
 
@@ -184,7 +184,7 @@ public class AppHostCamerasRemoteTests
             Logger = NullLogger.Instance,
         };
 
-        foreach (CommandLineArgsCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }
@@ -201,7 +201,7 @@ public class AppHostCamerasRemoteTests
     {
         using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(15));
 
-        if (!resource.TryGetEnvironmentVariables(out IEnumerable<EnvironmentCallbackAnnotation>? annotations))
+        if (!resource.TryGetEnvironmentVariables(out var annotations))
         {
             return new Dictionary<string, object>(StringComparer.Ordinal);
         }
@@ -216,7 +216,7 @@ public class AppHostCamerasRemoteTests
             Logger = NullLogger.Instance,
         };
 
-        foreach (EnvironmentCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }

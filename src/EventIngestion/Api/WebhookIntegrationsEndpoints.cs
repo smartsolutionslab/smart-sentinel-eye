@@ -1,8 +1,5 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -27,7 +24,7 @@ public static class WebhookIntegrationsEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/webhook-integrations")
+        var group = app.MapGroup("/webhook-integrations")
             .RequireAuthorization(Scope.Sse.Webhooks.Write)
             .WithTags("EventIngestion");
 
@@ -95,7 +92,7 @@ public static class WebhookIntegrationsEndpoints
         // same way the manual write resolves an event's (#1545). It decides
         // which plant the integration's deliveries may name, so it is a write
         // resolution rather than a read: a multi-fab admin must choose.
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
@@ -103,9 +100,9 @@ public static class WebhookIntegrationsEndpoints
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
-        Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RegisterWebhookIntegrationCommand(name, fab, defaultKind),
                 cancellationToken);
@@ -125,7 +122,7 @@ public static class WebhookIntegrationsEndpoints
         [FromServices] ListWebhookIntegrationsQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
@@ -133,9 +130,9 @@ public static class WebhookIntegrationsEndpoints
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
+        var result =
             await handler.HandleAsync(
                 new ListWebhookIntegrationsQuery(fabs, includeRevoked ?? false),
                 cancellationToken);
@@ -166,12 +163,12 @@ public static class WebhookIntegrationsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out int expectedVersion, out IResult? precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
 
-        Result<IReadOnlyList<FabIdentifier>, IResult> fabsResolution =
+        var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(
                 user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
@@ -179,9 +176,9 @@ public static class WebhookIntegrationsEndpoints
             return fabsResolution.Error;
         }
 
-        IReadOnlyList<FabIdentifier> fabs = fabsResolution.Value;
+        var fabs = fabsResolution.Value;
 
-        Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError> result =
+        var result =
             await handler.HandleAsync(
                 new RevokeWebhookIntegrationCommand(fabs, parsed, expectedVersion),
                 cancellationToken);

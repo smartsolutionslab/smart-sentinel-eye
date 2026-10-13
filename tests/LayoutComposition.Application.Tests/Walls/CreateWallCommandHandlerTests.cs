@@ -3,11 +3,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
-using SmartSentinelEye.LayoutComposition.Domain.Tests.Layout.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Wall.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Walls;
 
@@ -34,7 +31,7 @@ public class CreateWallCommandHandlerTests
     private static FakeLayoutPublicationLookup PublishedIn(FabIdentifier fab, params LayoutIdentifier[] scenes)
     {
         FakeLayoutPublicationLookup lookup = new();
-        foreach (LayoutIdentifier scene in scenes)
+        foreach (var scene in scenes)
         {
             lookup.WithLayout(scene, fab);
         }
@@ -44,19 +41,19 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task Creating_with_two_Published_scenes_in_the_same_fab_succeeds()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
+        var a = NewScene();
+        var b = NewScene();
         InMemoryWallRepository walls = new();
-        FakeLayoutPublicationLookup lookup = PublishedIn(Munich, a, b);
-        CreateWallCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var lookup = PublishedIn(Munich, a, b);
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, b], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
         walls.Walls.ShouldHaveSingleItem();
-        Wall created = walls.Walls[0];
+        var created = walls.Walls[0];
         created.Id.ShouldBe(result.Value);
         created.Showing.ShouldBe(a);
         created.Scenes.ShouldBe([a, b]);
@@ -65,11 +62,11 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task A_single_scene_returns_WALL_TOO_FEW_SCENES()
     {
-        LayoutIdentifier a = NewScene();
+        var a = NewScene();
         InMemoryWallRepository walls = new();
-        CreateWallCommandHandler handler = Handler(walls, PublishedIn(Munich, a), new FakeClock(FixedMoment));
+        var handler = Handler(walls, PublishedIn(Munich, a), new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -84,13 +81,13 @@ public class CreateWallCommandHandlerTests
         IReadOnlyList<LayoutIdentifier> nine = [.. Enumerable.Range(0, 9).Select(_ => NewScene())];
         InMemoryWallRepository walls = new();
         FakeLayoutPublicationLookup lookup = new();
-        foreach (LayoutIdentifier scene in nine)
+        foreach (var scene in nine)
         {
             lookup.WithLayout(scene, Munich);
         }
-        CreateWallCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), nine, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -101,11 +98,11 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task A_duplicate_scene_returns_WALL_DUPLICATE_SCENE()
     {
-        LayoutIdentifier a = NewScene();
+        var a = NewScene();
         InMemoryWallRepository walls = new();
-        CreateWallCommandHandler handler = Handler(walls, PublishedIn(Munich, a), new FakeClock(FixedMoment));
+        var handler = Handler(walls, PublishedIn(Munich, a), new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, a], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -116,13 +113,13 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task A_scene_layout_belonging_to_another_fab_returns_WALL_SCENE_OTHER_FAB()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier otherFabLayout = NewScene();
+        var a = NewScene();
+        var otherFabLayout = NewScene();
         InMemoryWallRepository walls = new();
-        FakeLayoutPublicationLookup lookup = PublishedIn(Munich, a).WithLayout(otherFabLayout, Dresden);
-        CreateWallCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var lookup = PublishedIn(Munich, a).WithLayout(otherFabLayout, Dresden);
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, otherFabLayout], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -134,12 +131,12 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task An_unknown_scene_layout_returns_WALL_SCENE_NOT_FOUND()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier unknown = NewScene();
+        var a = NewScene();
+        var unknown = NewScene();
         InMemoryWallRepository walls = new();
-        CreateWallCommandHandler handler = Handler(walls, PublishedIn(Munich, a), new FakeClock(FixedMoment));
+        var handler = Handler(walls, PublishedIn(Munich, a), new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, unknown], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -152,13 +149,13 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task A_scene_layout_with_no_Published_revision_returns_WALL_SCENE_NOT_PUBLISHED()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier draftOnly = NewScene();
+        var a = NewScene();
+        var draftOnly = NewScene();
         InMemoryWallRepository walls = new();
-        FakeLayoutPublicationLookup lookup = PublishedIn(Munich, a).WithLayout(draftOnly, Munich, isPublished: false);
-        CreateWallCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var lookup = PublishedIn(Munich, a).WithLayout(draftOnly, Munich, isPublished: false);
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, draftOnly], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -170,13 +167,13 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task A_duplicate_name_within_the_same_fab_returns_WALL_NAME_TAKEN()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
+        var a = NewScene();
+        var b = NewScene();
         InMemoryWallRepository walls = new();
         walls.Add(new WallBuilder().WithFab(Munich).Named("Line 3 rotation").At(FixedMoment).Build());
-        CreateWallCommandHandler handler = Handler(walls, PublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, PublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, b], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -189,13 +186,13 @@ public class CreateWallCommandHandlerTests
     [Fact]
     public async Task The_same_name_is_accepted_in_a_different_fab()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
+        var a = NewScene();
+        var b = NewScene();
         InMemoryWallRepository walls = new();
         walls.Add(new WallBuilder().WithFab(Dresden).Named("Line 3 rotation").At(FixedMoment).Build());
-        CreateWallCommandHandler handler = Handler(walls, PublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, PublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallIdentifier, CreateWallError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new CreateWallCommand(Munich, WallName.From("Line 3 rotation"), [a, b], OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

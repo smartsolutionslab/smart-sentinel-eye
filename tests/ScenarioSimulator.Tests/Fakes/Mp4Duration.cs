@@ -30,19 +30,19 @@ internal static class Mp4Duration
     /// <summary>The clip's duration in milliseconds, or <c>null</c> if it has no <c>mvhd</c> box.</summary>
     public static double? ReadMs(string mp4Path)
     {
-        using FileStream stream = File.OpenRead(mp4Path);
+        using var stream = File.OpenRead(mp4Path);
         return ReadMvhd(stream, 0, stream.Length);
     }
 
     private static double? ReadMvhd(FileStream stream, long start, long end)
     {
-        long position = start;
+        var position = start;
 
         while (position < end)
         {
             stream.Seek(position, SeekOrigin.Begin);
             long boxSize = ReadUInt32(stream);
-            string boxType = ReadFourCharacterCode(stream);
+            var boxType = ReadFourCharacterCode(stream);
             long headerSize = 8;
 
             if (boxSize == 1)
@@ -61,12 +61,12 @@ internal static class Mp4Duration
                 return null;
             }
 
-            long dataStart = position + headerSize;
-            long dataEnd = position + boxSize;
+            var dataStart = position + headerSize;
+            var dataEnd = position + boxSize;
 
             if (boxType == "moov")
             {
-                double? found = ReadMvhd(stream, dataStart, dataEnd);
+                var found = ReadMvhd(stream, dataStart, dataEnd);
                 if (found is not null)
                 {
                     return found;
@@ -86,7 +86,7 @@ internal static class Mp4Duration
     private static double? ReadMovieHeader(FileStream stream, long dataStart)
     {
         stream.Seek(dataStart, SeekOrigin.Begin);
-        int version = stream.ReadByte();
+        var version = stream.ReadByte();
         stream.Seek(3, SeekOrigin.Current); // flags
 
         long timescale;

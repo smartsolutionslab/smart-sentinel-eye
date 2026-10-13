@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net;
-using SmartSentinelEye.CameraCatalog.Application.DTOs;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
@@ -23,10 +22,10 @@ public class GetCameraQueryHandlerTests
     [Fact]
     public async Task A_camera_in_the_callers_fab_is_returned_with_its_version()
     {
-        Camera camera = RegisterIn("munich", "Line-7");
-        GetCameraQueryHandler handler = NewHandler(camera);
+        var camera = RegisterIn("munich", "Line-7");
+        var handler = NewHandler(camera);
 
-        Result<CameraDto, GetCameraError> result =
+        var result =
             await handler.HandleAsync(QueryFor(camera, "munich"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -49,12 +48,12 @@ public class GetCameraQueryHandlerTests
     [Fact]
     public async Task A_retired_camera_is_returned_with_its_status()
     {
-        Camera camera = RegisterIn("munich", "Line-Gone");
+        var camera = RegisterIn("munich", "Line-Gone");
         camera.Retire(AnAdmin, new FixedClock(FixedMoment));
 
-        GetCameraQueryHandler handler = NewHandler(camera);
+        var handler = NewHandler(camera);
 
-        Result<CameraDto, GetCameraError> result =
+        var result =
             await handler.HandleAsync(QueryFor(camera, "munich"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -64,9 +63,9 @@ public class GetCameraQueryHandlerTests
     [Fact]
     public async Task An_identifier_that_names_nothing_is_not_found()
     {
-        GetCameraQueryHandler handler = NewHandler();
+        var handler = NewHandler();
 
-        Result<CameraDto, GetCameraError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetCameraQuery([FabIdentifier.From("munich")], CameraIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -86,13 +85,13 @@ public class GetCameraQueryHandlerTests
     [Fact]
     public async Task Another_fabs_camera_is_refused_exactly_as_an_unknown_one_is()
     {
-        Camera inMunich = RegisterIn("munich", "Line-Secret");
-        GetCameraQueryHandler handler = NewHandler(inMunich);
+        var inMunich = RegisterIn("munich", "Line-Secret");
+        var handler = NewHandler(inMunich);
 
-        Result<CameraDto, GetCameraError> crossFab =
+        var crossFab =
             await handler.HandleAsync(QueryFor(inMunich, "dresden"), CancellationToken.None);
 
-        Result<CameraDto, GetCameraError> neverExisted = await handler.HandleAsync(
+        var neverExisted = await handler.HandleAsync(
             new GetCameraQuery([FabIdentifier.From("dresden")], CameraIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -110,10 +109,10 @@ public class GetCameraQueryHandlerTests
     [Fact]
     public async Task An_operator_holding_both_fabs_can_read_the_camera()
     {
-        Camera inMunich = RegisterIn("munich", "Line-Shared");
-        GetCameraQueryHandler handler = NewHandler(inMunich);
+        var inMunich = RegisterIn("munich", "Line-Shared");
+        var handler = NewHandler(inMunich);
 
-        Result<CameraDto, GetCameraError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetCameraQuery(
                 [FabIdentifier.From("dresden"), FabIdentifier.From("munich")],
                 inMunich.Id),

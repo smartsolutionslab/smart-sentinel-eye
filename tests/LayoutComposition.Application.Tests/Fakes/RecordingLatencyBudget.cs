@@ -1,5 +1,4 @@
 using SmartSentinelEye.Shared.CQRS;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 

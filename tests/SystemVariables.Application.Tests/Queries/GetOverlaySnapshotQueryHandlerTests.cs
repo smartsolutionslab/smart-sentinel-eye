@@ -1,5 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Resolution;
@@ -19,8 +17,8 @@ public class GetOverlaySnapshotQueryHandlerTests
         FakeOverlayTextVersions versions = new();
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), versions);
 
-        Guid overlay = Guid.CreateVersion7();
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
+        var overlay = Guid.CreateVersion7();
+        var result =
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -42,7 +40,7 @@ public class GetOverlaySnapshotQueryHandlerTests
             .Named("oeeLine1").OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(82.5)).Build());
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         // #2426 -- the version comes from the durable store, not the reverse
@@ -55,7 +53,7 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), versions);
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
+        var result =
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -73,12 +71,12 @@ public class GetOverlaySnapshotQueryHandlerTests
         // 'shift' is defined but unset → renders as literal.
         repo.Add(new VariableBuilder().Named("shift").OfType(VariableType.String).Build());
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["{{shift}} - {{unknown}}"]);
 
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result =
+        var result =
             await handler.HandleAsync(new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -92,7 +90,7 @@ public class GetOverlaySnapshotQueryHandlerTests
     {
         // The same overlay, rendered for two different plants. This is the
         // whole point of ADR-0115: one template, per-fab values.
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryVariableRepository repo = new();
         repo.Add(new VariableBuilder().WithFab("munich").Named("oeeLine1")
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(41)).Build());
@@ -103,9 +101,9 @@ public class GetOverlaySnapshotQueryHandlerTests
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> munich = await handler.HandleAsync(
+        var munich = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("munich")], overlay), CancellationToken.None);
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> dresden = await handler.HandleAsync(
+        var dresden = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
         munich.Value.Texts.Single().Resolved.ShouldBe("OEE: 41%");
@@ -118,7 +116,7 @@ public class GetOverlaySnapshotQueryHandlerTests
     public async Task A_variable_absent_from_the_viewers_fab_renders_the_literal_placeholder()
     {
         // Identical to a name that exists nowhere, per the contract.
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         InMemoryVariableRepository repo = new();
         repo.Add(new VariableBuilder().WithFab("munich").Named("oeeLine1")
             .OfType(VariableType.Number).WithInitialValue(new VariableValue.NumberValue(41)).Build());
@@ -127,7 +125,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
         GetOverlaySnapshotQueryHandler handler = new(index, repo, new Resolver(), new FakeOverlayTextVersions());
 
-        Result<ResolvedOverlaySnapshotDto, GetOverlaySnapshotError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetOverlaySnapshotQuery([FabIdentifier.From("dresden")], overlay), CancellationToken.None);
 
         result.Value.Texts.Single().Resolved.ShouldBe("OEE: {{oeeLine1}}%");
@@ -145,7 +143,7 @@ public class GetOverlaySnapshotQueryHandlerTests
         repo.Add(new VariableBuilder().Named("oeeLine1").OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(82.5)).Build());
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oeeLine1}}%"]);
 
         FakeOverlayTextVersions versions = new() { CallOrder = callOrder };
@@ -177,7 +175,7 @@ public class GetOverlaySnapshotQueryHandlerTests
 
         public string Resolve(string labelText, IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot)
         {
-            string resolved = inner.Resolve(labelText, snapshot);
+            var resolved = inner.Resolve(labelText, snapshot);
             callOrder.Add("TextResolved");
             return resolved;
         }

@@ -22,18 +22,18 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Publishing_a_new_revision_atomically_archives_the_previous_Published_revision()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid camera1 = await LayoutRequests.RegisterCameraAsync(aspire);
-        Guid camera2 = await LayoutRequests.RegisterCameraAsync(aspire);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var camera1 = await LayoutRequests.RegisterCameraAsync(aspire);
+        var camera2 = await LayoutRequests.RegisterCameraAsync(aspire);
 
-        Guid layoutIdentifier = await CreateAndPublishAsync(layouts, "Line-Edit", camera1);
+        var layoutIdentifier = await CreateAndPublishAsync(layouts, "Line-Edit", camera1);
 
-        HttpResponseMessage branched = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
+        var branched = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
         branched.StatusCode.ShouldBe(HttpStatusCode.Created);
-        int draftNumber = await branched.Content.ReadFromJsonAsync<int>();
+        var draftNumber = await branched.Content.ReadFromJsonAsync<int>();
         draftNumber.ShouldBe(2);
 
-        HttpResponseMessage edited = await LayoutRequests.PatchAsync(
+        var edited = await LayoutRequests.PatchAsync(
             layouts, layoutIdentifier, $"revisions/{draftNumber}",
             new
             {
@@ -42,17 +42,17 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
             });
         edited.EnsureSuccessStatusCode();
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(
+        var published = await LayoutRequests.PostAsync(
             layouts, layoutIdentifier, $"revisions/{draftNumber}/publish");
         published.EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement revisions = payload.GetProperty("revisions");
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var revisions = payload.GetProperty("revisions");
         revisions.GetArrayLength().ShouldBe(2);
 
-        Dictionary<int, JsonElement> byNumber = revisions
+        var byNumber = revisions
             .EnumerateArray()
             .ToDictionary(e => e.GetProperty("revisionNumber").GetInt32(), e => e);
         byNumber[1].GetProperty("state").GetString().ShouldBe("Archived");
@@ -64,39 +64,39 @@ public class EditRevisionIntegrationTests(AspireFixture aspire) : IAsyncLifetime
     [Fact]
     public async Task Reverting_a_Published_revision_brings_it_back_to_Draft()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        Guid layoutIdentifier = await CreateAndPublishAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var layoutIdentifier = await CreateAndPublishAsync(
             layouts, "Line-Revert", await LayoutRequests.RegisterCameraAsync(aspire));
 
-        HttpResponseMessage reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
+        var reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
         reverted.EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("revisions")[0].GetProperty("state").GetString().ShouldBe("Draft");
     }
 
     [Fact]
     public async Task Branching_a_chain_without_a_Published_revision_returns_409()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", SingleTileBody($"Drf-{Guid.NewGuid():N}".Substring(0, 16), await LayoutRequests.RegisterCameraAsync(aspire)));
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage branchAttempt = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
+        var branchAttempt = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "draft");
         branchAttempt.StatusCode.ShouldBe(HttpStatusCode.Conflict);
     }
 
     private static async Task<Guid> CreateAndPublishAsync(HttpClient layouts, string namePrefix, Guid camera)
     {
-        string name = $"{namePrefix}-{Guid.NewGuid():N}".Substring(0, 16);
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var name = $"{namePrefix}-{Guid.NewGuid():N}".Substring(0, 16);
+        var created = await layouts.PostAsJsonAsync(
             "/layouts", SingleTileBody(name, camera));
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
         return layoutIdentifier;
     }

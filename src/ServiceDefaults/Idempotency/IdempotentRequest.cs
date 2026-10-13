@@ -88,9 +88,9 @@ public static class IdempotentRequest
             return (await work(cancellationToken)).Response;
         }
 
-        IdempotencyScope scope = execution.Scope.Value;
+        var scope = execution.Scope.Value;
 
-        IdempotencyReservation reservation = await ClaimAsync(execution, scope, cancellationToken);
+        var reservation = await ClaimAsync(execution, scope, cancellationToken);
 
         if (reservation.ResourceIdentifier.HasValue)
         {
@@ -163,9 +163,9 @@ public static class IdempotentRequest
     private static async Task<IdempotencyReservation> ClaimAsync(
         IdempotentExecution execution, IdempotencyScope scope, CancellationToken cancellationToken)
     {
-        IdempotencyReservation reservation = await execution.Store.BeginAsync(scope, cancellationToken);
+        var reservation = await execution.Store.BeginAsync(scope, cancellationToken);
 
-        for (int poll = 0; poll < InProgressPolls && reservation.Outcome == IdempotencyOutcome.InProgress; poll++)
+        for (var poll = 0; poll < InProgressPolls && reservation.Outcome == IdempotencyOutcome.InProgress; poll++)
         {
             await Task.Delay(InProgressPollInterval, execution.Clock, cancellationToken);
             reservation = await execution.Store.BeginAsync(scope, cancellationToken);

@@ -85,7 +85,7 @@ public sealed class ScenarioSeederResilienceTests
         };
 
         AssetCorrelationTable correlation = new();
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
+        var wrapped = Options.Create(options);
 
         ScenarioSeeder seeder = new(
             new CameraCatalogClient(Failing(), Tokens(), Simulator(), NullLogger<CameraCatalogClient>.Instance),
@@ -111,7 +111,7 @@ public sealed class ScenarioSeederResilienceTests
 
     private static async Task WaitForSummaryAsync(CapturingLogger<ScenarioSeeder> log)
     {
-        for (int attempt = 0; attempt < 100; attempt++)
+        for (var attempt = 0; attempt < 100; attempt++)
         {
             if (log.Warnings.Any(entry => entry.Contains("INCOMPLETE", StringComparison.Ordinal)))
             {

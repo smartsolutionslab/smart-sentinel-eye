@@ -58,12 +58,12 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task Listing_does_not_span_fabs_the_caller_does_not_hold()
     {
-        string kind = UniqueKind();
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var kind = UniqueKind();
+        using var multi = await ClientFor(MultiFabOperator);
         (await RegisterAsync(multi, kind, fabId: "munich")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
-        JsonElement rows = await ListRowsAsync(dresden, "a dresden operator must be able to list");
+        using var dresden = await ClientFor(DresdenOperator);
+        var rows = await ListRowsAsync(dresden, "a dresden operator must be able to list");
 
         CountOf(rows, kind).ShouldBe(
             0, "GET /event-types spans the caller's fabs, not the table. A dresden operator reading "
@@ -78,9 +78,9 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_on_the_list_is_refused()
     {
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using var dresden = await ClientFor(DresdenOperator);
 
-        HttpResponseMessage refused = await ListAsync(dresden, fabId: "munich");
+        var refused = await ListAsync(dresden, fabId: "munich");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await Diagnose(refused));
         (await TitleOfAsync(refused)).ShouldBe("RESOURCE_FAB_NOT_AUTHORIZED");
@@ -98,19 +98,19 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_multi_fab_caller_naming_a_fabId_retires_only_that_fabs_row()
     {
-        string kind = UniqueKind();
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var kind = UniqueKind();
+        using var multi = await ClientFor(MultiFabOperator);
         (await RegisterAsync(multi, kind, fabId: "dresden")).StatusCode.ShouldBe(HttpStatusCode.Created);
         (await RegisterAsync(multi, kind, fabId: "munich")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage retired = await RetireAsync(multi, kind, expectedVersion: 0, fabId: "munich");
+        var retired = await RetireAsync(multi, kind, expectedVersion: 0, fabId: "munich");
         retired.StatusCode.ShouldBe(HttpStatusCode.OK, await Diagnose(retired));
 
         // Retired rows are excluded from the listing (EventTypesEndpoints' own
         // summary), so the only correct outcome leaves exactly one row for this
         // kind — dresden's. Two rows would mean munich never retired; a single
         // munich row would mean the ambiguity picked the wrong one.
-        JsonElement rows = await ListRowsAsync(multi, "listing after a fab-scoped retire");
+        var rows = await ListRowsAsync(multi, "listing after a fab-scoped retire");
         JsonElement[] remaining = [.. rows.EnumerateArray().Where(row => row.GetProperty("kind").GetString() == kind)];
         remaining.Length.ShouldBe(
             1,
@@ -131,18 +131,18 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_retire_without_If_Match_cannot_tell_a_missing_kind_from_someone_elses()
     {
-        string mine = UniqueKind();
-        string theirs = UniqueKind();
-        string nobodys = UniqueKind();
-        using HttpClient multi = await ClientFor(MultiFabOperator);
+        var mine = UniqueKind();
+        var theirs = UniqueKind();
+        var nobodys = UniqueKind();
+        using var multi = await ClientFor(MultiFabOperator);
         (await RegisterAsync(multi, theirs, fabId: "munich")).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        using HttpClient dresden = await ClientFor(DresdenOperator);
+        using var dresden = await ClientFor(DresdenOperator);
         (await RegisterAsync(dresden, mine)).StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage onMine = await RetireAsync(dresden, mine, expectedVersion: null);
-        HttpResponseMessage onTheirs = await RetireAsync(dresden, theirs, expectedVersion: null);
-        HttpResponseMessage onNobodys = await RetireAsync(dresden, nobodys, expectedVersion: null);
+        var onMine = await RetireAsync(dresden, mine, expectedVersion: null);
+        var onTheirs = await RetireAsync(dresden, theirs, expectedVersion: null);
+        var onNobodys = await RetireAsync(dresden, nobodys, expectedVersion: null);
 
         onMine.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired, await Diagnose(onMine));
         onTheirs.StatusCode.ShouldBe(
@@ -159,7 +159,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task An_anonymous_caller_can_neither_list_nor_retire()
     {
-        using HttpClient anonymous = aspire.CreateServiceClient(ResourceName);
+        using var anonymous = aspire.CreateServiceClient(ResourceName);
 
         (await ListAsync(anonymous)).StatusCode.ShouldBe(
             HttpStatusCode.Unauthorized,
@@ -180,7 +180,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_bearer_that_is_not_a_token_is_refused_on_every_verb()
     {
-        using HttpClient forged = aspire.CreateServiceClient(ResourceName);
+        using var forged = aspire.CreateServiceClient(ResourceName);
         forged.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "not.a.token");
 
         (await RegisterAsync(forged, UniqueKind())).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
@@ -206,21 +206,21 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task An_event_source_token_can_neither_declare_nor_retire_an_event_type()
     {
-        string clientId = $"event-source-probe-{Guid.CreateVersion7():N}";
+        var clientId = $"event-source-probe-{Guid.CreateVersion7():N}";
         await PlantEventSourceClientAsync(clientId);
 
         try
         {
-            using HttpClient source = await EventSourceClientAsync(clientId);
+            using var source = await EventSourceClientAsync(clientId);
 
-            HttpResponseMessage declared = await RegisterAsync(source, UniqueKind());
+            var declared = await RegisterAsync(source, UniqueKind());
             declared.StatusCode.ShouldBe(
                 HttpStatusCode.Forbidden,
                 await Diagnose(declared) + Environment.NewLine
                 + "FR-010 is the whole reason sse.events.types.write exists. A 201 here means the "
                 + "POST is still declaring sse.events.write.");
 
-            HttpResponseMessage retired = await RetireAsync(source, UniqueKind(), expectedVersion: null);
+            var retired = await RetireAsync(source, UniqueKind(), expectedVersion: null);
             retired.StatusCode.ShouldBe(
                 HttpStatusCode.Forbidden,
                 await Diagnose(retired) + Environment.NewLine
@@ -241,14 +241,14 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task An_event_source_token_cannot_read_the_registry()
     {
-        string clientId = $"event-source-reader-{Guid.CreateVersion7():N}";
+        var clientId = $"event-source-reader-{Guid.CreateVersion7():N}";
         await PlantEventSourceClientAsync(clientId);
 
         try
         {
-            using HttpClient source = await EventSourceClientAsync(clientId);
+            using var source = await EventSourceClientAsync(clientId);
 
-            HttpResponseMessage refused = await ListAsync(source);
+            var refused = await ListAsync(source);
 
             refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await Diagnose(refused));
         }
@@ -283,10 +283,10 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     [Fact]
     public async Task A_management_web_token_carries_every_scope_that_client_grants()
     {
-        string jwt = await aspire.GetAccessTokenForClientAsync(
+        var jwt = await aspire.GetAccessTokenForClientAsync(
             "management-web", DresdenOperator, DresdenOperatorPassword, "openid sse.events.write");
 
-        string[] granted = ScopesOf(jwt);
+        var granted = ScopesOf(jwt);
 
         granted.ShouldContain(
             "sse.events.read",
@@ -298,9 +298,9 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
 
     private async Task PlantEventSourceClientAsync(string clientId)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+        using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/clients",
             new
             {
@@ -323,8 +323,8 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
 
     private async Task<HttpClient> EventSourceClientAsync(string clientId)
     {
-        string jwt = await EventSourceToken(clientId);
-        string[] granted = ScopesOf(jwt);
+        var jwt = await EventSourceToken(clientId);
+        var granted = ScopesOf(jwt);
 
         // The control on the probe itself. If planting silently produced a token
         // carrying the registry scope, or the legacy bundle, the refusals below
@@ -339,7 +339,7 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
         granted.ShouldNotContain("sse.events.types.write",
             customMessage: "the probe must not hold the very scope the endpoint requires");
 
-        HttpClient client = aspire.CreateServiceClient(ResourceName);
+        var client = aspire.CreateServiceClient(ResourceName);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", jwt);
 
         return client;
@@ -354,15 +354,15 @@ public class EventTypeRegistryAuthorizationIntegrationTests(AspireFixture aspire
     /// </summary>
     private static string[] ScopesOf(string jwt)
     {
-        string[] parts = jwt.Split('.');
+        var parts = jwt.Split('.');
         parts.Length.ShouldBe(3, "a bearer token should have three segments");
 
-        string payload = parts[1].Replace('-', '+').Replace('_', '/');
-        string padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
+        var payload = parts[1].Replace('-', '+').Replace('_', '/');
+        var padded = payload.PadRight(payload.Length + ((4 - (payload.Length % 4)) % 4), '=');
 
-        using JsonDocument document = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(padded)));
+        using var document = JsonDocument.Parse(Encoding.UTF8.GetString(Convert.FromBase64String(padded)));
 
-        return document.RootElement.TryGetProperty("scope", out JsonElement scope)
+        return document.RootElement.TryGetProperty("scope", out var scope)
             ? scope.GetString()?.Split(' ', StringSplitOptions.RemoveEmptyEntries) ?? []
             : [];
     }

@@ -16,7 +16,7 @@ public sealed class RegisterCameraCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (FabIdentifier? fab, CameraName? name, RtspUrl? url, OperatorIdentifier registeredBy) = command;
+        (var fab, var name, var url, var registeredBy) = command;
 
         // Scoped to the fab: another plant holding the name is not a collision
         // at all (FR-002).
@@ -26,7 +26,7 @@ public sealed class RegisterCameraCommandHandler(
             return Failure(RegisterCameraFailures.NameAlreadyTaken(fab.Value, name.Value));
         }
 
-        Domain.Camera.Camera camera = Domain.Camera.Camera.Register(
+        var camera = Domain.Camera.Camera.Register(
             fab, name, url, registeredBy, clock);
 
         cameras.Add(camera);

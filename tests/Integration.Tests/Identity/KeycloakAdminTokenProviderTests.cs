@@ -26,10 +26,10 @@ public class KeycloakAdminTokenProviderTests
     [Fact]
     public async Task Client_credentials_grant_against_identity_admin_returns_a_usable_token()
     {
-        KeycloakAdminTokenProvider provider = CreateProvider();
+        var provider = CreateProvider();
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(20));
 
-        string token = await provider.GetAccessTokenAsync(cts.Token);
+        var token = await provider.GetAccessTokenAsync(cts.Token);
 
         token.ShouldNotBeNullOrWhiteSpace();
         token.Split('.').Length.ShouldBe(3, "Keycloak emits JWS access tokens (header.payload.signature).");
@@ -38,18 +38,18 @@ public class KeycloakAdminTokenProviderTests
     [Fact]
     public async Task Second_call_within_token_lifetime_returns_the_cached_token()
     {
-        KeycloakAdminTokenProvider provider = CreateProvider();
+        var provider = CreateProvider();
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(20));
 
-        string first = await provider.GetAccessTokenAsync(cts.Token);
-        string second = await provider.GetAccessTokenAsync(cts.Token);
+        var first = await provider.GetAccessTokenAsync(cts.Token);
+        var second = await provider.GetAccessTokenAsync(cts.Token);
 
         second.ShouldBe(first);
     }
 
     private KeycloakAdminTokenProvider CreateProvider()
     {
-        HttpClient http = fixture.CreateKeycloakClient();
+        var http = fixture.CreateKeycloakClient();
         KeycloakAdminOptions options = new()
         {
             BaseUrl = http.BaseAddress!.ToString(),

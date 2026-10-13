@@ -30,7 +30,7 @@ public class CameraAddressChangeTests
     [Fact]
     public void Correcting_the_address_replaces_it()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithUrl(OriginalUrl).Build();
+        var camera = new CameraBuilder().WithUrl(OriginalUrl).Build();
 
         camera.ChangeAddress(RtspUrl.From(CorrectedUrl), Operator, new FixedClock(ChangedAt));
 
@@ -40,12 +40,12 @@ public class CameraAddressChangeTests
     [Fact]
     public void Correcting_the_address_raises_one_event_carrying_both_addresses()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithFab("munich").WithUrl(OriginalUrl).Build();
+        var camera = new CameraBuilder().WithFab("munich").WithUrl(OriginalUrl).Build();
         camera.ClearPendingEvents();
 
         camera.ChangeAddress(RtspUrl.From(CorrectedUrl), Operator, new FixedClock(ChangedAt));
 
-        CameraAddressChangedDomainEvent changed = camera.PendingEvents
+        var changed = camera.PendingEvents
             .OfType<CameraAddressChangedDomainEvent>()
             .ShouldHaveSingleItem();
 
@@ -71,7 +71,7 @@ public class CameraAddressChangeTests
     [Fact]
     public void Re_submitting_the_address_it_already_has_raises_nothing()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithUrl(OriginalUrl).Build();
+        var camera = new CameraBuilder().WithUrl(OriginalUrl).Build();
         camera.ClearPendingEvents();
 
         camera.ChangeAddress(RtspUrl.From(OriginalUrl), Operator, new FixedClock(ChangedAt));
@@ -89,7 +89,7 @@ public class CameraAddressChangeTests
     [Fact]
     public void A_retired_cameras_address_cannot_be_changed()
     {
-        Domain.Camera.Camera camera = new CameraBuilder().WithUrl(OriginalUrl).Build();
+        var camera = new CameraBuilder().WithUrl(OriginalUrl).Build();
         camera.Retire(Operator, new FixedClock(ChangedAt));
         camera.ClearPendingEvents();
 
@@ -104,15 +104,15 @@ public class CameraAddressChangeTests
     [Fact]
     public void Correcting_the_address_leaves_everything_that_records_what_happened_alone()
     {
-        Domain.Camera.Camera camera = new CameraBuilder()
+        var camera = new CameraBuilder()
             .WithFab("munich")
             .WithName("line-3-inlet")
             .WithUrl(OriginalUrl)
             .Build();
 
-        CameraIdentifier identifier = camera.Id;
+        var identifier = camera.Id;
         DateTimeOffset registeredAt = camera.Registration.At;
-        OperatorIdentifier registeredBy = camera.Registration.By;
+        var registeredBy = camera.Registration.By;
 
         camera.ChangeAddress(RtspUrl.From(CorrectedUrl), Operator, new FixedClock(ChangedAt));
 

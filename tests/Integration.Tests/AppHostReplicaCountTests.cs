@@ -68,9 +68,9 @@ public class AppHostReplicaCountTests
     [Fact]
     public async Task A_run_mode_stack_composes_every_service_at_one_instance()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(RunModeArguments);
+        var resources = await ComposedResourcesAsync(RunModeArguments);
 
-        Dictionary<string, int> aboveOneInstance = ResourcesAboveOneInstance(resources);
+        var aboveOneInstance = ResourcesAboveOneInstance(resources);
 
         aboveOneInstance.ShouldBeEmpty(
             $"observed above-one-instance resources: [{Describe(aboveOneInstance)}]. A run-mode "
@@ -78,7 +78,7 @@ public class AppHostReplicaCountTests
             + $"its in-memory rate limiter is per process, so a second replica multiplies every "
             + $"caller's limit (#2283). {OneInstanceRule}");
 
-        IResource? gateway = resources.SingleOrDefault(resource => resource.Name == "api-gateway");
+        var gateway = resources.SingleOrDefault(resource => resource.Name == "api-gateway");
 
         gateway.ShouldNotBeNull(
             "api-gateway was absent from the run-mode model — 'nothing above one' is satisfied "
@@ -101,13 +101,13 @@ public class AppHostReplicaCountTests
     [Fact]
     public void The_scan_reports_a_resource_composed_above_one_instance_and_nothing_else()
     {
-        IDistributedApplicationBuilder builder = DistributedApplication.CreateBuilder([]);
-        string projectPath = SyntheticProjectPath();
+        var builder = DistributedApplication.CreateBuilder([]);
+        var projectPath = SyntheticProjectPath();
 
         builder.AddProject("synthetic-single", projectPath);
         builder.AddProject("synthetic-doubled", projectPath).WithReplicas(2);
 
-        Dictionary<string, int> aboveOneInstance = ResourcesAboveOneInstance([.. builder.Resources]);
+        var aboveOneInstance = ResourcesAboveOneInstance([.. builder.Resources]);
 
         Dictionary<string, int> onlyTheDoubled = new() { ["synthetic-doubled"] = 2 };
 
@@ -122,9 +122,9 @@ public class AppHostReplicaCountTests
     [Fact]
     public async Task The_integration_lane_composes_every_service_at_one_instance()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(FixtureArguments);
+        var resources = await ComposedResourcesAsync(FixtureArguments);
 
-        Dictionary<string, int> aboveOneInstance = ResourcesAboveOneInstance(resources);
+        var aboveOneInstance = ResourcesAboveOneInstance(resources);
 
         aboveOneInstance.ShouldBeEmpty(
             $"observed above-one-instance resources: [{Describe(aboveOneInstance)}]. The "
@@ -132,7 +132,7 @@ public class AppHostReplicaCountTests
             + $"instance, including api-gateway, which is gated off under this flag by "
             + $"AppHost.cs's `// HA (#1005)` comment block. {OneInstanceRule}");
 
-        IResource? gateway = resources.SingleOrDefault(resource => resource.Name == "api-gateway");
+        var gateway = resources.SingleOrDefault(resource => resource.Name == "api-gateway");
 
         gateway.ShouldNotBeNull(
             "api-gateway was absent from the E2ETests=true model — 'nothing above one' is "
@@ -153,7 +153,7 @@ public class AppHostReplicaCountTests
     [Fact]
     public async Task The_composed_model_is_read_before_any_replica_count_is_judged()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(RunModeArguments);
+        var resources = await ComposedResourcesAsync(RunModeArguments);
 
         resources.ShouldNotBeEmpty(
             "the composed AppHost model was empty — the scan is broken, not passing, because "
@@ -181,7 +181,7 @@ public class AppHostReplicaCountTests
             candidate = candidate.Parent;
         }
 
-        string root = candidate?.FullName
+        var root = candidate?.FullName
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
@@ -201,9 +201,9 @@ public class AppHostReplicaCountTests
     {
         Dictionary<string, int> aboveOneInstance = [];
 
-        foreach (IResource resource in resources)
+        foreach (var resource in resources)
         {
-            int count = resource.GetReplicaCount();
+            var count = resource.GetReplicaCount();
 
             if (count > 1)
             {
@@ -216,7 +216,7 @@ public class AppHostReplicaCountTests
 
     private static async Task<IReadOnlyList<IResource>> ComposedResourcesAsync(string[] arguments)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 

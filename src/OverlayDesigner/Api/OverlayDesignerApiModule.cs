@@ -1,4 +1,3 @@
-using Microsoft.Extensions.DependencyInjection;
 using SmartSentinelEye.OverlayDesigner.Application.Commands.Handlers;
 using SmartSentinelEye.OverlayDesigner.Application.Queries.Handlers;
 using SmartSentinelEye.Shared.Kernel;
@@ -18,14 +17,15 @@ public static class OverlayDesignerApiModule
     {
         Ensure.That(services).IsNotNull();
 
-        services.AddScoped<CreateOverlayDraftCommandHandler>();
-        services.AddScoped<PublishRevisionCommandHandler>();
-        services.AddScoped<ArchiveRevisionCommandHandler>();
-        services.AddScoped<BranchDraftRevisionCommandHandler>();
-        services.AddScoped<EditDraftRevisionCommandHandler>();
-        services.AddScoped<RevertRevisionCommandHandler>();
-        services.AddScoped<GetOverlayQueryHandler>();
-        services.AddScoped<ListOverlaysQueryHandler>();
+        services
+            .AddScoped<CreateOverlayDraftCommandHandler>()
+            .AddScoped<PublishRevisionCommandHandler>()
+            .AddScoped<ArchiveRevisionCommandHandler>()
+            .AddScoped<BranchDraftRevisionCommandHandler>()
+            .AddScoped<EditDraftRevisionCommandHandler>()
+            .AddScoped<RevertRevisionCommandHandler>()
+            .AddScoped<GetOverlayQueryHandler>()
+            .AddScoped<ListOverlaysQueryHandler>();
 
         return services;
     }

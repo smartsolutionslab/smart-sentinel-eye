@@ -115,18 +115,18 @@ public class StatusTintTests
     [Fact]
     public void Each_triad_tint_is_a_literal_at_its_triad_hue()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
 
         List<string> problems = [];
 
-        foreach (string role in TriadRoles)
+        foreach (var role in TriadRoles)
         {
-            string triadName = $"--color-accent-{role}";
-            (bool triadOk, OklchTriple? triadValue, string? triadReason) = ResolveLiteralThroughVarOnly(triadName, rootMap);
+            var triadName = $"--color-accent-{role}";
+            (var triadOk, var triadValue, var triadReason) = ResolveLiteralThroughVarOnly(triadName, rootMap);
 
             if (!triadOk)
             {
@@ -134,10 +134,10 @@ public class StatusTintTests
                 continue;
             }
 
-            foreach ((string themeName, Dictionary<string, string> map) in new[] { ("dark", rootMap), ("light", lightMap) })
+            foreach ((var themeName, var map) in new[] { ("dark", rootMap), ("light", lightMap) })
             {
-                string subtleName = $"--color-accent-{role}-subtle";
-                (bool ok, OklchTriple? value, string? reason) = ResolveLiteralThroughVarOnly(subtleName, map);
+                var subtleName = $"--color-accent-{role}-subtle";
+                (var ok, var value, var reason) = ResolveLiteralThroughVarOnly(subtleName, map);
 
                 if (!ok)
                 {
@@ -145,7 +145,7 @@ public class StatusTintTests
                     continue;
                 }
 
-                double diff = Math.Abs(value!.Value.Hue - triadValue!.Value.Hue);
+                var diff = Math.Abs(value!.Value.Hue - triadValue!.Value.Hue);
                 if (diff > HueTolerance)
                 {
                     problems.Add(
@@ -173,19 +173,19 @@ public class StatusTintTests
     [Fact]
     public void Each_triad_text_role_keeps_its_triad_hue()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach (string role in TriadRoles)
+        foreach (var role in TriadRoles)
         {
-            string triadName = $"--color-accent-{role}";
-            (bool triadOk, OklchTriple? triadValue, string? triadReason) = ResolveLiteralThroughVarOnly(triadName, rootMap);
+            var triadName = $"--color-accent-{role}";
+            (var triadOk, var triadValue, var triadReason) = ResolveLiteralThroughVarOnly(triadName, rootMap);
 
             if (!triadOk)
             {
@@ -193,15 +193,15 @@ public class StatusTintTests
                 continue;
             }
 
-            foreach ((string themeName, Dictionary<string, string> map) in new[]
+            foreach ((var themeName, var map) in new[]
                      {
                          ("dark", rootMap),
                          ("light", lightMap),
                          ("high-contrast", highContrastMap),
                      })
             {
-                string textName = $"--color-accent-{role}-text";
-                (bool ok, OklchTriple? value, string? reason) = ResolveLiteralThroughVarOnly(textName, map);
+                var textName = $"--color-accent-{role}-text";
+                (var ok, var value, var reason) = ResolveLiteralThroughVarOnly(textName, map);
 
                 if (!ok)
                 {
@@ -209,7 +209,7 @@ public class StatusTintTests
                     continue;
                 }
 
-                double diff = Math.Abs(value!.Value.Hue - triadValue!.Value.Hue);
+                var diff = Math.Abs(value!.Value.Hue - triadValue!.Value.Hue);
                 if (diff > HueTolerance)
                 {
                     problems.Add(
@@ -235,9 +235,9 @@ public class StatusTintTests
     [Fact]
     public void No_theme_redeclares_a_triad_role()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         string[] triadRoleNames = [.. TriadRoles.Select(role => $"--color-accent-{role}")];
 
@@ -261,28 +261,28 @@ public class StatusTintTests
     [Fact]
     public void A_triad_label_is_legible_on_its_tint()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            foreach (string role in TriadRoles)
+            foreach (var role in TriadRoles)
             {
-                string textName = $"--color-accent-{role}-text";
-                string fillName = $"--color-accent-{role}-subtle";
+                var textName = $"--color-accent-{role}-text";
+                var fillName = $"--color-accent-{role}-subtle";
 
-                (double ratio, string? error) = TryContrastRatio(textName, fillName, map);
+                (var ratio, var error) = TryContrastRatio(textName, fillName, map);
                 if (error is not null)
                 {
                     problems.Add($"[{themeName}] {error}");
@@ -311,29 +311,29 @@ public class StatusTintTests
     [Fact]
     public void A_triad_label_is_legible_on_every_ground()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            foreach (string role in TriadRoles)
+            foreach (var role in TriadRoles)
             {
-                string textName = $"--color-accent-{role}-text";
+                var textName = $"--color-accent-{role}-text";
 
-                foreach (string ground in new[] { "--color-bg-base", "--color-bg-elevated", "--color-bg-raised" })
+                foreach (var ground in new[] { "--color-bg-base", "--color-bg-elevated", "--color-bg-raised" })
                 {
-                    (double ratio, string? error) = TryContrastRatio(textName, ground, map);
+                    (var ratio, var error) = TryContrastRatio(textName, ground, map);
                     if (error is not null)
                     {
                         problems.Add($"[{themeName}] {error}");
@@ -366,16 +366,16 @@ public class StatusTintTests
     [Fact]
     public void Each_on_video_text_role_is_its_signal_in_every_theme()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         List<string> problems = [];
 
-        foreach (string role in OnVideoRoles)
+        foreach (var role in OnVideoRoles)
         {
-            string onVideoName = $"--color-accent-{role}-on-video";
-            string expectedValue = $"var(--color-accent-{role})";
+            var onVideoName = $"--color-accent-{role}-on-video";
+            var expectedValue = $"var(--color-accent-{role})";
 
             Declaration[] rootDeclarations = [.. declarations.Where(d => d.Name == onVideoName && IsRootSelector(d.Selector))];
 
@@ -417,27 +417,27 @@ public class StatusTintTests
     [Fact]
     public void A_triad_label_is_legible_on_video()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            foreach (string role in OnVideoRoles)
+            foreach (var role in OnVideoRoles)
             {
-                string onVideoName = $"--color-accent-{role}-on-video";
+                var onVideoName = $"--color-accent-{role}-on-video";
 
-                (double ratio, string? error) = TryContrastRatio(onVideoName, "--color-bg-video", map);
+                (var ratio, var error) = TryContrastRatio(onVideoName, "--color-bg-video", map);
                 if (error is not null)
                 {
                     problems.Add($"[{themeName}] {error}");
@@ -464,23 +464,23 @@ public class StatusTintTests
     [Fact]
     public void The_neutral_label_is_legible_on_its_fill()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            (double ratio, string? error) = TryContrastRatio("--color-fg-muted", "--color-bg-raised", map);
+            (var ratio, var error) = TryContrastRatio("--color-fg-muted", "--color-bg-raised", map);
             if (error is not null)
             {
                 problems.Add($"[{themeName}] {error}");
@@ -515,9 +515,9 @@ public class StatusTintTests
     [Fact]
     public void The_neutral_on_video_role_is_the_muted_role_except_in_light()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
 
         const string onVideoName = "--color-fg-muted-on-video";
         const string expectedRootValue = "var(--color-fg-muted)";
@@ -570,23 +570,23 @@ public class StatusTintTests
     [Fact]
     public void The_neutral_label_is_legible_on_video()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        FileInfo tokenFile = TokenFile(root);
-        List<Declaration> declarations = ParseDeclarations(ReadCss(tokenFile));
-        Dictionary<string, string> rootMap = RootMap(declarations);
-        Dictionary<string, string> lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
-        Dictionary<string, string> highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
+        var root = RepositorySource.Root();
+        var tokenFile = TokenFile(root);
+        var declarations = ParseDeclarations(ReadCss(tokenFile));
+        var rootMap = RootMap(declarations);
+        var lightMap = ThemeMap(declarations, rootMap, IsLightTheme);
+        var highContrastMap = ThemeMap(declarations, rootMap, IsHighContrastTheme);
 
         List<string> problems = [];
 
-        foreach ((string themeName, Dictionary<string, string> map) in new[]
+        foreach ((var themeName, var map) in new[]
                  {
                      ("dark", rootMap),
                      ("light", lightMap),
                      ("high-contrast", highContrastMap),
                  })
         {
-            (double ratio, string? error) = TryContrastRatio("--color-fg-muted-on-video", "--color-bg-video", map);
+            (var ratio, var error) = TryContrastRatio("--color-fg-muted-on-video", "--color-bg-video", map);
             if (error is not null)
             {
                 problems.Add($"[{themeName}] {error}");
@@ -620,19 +620,19 @@ public class StatusTintTests
     private static (bool Success, OklchTriple? Value, string? Reason) ResolveLiteralThroughVarOnly(
         string name, Dictionary<string, string> map)
     {
-        string current = name;
+        var current = name;
         HashSet<string> seen = [];
 
         while (true)
         {
-            if (!map.TryGetValue(current, out string? value))
+            if (!map.TryGetValue(current, out var value))
             {
                 return (false, null, current == name
                     ? $"{name} is not declared."
                     : $"{name} resolves to {current}, which is not declared.");
             }
 
-            string trimmed = value.Trim();
+            var trimmed = value.Trim();
 
             if (SimpleVarValue.IsMatch(trimmed))
             {
@@ -652,7 +652,7 @@ public class StatusTintTests
                     + "browser (spec 297 §1); cite a tint stop instead.");
             }
 
-            Match literal = OklchLiteral.Match(trimmed);
+            var literal = OklchLiteral.Match(trimmed);
             if (!literal.Success)
             {
                 return (false, null, $"resolves to '{trimmed}' (via {current}), neither var() nor an oklch() literal.");
@@ -672,13 +672,13 @@ public class StatusTintTests
     /// </summary>
     private static (double Ratio, string? Error) TryContrastRatio(string textName, string fillName, Dictionary<string, string> map)
     {
-        (bool textOk, (int R, int G, int B)? text, string? textError) = TryResolveSrgb(textName, map, []);
+        (var textOk, var text, var textError) = TryResolveSrgb(textName, map, []);
         if (!textOk)
         {
             return (0, $"{textName} {textError}");
         }
 
-        (bool fillOk, (int R, int G, int B)? fill, string? fillError) = TryResolveSrgb(fillName, map, []);
+        (var fillOk, var fill, var fillError) = TryResolveSrgb(fillName, map, []);
         if (!fillOk)
         {
             return (0, $"{fillName} {fillError}");
@@ -690,16 +690,16 @@ public class StatusTintTests
     private static (bool Success, (int R, int G, int B)? Value, string? Reason) TryResolveSrgb(
         string name, Dictionary<string, string> map, HashSet<string> seen)
     {
-        if (!map.TryGetValue(name, out string? value))
+        if (!map.TryGetValue(name, out var value))
         {
             return (false, null, "is not declared.");
         }
 
-        string trimmed = value.Trim();
+        var trimmed = value.Trim();
 
         if (SimpleVarValue.IsMatch(trimmed))
         {
-            string next = VarReference.Match(trimmed).Groups["name"].Value;
+            var next = VarReference.Match(trimmed).Groups["name"].Value;
             if (!seen.Add(name))
             {
                 return (false, null, $"has a circular var() reference resolving {next}.");
@@ -708,7 +708,7 @@ public class StatusTintTests
             return TryResolveSrgb(next, map, seen);
         }
 
-        Match mix = Regex.Match(
+        var mix = Regex.Match(
             trimmed,
             @"^color-mix\(in (?<space>oklab|oklch),\s*var\((?<a>--[A-Za-z0-9-]+)\)\s+(?<pct>\d+(?:\.\d+)?)%,\s*"
             + @"(?:var\((?<b>--[A-Za-z0-9-]+)\)|(?<transparent>transparent))\)$");
@@ -719,40 +719,40 @@ public class StatusTintTests
                 return (false, null, $"resolves to '{trimmed}', which mixes toward transparent — no single rendered colour.");
             }
 
-            (bool aOk, OklchTriple? a, string? aReason) = ResolveLiteralOrMix(mix.Groups["a"].Value, map);
+            (var aOk, var a, var aReason) = ResolveLiteralOrMix(mix.Groups["a"].Value, map);
             if (!aOk)
             {
                 return (false, null, aReason);
             }
 
-            (bool bOk, OklchTriple? b, string? bReason) = ResolveLiteralOrMix(mix.Groups["b"].Value, map);
+            (var bOk, var b, var bReason) = ResolveLiteralOrMix(mix.Groups["b"].Value, map);
             if (!bOk)
             {
                 return (false, null, bReason);
             }
 
-            double fraction = double.Parse(mix.Groups["pct"].Value, CultureInfo.InvariantCulture) / 100.0;
+            var fraction = double.Parse(mix.Groups["pct"].Value, CultureInfo.InvariantCulture) / 100.0;
 
             // Evaluates the declared space exactly (spec 299 FR-003, issue
             // #2695) via OklchColorResolver.Mix, the same evaluator
             // InteractionStateTests.ResolveOklch calls — rather than
             // approximating the mixed hue from whichever operand carries
             // more chroma.
-            OklchColorResolver.MixSpace space = mix.Groups["space"].Value == "oklab"
+            var space = mix.Groups["space"].Value == "oklab"
                 ? OklchColorResolver.MixSpace.Oklab
                 : OklchColorResolver.MixSpace.Oklch;
 
-            OklchTriple aValue = a!.Value;
-            OklchTriple bValue = b!.Value;
+            var aValue = a!.Value;
+            var bValue = b!.Value;
 
-            (double lightness, double chroma, double hue) = OklchColorResolver.Mix(
+            (var lightness, var chroma, var hue) = OklchColorResolver.Mix(
                 space, (aValue.Lightness, aValue.Chroma, aValue.Hue), fraction,
                 (bValue.Lightness, bValue.Chroma, bValue.Hue));
 
             return (true, OklchColorResolver.OklchToSrgb(lightness, chroma, hue), null);
         }
 
-        Match literal = OklchLiteral.Match(trimmed);
+        var literal = OklchLiteral.Match(trimmed);
         if (literal.Success)
         {
             return (true, OklchColorResolver.OklchToSrgb(
@@ -781,7 +781,7 @@ public class StatusTintTests
     {
         double Channel(int value8Bit)
         {
-            double c = value8Bit / 255.0;
+            var c = value8Bit / 255.0;
             return c <= 0.03928 ? c / 12.92 : Math.Pow((c + 0.055) / 1.055, 2.4);
         }
 
@@ -790,10 +790,10 @@ public class StatusTintTests
 
     private static double ContrastRatio((int R, int G, int B) a, (int R, int G, int B) b)
     {
-        double luminanceA = RelativeLuminance(a);
-        double luminanceB = RelativeLuminance(b);
-        double lighter = Math.Max(luminanceA, luminanceB);
-        double darker = Math.Min(luminanceA, luminanceB);
+        var luminanceA = RelativeLuminance(a);
+        var luminanceB = RelativeLuminance(b);
+        var lighter = Math.Max(luminanceA, luminanceB);
+        var darker = Math.Min(luminanceA, luminanceB);
 
         return (lighter + 0.05) / (darker + 0.05);
     }
@@ -823,7 +823,7 @@ public class StatusTintTests
     {
         Dictionary<string, string> map = new(rootMap, StringComparer.Ordinal);
 
-        foreach (Declaration declaration in declarations.Where(declaration => isTheme(declaration.Selector)))
+        foreach (var declaration in declarations.Where(declaration => isTheme(declaration.Selector)))
         {
             map[declaration.Name] = declaration.Value;
         }
@@ -845,7 +845,7 @@ public class StatusTintTests
 
         foreach (Match block in Regex.Matches(css, @"(?<sel>[^{}]+)\{(?<body>[^{}]*)\}", RegexOptions.Singleline))
         {
-            string selector = block.Groups["sel"].Value.Trim();
+            var selector = block.Groups["sel"].Value.Trim();
 
             foreach (Match declaration in Regex.Matches(
                          block.Groups["body"].Value,

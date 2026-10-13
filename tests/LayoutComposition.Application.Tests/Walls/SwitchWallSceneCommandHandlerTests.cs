@@ -2,12 +2,9 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
 using SmartSentinelEye.LayoutComposition.Application.Commands.Handlers;
-using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Tests.Wall.Builders;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Walls;
 
@@ -35,16 +32,16 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task Switching_to_a_named_scene_shows_it()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier c = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var c = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        FakeLayoutPublicationLookup lookup = AllPublishedIn(Munich, a, b, c);
-        SwitchWallSceneCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var lookup = AllPublishedIn(Munich, a, b, c);
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Layout(c), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -57,19 +54,19 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task Next_wraps_from_the_last_scene_back_to_the_first()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier c = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var c = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b, c]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        FakeLayoutPublicationLookup lookup = AllPublishedIn(Munich, a, b, c);
-        SwitchWallSceneCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var lookup = AllPublishedIn(Munich, a, b, c);
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
         await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Layout(c), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Next(), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -81,14 +78,14 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task Switching_to_the_scene_already_showing_is_a_no_op_and_leaves_SceneVersion_unchanged()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        SwitchWallSceneCommandHandler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Layout(a), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -100,14 +97,14 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task A_wall_in_another_fab_returns_WALL_NOT_FOUND()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        SwitchWallSceneCommandHandler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Dresden], wall.Id, wall.Version, new SceneTarget.Layout(b), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -118,14 +115,14 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task A_stale_version_on_another_fabs_wall_still_answers_not_found()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        SwitchWallSceneCommandHandler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Dresden], wall.Id, wall.Version + 99, new SceneTarget.Layout(b), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -136,14 +133,14 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task A_stale_expected_version_returns_WALL_STALE()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        SwitchWallSceneCommandHandler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version + 1, new SceneTarget.Layout(b), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -155,15 +152,15 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task A_target_not_in_the_scene_set_returns_WALL_SCENE_NOT_IN_SET()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        LayoutIdentifier outside = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var outside = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        SwitchWallSceneCommandHandler handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Layout(outside), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -175,16 +172,16 @@ public class SwitchWallSceneCommandHandlerTests
     [Fact]
     public async Task A_target_scene_no_longer_Published_returns_WALL_SCENE_NOT_PUBLISHED()
     {
-        LayoutIdentifier a = NewScene();
-        LayoutIdentifier b = NewScene();
-        Wall wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(FixedMoment).Build();
         InMemoryWallRepository walls = new();
         walls.Add(wall);
-        FakeLayoutPublicationLookup lookup = new FakeLayoutPublicationLookup()
+        var lookup = new FakeLayoutPublicationLookup()
             .WithLayout(a, Munich).WithLayout(b, Munich, isPublished: false);
-        SwitchWallSceneCommandHandler handler = Handler(walls, lookup, new FakeClock(FixedMoment));
+        var handler = Handler(walls, lookup, new FakeClock(FixedMoment));
 
-        Result<WallDto, SwitchWallSceneError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new SwitchWallSceneCommand([Munich], wall.Id, wall.Version, new SceneTarget.Layout(b), OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -195,7 +192,7 @@ public class SwitchWallSceneCommandHandlerTests
     private static FakeLayoutPublicationLookup AllPublishedIn(FabIdentifier fab, params LayoutIdentifier[] scenes)
     {
         FakeLayoutPublicationLookup lookup = new();
-        foreach (LayoutIdentifier scene in scenes)
+        foreach (var scene in scenes)
         {
             lookup.WithLayout(scene, fab);
         }

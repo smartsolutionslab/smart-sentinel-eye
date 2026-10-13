@@ -1,6 +1,4 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -51,12 +49,12 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_revoked_kiosks_token_is_refused_on_CameraCatalog_and_WHEP_while_a_control_kiosk_stays_admitted()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        (string subjectClientId, string subjectSecret) = await EnrollKioskAsync(identity, "revoke-subject");
-        (string controlClientId, string controlSecret) = await EnrollKioskAsync(identity, "revoke-control");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        (var subjectClientId, var subjectSecret) = await EnrollKioskAsync(identity, "revoke-subject");
+        (var controlClientId, var controlSecret) = await EnrollKioskAsync(identity, "revoke-control");
 
-        string subjectToken = await ClientCredentialsTokenAsync(subjectClientId, subjectSecret);
-        string controlToken = await ClientCredentialsTokenAsync(controlClientId, controlSecret);
+        var subjectToken = await ClientCredentialsTokenAsync(subjectClientId, subjectSecret);
+        var controlToken = await ClientCredentialsTokenAsync(controlClientId, controlSecret);
 
         // Controls first, asserted before the disable: the 401s asserted
         // below can then only be caused by the disable, not by a token or a
@@ -66,12 +64,12 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
         (await StreamsAuthorizeStatusAsync(subjectToken)).ShouldBe(HttpStatusCode.OK);
         (await StreamsAuthorizeStatusAsync(controlToken)).ShouldBe(HttpStatusCode.OK);
 
-        HttpResponseMessage disabled = await identity.DeleteAsync($"/kiosks/{subjectClientId}?fabId={Fab}");
+        var disabled = await identity.DeleteAsync($"/kiosks/{subjectClientId}?fabId={Fab}");
         disabled.StatusCode.ShouldBe(HttpStatusCode.OK, await disabled.Content.ReadAsStringAsync());
 
-        DateTime deadline = DateTime.UtcNow + PollCeiling;
-        HttpStatusCode subjectCameras = await CamerasStatusAsync(subjectToken);
-        HttpStatusCode subjectStreams = await StreamsAuthorizeStatusAsync(subjectToken);
+        var deadline = DateTime.UtcNow + PollCeiling;
+        var subjectCameras = await CamerasStatusAsync(subjectToken);
+        var subjectStreams = await StreamsAuthorizeStatusAsync(subjectToken);
         while ((subjectCameras != HttpStatusCode.Unauthorized || subjectStreams != HttpStatusCode.Unauthorized)
                && DateTime.UtcNow < deadline)
         {
@@ -101,12 +99,12 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
         (await CamerasStatusAsync(controlToken)).ShouldBe(HttpStatusCode.OK);
         (await StreamsAuthorizeStatusAsync(controlToken)).ShouldBe(HttpStatusCode.OK);
 
-        using HttpClient cameraCatalog = aspire.CreateServiceClient("camera-catalog");
+        using var cameraCatalog = aspire.CreateServiceClient("camera-catalog");
         using HttpRequestMessage camerasRequest = new(HttpMethod.Get, "/cameras")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", subjectToken) },
         };
-        HttpResponseMessage finalRefusal = await cameraCatalog.SendAsync(camerasRequest);
+        var finalRefusal = await cameraCatalog.SendAsync(camerasRequest);
         finalRefusal.Headers.WwwAuthenticate.ToString().ShouldContain(
             "invalid_token",
             customMessage: "FR-002: the refusal must take the bearer handler's standard invalid_token "
@@ -116,26 +114,26 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_revocation_list_endpoint_requires_its_own_scope()
     {
-        using HttpClient anonymous = aspire.CreateServiceClient("identity");
+        using var anonymous = aspire.CreateServiceClient("identity");
         (await anonymous.GetAsync("/registered-clients/revoked")).StatusCode.ShouldBe(HttpStatusCode.Unauthorized);
 
-        using HttpClient operatorWithoutScope = await aspire.CreateAdminClientAsync("identity");
+        using var operatorWithoutScope = await aspire.CreateAdminClientAsync("identity");
         // The seeded admin operator holds every kiosk/device management scope
         // this realm grants management-web, and
         // sse.identity.revocations.read is deliberately not one of them
         // (ADR-0160 §4: one shared read-only service account, not a grant to
         // management-web).
-        HttpResponseMessage forbidden = await operatorWithoutScope.GetAsync("/registered-clients/revoked");
+        var forbidden = await operatorWithoutScope.GetAsync("/registered-clients/revoked");
         forbidden.StatusCode.ShouldBe(HttpStatusCode.Forbidden);
 
-        string readerToken = await ClientCredentialsTokenAsync(
+        var readerToken = await ClientCredentialsTokenAsync(
             "revocation-list-reader", "dev-only-revocation-list-reader-secret");
-        using HttpClient identity = aspire.CreateServiceClient("identity");
+        using var identity = aspire.CreateServiceClient("identity");
         using HttpRequestMessage request = new(HttpMethod.Get, "/registered-clients/revoked")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", readerToken) },
         };
-        HttpResponseMessage allowed = await identity.SendAsync(request);
+        var allowed = await identity.SendAsync(request);
 
         allowed.StatusCode.ShouldBe(HttpStatusCode.OK, await allowed.Content.ReadAsStringAsync());
     }
@@ -143,19 +141,19 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
     private static async Task<(string ClientId, string ClientSecret)> EnrollKioskAsync(
         HttpClient identity, string prefix)
     {
-        string name = $"t269-{prefix}-{Guid.CreateVersion7():N}";
+        var name = $"t269-{prefix}-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage enrolled = await identity.PostAsJsonAsync(
+        var enrolled = await identity.PostAsJsonAsync(
             $"/kiosks/enroll?fabId={Fab}", new { name });
         enrolled.StatusCode.ShouldBe(HttpStatusCode.Created, await enrolled.Content.ReadAsStringAsync());
 
-        JsonElement body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("clientId").GetString()!, body.GetProperty("clientSecret").GetString()!);
     }
 
     private async Task<string> ClientCredentialsTokenAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -163,29 +161,29 @@ public class RevokedTokenRefusedIntegrationTests(AspireFixture aspire)
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage response = await keycloak.PostAsync(
+        var response = await keycloak.PostAsync(
             $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token", form);
         response.EnsureSuccessStatusCode();
 
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("access_token").GetString()!;
     }
 
     private async Task<HttpStatusCode> CamerasStatusAsync(string token)
     {
-        using HttpClient cameraCatalog = aspire.CreateServiceClient("camera-catalog");
+        using var cameraCatalog = aspire.CreateServiceClient("camera-catalog");
         using HttpRequestMessage request = new(HttpMethod.Get, "/cameras")
         {
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", token) },
         };
 
-        HttpResponseMessage response = await cameraCatalog.SendAsync(request);
+        var response = await cameraCatalog.SendAsync(request);
         return response.StatusCode;
     }
 
     private async Task<HttpStatusCode> StreamsAuthorizeStatusAsync(string token)
     {
-        HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+        var response = await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize",
             new { token, path = $"cam-{Guid.CreateVersion7()}", action = "read" });
         return response.StatusCode;

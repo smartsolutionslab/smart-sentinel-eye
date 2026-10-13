@@ -1,10 +1,7 @@
-using System.Net;
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 
@@ -49,19 +46,19 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_1_A_SwitchWallScene_rule_with_target_Layout_round_trips()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
 
-        string name = UniqueRuleName();
-        HttpResponseMessage created = await rules.PostAsJsonAsync(
+        var name = UniqueRuleName();
+        var created = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(name, kind, "$.payload.line == 3", wall, "Layout", b));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        JsonElement action = (await ReadRuleAsync(rules, name)).GetProperty("action");
+        var action = (await ReadRuleAsync(rules, name)).GetProperty("action");
         action.GetProperty("kind").GetString().ShouldBe("SwitchWallScene");
         action.GetProperty("wall").GetGuid().ShouldBe(wall);
         action.GetProperty("sceneTarget").GetString().ShouldBe("Layout");
@@ -71,18 +68,18 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_1_A_SwitchWallScene_rule_with_target_Next_round_trips()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
 
-        string name = UniqueRuleName();
-        HttpResponseMessage created = await rules.PostAsJsonAsync(
+        var name = UniqueRuleName();
+        var created = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(name, UniqueKind(), "$.payload.line == 3", wall, "Next", null));
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        JsonElement action = (await ReadRuleAsync(rules, name)).GetProperty("action");
+        var action = (await ReadRuleAsync(rules, name)).GetProperty("action");
         action.GetProperty("sceneTarget").GetString().ShouldBe("Next");
         action.GetProperty("targetLayout").ValueKind.ShouldBe(JsonValueKind.Null);
     }
@@ -92,32 +89,32 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_2_A_matching_event_switches_the_wall_and_is_audited_and_broadcast()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
 
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Layout", b);
 
         TaskCompletionSource<WallSceneChangedHubMessage> framed = new();
-        await using HubConnection kiosk = await ListenForWallSceneChangedAsync(wall, framed);
+        await using var kiosk = await ListenForWallSceneChangedAsync(wall, framed);
 
-        HttpResponseMessage ingested = await IngestManualAsync(events, kind, new { line = 3 });
+        var ingested = await IngestManualAsync(events, kind, new { line = 3 });
         ingested.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(ingested));
 
-        JsonElement? state = await WaitForShowingAsync(layouts, wall, b);
+        var state = await WaitForShowingAsync(layouts, wall, b);
         state.ShouldNotBeNull("the wall never switched — the journey from ingest to the wall is broken");
         state.Value.GetProperty("sceneVersion").GetInt64().ShouldBe(1L);
 
         using CancellationTokenSource budget = new(EffectDeadline);
-        WallSceneChangedHubMessage frame = await framed.Task.WaitAsync(budget.Token);
+        var frame = await framed.Task.WaitAsync(budget.Token);
         frame.Showing.ShouldBe(b);
         frame.SceneVersion.ShouldBe(1L);
 
-        (string Cause, Guid Rule) audited = await PollForWallSceneChangedAuditAsync(wall);
+        var audited = await PollForWallSceneChangedAuditAsync(wall);
         audited.Cause.ShouldBe("Rule");
         audited.Rule.ShouldNotBe(Guid.Empty);
 
@@ -130,13 +127,13 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_3_Next_from_a_rule_advances_the_scene()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
 
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Next", null);
         (await IngestManualAsync(events, kind, new { line = 3 })).EnsureSuccessStatusCode();
@@ -149,13 +146,13 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_4_Manual_then_rule_the_rule_wins()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Layout", b);
 
         (await IngestManualAsync(events, kind, new { line = 3 })).EnsureSuccessStatusCode();
@@ -172,19 +169,19 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_5_Rule_then_manual_the_manual_switch_sticks_until_the_rule_fires_again()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Layout", b);
 
         (await IngestManualAsync(events, kind, new { line = 3 })).EnsureSuccessStatusCode();
         (await WaitForShowingAsync(layouts, wall, b)).ShouldNotBeNull();
 
-        HttpResponseMessage manual = await SwitchAsync(
+        var manual = await SwitchAsync(
             layouts, wall, await WallVersionAsync(layouts, wall), new { target = "layout", layout = a });
         manual.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(manual));
 
@@ -203,36 +200,36 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_6_A_concurrent_manual_and_rule_switch_leave_the_wall_consistent()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Layout", b);
 
-        int version = await WallVersionAsync(layouts, wall);
+        var version = await WallVersionAsync(layouts, wall);
 
-        Task<HttpResponseMessage> manual = SwitchAsync(layouts, wall, version, new { target = "layout", layout = b });
-        Task<HttpResponseMessage> ingest = IngestManualAsync(events, kind, new { line = 3 });
+        var manual = SwitchAsync(layouts, wall, version, new { target = "layout", layout = b });
+        var ingest = IngestManualAsync(events, kind, new { line = 3 });
         await Task.WhenAll(manual, ingest);
 
         // Let whichever ordering happened settle — the rule side is at least
         // one more async hop than the manual side even when it wins the race.
-        JsonElement? settled = await WaitForShowingAsync(layouts, wall, b);
+        var settled = await WaitForShowingAsync(layouts, wall, b);
         settled.ShouldNotBeNull("neither write ever landed, so this case establishes nothing");
 
-        JsonElement finalState = await ReadWallAsync(layouts, wall);
-        long finalVersion = finalState.GetProperty("sceneVersion").GetInt64();
-        Guid showing = finalState.GetProperty("showing").GetGuid();
+        var finalState = await ReadWallAsync(layouts, wall);
+        var finalVersion = finalState.GetProperty("sceneVersion").GetInt64();
+        var showing = finalState.GetProperty("showing").GetGuid();
 
-        int changedCount = await CountAuditRowsAsync("WallSceneChangedV1", wall);
+        var changedCount = await CountAuditRowsAsync("WallSceneChangedV1", wall);
         changedCount.ShouldBe(
             (int)finalVersion,
             "the number of WallSceneChangedV1 rows must equal the sceneVersion delta in every ordering");
 
-        Guid lastCurrentLayout = await LastWallSceneChangedCurrentLayoutAsync(wall);
+        var lastCurrentLayout = await LastWallSceneChangedCurrentLayoutAsync(wall);
         showing.ShouldBe(
             lastCurrentLayout,
             "Showing must equal the CurrentLayout of the last WallSceneChangedV1, whichever write committed first");
@@ -243,8 +240,8 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_7_No_wallIdentifier_is_refused_with_400()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var refused = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(UniqueRuleName(), UniqueKind(), "$.payload.line == 3", null, "Layout", Guid.CreateVersion7()));
         await AssertRuleInvalidInputAsync(refused);
     }
@@ -252,8 +249,8 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_7_A_sceneTarget_that_is_not_Next_or_Layout_is_refused_with_400()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var refused = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(UniqueRuleName(), UniqueKind(), "$.payload.line == 3", Guid.CreateVersion7(), "Sideways", null));
         await AssertRuleInvalidInputAsync(refused);
     }
@@ -261,8 +258,8 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_7_Layout_with_no_targetLayoutIdentifier_is_refused_with_400()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var refused = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(UniqueRuleName(), UniqueKind(), "$.payload.line == 3", Guid.CreateVersion7(), "Layout", null));
         await AssertRuleInvalidInputAsync(refused);
     }
@@ -270,8 +267,8 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_7_Next_with_a_targetLayoutIdentifier_is_refused_with_400()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var refused = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(UniqueRuleName(), UniqueKind(), "$.payload.line == 3", Guid.CreateVersion7(), "Next", Guid.CreateVersion7()));
         await AssertRuleInvalidInputAsync(refused);
     }
@@ -279,8 +276,8 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_7_An_empty_guid_for_wall_is_refused_with_400()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        HttpResponseMessage refused = await rules.PostAsJsonAsync(
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        var refused = await rules.PostAsJsonAsync(
             "/rules", SwitchWallSceneRuleBody(UniqueRuleName(), UniqueKind(), "$.payload.line == 3", Guid.Empty, "Layout", Guid.CreateVersion7()));
         await AssertRuleInvalidInputAsync(refused);
     }
@@ -306,20 +303,20 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_8_A_rule_in_another_fab_cannot_move_the_wall()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAuthenticatedClientAsync(
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAuthenticatedClientAsync(
             "automation", MultiFabOperator, OperatorPassword);
-        using HttpClient variables = await aspire.CreateAuthenticatedClientAsync(
+        using var variables = await aspire.CreateAuthenticatedClientAsync(
             "system-variables", MultiFabOperator, OperatorPassword);
-        using HttpClient events = await aspire.CreateAuthenticatedClientAsync(
+        using var events = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", MultiFabOperator, OperatorPassword);
 
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]); // munich
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]); // munich
 
-        string kind = UniqueKind();
-        string control = $"ctrl{Guid.NewGuid():N}"[..16];
+        var kind = UniqueKind();
+        var control = $"ctrl{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, control, "0");
 
         await ActivateSwitchWallSceneRuleAsync(
@@ -328,7 +325,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
         (await IngestManualAsync(events, kind, new { line = 3 }, fab: "dresden")).EnsureSuccessStatusCode();
 
-        string? observed = await WaitForVariableAsync(variables, control, "1");
+        var observed = await WaitForVariableAsync(variables, control, "1");
         observed.ShouldBe("1", "the control effect never arrived, so this case establishes nothing");
 
         // Give LayoutComposition's side the same chance to have processed
@@ -348,12 +345,12 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_11_A_caller_without_sse_rules_write_is_refused_with_403()
     {
-        (string ClientId, string ClientSecret) enrolled = await EnrollKioskAsync();
-        string kioskToken = await ClientCredentialsTokenAsync(enrolled.ClientId, enrolled.ClientSecret);
-        using HttpClient kiosk = aspire.CreateServiceClient("automation");
+        var enrolled = await EnrollKioskAsync();
+        var kioskToken = await ClientCredentialsTokenAsync(enrolled.ClientId, enrolled.ClientSecret);
+        using var kiosk = aspire.CreateServiceClient("automation");
         kiosk.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", kioskToken);
 
-        HttpResponseMessage refused = await kiosk.PostAsJsonAsync(
+        var refused = await kiosk.PostAsJsonAsync(
             "/rules",
             SwitchWallSceneRuleBody(
                 UniqueRuleName(), UniqueKind(), "$.payload.line == 3", Guid.CreateVersion7(), "Next", null));
@@ -366,14 +363,14 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_12_A_target_no_longer_in_the_wall_scenes_is_dropped()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid c = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
-        string kind = UniqueKind();
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var c = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        var kind = UniqueKind();
 
         // c is never a scene of this wall.
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Layout", c);
@@ -389,14 +386,14 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     [Fact]
     public async Task US2_13_A_target_that_is_no_longer_Published_is_dropped()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
-        Guid a = await PublishedLayoutAsync(layouts);
-        Guid b = await PublishedLayoutAsync(layouts);
-        Guid wall = await CreateWallReturningIdAsync(layouts, [a, b]);
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var a = await PublishedLayoutAsync(layouts);
+        var b = await PublishedLayoutAsync(layouts);
+        var wall = await CreateWallReturningIdAsync(layouts, [a, b]);
         await RevertToDraftAsync(layouts, b);
-        string kind = UniqueKind();
+        var kind = UniqueKind();
 
         await ActivateSwitchWallSceneRuleAsync(rules, UniqueRuleName(), kind, wall, "Layout", b);
 
@@ -412,10 +409,10 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private async Task<Guid> PublishedLayoutAsync(HttpClient layouts, string fab = "munich")
     {
-        string name = $"W296-{Guid.NewGuid():N}"[..16];
-        Guid camera = await LayoutRequests.RegisterCameraAsync(aspire, fab);
+        var name = $"W296-{Guid.NewGuid():N}"[..16];
+        var camera = await LayoutRequests.RegisterCameraAsync(aspire, fab);
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts" + (fab == "munich" ? "" : $"?fabId={fab}"), new
             {
                 name,
@@ -426,9 +423,9 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
                 },
             });
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
+        var published = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/publish");
         published.EnsureSuccessStatusCode();
 
         return layoutIdentifier;
@@ -436,7 +433,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task RevertToDraftAsync(HttpClient layouts, Guid layoutIdentifier)
     {
-        HttpResponseMessage reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
+        var reverted = await LayoutRequests.PostAsync(layouts, layoutIdentifier, "revisions/1/revert");
         reverted.EnsureSuccessStatusCode();
     }
 
@@ -448,7 +445,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<Guid> CreateWallReturningIdAsync(HttpClient layouts, IReadOnlyList<Guid> scenes)
     {
-        HttpResponseMessage created = await CreateWallAsync(layouts, UniqueWallName(), scenes);
+        var created = await CreateWallAsync(layouts, UniqueWallName(), scenes);
         created.EnsureSuccessStatusCode();
         return await created.Content.ReadFromJsonAsync<Guid>();
     }
@@ -458,7 +455,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<JsonElement> ReadWallAsync(HttpClient layouts, Guid wall)
     {
-        HttpResponseMessage fetched = await layouts.GetAsync($"/walls/{wall}");
+        var fetched = await layouts.GetAsync($"/walls/{wall}");
         fetched.EnsureSuccessStatusCode();
         return await fetched.Content.ReadFromJsonAsync<JsonElement>();
     }
@@ -476,10 +473,10 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     /// <summary>Polls <c>/walls/{wall}</c> until <c>showing</c> equals <paramref name="expected"/>.</summary>
     private static async Task<JsonElement?> WaitForShowingAsync(HttpClient layouts, Guid wall, Guid expected)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + EffectDeadline;
+        var deadline = DateTimeOffset.UtcNow + EffectDeadline;
         while (DateTimeOffset.UtcNow < deadline)
         {
-            JsonElement body = await ReadWallAsync(layouts, wall);
+            var body = await ReadWallAsync(layouts, wall);
             if (body.GetProperty("showing").GetGuid() == expected)
             {
                 return body;
@@ -544,17 +541,17 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<string> ActivateAsync(HttpClient rules, string name, object definition, string fab)
     {
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId={fab}", definition);
+        var created = await rules.PostAsJsonAsync($"/rules?fabId={fab}", definition);
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(created));
 
-        int version = await VersionOfAsync(rules, name, fab);
+        var version = await VersionOfAsync(rules, name, fab);
 
         using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={fab}");
         publish.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
-        HttpResponseMessage published = await rules.SendAsync(publish);
+        var published = await rules.SendAsync(publish);
         published.EnsureSuccessStatusCode();
 
-        JsonElement body = await ReadRuleAsync(rules, name, fab);
+        var body = await ReadRuleAsync(rules, name, fab);
         body.GetProperty("state").GetString().ShouldBe("Active");
 
         return name;
@@ -565,7 +562,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<JsonElement> ReadRuleAsync(HttpClient rules, string name, string fab = "munich")
     {
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}?fabId={fab}");
+        var fetched = await rules.GetAsync($"/rules/{name}?fabId={fab}");
         fetched.EnsureSuccessStatusCode();
         return await fetched.Content.ReadFromJsonAsync<JsonElement>();
     }
@@ -579,7 +576,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     private static Task<HttpResponseMessage> IngestManualAsync(
         HttpClient events, string kind, object payload, string? fab = null)
     {
-        string path = fab is null ? "/events/manual" : $"/events/manual?fabId={fab}";
+        var path = fab is null ? "/events/manual" : $"/events/manual?fabId={fab}";
         return events.PostAsJsonAsync(path, new
         {
             deviceId = "spec296-device",
@@ -593,7 +590,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task DefineVariableAsync(HttpClient variables, string name, string initial)
     {
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables?fabId=dresden", new
+        var defined = await variables.PostAsJsonAsync("/system-variables?fabId=dresden", new
         {
             name,
             type = "Number",
@@ -607,7 +604,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<string?> WaitForVariableAsync(HttpClient variables, string name, string expected)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + EffectDeadline;
+        var deadline = DateTimeOffset.UtcNow + EffectDeadline;
         string? observed = null;
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -625,34 +622,34 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private static async Task<string?> ReadVariableAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
+        var fetched = await variables.GetAsync($"/system-variables/{name}?fabId=dresden");
         if (!fetched.IsSuccessStatusCode)
         {
             return null;
         }
 
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        return body.TryGetProperty("value", out JsonElement value) ? value.GetString() : null;
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        return body.TryGetProperty("value", out var value) ? value.GetString() : null;
     }
 
     // ---- arranging: auth (mirrors WallEndpointsTests' kiosk helpers) -------------
 
     private async Task<(string ClientId, string ClientSecret)> EnrollKioskAsync()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = $"t296-rule-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = $"t296-rule-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage enrolled = await identity.PostAsJsonAsync(
+        var enrolled = await identity.PostAsJsonAsync(
             "/kiosks/enroll?fabId=munich", new { name });
         enrolled.StatusCode.ShouldBe(HttpStatusCode.Created, await BodyAsync(enrolled));
 
-        JsonElement body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await enrolled.Content.ReadFromJsonAsync<JsonElement>();
         return (body.GetProperty("clientId").GetString()!, body.GetProperty("clientSecret").GetString()!);
     }
 
     private async Task<string> ClientCredentialsTokenAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -660,7 +657,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
 
@@ -673,9 +670,9 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
     private async Task<HubConnection> ListenForWallSceneChangedAsync(
         Guid wall, TaskCompletionSource<WallSceneChangedHubMessage> changed)
     {
-        string token = await aspire.GetAdminAccessTokenAsync();
+        var token = await aspire.GetAdminAccessTokenAsync();
 
-        HubConnection kiosk = new HubConnectionBuilder()
+        var kiosk = new HubConnectionBuilder()
             .WithUrl(
                 aspire.HubUri("layout-composition", LayoutLifecycleHub.Path),
                 options => options.AccessTokenProvider = () => Task.FromResult<string?>(token))
@@ -710,16 +707,16 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
             ORDER BY occurred_at DESC
             """;
 
-        for (int attempt = 0; attempt < 120; attempt++)
+        for (var attempt = 0; attempt < 120; attempt++)
         {
-            await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
-            List<string> rows = await context.Database
+            await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
+            var rows = await context.Database
                 .SqlQueryRaw<string>(sql, "WallSceneChangedV1", wall.ToString())
                 .ToListAsync();
 
             if (rows.Count > 0)
             {
-                string[] parts = rows[0].Split('|');
+                var parts = rows[0].Split('|');
                 return (parts[0], Guid.Parse(parts[1]));
             }
 
@@ -739,8 +736,8 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
             ORDER BY occurred_at DESC
             """;
 
-        await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
-        List<string> rows = await context.Database
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
+        var rows = await context.Database
             .SqlQueryRaw<string>(sql, "WallSceneChangedV1", wall.ToString())
             .ToListAsync();
 
@@ -749,9 +746,9 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private async Task<int> CountAuditRowsAsync(string eventKind, Guid wall)
     {
-        await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> rows = await context.Database
+        var rows = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM audit_events
@@ -765,7 +762,7 @@ public class RuleSwitchesAWallIntegrationTests(AspireFixture aspire) : IAsyncLif
 
     private async Task PollForAuditCountAtLeastAsync(string eventKind, Guid wall, int atLeast)
     {
-        for (int attempt = 0; attempt < 120; attempt++)
+        for (var attempt = 0; attempt < 120; attempt++)
         {
             if (await CountAuditRowsAsync(eventKind, wall) >= atLeast)
             {

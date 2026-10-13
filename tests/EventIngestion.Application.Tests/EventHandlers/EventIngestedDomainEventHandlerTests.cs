@@ -22,7 +22,7 @@ public class EventIngestedDomainEventHandlerTests
         EventIngestedDomainEventHandler handler = new(
             bus, new RecordingJourneyOrigin(), NullLogger<EventIngestedDomainEventHandler>.Instance);
 
-        EventIdentifier identifier = EventIdentifier.New();
+        var identifier = EventIdentifier.New();
         EventIngestedDomainEvent domainEvent = new(
             identifier,
             FabIdentifier.From("munich"),
@@ -35,7 +35,7 @@ public class EventIngestedDomainEventHandlerTests
 
         await handler.Handle(domainEvent, CancellationToken.None);
 
-        FabEventIngestedV1 v1 = bus.Published.OfType<FabEventIngestedV1>().ShouldHaveSingleItem();
+        var v1 = bus.Published.OfType<FabEventIngestedV1>().ShouldHaveSingleItem();
         v1.EventIdentifier.ShouldBe(identifier.Value);
         v1.Fab.ShouldBe("munich");
         v1.Source.ShouldBe("plc");

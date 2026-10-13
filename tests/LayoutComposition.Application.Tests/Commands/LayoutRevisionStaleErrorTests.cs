@@ -1,6 +1,5 @@
 using System.Net;
 using SmartSentinelEye.LayoutComposition.Application.Commands;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 
@@ -48,7 +47,7 @@ public class LayoutRevisionStaleErrorTests
     [Fact]
     public void The_message_names_both_the_version_held_and_the_version_stored()
     {
-        foreach (ApiError error in EveryStaleCase())
+        foreach (var error in EveryStaleCase())
         {
             error.Message.ShouldContain("3");
             error.Message.ShouldContain("4");

@@ -31,7 +31,7 @@ public sealed class FabPartitionProvisioner(ILogger<FabPartitionProvisioner> log
         IReadOnlyList<FabIdentifier> fabs,
         CancellationToken cancellationToken)
     {
-        foreach (FabIdentifier fab in fabs)
+        foreach (var fab in fabs)
         {
 #pragma warning disable S2077
             await context.Database.ExecuteSqlRawAsync(BuildPartitionDdl(fab), cancellationToken);

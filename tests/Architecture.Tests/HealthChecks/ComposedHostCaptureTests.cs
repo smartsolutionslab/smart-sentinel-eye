@@ -36,9 +36,9 @@ public class ComposedHostCaptureTests
     [Fact]
     public void A_host_missing_required_configuration_fails_capture_with_its_own_exception()
     {
-        ServedHealthHosts.Host host = ServedHealthHosts.Resolve("SmartSentinelEye.Automation.Api");
+        var host = ServedHealthHosts.Resolve("SmartSentinelEye.Automation.Api");
 
-        AggregateException thrown = Should.Throw<AggregateException>(() => ComposedHost.Capture(
+        var thrown = Should.Throw<AggregateException>(() => ComposedHost.Capture(
             host.AssemblyName,
             ServedHealthHosts.ContentRootOf(host),
             new Dictionary<string, string?>(),
@@ -69,7 +69,7 @@ public class ComposedHostCaptureTests
     [Fact]
     public void An_entry_point_that_returns_without_building_a_host_fails_capture()
     {
-        AggregateException thrown = Should.Throw<AggregateException>(() => ComposedHost.Capture(
+        var thrown = Should.Throw<AggregateException>(() => ComposedHost.Capture(
             "SmartSentinelEye.Architecture.Tests",
             RepositorySource.Root().FullName,
             new Dictionary<string, string?>(),

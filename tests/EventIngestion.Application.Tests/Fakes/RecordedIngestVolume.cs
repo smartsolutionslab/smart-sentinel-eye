@@ -42,7 +42,7 @@ public sealed class RecordedIngestVolume : IDisposable
         listener.SetMeasurementEventCallback<long>((_, measurement, tags, _) =>
         {
             Dictionary<string, object?> captured = new(StringComparer.Ordinal);
-            foreach (KeyValuePair<string, object?> tag in tags)
+            foreach (var tag in tags)
             {
                 captured[tag.Key] = tag.Value;
             }
@@ -74,5 +74,5 @@ public sealed record IngestMeasurement(long Count, IReadOnlyDictionary<string, o
     /// carry one — which is itself a failure worth reading in an assertion.
     /// </summary>
     public string? SourceTag =>
-        Tags.TryGetValue(IngestVolume.SourceTag, out object? value) ? value?.ToString() : null;
+        Tags.TryGetValue(IngestVolume.SourceTag, out var value) ? value?.ToString() : null;
 }

@@ -1,14 +1,10 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
-using Aspire.Hosting.ApplicationModel;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using MQTTnet;
 using MQTTnet.Exceptions;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -111,13 +107,13 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
     [Fact]
     public async Task An_event_published_after_a_broker_outage_is_still_ingested()
     {
-        string control = $"Resub{Guid.CreateVersion7():N}"[..20];
-        string afterOutage = $"Resub{Guid.CreateVersion7():N}"[..20];
+        var control = $"Resub{Guid.CreateVersion7():N}"[..20];
+        var afterOutage = $"Resub{Guid.CreateVersion7():N}"[..20];
 
-        string controlPayload = Payload(control, "spec 079 control, before the outage");
+        var controlPayload = Payload(control, "spec 079 control, before the outage");
         (await PublishAsync(controlPayload)).ShouldBeTrue("the broker refused the control publish");
 
-        bool controlStored = await WaitForStoredAsync(control, ControlDeadline);
+        var controlStored = await WaitForStoredAsync(control, ControlDeadline);
         controlStored.ShouldBeTrue(
             "the control event never arrived, so nothing this test goes on to observe about the "
             + "reconnect would mean anything — ingestion was already not working before the outage");
@@ -128,8 +124,8 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
         output.WriteLine($"{Broker} stopped and started again");
         output.WriteLine($"after the outage: {await SessionProbeAsync()}");
 
-        string afterOutagePayload = Payload(afterOutage, "spec 079 probe, after the outage");
-        bool stored = await PublishUntilStoredAsync(afterOutage, afterOutagePayload, RecoveryDeadline);
+        var afterOutagePayload = Payload(afterOutage, "spec 079 probe, after the outage");
+        var stored = await PublishUntilStoredAsync(afterOutage, afterOutagePayload, RecoveryDeadline);
 
         if (!stored)
         {
@@ -167,14 +163,14 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
     /// </summary>
     private async Task<string> SessionProbeAsync()
     {
-        string jwt = await SimulatorTokenAsync();
-        Uri broker = aspire.App.GetEndpoint(Broker, "mqtt");
+        var jwt = await SimulatorTokenAsync();
+        var broker = aspire.App.GetEndpoint(Broker, "mqtt");
 
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
 
         try
         {
-            MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+            var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
                 .WithProtocolVersion(MqttProtocolVersion.V311)
                 .WithClientId(SessionProbeClientId)
                 .WithCredentials(SimulatorClientId, jwt)
@@ -222,12 +218,12 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
     /// </summary>
     private async Task RestartBrokerAsync()
     {
-        ResourceCommandService commands =
+        var commands =
             aspire.App.Services.GetRequiredService<ResourceCommandService>();
 
         try
         {
-            ExecuteCommandResult stopped = await commands.ExecuteCommandAsync(
+            var stopped = await commands.ExecuteCommandAsync(
                 Broker, KnownResourceCommands.StopCommand, CancellationToken.None);
             stopped.Success.ShouldBeTrue($"could not stop {Broker}: {stopped.Message}");
 
@@ -288,8 +284,8 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
     /// </summary>
     private async Task<bool> PublishUntilStoredAsync(string kind, string payload, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
-        int attempt = 0;
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var attempt = 0;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -316,7 +312,7 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
 
     private async Task<bool> WaitForStoredAsync(string kind, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
@@ -333,7 +329,7 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
 
     private async Task<long> CountAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>(
                 "SELECT count(*) AS \"Value\" FROM events WHERE kind = {0} AND fab_id = {1}", kind, Fab)
@@ -351,14 +347,14 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
     /// </summary>
     private async Task<bool> PublishAsync(string payload)
     {
-        string jwt = await SimulatorTokenAsync();
-        Uri broker = aspire.App.GetEndpoint(Broker, "mqtt");
+        var jwt = await SimulatorTokenAsync();
+        var broker = aspire.App.GetEndpoint(Broker, "mqtt");
 
-        using IMqttClient client = new MqttClientFactory().CreateMqttClient();
+        using var client = new MqttClientFactory().CreateMqttClient();
 
         try
         {
-            MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+            var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
                 .WithProtocolVersion(MqttProtocolVersion.V311)
                 .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
                 .WithCredentials(SimulatorClientId, jwt)
@@ -372,7 +368,7 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
                 return false;
             }
 
-            MqttClientPublishResult published = await client.PublishAsync(
+            var published = await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(Topic)
                     .WithPayload(payload)
@@ -392,7 +388,7 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
 
     private async Task<string> SimulatorTokenAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -400,7 +396,7 @@ public class MqttResubscribeAfterBrokerOutageIntegrationTests(
             ["client_secret"] = SimulatorClientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
 

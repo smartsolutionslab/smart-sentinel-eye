@@ -19,7 +19,7 @@ public sealed class WallRepository(
         // The fab filter is part of the lookup (US1-14). A wall in another
         // fab therefore comes back as None, exactly like an identifier that
         // matches nothing.
-        Wall? found = await dbContext.Walls.FirstOrDefaultAsync(
+        var found = await dbContext.Walls.FirstOrDefaultAsync(
             candidate => candidate.Id == wall && fabs.Contains(candidate.Fab),
             cancellationToken);
         return found is null ? Option<Wall>.None : Option<Wall>.Some(found);
@@ -40,11 +40,11 @@ public sealed class WallRepository(
         // lower-case server-side; walls per fab are few (PD-5 caps scenes, not
         // walls, but the count is the same order), so comparing case-
         // insensitively over the fab's own walls is the straightforward fix.
-        List<Wall> inFab = await dbContext.Walls
+        var inFab = await dbContext.Walls
             .Where(candidate => candidate.Fab == fab)
             .ToListAsync(cancellationToken);
 
-        Wall? found = inFab.FirstOrDefault(
+        var found = inFab.FirstOrDefault(
             candidate => string.Equals(candidate.Name.Value, name.Value, StringComparison.OrdinalIgnoreCase));
         return found is null ? Option<Wall>.None : Option<Wall>.Some(found);
     }
@@ -66,7 +66,7 @@ public sealed class WallRepository(
         // never to decide anything a caller sees. AsNoTracking + Select: no
         // full Wall is loaded (let alone tracked) just to read one column
         // on a context whose transaction may later save.
-        FabIdentifier? fab = await dbContext.Walls
+        var fab = await dbContext.Walls
             .AsNoTracking()
             .Where(candidate => candidate.Id == wall)
             .Select(candidate => (FabIdentifier?)candidate.Fab)
@@ -83,7 +83,7 @@ public sealed class WallRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Wall[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<Wall>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -92,9 +92,9 @@ public sealed class WallRepository(
         // Dispatch first, same reasoning as LayoutRepository.SaveAsync: the
         // announcement is captured into the outbox, and the commit below
         // writes the rows and the messages in one transaction.
-        foreach (Wall wall in tracked)
+        foreach (var wall in tracked)
         {
-            IDomainEvent[] events = wall.PendingEvents.ToArray();
+            var events = wall.PendingEvents.ToArray();
             wall.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

@@ -37,7 +37,7 @@ public sealed class AuditRetentionHostedService(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        AuditRetentionOptions opts = options.Value;
+        var opts = options.Value;
         logger.RetentionWorkerStarted(opts.RetentionWindow, opts.TickInterval);
 
         using PeriodicTimer timer = new(opts.TickInterval, timeProvider);
@@ -64,15 +64,15 @@ public sealed class AuditRetentionHostedService(
     /// </summary>
     public async Task RunOnceAsync(CancellationToken cancellationToken)
     {
-        AuditRetentionOptions opts = options.Value;
-        DateTimeOffset boundary = clock.UtcNow.Subtract(opts.RetentionWindow);
+        var opts = options.Value;
+        var boundary = clock.UtcNow.Subtract(opts.RetentionWindow);
 
         // The inventory, archiver, and event bus are scoped (they own a
         // DbContext / outbox session); this hosted service is a singleton,
         // so resolve them inside a scope rather than injecting them into
         // the constructor. The listing is one read and gets one scope.
         IReadOnlyList<AuditChunk> chunks;
-        using (IServiceScope listing = scopeFactory.CreateScope())
+        using (var listing = scopeFactory.CreateScope())
         {
             chunks = await listing.ServiceProvider
                 .GetRequiredService<IAuditChunkInventory>()
@@ -87,7 +87,7 @@ public sealed class AuditRetentionHostedService(
 
         logger.RetentionSweepChunksToArchive(boundary, chunks.Count);
 
-        foreach (AuditChunk chunk in chunks)
+        foreach (var chunk in chunks)
         {
             // A scope per chunk, not one for the sweep (#1801). ArchiveAndDropAsync
             // publishes through the scoped outbox and then commits it, once per
@@ -99,7 +99,7 @@ public sealed class AuditRetentionHostedService(
             // Measured, not inferred: two aged chunks in one sweep produced two
             // archives, zero chunks left past the boundary, and one
             // AuditChunkArchivedV1.
-            using IServiceScope perChunk = scopeFactory.CreateScope();
+            using var perChunk = scopeFactory.CreateScope();
             RetentionDependencies deps = new(
                 perChunk.ServiceProvider.GetRequiredService<IAuditChunkInventory>(),
                 perChunk.ServiceProvider.GetRequiredService<IAuditChunkArchiver>(),
@@ -127,11 +127,11 @@ public sealed class AuditRetentionHostedService(
         // Anyone arriving from spec 026 looks for one, does not find it, and
         // moves on — which is how this call site stayed an orphan while the
         // mechanism to fix it was already registered for this context.
-        using IJourney journey = journeys.Begin(OriginName);
+        using var journey = journeys.Begin(OriginName);
 
         try
         {
-            ChunkArchiveResult result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken);
+            var result = await deps.Archiver.ArchiveChunkAsync(chunk, cancellationToken);
 
             AuditChunkArchivedV1 @event = new(
                 chunk.ChunkIdentifier,

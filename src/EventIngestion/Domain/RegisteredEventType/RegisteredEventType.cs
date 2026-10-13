@@ -34,8 +34,8 @@ public sealed class RegisteredEventType : AggregateRoot<RegisteredEventTypeIdent
         Ensure.That(kind).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        DateTimeOffset now = clock.UtcNow;
-        RegisteredAt registeredAt = RegisteredAt.From(now);
+        var now = clock.UtcNow;
+        var registeredAt = RegisteredAt.From(now);
         RegisteredEventType eventType = new()
         {
             Id = RegisteredEventTypeIdentifier.New(),

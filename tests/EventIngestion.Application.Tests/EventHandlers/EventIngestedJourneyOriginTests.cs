@@ -55,7 +55,7 @@ public class EventIngestedJourneyOriginTests
     {
         RecordingJourneyOrigin journeys = new();
         FakeEventBus bus = new();
-        EventIngestedDomainEventHandler handler = HandlerFor(bus, journeys);
+        var handler = HandlerFor(bus, journeys);
 
         await handler.Handle(DomainEvent(), CancellationToken.None);
         await handler.Handle(DomainEvent(), CancellationToken.None);

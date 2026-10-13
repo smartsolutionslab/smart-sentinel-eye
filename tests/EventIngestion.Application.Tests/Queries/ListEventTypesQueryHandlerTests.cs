@@ -1,5 +1,4 @@
 using System.Globalization;
-using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
@@ -32,7 +31,7 @@ public class ListEventTypesQueryHandlerTests
         RegisteredEventType[] seed = [BuildRegistered("AlphaKind"), BuildRegistered("BetaKind")];
         ListEventTypesQueryHandler handler = new(new TestRegisteredEventTypeQuerySource(seed));
 
-        Result<IReadOnlyList<RegisteredEventTypeDto>, ListEventTypesError> result =
+        var result =
             await handler.HandleAsync(new ListEventTypesQuery([Dresden]), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -42,12 +41,12 @@ public class ListEventTypesQueryHandlerTests
     [Fact]
     public async Task Listing_excludes_retired_types()
     {
-        RegisteredEventType retired = BuildRegistered("RetiredKind");
+        var retired = BuildRegistered("RetiredKind");
         retired.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
         RegisteredEventType[] seed = [BuildRegistered("LiveKind"), retired];
         ListEventTypesQueryHandler handler = new(new TestRegisteredEventTypeQuerySource(seed));
 
-        Result<IReadOnlyList<RegisteredEventTypeDto>, ListEventTypesError> result =
+        var result =
             await handler.HandleAsync(new ListEventTypesQuery([Dresden]), CancellationToken.None);
 
         result.Value.Select(dto => dto.Kind).ShouldBe(["LiveKind"]);
@@ -63,7 +62,7 @@ public class ListEventTypesQueryHandlerTests
         ];
         ListEventTypesQueryHandler handler = new(new TestRegisteredEventTypeQuerySource(seed));
 
-        Result<IReadOnlyList<RegisteredEventTypeDto>, ListEventTypesError> result =
+        var result =
             await handler.HandleAsync(new ListEventTypesQuery([Dresden]), CancellationToken.None);
 
         result.Value.Select(dto => dto.Kind).ShouldBe(["DresdenKind"]);
@@ -76,7 +75,7 @@ public class ListEventTypesQueryHandlerTests
         RegisteredEventType[] seed = [BuildRegistered("ZebraKind"), BuildRegistered("AlphaKind")];
         ListEventTypesQueryHandler handler = new(new TestRegisteredEventTypeQuerySource(seed));
 
-        Result<IReadOnlyList<RegisteredEventTypeDto>, ListEventTypesError> result =
+        var result =
             await handler.HandleAsync(new ListEventTypesQuery([Dresden]), CancellationToken.None);
 
         result.Value.Select(dto => dto.Kind).ShouldBe(["AlphaKind", "ZebraKind"]);
@@ -88,11 +87,11 @@ public class ListEventTypesQueryHandlerTests
         // Version 5, not 0 — at 0 this assertion would hold even if the
         // projection emitted a constant, since default(int) is also 0
         // (mirrors ListWebhookIntegrationsQueryHandlerTests).
-        RegisteredEventType eventType = BuildRegistered("VersionedKind");
+        var eventType = BuildRegistered("VersionedKind");
         AggregateVersions.SetTo(eventType, 5);
         ListEventTypesQueryHandler handler = new(new TestRegisteredEventTypeQuerySource([eventType]));
 
-        Result<IReadOnlyList<RegisteredEventTypeDto>, ListEventTypesError> result =
+        var result =
             await handler.HandleAsync(new ListEventTypesQuery([Dresden]), CancellationToken.None);
 
         result.Value.ShouldHaveSingleItem().Version.ShouldBe(5);

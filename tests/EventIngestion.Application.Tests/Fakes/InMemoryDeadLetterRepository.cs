@@ -36,7 +36,7 @@ public sealed class InMemoryDeadLetterRepository : IDeadLetterRepository
         PromoteHeldAsyncCalls++;
         PromoteHeldAsyncCallArgs.Add((fab, kind));
 
-        int matched = deadLetters.Count(deadLetter =>
+        var matched = deadLetters.Count(deadLetter =>
             deadLetter.Fab == fab
             && deadLetter.Kind == kind
             && deadLetter.Reason == DeadLetterReason.UnknownEventType

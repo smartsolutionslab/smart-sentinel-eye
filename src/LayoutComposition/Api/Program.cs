@@ -4,7 +4,7 @@ using SmartSentinelEye.LayoutComposition.Infrastructure;
 using SmartSentinelEye.LayoutComposition.Infrastructure.Broadcasting;
 using SmartSentinelEye.ServiceDefaults;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddBearerAuthentication();
@@ -18,7 +18,7 @@ builder.AddBearerAuthentication();
 builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, options =>
 {
     options.Events ??= new JwtBearerEvents();
-    Func<MessageReceivedContext, Task>? existing = options.Events.OnMessageReceived;
+    var existing = options.Events.OnMessageReceived;
     options.Events.OnMessageReceived = async context =>
     {
         if (existing is not null)
@@ -27,7 +27,7 @@ builder.Services.Configure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationSch
         }
         if (string.IsNullOrEmpty(context.Token) &&
             context.HttpContext.Request.Path.StartsWithSegments(LayoutLifecycleHub.Path) &&
-            context.Request.Query.TryGetValue("access_token", out Microsoft.Extensions.Primitives.StringValues accessToken))
+            context.Request.Query.TryGetValue("access_token", out var accessToken))
         {
             context.Token = accessToken.ToString();
         }
@@ -38,7 +38,7 @@ builder.AddLayoutCompositionInfrastructure();
 builder.Services.AddLayoutCompositionApi();
 builder.Services.AddOpenApi();
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 app.MapDefaultEndpoints();
 

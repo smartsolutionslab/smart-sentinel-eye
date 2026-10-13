@@ -27,14 +27,14 @@ public class VariableArchivedDomainEventHandlerTests
             bus, index, new FakeOverlayTextVersions(), repo, new Resolver(),
             NullLogger<VariableArchivedDomainEventHandler>.Instance);
 
-        VariableIdentifier id = VariableIdentifier.New();
-        OperatorIdentifier op = OperatorIdentifier.From(Guid.CreateVersion7());
+        var id = VariableIdentifier.New();
+        var op = OperatorIdentifier.From(Guid.CreateVersion7());
 
         await handler.Handle(
             new VariableArchivedDomainEvent(id, FabIdentifier.From("munich"), VariableName.From("oeeLine1"), FixedMoment, op),
             CancellationToken.None);
 
-        SystemVariableArchivedV1 v1 = bus.Published.OfType<SystemVariableArchivedV1>()
+        var v1 = bus.Published.OfType<SystemVariableArchivedV1>()
             .ShouldHaveSingleItem();
         v1.Name.ShouldBe("oeeLine1");
         v1.Variable.ShouldBe(id.Value);
@@ -60,7 +60,7 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        SystemVariableArchivedV1 v1 = bus.Published.OfType<SystemVariableArchivedV1>()
+        var v1 = bus.Published.OfType<SystemVariableArchivedV1>()
             .ShouldHaveSingleItem();
         v1.Metadata.Fab.ShouldBe("munich");
     }
@@ -74,12 +74,12 @@ public class VariableArchivedDomainEventHandlerTests
         FakeOverlayTextVersions versions = new();
 
         // Sibling 'shift' stays Defined+set; 'oeeLine1' is the one being archived.
-        Variable shift = new VariableBuilder()
+        var shift = new VariableBuilder()
             .Named("shift").OfType(VariableType.String)
             .WithInitialValue(new VariableValue.StringValue("A")).Build();
         repo.Add(shift);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["{{shift}} - OEE: {{oeeLine1}}%"]);
 
         VariableArchivedDomainEventHandler handler = new(
@@ -92,7 +92,7 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Overlay.ShouldBe(overlay);
         // 'shift' renders, 'oeeLine1' reverts to its literal placeholder.
@@ -113,10 +113,10 @@ public class VariableArchivedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
 
         // 'shift' is Defined but Unset → should be skipped (renders as literal).
-        Variable shift = new VariableBuilder().Named("shift").OfType(VariableType.String).Build();
+        var shift = new VariableBuilder().Named("shift").OfType(VariableType.String).Build();
         repo.Add(shift);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["{{shift}}-{{target}}"]);
 
         VariableArchivedDomainEventHandler handler = new(
@@ -129,7 +129,7 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         // Both placeholders revert to literal: shift is Unset, target is the one archived.
         push.Texts.Single().Resolved.ShouldBe("{{shift}}-{{target}}");
@@ -176,8 +176,8 @@ public class VariableArchivedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        Guid overlayA = Guid.CreateVersion7();
-        Guid overlayB = Guid.CreateVersion7();
+        var overlayA = Guid.CreateVersion7();
+        var overlayB = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlayA, ["A: {{oeeLine1}}%"]);
         index.UpsertOverlayReferences(overlayB, ["B: {{oeeLine1}}%"]);
 
@@ -212,19 +212,19 @@ public class VariableArchivedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        VariableBuilder archivedShiftBuilder = new VariableBuilder()
+        var archivedShiftBuilder = new VariableBuilder()
             .Named("shift").OfType(VariableType.String)
             .WithInitialValue(new VariableValue.StringValue("A"));
-        Variable archivedShift = archivedShiftBuilder.Build();
+        var archivedShift = archivedShiftBuilder.Build();
         archivedShift.Archive(OperatorIdentifier.From(Guid.CreateVersion7()), archivedShiftBuilder.Clock);
         repo.Add(archivedShift);
 
-        Variable redefinedShift = new VariableBuilder()
+        var redefinedShift = new VariableBuilder()
             .Named("shift").OfType(VariableType.String)
             .WithInitialValue(new VariableValue.StringValue("B")).Build();
         repo.Add(redefinedShift);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["{{shift}} / {{oee}}"]);
 
         VariableArchivedDomainEventHandler handler = new(
@@ -237,7 +237,7 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Texts.Single().Resolved.ShouldBe("B / {{oee}}");
     }
@@ -264,12 +264,12 @@ public class VariableArchivedDomainEventHandlerTests
         InMemoryVariableRepository repo = new();
         FakeOverlayTextVersions versions = new();
 
-        Variable oee = new VariableBuilder()
+        var oee = new VariableBuilder()
             .Named("oee").OfType(VariableType.Number)
             .WithInitialValue(new VariableValue.NumberValue(82.5)).Build();
         repo.Add(oee);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         index.UpsertOverlayReferences(overlay, ["OEE: {{oee}}%"]);
 
         VariableArchivedDomainEventHandler handler = new(
@@ -282,7 +282,7 @@ public class VariableArchivedDomainEventHandlerTests
                 FixedMoment, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
-        ResolvedOverlayTextChangedV3 push =
+        var push =
             bus.Published.OfType<ResolvedOverlayTextChangedV3>().ShouldHaveSingleItem();
         push.Texts.Single().Resolved.ShouldBe("OEE: {{oee}}%");
     }

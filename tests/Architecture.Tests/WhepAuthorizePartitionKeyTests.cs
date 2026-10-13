@@ -75,7 +75,7 @@ public sealed class WhepAuthorizePartitionKeyTests
     [Fact]
     public void Authorize_partitions_the_rate_limiter_by_remote_address_not_a_global_bucket()
     {
-        string programSource = File.ReadAllText(
+        var programSource = File.ReadAllText(
             Path.Combine(RepositorySource.Root().FullName, "src", "StreamDistribution", "Api", "Program.cs"));
 
         // S4 (spec 208 review): the raw source between the registration call
@@ -85,31 +85,31 @@ public sealed class WhepAuthorizePartitionKeyTests
         // if the real key argument were reverted to a fixed literal while a
         // comment mentioning RemoteIpAddress stayed behind. Strip comment
         // lines first, mirroring ResilienceRegistrationTests.CodeLines/IsComment.
-        string codeOnly = string.Join(Environment.NewLine, CodeLines(programSource));
+        var codeOnly = string.Join(Environment.NewLine, CodeLines(programSource));
 
-        int policyRegistration = codeOnly.IndexOf(
+        var policyRegistration = codeOnly.IndexOf(
             "AddPolicy(\"whep-authorize\"", StringComparison.Ordinal);
         policyRegistration.ShouldBeGreaterThanOrEqualTo(
             0,
             "Program.cs no longer registers a \"whep-authorize\" policy by that name — the "
             + "partition-key shape below cannot be checked against a registration that is not there.");
 
-        int limiterCall = codeOnly.IndexOf(
+        var limiterCall = codeOnly.IndexOf(
             "RateLimitPartition.GetFixedWindowLimiter(", policyRegistration, StringComparison.Ordinal);
         limiterCall.ShouldBeGreaterThan(
             policyRegistration,
             "expected the \"whep-authorize\" policy to build its partition via "
             + "RateLimitPartition.GetFixedWindowLimiter.");
 
-        int keyArgumentStart = limiterCall + "RateLimitPartition.GetFixedWindowLimiter(".Length;
-        int keyArgumentEnd = codeOnly.IndexOf(
+        var keyArgumentStart = limiterCall + "RateLimitPartition.GetFixedWindowLimiter(".Length;
+        var keyArgumentEnd = codeOnly.IndexOf(
             "_ => new FixedWindowRateLimiterOptions", keyArgumentStart, StringComparison.Ordinal);
         keyArgumentEnd.ShouldBeGreaterThan(
             keyArgumentStart,
             "could not find the fixed-window options factory that follows the partition-key "
             + "argument — the registration's shape has moved.");
 
-        string partitionKeyArgument = codeOnly[keyArgumentStart..keyArgumentEnd].Trim().TrimEnd(',').Trim();
+        var partitionKeyArgument = codeOnly[keyArgumentStart..keyArgumentEnd].Trim().TrimEnd(',').Trim();
 
         // FR-003: the key must vary with the caller's remote address, never a
         // fixed literal — a fixed key is exactly the rejected global-bucket

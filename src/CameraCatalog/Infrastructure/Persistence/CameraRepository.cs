@@ -13,7 +13,7 @@ public sealed class CameraRepository(
 {
     public async Task<Option<Camera>> GetByIdentifierAsync(CameraIdentifier camera, CancellationToken cancellationToken)
     {
-        Camera? found = await dbContext.Cameras
+        var found = await dbContext.Cameras
             .FirstOrDefaultAsync(candidate => candidate.Id == camera, cancellationToken);
         return found is null ? Option<Camera>.None : Option<Camera>.Some(found);
     }
@@ -26,7 +26,7 @@ public sealed class CameraRepository(
         // The fab is part of the predicate, not a check afterwards: another
         // plant's camera is never materialised, so it cannot be leaked by a
         // caller that forgets to compare (spec 028 FR-004).
-        Camera? found = await dbContext.Cameras
+        var found = await dbContext.Cameras
             .FirstOrDefaultAsync(
                 candidate => candidate.Id == camera && candidate.Fab == fab,
                 cancellationToken);
@@ -58,7 +58,7 @@ public sealed class CameraRepository(
         //
         // Research §1 read the index and concluded FR-006 needed no production
         // code. The index was right; this predicate was the other half.
-        IQueryable<Camera> candidates = dbContext.Cameras
+        var candidates = dbContext.Cameras
             .Where(candidate => candidate.Fab == fab && candidate.Status != CameraStatus.Decommissioned);
 
         // Spec 033. A rename excludes the camera being renamed, which would
@@ -68,7 +68,7 @@ public sealed class CameraRepository(
         // Option<T>.Match does not translate to SQL.
         if (excluding.HasValue)
         {
-            CameraIdentifier self = excluding.Value;
+            var self = excluding.Value;
             candidates = candidates.Where(candidate => candidate.Id != self);
         }
 
@@ -87,7 +87,7 @@ public sealed class CameraRepository(
 
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        Camera[] tracked = dbContext.ChangeTracker
+        var tracked = dbContext.ChangeTracker
             .Entries<Camera>()
             .Where(entry => entry.Entity.PendingEvents.Count > 0)
             .Select(entry => entry.Entity)
@@ -102,9 +102,9 @@ public sealed class CameraRepository(
         // that throws fails the write rather than leaving the row behind. Every
         // handler on this path publishes and does nothing else - checked across
         // all twelve (research.md R2), not assumed.
-        foreach (Camera camera in tracked)
+        foreach (var camera in tracked)
         {
-            IDomainEvent[] events = camera.PendingEvents.ToArray();
+            var events = camera.PendingEvents.ToArray();
             camera.ClearPendingEvents();
             await domainEventDispatcher.DispatchAsync(events, cancellationToken);
         }

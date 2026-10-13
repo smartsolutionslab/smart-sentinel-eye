@@ -1,6 +1,3 @@
-using Shouldly;
-using Xunit;
-
 namespace SmartSentinelEye.Integration.Tests.Fixtures;
 
 /// <summary>
@@ -165,7 +162,7 @@ public class AspireFixtureStartupGateTests
     [Fact]
     public void The_message_names_the_resource_the_state_and_the_exit_code()
     {
-        string message = AspireFixture.FormatResourceDeathMessage(
+        var message = AspireFixture.FormatResourceDeathMessage(
             "camera-catalog",
             "FailedToStart",
             134,
@@ -184,7 +181,7 @@ public class AspireFixtureStartupGateTests
         // to null, so a dead container legitimately arrives with no code.
         // Rendering that through an `int`-shaped formatter yields
         // "with exit code  —"; rendering it as 0 would claim a clean exit.
-        string message = AspireFixture.FormatResourceDeathMessage(
+        var message = AspireFixture.FormatResourceDeathMessage(
             "mediamtx",
             "Exited",
             null,
@@ -203,7 +200,7 @@ public class AspireFixtureStartupGateTests
         // reason this formatter is pure and separate from the throw, like the
         // four before it. A reader scrolling a Kestrel stack trace should have
         // met the verdict already.
-        string message = AspireFixture.FormatResourceDeathMessage(
+        var message = AspireFixture.FormatResourceDeathMessage(
             "camera-catalog",
             "FailedToStart",
             134,
@@ -227,7 +224,7 @@ public class AspireFixtureStartupGateTests
         // A reader whose ~3-minute run failed must not be told the fixture
         // aborted early, and must be told what would otherwise have happened —
         // a green report over a dead resource, which phase 4a observed twice.
-        string message = AspireFixture.FormatResourceDeathMessage(
+        var message = AspireFixture.FormatResourceDeathMessage(
             "identity",
             "Finished",
             0,
@@ -251,13 +248,13 @@ public class AspireFixtureStartupGateTests
         // global verdict that a second occurrence would contradict. A formatter
         // that hard-coded a name, or wrote "the resource that died", would pass
         // every test above and produce nonsense the first time two died.
-        string first = AspireFixture.FormatResourceDeathMessage(
+        var first = AspireFixture.FormatResourceDeathMessage(
             "camera-catalog",
             "FailedToStart",
             134,
             CameraCatalogLog);
 
-        string second = AspireFixture.FormatResourceDeathMessage(
+        var second = AspireFixture.FormatResourceDeathMessage(
             "identity",
             "Exited",
             null,
@@ -266,7 +263,7 @@ public class AspireFixtureStartupGateTests
         first.ShouldNotContain("identity");
         second.ShouldNotContain("camera-catalog");
 
-        string report = first + Environment.NewLine + second;
+        var report = first + Environment.NewLine + second;
 
         report.ShouldContain("camera-catalog");
         report.ShouldContain("FailedToStart");
@@ -285,7 +282,7 @@ public class AspireFixtureStartupGateTests
         // nothing about the failure, so a forty-five-line state list would
         // print forty-four rows of noise — what #2061 removed, and the reason
         // `FormatMigrationFailureMessage` is scoped to one resource.
-        string message = AspireFixture.FormatResourceDeathMessage(
+        var message = AspireFixture.FormatResourceDeathMessage(
             "camera-catalog",
             "FailedToStart",
             134,

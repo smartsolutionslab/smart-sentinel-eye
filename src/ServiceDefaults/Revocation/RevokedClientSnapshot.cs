@@ -46,9 +46,9 @@ public sealed class RevokedClientSnapshot
     public static RevokedClientSnapshot From(IReadOnlyList<RevokedClientEntry> entries)
     {
         Dictionary<string, DateTimeOffset> latest = new(StringComparer.Ordinal);
-        foreach (RevokedClientEntry entry in entries)
+        foreach (var entry in entries)
         {
-            if (!latest.TryGetValue(entry.ClientId, out DateTimeOffset current) || entry.DisabledAt > current)
+            if (!latest.TryGetValue(entry.ClientId, out var current) || entry.DisabledAt > current)
             {
                 latest[entry.ClientId] = entry.DisabledAt;
             }
@@ -64,7 +64,7 @@ public sealed class RevokedClientSnapshot
     /// </summary>
     public bool Refuses(string? azp, DateTimeOffset? issuedAt)
     {
-        if (azp is null || !latestDisabledAtByClientId.TryGetValue(azp, out DateTimeOffset latestDisabledAt))
+        if (azp is null || !latestDisabledAtByClientId.TryGetValue(azp, out var latestDisabledAt))
         {
             return false;
         }

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -63,11 +62,11 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     [Fact]
     public async Task An_archived_chunks_announcement_records_no_fab()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.Announcement.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
 
-        JsonElement payload = ParsePayload(arranged.Announcement);
+        var payload = ParsePayload(arranged.Announcement);
         payload.GetProperty("FabId").ValueKind.ShouldBe(JsonValueKind.Null,
             "SC-10 / F1: nothing in the system could set a fab on a chunk announcement — "
             + "the hypertable is time-partitioned only, and the sole publisher passes a literal null");
@@ -76,7 +75,7 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     [Fact]
     public async Task A_fab_carrying_row_in_the_same_window_is_not_null()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.FabCarryingRow.GetProperty("fab").GetString().ShouldBe("munich",
             "SC-11, counterfactual: this run's ingestion path can write a fab, "
@@ -92,7 +91,7 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     [Fact]
     public async Task The_archived_chunks_announcement_is_marked_not_applicable()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.Announcement.GetProperty("fab").ValueKind.ShouldBe(JsonValueKind.Null);
         arranged.Announcement.GetProperty("fabAttribution").GetString().ShouldBe("NotApplicable",
@@ -103,7 +102,7 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     [Fact]
     public async Task The_fab_carrying_row_in_the_same_window_is_marked_resolved()
     {
-        Arrangement arranged = await ArrangedAsync();
+        var arranged = await ArrangedAsync();
 
         arranged.FabCarryingRow.GetProperty("fab").GetString().ShouldBe("munich");
         arranged.FabCarryingRow.GetProperty("fabAttribution").GetString().ShouldBe("Resolved",
@@ -114,17 +113,17 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     [Fact]
     public async Task The_neutral_announcement_is_reachable_from_a_fab_scoped_timeline()
     {
-        Arrangement arranged = await ArrangedAsync();
-        string chunkIdentifier = arranged.Announcement.GetProperty("resourceIdentifier").GetString()!;
-        Guid announcementAuditIdentifier = arranged.Announcement.GetProperty("auditIdentifier").GetGuid();
+        var arranged = await ArrangedAsync();
+        var chunkIdentifier = arranged.Announcement.GetProperty("resourceIdentifier").GetString()!;
+        var announcementAuditIdentifier = arranged.Announcement.GetProperty("auditIdentifier").GetGuid();
 
-        using HttpClient munich = await aspire.CreateAuthenticatedClientAsync(
+        using var munich = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
 
-        HttpResponseMessage response = await munich.GetAsync($"/audit/event/{chunkIdentifier}?fabId=munich");
+        var response = await munich.GetAsync($"/audit/event/{chunkIdentifier}?fabId=munich");
         response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-        JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var page = await response.Content.ReadFromJsonAsync<JsonElement>();
         Guid[] identifiers = [.. page.GetProperty("rows").EnumerateArray()
             .Select(row => row.GetProperty("auditIdentifier").GetGuid())];
 
@@ -154,22 +153,22 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
         // the very first poll iteration, before this run's own sweep has done
         // anything — PollForCoveringAnnouncementAsync's freshness check below is
         // what tells this run's evidence apart from a stale one.
-        DateTimeOffset arrangementStartedAt = DateTimeOffset.UtcNow;
+        var arrangementStartedAt = DateTimeOffset.UtcNow;
 
-        DateTimeOffset seededMoment = DateTimeOffset.UtcNow.AddDays(-SeedAgeInDays);
+        var seededMoment = DateTimeOffset.UtcNow.AddDays(-SeedAgeInDays);
         await SeedNullFabBackdatedRowAsync(seededMoment);
         await AssertNoChunkCollisionAsync(seededMoment);
 
-        using HttpClient munichAudit = await aspire.CreateAuthenticatedClientAsync(
+        using var munichAudit = await aspire.CreateAuthenticatedClientAsync(
             "audit-observability", MunichAdminUsername, MunichAdminPassword);
 
-        JsonElement announcement = await PollForCoveringAnnouncementAsync(
+        var announcement = await PollForCoveringAnnouncementAsync(
             munichAudit, seededMoment, arrangementStartedAt);
 
-        using HttpClient munichCameras = await aspire.CreateAuthenticatedClientAsync(
+        using var munichCameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", MunichAdminUsername, MunichAdminPassword);
-        Guid camera = await RegisterCameraAsync(munichCameras, $"Cam-NeutralFabControl-{Guid.NewGuid():N}");
-        JsonElement fabCarryingRow = await PollForCameraRowAsync(munichAudit, camera);
+        var camera = await RegisterCameraAsync(munichCameras, $"Cam-NeutralFabControl-{Guid.NewGuid():N}");
+        var fabCarryingRow = await PollForCameraRowAsync(munichAudit, camera);
 
         output.WriteLine(
             $"Arrangement complete. seededMoment={seededMoment:O}, arrangementStartedAt={arrangementStartedAt:O}, "
@@ -180,7 +179,7 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
 
     private static async Task<Guid> RegisterCameraAsync(HttpClient client, string name)
     {
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras",
             new { name, rtspUrl = $"rtsp://10.0.5.{Random.Shared.Next(2, 250)}/h264" });
         response.StatusCode.ShouldBe(HttpStatusCode.Created, await response.Content.ReadAsStringAsync());
@@ -189,15 +188,15 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
 
     private static async Task<JsonElement> PollForCameraRowAsync(HttpClient audit, Guid camera)
     {
-        DateTime deadline = DateTime.UtcNow + CameraRowPollTimeout;
+        var deadline = DateTime.UtcNow + CameraRowPollTimeout;
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await audit.GetAsync(
+            var response = await audit.GetAsync(
                 $"/audit?fabId=munich&eventKind=CameraRegisteredV1&pageSize=50");
             response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
-            foreach (JsonElement row in page.GetProperty("rows").EnumerateArray())
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            foreach (var row in page.GetProperty("rows").EnumerateArray())
             {
                 if (row.GetProperty("resourceIdentifier").GetString() == camera.ToString())
                 {
@@ -220,9 +219,9 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     /// </summary>
     private async Task SeedNullFabBackdatedRowAsync(DateTimeOffset occurredAt)
     {
-        await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
-        string emptyJson = "{}";
+        var emptyJson = "{}";
         await context.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO audit_events (
                 audit_id, occurred_at, received_at, fab_id, event_kind,
@@ -245,9 +244,9 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     /// </summary>
     private async Task AssertNoChunkCollisionAsync(DateTimeOffset seededMoment)
     {
-        bool collidesWith200 = await ChunkContainsBothAsync(
+        var collidesWith200 = await ChunkContainsBothAsync(
             seededMoment, DateTimeOffset.UtcNow.AddDays(-200));
-        bool collidesWith120 = await ChunkContainsBothAsync(
+        var collidesWith120 = await ChunkContainsBothAsync(
             seededMoment, DateTimeOffset.UtcNow.AddDays(-120));
 
         (collidesWith200 || collidesWith120).ShouldBeFalse(
@@ -258,9 +257,9 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
 
     private async Task<bool> ChunkContainsBothAsync(DateTimeOffset first, DateTimeOffset second)
     {
-        await using AuditObservabilityDbContext context = await aspire.CreateAuditObservabilityDbContextAsync();
+        await using var context = await aspire.CreateAuditObservabilityDbContextAsync();
 
-        List<int> result = await context.Database
+        var result = await context.Database
             .SqlQuery<int>($"""
                 SELECT count(*)::int AS "Value"
                 FROM timescaledb_information.chunks
@@ -286,24 +285,24 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     private static async Task<JsonElement> PollForCoveringAnnouncementAsync(
         HttpClient audit, DateTimeOffset seededMoment, DateTimeOffset notBefore)
     {
-        DateTime deadline = DateTime.UtcNow + AnnouncementPollTimeout;
+        var deadline = DateTime.UtcNow + AnnouncementPollTimeout;
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await audit.GetAsync(
+            var response = await audit.GetAsync(
                 "/audit?eventKind=AuditChunkArchivedV1&pageSize=200");
             response.StatusCode.ShouldBe(HttpStatusCode.OK, await response.Content.ReadAsStringAsync());
 
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>();
-            foreach (JsonElement row in page.GetProperty("rows").EnumerateArray())
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+            foreach (var row in page.GetProperty("rows").EnumerateArray())
             {
                 if (row.GetProperty("receivedAt").GetDateTimeOffset() < notBefore)
                 {
                     continue;
                 }
 
-                JsonElement payload = ParsePayload(row);
-                DateTimeOffset from = payload.GetProperty("OccurredFrom").GetDateTimeOffset();
-                DateTimeOffset until = payload.GetProperty("OccurredUntil").GetDateTimeOffset();
+                var payload = ParsePayload(row);
+                var from = payload.GetProperty("OccurredFrom").GetDateTimeOffset();
+                var until = payload.GetProperty("OccurredUntil").GetDateTimeOffset();
                 if (seededMoment >= from && seededMoment < until)
                 {
                     return row;

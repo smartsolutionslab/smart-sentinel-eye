@@ -1,8 +1,5 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.CameraCatalog.Domain.Camera;
-using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.CameraCatalog;
@@ -17,20 +14,20 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Register_a_camera_end_to_end_persists_the_row_and_stages_the_outbox_event()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras",
             new { name = "Line-1-Entrance", rtspUrl = "rtsp://10.0.5.12/h264" });
 
         response.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        Guid identifier = await response.Content.ReadFromJsonAsync<Guid>();
+        var identifier = await response.Content.ReadFromJsonAsync<Guid>();
         identifier.ShouldNotBe(Guid.Empty);
         response.Headers.Location?.ToString().ShouldEndWith($"/cameras/{identifier}");
 
-        await using CameraCatalogDbContext context = await aspire.CreateCameraCatalogDbContextAsync();
-        Camera persisted = await context.Cameras.SingleAsync();
+        await using var context = await aspire.CreateCameraCatalogDbContextAsync();
+        var persisted = await context.Cameras.SingleAsync();
         persisted.Id.Value.ShouldBe(identifier);
         persisted.Name.Value.ShouldBe("Line-1-Entrance");
         persisted.Url.Value.ShouldBe("rtsp://10.0.5.12/h264");
@@ -39,28 +36,28 @@ public class RegisterCameraIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Register_a_camera_with_a_duplicate_name_returns_409_via_HTTP()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
-        HttpResponseMessage first = await client.PostAsJsonAsync(
+        var first = await client.PostAsJsonAsync(
             "/cameras",
             new { name = "Cam-Duplicate", rtspUrl = "rtsp://10.0.5.50/h264" });
         first.StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage second = await client.PostAsJsonAsync(
+        var second = await client.PostAsJsonAsync(
             "/cameras",
             new { name = "Cam-Duplicate", rtspUrl = "rtsp://10.0.5.51/h264" });
 
         second.StatusCode.ShouldBe(HttpStatusCode.Conflict);
-        JsonElement problem = await second.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await second.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("CAMERA_NAME_TAKEN");
     }
 
     [Fact]
     public async Task Register_a_camera_without_a_token_returns_401()
     {
-        using HttpClient client = aspire.CreateServiceClient("camera-catalog");
+        using var client = aspire.CreateServiceClient("camera-catalog");
 
-        HttpResponseMessage response = await client.PostAsJsonAsync(
+        var response = await client.PostAsJsonAsync(
             "/cameras",
             new { name = "Cam-Unauth", rtspUrl = "rtsp://10.0.5.99/h264" });
 

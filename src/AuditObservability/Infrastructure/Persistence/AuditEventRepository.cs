@@ -32,11 +32,11 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
             return;
         }
 
-        foreach (AuditEventEntity row in pending)
+        foreach (var row in pending)
         {
-            string? fab = row.Fab?.Value;
-            string? resourceKind = row.ResourceKind?.Value;
-            string? resourceIdentifier = row.ResourceIdentifier?.Value;
+            var fab = row.Fab?.Value;
+            var resourceKind = row.ResourceKind?.Value;
+            var resourceIdentifier = row.ResourceIdentifier?.Value;
             await dbContext.Database.ExecuteSqlInterpolatedAsync(
                 $"""
                 INSERT INTO audit_events (

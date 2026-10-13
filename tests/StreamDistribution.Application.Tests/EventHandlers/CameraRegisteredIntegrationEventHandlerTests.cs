@@ -3,9 +3,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.CameraCatalog;
-using SmartSentinelEye.Shared.CQRS;
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.EventHandlers;
 using SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
@@ -30,11 +27,11 @@ public class CameraRegisteredIntegrationEventHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        var command = NewCommandHandler(streams, gateway);
         CameraRegisteredIntegrationEventHandler handler =
             new(command, NullLogger<CameraRegisteredIntegrationEventHandler>.Instance);
 
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         CameraRegisteredV1 message = new(
             Camera: camera,
             Name: "Line-1",
@@ -66,11 +63,11 @@ public class CameraRegisteredIntegrationEventHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        var command = NewCommandHandler(streams, gateway);
         CameraRegisteredIntegrationEventHandler handler =
             new(command, NullLogger<CameraRegisteredIntegrationEventHandler>.Instance);
 
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         CameraRegisteredV1 message = new(
             Camera: camera,
             Name: "Line-1",
@@ -94,7 +91,7 @@ public class CameraRegisteredIntegrationEventHandlerTests
         {
             OnAddPath = (_, _) => throw new HttpRequestException("MediaMTX down"),
         };
-        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        var command = NewCommandHandler(streams, gateway);
         CameraRegisteredIntegrationEventHandler handler =
             new(command, NullLogger<CameraRegisteredIntegrationEventHandler>.Instance);
 
@@ -121,7 +118,7 @@ public class CameraRegisteredIntegrationEventHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        var command = NewCommandHandler(streams, gateway);
         CameraRegisteredIntegrationEventHandler handler =
             new(command, NullLogger<CameraRegisteredIntegrationEventHandler>.Instance);
 
@@ -148,11 +145,11 @@ public class CameraRegisteredIntegrationEventHandlerTests
     {
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
-        ProvisionStreamCommandHandler command = NewCommandHandler(streams, gateway);
+        var command = NewCommandHandler(streams, gateway);
         CapturingLogger<CameraRegisteredIntegrationEventHandler> logger = new();
         CameraRegisteredIntegrationEventHandler handler = new(command, logger);
 
-        Guid camera = Guid.CreateVersion7();
+        var camera = Guid.CreateVersion7();
         CameraRegisteredV1 message = new(
             Camera: camera,
             Name: "Line-1",

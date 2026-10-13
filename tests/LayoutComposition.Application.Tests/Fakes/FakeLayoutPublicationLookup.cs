@@ -1,4 +1,3 @@
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
@@ -48,7 +47,7 @@ public sealed class FakeLayoutPublicationLookup : ILayoutPublicationLookup
     {
         IReadOnlySet<LayoutIdentifier> result = candidates
             .Where(candidate => published.Contains(candidate) &&
-                fabsByLayout.TryGetValue(candidate, out FabIdentifier? actual) && actual == fab)
+                fabsByLayout.TryGetValue(candidate, out var actual) && actual == fab)
             .ToHashSet();
         return Task.FromResult(result);
     }

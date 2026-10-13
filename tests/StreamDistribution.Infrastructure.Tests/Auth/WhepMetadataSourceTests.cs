@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
-using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
@@ -44,10 +43,10 @@ public sealed class WhepMetadataSourceTests
         // A Development environment, because this test binds the address only
         // (see the class remarks above). The transport policy itself is covered
         // separately, by the spec 340 suite.
-        IHostEnvironment environment = Host.CreateEmptyApplicationBuilder(
+        var environment = Host.CreateEmptyApplicationBuilder(
             new HostApplicationBuilderSettings { EnvironmentName = Environments.Development }).Environment;
 
-        ConfigurationManager<OpenIdConnectConfiguration> metadata =
+        var metadata =
             WhepAuthValidator.MetadataSourceFor(
                 Options.Create(new WhepAuthOptions
                 {

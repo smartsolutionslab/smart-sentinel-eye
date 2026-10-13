@@ -73,8 +73,8 @@ public sealed class IdempotencyFingerprint : IEquatable<IdempotencyFingerprint>
         Ensure.That(request).IsNotNull();
 
         Envelope<TRequest> envelope = new(request, [.. boundValues]);
-        byte[] json = JsonSerializer.SerializeToUtf8Bytes(envelope, Options);
-        byte[] hash = SHA256.HashData(json);
+        var json = JsonSerializer.SerializeToUtf8Bytes(envelope, Options);
+        var hash = SHA256.HashData(json);
 
         return new IdempotencyFingerprint(Convert.ToHexStringLower(hash));
     }

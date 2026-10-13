@@ -1,6 +1,5 @@
 using System.Globalization;
 using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.StreamDistribution.Application.DTOs;
 using SmartSentinelEye.StreamDistribution.Application.Queries;
 using SmartSentinelEye.StreamDistribution.Application.Queries.Handlers;
 using SmartSentinelEye.StreamDistribution.Application.Tests.Fakes;
@@ -23,13 +22,13 @@ public class ListStreamsQueryHandlerTests
     [Fact]
     public async Task Returns_one_dto_per_requested_camera_that_has_a_stream()
     {
-        CameraIdentifier camera1 = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier camera2 = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier cameraWithoutStream = CameraIdentifier.From(Guid.CreateVersion7());
-        InMemoryStreamRepository streams = Seed(Munich, camera1, camera2);
-        ListStreamsQueryHandler handler = NewHandler(streams);
+        var camera1 = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera2 = CameraIdentifier.From(Guid.CreateVersion7());
+        var cameraWithoutStream = CameraIdentifier.From(Guid.CreateVersion7());
+        var streams = Seed(Munich, camera1, camera2);
+        var handler = NewHandler(streams);
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListStreamsQuery([Munich], [camera1, camera2, cameraWithoutStream]),
             CancellationToken.None);
 
@@ -42,9 +41,9 @@ public class ListStreamsQueryHandlerTests
     [Fact]
     public async Task Returns_an_empty_list_for_zero_identifiers()
     {
-        ListStreamsQueryHandler handler = NewHandler(new InMemoryStreamRepository());
+        var handler = NewHandler(new InMemoryStreamRepository());
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListStreamsQuery([Munich], Array.Empty<CameraIdentifier>()),
             CancellationToken.None);
 
@@ -59,9 +58,9 @@ public class ListStreamsQueryHandlerTests
             .Range(0, ListStreamsDefaults.MaximumBatchSize + 1)
             .Select(_ => CameraIdentifier.From(Guid.CreateVersion7()))
             .ToList();
-        ListStreamsQueryHandler handler = NewHandler(new InMemoryStreamRepository());
+        var handler = NewHandler(new InMemoryStreamRepository());
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListStreamsQuery([Munich], tooMany),
             CancellationToken.None);
 
@@ -77,13 +76,13 @@ public class ListStreamsQueryHandlerTests
     [Fact]
     public async Task A_stream_in_another_fab_is_omitted_like_one_that_does_not_exist()
     {
-        CameraIdentifier inMunich = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier inDresden = CameraIdentifier.From(Guid.CreateVersion7());
-        InMemoryStreamRepository streams = Seed(Munich, inMunich);
+        var inMunich = CameraIdentifier.From(Guid.CreateVersion7());
+        var inDresden = CameraIdentifier.From(Guid.CreateVersion7());
+        var streams = Seed(Munich, inMunich);
         Add(streams, Dresden, inDresden);
-        ListStreamsQueryHandler handler = NewHandler(streams);
+        var handler = NewHandler(streams);
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListStreamsQuery([Dresden], [inMunich, inDresden]),
             CancellationToken.None);
 
@@ -94,13 +93,13 @@ public class ListStreamsQueryHandlerTests
     [Fact]
     public async Task A_multi_fab_caller_sees_both_plants()
     {
-        CameraIdentifier inMunich = CameraIdentifier.From(Guid.CreateVersion7());
-        CameraIdentifier inDresden = CameraIdentifier.From(Guid.CreateVersion7());
-        InMemoryStreamRepository streams = Seed(Munich, inMunich);
+        var inMunich = CameraIdentifier.From(Guid.CreateVersion7());
+        var inDresden = CameraIdentifier.From(Guid.CreateVersion7());
+        var streams = Seed(Munich, inMunich);
         Add(streams, Dresden, inDresden);
-        ListStreamsQueryHandler handler = NewHandler(streams);
+        var handler = NewHandler(streams);
 
-        Result<IReadOnlyList<StreamHealthDto>, ListStreamsError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListStreamsQuery([Munich, Dresden], [inMunich, inDresden]),
             CancellationToken.None);
 
@@ -117,9 +116,9 @@ public class ListStreamsQueryHandlerTests
 
     private static void Add(InMemoryStreamRepository streams, FabIdentifier fab, params CameraIdentifier[] cameras)
     {
-        foreach (CameraIdentifier camera in cameras)
+        foreach (var camera in cameras)
         {
-            Domain.Stream.Stream stream = new StreamBuilder()
+            var stream = new StreamBuilder()
                 .WithFab(fab)
                 .ForCamera(camera)
                 .ProvisionedBy(AnAdmin)

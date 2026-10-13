@@ -23,11 +23,11 @@ public class ReplayRegisteredClientQueryHandlerTests
     [Fact]
     public async Task A_replay_returns_the_same_secret_rather_than_a_rotated_one()
     {
-        (ReplayRegisteredClientQueryHandler handler, RegisteredClientAggregate registered,
-            FakeKeycloakAdminClient keycloak) = Arrange();
-        string original = keycloak.CurrentSecrets[ClientIdValue];
+        (var handler, var registered,
+            var keycloak) = Arrange();
+        var original = keycloak.CurrentSecrets[ClientIdValue];
 
-        ReplayedClientDto replayed = Succeeds(
+        var replayed = Succeeds(
             await handler.HandleAsync(new ReplayRegisteredClientQuery(registered.Id), CancellationToken.None));
 
         replayed.ClientSecret.ShouldBe(
@@ -40,9 +40,9 @@ public class ReplayRegisteredClientQueryHandlerTests
     [Fact]
     public async Task A_replay_carries_the_state_the_server_holds()
     {
-        (ReplayRegisteredClientQueryHandler handler, RegisteredClientAggregate registered, _) = Arrange();
+        (var handler, var registered, _) = Arrange();
 
-        ReplayedClientDto replayed = Succeeds(
+        var replayed = Succeeds(
             await handler.HandleAsync(new ReplayRegisteredClientQuery(registered.Id), CancellationToken.None));
 
         replayed.RegisteredClientIdentifier.ShouldBe(registered.Id.Value);
@@ -59,9 +59,9 @@ public class ReplayRegisteredClientQueryHandlerTests
     [Fact]
     public async Task A_key_naming_a_registration_that_is_gone_is_refused()
     {
-        (ReplayRegisteredClientQueryHandler handler, _, _) = Arrange();
+        (var handler, _, _) = Arrange();
 
-        Result<ReplayedClientDto, ReplayRegistrationError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ReplayRegisteredClientQuery(
                 RegisteredClientIdentifier.From(Guid.Parse("0198f1c0-0000-7000-8000-0000000000ff"))),
             CancellationToken.None);
@@ -72,10 +72,10 @@ public class ReplayRegisteredClientQueryHandlerTests
     [Fact]
     public async Task A_client_Keycloak_no_longer_holds_is_refused_rather_than_recreated()
     {
-        (ReplayRegisteredClientQueryHandler handler, RegisteredClientAggregate registered,
-            FakeKeycloakAdminClient keycloak) = Arrange(registerInKeycloak: false);
+        (var handler, var registered,
+            var keycloak) = Arrange(registerInKeycloak: false);
 
-        Result<ReplayedClientDto, ReplayRegistrationError> result =
+        var result =
             await handler.HandleAsync(new ReplayRegisteredClientQuery(registered.Id), CancellationToken.None);
 
         Code(result).ShouldBe("REPLAYED_CLIENT_MISSING");
@@ -92,11 +92,11 @@ public class ReplayRegisteredClientQueryHandlerTests
         RegisteredClientAggregate Registered,
         FakeKeycloakAdminClient Keycloak) Arrange(bool registerInKeycloak = true)
     {
-        ClientId clientId = ClientId.From(ClientIdValue);
+        var clientId = ClientId.From(ClientIdValue);
         InMemoryRegisteredClientRepository clients = new();
         FakeKeycloakAdminClient keycloak = new();
 
-        RegisteredClientAggregate registered = RegisteredClientAggregate.Register(
+        var registered = RegisteredClientAggregate.Register(
             clientId,
             ClientKind.Device,
             FabIdentifier.From(Fab),

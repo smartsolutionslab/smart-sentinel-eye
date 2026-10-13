@@ -1,7 +1,5 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.Identity.Application.KeycloakAdmin;
-using SmartSentinelEye.MigrationRunner;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.MigrationRunner.Tests;
@@ -21,9 +19,9 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Returns_every_fab_group_under_fabs()
     {
-        KeycloakProvisionedFabSource source = Source(["munich", "dresden", "berlin"]);
+        var source = Source(["munich", "dresden", "berlin"]);
 
-        IReadOnlyList<FabIdentifier> fabs = await source.GetFabsAsync(CancellationToken.None);
+        var fabs = await source.GetFabsAsync(CancellationToken.None);
 
         fabs.Select(fab => fab.Value).ShouldBe(["munich", "dresden", "berlin"]);
     }
@@ -35,9 +33,9 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Skips_a_group_whose_name_is_not_a_usable_fab_and_keeps_the_rest()
     {
-        KeycloakProvisionedFabSource source = Source(["munich", "NOT-A-FAB", "x", "dresden"]);
+        var source = Source(["munich", "NOT-A-FAB", "x", "dresden"]);
 
-        IReadOnlyList<FabIdentifier> fabs = await source.GetFabsAsync(CancellationToken.None);
+        var fabs = await source.GetFabsAsync(CancellationToken.None);
 
         // 'NOT-A-FAB' is uppercase and 'x' is below the two-character minimum.
         fabs.Select(fab => fab.Value).ShouldBe(["munich", "dresden"]);
@@ -46,9 +44,9 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Deduplicates_repeated_names()
     {
-        KeycloakProvisionedFabSource source = Source(["munich", "munich"]);
+        var source = Source(["munich", "munich"]);
 
-        IReadOnlyList<FabIdentifier> fabs = await source.GetFabsAsync(CancellationToken.None);
+        var fabs = await source.GetFabsAsync(CancellationToken.None);
 
         fabs.Count.ShouldBe(1);
     }
@@ -62,7 +60,7 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Throws_rather_than_returning_empty_when_nothing_is_usable()
     {
-        KeycloakProvisionedFabSource source = Source(["NOT-A-FAB"]);
+        var source = Source(["NOT-A-FAB"]);
 
         await Should.ThrowAsync<InvalidOperationException>(
             () => source.GetFabsAsync(CancellationToken.None));
@@ -71,7 +69,7 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Throws_when_the_realm_has_no_fab_groups_at_all()
     {
-        KeycloakProvisionedFabSource source = Source([]);
+        var source = Source([]);
 
         await Should.ThrowAsync<InvalidOperationException>(
             () => source.GetFabsAsync(CancellationToken.None));
@@ -98,9 +96,9 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Tells_a_realm_with_no_fab_groups_apart_from_one_whose_groups_are_unusable()
     {
-        InvalidOperationException unusable = await Should.ThrowAsync<InvalidOperationException>(
+        var unusable = await Should.ThrowAsync<InvalidOperationException>(
             () => Source(["NOT-A-FAB"]).GetFabsAsync(CancellationToken.None));
-        InvalidOperationException absent = await Should.ThrowAsync<InvalidOperationException>(
+        var absent = await Should.ThrowAsync<InvalidOperationException>(
             () => Source([]).GetFabsAsync(CancellationToken.None));
 
         unusable.Message.ShouldContain("NOT-A-FAB");
@@ -134,11 +132,11 @@ public class KeycloakProvisionedFabSourceTests
     [Fact]
     public async Task Tells_an_absent_fabs_group_apart_from_one_that_has_no_children()
     {
-        InvalidOperationException absent = await Should.ThrowAsync<InvalidOperationException>(
+        var absent = await Should.ThrowAsync<InvalidOperationException>(
             () => SourceWithoutTheFabsGroup().GetFabsAsync(CancellationToken.None));
-        InvalidOperationException childless = await Should.ThrowAsync<InvalidOperationException>(
+        var childless = await Should.ThrowAsync<InvalidOperationException>(
             () => Source([]).GetFabsAsync(CancellationToken.None));
-        InvalidOperationException unusable = await Should.ThrowAsync<InvalidOperationException>(
+        var unusable = await Should.ThrowAsync<InvalidOperationException>(
             () => Source(["NOT-A-FAB"]).GetFabsAsync(CancellationToken.None));
 
         absent.Message.ShouldNotBe(childless.Message);

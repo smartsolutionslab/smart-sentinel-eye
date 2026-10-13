@@ -1,11 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 using SmartSentinelEye.EventIngestion.Api.Requests;
 using SmartSentinelEye.EventIngestion.Application.Commands;
 using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
@@ -38,13 +35,13 @@ public static partial class EventsEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        IngestWriteLimiter limiter = services.Limiter;
-        IServiceScopeFactory scopeFactory = services.ScopeFactory;
-        IFabAuthorizationGuard fabGuard = services.FabGuard;
-        IFabStorageReadiness storage = services.Storage;
-        IWebhookIntegrationRepository webhookIntegrations = services.WebhookIntegrations;
+        var limiter = services.Limiter;
+        var scopeFactory = services.ScopeFactory;
+        var fabGuard = services.FabGuard;
+        var storage = services.Storage;
+        var webhookIntegrations = services.WebhookIntegrations;
 
-        if (!IdempotencyHeaders.TryRead(http.Request, out Option<IdempotencyKey> key, out IResult? keyProblem))
+        if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
@@ -68,14 +65,14 @@ public static partial class EventsEndpoints
         // Resolved BEFORE anything is written (spec 018 FR-007): a refusal that
         // had already stored would place a fabricated event in another plant's
         // stream while reporting that it had been stopped.
-        Result<FabIdentifier, IResult> fabResolution =
+        var fabResolution =
             await EventIngestionFabResolution.ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
-        FabIdentifier fab = fabResolution.Value;
+        var fab = fabResolution.Value;
 
         // Spec 019 FR-007. Still checked first: it names the cause precisely
         // ("this plant has no storage") where the write below could only report
@@ -148,7 +145,7 @@ public static partial class EventsEndpoints
     private static async Task<bool> IsRevokedWebhookCallerAsync(
         ClaimsPrincipal user, IWebhookIntegrationRepository webhookIntegrations, CancellationToken cancellationToken)
     {
-        string? azp = user.FindFirst("azp")?.Value;
+        var azp = user.FindFirst("azp")?.Value;
         if (string.IsNullOrWhiteSpace(azp) || azp.Length > KeycloakClientIdentifier.MaximumLength)
         {
             return false;
@@ -175,9 +172,9 @@ public static partial class EventsEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(request).IsNotNull();
 
-        ILogger logger = loggerFactory.CreateLogger(typeof(EventsEndpoints));
+        var logger = loggerFactory.CreateLogger(typeof(EventsEndpoints));
 
-        WebhookIntegration? integration = await AuthenticateWebhookAsync(
+        var integration = await AuthenticateWebhookAsync(
             integrationName, request, fabId, integrations, logger, cache, cancellationToken);
         if (integration is null)
         {
@@ -243,7 +240,7 @@ public static partial class EventsEndpoints
         {
             return null;
         }
-        string token = authHeader[BearerPrefix.Length..];
+        var token = authHeader[BearerPrefix.Length..];
 
         WebhookIntegrationName parsedName;
         try
@@ -255,14 +252,14 @@ public static partial class EventsEndpoints
             return null;
         }
 
-        Option<WebhookIntegration> found = await integrations
+        var found = await integrations
             .GetByNameAsync(parsedName, cancellationToken);
         if (!found.HasValue)
         {
             return null;
         }
 
-        WebhookIntegration integration = found.Value;
+        var integration = found.Value;
 
         if (integration.RevokedAt is RevokedAt revokedAt)
         {
@@ -288,7 +285,7 @@ public static partial class EventsEndpoints
             return null;
         }
 
-        bool authorized = integration.ValidationMode == BearerValidationMode.Jwt
+        var authorized = integration.ValidationMode == BearerValidationMode.Jwt
             ? await ValidateJwtAsync(request, integration, fabId)
             : integration.TokenHash.Matches(token);
         return authorized ? integration : null;
@@ -319,7 +316,7 @@ public static partial class EventsEndpoints
     private static bool IsNewRevokedWebhookDeliveryLog(
         IMemoryCache cache, WebhookIntegrationIdentifier identifier)
     {
-        string key = $"revoked-webhook-delivery-log:{identifier.Value}";
+        var key = $"revoked-webhook-delivery-log:{identifier.Value}";
         if (cache.TryGetValue(key, out _))
         {
             return false;
@@ -357,16 +354,16 @@ public static partial class EventsEndpoints
     private static async Task<bool> ValidateJwtAsync(
         HttpRequest request, WebhookIntegration integration, string fabId)
     {
-        AuthenticateResult auth = await request.HttpContext
+        var auth = await request.HttpContext
             .AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
         if (!auth.Succeeded || auth.Principal is null)
         {
             return false;
         }
 
-        ClaimsPrincipal user = auth.Principal;
+        var user = auth.Principal;
 
-        bool hasEventsWriteScope = user.FindAll("scope").Any(claim =>
+        var hasEventsWriteScope = user.FindAll("scope").Any(claim =>
             claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                 .Contains("sse.events.write", StringComparer.Ordinal));
         if (!hasEventsWriteScope)
@@ -374,13 +371,13 @@ public static partial class EventsEndpoints
             return false;
         }
 
-        string? azp = user.FindFirst("azp")?.Value;
+        var azp = user.FindFirst("azp")?.Value;
         if (!string.Equals(azp, integration.KeycloakClientId?.Value, StringComparison.Ordinal))
         {
             return false;
         }
 
-        string targetGroup = "/fabs/" + fabId;
+        var targetGroup = "/fabs/" + fabId;
         return user.FindAll("groups").Any(claim =>
             claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries)
                 .Contains(targetGroup, StringComparer.Ordinal));
@@ -436,7 +433,7 @@ public static partial class EventsEndpoints
         EventEnvelope envelope,
         CancellationToken cancellationToken)
     {
-        using IngestWriteLease lease = limiter.TryAcquire();
+        using var lease = limiter.TryAcquire();
         if (!lease.Acquired)
         {
             return Result<Guid, IResult>.Failure(Results.Problem(
@@ -445,13 +442,13 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status429TooManyRequests));
         }
 
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
-        IngestEventCommandHandler handler =
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var handler =
             scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
 
         try
         {
-            Result<EventIdentifier, IngestEventError> result =
+            var result =
                 await handler.HandleAsync(new IngestEventCommand(envelope), cancellationToken);
 
             // Spec 317 (#2325), A2: a held event is a 2xx — accepted, not an

@@ -83,12 +83,12 @@ public class MqttPublisherBackoffTests
     [Fact]
     public async Task A_connection_that_dies_on_arrival_is_retried_with_a_delay_rather_than_a_spin()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create(PublisherUnderTest.Patient());
+        await using var publisher = PublisherUnderTest.Create(PublisherUnderTest.Patient());
         publisher.Client.DropEveryConnectionImmediately = true;
 
         await publisher.Publisher.StartAsync(CancellationToken.None);
 
-        bool spun = await PublisherUnderTest.WaitUntilAsync(
+        var spun = await PublisherUnderTest.WaitUntilAsync(
             () => publisher.Client.ConnectAttempts >= SpinCeiling, SpinWindow);
 
         Console.WriteLine(
@@ -125,7 +125,7 @@ public class MqttPublisherBackoffTests
     [Fact]
     public async Task A_connection_held_just_past_the_floor_still_backs_off()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create(PublisherUnderTest.Patient());
+        await using var publisher = PublisherUnderTest.Create(PublisherUnderTest.Patient());
         publisher.Client.HoldEveryConnectionFor(JustPastTheFloor);
 
         await publisher.Publisher.StartAsync(CancellationToken.None);
@@ -149,7 +149,7 @@ public class MqttPublisherBackoffTests
     [Fact]
     public async Task A_reconnect_after_a_held_connection_does_not_inherit_the_previous_backoff()
     {
-        await using PublisherUnderTest publisher = PublisherUnderTest.Create(PublisherUnderTest.Patient());
+        await using var publisher = PublisherUnderTest.Create(PublisherUnderTest.Patient());
         publisher.Client.RefuseNextConnects(2);
 
         await publisher.Publisher.StartAsync(CancellationToken.None);
@@ -157,7 +157,7 @@ public class MqttPublisherBackoffTests
         (await PublisherUnderTest.WaitUntilAsync(() => publisher.Client.IsConnected)).ShouldBeTrue(
             "the loop never connected");
 
-        int before = publisher.Client.ConnectAttempts;
+        var before = publisher.Client.ConnectAttempts;
 
         // Hold the connection well past ResetIfHeld's own yardstick (twice the
         // 160-240 ms this attempt served, so at most 480 ms) before dropping it
@@ -165,10 +165,10 @@ public class MqttPublisherBackoffTests
         await Task.Delay(HeldConnectionDuration);
         await publisher.Client.DropAsync();
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        bool reconnected = await PublisherUnderTest.WaitUntilAsync(
+        var stopwatch = Stopwatch.StartNew();
+        var reconnected = await PublisherUnderTest.WaitUntilAsync(
             () => publisher.Client.ConnectAttempts > before, PromptReconnectWindow);
-        long elapsedMs = stopwatch.ElapsedMilliseconds;
+        var elapsedMs = stopwatch.ElapsedMilliseconds;
 
         Console.WriteLine(
             $"[reconnect-after-held] reconnect observed at {elapsedMs} ms against a "
@@ -243,7 +243,7 @@ public class MqttPublisherBackoffTests
 
         public static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan? within = null)
         {
-            DateTimeOffset deadline = DateTimeOffset.UtcNow + (within ?? TimeSpan.FromSeconds(10));
+            var deadline = DateTimeOffset.UtcNow + (within ?? TimeSpan.FromSeconds(10));
             while (DateTimeOffset.UtcNow < deadline)
             {
                 if (condition())

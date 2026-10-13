@@ -1,11 +1,9 @@
 using System.Globalization;
-using SmartSentinelEye.EventIngestion.Application.DTOs;
 using SmartSentinelEye.EventIngestion.Application.Queries;
 using SmartSentinelEye.EventIngestion.Application.Queries.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Tests;
 
 namespace SmartSentinelEye.EventIngestion.Application.Tests.Queries;
@@ -19,7 +17,7 @@ public class ListWebhookIntegrationsQueryHandlerTests
 
     private static WebhookIntegration BuildActive(string name, string fab = "munich")
     {
-        (WebhookIntegration integration, _) = WebhookIntegration.Register(
+        (var integration, _) = WebhookIntegration.Register(
             WebhookIntegrationName.From(name),
             FabIdentifier.From(fab),
             Kind.From("WebhookResult"),
@@ -34,7 +32,7 @@ public class ListWebhookIntegrationsQueryHandlerTests
         ListWebhookIntegrationsQueryHandler handler = new(
             new TestWebhookIntegrationQuerySource(seed));
 
-        Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
+        var result =
             await handler.HandleAsync(
                 new ListWebhookIntegrationsQuery([Munich], IncludeRevoked: true),
                 CancellationToken.None);
@@ -61,7 +59,7 @@ public class ListWebhookIntegrationsQueryHandlerTests
         ListWebhookIntegrationsQueryHandler handler = new(
             new TestWebhookIntegrationQuerySource(seed));
 
-        Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
+        var result =
             await handler.HandleAsync(
                 new ListWebhookIntegrationsQuery([FabIdentifier.From("dresden")], IncludeRevoked: true),
                 CancellationToken.None);
@@ -81,13 +79,13 @@ public class ListWebhookIntegrationsQueryHandlerTests
         // Version 5, not 0: at 0 this assertion held even if the projection
         // emitted a constant or read the wrong field, since default(int) is
         // also 0. That is what it used to do.
-        WebhookIntegration integration = BuildActive("alpha");
+        var integration = BuildActive("alpha");
         AggregateVersions.SetTo(integration, 5);
 
         ListWebhookIntegrationsQueryHandler handler = new(
             new TestWebhookIntegrationQuerySource([integration]));
 
-        Result<IReadOnlyList<WebhookIntegrationDto>, ListWebhookIntegrationsError> result =
+        var result =
             await handler.HandleAsync(
                 new ListWebhookIntegrationsQuery([Munich], IncludeRevoked: true), CancellationToken.None);
 

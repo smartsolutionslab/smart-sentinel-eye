@@ -226,7 +226,7 @@ public class StatusProducerDeclarationTests
     public static TheoryData<string> EndpointFiles()
     {
         TheoryData<string> data = [];
-        foreach (string file in TheSurface.Value.EndpointSources)
+        foreach (var file in TheSurface.Value.EndpointSources)
         {
             data.Add(file);
         }
@@ -259,7 +259,7 @@ public class StatusProducerDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_authorized_mapping_declares_the_challenge_its_authorization_produces(string file)
     {
-        RouteMapping[] inFile = TheSurface.Value.Routes
+        var inFile = TheSurface.Value.Routes
             .Where(mapping => string.Equals(mapping.File, file, StringComparison.Ordinal))
             .ToArray();
 
@@ -270,7 +270,7 @@ public class StatusProducerDeclarationTests
             + "not parse, in which case none of its endpoints are checked at all and this assertion would "
             + "pass over an empty set.");
 
-        string[] undeclared = inFile
+        var undeclared = inFile
             .Where(mapping => mapping.Kind == AccessKind.Authorized)
             .Where(mapping => !ChallengeDeclaration.IsMatch(mapping.Chain))
             .Select(Describe)
@@ -304,7 +304,7 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void No_route_group_declares_the_challenge_its_members_must_declare()
     {
-        string[] declaring = TheSurface.Value.Groups
+        var declaring = TheSurface.Value.Groups
             .Where(group => ChallengeDeclaration.IsMatch(group.Chain))
             .Select(group => $"{group.File}:{group.Line}  MapGroup(\"{group.Prefix}\") on '{group.Variable}'")
             .ToArray();
@@ -344,8 +344,8 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void The_challenge_declarations_the_walk_finds_are_all_the_ones_there_are()
     {
-        int swept = TheSurface.Value.Masked.Values.Sum(text => ChallengeDeclaration.Count(text));
-        int walked = TheSurface.Value.Routes.Sum(mapping => ChallengeDeclaration.Count(mapping.Chain))
+        var swept = TheSurface.Value.Masked.Values.Sum(text => ChallengeDeclaration.Count(text));
+        var walked = TheSurface.Value.Routes.Sum(mapping => ChallengeDeclaration.Count(mapping.Chain))
             + TheSurface.Value.Groups.Sum(group => ChallengeDeclaration.Count(group.Chain));
 
         swept.ShouldBeGreaterThan(
@@ -378,8 +378,8 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void Every_route_handler_mapping_under_the_api_projects_is_enumerated()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Masked.Values.Sum(text => MappingCall.Count(text));
+        var surface = TheSurface.Value;
+        var swept = surface.Masked.Values.Sum(text => MappingCall.Count(text));
 
         surface.EndpointSources.Count.ShouldBe(
             EndpointFileCount,
@@ -402,7 +402,7 @@ public class StatusProducerDeclarationTests
             + "A mapping this guard never enumerates is one it never checks, and it fails nothing on its "
             + "way past.");
 
-        string[] outside = surface.Routes
+        var outside = surface.Routes
             .Select(mapping => mapping.File)
             .Distinct(StringComparer.Ordinal)
             .Where(file => !surface.EndpointSources.Contains(file, StringComparer.Ordinal))
@@ -437,9 +437,9 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void Every_mapping_is_either_authorized_or_explicitly_anonymous()
     {
-        RouteMapping[] mappings = TheSurface.Value.Routes.ToArray();
+        var mappings = TheSurface.Value.Routes.ToArray();
 
-        string[] unclassified = mappings
+        var unclassified = mappings
             .Where(mapping => mapping.Kind == AccessKind.Unclassified)
             .Select(Describe)
             .ToArray();
@@ -486,7 +486,7 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void Every_registered_exception_handler_is_classified_by_the_census()
     {
-        string[] handlers = typeof(Scope).Assembly.GetTypes()
+        var handlers = typeof(Scope).Assembly.GetTypes()
             .Where(type => type is { IsClass: true, IsAbstract: false })
             .Where(type => type.GetInterfaces().Any(face =>
                 string.Equals(face.Name, "IExceptionHandler", StringComparison.Ordinal)))
@@ -500,9 +500,9 @@ public class StatusProducerDeclarationTests
             + "registered when this census was written, and every row below claiming one would then be "
             + "checked against nothing.");
 
-        string registrations = ReadRepositoryFile(RegistrationSource);
+        var registrations = ReadRepositoryFile(RegistrationSource);
 
-        string[] unclassified = handlers
+        var unclassified = handlers
             .Where(handler => !Census.Any(row => row.Name.Contains(handler, StringComparison.Ordinal)))
             .Select(handler => $"{handler} — implements IExceptionHandler and is in no census row")
             .ToArray();
@@ -515,7 +515,7 @@ public class StatusProducerDeclarationTests
             + "antecedent is visible from the mapping. If it is not, the row records that a register is "
             + "the ceiling; that is an answer, not a gap.");
 
-        string[] unregistered = handlers
+        var unregistered = handlers
             .Where(handler => !registrations.Contains($"AddExceptionHandler<{handler}>", StringComparison.Ordinal))
             .Select(handler => $"{handler} — no AddExceptionHandler<{handler}>() in {RegistrationSource}")
             .ToArray();
@@ -527,7 +527,7 @@ public class StatusProducerDeclarationTests
             + "nowhere produces nothing, and the row is then a claim about behaviour the tree does not "
             + "have.");
 
-        string[] stale = Census
+        var stale = Census
             .Where(row => row.Name.EndsWith("ExceptionHandler", StringComparison.Ordinal))
             .Where(row => !handlers.Contains(row.Name, StringComparer.Ordinal))
             .Select(row => $"{row.Identifier} — {row.Name} is in the census and implements no IExceptionHandler")
@@ -556,7 +556,7 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void Every_mechanism_the_census_calls_derived_names_a_guard_that_exists()
     {
-        string[] claimed = Census
+        var claimed = Census
             .Where(row => row.Guard is not null && row.GuardMethod is not null)
             .Select(row => $"{row.Identifier} -> {row.Guard}#{row.GuardMethod}")
             .ToArray();
@@ -568,7 +568,7 @@ public class StatusProducerDeclarationTests
             + "so a smaller number means rows lost their guard reference and this assertion now checks "
             + "almost nothing.");
 
-        string[] missing = Census
+        var missing = Census
             .Where(row => row.Guard is not null && row.GuardMethod is not null)
             .Where(row => !ReadRepositoryFile(row.Guard!)
                 .Contains($"public void {row.GuardMethod}(", StringComparison.Ordinal))
@@ -615,7 +615,7 @@ public class StatusProducerDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string[] offenders = SourceMask.Apply(ReadRepositoryFile(GuardSource), MaskStrictness.CommentsAndLiteralInteriors)
+        var offenders = SourceMask.Apply(ReadRepositoryFile(GuardSource), MaskStrictness.CommentsAndLiteralInteriors)
             .Split('\n')
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .Select(line => line.Trim())
@@ -656,7 +656,7 @@ public class StatusProducerDeclarationTests
             (cleanFile, cleanText),
         ];
 
-        string[] offenders = FormsThisReaderCannotMask(sources);
+        var offenders = FormsThisReaderCannotMask(sources);
 
         offenders.Length.ShouldBe(
             1,
@@ -687,8 +687,8 @@ public class StatusProducerDeclarationTests
     [Fact]
     public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
         files.ShouldNotBeEmpty(
             "no file under src/*/Api was found, so this guard would pass against an empty corpus.");
 
@@ -696,7 +696,7 @@ public class StatusProducerDeclarationTests
             "the list of forms this reader's masker cannot handle is empty, so this guard would pass "
             + "against nothing to look for.");
 
-        string[] offenders = FormsThisReaderCannotMask(files.Select(file => (file, ReadRepositoryFile(file))));
+        var offenders = FormsThisReaderCannotMask(files.Select(file => (file, ReadRepositoryFile(file))));
 
         offenders.ShouldBeEmpty(
             $"{offenders.Length} source file(s) under src/*/Api use a literal form this reader's masker "
@@ -729,14 +729,14 @@ public class StatusProducerDeclarationTests
     /// </summary>
     private static string[] FormsThisReaderCannotMask(IEnumerable<(string File, string Text)> sources)
     {
-        (string Form, string Why)[] bannedForms = BannedForms();
+        var bannedForms = BannedForms();
 
         List<string> offenders = [];
-        foreach ((string file, string text) in sources)
+        foreach ((var file, var text) in sources)
         {
-            foreach ((string form, string why) in bannedForms)
+            foreach ((var form, var why) in bannedForms)
             {
-                int at = text.IndexOf(form, StringComparison.Ordinal);
+                var at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
                 {
                     offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
@@ -751,34 +751,34 @@ public class StatusProducerDeclarationTests
 
     private static string Describe(RouteMapping mapping)
     {
-        string[] declared = DeclaredStatus.Matches(mapping.Chain)
+        var declared = DeclaredStatus.Matches(mapping.Chain)
             .Select(match => match.Groups["code"].Value)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
             .ToArray();
 
-        string states = declared.Length == 0 ? "no status at all" : string.Join(", ", declared);
+        var states = declared.Length == 0 ? "no status at all" : string.Join(", ", declared);
 
         return $"{mapping.File}:{mapping.Line} {mapping.Verb} {mapping.FullRoute} declares {states}";
     }
 
     private static Surface Read()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
 
         Dictionary<string, string> masked = new(StringComparer.Ordinal);
         Dictionary<string, string> text = new(StringComparer.Ordinal);
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string body = File.ReadAllText(Path.Combine(root.FullName, file))
+            var body = File.ReadAllText(Path.Combine(root.FullName, file))
                 .Replace("\r", string.Empty, StringComparison.Ordinal);
             text[file] = body;
             masked[file] = SourceMask.Apply(body, MaskStrictness.CommentsAndLiteralInteriors);
         }
 
-        List<RouteGroup> groups = files.SelectMany(file => RouteGroups(file, text[file], masked[file])).ToList();
-        List<RouteMapping> mappings = files
+        var groups = files.SelectMany(file => RouteGroups(file, text[file], masked[file])).ToList();
+        var mappings = files
             .SelectMany(file => Mappings(file, text[file], masked[file], groups))
             .ToList();
 
@@ -791,7 +791,7 @@ public class StatusProducerDeclarationTests
 
     private static List<string> ApiSourceFiles(DirectoryInfo root)
     {
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateDirectories(src)
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
@@ -812,16 +812,16 @@ public class StatusProducerDeclarationTests
     {
         foreach (Match declaration in GroupDeclaration.Matches(masked))
         {
-            int open = declaration.Index + declaration.Length - 1;
-            int close = RouteChainReader.Balanced(masked, open, '(', ')');
+            var open = declaration.Index + declaration.Length - 1;
+            var close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
-            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            string prefix = arguments.Count > 0
+            var end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            var prefix = arguments.Count > 0
                 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim())
                 : string.Empty;
 
@@ -847,22 +847,22 @@ public class StatusProducerDeclarationTests
     {
         foreach (Match call in MappingCall.Matches(masked))
         {
-            int open = call.Index + call.Length - 1;
-            int close = RouteChainReader.Balanced(masked, open, '(', ')');
+            var open = call.Index + call.Length - 1;
+            var close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
-            string chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
+            var end = RouteChainReader.StatementEnd(masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            var chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
 
-            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            string route = arguments.Count > 0
+            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            var route = arguments.Count > 0
                 ? RouteChainReader.Unquote(text[arguments[0].Start..arguments[0].End].Trim())
                 : string.Empty;
 
-            RouteGroup? group = groups.FirstOrDefault(candidate =>
+            var group = groups.FirstOrDefault(candidate =>
                 string.Equals(candidate.File, file, StringComparison.Ordinal)
                 && string.Equals(candidate.Variable, call.Groups["receiver"].Value, StringComparison.Ordinal));
 

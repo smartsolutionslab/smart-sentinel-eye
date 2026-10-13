@@ -32,10 +32,10 @@ public class IngestBackpressureIntegrationTests(AspireFixture aspire, ITestOutpu
     [Fact]
     public async Task A_burst_past_the_write_limit_is_shed_with_the_documented_problem_title()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", Operator, OperatorPassword);
 
-        string kind = $"Backpressure{Guid.CreateVersion7():N}"[..20];
+        var kind = $"Backpressure{Guid.CreateVersion7():N}"[..20];
 
         Task<HttpResponseMessage>[] posts =
         [
@@ -48,17 +48,17 @@ public class IngestBackpressureIntegrationTests(AspireFixture aspire, ITestOutpu
             })),
         ];
 
-        HttpResponseMessage[] responses = await Task.WhenAll(posts);
+        var responses = await Task.WhenAll(posts);
 
-        string distribution = DescribeDistribution(responses);
+        var distribution = DescribeDistribution(responses);
         output.WriteLine($"POST /events/manual x8 (concurrency 1) -> {distribution}");
 
-        string diagnostics = $"observed {distribution}. Recent event-ingestion logs:\n{aspire.RecentLogs("event-ingestion")}";
+        var diagnostics = $"observed {distribution}. Recent event-ingestion logs:\n{aspire.RecentLogs("event-ingestion")}";
 
-        HttpResponseMessage? refused = responses.FirstOrDefault(response => response.StatusCode == HttpStatusCode.TooManyRequests);
+        var refused = responses.FirstOrDefault(response => response.StatusCode == HttpStatusCode.TooManyRequests);
         refused.ShouldNotBeNull($"expected at least one 429; {diagnostics}");
 
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe(
             "EVENT_INGEST_BACKPRESSURE",
             $"the 429's problem title did not match the documented contract; {diagnostics}");

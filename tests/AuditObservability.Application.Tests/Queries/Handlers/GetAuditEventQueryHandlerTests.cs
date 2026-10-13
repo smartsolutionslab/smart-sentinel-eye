@@ -1,11 +1,8 @@
-using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Application.Queries;
 using SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
 using SmartSentinelEye.AuditObservability.Application.Tests.Fakes;
 using SmartSentinelEye.AuditObservability.Application.Tests.TestData;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
-using SmartSentinelEye.Shared.Kernel;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 
 namespace SmartSentinelEye.AuditObservability.Application.Tests.Queries.Handlers;
 
@@ -14,11 +11,11 @@ public class GetAuditEventQueryHandlerTests
     [Fact]
     public async Task Returns_the_row_with_full_payload_for_a_known_id()
     {
-        AuditEventEntity row = new AuditEventBuilder().Build();
+        var row = new AuditEventBuilder().Build();
         TestAuditEventQuerySource source = new([row]);
         GetAuditEventQueryHandler handler = new(source);
 
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
+        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
 
         result.IsSuccess.ShouldBeTrue();
         result.Value.AuditIdentifier.ShouldBe(row.Id.Value);
@@ -31,9 +28,9 @@ public class GetAuditEventQueryHandlerTests
     {
         TestAuditEventQuerySource source = new([]);
         GetAuditEventQueryHandler handler = new(source);
-        Guid missing = Guid.CreateVersion7();
+        var missing = Guid.CreateVersion7();
 
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(missing)), default);
+        var result = await handler.HandleAsync(new GetAuditEventQuery(AuditEventIdentifier.From(missing)), default);
 
         result.IsFailure.ShouldBeTrue();
         result.Error.ShouldBeOfType<GetAuditEventError.AuditEventNotFound>();
@@ -45,14 +42,14 @@ public class GetAuditEventQueryHandlerTests
     [Fact]
     public async Task The_returned_row_carries_its_fab_attribution_by_name()
     {
-        AuditEventEntity row = new AuditEventBuilder()
+        var row = new AuditEventBuilder()
             .WithFab(null)
             .WithFabScope(FabScope.Neutral)
             .Build();
         TestAuditEventQuerySource source = new([row]);
         GetAuditEventQueryHandler handler = new(source);
 
-        Result<AuditRowDto, GetAuditEventError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new GetAuditEventQuery(AuditEventIdentifier.From(row.Id.Value)), default);
 
         result.IsSuccess.ShouldBeTrue();

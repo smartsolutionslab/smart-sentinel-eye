@@ -42,17 +42,17 @@ public sealed class AzureBlobAuditChunkArchiver(
     {
         Ensure.That(chunk).IsNotNull();
 
-        AuditArchiveOptions opts = options.Value;
-        BlobContainerClient container = blobServiceClient.GetBlobContainerClient(opts.ContainerName);
+        var opts = options.Value;
+        var container = blobServiceClient.GetBlobContainerClient(opts.ContainerName);
         await container.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
 
-        string objectKey = BuildObjectKey(opts.ObjectKeyTemplate, chunk);
-        BlobClient blob = container.GetBlobClient(objectKey);
+        var objectKey = BuildObjectKey(opts.ObjectKeyTemplate, chunk);
+        var blob = container.GetBlobClient(objectKey);
 
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
-        List<AuditEventEntity> rows = await context.AuditEvents
+        var rows = await context.AuditEvents
             .Where(auditEvent => auditEvent.OccurredAt >= chunk.OccurredFrom && auditEvent.OccurredAt < chunk.OccurredUntil)
             .ToListAsync(cancellationToken);
 
@@ -60,7 +60,7 @@ public sealed class AzureBlobAuditChunkArchiver(
         await using (GZipStream gz = new(payload, CompressionLevel.Optimal, leaveOpen: true))
         await using (StreamWriter writer = new(gz))
         {
-            foreach (AuditEventEntity row in rows)
+            foreach (var row in rows)
             {
                 await writer.WriteLineAsync(
                     JsonSerializer.Serialize(BlobAuditRow.From(row)));
@@ -69,14 +69,14 @@ public sealed class AzureBlobAuditChunkArchiver(
 
         payload.Position = 0;
 #pragma warning disable CA5351, S4790 // Content-MD5 is an integrity check, not a security primitive.
-        byte[] md5Bytes = MD5.HashData(payload.ToArray());
+        var md5Bytes = MD5.HashData(payload.ToArray());
 #pragma warning restore CA5351, S4790
-        string contentMd5 = Convert.ToHexStringLower(md5Bytes);
+        var contentMd5 = Convert.ToHexStringLower(md5Bytes);
 
         // Idempotency: a previous successful run leaves the blob
         // in place; only re-upload if it's missing or the
         // checksum drifted.
-        byte[]? existingContentHash = await TryGetContentHashAsync(blob, cancellationToken);
+        var existingContentHash = await TryGetContentHashAsync(blob, cancellationToken);
         if (existingContentHash is not null && existingContentHash.AsSpan().SequenceEqual(md5Bytes))
         {
             logger.ChunkAlreadyArchived(chunk.ChunkIdentifier, objectKey);
@@ -119,11 +119,11 @@ public sealed class AzureBlobAuditChunkArchiver(
         // making — an existence check that misses is not something anyone acts
         // on, and a span that cries failure on the happy path is worse than no
         // span at all. The upload and the surrounding journey are untouched.
-        using IDisposable suppressed = SuppressInstrumentationScope.Begin();
+        using var suppressed = SuppressInstrumentationScope.Begin();
 
         try
         {
-            Response<BlobProperties> properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
+            var properties = await blob.GetPropertiesAsync(cancellationToken: cancellationToken);
             return properties.Value.ContentHash;
         }
         catch (RequestFailedException ex) when (ex.Status == 404)
@@ -134,8 +134,8 @@ public sealed class AzureBlobAuditChunkArchiver(
 
     private static string BuildObjectKey(string template, AuditChunk chunk)
     {
-        string year = chunk.OccurredFrom.UtcDateTime.Year.ToString("D4", CultureInfo.InvariantCulture);
-        string month = chunk.OccurredFrom.UtcDateTime.Month.ToString("D2", CultureInfo.InvariantCulture);
+        var year = chunk.OccurredFrom.UtcDateTime.Year.ToString("D4", CultureInfo.InvariantCulture);
+        var month = chunk.OccurredFrom.UtcDateTime.Month.ToString("D2", CultureInfo.InvariantCulture);
         return template
             .Replace("{fab}", "_unscoped", StringComparison.Ordinal)
             .Replace("{year:0000}", year, StringComparison.Ordinal)

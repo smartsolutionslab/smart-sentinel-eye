@@ -18,13 +18,13 @@ public sealed class DeclareSourceModeCommandHandler(
 
         var (fab, source, mode, declaredBy) = command;
 
-        Option<SourceMode> existing = await sourceModes.GetAsync(fab, source, cancellationToken);
+        var existing = await sourceModes.GetAsync(fab, source, cancellationToken);
         if (existing.HasValue)
         {
             return Failure(DeclareSourceModeFailures.SourceModeAlreadyDeclared(fab.Value, source.Value));
         }
 
-        SourceMode sourceMode = SourceMode.Declare(fab, source, mode, declaredBy, clock);
+        var sourceMode = SourceMode.Declare(fab, source, mode, declaredBy, clock);
         sourceModes.Add(sourceMode);
         await sourceModes.SaveAsync(cancellationToken);
 

@@ -17,8 +17,8 @@ using SmartSentinelEye.AppHost;
 // of `PersistentStack`.
 
 var builder = DistributedApplication.CreateBuilder(args);
-bool isRunMode = builder.ExecutionContext.IsRunMode;
-bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e) && e2e;
+var isRunMode = builder.ExecutionContext.IsRunMode;
+var isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out var e2e) && e2e;
 // ADR-0111 records the Scenario Simulator as dev-only. `E2ETests` alone never
 // delivered that: the end-to-end job boots with a plain `dotnet run` — run
 // mode, flag unset — so the simulator has started there for as long as it has
@@ -26,16 +26,16 @@ bool isE2ETests = bool.TryParse(builder.Configuration["E2ETests"], out bool e2e)
 // also removes the three Vite apps the Playwright suite drives and spec 056's
 // `fixture-video`. Absent or unparseable means a developer's `aspire run`, the
 // only place it is wanted.
-bool isScenarioSimulatorEnabled =
-    !bool.TryParse(builder.Configuration["ScenarioSimulator"], out bool simulator) || simulator;
+var isScenarioSimulatorEnabled =
+    !bool.TryParse(builder.Configuration["ScenarioSimulator"], out var simulator) || simulator;
 // PersistentStack mirrors ScenarioSimulator's parse shape and fail-open
 // default: absent or unparseable means a developer's stack, the only lane
 // that ever wants persistence. CI's end-to-end job passes
 // PersistentStack=false so the containers, data volumes and pgAdmin it
 // creates do not outlive the job's `kill` (#2297).
-bool isPersistentStackEnabled =
-    !bool.TryParse(builder.Configuration["PersistentStack"], out bool persistent) || persistent;
-bool isPersistentDevStack = isRunMode && !isE2ETests && isPersistentStackEnabled;
+var isPersistentStackEnabled =
+    !bool.TryParse(builder.Configuration["PersistentStack"], out var persistent) || persistent;
+var isPersistentDevStack = isRunMode && !isE2ETests && isPersistentStackEnabled;
 
 var postgresUser = builder.AddOverridableParameter("PostgresUser", "postgres");
 var postgresPassword = builder.AddOverridableParameter("PostgresPassword", "dev-only-postgres-password", secret: true);
@@ -640,7 +640,7 @@ var auditObservability = builder
 // the same "must not gate host start" reasoning already applied to the
 // CameraCatalog attribution reference above. One small loop rather than
 // eight copies of the same three calls.
-foreach (IResourceBuilder<ProjectResource> consumer in new[]
+foreach (var consumer in new[]
 {
     cameraCatalog, streamDistribution, layoutComposition, eventIngestion,
     overlayDesigner, systemVariables, automation, auditObservability,
@@ -674,7 +674,7 @@ foreach (IResourceBuilder<ProjectResource> consumer in new[]
 // break: postgres is unconditional and every service references its own
 // database. `WaitForCompletion` defaults to expecting exit code 0, so an
 // aborted run is what stops them, not merely a finished one.
-foreach (IResourceBuilder<ProjectResource> dependent in new[]
+foreach (var dependent in new[]
 {
     cameraCatalog, streamDistribution, layoutComposition, eventIngestion,
     overlayDesigner, systemVariables, automation, identity, auditObservability,

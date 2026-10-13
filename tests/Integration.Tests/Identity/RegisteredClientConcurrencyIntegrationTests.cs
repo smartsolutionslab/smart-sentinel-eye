@@ -57,7 +57,7 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
         // retried) to an Identity that has served nothing, paying first-request costs — listener
         // readiness, OIDC/JWKS fetch, policy evaluation, EF model build — inside the one 10 s
         // attempt. Warm those with a GET, which the resilience handler may retry (ADR-0142/0143).
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity", cts.Token);
+        using var identity = await aspire.CreateAdminClientAsync("identity", cts.Token);
         await ListWebhooksAsync(identity);
     }
 
@@ -66,10 +66,10 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task Disabling_a_device_needs_no_precondition()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string clientId = await RegisterDeviceAsync(identity);
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var clientId = await RegisterDeviceAsync(identity);
 
-        HttpResponseMessage disabled = await identity.DeleteAsync($"/devices/{clientId}?fabId={Fab}");
+        var disabled = await identity.DeleteAsync($"/devices/{clientId}?fabId={Fab}");
 
         disabled.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(disabled));
         (await FindDeviceAsync(identity, clientId)).GetProperty("disabledAt").ValueKind
@@ -79,9 +79,9 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task A_rotation_without_a_precondition_is_refused_with_428()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
+        using var identity = await aspire.CreateAdminClientAsync("identity");
 
-        HttpResponseMessage refused = await identity.PostAsync(
+        var refused = await identity.PostAsync(
             $"/webhook-integrations/{UniqueIntegrationName()}/rotate", Body());
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionRequired);
@@ -90,9 +90,9 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task A_created_client_is_listed_with_the_version_its_next_rotation_needs()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
-        int returned = await CreateAsync(identity, name);
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
+        var returned = await CreateAsync(identity, name);
 
         // The read path exists so a caller who lost the rotation response is
         // not locked out of ever rotating again.
@@ -102,15 +102,15 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task Each_rotation_returns_the_version_the_next_one_must_send()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
 
         // Chained three deep on purpose. Two would still pass if the response
         // version were frozen at 0, because an Added root is not bumped — the
         // third is what proves the value tracks the interceptor.
-        int afterCreate = await CreateAsync(identity, name);
-        int afterSecond = await RotateAsync(identity, name, afterCreate);
-        int afterThird = await RotateAsync(identity, name, afterSecond);
+        var afterCreate = await CreateAsync(identity, name);
+        var afterSecond = await RotateAsync(identity, name, afterCreate);
+        var afterThird = await RotateAsync(identity, name, afterSecond);
 
         afterSecond.ShouldBeGreaterThan(afterCreate);
         afterThird.ShouldBeGreaterThan(afterSecond);
@@ -119,14 +119,14 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task A_rotation_superseded_by_another_admin_leaves_the_live_secret_working()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
-        int shared = await CreateAsync(identity, name);
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
+        var shared = await CreateAsync(identity, name);
 
         // Both admins hold `shared`. The first wins and its secret is live.
         (int version, string secret) winner = await RotateForSecretAsync(identity, name, shared);
 
-        HttpResponseMessage refused = await identity.SendAsync(
+        var refused = await identity.SendAsync(
             Conditional(name, shared, Body()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict);
@@ -164,37 +164,37 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task A_rotation_that_loses_the_database_race_at_layer_2_is_told_it_conflicted_not_that_keycloak_is_down()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
-        int version = await CreateAsync(identity, name);
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
+        var version = await CreateAsync(identity, name);
 
-        bool layer2Observed = false;
-        for (int round = 1; round <= MaxRounds && !layer2Observed; round++)
+        var layer2Observed = false;
+        for (var round = 1; round <= MaxRounds && !layer2Observed; round++)
         {
-            HttpResponseMessage[] answers = await Task.WhenAll(Enumerable.Range(0, Racers)
+            var answers = await Task.WhenAll(Enumerable.Range(0, Racers)
                 .Select(_ => identity.SendAsync(Conditional(name, version, Body()))));
 
-            (HttpStatusCode Status, string? Title, string Raw)[] results =
+            var results =
                 await Task.WhenAll(answers.Select(ReadAnswerAsync));
 
             // A loser's body is quoted whole: a 502's detail carries the caught
             // exception's message, which is what tells a Layer-2 loser from a real
             // Keycloak outage. A 200's body holds the new secret, so it is not.
-            string answered = string.Join(", ", results.Select(r => r.Status == HttpStatusCode.OK
+            var answered = string.Join(", ", results.Select(r => r.Status == HttpStatusCode.OK
                 ? "200"
                 : $"{(int)r.Status} {r.Title ?? "(no title)"} {r.Raw}"));
 
-            (HttpStatusCode Status, string? Title, string Raw)[] winners = results
+            var winners = results
                 .Where(r => r.Status == HttpStatusCode.OK).ToArray();
             winners.Length.ShouldBe(1,
                 $"round {round}: exactly one racer may win the rotation, its version and secret become "
                 + $"the round's outcome. Answers: {answered}");
 
-            (HttpStatusCode Status, string? Title, string Raw)[] losers = results
+            var losers = results
                 .Where(r => r.Status != HttpStatusCode.OK).ToArray();
 
-            bool any502 = losers.Any(loser => loser.Status == HttpStatusCode.BadGateway);
-            bool any500 = losers.Any(loser => loser.Status == HttpStatusCode.InternalServerError);
+            var any502 = losers.Any(loser => loser.Status == HttpStatusCode.BadGateway);
+            var any500 = losers.Any(loser => loser.Status == HttpStatusCode.InternalServerError);
             string meaning;
             if (any502)
             {
@@ -220,9 +220,9 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
                     + $"WEBHOOK_CLIENT_STALE or 409 AGGREGATE_VERSION_STALE, never anything else. {meaning} "
                     + $"Answers: {answered}");
 
-            using JsonDocument winnerBody = JsonDocument.Parse(winners[0].Raw);
-            int winnerVersion = winnerBody.RootElement.GetProperty("version").GetInt32();
-            string winnerSecret = winnerBody.RootElement.GetProperty("clientSecret").GetString()!;
+            using var winnerBody = JsonDocument.Parse(winners[0].Raw);
+            var winnerVersion = winnerBody.RootElement.GetProperty("version").GetInt32();
+            var winnerSecret = winnerBody.RootElement.GetProperty("clientSecret").GetString()!;
 
             (await CanAuthenticateAsync($"webhook-{name}", winnerSecret)).ShouldBeTrue(
                 $"round {round}: the round's winner must still be able to authenticate with the secret "
@@ -247,12 +247,12 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     private static async Task<(HttpStatusCode Status, string? Title, string Raw)> ReadAnswerAsync(
         HttpResponseMessage response)
     {
-        string raw = await response.Content.ReadAsStringAsync();
+        var raw = await response.Content.ReadAsStringAsync();
         string? title = null;
         try
         {
-            using JsonDocument document = JsonDocument.Parse(raw);
-            if (document.RootElement.TryGetProperty("title", out JsonElement titleElement))
+            using var document = JsonDocument.Parse(raw);
+            if (document.RootElement.TryGetProperty("title", out var titleElement))
             {
                 title = titleElement.GetString();
             }
@@ -269,10 +269,10 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task Rotating_a_client_that_does_not_exist_creates_nothing()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
 
-        HttpResponseMessage refused = await identity.SendAsync(Conditional(name, 0, Body()));
+        var refused = await identity.SendAsync(Conditional(name, 0, Body()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
         (await ProblemAsync(refused)).ShouldBe("WEBHOOK_CLIENT_NOT_FOUND");
@@ -283,14 +283,14 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     [Fact]
     public async Task Re_creating_an_existing_client_does_not_roll_its_secret()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
         await CreateAsync(identity, name);
         (int version, string secret) live = await RotateForSecretAsync(identity, name, 0);
 
         // The replayed first-time rotation: If-None-Match: * against a client
         // that now exists.
-        HttpResponseMessage refused = await identity.SendAsync(CreateConditional(name, Body()));
+        var refused = await identity.SendAsync(CreateConditional(name, Body()));
 
         refused.StatusCode.ShouldBe(HttpStatusCode.PreconditionFailed);
         (await ProblemAsync(refused)).ShouldBe("WEBHOOK_CLIENT_ALREADY_EXISTS");
@@ -305,7 +305,7 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     /// </summary>
     private async Task<bool> CanAuthenticateAsync(string clientId, string clientSecret)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -313,7 +313,7 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
             ["client_secret"] = clientSecret,
         });
 
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
 
         return token.IsSuccessStatusCode;
@@ -321,7 +321,7 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
 
     private async Task<string> RegisterDeviceAsync(HttpClient identity)
     {
-        HttpResponseMessage created = await identity.PostAsJsonAsync(
+        var created = await identity.PostAsJsonAsync(
             $"/devices/register?fabId={Fab}",
             new { deviceType = "plc", deviceIdentifier = $"t040-{Guid.CreateVersion7():N}" });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
@@ -332,7 +332,7 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
 
     private async Task<int> CreateAsync(HttpClient identity, string name)
     {
-        HttpResponseMessage created = await identity.SendAsync(CreateConditional(name, Body()));
+        var created = await identity.SendAsync(CreateConditional(name, Body()));
         created.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(created));
 
         return (await created.Content.ReadFromJsonAsync<JsonElement>())
@@ -345,18 +345,18 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     private async Task<(int Version, string Secret)> RotateForSecretAsync(
         HttpClient identity, string name, int expectedVersion)
     {
-        HttpResponseMessage rotated = await identity.SendAsync(
+        var rotated = await identity.SendAsync(
             Conditional(name, expectedVersion, Body()));
         rotated.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(rotated));
 
-        JsonElement body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await rotated.Content.ReadFromJsonAsync<JsonElement>();
 
         return (body.GetProperty("version").GetInt32(), body.GetProperty("clientSecret").GetString()!);
     }
 
     private static async Task<JsonElement> ListWebhooksAsync(HttpClient identity)
     {
-        HttpResponseMessage listed = await identity.GetAsync($"/webhook-integrations?fabId={Fab}");
+        var listed = await identity.GetAsync($"/webhook-integrations?fabId={Fab}");
         listed.EnsureSuccessStatusCode();
 
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
@@ -372,10 +372,10 @@ public class RegisteredClientConcurrencyIntegrationTests(AspireFixture aspire) :
     /// </summary>
     private static async Task<JsonElement> FindDeviceAsync(HttpClient identity, string clientId)
     {
-        HttpResponseMessage listed = await identity.GetAsync($"/devices?fabId={Fab}");
+        var listed = await identity.GetAsync($"/devices?fabId={Fab}");
         listed.EnsureSuccessStatusCode();
 
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         return rows.EnumerateArray().Single(row =>
             string.Equals(row.GetProperty("clientId").GetString(), clientId, StringComparison.Ordinal));

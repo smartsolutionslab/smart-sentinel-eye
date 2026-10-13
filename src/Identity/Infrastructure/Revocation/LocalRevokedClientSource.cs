@@ -3,7 +3,6 @@ using SmartSentinelEye.Identity.Application.Queries;
 using SmartSentinelEye.Identity.Application.Queries.Handlers;
 using SmartSentinelEye.ServiceDefaults.Revocation;
 using SmartSentinelEye.Shared.Contracts.Identity;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Identity.Infrastructure.Revocation;
 
@@ -26,10 +25,10 @@ public sealed class LocalRevokedClientSource(IServiceScopeFactory scopeFactory) 
 {
     public async Task<IReadOnlyList<RevokedClientEntry>> FetchAsync(CancellationToken cancellationToken)
     {
-        using IServiceScope scope = scopeFactory.CreateScope();
-        ListRevokedClientsQueryHandler handler = scope.ServiceProvider.GetRequiredService<ListRevokedClientsQueryHandler>();
+        using var scope = scopeFactory.CreateScope();
+        var handler = scope.ServiceProvider.GetRequiredService<ListRevokedClientsQueryHandler>();
 
-        Result<IReadOnlyList<RevokedClientEntry>, ListClientsError> result =
+        var result =
             await handler.HandleAsync(new ListRevokedClientsQuery(), cancellationToken);
 
         return result.Match(

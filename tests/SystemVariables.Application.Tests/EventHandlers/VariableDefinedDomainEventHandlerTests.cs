@@ -19,8 +19,8 @@ public class VariableDefinedDomainEventHandlerTests
         FakeEventBus bus = new();
         VariableDefinedDomainEventHandler handler = new(bus);
 
-        VariableIdentifier id = VariableIdentifier.New();
-        OperatorIdentifier definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var id = VariableIdentifier.New();
+        var definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
         await handler.Handle(
             new VariableDefinedDomainEvent(
@@ -32,7 +32,7 @@ public class VariableDefinedDomainEventHandlerTests
                 definedBy),
             CancellationToken.None);
 
-        SystemVariableDefinedV1 v1 = bus.Published.OfType<SystemVariableDefinedV1>().ShouldHaveSingleItem();
+        var v1 = bus.Published.OfType<SystemVariableDefinedV1>().ShouldHaveSingleItem();
         v1.Variable.ShouldBe(id.Value);
         v1.Name.ShouldBe("oeeLine1");
         v1.Type.ShouldBe("Number");
@@ -49,7 +49,7 @@ public class VariableDefinedDomainEventHandlerTests
         FakeEventBus bus = new();
         VariableDefinedDomainEventHandler handler = new(bus);
 
-        OperatorIdentifier definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var definedBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
         await handler.Handle(
             new VariableDefinedDomainEvent(
@@ -61,7 +61,7 @@ public class VariableDefinedDomainEventHandlerTests
                 definedBy),
             CancellationToken.None);
 
-        SystemVariableDefinedV1 v1 = bus.Published.OfType<SystemVariableDefinedV1>().ShouldHaveSingleItem();
+        var v1 = bus.Published.OfType<SystemVariableDefinedV1>().ShouldHaveSingleItem();
         v1.Metadata.Fab.ShouldBe("dresden");
         v1.Metadata.Actor.ShouldBe(definedBy.Value);
         v1.Metadata.OccurredAt.ShouldBe(FixedMoment);

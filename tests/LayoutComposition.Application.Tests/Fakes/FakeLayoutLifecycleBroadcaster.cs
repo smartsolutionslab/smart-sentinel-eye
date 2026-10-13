@@ -1,5 +1,3 @@
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
-
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 
 /// <summary>

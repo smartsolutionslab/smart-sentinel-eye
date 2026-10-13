@@ -38,7 +38,7 @@ public sealed class KeycloakAdminTokenProvider(
 
     private static ClientCredentials Credentials(IOptions<KeycloakAdminOptions> options)
     {
-        KeycloakAdminOptions opts = options.Value;
+        var opts = options.Value;
         return new ClientCredentials(opts.BaseUrl, opts.Realm, opts.AdminClientId, opts.AdminClientSecret);
     }
 }

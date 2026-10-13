@@ -11,12 +11,12 @@ public static class RtspPath
         path = string.Empty;
 
         if (string.IsNullOrWhiteSpace(rtspUrl) ||
-            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out Uri? uri))
+            !Uri.TryCreate(rtspUrl, UriKind.Absolute, out var uri))
         {
             return false;
         }
 
-        string candidate = uri.AbsolutePath.Trim('/');
+        var candidate = uri.AbsolutePath.Trim('/');
         if (candidate.Length == 0)
         {
             return false;

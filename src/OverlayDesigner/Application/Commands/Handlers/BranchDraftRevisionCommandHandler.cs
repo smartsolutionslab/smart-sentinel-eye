@@ -16,16 +16,16 @@ public sealed class BranchDraftRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;
+        (var overlayIdentifier, var branchedBy, var expectedVersion) = command;
 
-        Option<Overlay> found = await overlays
+        var found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(BranchDraftRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
-        Overlay overlay = found.Value;
+        var overlay = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
         // has since moved. Checked before any mutation so nothing is applied
@@ -40,7 +40,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         // is still refused.
         if (overlay.Revisions.All(revision => revision.State != OverlayRevisionState.Published))
         {
-            Revision? openDraft = overlay.Revisions
+            var openDraft = overlay.Revisions
                 .FirstOrDefault(revision => revision.State == OverlayRevisionState.Draft);
             if (openDraft is not null)
             {
@@ -57,7 +57,7 @@ public sealed class BranchDraftRevisionCommandHandler(
             // it is also why this check MUST stay inside this branch: on the
             // Published path the chain is visible to the predicate, so it would
             // match itself and refuse every branch of every healthy overlay.
-            Option<Overlay> holder = await overlays.GetByNameAsync(overlay.Name, cancellationToken);
+            var holder = await overlays.GetByNameAsync(overlay.Name, cancellationToken);
             if (holder.HasValue)
             {
                 return Failure(BranchDraftRevisionFailures.OverlayNameTaken(
@@ -65,7 +65,7 @@ public sealed class BranchDraftRevisionCommandHandler(
             }
         }
 
-        Revision branched = overlay.BranchDraft(branchedBy, clock);
+        var branched = overlay.BranchDraft(branchedBy, clock);
         await overlays.SaveAsync(cancellationToken);
 
         logger.BranchedDraftRevision(branched.Number, overlay.Id, branchedBy);

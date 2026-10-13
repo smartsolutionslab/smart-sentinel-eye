@@ -10,7 +10,7 @@ public class GridPositionTests
     [InlineData(3, 2)]
     public void From_accepts_any_non_negative_coordinate(int row, int col)
     {
-        GridPosition position = GridPosition.From(row, col);
+        var position = GridPosition.From(row, col);
         position.Row.ShouldBe(row);
         position.Col.ShouldBe(col);
     }

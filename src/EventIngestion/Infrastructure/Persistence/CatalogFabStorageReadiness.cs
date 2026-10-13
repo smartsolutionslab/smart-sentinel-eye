@@ -1,5 +1,4 @@
 using System.Collections.Frozen;
-using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
@@ -147,14 +146,14 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
               AND  month.relname = fab.relname || @monthSuffix;
             """;
 
-        await using EventIngestionDbContext context =
+        await using var context =
             await contexts.CreateDbContextAsync(cancellationToken);
-        await using DbCommand command = context.Database.GetDbConnection().CreateCommand();
+        await using var command = context.Database.GetDbConnection().CreateCommand();
         command.CommandText = sql;
 
         // A value, not an identifier, so it is parameterised. The suffix is the
         // naming contract FabPartitionProvisioner and the rollover both keep.
-        DbParameter monthSuffix = command.CreateParameter();
+        var monthSuffix = command.CreateParameter();
         monthSuffix.ParameterName = "monthSuffix";
         monthSuffix.Value = $"_{now:yyyyMM}";
         command.Parameters.Add(monthSuffix);
@@ -162,11 +161,11 @@ public sealed class CatalogFabStorageReadiness : IFabStorageReadiness, IDisposab
         await context.Database.OpenConnectionAsync(cancellationToken);
         try
         {
-            await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken);
+            await using var reader = await command.ExecuteReaderAsync(cancellationToken);
             HashSet<string> fabs = new(StringComparer.Ordinal);
             while (await reader.ReadAsync(cancellationToken))
             {
-                string relation = reader.GetString(0);
+                var relation = reader.GetString(0);
                 if (relation.StartsWith("events_", StringComparison.Ordinal))
                 {
                     fabs.Add(relation["events_".Length..]);

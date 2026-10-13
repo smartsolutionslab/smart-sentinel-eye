@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Http;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -50,7 +49,7 @@ public sealed class ScenarioSeederVariableTests
     [Fact]
     public async Task Variables_are_seeded_before_the_overlay_and_the_reactions()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Variables = [new VariableDefinition { Name = "roughing_zone_state", Type = "String" }];
         asset.Highlight = new HighlightDefinition
         {
@@ -78,9 +77,9 @@ public sealed class ScenarioSeederVariableTests
             OneAssetScenario(asset), automation, variablesHandler, order,
             clipsDirectory: string.Empty, expectedVariableCreates: 1, expectedRuleCreates: 2);
 
-        int firstVariablesCall = order.IndexOf("variables");
-        int firstOverlayCall = order.IndexOf("overlay");
-        int firstRulesCall = order.IndexOf("rules");
+        var firstVariablesCall = order.IndexOf("variables");
+        var firstOverlayCall = order.IndexOf("overlay");
+        var firstRulesCall = order.IndexOf("rules");
 
         firstVariablesCall.ShouldBeGreaterThanOrEqualTo(0, "the variables handler was never called");
         firstOverlayCall.ShouldBeGreaterThanOrEqualTo(0, "the overlay handler was never called");
@@ -97,7 +96,7 @@ public sealed class ScenarioSeederVariableTests
     [Fact]
     public async Task A_refused_variable_skips_exactly_the_reactions_that_write_it()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Variables = [new VariableDefinition { Name = "roughing_zone_state", Type = "String" }];
         asset.Reactions =
         [
@@ -148,7 +147,7 @@ public sealed class ScenarioSeederVariableTests
     [Fact]
     public async Task A_successfully_seeded_variable_lets_its_SetVariableValue_reaction_create_the_rule_with_the_expected_wire_body()
     {
-        AssetDefinition asset = Asset("electronics-inspection", "inspection.mp4");
+        var asset = Asset("electronics-inspection", "inspection.mp4");
         asset.Variables = [new VariableDefinition { Name = "inspection_last_defect", Type = "String" }];
         asset.Reactions =
         [
@@ -170,7 +169,7 @@ public sealed class ScenarioSeederVariableTests
         variablesHandler.Creates.ShouldHaveSingleItem();
         variablesHandler.Creates[0].Body.Name.ShouldBe("inspection_last_defect");
 
-        CreateCall create = automation.Creates.ShouldHaveSingleItem();
+        var create = automation.Creates.ShouldHaveSingleItem();
         create.PathAndQuery.ShouldBe("/rules?fabId=munich");
         create.Body.ShouldBe(new RuleBody(
             "rolling-mill-electronics-inspection-defect-detected",
@@ -193,10 +192,10 @@ public sealed class ScenarioSeederVariableTests
     [Fact]
     public async Task The_same_variable_declared_by_two_assets_with_the_same_type_seeds_once_and_the_second_reuses_it()
     {
-        AssetDefinition assetA = Asset("station-4-roughing", "mill-roughing.mp4");
+        var assetA = Asset("station-4-roughing", "mill-roughing.mp4");
         assetA.Variables = [new VariableDefinition { Name = "shared_state", Type = "String" }];
 
-        AssetDefinition assetB = Asset("station-7-cutting", "sim-loop.mp4");
+        var assetB = Asset("station-7-cutting", "sim-loop.mp4");
         assetB.Variables = [new VariableDefinition { Name = "shared_state", Type = "String" }];
 
         RecordingVariablesHandler variablesHandler = new();
@@ -249,7 +248,7 @@ public sealed class ScenarioSeederVariableTests
         ILogger<ScenarioSeeder>? log = null)
     {
         options.ClipsDirectory = clipsDirectory;
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
+        var wrapped = Options.Create(options);
         AssetCorrelationTable correlation = new();
 
         HttpClient variablesClient = new(new OrderTrackingHandler("variables", order, variablesHandler))
@@ -288,7 +287,7 @@ public sealed class ScenarioSeederVariableTests
 
     private static async Task WaitForAsync(Func<bool> condition)
     {
-        for (int attempt = 0; attempt < 40; attempt++)
+        for (var attempt = 0; attempt < 40; attempt++)
         {
             if (condition())
             {
@@ -367,12 +366,12 @@ public sealed class ScenarioSeederVariableTests
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string path = request.RequestUri!.AbsolutePath;
+            var path = request.RequestUri!.AbsolutePath;
 
             if (request.Method == HttpMethod.Post && path == "/system-variables")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                VariableBody body = JsonSerializer.Deserialize<VariableBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<VariableBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Variable create body did not deserialize.");
                 lock (Creates)
                 {
@@ -393,7 +392,7 @@ public sealed class ScenarioSeederVariableTests
 
             if (request.Method == HttpMethod.Get && path.StartsWith("/system-variables/", StringComparison.Ordinal))
             {
-                string name = path["/system-variables/".Length..];
+                var name = path["/system-variables/".Length..];
                 lock (Reads)
                 {
                     Reads.Add(name);
@@ -402,7 +401,7 @@ public sealed class ScenarioSeederVariableTests
                 string type;
                 lock (known)
                 {
-                    type = known.TryGetValue(name, out string? existing) ? existing : "Number";
+                    type = known.TryGetValue(name, out var existing) ? existing : "Number";
                 }
 
                 return new HttpResponseMessage(HttpStatusCode.OK)
@@ -424,12 +423,12 @@ public sealed class ScenarioSeederVariableTests
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string pathAndQuery = request.RequestUri!.PathAndQuery;
+            var pathAndQuery = request.RequestUri!.PathAndQuery;
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath == "/rules")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                RuleBody body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Rule create body did not deserialize.");
                 lock (Creates)
                 {
@@ -441,7 +440,7 @@ public sealed class ScenarioSeederVariableTests
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath.EndsWith("/publish", StringComparison.Ordinal))
             {
-                string ifMatch = request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                var ifMatch = request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values) : string.Empty;
                 lock (Publishes)
                 {

@@ -1,8 +1,4 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
 using SmartSentinelEye.LayoutComposition.Application.DTOs;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.ServiceDefaults.Authorization;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -24,7 +20,7 @@ public static partial class LayoutEndpoints
     {
         Ensure.That(app).IsNotNull();
 
-        RouteGroupBuilder group = app.MapGroup("/layouts")
+        var group = app.MapGroup("/layouts")
             .WithTags("Layouts");
 
         // 403 became reachable on every endpoint with spec 017: a caller may

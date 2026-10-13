@@ -3,7 +3,6 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using SmartSentinelEye.OverlayDesigner.Domain.Overlay;
-using SmartSentinelEye.OverlayDesigner.Infrastructure.Persistence;
 using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Integration.Tests.OverlayDesigner;
@@ -77,20 +76,20 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task A_second_live_chain_with_the_same_name_is_refused_by_the_database()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string name = UniqueName();
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var name = UniqueName();
+        var created = await overlays.PostAsJsonAsync(
             "/overlays", new { name, elements = new[] { SampleLabelBody() } });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(created));
 
-        await using OverlayDesignerDbContext context = await aspire.CreateOverlayDesignerDbContextAsync();
+        await using var context = await aspire.CreateOverlayDesignerDbContextAsync();
         context.Overlays.Add(Overlay.CreateDraft(
             OverlayName.From(name),
             [OverlayElement.TextElement("Duplicate", 48, NormalizedPosition.From(0.5m, 0.05m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default)],
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new SystemClock()));
 
-        DbUpdateException refused = await Should.ThrowAsync<DbUpdateException>(
+        var refused = await Should.ThrowAsync<DbUpdateException>(
             () => context.SaveChangesAsync());
 
         refused.InnerException.ShouldBeOfType<PostgresException>()
@@ -140,20 +139,20 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task Concurrent_creates_for_one_overlay_name_yield_one_success_and_never_a_fault()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string contested = UniqueName();
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var contested = UniqueName();
 
-        IEnumerable<Task<HttpResponseMessage>> attempts = Enumerable
+        var attempts = Enumerable
             .Range(0, Writers)
             .Select(_ => overlays.PostAsJsonAsync(
                 "/overlays", new { name = contested, elements = new[] { SampleLabelBody() } }));
 
-        HttpResponseMessage[] answers = await Task.WhenAll(attempts);
+        var answers = await Task.WhenAll(attempts);
 
         try
         {
             HttpStatusCode[] statuses = [.. answers.Select(answer => answer.StatusCode)];
-            int rows = await CountRowsNamedAsync(contested);
+            var rows = await CountRowsNamedAsync(contested);
 
             statuses.ShouldNotContain(
                 HttpStatusCode.InternalServerError,
@@ -168,17 +167,17 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
             statuses.Where(status => status != HttpStatusCode.Created)
                 .ShouldAllBe(status => status == HttpStatusCode.Conflict);
 
-            foreach (HttpResponseMessage loser in answers.Where(
+            foreach (var loser in answers.Where(
                 answer => answer.StatusCode == HttpStatusCode.Conflict))
             {
-                JsonElement problem = await loser.Content.ReadFromJsonAsync<JsonElement>();
+                var problem = await loser.Content.ReadFromJsonAsync<JsonElement>();
                 problem.GetProperty("title").GetString().ShouldBeOneOf(
                     "RESOURCE_ALREADY_EXISTS", "OVERLAY_NAME_TAKEN");
             }
         }
         finally
         {
-            foreach (HttpResponseMessage answer in answers)
+            foreach (var answer in answers)
             {
                 answer.Dispose();
             }
@@ -196,15 +195,15 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task An_archived_chain_releases_its_name_for_a_new_chain()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string name = UniqueName();
-        Guid archived = await CreateAsync(overlays, name);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var name = UniqueName();
+        var archived = await CreateAsync(overlays, name);
 
-        HttpResponseMessage archive = await OverlayRequests.PostAsync(
+        var archive = await OverlayRequests.PostAsync(
             overlays, archived, "revisions/1/archive");
         archive.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(archive));
 
-        HttpResponseMessage reused = await overlays.PostAsJsonAsync(
+        var reused = await overlays.PostAsJsonAsync(
             "/overlays", new { name, elements = new[] { SampleLabelBody() } });
 
         reused.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(reused));
@@ -220,18 +219,18 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task Branching_an_archived_chain_whose_name_was_taken_is_refused_with_OVERLAY_NAME_TAKEN()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string name = UniqueName();
-        Guid stranded = await CreateAsync(overlays, name);
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var name = UniqueName();
+        var stranded = await CreateAsync(overlays, name);
         (await OverlayRequests.PostAsync(overlays, stranded, "revisions/1/archive"))
             .StatusCode.ShouldBe(HttpStatusCode.OK);
         (await overlays.PostAsJsonAsync("/overlays", new { name, elements = new[] { SampleLabelBody() } }))
             .StatusCode.ShouldBe(HttpStatusCode.Created);
 
-        HttpResponseMessage refused = await OverlayRequests.PostAsync(overlays, stranded, "draft");
+        var refused = await OverlayRequests.PostAsync(overlays, stranded, "draft");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Conflict, await DiagnoseAsync(refused));
-        JsonElement problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await refused.Content.ReadFromJsonAsync<JsonElement>();
         problem.GetProperty("title").GetString().ShouldBe("OVERLAY_NAME_TAKEN");
     }
 
@@ -247,13 +246,13 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
     [Fact]
     public async Task Two_overlay_names_differing_only_in_case_are_distinct_chains()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        string lower = $"ovl-case-{Guid.NewGuid():N}"[..16];
-        string upper = lower.ToUpperInvariant();
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        var lower = $"ovl-case-{Guid.NewGuid():N}"[..16];
+        var upper = lower.ToUpperInvariant();
 
-        HttpResponseMessage first = await overlays.PostAsJsonAsync(
+        var first = await overlays.PostAsJsonAsync(
             "/overlays", new { name = lower, elements = new[] { SampleLabelBody() } });
-        HttpResponseMessage second = await overlays.PostAsJsonAsync(
+        var second = await overlays.PostAsJsonAsync(
             "/overlays", new { name = upper, elements = new[] { SampleLabelBody() } });
 
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(first));
@@ -266,7 +265,7 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
 
     private static async Task<Guid> CreateAsync(HttpClient overlays, string name)
     {
-        HttpResponseMessage created = await overlays.PostAsJsonAsync(
+        var created = await overlays.PostAsJsonAsync(
             "/overlays", new { name, elements = new[] { SampleLabelBody() } });
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
@@ -275,8 +274,8 @@ public class OverlayNameUniquenessIntegrationTests(AspireFixture aspire) : IAsyn
 
     private async Task<int> CountRowsNamedAsync(string name)
     {
-        await using OverlayDesignerDbContext context = await aspire.CreateOverlayDesignerDbContextAsync();
-        OverlayName parsed = OverlayName.From(name);
+        await using var context = await aspire.CreateOverlayDesignerDbContextAsync();
+        var parsed = OverlayName.From(name);
 
         return await context.Overlays.CountAsync(candidate => candidate.Name == parsed);
     }

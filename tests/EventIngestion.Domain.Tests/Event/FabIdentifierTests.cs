@@ -11,7 +11,7 @@ public class FabIdentifierTests
     [InlineData("ab")]
     public void Accepts_well_formed_kebab_lowercase_names(string raw)
     {
-        FabIdentifier fab = FabIdentifier.From(raw);
+        var fab = FabIdentifier.From(raw);
         fab.Value.ShouldBe(raw);
     }
 
@@ -42,8 +42,8 @@ public class FabIdentifierTests
     [Fact]
     public void Orders_two_fabs_ordinally()
     {
-        FabIdentifier earlier = FabIdentifier.From("aachen");
-        FabIdentifier later = FabIdentifier.From("munich");
+        var earlier = FabIdentifier.From("aachen");
+        var later = FabIdentifier.From("munich");
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         later.CompareTo(earlier).ShouldBeGreaterThan(0);

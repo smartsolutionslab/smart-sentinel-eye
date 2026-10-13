@@ -36,7 +36,7 @@ public sealed class InMemorySourceModeRepository : ISourceModeRepository
 
     public Task<Option<SourceMode>> GetAsync(FabIdentifier fab, Source source, CancellationToken cancellationToken)
     {
-        SourceMode? found = sourceModes.SingleOrDefault(
+        var found = sourceModes.SingleOrDefault(
             sourceMode => sourceMode.Fab == fab && sourceMode.Source == source);
 
         return Task.FromResult(found is null
@@ -60,9 +60,9 @@ public sealed class InMemorySourceModeRepository : ISourceModeRepository
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (SourceMode sourceMode in sourceModes)
+        foreach (var sourceMode in sourceModes)
         {
-            bool wasAlreadyPersisted = !persisted.Add(sourceMode.Id.Value);
+            var wasAlreadyPersisted = !persisted.Add(sourceMode.Id.Value);
             if (wasAlreadyPersisted && sourceMode.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(sourceMode);

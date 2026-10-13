@@ -59,7 +59,7 @@ public class AppHostContainerImagePinTests
     [Fact]
     public async Task Every_container_image_a_run_mode_stack_composes_is_pinned()
     {
-        PulledImage[] images = await PulledImagesAsync(RunModeArguments);
+        var images = await PulledImagesAsync(RunModeArguments);
 
         AssertAllPinned(images);
     }
@@ -71,7 +71,7 @@ public class AppHostContainerImagePinTests
     [Fact]
     public async Task Every_container_image_the_integration_fixture_composes_is_pinned()
     {
-        PulledImage[] images = await PulledImagesAsync(FixtureArguments);
+        var images = await PulledImagesAsync(FixtureArguments);
 
         images.Length.ShouldBeGreaterThanOrEqualTo(
             6,
@@ -95,7 +95,7 @@ public class AppHostContainerImagePinTests
     [Fact]
     public async Task The_run_mode_population_includes_the_containers_a_published_manifest_omits()
     {
-        PulledImage[] images = await PulledImagesAsync(RunModeArguments);
+        var images = await PulledImagesAsync(RunModeArguments);
 
         string[] names = [.. images.Select(image => image.ResourceName)];
 
@@ -129,17 +129,17 @@ public class AppHostContainerImagePinTests
     [Fact]
     public async Task A_locally_built_image_is_not_judged_against_a_registry_tag()
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(RunModeArguments);
 
-        IResource mosquitto = builder.Resources.Single(resource => resource.Name == "mosquitto");
+        var mosquitto = builder.Resources.Single(resource => resource.Name == "mosquitto");
 
         mosquitto.Annotations.OfType<DockerfileBuildAnnotation>().ShouldNotBeEmpty(
             "expected mosquitto to be declared with AddDockerfile — if it now pulls a published "
             + "image instead, it belongs in the pinned population above, not in this exclusion.");
 
-        PulledImage[] images = await PulledImagesAsync(RunModeArguments);
+        var images = await PulledImagesAsync(RunModeArguments);
 
         images.Select(image => image.ResourceName).ShouldNotContain("mosquitto");
     }
@@ -166,8 +166,8 @@ public class AppHostContainerImagePinTests
     [Fact]
     public async Task The_keycloak_image_resolves_to_the_upstream_repository_this_stack_expects()
     {
-        PulledImage[] images = await PulledImagesAsync(RunModeArguments);
-        PulledImage keycloak = images.Single(image => image.ResourceName == "keycloak");
+        var images = await PulledImagesAsync(RunModeArguments);
+        var keycloak = images.Single(image => image.ResourceName == "keycloak");
 
         keycloak.Image.ShouldBe("keycloak/keycloak");
         keycloak.Registry.ShouldBe("quay.io");
@@ -219,7 +219,7 @@ public class AppHostContainerImagePinTests
 
     private static async Task<PulledImage[]> PulledImagesAsync(string[] arguments)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 
@@ -250,7 +250,7 @@ public class AppHostContainerImagePinTests
         {
             get
             {
-                string reference = SHA256 is null ? $"{Image}:{Tag}" : $"{Image}@sha256:{SHA256}";
+                var reference = SHA256 is null ? $"{Image}:{Tag}" : $"{Image}@sha256:{SHA256}";
                 return Registry is null ? reference : $"{Registry}/{reference}";
             }
         }

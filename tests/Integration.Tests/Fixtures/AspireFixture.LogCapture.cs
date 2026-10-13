@@ -39,7 +39,7 @@ public sealed partial class AspireFixture
         }
 
         var capture = new LogCapture(this, resourceName);
-        ConcurrentDictionary<LogCapture, byte> captures =
+        var captures =
             activeCaptures.GetOrAdd(resourceName, _ => new ConcurrentDictionary<LogCapture, byte>());
         captures.TryAdd(capture, 0);
 
@@ -53,7 +53,7 @@ public sealed partial class AspireFixture
     /// </summary>
     internal void UnregisterCapture(string resourceName, LogCapture capture)
     {
-        if (activeCaptures.TryGetValue(resourceName, out ConcurrentDictionary<LogCapture, byte>? captures))
+        if (activeCaptures.TryGetValue(resourceName, out var captures))
         {
             captures.TryRemove(capture, out _);
         }
@@ -88,16 +88,16 @@ public sealed partial class AspireFixture
     /// </summary>
     internal void RecordLogLine(string resourceName, string content)
     {
-        ConcurrentQueue<string> tail = logTails.GetOrAdd(resourceName, _ => new ConcurrentQueue<string>());
+        var tail = logTails.GetOrAdd(resourceName, _ => new ConcurrentQueue<string>());
         tail.Enqueue(content);
         while (tail.Count > 400)
         {
             tail.TryDequeue(out _);
         }
 
-        if (activeCaptures.TryGetValue(resourceName, out ConcurrentDictionary<LogCapture, byte>? captures))
+        if (activeCaptures.TryGetValue(resourceName, out var captures))
         {
-            foreach (LogCapture capture in captures.Keys)
+            foreach (var capture in captures.Keys)
             {
                 capture.Record(content);
             }

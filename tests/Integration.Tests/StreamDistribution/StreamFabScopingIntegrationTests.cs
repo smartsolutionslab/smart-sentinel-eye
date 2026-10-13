@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -37,14 +36,14 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_dresden_operator_sees_only_dresden_streams_in_the_listing()
     {
-        (Guid inMunich, Guid inDresden) = await ProvisionOnePerFabAsync();
+        (var inMunich, var inDresden) = await ProvisionOnePerFabAsync();
 
-        using HttpClient streams = await StreamsFor(DresdenOperator);
-        HttpResponseMessage listed = await streams.GetAsync(
+        using var streams = await StreamsFor(DresdenOperator);
+        var listed = await streams.GetAsync(
             $"/streams?cameraIdentifiers={inMunich},{inDresden}");
 
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         rows.EnumerateArray()
             .Select(row => Guid.Parse(row.GetProperty("cameraIdentifier").GetString()!))
@@ -57,14 +56,14 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task A_multi_fab_operator_sees_both_plants()
     {
-        (Guid inMunich, Guid inDresden) = await ProvisionOnePerFabAsync();
+        (var inMunich, var inDresden) = await ProvisionOnePerFabAsync();
 
-        using HttpClient streams = await StreamsFor(MultiFabOperator);
-        HttpResponseMessage listed = await streams.GetAsync(
+        using var streams = await StreamsFor(MultiFabOperator);
+        var listed = await streams.GetAsync(
             $"/streams?cameraIdentifiers={inMunich},{inDresden}");
 
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, await BodyAsync(listed));
-        JsonElement rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
+        var rows = await listed.Content.ReadFromJsonAsync<JsonElement>();
 
         rows.EnumerateArray()
             .Select(row => row.GetProperty("fab").GetString())
@@ -86,13 +85,13 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Another_fabs_stream_is_indistinguishable_from_a_camera_with_no_stream()
     {
-        (Guid inMunich, _) = await ProvisionOnePerFabAsync();
-        Guid neverRegistered = Guid.CreateVersion7();
+        (var inMunich, _) = await ProvisionOnePerFabAsync();
+        var neverRegistered = Guid.CreateVersion7();
 
-        using HttpClient streams = await StreamsFor(DresdenOperator);
+        using var streams = await StreamsFor(DresdenOperator);
 
-        HttpResponseMessage hidden = await streams.GetAsync($"/streams/{inMunich}");
-        HttpResponseMessage absent = await streams.GetAsync($"/streams/{neverRegistered}");
+        var hidden = await streams.GetAsync($"/streams/{inMunich}");
+        var absent = await streams.GetAsync($"/streams/{neverRegistered}");
 
         hidden.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(hidden));
         absent.StatusCode.ShouldBe(HttpStatusCode.NotFound, await BodyAsync(absent));
@@ -109,9 +108,9 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_is_refused()
     {
-        using HttpClient streams = await StreamsFor(DresdenOperator);
+        using var streams = await StreamsFor(DresdenOperator);
 
-        HttpResponseMessage refused = await streams.GetAsync(
+        var refused = await streams.GetAsync(
             $"/streams?fabId=munich&cameraIdentifiers={Guid.CreateVersion7()}");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
@@ -120,9 +119,9 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
     [Fact]
     public async Task Naming_a_fab_the_caller_does_not_hold_is_refused_on_the_single_read()
     {
-        using HttpClient streams = await StreamsFor(DresdenOperator);
+        using var streams = await StreamsFor(DresdenOperator);
 
-        HttpResponseMessage refused = await streams.GetAsync(
+        var refused = await streams.GetAsync(
             $"/streams/{Guid.CreateVersion7()}?fabId=munich");
 
         refused.StatusCode.ShouldBe(HttpStatusCode.Forbidden, await BodyAsync(refused));
@@ -130,13 +129,13 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private async Task<(Guid InMunich, Guid InDresden)> ProvisionOnePerFabAsync()
     {
-        using HttpClient cameras = await aspire.CreateAuthenticatedClientAsync(
+        using var cameras = await aspire.CreateAuthenticatedClientAsync(
             "camera-catalog", MultiFabOperator, MultiFabOperatorPassword);
 
-        Guid inMunich = await RegisterAsync(cameras, "munich");
-        Guid inDresden = await RegisterAsync(cameras, "dresden");
+        var inMunich = await RegisterAsync(cameras, "munich");
+        var inDresden = await RegisterAsync(cameras, "dresden");
 
-        using HttpClient owner = await StreamsFor(MultiFabOperator);
+        using var owner = await StreamsFor(MultiFabOperator);
         await WaitForStreamAsync(owner, inMunich);
         await WaitForStreamAsync(owner, inDresden);
 
@@ -155,7 +154,7 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<Guid> RegisterAsync(HttpClient cameras, string fab)
     {
-        HttpResponseMessage created = await cameras.PostAsJsonAsync(
+        var created = await cameras.PostAsJsonAsync(
             $"/cameras?fabId={fab}",
             new
             {
@@ -171,10 +170,10 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private async Task WaitForStreamAsync(HttpClient streams, Guid camera)
     {
-        DateTime deadline = DateTime.UtcNow + ProvisionTimeout;
+        var deadline = DateTime.UtcNow + ProvisionTimeout;
         while (DateTime.UtcNow < deadline)
         {
-            HttpResponseMessage response = await streams.GetAsync($"/streams/{camera}");
+            var response = await streams.GetAsync($"/streams/{camera}");
             if (response.StatusCode == HttpStatusCode.OK)
             {
                 return;
@@ -190,7 +189,7 @@ public class StreamFabScopingIntegrationTests(AspireFixture aspire) : IAsyncLife
 
     private static async Task<string> NormalisedProblemAsync(HttpResponseMessage response, Guid requested)
     {
-        JsonNode problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
+        var problem = JsonNode.Parse(await response.Content.ReadAsStringAsync())!;
         problem.AsObject().Remove("traceId");
 
         return problem.ToJsonString()

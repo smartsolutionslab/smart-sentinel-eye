@@ -43,7 +43,7 @@ public sealed record WallConfiguredV1(
         HashCode hash = new();
         hash.Add(Wall);
         hash.Add(Name);
-        foreach (Guid scene in Scenes)
+        foreach (var scene in Scenes)
         {
             hash.Add(scene);
         }

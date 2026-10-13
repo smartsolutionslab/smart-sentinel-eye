@@ -5,7 +5,6 @@ using SmartSentinelEye.Automation.Application.Commands.Handlers;
 using SmartSentinelEye.Automation.Application.Tests.Fakes;
 using SmartSentinelEye.Automation.Domain.Rule;
 using SmartSentinelEye.Automation.Domain.Tests.Rule;
-using SmartSentinelEye.Shared.Kernel;
 using RuleAggregate = SmartSentinelEye.Automation.Domain.Rule.Rule;
 
 namespace SmartSentinelEye.Automation.Application.Tests.Commands;
@@ -17,7 +16,7 @@ public class ArchiveRuleCommandHandlerTests
 
     private static RuleAggregate Seed(InMemoryRuleRepository repo)
     {
-        RuleAggregate rule = new RuleBuilder().WithClock(Now).Build();
+        var rule = new RuleBuilder().WithClock(Now).Build();
         repo.Add(rule);
         return rule;
     }
@@ -27,7 +26,7 @@ public class ArchiveRuleCommandHandlerTests
     {
         InMemoryRuleRepository repo = new();
         InMemoryRuleCache cache = new();
-        RuleAggregate seeded = Seed(repo);
+        var seeded = Seed(repo);
         seeded.Publish(new FakeClock(Now.AddHours(1)));
         cache.Upsert(seeded);
 
@@ -35,7 +34,7 @@ public class ArchiveRuleCommandHandlerTests
             repo, cache, new FakeClock(Now.AddHours(2)),
             NullLogger<ArchiveRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRuleCommand(FabIdentifier.From("munich"), seeded.Name, 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -53,7 +52,7 @@ public class ArchiveRuleCommandHandlerTests
             repo, cache, new FakeClock(Now),
             NullLogger<ArchiveRuleCommandHandler>.Instance);
 
-        Result<RuleIdentifier, ArchiveRuleError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ArchiveRuleCommand(FabIdentifier.From("munich"), RuleName.From("ghost"), 0), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();

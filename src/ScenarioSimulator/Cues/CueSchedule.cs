@@ -45,13 +45,13 @@ public static class CueSchedule
     {
         Ensure.That(manifest).IsNotNull();
 
-        (int loop, int index) = lastEmitted is { } cursor && cursor.Anchor == anchor
+        (var loop, var index) = lastEmitted is { } cursor && cursor.Anchor == anchor
             ? Advance(cursor, manifest.Cues.Count)
             : FindCurrentPhase(anchor, now, manifest);
 
-        CueDefinition cue = manifest.Cues[index];
-        DateTimeOffset dueAt = anchor + TimeSpan.FromMilliseconds((long)loop * manifest.DurationMs + cue.AtMs);
-        TimeSpan lateness = now - dueAt;
+        var cue = manifest.Cues[index];
+        var dueAt = anchor + TimeSpan.FromMilliseconds((long)loop * manifest.DurationMs + cue.AtMs);
+        var lateness = now - dueAt;
         CueCursor nextCursor = new(anchor, loop, index);
 
         if (lateness < TimeSpan.Zero)
@@ -67,7 +67,7 @@ public static class CueSchedule
     /// <summary>Next cue after the cursor, wrapping to the next loop's first cue.</summary>
     private static (int Loop, int Index) Advance(CueCursor cursor, int cueCount)
     {
-        int nextIndex = cursor.Index + 1;
+        var nextIndex = cursor.Index + 1;
         return nextIndex >= cueCount ? (cursor.Loop + 1, 0) : (cursor.Loop, nextIndex);
     }
 
@@ -84,20 +84,20 @@ public static class CueSchedule
     /// </summary>
     private static (int Loop, int Index) FindCurrentPhase(DateTimeOffset anchor, DateTimeOffset now, ClipManifest manifest)
     {
-        TimeSpan elapsed = now - anchor;
+        var elapsed = now - anchor;
         if (elapsed < TimeSpan.Zero)
         {
             elapsed = TimeSpan.Zero;
         }
 
-        long elapsedMs = (long)elapsed.TotalMilliseconds;
+        var elapsedMs = (long)elapsed.TotalMilliseconds;
         long durationMs = manifest.DurationMs;
-        int loop = (int)(elapsedMs / durationMs);
-        long offset = elapsedMs % durationMs;
-        double threshold = offset - LateTolerance.TotalMilliseconds;
+        var loop = (int)(elapsedMs / durationMs);
+        var offset = elapsedMs % durationMs;
+        var threshold = offset - LateTolerance.TotalMilliseconds;
 
-        IReadOnlyList<CueDefinition> cues = manifest.Cues;
-        for (int index = 0; index < cues.Count; index++)
+        var cues = manifest.Cues;
+        for (var index = 0; index < cues.Count; index++)
         {
             if (cues[index].AtMs >= threshold)
             {

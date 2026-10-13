@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MQTTnet;
 using MQTTnet.Exceptions;
@@ -140,7 +139,7 @@ public sealed class MqttPublisher : IAsyncDisposable
             // clients are talking to a broker whose ACL and auth behaviour (ADR-0100)
             // were proven on 3.1.1. Nothing here needs MQTT 5, and a silent
             // protocol change is what cost the subscriber its persistent session.
-            MqttClientOptions clientOptions = new MqttClientOptionsBuilder()
+            var clientOptions = new MqttClientOptionsBuilder()
                 .WithProtocolVersion(MqttProtocolVersion.V311)
                 .WithClientId(Username)
                 .WithTcpServer(host, port)
@@ -149,8 +148,8 @@ public sealed class MqttPublisher : IAsyncDisposable
                 .WithKeepAlivePeriod(TimeSpan.FromSeconds(30))
                 .Build();
 
-            CancellationTokenSource cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            Task runningLoop = RunAsync(clientOptions, cancellation.Token);
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var runningLoop = RunAsync(clientOptions, cancellation.Token);
 
             loopCancellation = cancellation;
             loop = runningLoop;
@@ -188,7 +187,7 @@ public sealed class MqttPublisher : IAsyncDisposable
             return;
         }
 
-        MqttApplicationMessage message = new MqttApplicationMessageBuilder()
+        var message = new MqttApplicationMessageBuilder()
             .WithTopic(topic)
             .WithPayload(payloadJson)
             .WithQualityOfServiceLevel(MqttQualityOfServiceLevel.AtLeastOnce)
@@ -252,7 +251,7 @@ public sealed class MqttPublisher : IAsyncDisposable
     /// </summary>
     private async Task AttemptAsync(MqttClientOptions clientOptions, CancellationToken cancellationToken)
     {
-        TimeSpan delay = backoff.Next();
+        var delay = backoff.Next();
         if (delay > TimeSpan.Zero)
         {
             logger.MqttPublisherRetryScheduled(delay.TotalSeconds, backoff.Attempt);
@@ -280,7 +279,7 @@ public sealed class MqttPublisher : IAsyncDisposable
             return;
         }
 
-        long connectedAt = Stopwatch.GetTimestamp();
+        var connectedAt = Stopwatch.GetTimestamp();
         logger.MqttPublisherConnected($"{host}:{port}", Username);
         ReportDrops();
 
@@ -327,7 +326,7 @@ public sealed class MqttPublisher : IAsyncDisposable
             // outage over that never ended and clears the counter. The loop then
             // waited on a drop no connection could ever raise: a permanent hang,
             // with every later sample counted and never reported.
-            MqttClientConnectResult result = await client.ConnectAsync(clientOptions, cancellationToken);
+            var result = await client.ConnectAsync(clientOptions, cancellationToken);
             if (result.ResultCode == MqttClientConnectResultCode.Success)
             {
                 return true;
@@ -372,7 +371,7 @@ public sealed class MqttPublisher : IAsyncDisposable
     /// </summary>
     private void ReportDrops()
     {
-        long count = Interlocked.Exchange(ref droppedSamples, 0);
+        var count = Interlocked.Exchange(ref droppedSamples, 0);
         if (count == 0)
         {
             return;
@@ -383,16 +382,16 @@ public sealed class MqttPublisher : IAsyncDisposable
 
     private static (string Host, int Port) ParseHost(string mqttHost)
     {
-        string value = mqttHost ?? string.Empty;
-        int scheme = value.IndexOf("://", StringComparison.Ordinal);
+        var value = mqttHost ?? string.Empty;
+        var scheme = value.IndexOf("://", StringComparison.Ordinal);
         if (scheme >= 0)
         {
             value = value[(scheme + 3)..];
         }
 
-        string[] parts = value.Split(':');
-        string host = parts.Length > 0 && parts[0].Length > 0 ? parts[0] : "localhost";
-        int port = parts.Length > 1 && int.TryParse(parts[1], out int parsed) ? parsed : 1883;
+        var parts = value.Split(':');
+        var host = parts.Length > 0 && parts[0].Length > 0 ? parts[0] : "localhost";
+        var port = parts.Length > 1 && int.TryParse(parts[1], out var parsed) ? parsed : 1883;
         return (host, port);
     }
 

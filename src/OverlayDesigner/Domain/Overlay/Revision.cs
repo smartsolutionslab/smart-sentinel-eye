@@ -84,7 +84,7 @@ public sealed class Revision
     /// </summary>
     private static IEnumerable<OverlayElement> CloneWithOrdinals(IReadOnlyList<OverlayElement> source)
     {
-        for (int i = 0; i < source.Count; i++)
+        for (var i = 0; i < source.Count; i++)
         {
             yield return source[i].DeepClone().AtOrdinal(i);
         }

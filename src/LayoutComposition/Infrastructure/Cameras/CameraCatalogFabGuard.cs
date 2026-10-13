@@ -46,7 +46,7 @@ public sealed class CameraCatalogFabGuard(HttpClient httpClient) : ICameraFabGua
             return [];
         }
 
-        HashSet<Guid> inFab = await CamerasInFabAsync(fab, cancellationToken);
+        var inFab = await CamerasInFabAsync(fab, cancellationToken);
 
         // Unknown and other-fab land here together, by construction (FR-015).
         return [.. cameras.Where(camera => !inFab.Contains(camera.Value)).Distinct()];
@@ -56,18 +56,18 @@ public sealed class CameraCatalogFabGuard(HttpClient httpClient) : ICameraFabGua
         FabIdentifier fab, CancellationToken cancellationToken)
     {
         HashSet<Guid> identifiers = [];
-        int offset = 0;
+        var offset = 0;
         int fetched;
         do
         {
-            using HttpResponseMessage response = await httpClient.GetAsync(
+            using var response = await httpClient.GetAsync(
                 $"/cameras?fabId={fab.Value}&offset={offset}&limit={PageSize}", cancellationToken);
             response.EnsureSuccessStatusCode();
 
-            JsonElement page = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-            JsonElement items = page.GetProperty("items");
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+            var items = page.GetProperty("items");
 
-            foreach (JsonElement row in items.EnumerateArray())
+            foreach (var row in items.EnumerateArray())
             {
                 identifiers.Add(row.GetProperty("cameraIdentifier").GetGuid());
             }

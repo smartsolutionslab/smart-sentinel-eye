@@ -18,7 +18,7 @@ public class LayoutRevisionStateTests
     [InlineData("Archived")]
     public void From_round_trips_canonical_strings(string raw)
     {
-        LayoutRevisionState parsed = LayoutRevisionState.From(raw);
+        var parsed = LayoutRevisionState.From(raw);
         parsed.Value.ShouldBe(raw);
     }
 

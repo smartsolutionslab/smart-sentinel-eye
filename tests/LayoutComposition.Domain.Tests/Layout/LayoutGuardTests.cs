@@ -42,7 +42,7 @@ public class LayoutGuardTests
             OneTile(),
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new LayoutBuilder.TestClock(FixedMoment));
-        ArgumentNullException exception = act.ShouldThrow<ArgumentNullException>();
+        var exception = act.ShouldThrow<ArgumentNullException>();
         exception.ParamName.ShouldBe("grid");
     }
 
@@ -62,7 +62,7 @@ public class LayoutGuardTests
     [Fact]
     public void BranchDraft_rejects_a_null_clock()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         Action act = () => layout.BranchDraft(
             OperatorIdentifier.From(Guid.CreateVersion7()),
             clock: null!);
@@ -72,21 +72,21 @@ public class LayoutGuardTests
     [Fact]
     public void EditDraft_rejects_a_null_grid_even_with_an_empty_tile_set()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         IClock clock = new LayoutBuilder.TestClock(FixedMoment);
         Action act = () => layout.EditDraft(
             LayoutRevisionNumber.One,
             grid: null!,
             Array.Empty<Tile>(),
             clock);
-        ArgumentNullException exception = act.ShouldThrow<ArgumentNullException>();
+        var exception = act.ShouldThrow<ArgumentNullException>();
         exception.ParamName.ShouldBe("grid");
     }
 
     [Fact]
     public void EditDraft_rejects_a_null_clock()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         Action act = () => layout.EditDraft(
             LayoutRevisionNumber.One,
             GridDimensions.Cell,
@@ -99,14 +99,14 @@ public class LayoutGuardTests
     public void ValidateGrid_rejects_a_null_grid()
     {
         Action act = () => Domain.Layout.Layout.ValidateGrid(grid: null!, OneTile());
-        ArgumentNullException exception = act.ShouldThrow<ArgumentNullException>();
+        var exception = act.ShouldThrow<ArgumentNullException>();
         exception.ParamName.ShouldBe("grid");
     }
 
     [Fact]
     public void Publish_rejects_a_null_clock()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         Action act = () => layout.Publish(
             LayoutRevisionNumber.One,
             OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -117,7 +117,7 @@ public class LayoutGuardTests
     [Fact]
     public void Revert_rejects_a_null_clock()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         Action act = () => layout.Revert(
             LayoutRevisionNumber.One,
             OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -128,7 +128,7 @@ public class LayoutGuardTests
     [Fact]
     public void ArchiveRevision_rejects_a_null_clock()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         Action act = () => layout.ArchiveRevision(
             LayoutRevisionNumber.One,
             OperatorIdentifier.From(Guid.CreateVersion7()),
@@ -139,7 +139,7 @@ public class LayoutGuardTests
     [Fact]
     public void Revert_on_a_Draft_revision_throws()
     {
-        Domain.Layout.Layout layout = new LayoutBuilder().Build();
+        var layout = new LayoutBuilder().Build();
         Action act = () => layout.Revert(
             LayoutRevisionNumber.One,
             OperatorIdentifier.From(Guid.CreateVersion7()),

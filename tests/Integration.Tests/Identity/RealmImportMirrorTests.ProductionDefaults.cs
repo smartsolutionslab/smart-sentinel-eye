@@ -1,4 +1,3 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
@@ -47,21 +46,21 @@ public partial class RealmImportMirrorTests
     public async Task An_AppHost_secret_parameter_default_is_the_secret_the_import_seeds_for_its_client(
         string parameterName, string clientId)
     {
-        using JsonDocument import = ReadRealmImport();
-        string expected = SecretForClient(
+        using var import = ReadRealmImport();
+        var expected = SecretForClient(
             import,
             clientId,
             $"this row's own client id ('{clientId}')");
 
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>([]);
 
-        ParameterResource parameter = builder.Resources
+        var parameter = builder.Resources
             .OfType<ParameterResource>()
             .Single(candidate => candidate.Name == parameterName);
 
-        string? actual = await ValueAsync(parameter);
+        var actual = await ValueAsync(parameter);
 
         actual.ShouldBe(
             expected,
@@ -87,16 +86,16 @@ public partial class RealmImportMirrorTests
     [Fact]
     public async Task The_composed_bearer_authority_uses_the_realm_the_import_defines()
     {
-        using JsonDocument import = ReadRealmImport();
-        string realm = DeclaredRealm(import);
-        string expected = $"https://keycloak.invalid/realms/{realm}";
+        using var import = ReadRealmImport();
+        var realm = DeclaredRealm(import);
+        var expected = $"https://keycloak.invalid/realms/{realm}";
 
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration["ConnectionStrings:keycloak"] = "https://keycloak.invalid";
         builder.AddBearerAuthentication();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider();
-        JwtBearerOptions options = provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
+        using var provider = builder.Services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptionsMonitor<JwtBearerOptions>>()
             .Get(JwtBearerDefaults.AuthenticationScheme);
 
         options.Authority.ShouldBe(

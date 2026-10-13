@@ -1,7 +1,4 @@
-using System.Net;
-using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.CameraCatalog.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -31,10 +28,10 @@ public class OutboxCoversEveryContextTests(AspireFixture aspire, ITestOutputHelp
     [Fact]
     public async Task A_camera_registration_announces_through_this_contexts_own_outbox()
     {
-        using HttpClient client = await aspire.CreateAdminClientAsync("camera-catalog");
+        using var client = await aspire.CreateAdminClientAsync("camera-catalog");
 
-        string name = $"Outbox-{Guid.CreateVersion7():N}"[..20];
-        HttpResponseMessage created = await client.PostAsJsonAsync(
+        var name = $"Outbox-{Guid.CreateVersion7():N}"[..20];
+        var created = await client.PostAsJsonAsync(
             "/cameras",
             new { name, rtspUrl = "rtsp://10.0.9.21/h264" });
 
@@ -44,7 +41,7 @@ public class OutboxCoversEveryContextTests(AspireFixture aspire, ITestOutputHelp
         // delivered. A backlog that never cleared would mean the messages are
         // being written and not released, which looks identical to working until
         // a consumer is asked whether it heard anything.
-        long pending = await DrainedAsync(TimeSpan.FromSeconds(30));
+        var pending = await DrainedAsync(TimeSpan.FromSeconds(30));
         output.WriteLine($"pending messages in {OutboxSchema}: {pending}");
 
         pending.ShouldBe(
@@ -55,8 +52,8 @@ public class OutboxCoversEveryContextTests(AspireFixture aspire, ITestOutputHelp
 
     private async Task<long> DrainedAsync(TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
-        long pending = await PendingMessagesAsync();
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var pending = await PendingMessagesAsync();
 
         while (pending > 0 && DateTimeOffset.UtcNow < deadline)
         {
@@ -69,7 +66,7 @@ public class OutboxCoversEveryContextTests(AspireFixture aspire, ITestOutputHelp
 
     private async Task<long> PendingMessagesAsync()
     {
-        await using CameraCatalogDbContext database = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var database = await aspire.CreateCameraCatalogDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>(
                 $"SELECT count(*) AS \"Value\" FROM {OutboxSchema}.wolverine_outgoing_envelopes")

@@ -147,9 +147,9 @@ public class AutomationRulesClientTests
             _ => Respond(HttpStatusCode.OK),
         });
 
-        RuleSeedResult result = await SeedAndReturnResultAsync(automation);
+        var result = await SeedAndReturnResultAsync(automation);
 
-        RuleSeedResult.Refused refused = result.ShouldBeOfType<RuleSeedResult.Refused>();
+        var refused = result.ShouldBeOfType<RuleSeedResult.Refused>();
         refused.Reason.ShouldBe("predicate does not parse as AEL: unexpected token '&' at position 12.");
         automation.Calls.ShouldNotContain(call => call.PathAndQuery.Contains("/publish", StringComparison.Ordinal));
     }
@@ -245,7 +245,7 @@ public class AutomationRulesClientTests
                 request.Method.Method,
                 request.RequestUri!.AbsolutePath,
                 request.RequestUri.PathAndQuery,
-                request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values)
                     : string.Empty);
 

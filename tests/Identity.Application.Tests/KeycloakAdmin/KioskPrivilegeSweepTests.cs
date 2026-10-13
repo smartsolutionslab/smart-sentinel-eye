@@ -29,7 +29,7 @@ public class KioskPrivilegeSweepTests
     private static async Task<FakeKeycloakAdminClient> WithEnrolledKiosksAsync(params string[] clientIds)
     {
         FakeKeycloakAdminClient keycloak = new();
-        foreach (string clientId in clientIds)
+        foreach (var clientId in clientIds)
         {
             await keycloak.CreateClientAsync(
                 KioskRepresentation(clientId), "/fabs/munich", CancellationToken.None);
@@ -70,9 +70,9 @@ public class KioskPrivilegeSweepTests
     [Fact]
     public async Task Strips_every_kiosk_this_system_enrolled()
     {
-        FakeKeycloakAdminClient keycloak = await WithEnrolledKiosksAsync("kiosk-a", "kiosk-b");
+        var keycloak = await WithEnrolledKiosksAsync("kiosk-a", "kiosk-b");
 
-        KioskSweepOutcome outcome = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
+        var outcome = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
 
         keycloak.Stripped.ShouldBe(BothKiosks, ignoreOrder: true);
         outcome.StrippedCount.ShouldBe(2);
@@ -145,10 +145,10 @@ public class KioskPrivilegeSweepTests
     [Fact]
     public async Task Sweeping_twice_does_no_more_than_sweeping_once()
     {
-        FakeKeycloakAdminClient keycloak = await WithEnrolledKiosksAsync("kiosk-a");
+        var keycloak = await WithEnrolledKiosksAsync("kiosk-a");
 
         await SweepOver(keycloak).SweepAsync(CancellationToken.None);
-        KioskSweepOutcome second = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
+        var second = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
 
         keycloak.Stripped.ShouldBe(OneKiosk);
         // Two passes, one removal each. A set cannot tell that from twenty.
@@ -163,10 +163,10 @@ public class KioskPrivilegeSweepTests
     [Fact]
     public async Task Carries_on_past_a_kiosk_it_cannot_reach_and_names_it()
     {
-        FakeKeycloakAdminClient keycloak = await WithEnrolledKiosksAsync("kiosk-a", "kiosk-b", "kiosk-c");
+        var keycloak = await WithEnrolledKiosksAsync("kiosk-a", "kiosk-b", "kiosk-c");
         keycloak.StripFailsFor.Add("kiosk-b");
 
-        KioskSweepOutcome outcome = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
+        var outcome = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
 
         keycloak.Stripped.ShouldBe(TheReachableOnes, ignoreOrder: true);
         outcome.Unreachable.ShouldBe(TheUnreachableOne);
@@ -178,7 +178,7 @@ public class KioskPrivilegeSweepTests
     {
         FakeKeycloakAdminClient keycloak = new();
 
-        KioskSweepOutcome outcome = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
+        var outcome = await SweepOver(keycloak).SweepAsync(CancellationToken.None);
 
         outcome.KioskCount.ShouldBe(0);
         outcome.Unreachable.ShouldBeEmpty();

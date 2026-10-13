@@ -23,7 +23,7 @@ public class TileSpanTests
     [InlineData(9, 1)]
     public void From_accepts_a_span_of_at_least_one_row_and_column(int rows, int cols)
     {
-        TileSpan span = TileSpan.From(rows, cols);
+        var span = TileSpan.From(rows, cols);
 
         span.Rows.ShouldBe(rows);
         span.Cols.ShouldBe(cols);

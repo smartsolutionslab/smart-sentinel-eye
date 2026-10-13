@@ -15,16 +15,16 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier revertedBy, int expectedVersion) = command;
+        (var overlayIdentifier, var revisionNumber, var revertedBy, var expectedVersion) = command;
 
-        Option<Overlay> found = await overlays
+        var found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RevertRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
-        Overlay overlay = found.Value;
+        var overlay = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
         // has since moved. Checked before any mutation so nothing is applied
@@ -33,7 +33,7 @@ public sealed class RevertRevisionCommandHandler(
         {
             return Failure(RevertRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
-        Revision? revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
+        var revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
             return Failure(RevertRevisionFailures.OverlayRevisionNotFound(

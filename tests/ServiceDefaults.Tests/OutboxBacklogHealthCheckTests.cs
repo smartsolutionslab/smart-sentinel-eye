@@ -105,7 +105,7 @@ public class OutboxBacklogHealthCheckTests
     [Fact]
     public async Task A_database_that_cannot_be_reached_is_reported_healthy()
     {
-        DbContextOptions<ProbeDbContext> options = new DbContextOptionsBuilder<ProbeDbContext>()
+        var options = new DbContextOptionsBuilder<ProbeDbContext>()
             .UseNpgsql(UnreachableConnectionString)
             .Options;
 
@@ -116,7 +116,7 @@ public class OutboxBacklogHealthCheckTests
             NullLogger<OutboxBacklogHealthCheck<ProbeDbContext>>.Instance,
             "wolverine_probe");
 
-        HealthCheckResult result = await check.CheckHealthAsync(new HealthCheckContext());
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
 
         result.Status.ShouldBe(
             HealthStatus.Healthy,
@@ -139,7 +139,7 @@ public class OutboxBacklogHealthCheckTests
             invariantSeverity: "FATAL",
             sqlState: PostgresErrorCodes.CannotConnectNow);
 
-        DbContextOptions<ProbeDbContext> options = new DbContextOptionsBuilder<ProbeDbContext>()
+        var options = new DbContextOptionsBuilder<ProbeDbContext>()
             .UseNpgsql(UnreachableConnectionString)
             .AddInterceptors(new ThrowingOnOpenInterceptor(transientRefusal))
             .Options;
@@ -151,10 +151,10 @@ public class OutboxBacklogHealthCheckTests
             NullLogger<OutboxBacklogHealthCheck<ProbeDbContext>>.Instance,
             "wolverine_probe");
 
-        InvalidOperationException thrown = await Should.ThrowAsync<InvalidOperationException>(
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
             () => check.CheckHealthAsync(new HealthCheckContext()));
 
-        PostgresException inner = thrown.InnerException.ShouldBeOfType<PostgresException>(
+        var inner = thrown.InnerException.ShouldBeOfType<PostgresException>(
             "spec 238 §3 accepted this shape escaping the check unhandled. Red here means "
             + "either the check now handles it — a reclassification under ADR-0154 that needs "
             + "a human decision and an update to spec 238 §3 — or the provider stopped "
@@ -172,7 +172,7 @@ public class OutboxBacklogHealthCheckTests
             invariantSeverity: "ERROR",
             sqlState: PostgresErrorCodes.UndefinedTable);
 
-        DbContextOptions<ProbeDbContext> options = new DbContextOptionsBuilder<ProbeDbContext>()
+        var options = new DbContextOptionsBuilder<ProbeDbContext>()
             .UseNpgsql(UnreachableConnectionString)
             .AddInterceptors(new ThrowingOnOpenInterceptor(nonTransientRefusal))
             .Options;
@@ -184,7 +184,7 @@ public class OutboxBacklogHealthCheckTests
             NullLogger<OutboxBacklogHealthCheck<ProbeDbContext>>.Instance,
             "wolverine_probe");
 
-        HealthCheckResult result = await check.CheckHealthAsync(new HealthCheckContext());
+        var result = await check.CheckHealthAsync(new HealthCheckContext());
 
         result.Status.ShouldBe(
             HealthStatus.Degraded,

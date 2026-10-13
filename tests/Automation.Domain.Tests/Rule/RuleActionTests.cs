@@ -7,7 +7,7 @@ public class RuleActionTests
     [Fact]
     public void SetVariableValue_round_trips_a_target_name_and_value_expression()
     {
-        RuleAction.SetVariableValue action = RuleAction.SetVariableValue.From(
+        var action = RuleAction.SetVariableValue.From(
             "oeeLine1", "100 - $.payload.cycleTime * 2");
 
         action.VariableName.ShouldBe("oeeLine1");
@@ -26,8 +26,8 @@ public class RuleActionTests
     [Fact]
     public void HighlightOverlay_round_trips_overlay_and_duration()
     {
-        Guid overlay = Guid.CreateVersion7();
-        RuleAction.HighlightOverlay action = RuleAction.HighlightOverlay.From(overlay, 10_000);
+        var overlay = Guid.CreateVersion7();
+        var action = RuleAction.HighlightOverlay.From(overlay, 10_000);
 
         action.Overlay.Value.ShouldBe(overlay);
         action.Duration.Value.ShouldBe(10_000);
@@ -57,7 +57,7 @@ public class RuleActionTests
     [InlineData(60_000)]
     public void HighlightOverlay_accepts_boundary_durations(int duration)
     {
-        RuleAction.HighlightOverlay action = RuleAction.HighlightOverlay.From(
+        var action = RuleAction.HighlightOverlay.From(
             Guid.CreateVersion7(), duration);
         action.Duration.Value.ShouldBe(duration);
     }
@@ -65,7 +65,7 @@ public class RuleActionTests
     [Fact]
     public void Actions_with_the_same_payload_are_equal()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         RuleAction a = RuleAction.HighlightOverlay.From(overlay, 5_000);
         RuleAction b = RuleAction.HighlightOverlay.From(overlay, 5_000);
         a.ShouldBe(b);

@@ -22,7 +22,7 @@ public class VariableStateMachineTests
     [Fact]
     public void Define_yields_Defined_state()
     {
-        Domain.Variable.Variable v = new VariableBuilder().Build();
+        var v = new VariableBuilder().Build();
         v.State.ShouldBe(VariableState.Defined);
     }
 
@@ -30,8 +30,8 @@ public class VariableStateMachineTests
     [Fact]
     public void SetValue_on_Defined_stays_Defined()
     {
-        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder().OfType(VariableType.Number);
+        var v = b.Build();
         v.SetValue(new VariableValue.NumberValue(1.0), By, Clock, Option<DateTimeOffset>.None);
         v.State.ShouldBe(VariableState.Defined);
     }
@@ -40,7 +40,7 @@ public class VariableStateMachineTests
     [Fact]
     public void Archive_on_Defined_transitions_to_Archived()
     {
-        Domain.Variable.Variable v = new VariableBuilder().Build();
+        var v = new VariableBuilder().Build();
         v.Archive(By, Clock);
         v.State.ShouldBe(VariableState.Archived);
     }
@@ -49,7 +49,7 @@ public class VariableStateMachineTests
     [Fact]
     public void Archive_on_Archived_is_idempotent_and_silent()
     {
-        Domain.Variable.Variable v = new VariableBuilder().Build();
+        var v = new VariableBuilder().Build();
         v.Archive(By, Clock);
         v.ClearPendingEvents();
         v.Archive(By, Clock);
@@ -61,8 +61,8 @@ public class VariableStateMachineTests
     [Fact]
     public void SetValue_on_Archived_throws()
     {
-        VariableBuilder b = new VariableBuilder().OfType(VariableType.Number);
-        Domain.Variable.Variable v = b.Build();
+        var b = new VariableBuilder().OfType(VariableType.Number);
+        var v = b.Build();
         v.Archive(By, Clock);
 
         Action act = () => v.SetValue(new VariableValue.NumberValue(1.0), By, Clock, Option<DateTimeOffset>.None);
@@ -73,7 +73,7 @@ public class VariableStateMachineTests
     [Fact]
     public void The_fab_survives_value_changes_and_archiving()
     {
-        Domain.Variable.Variable v = new VariableBuilder()
+        var v = new VariableBuilder()
             .WithFab("dresden")
             .OfType(VariableType.Number)
             .Build();
@@ -94,7 +94,7 @@ public class VariableStateMachineTests
         // variable would silently repoint every overlay resolving it. Asserts
         // the setter is not public rather than that no method mentions "Fab",
         // which would match the property getter and pass vacuously.
-        System.Reflection.PropertyInfo fab =
+        var fab =
             typeof(Domain.Variable.Variable).GetProperty("Fab")!;
 
         fab.SetMethod?.IsPublic.ShouldNotBe(true);

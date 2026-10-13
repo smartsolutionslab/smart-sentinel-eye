@@ -54,19 +54,19 @@ public class BoundaryTests
     [InlineData("SmartSentinelEye.AuditObservability")]
     public void Context_does_not_reference_other_contexts(string contextPrefix)
     {
-        foreach (string layer in new[] { "Domain", "Application", "Infrastructure", "Api" })
+        foreach (var layer in new[] { "Domain", "Application", "Infrastructure", "Api" })
         {
-            string assemblyName = $"{contextPrefix}.{layer}";
-            Assembly assembly = Assembly.Load(assemblyName);
+            var assemblyName = $"{contextPrefix}.{layer}";
+            var assembly = Assembly.Load(assemblyName);
 
-            string[] allowed = AllowedCrossContext.TryGetValue((contextPrefix, layer), out string[]? carved)
+            var allowed = AllowedCrossContext.TryGetValue((contextPrefix, layer), out var carved)
                 ? carved
                 : [];
             string[] foreignContexts = [.. AllContexts
                 .Where(c => c != contextPrefix)
                 .Where(c => !allowed.Contains(c))];
 
-            TestResult result = Types
+            var result = Types
                 .InAssembly(assembly)
                 .Should()
                 .NotHaveDependencyOnAny(foreignContexts)
@@ -94,17 +94,17 @@ public class BoundaryTests
     [Fact]
     public void The_keycloak_backed_fab_source_lives_outside_every_bounded_context()
     {
-        Assembly migrationRunner = Assembly.Load("SmartSentinelEye.MigrationRunner");
+        var migrationRunner = Assembly.Load("SmartSentinelEye.MigrationRunner");
 
-        Type? adapter = migrationRunner.GetType(
+        var adapter = migrationRunner.GetType(
             "SmartSentinelEye.MigrationRunner.KeycloakProvisionedFabSource");
 
         adapter.ShouldNotBeNull(
             "the Keycloak-backed IProvisionedFabSource must live in MigrationRunner: it is the "
             + "only component that may reference both Identity and EventIngestion.");
 
-        Assembly eventIngestion = Assembly.Load("SmartSentinelEye.EventIngestion.Infrastructure");
-        TestResult result = Types
+        var eventIngestion = Assembly.Load("SmartSentinelEye.EventIngestion.Infrastructure");
+        var result = Types
             .InAssembly(eventIngestion)
             .Should()
             .NotHaveDependencyOn("SmartSentinelEye.Identity")
@@ -123,9 +123,9 @@ public class BoundaryTests
     [Fact]
     public void ApiGateway_references_no_bounded_context()
     {
-        Assembly gateway = Assembly.Load("SmartSentinelEye.ApiGateway");
+        var gateway = Assembly.Load("SmartSentinelEye.ApiGateway");
 
-        TestResult result = Types
+        var result = Types
             .InAssembly(gateway)
             .Should()
             .NotHaveDependencyOnAny(AllContexts)
@@ -146,9 +146,9 @@ public class BoundaryTests
     [Fact]
     public void ApiGateway_does_not_sit_on_the_realtime_or_media_latency_legs()
     {
-        Assembly gateway = Assembly.Load("SmartSentinelEye.ApiGateway");
+        var gateway = Assembly.Load("SmartSentinelEye.ApiGateway");
 
-        TestResult result = Types
+        var result = Types
             .InAssembly(gateway)
             .Should()
             .NotHaveDependencyOnAny(
@@ -169,8 +169,8 @@ public class BoundaryTests
     [Fact]
     public void SystemVariables_Domain_has_no_infrastructure_framework_dependencies()
     {
-        Assembly domain = Assembly.Load("SmartSentinelEye.SystemVariables.Domain");
-        TestResult result = Types
+        var domain = Assembly.Load("SmartSentinelEye.SystemVariables.Domain");
+        var result = Types
             .InAssembly(domain)
             .Should()
             .NotHaveDependencyOnAny(
@@ -192,8 +192,8 @@ public class BoundaryTests
     [Fact]
     public void AuditObservability_Domain_has_no_infrastructure_framework_dependencies()
     {
-        Assembly domain = Assembly.Load("SmartSentinelEye.AuditObservability.Domain");
-        TestResult result = Types
+        var domain = Assembly.Load("SmartSentinelEye.AuditObservability.Domain");
+        var result = Types
             .InAssembly(domain)
             .Should()
             .NotHaveDependencyOnAny(
@@ -224,20 +224,20 @@ public class BoundaryTests
     [Fact]
     public void V1ResourceMap_covers_every_IIntegrationEvent()
     {
-        Assembly contracts = Assembly.Load("SmartSentinelEye.Shared.Contracts");
-        Type integrationEvent = contracts.GetType("SmartSentinelEye.Shared.Contracts.IIntegrationEvent")!;
+        var contracts = Assembly.Load("SmartSentinelEye.Shared.Contracts");
+        var integrationEvent = contracts.GetType("SmartSentinelEye.Shared.Contracts.IIntegrationEvent")!;
 
         Type[] concreteV1s = [.. contracts.GetTypes()
             .Where(t => !t.IsAbstract && !t.IsInterface)
             .Where(t => integrationEvent.IsAssignableFrom(t))];
 
-        Assembly application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
-        Type mapType = application.GetType("SmartSentinelEye.AuditObservability.Application.EventHandlers.V1ResourceMap")!;
-        object defaultMap = mapType.GetProperty("Default")!.GetValue(null)!;
-        System.Collections.IEnumerable mappedTypes =
+        var application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
+        var mapType = application.GetType("SmartSentinelEye.AuditObservability.Application.EventHandlers.V1ResourceMap")!;
+        var defaultMap = mapType.GetProperty("Default")!.GetValue(null)!;
+        var mappedTypes =
             (System.Collections.IEnumerable)mapType.GetProperty("MappedTypes")!.GetValue(defaultMap)!;
         HashSet<Type> mapped = [.. mappedTypes.Cast<Type>()];
-        System.Collections.IEnumerable optOuts =
+        var optOuts =
             (System.Collections.IEnumerable)mapType.GetProperty("ExplicitlyOptedOut")!.GetValue(defaultMap)!;
         HashSet<string> optedOut = [.. optOuts.Cast<string>()];
 
@@ -258,15 +258,15 @@ public class BoundaryTests
     [Fact]
     public void Every_integration_event_has_an_audit_handler()
     {
-        Assembly contracts = Assembly.Load("SmartSentinelEye.Shared.Contracts");
-        Type integrationEvent = contracts.GetType("SmartSentinelEye.Shared.Contracts.IIntegrationEvent")!;
+        var contracts = Assembly.Load("SmartSentinelEye.Shared.Contracts");
+        var integrationEvent = contracts.GetType("SmartSentinelEye.Shared.Contracts.IIntegrationEvent")!;
 
         Type[] concreteV1s = [.. contracts.GetTypes()
             .Where(t => !t.IsAbstract && !t.IsInterface)
             .Where(t => integrationEvent.IsAssignableFrom(t))];
 
-        Assembly application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
-        Type handlerType = application.GetType(
+        var application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
+        var handlerType = application.GetType(
             "SmartSentinelEye.AuditObservability.Application.EventHandlers.IntegrationEventAuditHandler")!;
         HashSet<Type> handled = [.. handlerType.GetMethods()
             .Where(m => m.Name == "Handle")
@@ -287,8 +287,8 @@ public class BoundaryTests
     [Fact]
     public void Identity_Domain_has_no_infrastructure_framework_dependencies()
     {
-        Assembly domain = Assembly.Load("SmartSentinelEye.Identity.Domain");
-        TestResult result = Types
+        var domain = Assembly.Load("SmartSentinelEye.Identity.Domain");
+        var result = Types
             .InAssembly(domain)
             .Should()
             .NotHaveDependencyOnAny(
@@ -313,8 +313,8 @@ public class BoundaryTests
     [Fact]
     public void Automation_Domain_has_no_infrastructure_framework_dependencies()
     {
-        Assembly domain = Assembly.Load("SmartSentinelEye.Automation.Domain");
-        TestResult result = Types
+        var domain = Assembly.Load("SmartSentinelEye.Automation.Domain");
+        var result = Types
             .InAssembly(domain)
             .Should()
             .NotHaveDependencyOnAny(
@@ -338,8 +338,8 @@ public class BoundaryTests
     [Fact]
     public void EventIngestion_Domain_has_no_infrastructure_framework_dependencies()
     {
-        Assembly domain = Assembly.Load("SmartSentinelEye.EventIngestion.Domain");
-        TestResult result = Types
+        var domain = Assembly.Load("SmartSentinelEye.EventIngestion.Domain");
+        var result = Types
             .InAssembly(domain)
             .Should()
             .NotHaveDependencyOnAny(
@@ -362,8 +362,8 @@ public class BoundaryTests
     [Fact]
     public void OverlayDesigner_Domain_has_no_infrastructure_framework_dependencies()
     {
-        Assembly domain = Assembly.Load("SmartSentinelEye.OverlayDesigner.Domain");
-        TestResult result = Types
+        var domain = Assembly.Load("SmartSentinelEye.OverlayDesigner.Domain");
+        var result = Types
             .InAssembly(domain)
             .Should()
             .NotHaveDependencyOnAny(
@@ -389,16 +389,16 @@ public class BoundaryTests
     [Fact]
     public void Scope_catalogue_lives_in_ServiceDefaults()
     {
-        Assembly defaults = Assembly.Load("SmartSentinelEye.ServiceDefaults");
-        Type? scope = defaults.GetType("SmartSentinelEye.ServiceDefaults.Authorization.Scope");
+        var defaults = Assembly.Load("SmartSentinelEye.ServiceDefaults");
+        var scope = defaults.GetType("SmartSentinelEye.ServiceDefaults.Authorization.Scope");
         scope.ShouldNotBeNull();
 
-        foreach (string contextPrefix in AllContexts)
+        foreach (var contextPrefix in AllContexts)
         {
-            foreach (string layer in new[] { "Domain", "Application", "Infrastructure" })
+            foreach (var layer in new[] { "Domain", "Application", "Infrastructure" })
             {
-                string assemblyName = $"{contextPrefix}.{layer}";
-                Assembly assembly = Assembly.Load(assemblyName);
+                var assemblyName = $"{contextPrefix}.{layer}";
+                var assembly = Assembly.Load(assemblyName);
                 Type[] localScopes = [.. assembly.GetTypes()
                     .Where(t => t.Name == "Scope" && t.Namespace?.EndsWith(".Authorization", StringComparison.Ordinal) == true)];
                 localScopes.ShouldBeEmpty(
@@ -420,12 +420,12 @@ public class BoundaryTests
             "Microsoft.AspNetCore",
         ];
 
-        foreach (string contextPrefix in AllContexts)
+        foreach (var contextPrefix in AllContexts)
         {
-            string assemblyName = $"{contextPrefix}.Domain";
-            Assembly assembly = Assembly.Load(assemblyName);
+            var assemblyName = $"{contextPrefix}.Domain";
+            var assembly = Assembly.Load(assemblyName);
 
-            TestResult result = Types
+            var result = Types
                 .InAssembly(assembly)
                 .Should()
                 .NotHaveDependencyOnAny(forbiddenNamespaces)

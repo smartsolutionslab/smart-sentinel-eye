@@ -140,14 +140,14 @@ internal static class VariableValueColumnConverter
     public static VariableValue FromColumn(string packed)
     {
         Ensure.That(packed).IsNotNull();
-        int sep = packed.IndexOf('|', StringComparison.Ordinal);
+        var sep = packed.IndexOf('|', StringComparison.Ordinal);
         if (sep < 0)
         {
             throw new ArgumentException($"Malformed packed VariableValue '{packed}'.", nameof(packed));
         }
 
-        string kind = packed[..sep];
-        string wire = packed[(sep + 1)..];
+        var kind = packed[..sep];
+        var wire = packed[(sep + 1)..];
         return kind switch
         {
             "Unset" => VariableValue.Unset.Instance,

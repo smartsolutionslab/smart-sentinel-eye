@@ -1,7 +1,4 @@
-using System.Net;
-using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -37,11 +34,11 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
     [Fact]
     public async Task A_write_that_cannot_commit_leaves_no_message_behind()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", Operator, OperatorPassword);
 
-        string kind = $"Rollback{Guid.CreateVersion7():N}"[..20];
-        long before = await PendingMessagesAsync();
+        var kind = $"Rollback{Guid.CreateVersion7():N}"[..20];
+        var before = await PendingMessagesAsync();
         output.WriteLine($"pending messages before: {before}");
 
         await ExecuteAsync($"DROP TABLE IF EXISTS events_{Fab};");
@@ -49,7 +46,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
 
         try
         {
-            HttpResponseMessage refused = await PostUntilRefusedAsync(client, kind);
+            var refused = await PostUntilRefusedAsync(client, kind);
             output.WriteLine($"POST /events/manual -> {(int)refused.StatusCode}");
             ((int)refused.StatusCode).ShouldBeGreaterThanOrEqualTo(500);
 
@@ -59,7 +56,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
             // attempted, so if the rollback does not take it with it, it is
             // sitting in the outbox waiting to tell eight other contexts about
             // an event that does not exist.
-            long after = await PendingMessagesAsync();
+            var after = await PendingMessagesAsync();
             output.WriteLine($"pending messages after: {after}");
             after.ShouldBe(
                 before, "a rolled-back write left an announcement behind for an event that does not exist");
@@ -79,11 +76,11 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
     [Fact]
     public async Task A_write_that_commits_leaves_nothing_owed()
     {
-        using HttpClient client = await aspire.CreateAuthenticatedClientAsync(
+        using var client = await aspire.CreateAuthenticatedClientAsync(
             "event-ingestion", Operator, OperatorPassword);
 
-        string kind = $"Committed{Guid.CreateVersion7():N}"[..20];
-        HttpResponseMessage created = await client.PostAsJsonAsync("/events/manual", new
+        var kind = $"Committed{Guid.CreateVersion7():N}"[..20];
+        var created = await client.PostAsJsonAsync("/events/manual", new
         {
             deviceId = "outbox-device",
             kind,
@@ -94,15 +91,15 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
         created.StatusCode.ShouldBe(HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
         (await StoredAsync(kind)).ShouldBe(1);
 
-        long pending = await DrainedAsync(TimeSpan.FromSeconds(30));
+        var pending = await DrainedAsync(TimeSpan.FromSeconds(30));
         output.WriteLine($"pending messages after a healthy write: {pending}");
         pending.ShouldBe(0, "the outbox is retaining messages it has already delivered");
     }
 
     private async Task<long> DrainedAsync(TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
-        long pending = await PendingMessagesAsync();
+        var deadline = DateTimeOffset.UtcNow + timeout;
+        var pending = await PendingMessagesAsync();
 
         while (pending > 0 && DateTimeOffset.UtcNow < deadline)
         {
@@ -120,7 +117,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
     /// </summary>
     private async Task<long> PendingMessagesAsync()
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>(
                 $"SELECT count(*) AS \"Value\" FROM {OutboxSchema}.wolverine_outgoing_envelopes")
@@ -129,7 +126,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
 
     private async Task<long> StoredAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -137,7 +134,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
 
     private static async Task<HttpResponseMessage> PostUntilRefusedAsync(HttpClient client, string kind)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(90);
+        var deadline = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(90);
         HttpResponseMessage response = null!;
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -170,8 +167,8 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
     /// </summary>
     private async Task RestoreStorageAsync()
     {
-        DateTime now = DateTime.UtcNow;
-        DateTime next = now.AddMonths(1);
+        var now = DateTime.UtcNow;
+        var next = now.AddMonths(1);
 
         await ExecuteAsync($"""
             CREATE TABLE IF NOT EXISTS events_{Fab} PARTITION OF events
@@ -189,7 +186,7 @@ public class OutboxSharesTheWritesFateTests(AspireFixture aspire, ITestOutputHel
 
     private async Task ExecuteAsync(string sql)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
 #pragma warning disable EF1002
         await database.Database.ExecuteSqlRawAsync(sql);
 #pragma warning restore EF1002

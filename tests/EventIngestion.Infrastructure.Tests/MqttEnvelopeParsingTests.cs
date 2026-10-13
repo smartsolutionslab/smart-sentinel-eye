@@ -18,11 +18,11 @@ public class MqttEnvelopeParsingTests
     [Fact]
     public void A_delivery_whose_payload_property_is_absent_is_rejected_rather_than_thrown()
     {
-        ReadOnlyMemory<byte> body = Encode("""
+        var body = Encode("""
             {"eventId":"01977f5a-6e3d-7c3a-8f1a-000000000001","kind":"Alarm","occurredAt":"2026-09-17T08:00:00Z"}
             """);
 
-        MqttSubscriberHostedService.ParseResult result =
+        var result =
             MqttSubscriberHostedService.TryParseEnvelope(Topic, body);
 
         result.Envelope.ShouldBeNull();
@@ -33,11 +33,11 @@ public class MqttEnvelopeParsingTests
     [Fact]
     public void A_delivery_whose_payload_is_json_null_is_accepted()
     {
-        ReadOnlyMemory<byte> body = Encode("""
+        var body = Encode("""
             {"eventId":"01977f5a-6e3d-7c3a-8f1a-000000000002","kind":"Alarm","occurredAt":"2026-09-17T08:00:00Z","payload":null}
             """);
 
-        MqttSubscriberHostedService.ParseResult result =
+        var result =
             MqttSubscriberHostedService.TryParseEnvelope(Topic, body);
 
         result.Envelope.ShouldNotBeNull();
@@ -47,11 +47,11 @@ public class MqttEnvelopeParsingTests
     [Fact]
     public void A_delivery_whose_payload_is_a_string_is_accepted()
     {
-        ReadOnlyMemory<byte> body = Encode("""
+        var body = Encode("""
             {"eventId":"01977f5a-6e3d-7c3a-8f1a-000000000003","kind":"Alarm","occurredAt":"2026-09-17T08:00:00Z","payload":"oops"}
             """);
 
-        MqttSubscriberHostedService.ParseResult result =
+        var result =
             MqttSubscriberHostedService.TryParseEnvelope(Topic, body);
 
         result.Envelope.ShouldNotBeNull();
@@ -61,11 +61,11 @@ public class MqttEnvelopeParsingTests
     [Fact]
     public void A_well_formed_delivery_parses()
     {
-        ReadOnlyMemory<byte> body = Encode("""
+        var body = Encode("""
             {"eventId":"01977f5a-6e3d-7c3a-8f1a-000000000004","kind":"Alarm","occurredAt":"2026-09-17T08:00:00Z","payload":{"note":"ok"}}
             """);
 
-        MqttSubscriberHostedService.ParseResult result =
+        var result =
             MqttSubscriberHostedService.TryParseEnvelope(Topic, body);
 
         result.Envelope.ShouldNotBeNull();
@@ -75,13 +75,13 @@ public class MqttEnvelopeParsingTests
     [Fact]
     public void A_payload_over_64_KB_is_rejected_with_a_readable_reason()
     {
-        string overlong = "{\"data\":\"" + new string('a', 64 * 1024) + "\"}";
-        ReadOnlyMemory<byte> body = Encode(
+        var overlong = "{\"data\":\"" + new string('a', 64 * 1024) + "\"}";
+        var body = Encode(
             $$"""
             {"eventId":"01977f5a-6e3d-7c3a-8f1a-000000000005","kind":"Alarm","occurredAt":"2026-09-17T08:00:00Z","payload":{{overlong}}}
             """);
 
-        MqttSubscriberHostedService.ParseResult result =
+        var result =
             MqttSubscriberHostedService.TryParseEnvelope(Topic, body);
 
         result.Envelope.ShouldBeNull();

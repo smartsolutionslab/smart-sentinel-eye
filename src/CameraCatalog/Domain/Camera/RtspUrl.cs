@@ -29,7 +29,7 @@ public sealed record RtspUrl : StringValueObject
 
     private static bool HasNoUserInfo(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out Uri? uri))
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             return false;
         }

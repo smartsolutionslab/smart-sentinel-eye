@@ -17,7 +17,7 @@ public sealed class InMemoryAuditEventRepository : IAuditEventRepository
     public Task SaveAsync(CancellationToken cancellationToken)
     {
         SaveAsyncCallCount++;
-        foreach (AuditEventEntity row in pending)
+        foreach (var row in pending)
         {
             // Idempotent on EventIdentifier — mirrors the production
             // INSERT ... ON CONFLICT (event_identifier) DO NOTHING.

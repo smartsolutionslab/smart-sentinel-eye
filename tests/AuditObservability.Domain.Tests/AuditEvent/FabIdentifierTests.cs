@@ -46,8 +46,8 @@ public class FabIdentifierTests
     [Fact]
     public void Orders_two_fabs_ordinally()
     {
-        FabIdentifier earlier = FabIdentifier.From("aachen");
-        FabIdentifier later = FabIdentifier.From("munich");
+        var earlier = FabIdentifier.From("aachen");
+        var later = FabIdentifier.From("munich");
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         later.CompareTo(earlier).ShouldBeGreaterThan(0);

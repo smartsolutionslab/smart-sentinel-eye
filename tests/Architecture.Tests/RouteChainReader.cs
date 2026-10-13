@@ -98,10 +98,10 @@ internal static class RouteChainReader
 
     private static int AlreadyMaskedStatementEnd(string masked, int from, ChainEndSentinel sentinel)
     {
-        int depth = 0;
-        for (int i = from; i < masked.Length; i++)
+        var depth = 0;
+        for (var i = from; i < masked.Length; i++)
         {
-            char c = masked[i];
+            var c = masked[i];
             if (c is '(' or '[' or '{')
             {
                 depth++;
@@ -121,11 +121,11 @@ internal static class RouteChainReader
 
     private static int LiteralAwareStatementEnd(string text, int from, ChainEndSentinel sentinel)
     {
-        int depth = 0;
-        int index = from;
+        var depth = 0;
+        var index = from;
         while (index < text.Length)
         {
-            char c = text[index];
+            var c = text[index];
             if (c == '"')
             {
                 index = EndOfStringLiteral(text, index);
@@ -155,7 +155,7 @@ internal static class RouteChainReader
 
     private static int EndOfStringLiteral(string t, int open)
     {
-        for (int i = open + 1; i < t.Length; i++)
+        for (var i = open + 1; i < t.Length; i++)
         {
             if (t[i] is '"' or '\n')
             {
@@ -168,7 +168,7 @@ internal static class RouteChainReader
 
     private static int EndOfCharLiteral(string t, int open)
     {
-        int i = open + 1;
+        var i = open + 1;
         while (i < t.Length)
         {
             if (t[i] == '\\')
@@ -194,8 +194,8 @@ internal static class RouteChainReader
     /// </summary>
     internal static int Balanced(string text, int openIndex, char open, char close)
     {
-        int depth = 0;
-        for (int i = openIndex; i < text.Length; i++)
+        var depth = 0;
+        for (var i = openIndex; i < text.Length; i++)
         {
             if (text[i] == open)
             {
@@ -221,11 +221,11 @@ internal static class RouteChainReader
     internal static List<(int Start, int End)> SplitArguments(string masked, int from, int close)
     {
         List<(int Start, int End)> arguments = [];
-        int depth = 0;
-        int start = from;
-        for (int i = from; i < close; i++)
+        var depth = 0;
+        var start = from;
+        for (var i = from; i < close; i++)
         {
-            char c = masked[i];
+            var c = masked[i];
             if (c is '(' or '[' or '{' or '<')
             {
                 depth++;
@@ -254,8 +254,8 @@ internal static class RouteChainReader
 
     internal static int LineOf(string text, int index)
     {
-        int line = 1;
-        for (int i = 0; i < index && i < text.Length; i++)
+        var line = 1;
+        for (var i = 0; i < index && i < text.Length; i++)
         {
             if (text[i] == '\n')
             {
@@ -296,8 +296,8 @@ internal static class RouteChainReader
             return new HandlerResolution(null, false, []);
         }
 
-        string project = ProjectOf(file);
-        List<HandlerBody> candidates = classes
+        var project = ProjectOf(file);
+        var candidates = classes
             .Where(c => string.Equals(c.Name, containingClass, StringComparison.Ordinal)
                 && string.Equals(ProjectOf(c.File), project, StringComparison.Ordinal))
             .SelectMany(c => MethodBodies(c, masked[c.File], handlerArgument))
@@ -314,7 +314,7 @@ internal static class RouteChainReader
     /// </summary>
     private static string ProjectOf(string file)
     {
-        int marker = file.IndexOf("/Api/", StringComparison.Ordinal);
+        var marker = file.IndexOf("/Api/", StringComparison.Ordinal);
         return marker < 0 ? file : file[..(marker + 4)];
     }
 
@@ -338,13 +338,13 @@ internal static class RouteChainReader
                 continue;
             }
 
-            int close = Balanced(masked, match.Index + match.Length - 1, '(', ')');
+            var close = Balanced(masked, match.Index + match.Length - 1, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            HandlerBody? body = BodyAfter(span.File, masked, match.Index, close);
+            var body = BodyAfter(span.File, masked, match.Index, close);
             if (body is not null)
             {
                 yield return body;
@@ -359,20 +359,20 @@ internal static class RouteChainReader
     /// </summary>
     private static HandlerBody? BodyAfter(string file, string masked, int declaration, int close)
     {
-        int brace = masked.IndexOf('{', close + 1);
-        int semicolon = masked.IndexOf(';', close + 1);
-        int arrow = masked.IndexOf("=>", close + 1, StringComparison.Ordinal);
-        int line = LineOf(masked, declaration);
+        var brace = masked.IndexOf('{', close + 1);
+        var semicolon = masked.IndexOf(';', close + 1);
+        var arrow = masked.IndexOf("=>", close + 1, StringComparison.Ordinal);
+        var line = LineOf(masked, declaration);
 
         if (brace >= 0 && (semicolon < 0 || brace < semicolon) && (arrow < 0 || brace < arrow))
         {
-            int end = Balanced(masked, brace, '{', '}');
+            var end = Balanced(masked, brace, '{', '}');
             return end < 0 ? null : new HandlerBody(file, line, brace + 1, masked[(brace + 1)..end]);
         }
 
         if (arrow >= 0 && (semicolon < 0 || arrow < semicolon))
         {
-            int end = StatementEnd(masked, arrow + 2, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
+            var end = StatementEnd(masked, arrow + 2, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
             return end < 0 ? null : new HandlerBody(file, line, arrow + 2, masked[(arrow + 2)..end]);
         }
 

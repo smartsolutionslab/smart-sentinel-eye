@@ -48,9 +48,9 @@ public sealed class VariableValueChangedDomainEventHandler(
         // The near end of the `event → overlay state` leg, handed on rather than
         // re-stamped. LayoutComposition closes the leg when it pushes the frame
         // and cannot otherwise know when the journey began (ADR-0102, #2173).
-        DateTimeOffset? accepted = rootIngestedAt.Match<DateTimeOffset?>(moment => moment, () => null);
+        var accepted = rootIngestedAt.Match<DateTimeOffset?>(moment => moment, () => null);
 
-        IReadOnlyCollection<Guid> affectedOverlays = reverseIndex.LookupOverlays(name.Value);
+        var affectedOverlays = reverseIndex.LookupOverlays(name.Value);
         if (affectedOverlays.Count == 0)
         {
             logger.NoOverlaysReferenceVariable(name);
@@ -60,12 +60,12 @@ public sealed class VariableValueChangedDomainEventHandler(
         // Issue #2426, plan.md §2 -- one round trip for the whole fan-out,
         // not one advance per overlay: the added cost on the
         // `event → overlay state` leg must stay constant in fan-out width.
-        IReadOnlyDictionary<Guid, long> versionsByOverlay =
+        var versionsByOverlay =
             await overlayTextVersions.AdvanceAsync(affectedOverlays, cancellationToken);
 
-        foreach (Guid overlayId in affectedOverlays)
+        foreach (var overlayId in affectedOverlays)
         {
-            IReadOnlyList<string>? labelTexts = reverseIndex.LookupLabelTexts(overlayId);
+            var labelTexts = reverseIndex.LookupLabelTexts(overlayId);
             if (labelTexts is null)
             {
                 continue;
@@ -76,13 +76,13 @@ public sealed class VariableValueChangedDomainEventHandler(
             // cost on the `event → overlay state` leg must stay constant in
             // label-set width, the same constraint #2426 already applies to
             // the version advance above.
-            IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot =
+            var snapshot =
                 await BuildSnapshotAsync(labelTexts, domainEvent, cancellationToken);
 
             IReadOnlyList<ResolvedOverlayTextV3> texts =
                 [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
                     .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
-            long version = versionsByOverlay[overlayId];
+            var version = versionsByOverlay[overlayId];
 
             ResolvedOverlayTextChangedV3 @event = new(
                 Overlay: overlayId,
@@ -115,7 +115,7 @@ public sealed class VariableValueChangedDomainEventHandler(
     {
         Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
 
-        foreach (string name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
+        foreach (var name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
         {
             if (string.Equals(name, changed.Name.Value, StringComparison.Ordinal))
             {
@@ -139,14 +139,14 @@ public sealed class VariableValueChangedDomainEventHandler(
             // Siblings resolve in the fab that changed, not globally: the
             // overlay is a fab-neutral template and this render belongs to one
             // plant (ADR-0115).
-            Option<Variable> other = await variables.GetByNameAsync(changed.Fab, parsed, cancellationToken);
+            var other = await variables.GetByNameAsync(changed.Fab, parsed, cancellationToken);
             // None also covers an Archived sibling: GetByNameAsync excludes them (FR-005).
             if (!other.HasValue)
             {
                 continue;
             }
 
-            Variable variable = other.Value;
+            var variable = other.Value;
             if (variable.Value is VariableValue.Unset)
             {
                 continue;

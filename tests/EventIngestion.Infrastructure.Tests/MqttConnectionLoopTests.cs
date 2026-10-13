@@ -93,7 +93,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task The_loop_reconnects_after_the_connection_drops()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start();
+        using var loop = LoopUnderTest.Start();
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.ConnectAttempts == 1)).ShouldBeTrue(
             "the loop never made a first connection");
@@ -115,7 +115,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task Every_connect_subscribes_again_not_only_the_first()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start();
+        using var loop = LoopUnderTest.Start();
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.SubscribedTopics.Count == 1)).ShouldBeTrue(
             "the loop never subscribed at all");
@@ -140,7 +140,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task Each_attempt_presents_a_freshly_minted_credential()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(refuseFirstConnects: 2);
+        using var loop = LoopUnderTest.Start(refuseFirstConnects: 2);
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.ConnectAttempts >= 3)).ShouldBeTrue(
             "the loop gave up before the third attempt");
@@ -161,7 +161,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task The_loop_keeps_retrying_with_no_attempt_limit()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(refuseFirstConnects: 12);
+        using var loop = LoopUnderTest.Start(refuseFirstConnects: 12);
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.IsConnected)).ShouldBeTrue(
             "the loop stopped retrying after a run of refusals. Early refusals are expected "
@@ -190,13 +190,13 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_reconnect_after_a_success_does_not_inherit_the_previous_backoff()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(
+        using var loop = LoopUnderTest.Start(
             client => client.RefuseNextConnects(2), LoopUnderTest.Patient());
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.IsConnected)).ShouldBeTrue(
             "the loop never connected");
 
-        int before = loop.Client.ConnectAttempts;
+        var before = loop.Client.ConnectAttempts;
 
         // Hold the connection well past ResetIfHeld's own yardstick (twice the
         // 160-240 ms this attempt served, so at most 480 ms) before dropping
@@ -204,10 +204,10 @@ public class MqttConnectionLoopTests
         await Task.Delay(HeldConnectionDuration);
         await loop.Client.DropAsync();
 
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        bool reconnected = await LoopUnderTest.WaitUntilAsync(
+        var stopwatch = Stopwatch.StartNew();
+        var reconnected = await LoopUnderTest.WaitUntilAsync(
             () => loop.Client.ConnectAttempts > before, PromptReconnectWindow);
-        long elapsedMs = stopwatch.ElapsedMilliseconds;
+        var elapsedMs = stopwatch.ElapsedMilliseconds;
 
         Console.WriteLine(
             $"[row 4] reconnect observed at {elapsedMs} ms against a "
@@ -241,7 +241,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_refused_connect_is_not_announced_as_a_connection()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(client => client.RefuseEveryConnect());
+        using var loop = LoopUnderTest.Start(client => client.RefuseEveryConnect());
 
         (await LoopUnderTest.WaitUntilAsync(() => loop.Client.ConnectAttempts >= 3)).ShouldBeTrue(
             "the loop stopped attempting, so there is nothing in the log to read");
@@ -265,10 +265,10 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_broker_that_refuses_every_connect_is_retried_with_a_delay_rather_than_a_spin()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(
+        using var loop = LoopUnderTest.Start(
             client => client.RefuseEveryConnect(), LoopUnderTest.Patient());
 
-        bool spun = await LoopUnderTest.WaitUntilAsync(
+        var spun = await LoopUnderTest.WaitUntilAsync(
             () => loop.Client.ConnectAttempts >= SpinCeiling, SpinWindow);
 
         spun.ShouldBeFalse(
@@ -298,10 +298,10 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_connection_that_dies_on_arrival_is_retried_with_a_delay_rather_than_a_spin()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(
+        using var loop = LoopUnderTest.Start(
             client => client.DropEveryConnectionImmediately = true, LoopUnderTest.Patient());
 
-        bool spun = await LoopUnderTest.WaitUntilAsync(
+        var spun = await LoopUnderTest.WaitUntilAsync(
             () => loop.Client.ConnectAttempts >= SpinCeiling, SpinWindow);
 
         spun.ShouldBeFalse(
@@ -343,7 +343,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_stale_disconnect_does_not_start_a_failed_connect_cycle_against_a_live_connection()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(_ => { }, LoopUnderTest.Patient());
+        using var loop = LoopUnderTest.Start(_ => { }, LoopUnderTest.Patient());
 
         (await LoopUnderTest.WaitUntilAsync(
             () => loop.Client.IsConnected && loop.Client.SubscribedTopics.Count == 1)).ShouldBeTrue(
@@ -397,7 +397,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_stale_disconnect_landing_mid_connect_does_not_end_the_connection_it_landed_in()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(
+        using var loop = LoopUnderTest.Start(
             client => client.RaiseStaleDisconnectDuringNextConnect(), LoopUnderTest.Patient());
 
         (await LoopUnderTest.WaitUntilAsync(
@@ -453,7 +453,7 @@ public class MqttConnectionLoopTests
     [Fact]
     public async Task A_connection_held_just_past_the_floor_still_backs_off()
     {
-        using LoopUnderTest loop = LoopUnderTest.Start(
+        using var loop = LoopUnderTest.Start(
             client => client.HoldEveryConnectionFor(JustPastTheFloor), LoopUnderTest.Patient());
 
         await Task.Delay(FlapWindow);
@@ -521,7 +521,7 @@ public class MqttConnectionLoopTests
             FakeMqttClient client = new();
             arrange(client);
 
-            IOptions<MosquittoOptions> options = Options.Create(OptionsValue());
+            var options = Options.Create(OptionsValue());
             TokenHolder token = new();
             MqttTokenProvider tokens = new(
                 new StubHttpClientFactory(new HttpClient(new CountingKeycloak())),
@@ -529,7 +529,7 @@ public class MqttConnectionLoopTests
                 TimeProvider.System,
                 NullLogger<MqttTokenProvider>.Instance);
 
-            MqttClientOptions clientOptions = new MqttClientOptionsBuilder()
+            var clientOptions = new MqttClientOptionsBuilder()
                 .WithClientId(options.Value.ClientId)
                 .WithTcpServer(options.Value.Host, options.Value.Port)
                 .WithCredentials(new TokenCredentials(options.Value.Username, token))
@@ -541,7 +541,7 @@ public class MqttConnectionLoopTests
 
         public static async Task<bool> WaitUntilAsync(Func<bool> condition, TimeSpan? within = null)
         {
-            DateTimeOffset deadline = DateTimeOffset.UtcNow + (within ?? TimeSpan.FromSeconds(10));
+            var deadline = DateTimeOffset.UtcNow + (within ?? TimeSpan.FromSeconds(10));
             while (DateTimeOffset.UtcNow < deadline)
             {
                 if (condition())
@@ -594,7 +594,7 @@ public class MqttConnectionLoopTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            int number = Interlocked.Increment(ref minted);
+            var number = Interlocked.Increment(ref minted);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent(

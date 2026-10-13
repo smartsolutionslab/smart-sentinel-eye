@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -61,11 +60,11 @@ public class ClockOffsetIntegrationTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task The_shared_server_can_be_read_precisely_enough_to_matter()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
-        string connectionString = context.Database.GetConnectionString()!;
+        var connectionString = context.Database.GetConnectionString()!;
 
-        ClockOffset offset = await ClockOffsetProbe.MeasureBestOfAsync(
+        var offset = await ClockOffsetProbe.MeasureBestOfAsync(
             connectionString, readings: 20, CancellationToken.None);
 
         output.WriteLine($"offset from the shared server: {offset}");
@@ -84,15 +83,15 @@ public class ClockOffsetIntegrationTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task A_process_measured_against_itself_shows_no_skew_worth_reporting()
     {
-        await using AuditObservabilityDbContext context =
+        await using var context =
             await aspire.CreateAuditObservabilityDbContextAsync();
-        string connectionString = context.Database.GetConnectionString()!;
+        var connectionString = context.Database.GetConnectionString()!;
 
-        ClockOffset first = await ClockOffsetProbe.MeasureBestOfAsync(connectionString, 20, CancellationToken.None);
-        ClockOffset second = await ClockOffsetProbe.MeasureBestOfAsync(connectionString, 20, CancellationToken.None);
+        var first = await ClockOffsetProbe.MeasureBestOfAsync(connectionString, 20, CancellationToken.None);
+        var second = await ClockOffsetProbe.MeasureBestOfAsync(connectionString, 20, CancellationToken.None);
 
-        RelativeSkew skew = RelativeSkew.Between(first, second);
-        AttributionVerdict verdict = AttributionVerdict.For(skew);
+        var skew = RelativeSkew.Between(first, second);
+        var verdict = AttributionVerdict.For(skew);
 
         output.WriteLine($"first: {first}  second: {second}");
         output.WriteLine($"relative skew: {skew}");

@@ -41,7 +41,7 @@ public class MediaMtxRtspGatewayPaginationTests
         using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
         MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
 
-        IReadOnlyDictionary<MediaMtxPath, RtspPathHealth> health =
+        var health =
             await gateway.GetAllPathsHealthAsync(CancellationToken.None);
 
         health.Count.ShouldBe(
@@ -49,7 +49,7 @@ public class MediaMtxRtspGatewayPaginationTests
             "both pages' paths should be in the result — a gateway that reads only the first page "
             + "would stop at 100, silently dropping every camera past it");
 
-        foreach (string name in firstPageNames.Concat(secondPageNames))
+        foreach (var name in firstPageNames.Concat(secondPageNames))
         {
             health.ShouldContainKey(MediaMtxPath.From(name));
         }
@@ -72,7 +72,7 @@ public class MediaMtxRtspGatewayPaginationTests
         using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
         MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
 
-        IReadOnlyDictionary<MediaMtxPath, RtspPathHealth> health =
+        var health =
             await gateway.GetAllPathsHealthAsync(CancellationToken.None);
 
         health.Count.ShouldBe(12);
@@ -94,14 +94,14 @@ public class MediaMtxRtspGatewayPaginationTests
         using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
         MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
 
-        IReadOnlyList<MediaMtxPath> paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
+        var paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
 
         paths.Count.ShouldBe(
             137,
             "both pages' paths should be in the result — a gateway that reads only the first page "
             + "would stop at 100, silently dropping every camera past it");
 
-        foreach (string name in firstPageNames.Concat(secondPageNames))
+        foreach (var name in firstPageNames.Concat(secondPageNames))
         {
             paths.ShouldContain(MediaMtxPath.From(name));
         }
@@ -128,7 +128,7 @@ public class MediaMtxRtspGatewayPaginationTests
         using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
         MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
 
-        IReadOnlyList<MediaMtxPath> paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
+        var paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
 
         paths.Count.ShouldBe(12);
         handler.RequestedPages.ShouldBe([0], "a single-page report must not cause a second request");
@@ -149,7 +149,7 @@ public class MediaMtxRtspGatewayPaginationTests
         using HttpClient client = new(handler) { BaseAddress = new Uri("http://mediamtx.test") };
         MediaMtxRtspGateway gateway = new(client, NullLogger<MediaMtxRtspGateway>.Instance);
 
-        IReadOnlyList<MediaMtxPath> paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
+        var paths = await gateway.ListConfiguredPathsAsync(CancellationToken.None);
 
         paths.Count.ShouldBe(101, "the manually-created, non-canonical name on page 2 must be filtered out");
         paths.ShouldAllBe(path => path.Value != "manually-created-path");
@@ -157,7 +157,7 @@ public class MediaMtxRtspGatewayPaginationTests
 
     private static string PageBody(IReadOnlyList<string> names, int pageCount)
     {
-        string items = string.Join(
+        var items = string.Join(
             ",", names.Select(name => $"{{\"name\":\"{name}\",\"ready\":true}}"));
 
         return $"{{\"pageCount\":{pageCount},\"items\":[{items}]}}";
@@ -184,8 +184,8 @@ public class MediaMtxRtspGatewayPaginationTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            Uri uri = request.RequestUri ?? throw new InvalidOperationException("request had no URI");
-            int page = ParsePage(uri);
+            var uri = request.RequestUri ?? throw new InvalidOperationException("request had no URI");
+            var page = ParsePage(uri);
             requestedPages.Add(page);
             requestedPaths.Add(uri.AbsolutePath);
 
@@ -197,8 +197,8 @@ public class MediaMtxRtspGatewayPaginationTests
 
         private static int ParsePage(Uri uri)
         {
-            string query = uri.Query.TrimStart('?');
-            foreach (string part in query.Split('&'))
+            var query = uri.Query.TrimStart('?');
+            foreach (var part in query.Split('&'))
             {
                 if (part.StartsWith("page=", StringComparison.Ordinal))
                 {

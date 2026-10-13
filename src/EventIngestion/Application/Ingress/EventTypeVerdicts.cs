@@ -57,9 +57,9 @@ public sealed class EventTypeVerdicts
         DeclaredMode(envelope) == EventTypeMode.Discovery && IsUnregistered(envelope);
 
     private EventTypeMode? DeclaredMode(EventEnvelope envelope) =>
-        declaredModes.TryGetValue((envelope.Fab, envelope.Source), out EventTypeMode? mode) ? mode : null;
+        declaredModes.TryGetValue((envelope.Fab, envelope.Source), out var mode) ? mode : null;
 
     private bool IsUnregistered(EventEnvelope envelope) =>
-        !registeredKindsByFab.TryGetValue(envelope.Fab, out IReadOnlySet<Kind>? registeredKinds)
+        !registeredKindsByFab.TryGetValue(envelope.Fab, out var registeredKinds)
         || !registeredKinds.Contains(envelope.Kind);
 }

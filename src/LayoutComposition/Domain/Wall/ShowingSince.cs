@@ -1,4 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.Shared.Kernel.Primitives;
 
 namespace SmartSentinelEye.LayoutComposition.Domain.Wall;

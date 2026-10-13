@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests.LayoutComposition;
@@ -25,11 +24,11 @@ public class WallSceneChangedV1Tests
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid previous = Guid.CreateVersion7();
-        Guid current = Guid.CreateVersion7();
-        Guid rule = Guid.CreateVersion7();
-        Guid causingEvent = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var previous = Guid.CreateVersion7();
+        var current = Guid.CreateVersion7();
+        var rule = Guid.CreateVersion7();
+        var causingEvent = Guid.CreateVersion7();
         WallSceneChangedV1 evt = new(
             wall, previous, current, 3L, "Rule", rule, causingEvent, Moment, Metadata: TestMetadata);
 
@@ -56,9 +55,9 @@ public class WallSceneChangedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid wall = Guid.CreateVersion7();
-        Guid previous = Guid.CreateVersion7();
-        Guid current = Guid.CreateVersion7();
+        var wall = Guid.CreateVersion7();
+        var previous = Guid.CreateVersion7();
+        var current = Guid.CreateVersion7();
         WallSceneChangedV1 a = new(
             wall, previous, current, 1L, "Operator", null, null, Moment, Metadata: TestMetadata);
         WallSceneChangedV1 b = new(
@@ -75,8 +74,8 @@ public class WallSceneChangedV1Tests
             Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 7L,
             "Rule", Guid.CreateVersion7(), Guid.CreateVersion7(), Moment, Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        WallSceneChangedV1 deserialized = JsonSerializer.Deserialize<WallSceneChangedV1>(json)!;
+        var json = JsonSerializer.Serialize(original);
+        var deserialized = JsonSerializer.Deserialize<WallSceneChangedV1>(json)!;
 
         deserialized.ShouldBe(original);
     }
@@ -91,8 +90,8 @@ public class WallSceneChangedV1Tests
     [Fact]
     public void When_Cause_is_Rule_both_Rule_and_CausingEventIdentifier_are_set()
     {
-        Guid rule = Guid.CreateVersion7();
-        Guid causingEvent = Guid.CreateVersion7();
+        var rule = Guid.CreateVersion7();
+        var causingEvent = Guid.CreateVersion7();
         WallSceneChangedV1 evt = new(
             Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7(), 2L,
             "Rule", rule, causingEvent, Moment, Metadata: TestMetadata);

@@ -33,7 +33,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
             return;
         }
 
-        Option<FabIdentifier> fab = ParseFab(metadata, integrationName);
+        var fab = ParseFab(metadata, integrationName);
         if (!fab.HasValue)
         {
             return;
@@ -42,14 +42,14 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
         // AS-5/AS-6 (spec 182): scoped so an integration registered in
         // another fab is never materialised — a first rotation in one fab
         // cannot take over an unrotated integration registered in another.
-        Option<WebhookIntegration> found = await integrations.GetWithinFabAsync(fab.Value, name, cancellationToken);
+        var found = await integrations.GetWithinFabAsync(fab.Value, name, cancellationToken);
         if (!found.HasValue)
         {
             await LogRefusalAsync(name, integrationName, fab.Value, cancellationToken);
             return;
         }
 
-        WebhookIntegration integration = found.Value;
+        var integration = found.Value;
         integration.MarkAsRotated(KeycloakClientIdentifier.From(clientId), clock);
         await integrations.SaveAsync(cancellationToken);
 
@@ -98,7 +98,7 @@ public sealed class WebhookIntegrationRotatedV1Handler(IWebhookIntegrationReposi
     private async Task LogRefusalAsync(
         WebhookIntegrationName name, string integrationName, FabIdentifier fab, CancellationToken cancellationToken)
     {
-        Option<WebhookIntegration> existsInAnyFab = await integrations.GetByNameAsync(name, cancellationToken);
+        var existsInAnyFab = await integrations.GetByNameAsync(name, cancellationToken);
         if (existsInAnyFab.HasValue)
         {
             logger.RotationFabMismatch(integrationName, fab.Value);

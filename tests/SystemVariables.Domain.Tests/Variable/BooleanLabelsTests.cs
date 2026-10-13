@@ -14,7 +14,7 @@ public class BooleanLabelsTests
     [Fact]
     public void From_accepts_non_empty_strings()
     {
-        BooleanLabels labels = BooleanLabels.From("On", "Off");
+        var labels = BooleanLabels.From("On", "Off");
         labels.TruthyLabel.ShouldBe("On");
         labels.FalsyLabel.ShouldBe("Off");
     }

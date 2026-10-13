@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.AspNetCore.SignalR.Client;
 using SmartSentinelEye.Integration.Tests.Fixtures;
@@ -60,10 +59,10 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task An_event_from_the_plant_floor_changes_the_variable_a_rule_names()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        string variable = $"oee{Guid.NewGuid():N}"[..16];
+        var variable = $"oee{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, variable, "0");
         output.WriteLine($"defined {variable} = 0");
 
@@ -71,13 +70,13 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         // variable it cannot find, so without this the rule would fire, the
         // request would be published, and the effect would be refused three
         // contexts away — a failure that looks like a broken journey and is not.
-        string rule = await ActivateRuleAsync(rules, variable);
+        var rule = await ActivateRuleAsync(rules, variable);
         output.WriteLine($"activated rule {rule}");
 
         await plant.PublishAsync("PlcCycleStart", cycleTime: 10);
         output.WriteLine("published a matching event over the broker");
 
-        string? observed = await WaitForValueAsync(variables, variable, expected: "80");
+        var observed = await WaitForValueAsync(variables, variable, expected: "80");
 
         observed.ShouldBe(
             "80",
@@ -113,14 +112,14 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task An_event_from_the_plant_floor_highlights_the_overlay_a_rule_names()
     {
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        Guid overlay = Guid.CreateVersion7();
-        string rule = await ActivateHighlightRuleAsync(rules, overlay);
+        var overlay = Guid.CreateVersion7();
+        var rule = await ActivateHighlightRuleAsync(rules, overlay);
         output.WriteLine($"activated highlight rule {rule} for overlay {overlay}");
 
         TaskCompletionSource<HighlightFrame> highlighted = new();
-        await using HubConnection kiosk = await ListenForHighlightAsync(overlay, highlighted);
+        await using var kiosk = await ListenForHighlightAsync(overlay, highlighted);
 
         // Connected before the event, not after: the frame is pushed once and
         // not replayed, so a listener that joins late hears nothing and reports
@@ -128,11 +127,11 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         await plant.PublishAsync("PlcCycleStart", cycleTime: 10);
         output.WriteLine("published a matching event over the broker");
 
-        DateTimeOffset started = DateTimeOffset.UtcNow;
+        var started = DateTimeOffset.UtcNow;
         using CancellationTokenSource budget = new(EffectDeadline);
 
         HighlightFrame frame = new(null, 0);
-        bool arrived = true;
+        var arrived = true;
         try
         {
             frame = await highlighted.Task.WaitAsync(budget.Token);
@@ -184,11 +183,11 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task An_event_changes_only_the_variable_whose_rule_matches_it()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        string matched = $"hit{Guid.NewGuid():N}"[..16];
-        string ignored = $"idle{Guid.NewGuid():N}"[..16];
+        var matched = $"hit{Guid.NewGuid():N}"[..16];
+        var ignored = $"idle{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, matched, "0");
         await DefineVariableAsync(variables, ignored, "7");
 
@@ -202,7 +201,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
         (await WaitForValueAsync(variables, matched, expected: "80")).ShouldBe(
             "80", "the matching rule's effect never arrived, so this case establishes nothing");
 
-        string? observed = await ReadValueAsync(variables, ignored);
+        var observed = await ReadValueAsync(variables, ignored);
         output.WriteLine($"{ignored} after an event its rule does not match: {observed}");
 
         observed.ShouldBe("7", "an event no rule matches changed a variable anyway");
@@ -228,19 +227,19 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     [Fact]
     public async Task A_redelivered_event_applies_its_effect_once()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
 
-        string variable = $"dup{Guid.NewGuid():N}"[..16];
+        var variable = $"dup{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, variable, "0");
         await ActivateRuleAsync(rules, variable);
 
-        string payload = PlantFloor.Payload("PlcCycleStart", cycleTime: 10);
+        var payload = PlantFloor.Payload("PlcCycleStart", cycleTime: 10);
         await plant.PublishRawAsync(payload);
         await plant.PublishRawAsync(payload);
         output.WriteLine("published the identical event twice");
 
-        string? observed = await WaitForValueAsync(variables, variable, expected: "80");
+        var observed = await WaitForValueAsync(variables, variable, expected: "80");
         observed.ShouldBe("80", "the effect did not arrive at all");
 
         // The value is idempotent, so this asserts the weaker but honest thing:
@@ -255,7 +254,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
 
     private static async Task DefineVariableAsync(HttpClient variables, string name, string initial)
     {
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables", new
+        var defined = await variables.PostAsJsonAsync("/system-variables", new
         {
             name,
             type = "Number",
@@ -283,7 +282,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     private static Task<string> ActivateRuleAsync(
         HttpClient rules, string variable, string triggerKind = "PlcCycleStart")
     {
-        string name = $"reach{Guid.NewGuid():N}"[..18];
+        var name = $"reach{Guid.NewGuid():N}"[..18];
 
         return ActivateAsync(rules, name, new
         {
@@ -306,7 +305,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// </summary>
     private static Task<string> ActivateHighlightRuleAsync(HttpClient rules, Guid overlay)
     {
-        string name = $"light{Guid.NewGuid():N}"[..18];
+        var name = $"light{Guid.NewGuid():N}"[..18];
 
         return ActivateAsync(rules, name, new
         {
@@ -324,20 +323,20 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
 
     private static async Task<string> ActivateAsync(HttpClient rules, string name, object definition)
     {
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", definition);
+        var created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", definition);
         created.StatusCode.ShouldBe(
             System.Net.HttpStatusCode.Created, await created.Content.ReadAsStringAsync());
 
-        int version = await VersionOfAsync(rules, name);
+        var version = await VersionOfAsync(rules, name);
 
         using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={Fab}");
         publish.Headers.TryAddWithoutValidation("If-Match", $"\"{version}\"");
-        HttpResponseMessage published = await rules.SendAsync(publish);
+        var published = await rules.SendAsync(publish);
         published.EnsureSuccessStatusCode();
 
-        HttpResponseMessage readBack = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
+        var readBack = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
         readBack.EnsureSuccessStatusCode();
-        JsonElement body = await readBack.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await readBack.Content.ReadFromJsonAsync<JsonElement>();
 
         body.GetProperty("state").GetString().ShouldBe(
             "Active",
@@ -350,9 +349,9 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
 
     private static async Task<int> VersionOfAsync(HttpClient rules, string name)
     {
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
+        var fetched = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
         fetched.EnsureSuccessStatusCode();
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         return body.GetProperty("version").GetInt32();
     }
 
@@ -365,8 +364,8 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     /// </summary>
     private async Task<string?> WaitForValueAsync(HttpClient variables, string name, string expected)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + EffectDeadline;
-        DateTimeOffset started = DateTimeOffset.UtcNow;
+        var deadline = DateTimeOffset.UtcNow + EffectDeadline;
+        var started = DateTimeOffset.UtcNow;
         string? observed = null;
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -395,9 +394,9 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
     private async Task<HubConnection> ListenForHighlightAsync(
         Guid overlay, TaskCompletionSource<HighlightFrame> highlighted)
     {
-        string token = await aspire.GetAdminAccessTokenAsync();
+        var token = await aspire.GetAdminAccessTokenAsync();
 
-        HubConnection kiosk = new HubConnectionBuilder()
+        var kiosk = new HubConnectionBuilder()
             .WithUrl(
                 aspire.HubUri("layout-composition", LayoutLifecycleHub.Path),
                 options => options.AccessTokenProvider = () => Task.FromResult<string?>(token))
@@ -410,7 +409,7 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
                 if (frame.GetProperty("overlay").GetGuid() == overlay)
                 {
                     highlighted.TrySetResult(new HighlightFrame(
-                        frame.TryGetProperty("fab", out JsonElement fab) ? fab.GetString() : null,
+                        frame.TryGetProperty("fab", out var fab) ? fab.GetString() : null,
                         frame.GetProperty("durationMs").GetInt32()));
                 }
             });
@@ -436,14 +435,14 @@ public class EventReachesItsEffectsTests(AspireFixture aspire, ITestOutputHelper
 
     private static async Task<string?> ReadValueAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
+        var fetched = await variables.GetAsync($"/system-variables/{name}");
         if (!fetched.IsSuccessStatusCode)
         {
             return null;
         }
 
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        return body.TryGetProperty("value", out JsonElement value) ? value.GetString() : null;
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        return body.TryGetProperty("value", out var value) ? value.GetString() : null;
     }
 
 }

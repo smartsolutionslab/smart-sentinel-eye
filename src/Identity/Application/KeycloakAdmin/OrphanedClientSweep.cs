@@ -58,14 +58,14 @@ public sealed class OrphanedClientSweep(
     /// </summary>
     public async Task<OrphanedClientSweepOutcome> SweepAsync(CancellationToken cancellationToken)
     {
-        IReadOnlyList<StampedClient> stamped = await keycloak.GetStampedClientsAsync(cancellationToken); // S5
+        var stamped = await keycloak.GetStampedClientsAsync(cancellationToken); // S5
         List<StampedClient> eligible =
             [.. stamped.Where(client => SweptKinds.Contains(client.Kind) && client.Enabled)]; // S1, S2
-        IReadOnlySet<ClientId> active = await clients.GetActiveClientIdsAsync(cancellationToken);
+        var active = await clients.GetActiveClientIdsAsync(cancellationToken);
 
         List<string> unreachable = [];
         List<(StampedClient Client, TimeSpan Age)> orphans = [];
-        foreach (StampedClient candidate in eligible)
+        foreach (var candidate in eligible)
         {
             await ClassifyAsync(candidate, active, orphans, unreachable, cancellationToken);
         }
@@ -81,7 +81,7 @@ public sealed class OrphanedClientSweep(
             return new OrphanedClientSweepOutcome(eligible.Count, Disabled: 0, Refused: true, unreachable);
         }
 
-        int disabledCount = await DisableAllAsync(orphans, unreachable, cancellationToken);
+        var disabledCount = await DisableAllAsync(orphans, unreachable, cancellationToken);
         if (disabledCount > 0)
         {
             logger.SweptOrphanedClients(disabledCount, eligible.Count);
@@ -140,7 +140,7 @@ public sealed class OrphanedClientSweep(
             return;
         }
 
-        TimeSpan age = clock.UtcNow - createdAt.Value;
+        var age = clock.UtcNow - createdAt.Value;
         if (age < GraceWindow) // S4: a registration still in flight
         {
             return;
@@ -154,8 +154,8 @@ public sealed class OrphanedClientSweep(
         List<string> unreachable,
         CancellationToken cancellationToken)
     {
-        int disabledCount = 0;
-        foreach ((StampedClient client, TimeSpan age) in orphans)
+        var disabledCount = 0;
+        foreach ((var client, var age) in orphans)
         {
             try
             {

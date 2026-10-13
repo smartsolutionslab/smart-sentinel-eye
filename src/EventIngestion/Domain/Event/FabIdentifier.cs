@@ -78,9 +78,9 @@ public sealed record FabIdentifier : StringValueObject, IComparable<FabIdentifie
             return false;
         }
 
-        for (int i = 1; i < s.Length; i++)
+        for (var i = 1; i < s.Length; i++)
         {
-            char c = s[i];
+            var c = s[i];
             if (!char.IsAsciiLetterLower(c) && !char.IsAsciiDigit(c) && c != '-')
             {
                 return false;

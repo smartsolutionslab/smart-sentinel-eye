@@ -13,7 +13,7 @@ public class FabClaimsTests
     [Fact]
     public void Repeated_single_value_claims_are_all_read()
     {
-        ClaimsPrincipal user = With("/fabs/munich", "/fabs/dresden");
+        var user = With("/fabs/munich", "/fabs/dresden");
 
         FabClaims.AssignedFabs(user).ShouldBe(["munich", "dresden"], ignoreOrder: true);
     }
@@ -21,7 +21,7 @@ public class FabClaimsTests
     [Fact]
     public void One_space_separated_claim_is_split()
     {
-        ClaimsPrincipal user = With("/fabs/munich /fabs/dresden");
+        var user = With("/fabs/munich /fabs/dresden");
 
         FabClaims.AssignedFabs(user).ShouldBe(["munich", "dresden"], ignoreOrder: true);
     }
@@ -29,7 +29,7 @@ public class FabClaimsTests
     [Fact]
     public void Tab_separated_values_are_split_too()
     {
-        ClaimsPrincipal user = With("/fabs/munich\t/fabs/dresden");
+        var user = With("/fabs/munich\t/fabs/dresden");
 
         FabClaims.AssignedFabs(user).ShouldBe(["munich", "dresden"], ignoreOrder: true);
     }
@@ -39,7 +39,7 @@ public class FabClaimsTests
     [Fact]
     public void Groups_that_are_not_fabs_are_ignored()
     {
-        ClaimsPrincipal user = With("/operators", "/fabs/munich", "/tenants/acme");
+        var user = With("/operators", "/fabs/munich", "/tenants/acme");
 
         FabClaims.AssignedFabs(user).ShouldBe(["munich"]);
     }
@@ -62,7 +62,7 @@ public class FabClaimsTests
     [Fact]
     public void The_same_fab_twice_is_reported_once()
     {
-        ClaimsPrincipal user = With("/fabs/munich", "/fabs/munich /operators");
+        var user = With("/fabs/munich", "/fabs/munich /operators");
 
         FabClaims.AssignedFabs(user).ShouldBe(["munich"]);
     }

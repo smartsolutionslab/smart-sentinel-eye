@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging.Abstractions;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
@@ -22,7 +21,7 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
         FakeMediaMtxApiAuthenticator authenticator = new() { Result = true };
         AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, NullLogger<AuthorizeMediaMtxApiCommandHandler>.Instance);
 
-        Result<bool, AuthorizeMediaMtxApiError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeMediaMtxApiCommand("correct-secret"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -35,7 +34,7 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
         FakeMediaMtxApiAuthenticator authenticator = new() { Result = false };
         AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, NullLogger<AuthorizeMediaMtxApiCommandHandler>.Instance);
 
-        Result<bool, AuthorizeMediaMtxApiError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeMediaMtxApiCommand("wrong-secret"), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
@@ -56,7 +55,7 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
 
         await handler.HandleAsync(new AuthorizeMediaMtxApiCommand("wrong-secret"), CancellationToken.None);
 
-        string message = logger.Entries.ShouldHaveSingleItem().Message;
+        var message = logger.Entries.ShouldHaveSingleItem().Message;
         message.ShouldNotContain("wrong-secret");
     }
 
@@ -87,7 +86,7 @@ public class AuthorizeMediaMtxApiCommandHandlerTests
         FakeMediaMtxApiAuthenticator authenticator = new() { Result = false };
         AuthorizeMediaMtxApiCommandHandler handler = new(authenticator, NullLogger<AuthorizeMediaMtxApiCommandHandler>.Instance);
 
-        Result<bool, AuthorizeMediaMtxApiError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new AuthorizeMediaMtxApiCommand("Bearer.xyz"), CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();

@@ -37,7 +37,7 @@ public sealed class InMemoryRegisteredEventTypeRepository : IRegisteredEventType
     public Task<Option<RegisteredEventType>> GetRegisteredAsync(
         FabIdentifier fab, Kind kind, CancellationToken cancellationToken)
     {
-        RegisteredEventType? found = eventTypes.SingleOrDefault(
+        var found = eventTypes.SingleOrDefault(
             eventType => eventType.Fab == fab && eventType.Kind == kind
                 && eventType.State == RegistrationState.Registered);
 
@@ -54,9 +54,9 @@ public sealed class InMemoryRegisteredEventTypeRepository : IRegisteredEventType
 
     public Task SaveAsync(CancellationToken cancellationToken)
     {
-        foreach (RegisteredEventType eventType in eventTypes)
+        foreach (var eventType in eventTypes)
         {
-            bool wasAlreadyPersisted = !persisted.Add(eventType.Id.Value);
+            var wasAlreadyPersisted = !persisted.Add(eventType.Id.Value);
             if (wasAlreadyPersisted && eventType.PendingEvents.Count > 0)
             {
                 AggregateVersions.Bump(eventType);

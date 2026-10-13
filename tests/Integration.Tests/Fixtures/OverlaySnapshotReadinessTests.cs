@@ -35,7 +35,7 @@ public class OverlaySnapshotReadinessTests
     [Fact]
     public async Task A_readiness_wait_does_not_return_while_the_snapshot_is_not_a_200()
     {
-        (HttpClient client, ScriptedHandler server) = Build(
+        (var client, var server) = Build(
             (HttpStatusCode.NotFound, null),
             (HttpStatusCode.NotFound, null),
             (HttpStatusCode.OK, ResolvedBody));
@@ -54,7 +54,7 @@ public class OverlaySnapshotReadinessTests
     [Fact]
     public async Task A_readiness_wait_does_not_return_on_a_200_that_still_carries_the_literal()
     {
-        (HttpClient client, ScriptedHandler server) = Build(
+        (var client, var server) = Build(
             (HttpStatusCode.OK, StaleBody),
             (HttpStatusCode.OK, ResolvedBody));
 
@@ -72,9 +72,9 @@ public class OverlaySnapshotReadinessTests
     [Fact]
     public async Task A_readiness_wait_that_never_sees_a_200_says_so()
     {
-        (HttpClient client, _) = Build((HttpStatusCode.NotFound, null));
+        (var client, _) = Build((HttpStatusCode.NotFound, null));
 
-        TimeoutException exception = await Should.ThrowAsync<TimeoutException>(
+        var exception = await Should.ThrowAsync<TimeoutException>(
             () => OverlaySnapshotReadiness.WaitUntilResolvableAsync(
                 client, Overlay, VariableName, ceilingMs: 500));
 
@@ -93,9 +93,9 @@ public class OverlaySnapshotReadinessTests
     [Fact]
     public async Task A_readiness_wait_that_never_resolves_quotes_the_last_text()
     {
-        (HttpClient client, _) = Build((HttpStatusCode.OK, StaleBody));
+        (var client, _) = Build((HttpStatusCode.OK, StaleBody));
 
-        TimeoutException exception = await Should.ThrowAsync<TimeoutException>(
+        var exception = await Should.ThrowAsync<TimeoutException>(
             () => OverlaySnapshotReadiness.WaitUntilResolvableAsync(
                 client, Overlay, VariableName, ceilingMs: 500));
 
@@ -111,7 +111,7 @@ public class OverlaySnapshotReadinessTests
     [Fact]
     public async Task A_readiness_wait_polls_rather_than_spins()
     {
-        (HttpClient client, ScriptedHandler server) = Build((HttpStatusCode.NotFound, null));
+        (var client, var server) = Build((HttpStatusCode.NotFound, null));
 
         await Should.ThrowAsync<TimeoutException>(
             () => OverlaySnapshotReadiness.WaitUntilResolvableAsync(
@@ -138,7 +138,7 @@ public class OverlaySnapshotReadinessTests
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            (HttpStatusCode status, string? body) = script[Math.Min(Attempts, script.Count - 1)];
+            (var status, var body) = script[Math.Min(Attempts, script.Count - 1)];
             Attempts++;
 
             HttpResponseMessage response = new(status);

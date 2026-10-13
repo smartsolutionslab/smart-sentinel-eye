@@ -52,16 +52,16 @@ public sealed class StreamFabAttributionService(
 
     public async Task AttributeOnceAsync(CancellationToken cancellationToken)
     {
-        await using AsyncServiceScope scope = scopeFactory.CreateAsyncScope();
+        await using var scope = scopeFactory.CreateAsyncScope();
 
-        IDbContextFactory<StreamDistributionDbContext> factory =
+        var factory =
             scope.ServiceProvider.GetRequiredService<IDbContextFactory<StreamDistributionDbContext>>();
-        ICameraFabLookup cameras = scope.ServiceProvider.GetRequiredService<ICameraFabLookup>();
+        var cameras = scope.ServiceProvider.GetRequiredService<ICameraFabLookup>();
 
-        await using StreamDistributionDbContext context =
+        await using var context =
             await factory.CreateDbContextAsync(cancellationToken);
 
-        List<Domain.Stream.Stream> unattributed = await context.Streams
+        var unattributed = await context.Streams
             .Where(stream => stream.Fab == null)
             .ToListAsync(cancellationToken);
 
@@ -73,10 +73,10 @@ public sealed class StreamFabAttributionService(
             return;
         }
 
-        IReadOnlyDictionary<Guid, string> fabsByCamera =
+        var fabsByCamera =
             await cameras.FabsByCameraAsync(cancellationToken);
 
-        int attributed = Attribute(unattributed, fabsByCamera);
+        var attributed = Attribute(unattributed, fabsByCamera);
 
         await context.SaveChangesAsync(cancellationToken);
 
@@ -96,10 +96,10 @@ public sealed class StreamFabAttributionService(
         IReadOnlyCollection<Domain.Stream.Stream> unattributed,
         IReadOnlyDictionary<Guid, string> fabsByCamera)
     {
-        int attributed = 0;
-        foreach (Domain.Stream.Stream stream in unattributed)
+        var attributed = 0;
+        foreach (var stream in unattributed)
         {
-            if (!fabsByCamera.TryGetValue(stream.Camera.Value, out string? fab))
+            if (!fabsByCamera.TryGetValue(stream.Camera.Value, out var fab))
             {
                 continue;
             }

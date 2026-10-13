@@ -42,7 +42,7 @@ public class FakeMqttClientContractTests
         FakeMqttClient client = new();
         await client.ConnectAsync(new MqttClientOptions());
 
-        InvalidOperationException thrown = await Should.ThrowAsync<InvalidOperationException>(
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(
             () => client.ConnectAsync(new MqttClientOptions()),
             "a second CONNECT against a connection nothing closed must be refused the way "
             + "MqttClient.ThrowIfConnected refuses it, not answered as if the client were free.");
@@ -59,7 +59,7 @@ public class FakeMqttClientContractTests
         FakeMqttClient client = new();
         await client.ConnectAsync(new MqttClientOptions());
 
-        for (int attempt = 1; attempt <= 4; attempt++)
+        for (var attempt = 1; attempt <= 4; attempt++)
         {
             await Should.ThrowAsync<InvalidOperationException>(
                 () => client.ConnectAsync(new MqttClientOptions()),
@@ -100,7 +100,7 @@ public class FakeMqttClientContractTests
         FakeMqttClient client = new();
         client.RefuseEveryConnect();
 
-        MqttClientConnectResult result = await client.ConnectAsync(new MqttClientOptions());
+        var result = await client.ConnectAsync(new MqttClientOptions());
 
         result.ResultCode.ShouldBe(
             MqttClientConnectResultCode.NotAuthorized,
@@ -128,8 +128,8 @@ public class FakeMqttClientContractTests
 
         client.GateConnect();
 
-        Task<MqttClientConnectResult> connecting = client.ConnectAsync(new MqttClientOptions());
-        Task first = await Task.WhenAny(connecting, Task.Delay(TimeSpan.FromSeconds(5)));
+        var connecting = client.ConnectAsync(new MqttClientOptions());
+        var first = await Task.WhenAny(connecting, Task.Delay(TimeSpan.FromSeconds(5)));
 
         first.ShouldBe(
             connecting,
@@ -138,7 +138,7 @@ public class FakeMqttClientContractTests
             + "CONNECT instead of refusing it outright — a third behaviour belonging to neither the "
             + "real client nor this fake's intended design.");
 
-        InvalidOperationException thrown = await Should.ThrowAsync<InvalidOperationException>(() => connecting);
+        var thrown = await Should.ThrowAsync<InvalidOperationException>(() => connecting);
         thrown.Message.ShouldBe(RefusalMessage);
     }
 }

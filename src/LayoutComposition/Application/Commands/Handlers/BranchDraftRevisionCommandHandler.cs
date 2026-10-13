@@ -16,16 +16,16 @@ public sealed class BranchDraftRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, OperatorIdentifier branchedBy, int expectedVersion) = command;
+        (var fabs, var layoutIdentifier, var branchedBy, var expectedVersion) = command;
 
-        Option<Layout> found = await layouts
+        var found = await layouts
             .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(BranchDraftRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
-        Layout layout = found.Value;
+        var layout = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
         // has since moved. Checked before any mutation so nothing is applied
@@ -40,7 +40,7 @@ public sealed class BranchDraftRevisionCommandHandler(
         // is still refused.
         if (layout.Revisions.All(revision => revision.State != LayoutRevisionState.Published))
         {
-            Revision? openDraft = layout.Revisions
+            var openDraft = layout.Revisions
                 .FirstOrDefault(revision => revision.State == LayoutRevisionState.Draft);
             if (openDraft is not null)
             {
@@ -57,7 +57,7 @@ public sealed class BranchDraftRevisionCommandHandler(
             // it is also why this check MUST stay inside this branch: on the
             // Published path the chain is visible to the predicate, so it would
             // match itself and refuse every branch of every healthy layout.
-            Option<Layout> holder = await layouts
+            var holder = await layouts
                 .GetByNameAsync(layout.Fab, layout.Name, cancellationToken);
             if (holder.HasValue)
             {
@@ -66,7 +66,7 @@ public sealed class BranchDraftRevisionCommandHandler(
             }
         }
 
-        Revision branched = layout.BranchDraft(branchedBy, clock);
+        var branched = layout.BranchDraft(branchedBy, clock);
         await layouts.SaveAsync(cancellationToken);
 
         logger.BranchedDraftRevision(branched.Number, layout.Id, branchedBy);

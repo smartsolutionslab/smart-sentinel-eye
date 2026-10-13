@@ -16,7 +16,7 @@ public class PublishRevisionCommandHandlerTests
 
     private static Overlay Seed(InMemoryOverlayRepository overlays, FakeClock clock)
     {
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Build();
         overlays.Add(overlay);
@@ -28,11 +28,11 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
 
         PublishRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -49,7 +49,7 @@ public class PublishRevisionCommandHandlerTests
         PublishRevisionCommandHandler handler = new(
             overlays, new FakeClock(FixedMoment), NullLogger<PublishRevisionCommandHandler>.Instance);
 
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 OverlayIdentifier.New(),
                 OverlayRevisionNumber.One,
@@ -65,11 +65,11 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
 
         PublishRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.From(42),
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),
@@ -84,12 +84,12 @@ public class PublishRevisionCommandHandlerTests
     {
         InMemoryOverlayRepository overlays = new();
         FakeClock clock = new(FixedMoment);
-        Overlay overlay = Seed(overlays, clock);
+        var overlay = Seed(overlays, clock);
         overlay.Publish(OverlayRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
 
         PublishRevisionCommandHandler handler = new(
             overlays, clock, NullLogger<PublishRevisionCommandHandler>.Instance);
-        Result<OverlayRevisionNumber, PublishRevisionError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new PublishRevisionCommand(
                 overlay.Id, OverlayRevisionNumber.One,
                 OperatorIdentifier.From(Guid.CreateVersion7()), 0),

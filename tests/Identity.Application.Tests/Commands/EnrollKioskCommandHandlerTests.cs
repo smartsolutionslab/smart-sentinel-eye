@@ -2,7 +2,6 @@ using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSentinelEye.Identity.Application.Commands;
 using SmartSentinelEye.Identity.Application.Commands.Handlers;
-using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Application.Tests.Fakes;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
@@ -47,7 +46,7 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse(
@@ -84,7 +83,7 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -102,11 +101,11 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> first =
+        var first =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
         first.IsSuccess.ShouldBeTrue();
 
-        Result<KioskCredentialsDto, EnrollKioskError> second =
+        var second =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         second.IsSuccess.ShouldBeFalse();
@@ -122,7 +121,7 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -150,7 +149,7 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(name!), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
@@ -180,11 +179,11 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> result =
+        var result =
             await handler.HandleAsync(HappyCommand(name), CancellationToken.None);
 
         result.IsSuccess.ShouldBeFalse();
-        EnrollKioskError.InvalidName error = result.Error.ShouldBeOfType<EnrollKioskError.InvalidName>();
+        var error = result.Error.ShouldBeOfType<EnrollKioskError.InvalidName>();
         error.Reason.ShouldBe("each hyphen-separated segment must be one or more letters or digits.");
         repo.Clients.ShouldBeEmpty();
         keycloak.Created.ShouldBeEmpty();
@@ -205,18 +204,18 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        EnrollKioskCommand munichCommand = HappyCommand();
-        Result<KioskCredentialsDto, EnrollKioskError> munichAttempt =
+        var munichCommand = HappyCommand();
+        var munichAttempt =
             await handler.HandleAsync(munichCommand, CancellationToken.None);
 
-        EnrollKioskCommand dresdenCommand = munichCommand with
+        var dresdenCommand = munichCommand with
         {
             Fab = FabIdentifier.From("dresden"),
             EnrolledBy = OperatorIdentifier.From(Guid.CreateVersion7()),
         };
-        Result<KioskCredentialsDto, EnrollKioskError> dresdenAttempt =
+        var dresdenAttempt =
             await handler.HandleAsync(dresdenCommand, CancellationToken.None);
-        Result<KioskCredentialsDto, EnrollKioskError> munichSecondAttempt =
+        var munichSecondAttempt =
             await handler.HandleAsync(munichCommand, CancellationToken.None);
 
         munichAttempt.IsSuccess.ShouldBeTrue();
@@ -248,7 +247,7 @@ public class EnrollKioskCommandHandlerTests
             repo, keycloak, new FakeClock(Now),
             NullLogger<EnrollKioskCommandHandler>.Instance);
 
-        Result<KioskCredentialsDto, EnrollKioskError> result =
+        var result =
             await handler.HandleAsync(HappyCommand("lobby-wall-2"), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -282,9 +281,9 @@ public class EnrollKioskCommandHandlerTests
         EnrollKioskCommand dresdenTwoCommand = new(
             "lobby", FabIdentifier.From("dresden-2"), OperatorIdentifier.From(Guid.CreateVersion7()));
 
-        Result<KioskCredentialsDto, EnrollKioskError> dresdenAttempt =
+        var dresdenAttempt =
             await handler.HandleAsync(dresdenCommand, CancellationToken.None);
-        Result<KioskCredentialsDto, EnrollKioskError> dresdenTwoAttempt =
+        var dresdenTwoAttempt =
             await handler.HandleAsync(dresdenTwoCommand, CancellationToken.None);
 
         dresdenAttempt.IsSuccess.ShouldBeTrue();

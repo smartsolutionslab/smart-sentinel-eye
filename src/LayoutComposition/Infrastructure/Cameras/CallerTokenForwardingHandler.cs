@@ -31,6 +31,6 @@ public sealed class CallerTokenForwardingHandler(IHttpContextAccessor httpContex
         string? incoming = httpContextAccessor.HttpContext?.Request.Headers.Authorization;
 
         return Task.FromResult(
-            AuthenticationHeaderValue.TryParse(incoming, out AuthenticationHeaderValue? parsed) ? parsed : null);
+            AuthenticationHeaderValue.TryParse(incoming, out var parsed) ? parsed : null);
     }
 }

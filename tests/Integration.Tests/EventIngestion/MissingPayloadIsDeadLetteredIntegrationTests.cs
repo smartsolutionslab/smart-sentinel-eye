@@ -1,11 +1,9 @@
 using System.Globalization;
-using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using MQTTnet;
 using MQTTnet.Formatter;
 using MQTTnet.Protocol;
-using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
 
@@ -42,9 +40,9 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
     [Fact]
     public async Task A_delivery_whose_payload_property_is_absent_is_dead_lettered_once_and_released()
     {
-        string device = $"dev-{Guid.CreateVersion7():N}"[..20];
-        string topic = $"fab/{Fab}/plc/{device}";
-        string healthyKind = $"Healthy{Guid.CreateVersion7():N}"[..20];
+        var device = $"dev-{Guid.CreateVersion7():N}"[..20];
+        var topic = $"fab/{Fab}/plc/{device}";
+        var healthyKind = $"Healthy{Guid.CreateVersion7():N}"[..20];
 
         await PublishRawAsync(topic, MissingPayloadBody());
         output.WriteLine($"published 1 payload-less delivery to {topic}");
@@ -52,12 +50,12 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
         await PublishHealthyAsync($"fab/{Fab}/plc/station-{Guid.CreateVersion7():N}"[..40], healthyKind, HealthyCount);
         output.WriteLine($"published {HealthyCount} well-formed events");
 
-        string error = await WaitForDeadLetterAsync(topic, TimeSpan.FromSeconds(60));
+        var error = await WaitForDeadLetterAsync(topic, TimeSpan.FromSeconds(60));
         output.WriteLine($"dead letter: '{error}'");
         error.ShouldNotBeNullOrEmpty("no dead_letters row ever appeared for the payload-less delivery");
         error.ShouldContain("payload", Case.Insensitive);
 
-        long healthy = await WaitForCountAsync(healthyKind, HealthyCount, TimeSpan.FromSeconds(45));
+        var healthy = await WaitForCountAsync(healthyKind, HealthyCount, TimeSpan.FromSeconds(45));
         output.WriteLine($"healthy stored: {healthy}");
         healthy.ShouldBe(
             HealthyCount, "the payload-less delivery held up the healthy events behind it");
@@ -70,7 +68,7 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
 
     private async Task<long> WaitForCountAsync(string kind, long expected, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
         long count = 0;
 
         while (DateTimeOffset.UtcNow < deadline)
@@ -89,13 +87,13 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
 
     private async Task<string> WaitForDeadLetterAsync(string topic, TimeSpan timeout)
     {
-        DateTimeOffset deadline = DateTimeOffset.UtcNow + timeout;
+        var deadline = DateTimeOffset.UtcNow + timeout;
 
         while (DateTimeOffset.UtcNow < deadline)
         {
-            await using EventIngestionDbContext database =
+            await using var database =
                 await aspire.CreateEventIngestionDbContextAsync();
-            string[] found = await database.Database
+            var found = await database.Database
                 .SqlQueryRaw<string>(
                     "SELECT error AS \"Value\" FROM dead_letters WHERE topic = {0}", topic)
                 .ToArrayAsync();
@@ -113,7 +111,7 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
 
     private async Task<long> CountDeadLettersAsync(string topic)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM dead_letters WHERE topic = {0}", topic)
             .SingleAsync();
@@ -121,7 +119,7 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
 
     private async Task<long> CountAsync(string kind)
     {
-        await using EventIngestionDbContext database = await aspire.CreateEventIngestionDbContextAsync();
+        await using var database = await aspire.CreateEventIngestionDbContextAsync();
         return await database.Database
             .SqlQueryRaw<long>("SELECT count(*) AS \"Value\" FROM events WHERE kind = {0}", kind)
             .SingleAsync();
@@ -134,9 +132,9 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
     /// </summary>
     private async Task PublishRawAsync(string topic, string rawJson)
     {
-        using IMqttClient client = await ConnectAsync();
+        using var client = await ConnectAsync();
 
-        MqttClientPublishResult published = await client.PublishAsync(
+        var published = await client.PublishAsync(
             new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
                 .WithPayload(rawJson)
@@ -149,11 +147,11 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
 
     private async Task PublishHealthyAsync(string topic, string kind, int count)
     {
-        using IMqttClient client = await ConnectAsync();
+        using var client = await ConnectAsync();
 
-        for (int i = 0; i < count; i++)
+        for (var i = 0; i < count; i++)
         {
-            MqttClientPublishResult published = await client.PublishAsync(
+            var published = await client.PublishAsync(
                 new MqttApplicationMessageBuilder()
                     .WithTopic(topic)
                     .WithPayload(HealthyBody(kind))
@@ -167,22 +165,22 @@ public class MissingPayloadIsDeadLetteredIntegrationTests(AspireFixture aspire, 
 
     private async Task<IMqttClient> ConnectAsync()
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         using FormUrlEncodedContent form = new(new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
             ["client_id"] = SimulatorClientId,
             ["client_secret"] = SimulatorClientSecret,
         });
-        HttpResponseMessage token = await keycloak.PostAsync(
+        var token = await keycloak.PostAsync(
             "/realms/smart-sentinel-eye/protocol/openid-connect/token", form);
         token.EnsureSuccessStatusCode();
-        string jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
+        var jwt = (await token.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("access_token").GetString()!;
 
-        Uri broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
-        IMqttClient client = new MqttClientFactory().CreateMqttClient();
-        MqttClientConnectResult connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
+        var broker = aspire.App.GetEndpoint("mosquitto", "mqtt");
+        var client = new MqttClientFactory().CreateMqttClient();
+        var connected = await client.ConnectAsync(new MqttClientOptionsBuilder()
             .WithProtocolVersion(MqttProtocolVersion.V311)
             .WithClientId($"{SimulatorClientId}-{Guid.CreateVersion7():N}")
             .WithCredentials(SimulatorClientId, jwt)

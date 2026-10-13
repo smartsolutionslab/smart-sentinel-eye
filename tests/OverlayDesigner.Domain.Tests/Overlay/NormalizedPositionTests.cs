@@ -29,7 +29,7 @@ public class NormalizedPositionTests
     [Fact]
     public void From_accepts_both_bounds_of_the_unit_interval()
     {
-        NormalizedPosition position = NormalizedPosition.From(0m, 1m);
+        var position = NormalizedPosition.From(0m, 1m);
 
         position.X.ShouldBe(0m);
         position.Y.ShouldBe(1m);
@@ -38,7 +38,7 @@ public class NormalizedPositionTests
     [Fact]
     public void From_keeps_the_two_coordinates_in_the_order_they_were_given()
     {
-        NormalizedPosition position = NormalizedPosition.From(0.25m, 0.75m);
+        var position = NormalizedPosition.From(0.25m, 0.75m);
 
         position.X.ShouldBe(0.25m);
         position.Y.ShouldBe(0.75m);
@@ -47,8 +47,8 @@ public class NormalizedPositionTests
     [Fact]
     public void Two_positions_with_the_same_coordinates_are_equal()
     {
-        NormalizedPosition a = NormalizedPosition.From(0.2m, 0.3m);
-        NormalizedPosition b = NormalizedPosition.From(0.2m, 0.3m);
+        var a = NormalizedPosition.From(0.2m, 0.3m);
+        var b = NormalizedPosition.From(0.2m, 0.3m);
 
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());

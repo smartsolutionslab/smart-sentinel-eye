@@ -33,11 +33,11 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_first_ever_advance_for_a_fresh_overlay_returns_the_cutover_floor_not_one()
     {
-        await using SystemVariablesDbContext context = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var context = await aspire.CreateSystemVariablesDbContextAsync();
         OverlayTextVersionStore store = new(context);
 
-        Guid overlay = Guid.CreateVersion7();
-        IReadOnlyDictionary<Guid, long> advanced = await store.AdvanceAsync([overlay], CancellationToken.None);
+        var overlay = Guid.CreateVersion7();
+        var advanced = await store.AdvanceAsync([overlay], CancellationToken.None);
 
         // SC-3: a durable counter starting from an empty table at 1 would
         // reproduce #2426 once, silently, on the very deploy that fixes it —
@@ -49,12 +49,12 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_second_advance_for_the_same_overlay_returns_floor_plus_one()
     {
-        await using SystemVariablesDbContext context = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var context = await aspire.CreateSystemVariablesDbContextAsync();
         OverlayTextVersionStore store = new(context);
 
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
         await store.AdvanceAsync([overlay], CancellationToken.None);
-        IReadOnlyDictionary<Guid, long> second = await store.AdvanceAsync([overlay], CancellationToken.None);
+        var second = await store.AdvanceAsync([overlay], CancellationToken.None);
 
         second[overlay].ShouldBe(Floor + 1);
     }
@@ -69,9 +69,9 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_store_from_a_brand_new_scope_continues_from_the_persisted_value()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
-        await using (SystemVariablesDbContext first = await aspire.CreateSystemVariablesDbContextAsync())
+        await using (var first = await aspire.CreateSystemVariablesDbContextAsync())
         {
             OverlayTextVersionStore firstScopeStore = new(first);
             await firstScopeStore.AdvanceAsync([overlay], CancellationToken.None);
@@ -79,9 +79,9 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
 
         // A distinct DbContext from a distinct connection — nothing here is
         // shared with the store above except the row Postgres is holding.
-        await using SystemVariablesDbContext second = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var second = await aspire.CreateSystemVariablesDbContextAsync();
         OverlayTextVersionStore secondScopeStore = new(second);
-        IReadOnlyDictionary<Guid, long> advanced =
+        var advanced =
             await secondScopeStore.AdvanceAsync([overlay], CancellationToken.None);
 
         advanced[overlay].ShouldBe(
@@ -97,19 +97,19 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Two_concurrent_advances_on_one_overlay_return_two_distinct_increasing_values()
     {
-        Guid overlay = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
 
-        await using SystemVariablesDbContext contextA = await aspire.CreateSystemVariablesDbContextAsync();
-        await using SystemVariablesDbContext contextB = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var contextA = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var contextB = await aspire.CreateSystemVariablesDbContextAsync();
         OverlayTextVersionStore storeA = new(contextA);
         OverlayTextVersionStore storeB = new(contextB);
 
-        IReadOnlyDictionary<Guid, long>[] results = await Task.WhenAll(
+        var results = await Task.WhenAll(
             storeA.AdvanceAsync([overlay], CancellationToken.None),
             storeB.AdvanceAsync([overlay], CancellationToken.None));
 
-        long first = results[0][overlay];
-        long second = results[1][overlay];
+        var first = results[0][overlay];
+        var second = results[1][overlay];
 
         first.ShouldNotBe(second, "two concurrent advances on one overlay produced the same version");
         new[] { first, second }.ShouldBe([Floor, Floor + 1], ignoreOrder: true);
@@ -131,13 +131,13 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_batch_containing_the_same_overlay_twice_does_not_raise_a_conflict_error()
     {
-        await using SystemVariablesDbContext context = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var context = await aspire.CreateSystemVariablesDbContextAsync();
         OverlayTextVersionStore store = new(context);
 
-        Guid repeated = Guid.CreateVersion7();
-        Guid other = Guid.CreateVersion7();
+        var repeated = Guid.CreateVersion7();
+        var other = Guid.CreateVersion7();
 
-        IReadOnlyDictionary<Guid, long> advanced =
+        var advanced =
             await store.AdvanceAsync([repeated, other, repeated], CancellationToken.None);
 
         advanced[repeated].ShouldBe(Floor);
@@ -153,10 +153,10 @@ public class OverlayTextVersionStoreIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Reading_the_current_version_of_an_untouched_overlay_returns_zero()
     {
-        await using SystemVariablesDbContext context = await aspire.CreateSystemVariablesDbContextAsync();
+        await using var context = await aspire.CreateSystemVariablesDbContextAsync();
         OverlayTextVersionStore store = new(context);
 
-        long current = await store.CurrentAsync(Guid.CreateVersion7(), CancellationToken.None);
+        var current = await store.CurrentAsync(Guid.CreateVersion7(), CancellationToken.None);
 
         current.ShouldBe(0);
     }

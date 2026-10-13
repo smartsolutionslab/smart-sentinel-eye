@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
-using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 
@@ -28,7 +27,7 @@ public sealed class FabsReferencingOverlayQueryHandler(ILayoutQuerySource layout
     public async Task<IReadOnlyList<FabIdentifier>> HandleAsync(
         Guid overlay, CancellationToken cancellationToken)
     {
-        OverlayIdentifier identifier = OverlayIdentifier.From(overlay);
+        var identifier = OverlayIdentifier.From(overlay);
 
         // Published only (FR-013). A draft's tiles do not count: a fab whose
         // sole use of an overlay is unpublished displays it nowhere, and

@@ -57,7 +57,7 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire, ITestOutputHelper o
     [Fact]
     public async Task Whep_auth_hook_p95_stays_under_three_seconds_over_twenty_opens()
     {
-        string token = await aspire.GetAdminAccessTokenAsync();
+        var token = await aspire.GetAdminAccessTokenAsync();
 
         // Warm the OIDC discovery cache + JWT validator state. The first
         // call hits Keycloak's well-known endpoint; subsequent calls reuse
@@ -65,19 +65,19 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire, ITestOutputHelper o
         await aspire.StreamDistribution.PostAsJsonAsync(
             "/streams/authorize", new { token, path = $"cam-{Guid.CreateVersion7()}", action = "read" });
 
-        double[] elapsedMs = new double[Iterations];
-        for (int i = 0; i < Iterations; i++)
+        var elapsedMs = new double[Iterations];
+        for (var i = 0; i < Iterations; i++)
         {
-            Guid camera = Guid.CreateVersion7();
-            Stopwatch sw = Stopwatch.StartNew();
-            HttpResponseMessage response = await aspire.StreamDistribution.PostAsJsonAsync(
+            var camera = Guid.CreateVersion7();
+            var sw = Stopwatch.StartNew();
+            var response = await aspire.StreamDistribution.PostAsJsonAsync(
                 "/streams/authorize", new { token, path = $"cam-{camera}", action = "read" });
             sw.Stop();
             if (response.StatusCode != System.Net.HttpStatusCode.OK)
             {
                 // Surface the server-side stack (developer exception page in the
                 // E2E stack) so a CI-only 500 here is diagnosable from the log.
-                string body = await response.Content.ReadAsStringAsync();
+                var body = await response.Content.ReadAsStringAsync();
                 response.StatusCode.ShouldBe(System.Net.HttpStatusCode.OK,
                     $"iteration {i}: unexpected status. response body:\n{(body.Length > 4000 ? body[..4000] : body)}");
             }
@@ -86,8 +86,8 @@ public class WhepHandshakeLatencyTests(AspireFixture aspire, ITestOutputHelper o
 
         Array.Sort(elapsedMs);
         // p95 = the 19th-of-20 entry (index 18 zero-based ≈ 95th percentile).
-        double p95 = elapsedMs[(int)Math.Ceiling(Iterations * 0.95) - 1];
-        double p50 = elapsedMs[Iterations / 2];
+        var p95 = elapsedMs[(int)Math.Ceiling(Iterations * 0.95) - 1];
+        var p50 = elapsedMs[Iterations / 2];
 
         // Surface the measurement whether or not it passes. The assertion's
         // customMessage is built only when the assertion fails, so a green run

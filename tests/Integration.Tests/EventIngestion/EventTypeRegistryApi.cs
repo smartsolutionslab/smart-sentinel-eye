@@ -80,7 +80,7 @@ internal static class EventTypeRegistryApi
 
     internal static async Task<JsonElement> ListRowsAsync(HttpClient client, string message)
     {
-        HttpResponseMessage listed = await ListAsync(client);
+        var listed = await ListAsync(client);
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, message);
 
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
@@ -91,17 +91,17 @@ internal static class EventTypeRegistryApi
 
     internal static async Task<Guid> IdentifierOfAsync(HttpResponseMessage response)
     {
-        JsonElement body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return body.GetGuid();
     }
 
     internal static async Task<string?> TitleOfAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return problem.ValueKind == JsonValueKind.Object
-               && problem.TryGetProperty("title", out JsonElement title)
+               && problem.TryGetProperty("title", out var title)
             ? title.GetString()
             : null;
     }

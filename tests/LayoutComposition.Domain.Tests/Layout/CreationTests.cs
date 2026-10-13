@@ -12,9 +12,9 @@ public class CreationTests
     [Fact]
     public void Carries_both_halves()
     {
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        Creation creation = Creation.From(CreatedAt.From(Moment), by);
+        var creation = Creation.From(CreatedAt.From(Moment), by);
 
         creation.At.Value.ShouldBe(Moment);
         creation.By.ShouldBe(by);
@@ -30,7 +30,7 @@ public class CreationTests
     [Fact]
     public void Two_creations_of_the_same_moment_and_operator_are_equal()
     {
-        OperatorIdentifier by = OperatorIdentifier.From(Guid.CreateVersion7());
+        var by = OperatorIdentifier.From(Guid.CreateVersion7());
 
         Creation.From(CreatedAt.From(Moment), by)
             .ShouldBe(Creation.From(CreatedAt.From(Moment), by));
@@ -39,7 +39,7 @@ public class CreationTests
     [Fact]
     public void A_different_operator_is_a_different_creation()
     {
-        CreatedAt at = CreatedAt.From(Moment);
+        var at = CreatedAt.From(Moment);
 
         Creation.From(at, OperatorIdentifier.From(Guid.CreateVersion7()))
             .ShouldNotBe(Creation.From(at, OperatorIdentifier.From(Guid.CreateVersion7())));

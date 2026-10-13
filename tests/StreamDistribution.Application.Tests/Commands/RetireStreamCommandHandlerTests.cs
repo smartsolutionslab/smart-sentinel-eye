@@ -24,13 +24,13 @@ public class RetireStreamCommandHandlerTests
     [Fact]
     public async Task Retiring_a_stream_makes_it_terminal_and_removes_its_path()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
-        Domain.Stream.Stream existing = await SeedAsync(streams, camera);
+        var existing = await SeedAsync(streams, camera);
 
         FakeRtspGateway gateway = new();
 
-        Result<Option<StreamIdentifier>, RetireStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(new RetireStreamCommand(camera), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -49,7 +49,7 @@ public class RetireStreamCommandHandlerTests
     [Fact]
     public async Task The_streams_row_is_kept_rather_than_deleted()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
@@ -68,7 +68,7 @@ public class RetireStreamCommandHandlerTests
     [Fact]
     public async Task A_gateway_failure_does_not_lose_the_retirement()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
@@ -77,7 +77,7 @@ public class RetireStreamCommandHandlerTests
             OnRemovePath = _ => throw new HttpRequestException("MediaMTX unreachable"),
         };
 
-        Result<Option<StreamIdentifier>, RetireStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(new RetireStreamCommand(camera), CancellationToken.None);
 
         // Reported as a failure so the outbox redelivers and the path removal is
@@ -98,17 +98,17 @@ public class RetireStreamCommandHandlerTests
     [Fact]
     public async Task Retiring_an_already_retired_stream_announces_nothing_further()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
         FakeRtspGateway gateway = new();
-        RetireStreamCommandHandler handler = NewHandler(streams, gateway);
+        var handler = NewHandler(streams, gateway);
 
         await handler.HandleAsync(new RetireStreamCommand(camera), CancellationToken.None);
         streams.Streams.Single().ClearPendingEvents();
 
-        Result<Option<StreamIdentifier>, RetireStreamError> second =
+        var second =
             await handler.HandleAsync(new RetireStreamCommand(camera), CancellationToken.None);
 
         second.IsSuccess.ShouldBeTrue();
@@ -128,7 +128,7 @@ public class RetireStreamCommandHandlerTests
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
 
-        Result<Option<StreamIdentifier>, RetireStreamError> result = await NewHandler(streams, gateway)
+        var result = await NewHandler(streams, gateway)
             .HandleAsync(new RetireStreamCommand(CameraIdentifier.From(Guid.CreateVersion7())), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -140,7 +140,7 @@ public class RetireStreamCommandHandlerTests
         InMemoryStreamRepository streams,
         CameraIdentifier camera)
     {
-        Domain.Stream.Stream existing = new StreamBuilder()
+        var existing = new StreamBuilder()
             .ForCamera(camera)
             .ProvisionedBy(AnAdmin)
             .At(FixedMoment)

@@ -17,10 +17,10 @@ public static class AelLexer
         Ensure.That(source).IsNotNull();
 
         List<AelToken> tokens = [];
-        int i = 0;
+        var i = 0;
         while (i < source.Length)
         {
-            char c = source[i];
+            var c = source[i];
 
             if (char.IsWhiteSpace(c))
             { i++; continue; }
@@ -134,8 +134,8 @@ public static class AelLexer
 
             if (c == '"' || c == '\'')
             {
-                int start = i;
-                char quote = c;
+                var start = i;
+                var quote = c;
                 i++;
                 StringBuilder buffer = new();
                 while (i < source.Length && source[i] != quote)
@@ -154,8 +154,8 @@ public static class AelLexer
 
             if (char.IsAsciiDigit(c))
             {
-                int start = i;
-                bool isDecimal = false;
+                var start = i;
+                var isDecimal = false;
                 while (i < source.Length && char.IsAsciiDigit(source[i]))
                 {
                     i++;
@@ -177,7 +177,7 @@ public static class AelLexer
                         "exponent notation is not supported; write the number out in full", i);
                 }
 
-                string lexeme = source[start..i];
+                var lexeme = source[start..i];
                 tokens.Add(new AelToken(
                     isDecimal ? AelTokenKind.DecimalLiteral : AelTokenKind.IntLiteral,
                     lexeme,
@@ -187,14 +187,14 @@ public static class AelLexer
 
             if (char.IsAsciiLetter(c) || c == '_')
             {
-                int start = i;
+                var start = i;
                 while (i < source.Length &&
                        (char.IsAsciiLetterOrDigit(source[i]) || source[i] == '_'))
                 {
                     i++;
                 }
-                string lexeme = source[start..i];
-                AelTokenKind kind = lexeme switch
+                var lexeme = source[start..i];
+                var kind = lexeme switch
                 {
                     "true" => AelTokenKind.TrueLiteral,
                     "false" => AelTokenKind.FalseLiteral,
@@ -214,7 +214,7 @@ public static class AelLexer
 
     internal static long ParseInt(AelToken token)
     {
-        if (!long.TryParse(token.Lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out long value))
+        if (!long.TryParse(token.Lexeme, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
         {
             throw new AelParseException(
                 $"integer literal '{token.Lexeme}' is out of range; " +
@@ -226,7 +226,7 @@ public static class AelLexer
 
     internal static decimal ParseDecimal(AelToken token)
     {
-        if (!decimal.TryParse(token.Lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out decimal value))
+        if (!decimal.TryParse(token.Lexeme, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
         {
             throw new AelParseException(
                 $"decimal literal '{token.Lexeme}' is out of range",

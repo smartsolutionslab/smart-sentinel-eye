@@ -120,9 +120,9 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task The_e2e_lane_composes_no_persistent_container()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(E2EArguments);
+        var resources = await ComposedResourcesAsync(E2EArguments);
 
-        IReadOnlyList<string> offenders = PersistentResourceNames(resources);
+        var offenders = PersistentResourceNames(resources);
 
         offenders.ShouldBeEmpty(
             $"observed persistent resources in the e2e lane: [{string.Join(", ", offenders)}]. "
@@ -139,9 +139,9 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task The_e2e_lane_mounts_no_data_volume()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(E2EArguments);
+        var resources = await ComposedResourcesAsync(E2EArguments);
 
-        IReadOnlyList<string> offenders = VolumeMountedResourceNames(resources);
+        var offenders = VolumeMountedResourceNames(resources);
 
         offenders.ShouldBeEmpty(
             $"observed volume-mounted resources in the e2e lane: [{string.Join(", ", offenders)}]. "
@@ -158,7 +158,7 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task The_e2e_lane_composes_no_pgadmin()
     {
-        IReadOnlyList<string> names = await ResourceNamesAsync(E2EArguments);
+        var names = await ResourceNamesAsync(E2EArguments);
 
         names.ShouldNotContain(
             "pgadmin",
@@ -178,7 +178,7 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task The_e2e_lane_keeps_the_web_apps_the_gateway_budget_and_the_ice_port_map()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(E2EArguments);
+        var resources = await ComposedResourcesAsync(E2EArguments);
         IReadOnlyList<string> names = [.. resources.Select(resource => resource.Name)];
 
         names.ShouldContain("management-web");
@@ -190,8 +190,8 @@ public class AppHostStackPersistenceTests
             "the e2e lane needs a picture for the wall (spec 056/076); PersistentStack must not "
             + "touch the isRunMode-only gate fixture-video is composed under.");
 
-        IResource gateway = resources.Single(resource => resource.Name == "api-gateway");
-        string? permitLimit = await GatheredEnvironmentValueAsync(gateway, PermitLimitKey);
+        var gateway = resources.Single(resource => resource.Name == "api-gateway");
+        var permitLimit = await GatheredEnvironmentValueAsync(gateway, PermitLimitKey);
 
         permitLimit.ShouldBe(
             "6000",
@@ -200,8 +200,8 @@ public class AppHostStackPersistenceTests
             + "(spec 232/#2221) — PersistentStack must not narrow the isRunMode && "
             + "!isE2ETests gate that widens the gateway's own budget.");
 
-        IResource mediamtx = resources.Single(resource => resource.Name == "mediamtx");
-        IReadOnlyList<string> runtimeArgs = await GatheredContainerRuntimeArgsAsync(mediamtx);
+        var mediamtx = resources.Single(resource => resource.Name == "mediamtx");
+        var runtimeArgs = await GatheredContainerRuntimeArgsAsync(mediamtx);
 
         runtimeArgs.ShouldContain(
             "8189:8189/udp",
@@ -210,7 +210,7 @@ public class AppHostStackPersistenceTests
             + "stay even though mediamtx's lifetime no longer does (spec.md edge case).");
         runtimeArgs.ShouldContain("8189:8189/tcp");
 
-        string? additionalHosts = await GatheredEnvironmentValueAsync(mediamtx, AdditionalHostsKey);
+        var additionalHosts = await GatheredEnvironmentValueAsync(mediamtx, AdditionalHostsKey);
 
         additionalHosts.ShouldBe(
             "127.0.0.1",
@@ -228,7 +228,7 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task The_developer_lane_keeps_its_persistent_containers_volumes_and_pgadmin()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(DevArguments);
+        var resources = await ComposedResourcesAsync(DevArguments);
 
         AssertExactlyPersistent(resources, PersistentDevLaneResources);
         AssertVolumesMounted(resources, VolumeMountedDevLaneResources);
@@ -253,7 +253,7 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task An_unparseable_switch_keeps_the_stack_persistent()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(UnparseableArguments);
+        var resources = await ComposedResourcesAsync(UnparseableArguments);
 
         AssertExactlyPersistent(resources, PersistentDevLaneResources);
 
@@ -274,7 +274,7 @@ public class AppHostStackPersistenceTests
     [Fact]
     public async Task The_integration_fixture_composes_no_persistent_container_and_no_volume()
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(FixtureArguments);
+        var resources = await ComposedResourcesAsync(FixtureArguments);
 
         PersistentResourceNames(resources).ShouldBeEmpty(
             "the integration fixture (E2ETests=true) must keep composing no persistent "
@@ -302,7 +302,7 @@ public class AppHostStackPersistenceTests
     [Fact]
     public void The_e2e_boot_line_disables_persistence()
     {
-        string command = BootLine().Split('>', 2)[0];
+        var command = BootLine().Split('>', 2)[0];
 
         command.ShouldContain(
             PersistentStackArgument,
@@ -315,7 +315,7 @@ public class AppHostStackPersistenceTests
 
     private static void AssertExactlyPersistent(IReadOnlyList<IResource> resources, string[] expected)
     {
-        IReadOnlyList<string> persistent = PersistentResourceNames(resources);
+        var persistent = PersistentResourceNames(resources);
 
         persistent.OrderBy(name => name, StringComparer.Ordinal).ShouldBe(
             expected.OrderBy(name => name, StringComparer.Ordinal),
@@ -325,9 +325,9 @@ public class AppHostStackPersistenceTests
 
     private static void AssertVolumesMounted(IReadOnlyList<IResource> resources, string[] expected)
     {
-        foreach (string name in expected)
+        foreach (var name in expected)
         {
-            IResource resource = resources.Single(candidate => candidate.Name == name);
+            var resource = resources.Single(candidate => candidate.Name == name);
 
             resource.Annotations.OfType<ContainerMountAnnotation>()
                 .Any(mount => mount.Type == ContainerMountType.Volume)
@@ -355,7 +355,7 @@ public class AppHostStackPersistenceTests
 
     private static async Task<IReadOnlyList<IResource>> ComposedResourcesAsync(string[] arguments)
     {
-        using IDistributedApplicationTestingBuilder builder =
+        using var builder =
             await DistributedApplicationTestingBuilder
                 .CreateAsync<Projects.SmartSentinelEye_AppHost>(arguments);
 
@@ -364,7 +364,7 @@ public class AppHostStackPersistenceTests
 
     private static async Task<IReadOnlyList<string>> ResourceNamesAsync(string[] arguments)
     {
-        IReadOnlyList<IResource> resources = await ComposedResourcesAsync(arguments);
+        var resources = await ComposedResourcesAsync(arguments);
 
         return [.. resources.Select(resource => resource.Name)];
     }
@@ -381,7 +381,7 @@ public class AppHostStackPersistenceTests
     {
         using CancellationTokenSource deadline = new(TimeSpan.FromSeconds(15));
 
-        if (!resource.TryGetEnvironmentVariables(out IEnumerable<EnvironmentCallbackAnnotation>? annotations))
+        if (!resource.TryGetEnvironmentVariables(out var annotations))
         {
             return null;
         }
@@ -396,12 +396,12 @@ public class AppHostStackPersistenceTests
             Logger = NullLogger.Instance,
         };
 
-        foreach (EnvironmentCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }
 
-        return environmentVariables.TryGetValue(key, out object? value) ? value?.ToString() : null;
+        return environmentVariables.TryGetValue(key, out var value) ? value?.ToString() : null;
     }
 
     /// <summary>
@@ -420,7 +420,7 @@ public class AppHostStackPersistenceTests
         List<object> args = [];
         ContainerRuntimeArgsCallbackContext context = new(args);
 
-        foreach (ContainerRuntimeArgsCallbackAnnotation annotation in annotations)
+        foreach (var annotation in annotations)
         {
             await annotation.Callback(context);
         }

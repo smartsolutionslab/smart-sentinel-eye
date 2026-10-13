@@ -61,7 +61,7 @@ public static class ClipManifestValidation
         }
         else if (manifest.DurationMs > 0)
         {
-            int densityLimit = (int)Math.Ceiling(manifest.DurationMs / 1000.0) * MaxCuesPerSecond;
+            var densityLimit = (int)Math.Ceiling(manifest.DurationMs / 1000.0) * MaxCuesPerSecond;
             if (manifest.Cues.Count > densityLimit)
             {
                 violations.Add(new CueViolation(
@@ -80,9 +80,9 @@ public static class ClipManifestValidation
     {
         int? previousAtMs = null;
 
-        for (int index = 0; index < manifest.Cues.Count; index++)
+        for (var index = 0; index < manifest.Cues.Count; index++)
         {
-            CueDefinition? cue = manifest.Cues[index];
+            var cue = manifest.Cues[index];
             if (cue is null)
             {
                 violations.Add(new CueViolation(index, "Cue must not be null."));

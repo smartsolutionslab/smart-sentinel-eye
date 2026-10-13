@@ -1,7 +1,6 @@
 using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore.Query;
 using SmartSentinelEye.LayoutComposition.Application.Queries;
-using SmartSentinelEye.LayoutComposition.Domain.Layout;
 
 namespace SmartSentinelEye.LayoutComposition.Application.Tests.Fakes;
 
@@ -58,8 +57,8 @@ internal sealed class TestAsyncQueryProvider<TEntity>(IQueryProvider inner) : IA
 
     public TResult ExecuteAsync<TResult>(Expression expression, CancellationToken cancellationToken = default)
     {
-        Type expectedResultType = typeof(TResult).GetGenericArguments()[0];
-        object executionResult = typeof(IQueryProvider)
+        var expectedResultType = typeof(TResult).GetGenericArguments()[0];
+        var executionResult = typeof(IQueryProvider)
             .GetMethod(name: nameof(IQueryProvider.Execute), genericParameterCount: 1, types: [typeof(Expression)])!
             .MakeGenericMethod(expectedResultType)
             .Invoke(inner, [expression])!;

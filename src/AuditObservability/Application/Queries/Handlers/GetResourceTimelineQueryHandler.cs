@@ -1,9 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
-using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
-using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using DomainResourceKind = SmartSentinelEye.AuditObservability.Domain.AuditEvent.ResourceKind;
 
 namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
@@ -19,14 +17,14 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
     {
         Ensure.That(query).IsNotNull();
 
-        (string? resourceKind, ResourceIdentifier? resourceIdentifier, FabIdentifier? fab, DateTimeOffset? since, DateTimeOffset? until, int rawPageSize, string? rawCursor) = query;
+        (var resourceKind, var resourceIdentifier, var fab, var since, var until, var rawPageSize, var rawCursor) = query;
 
         if (DomainResourceKind.All.All(kind => kind.Value != resourceKind))
         {
             return Failure(GetResourceTimelineFailures.UnknownResourceKind(resourceKind));
         }
 
-        int pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
+        var pageSize = rawPageSize <= 0 ? DefaultPageSize : rawPageSize;
         if (pageSize > MaximumPageSize)
         {
             return Failure(GetResourceTimelineFailures.PageSizeOutOfRange(pageSize, 1, MaximumPageSize));
@@ -44,11 +42,11 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
 
         // Compare value objects directly so EF translates to column
         // comparisons (member access on the converted type does not translate).
-        DomainResourceKind resourceKindFilter = DomainResourceKind.From(resourceKind);
-        ResourceIdentifier resourceIdentifierFilter = resourceIdentifier;
-        FabIdentifier fabFilter = fab;
+        var resourceKindFilter = DomainResourceKind.From(resourceKind);
+        var resourceIdentifierFilter = resourceIdentifier;
+        var fabFilter = fab;
 
-        IQueryable<AuditEventEntity> source = events.AuditEvents
+        var source = events.AuditEvents
             .Where(auditEvent => auditEvent.ResourceKind == resourceKindFilter)
             .Where(auditEvent => auditEvent.ResourceIdentifier == resourceIdentifierFilter)
             // Fab-neutral rows (fab = null) are included, not excluded — unlike
@@ -81,7 +79,7 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
                 (auditEvent.OccurredAt == c.OccurredAt && ((Guid)auditEvent.Id).CompareTo(c.AuditIdentifier) > 0));
         }
 
-        List<AuditEventEntity> rows = await source
+        var rows = await source
             .OrderBy(auditEvent => auditEvent.OccurredAt)
             .ThenBy(auditEvent => auditEvent.Id)
             .Take(pageSize + 1)
@@ -90,12 +88,12 @@ public sealed class GetResourceTimelineQueryHandler(IAuditEventQuerySource event
         string? nextCursor = null;
         if (rows.Count > pageSize)
         {
-            AuditEventEntity last = rows[pageSize - 1];
+            var last = rows[pageSize - 1];
             nextCursor = AuditCursor.Encode(last.OccurredAt, last.Id.Value);
             rows = rows.Take(pageSize).ToList();
         }
 
-        AuditRowDto[] dtos = rows.Select(AuditRowMapper.Map).ToArray();
+        var dtos = rows.Select(AuditRowMapper.Map).ToArray();
         return Success(new AuditPageDto(dtos, nextCursor));
     }
 }

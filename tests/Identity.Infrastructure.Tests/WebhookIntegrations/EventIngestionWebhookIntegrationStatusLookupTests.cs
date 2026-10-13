@@ -32,7 +32,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
 
         await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
-        RecordedRequest request = stub.Requests.ShouldHaveSingleItem();
+        var request = stub.Requests.ShouldHaveSingleItem();
         request.Method.ShouldBe("GET");
         request.PathAndQuery.ShouldContain("fabId=munich");
         request.PathAndQuery.ShouldContain("includeRevoked=true");
@@ -43,7 +43,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => Rows(Row("a", revokedAt: null)));
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Active);
     }
@@ -53,7 +53,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => Rows(Row("a", revokedAt: "2026-10-01T00:00:00Z")));
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Revoked);
     }
@@ -63,7 +63,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => Rows());
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.NotRegistered);
     }
@@ -73,7 +73,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => Rows(Row("a-2", revokedAt: null)));
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.NotRegistered);
     }
@@ -87,7 +87,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => "{\"error\":\"stub refusal\"}", refusal);
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
     }
@@ -97,7 +97,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => "not json");
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
     }
@@ -107,7 +107,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => "{}");
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
     }
@@ -117,7 +117,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         StubHandler stub = new((_, _) => """[{"name":"a"}]""");
 
-        WebhookIntegrationStatus status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
+        var status = await Lookup(stub).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
     }
@@ -127,7 +127,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         ThrowingHandler handler = new(new HttpRequestException("connection refused"));
 
-        WebhookIntegrationStatus status =
+        var status =
             await Lookup(handler).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
@@ -159,7 +159,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
     {
         ThrowingHandler handler = new(new TaskCanceledException("resilience timeout"));
 
-        WebhookIntegrationStatus status =
+        var status =
             await Lookup(handler).GetStatusAsync(Munich, "a", CancellationToken.None);
 
         status.ShouldBe(WebhookIntegrationStatus.Unverifiable);
@@ -196,7 +196,7 @@ public class EventIngestionWebhookIntegrationStatusLookupTests
             RecordedRequest recorded = new(request.Method.Method, request.RequestUri!.PathAndQuery);
             Requests.Add(recorded);
 
-            string body = respondBody(recorded, cancellationToken);
+            var body = respondBody(recorded, cancellationToken);
             return Task.FromResult(new HttpResponseMessage(statusCode)
             {
                 Content = new StringContent(body, Encoding.UTF8, "application/json"),

@@ -53,8 +53,8 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_reclaimed_attempt_that_fails_does_not_release_the_new_holders_reservation()
     {
-        IdempotencyScope scope = NewScope();
-        await using CameraCatalogDbContext dbA = await aspire.CreateCameraCatalogDbContextAsync();
+        var scope = NewScope();
+        await using var dbA = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeA = new(dbA);
 
         IdempotencyClaim? claimB = null;
@@ -92,13 +92,13 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_reclaimed_attempt_that_succeeds_does_not_complete_the_new_holders_reservation()
     {
-        IdempotencyScope scope = NewScope();
-        await using CameraCatalogDbContext dbA = await aspire.CreateCameraCatalogDbContextAsync();
+        var scope = NewScope();
+        await using var dbA = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeA = new(dbA);
 
         IdempotencyClaim? claimB = null;
 
-        IResult result = await IdempotentRequest.ExecuteAsync(
+        var result = await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(Option<IdempotencyScope>.Some(scope), storeA, TimeProvider.System),
             async ct =>
             {
@@ -112,7 +112,7 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
         result.ShouldNotBeNull();
         claimB.ShouldNotBeNull("B must have won its reclaim inside A's work(), or this test proves nothing.");
 
-        await using CameraCatalogDbContext dbB = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var dbB = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeB = new(dbB);
         await storeB.CompleteAsync(claimB, ResourceB, CancellationToken.None);
 
@@ -133,8 +133,8 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_swept_attempt_that_fails_does_not_release_the_next_arrivals_reservation()
     {
-        IdempotencyScope scope = NewScope();
-        await using CameraCatalogDbContext dbA = await aspire.CreateCameraCatalogDbContextAsync();
+        var scope = NewScope();
+        await using var dbA = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeA = new(dbA);
 
         IdempotencyClaim? claimC = null;
@@ -145,14 +145,14 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
             {
                 await AgeAsync(scope, TimeSpan.FromMinutes(30));
 
-                using IdempotencyReservationSweepHostedService<CameraCatalogDbContext> sweep =
+                using var sweep =
                     await CreateSweepAsync();
                 await sweep.RunOnceAsync(ct);
 
-                await using CameraCatalogDbContext dbC =
+                await using var dbC =
                     await aspire.CreateCameraCatalogDbContextAsync(ct);
                 IdempotencyStore<CameraCatalogDbContext> storeC = new(dbC);
-                IdempotencyReservation reservationC = await storeC.BeginAsync(scope, ct);
+                var reservationC = await storeC.BeginAsync(scope, ct);
                 reservationC.Outcome.ShouldBe(
                     IdempotencyOutcome.Reserved, "the sweep must have removed A's row for C to reserve afresh.");
                 claimC = reservationC.Claim.Value;
@@ -182,8 +182,8 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_attempt_nobody_overtook_still_releases_its_own_reservation()
     {
-        IdempotencyScope scope = NewScope();
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var scope = NewScope();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
         await Should.ThrowAsync<InvalidOperationException>(() => IdempotentRequest.ExecuteAsync(
@@ -203,8 +203,8 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task An_attempt_nobody_overtook_still_completes_its_own_reservation()
     {
-        IdempotencyScope scope = NewScope();
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        var scope = NewScope();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> store = new(db);
 
         await IdempotentRequest.ExecuteAsync(
@@ -227,17 +227,17 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_late_completion_after_the_new_holder_completed_is_still_a_no_op()
     {
-        IdempotencyScope scope = NewScope();
-        await using CameraCatalogDbContext dbA = await aspire.CreateCameraCatalogDbContextAsync();
+        var scope = NewScope();
+        await using var dbA = await aspire.CreateCameraCatalogDbContextAsync();
         IdempotencyStore<CameraCatalogDbContext> storeA = new(dbA);
 
         await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(Option<IdempotencyScope>.Some(scope), storeA, TimeProvider.System),
             async ct =>
             {
-                IdempotencyClaim claimB = await ReclaimFromInsideWorkAsync(scope, ct);
+                var claimB = await ReclaimFromInsideWorkAsync(scope, ct);
 
-                await using CameraCatalogDbContext dbB =
+                await using var dbB =
                     await aspire.CreateCameraCatalogDbContextAsync(ct);
                 IdempotencyStore<CameraCatalogDbContext> storeB = new(dbB);
                 await storeB.CompleteAsync(claimB, ResourceB, ct);
@@ -268,10 +268,10 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     {
         await AgeAsync(scope, TimeSpan.FromMinutes(30));
 
-        await using CameraCatalogDbContext dbB =
+        await using var dbB =
             await aspire.CreateCameraCatalogDbContextAsync(cancellationToken);
         IdempotencyStore<CameraCatalogDbContext> storeB = new(dbB);
-        IdempotencyReservation reservationB = await storeB.BeginAsync(scope, cancellationToken);
+        var reservationB = await storeB.BeginAsync(scope, cancellationToken);
 
         reservationB.Outcome.ShouldBe(
             IdempotencyOutcome.Reserved, "B must win the reclaim of A's now-stale row, or this test proves nothing.");
@@ -291,7 +291,7 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
 
     private async Task AgeAsync(IdempotencyScope scope, TimeSpan age)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
         await db.Database.ExecuteSqlRawAsync(
             """
@@ -304,9 +304,9 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
 
     private async Task<bool> RowExistsAsync(IdempotencyScope scope)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        int[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<int>(
                 """
                 SELECT 1 AS "Value" FROM idempotency_key
@@ -320,9 +320,9 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
 
     private async Task<bool> UnfinishedRowExistsAsync(IdempotencyScope scope)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        int[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<int>(
                 """
                 SELECT 1 AS "Value" FROM idempotency_key
@@ -336,9 +336,9 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
 
     private async Task<DateTime?> ReservedAtAsync(IdempotencyScope scope)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        DateTime[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<DateTime>(
                 """
                 SELECT reserved_at AS "Value" FROM idempotency_key
@@ -352,9 +352,9 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
 
     private async Task<Guid?> ResourceIdentifierAsync(IdempotencyScope scope)
     {
-        await using CameraCatalogDbContext db = await aspire.CreateCameraCatalogDbContextAsync();
+        await using var db = await aspire.CreateCameraCatalogDbContextAsync();
 
-        Guid?[] rows = await db.Database
+        var rows = await db.Database
             .SqlQueryRaw<Guid?>(
                 """
                 SELECT resource_identifier AS "Value" FROM idempotency_key
@@ -374,12 +374,12 @@ public class IdempotencyFencingIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<IdempotencyReservationSweepHostedService<CameraCatalogDbContext>> CreateSweepAsync()
     {
-        string? connectionString =
+        var connectionString =
             await aspire.App.GetConnectionStringAsync(AspireFixture.CameraCatalogConnectionName);
 
         ServiceCollection services = new();
         services.AddDbContext<CameraCatalogDbContext>(options => options.UseNpgsql(connectionString));
-        ServiceProvider provider = services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
 
         return new IdempotencyReservationSweepHostedService<CameraCatalogDbContext>(
             provider.GetRequiredService<IServiceScopeFactory>(),

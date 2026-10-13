@@ -30,10 +30,10 @@ public class GatewayEdgeHeaderTransformTests
     [Fact]
     public async Task Every_proxied_route_strips_an_inbound_X_Fab_and_forwards_Authorization()
     {
-        using ServiceProvider services = GatewayProxyServices();
+        using var services = GatewayProxyServices();
 
-        IReadOnlyList<RouteConfig> routes = services.GetRequiredService<IProxyConfigProvider>().GetConfig().Routes;
-        ITransformBuilder transforms = services.GetRequiredService<ITransformBuilder>();
+        var routes = services.GetRequiredService<IProxyConfigProvider>().GetConfig().Routes;
+        var transforms = services.GetRequiredService<ITransformBuilder>();
 
         routes.Count.ShouldBeGreaterThanOrEqualTo(
             ProxiedRouteCount,
@@ -43,9 +43,9 @@ public class GatewayEdgeHeaderTransformTests
         List<string> forwardingXFab = [];
         List<string> droppingAuthorization = [];
 
-        foreach (RouteConfig route in routes)
+        foreach (var route in routes)
         {
-            using HttpRequestMessage outbound = await TransformAsync(transforms.Build(route, cluster: null), route);
+            using var outbound = await TransformAsync(transforms.Build(route, cluster: null), route);
 
             if (outbound.Headers.Contains("X-Fab"))
             {
@@ -84,7 +84,7 @@ public class GatewayEdgeHeaderTransformTests
 
     private static ServiceProvider GatewayProxyServices()
     {
-        IConfigurationRoot configuration = new ConfigurationBuilder()
+        var configuration = new ConfigurationBuilder()
             .AddJsonFile(GatewaySettingsPath(), optional: false)
             .Build();
 

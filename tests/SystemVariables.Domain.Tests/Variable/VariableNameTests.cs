@@ -31,7 +31,7 @@ public class VariableNameTests
     [Fact]
     public void Rejects_names_longer_than_64_chars()
     {
-        string name = "a" + new string('b', 64);
+        var name = "a" + new string('b', 64);
         Action act = () => VariableName.From(name);
         act.ShouldThrow<ArgumentException>();
     }
@@ -39,15 +39,15 @@ public class VariableNameTests
     [Fact]
     public void Accepts_names_exactly_64_chars()
     {
-        string name = "a" + new string('b', 63);
+        var name = "a" + new string('b', 63);
         VariableName.From(name).Value.ShouldBe(name);
     }
 
     [Fact]
     public void Is_case_sensitive()
     {
-        VariableName a = VariableName.From("oeeLine1");
-        VariableName b = VariableName.From("oeeline1");
+        var a = VariableName.From("oeeLine1");
+        var b = VariableName.From("oeeline1");
         a.ShouldNotBe(b);
     }
 }

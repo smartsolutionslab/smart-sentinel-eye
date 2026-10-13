@@ -2,7 +2,7 @@ using SmartSentinelEye.Identity.Api;
 using SmartSentinelEye.Identity.Infrastructure;
 using SmartSentinelEye.ServiceDefaults;
 
-WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);
 
 builder.AddServiceDefaults();
 builder.AddBearerAuthentication();
@@ -10,7 +10,7 @@ builder.AddIdentityInfrastructure();
 builder.Services.AddIdentityApi();
 builder.Services.AddOpenApi();
 
-WebApplication app = builder.Build();
+var app = builder.Build();
 
 app.MapDefaultEndpoints();
 

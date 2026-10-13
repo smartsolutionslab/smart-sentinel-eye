@@ -53,8 +53,8 @@ public sealed class AuditingMessageHandler(
         Ensure.That(payload).IsNotNull();
         Ensure.That(envelope).IsNotNull();
 
-        V1Mapping mapping = resourceMap.Lookup(payloadType, payload);
-        AuditEventEntity row = AuditEventEntity.From(envelope, mapping, clock, handlerEnteredAt);
+        var mapping = resourceMap.Lookup(payloadType, payload);
+        var row = AuditEventEntity.From(envelope, mapping, clock, handlerEnteredAt);
 
         repository.Add(row);
         await repository.SaveAsync(cancellationToken);

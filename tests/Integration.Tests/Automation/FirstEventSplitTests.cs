@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 using Xunit.Abstractions;
@@ -41,13 +40,13 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
     [Fact]
     public async Task Where_the_first_events_seconds_go()
     {
-        using HttpClient variables = await aspire.CreateAdminClientAsync("system-variables");
-        using HttpClient rules = await aspire.CreateAdminClientAsync("automation");
-        using HttpClient events = await aspire.CreateAdminClientAsync("event-ingestion");
+        using var variables = await aspire.CreateAdminClientAsync("system-variables");
+        using var rules = await aspire.CreateAdminClientAsync("automation");
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
 
         // Three events, because the decay is the clue and one measurement
         // cannot show it (T008 wants the same for the spans).
-        for (int round = 1; round <= 3; round++)
+        for (var round = 1; round <= 3; round++)
         {
             await MeasureAsync(variables, rules, events, round);
         }
@@ -56,28 +55,28 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
     private async Task MeasureAsync(
         HttpClient variables, HttpClient rules, HttpClient events, int round)
     {
-        string variable = $"split{Guid.NewGuid():N}"[..16];
+        var variable = $"split{Guid.NewGuid():N}"[..16];
         await DefineVariableAsync(variables, variable);
         await ActivateRuleAsync(rules, variable);
 
-        Guid identifier = Guid.CreateVersion7();
-        string payload = PayloadWith(identifier);
+        var identifier = Guid.CreateVersion7();
+        var payload = PayloadWith(identifier);
 
-        DateTimeOffset t0 = DateTimeOffset.UtcNow;
+        var t0 = DateTimeOffset.UtcNow;
         await plant.PublishRawAsync(payload);
 
-        TimeSpan? stored = await WaitForAsync(
+        var stored = await WaitForAsync(
             () => IsStoredAsync(events, identifier), t0);
-        TimeSpan? applied = await WaitForAsync(
+        var applied = await WaitForAsync(
             () => IsAppliedAsync(variables, variable), t0);
 
         // Reported as two intervals rather than two timestamps: the question is
         // which half owns the seconds, and a reader should not have to subtract.
-        string ingress = stored is null ? "never" : $"{stored.Value.TotalMilliseconds:F0} ms";
-        string rest = stored is null || applied is null
+        var ingress = stored is null ? "never" : $"{stored.Value.TotalMilliseconds:F0} ms";
+        var rest = stored is null || applied is null
             ? "n/a"
             : $"{(applied.Value - stored.Value).TotalMilliseconds:F0} ms";
-        string total = applied is null ? "never" : $"{applied.Value.TotalMilliseconds:F0} ms";
+        var total = applied is null ? "never" : $"{applied.Value.TotalMilliseconds:F0} ms";
 
         output.WriteLine(
             $"round {round}: ingress+store {ingress} | announce+decide+apply {rest} | total {total}");
@@ -89,7 +88,7 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
     /// </summary>
     private static async Task<TimeSpan?> WaitForAsync(Func<Task<bool>> observed, DateTimeOffset from)
     {
-        DateTimeOffset deadline = from + Deadline;
+        var deadline = from + Deadline;
         while (DateTimeOffset.UtcNow < deadline)
         {
             if (await observed())
@@ -105,20 +104,20 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
 
     private static async Task<bool> IsStoredAsync(HttpClient events, Guid identifier)
     {
-        HttpResponseMessage fetched = await events.GetAsync($"/events/{identifier}?fabId={Fab}");
+        var fetched = await events.GetAsync($"/events/{identifier}?fabId={Fab}");
         return fetched.IsSuccessStatusCode;
     }
 
     private static async Task<bool> IsAppliedAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage fetched = await variables.GetAsync($"/system-variables/{name}");
+        var fetched = await variables.GetAsync($"/system-variables/{name}");
         if (!fetched.IsSuccessStatusCode)
         {
             return false;
         }
 
-        JsonElement body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
-        return body.TryGetProperty("value", out JsonElement value) && value.GetString() == "80";
+        var body = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        return body.TryGetProperty("value", out var value) && value.GetString() == "80";
     }
 
     private static string PayloadWith(Guid identifier) => JsonSerializer.Serialize(new
@@ -131,7 +130,7 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
 
     private static async Task DefineVariableAsync(HttpClient variables, string name)
     {
-        HttpResponseMessage defined = await variables.PostAsJsonAsync("/system-variables", new
+        var defined = await variables.PostAsJsonAsync("/system-variables", new
         {
             name,
             type = "Number",
@@ -145,9 +144,9 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
 
     private static async Task ActivateRuleAsync(HttpClient rules, string variable)
     {
-        string name = $"split{Guid.NewGuid():N}"[..18];
+        var name = $"split{Guid.NewGuid():N}"[..18];
 
-        HttpResponseMessage created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", new
+        var created = await rules.PostAsJsonAsync($"/rules?fabId={Fab}", new
         {
             name,
             triggerSource = "plc",
@@ -161,9 +160,9 @@ public class FirstEventSplitTests(AspireFixture aspire, ITestOutputHelper output
         });
         created.EnsureSuccessStatusCode();
 
-        HttpResponseMessage fetched = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
+        var fetched = await rules.GetAsync($"/rules/{name}?fabId={Fab}");
         fetched.EnsureSuccessStatusCode();
-        int version = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
+        var version = (await fetched.Content.ReadFromJsonAsync<JsonElement>())
             .GetProperty("version").GetInt32();
 
         using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={Fab}");

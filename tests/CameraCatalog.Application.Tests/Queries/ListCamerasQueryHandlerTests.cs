@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Net;
-using SmartSentinelEye.CameraCatalog.Application.DTOs;
 using SmartSentinelEye.CameraCatalog.Application.Queries;
 using SmartSentinelEye.CameraCatalog.Application.Queries.Handlers;
 using SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
@@ -17,13 +16,13 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_with_defaults_returns_all_cameras_newest_first()
     {
-        Camera oldest = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-A");
-        Camera middle = RegisterCameraAt("2026-05-22T10:00:00Z", "Cam-B");
-        Camera newest = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-C");
+        var oldest = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-A");
+        var middle = RegisterCameraAt("2026-05-22T10:00:00Z", "Cam-B");
+        var newest = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-C");
 
-        ListCamerasQueryHandler handler = NewHandler(oldest, middle, newest);
+        var handler = NewHandler(oldest, middle, newest);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(),
             CancellationToken.None);
 
@@ -35,13 +34,13 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_sorted_by_name_ascending_orders_case_insensitively()
     {
-        Camera apple = RegisterCameraAt("2026-05-22T10:00:00Z", "apple");
-        Camera banana = RegisterCameraAt("2026-05-21T10:00:00Z", "Banana");
-        Camera cherry = RegisterCameraAt("2026-05-20T10:00:00Z", "cherry");
+        var apple = RegisterCameraAt("2026-05-22T10:00:00Z", "apple");
+        var banana = RegisterCameraAt("2026-05-21T10:00:00Z", "Banana");
+        var cherry = RegisterCameraAt("2026-05-20T10:00:00Z", "cherry");
 
-        ListCamerasQueryHandler handler = NewHandler(banana, cherry, apple);
+        var handler = NewHandler(banana, cherry, apple);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Sort = "name", Order = "asc" },
             CancellationToken.None);
 
@@ -52,15 +51,15 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_with_offset_and_limit_returns_the_requested_page_slice()
     {
-        Camera a = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-1");
-        Camera b = RegisterCameraAt("2026-05-21T10:00:00Z", "Cam-2");
-        Camera c = RegisterCameraAt("2026-05-22T10:00:00Z", "Cam-3");
-        Camera d = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-4");
-        Camera e = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-5");
+        var a = RegisterCameraAt("2026-05-20T10:00:00Z", "Cam-1");
+        var b = RegisterCameraAt("2026-05-21T10:00:00Z", "Cam-2");
+        var c = RegisterCameraAt("2026-05-22T10:00:00Z", "Cam-3");
+        var d = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-4");
+        var e = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-5");
 
-        ListCamerasQueryHandler handler = NewHandler(a, b, c, d, e);
+        var handler = NewHandler(a, b, c, d, e);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Offset = 1, Limit = 2 },
             CancellationToken.None);
 
@@ -75,14 +74,14 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_with_unknown_sort_field_returns_InvalidSortField()
     {
-        ListCamerasQueryHandler handler = NewHandler();
+        var handler = NewHandler();
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Sort = "createdBy" },
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ListCamerasError.InvalidSortField invalid = result.Error.ShouldBeOfType<ListCamerasError.InvalidSortField>();
+        var invalid = result.Error.ShouldBeOfType<ListCamerasError.InvalidSortField>();
         invalid.Requested.ShouldBe("createdBy");
         invalid.Code.ShouldBe("CATALOG_INVALID_SORT_FIELD");
         invalid.Status.ShouldBe(HttpStatusCode.BadRequest);
@@ -91,9 +90,9 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_with_unknown_sort_order_returns_InvalidSortOrder()
     {
-        ListCamerasQueryHandler handler = NewHandler();
+        var handler = NewHandler();
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Order = "sideways" },
             CancellationToken.None);
 
@@ -108,9 +107,9 @@ public class ListCamerasQueryHandlerTests
     [InlineData(0, -5)]
     public async Task List_with_invalid_pagination_returns_InvalidPagination(int offset, int limit)
     {
-        ListCamerasQueryHandler handler = NewHandler();
+        var handler = NewHandler();
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Offset = offset, Limit = limit },
             CancellationToken.None);
 
@@ -122,14 +121,14 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_with_limit_above_maximum_returns_LimitExceeded()
     {
-        ListCamerasQueryHandler handler = NewHandler();
+        var handler = NewHandler();
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Limit = ListCamerasDefaults.MaximumLimit + 1 },
             CancellationToken.None);
 
         result.IsFailure.ShouldBeTrue();
-        ListCamerasError.LimitExceeded exceeded = result.Error.ShouldBeOfType<ListCamerasError.LimitExceeded>();
+        var exceeded = result.Error.ShouldBeOfType<ListCamerasError.LimitExceeded>();
         exceeded.Requested.ShouldBe(ListCamerasDefaults.MaximumLimit + 1);
         exceeded.Maximum.ShouldBe(ListCamerasDefaults.MaximumLimit);
     }
@@ -137,15 +136,15 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task List_maps_each_camera_to_its_summary_DTO_shape()
     {
-        Camera camera = RegisterCameraAt("2026-05-24T10:00:00Z", "Line-7", "rtsp://10.0.5.77/h264");
-        ListCamerasQueryHandler handler = NewHandler(camera);
+        var camera = RegisterCameraAt("2026-05-24T10:00:00Z", "Line-7", "rtsp://10.0.5.77/h264");
+        var handler = NewHandler(camera);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(),
             CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        CameraSummaryDto summary = result.Value.Items.Single();
+        var summary = result.Value.Items.Single();
         summary.CameraIdentifier.ShouldBe(camera.Id.Value);
         summary.Name.ShouldBe("Line-7");
         summary.RtspUrl.ShouldBe("rtsp://10.0.5.77/h264");
@@ -179,11 +178,11 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task Cameras_registered_at_the_same_instant_are_ordered_by_fab()
     {
-        Camera later = RegisterInFabAt("munich", "2026-05-24T10:00:00Z", "Cam-Same");
-        Camera earlier = RegisterInFabAt("aachen", "2026-05-24T10:00:00Z", "Cam-Same-Too");
-        ListCamerasQueryHandler handler = NewHandler(later, earlier);
+        var later = RegisterInFabAt("munich", "2026-05-24T10:00:00Z", "Cam-Same");
+        var earlier = RegisterInFabAt("aachen", "2026-05-24T10:00:00Z", "Cam-Same-Too");
+        var handler = NewHandler(later, earlier);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             TwoFabQuery() with { Sort = "registeredAt" },
             CancellationToken.None);
 
@@ -199,11 +198,11 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task Cameras_sharing_a_name_are_ordered_by_fab()
     {
-        Camera later = RegisterInFabAt("munich", "2026-05-24T10:00:00Z", "Cam-Shared");
-        Camera earlier = RegisterInFabAt("aachen", "2026-05-23T10:00:00Z", "Cam-Shared");
-        ListCamerasQueryHandler handler = NewHandler(later, earlier);
+        var later = RegisterInFabAt("munich", "2026-05-24T10:00:00Z", "Cam-Shared");
+        var earlier = RegisterInFabAt("aachen", "2026-05-23T10:00:00Z", "Cam-Shared");
+        var handler = NewHandler(later, earlier);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             TwoFabQuery() with { Sort = "name" },
             CancellationToken.None);
 
@@ -242,7 +241,7 @@ public class ListCamerasQueryHandlerTests
 
     private static Camera RegisterCameraAt(string registeredAtIso, string name, string rtspUrl)
     {
-        DateTimeOffset moment = DateTimeOffset.Parse(registeredAtIso, CultureInfo.InvariantCulture);
+        var moment = DateTimeOffset.Parse(registeredAtIso, CultureInfo.InvariantCulture);
         return Camera.Register(FabIdentifier.From("munich"),
             CameraName.From(name),
             RtspUrl.From(rtspUrl),
@@ -255,16 +254,16 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task The_summary_carries_the_fab()
     {
-        Camera camera = Camera.Register(
+        var camera = Camera.Register(
             FabIdentifier.From("dresden"),
             CameraName.From("Line-1-North"),
             RtspUrl.From("rtsp://10.0.5.12/h264"),
             OperatorIdentifier.From(Guid.CreateVersion7()),
             new FixedClock(DateTimeOffset.Parse("2026-05-25T10:00:00Z", CultureInfo.InvariantCulture)));
 
-        ListCamerasQueryHandler handler = NewHandler(camera);
+        var handler = NewHandler(camera);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { Fabs = [FabIdentifier.From("dresden")] }, CancellationToken.None);
 
         // dresden, not munich: everything else defaults to munich, so asserting
@@ -275,18 +274,18 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task The_listing_omits_cameras_in_fabs_the_caller_does_not_hold()
     {
-        Camera own = Camera.Register(
+        var own = Camera.Register(
             FabIdentifier.From("munich"), CameraName.From("Cam-Own"),
             RtspUrl.From("rtsp://10.0.5.12/h264"),
             OperatorIdentifier.From(Guid.CreateVersion7()), new FixedClock(DateTimeOffset.Parse("2026-05-25T10:00:00Z", CultureInfo.InvariantCulture)));
-        Camera foreign = Camera.Register(
+        var foreign = Camera.Register(
             FabIdentifier.From("dresden"), CameraName.From("Cam-Foreign"),
             RtspUrl.From("rtsp://10.0.5.13/h264"),
             OperatorIdentifier.From(Guid.CreateVersion7()), new FixedClock(DateTimeOffset.Parse("2026-05-25T10:00:00Z", CultureInfo.InvariantCulture)));
 
-        ListCamerasQueryHandler handler = NewHandler(own, foreign);
+        var handler = NewHandler(own, foreign);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(), CancellationToken.None);
 
         result.Value.Items.Select(item => item.Name).ShouldBe(["Cam-Own"]);
@@ -301,13 +300,13 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task The_default_listing_omits_retired_cameras()
     {
-        Camera staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
-        Camera going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
+        var staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
+        var going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
         going.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture)));
 
-        ListCamerasQueryHandler handler = NewHandler(staying, going);
+        var handler = NewHandler(staying, going);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery(),
             CancellationToken.None);
 
@@ -322,13 +321,13 @@ public class ListCamerasQueryHandlerTests
     [Fact]
     public async Task Asking_for_retired_cameras_includes_them_and_each_row_says_which_it_is()
     {
-        Camera staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
-        Camera going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
+        var staying = RegisterCameraAt("2026-05-24T10:00:00Z", "Cam-Staying");
+        var going = RegisterCameraAt("2026-05-23T10:00:00Z", "Cam-Going");
         going.Retire(AnAdmin, new FixedClock(DateTimeOffset.Parse("2026-05-26T10:00:00Z", CultureInfo.InvariantCulture)));
 
-        ListCamerasQueryHandler handler = NewHandler(staying, going);
+        var handler = NewHandler(staying, going);
 
-        Result<CameraListPageDto, ListCamerasError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             DefaultQuery() with { IncludeRetired = true },
             CancellationToken.None);
 

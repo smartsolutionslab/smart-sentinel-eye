@@ -35,7 +35,7 @@ public sealed class ScenarioSeederReactionTests
     [Fact]
     public async Task A_declared_HighlightOverlay_reaction_produces_one_extra_create_then_publish_with_the_wrapped_predicate()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Highlight = new HighlightDefinition
         {
             TriggerKind = "Temperature",
@@ -64,7 +64,7 @@ public sealed class ScenarioSeederReactionTests
         // One create for the legacy Highlight rule, one for the declared reaction.
         automation.Creates.Count.ShouldBe(2);
 
-        CreateCall reactionCreate = automation.Creates
+        var reactionCreate = automation.Creates
             .Single(call => call.Body.Name == "rolling-mill-station-4-roughing-person-in-exclusion");
         reactionCreate.Body.TriggerSource.ShouldBe("inference");
         reactionCreate.Body.TriggerKind.ShouldBe("ObjectDetected");
@@ -81,7 +81,7 @@ public sealed class ScenarioSeederReactionTests
     [Fact]
     public async Task A_refused_reaction_is_logged_by_name_and_the_assets_other_rules_still_seed()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Highlight = new HighlightDefinition
         {
             TriggerKind = "Temperature",
@@ -121,7 +121,7 @@ public sealed class ScenarioSeederReactionTests
     [Fact]
     public async Task A_reaction_whose_trigger_only_a_cue_could_satisfy_is_skipped_when_the_clips_sidecar_is_refused()
     {
-        string clipsDirectory = CreateTempClipsDirectory();
+        var clipsDirectory = CreateTempClipsDirectory();
         try
         {
             // Refused: AtMs (25000) is past the declared 20000ms duration.
@@ -135,7 +135,7 @@ public sealed class ScenarioSeederReactionTests
                 }
                 """);
 
-            AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+            var asset = Asset("station-4-roughing", "mill-roughing.mp4");
             asset.Highlight = new HighlightDefinition
             {
                 TriggerKind = "Temperature",
@@ -192,7 +192,7 @@ public sealed class ScenarioSeederReactionTests
         ScenarioOptions options, RecordingAutomationHandler automation, string clipsDirectory, ILogger<ScenarioSeeder>? log = null)
     {
         options.ClipsDirectory = clipsDirectory;
-        IOptions<ScenarioOptions> wrapped = Options.Create(options);
+        var wrapped = Options.Create(options);
         AssetCorrelationTable correlation = new();
 
         ScenarioSeeder seeder = new(
@@ -211,7 +211,7 @@ public sealed class ScenarioSeederReactionTests
                 NullLogger<WallSeeder>.Instance),
             log ?? NullLogger<ScenarioSeeder>.Instance);
 
-        int expectedCreates = options.Scenarios.Values.Sum(scenario =>
+        var expectedCreates = options.Scenarios.Values.Sum(scenario =>
             scenario.Assets.Count(a => a.Highlight is not null)
             + scenario.Assets.Sum(a => a.Reactions?.Count ?? 0));
 
@@ -222,7 +222,7 @@ public sealed class ScenarioSeederReactionTests
 
     private static async Task WaitForCreatesAsync(RecordingAutomationHandler automation, int atLeast)
     {
-        for (int attempt = 0; attempt < 40; attempt++)
+        for (var attempt = 0; attempt < 40; attempt++)
         {
             if (automation.Creates.Count >= atLeast)
             {
@@ -238,7 +238,7 @@ public sealed class ScenarioSeederReactionTests
 
     private static string CreateTempClipsDirectory()
     {
-        string directory = Path.Combine(Path.GetTempPath(), "sse-seeder-cues-" + Guid.NewGuid());
+        var directory = Path.Combine(Path.GetTempPath(), "sse-seeder-cues-" + Guid.NewGuid());
         Directory.CreateDirectory(directory);
         return directory;
     }
@@ -280,12 +280,12 @@ public sealed class ScenarioSeederReactionTests
         protected override async Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            string pathAndQuery = request.RequestUri!.PathAndQuery;
+            var pathAndQuery = request.RequestUri!.PathAndQuery;
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath == "/rules")
             {
-                string json = await request.Content!.ReadAsStringAsync(cancellationToken);
-                RuleBody body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
+                var json = await request.Content!.ReadAsStringAsync(cancellationToken);
+                var body = JsonSerializer.Deserialize<RuleBody>(json, JsonOptions)
                     ?? throw new InvalidOperationException("Rule create body did not deserialize.");
                 lock (Creates)
                 {
@@ -297,7 +297,7 @@ public sealed class ScenarioSeederReactionTests
 
             if (request.Method == HttpMethod.Post && request.RequestUri.AbsolutePath.EndsWith("/publish", StringComparison.Ordinal))
             {
-                string ifMatch = request.Headers.TryGetValues("If-Match", out IEnumerable<string>? values)
+                var ifMatch = request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values) : string.Empty;
                 lock (Publishes)
                 {

@@ -21,7 +21,7 @@ public class ListOverlaysQueryHandlerTests
 
     private static Overlay Seed(InMemoryOverlayRepository overlays, string name, FakeClock clock)
     {
-        Overlay overlay = new OverlayBuilder()
+        var overlay = new OverlayBuilder()
             .At(clock.UtcNow)
             .Named(name)
             .WithLabel(OverlayElement.TextElement("Hello", 32, NormalizedPosition.From(0.1m, 0.1m), NormalizedSize.From(0.3m, 0.08m), OverlayColor.Default))
@@ -33,13 +33,13 @@ public class ListOverlaysQueryHandlerTests
     [Fact]
     public async Task With_no_filter_returns_every_chain_with_full_revision_history()
     {
-        (InMemoryOverlayRepository repo, IOverlayQuerySource source) = BuildSource();
+        (var repo, var source) = BuildSource();
         FakeClock clock = new(FixedMoment);
         Seed(repo, "Line-1", clock);
         Seed(repo, "Line-2", clock);
 
         ListOverlaysQueryHandler handler = new(source);
-        Result<ListOverlaysResult, ListOverlaysError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListOverlaysQuery(null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -50,14 +50,14 @@ public class ListOverlaysQueryHandlerTests
     [Fact]
     public async Task With_state_Published_returns_only_chains_with_a_published_revision()
     {
-        (InMemoryOverlayRepository repo, IOverlayQuerySource source) = BuildSource();
+        (var repo, var source) = BuildSource();
         FakeClock clock = new(FixedMoment);
-        Overlay draftOnly = Seed(repo, "Line-Draft", clock);
-        Overlay published = Seed(repo, "Line-Pub", clock);
+        var draftOnly = Seed(repo, "Line-Draft", clock);
+        var published = Seed(repo, "Line-Pub", clock);
         published.Publish(OverlayRevisionNumber.One, OperatorIdentifier.From(Guid.CreateVersion7()), clock);
 
         ListOverlaysQueryHandler handler = new(source);
-        Result<ListOverlaysResult, ListOverlaysError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListOverlaysQuery(OverlayRevisionState.Published), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();

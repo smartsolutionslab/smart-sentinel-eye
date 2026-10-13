@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.LayoutComposition;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -18,8 +17,8 @@ public class OverlayHighlightRequestedV1Tests
     [Fact]
     public void Exposes_every_field_via_the_positional_constructor()
     {
-        Guid overlay = Guid.CreateVersion7();
-        Guid causing = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
         OverlayHighlightRequestedV1 evt = new(overlay, 10_000, Moment, causing, Metadata: TestMetadata);
 
         evt.OverlayIdentifier.ShouldBe(overlay);
@@ -39,8 +38,8 @@ public class OverlayHighlightRequestedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid overlay = Guid.CreateVersion7();
-        Guid causing = Guid.CreateVersion7();
+        var overlay = Guid.CreateVersion7();
+        var causing = Guid.CreateVersion7();
         OverlayHighlightRequestedV1 a = new(overlay, 5_000, Moment, causing, Metadata: TestMetadata);
         OverlayHighlightRequestedV1 b = new(overlay, 5_000, Moment, causing, Metadata: TestMetadata);
 
@@ -54,8 +53,8 @@ public class OverlayHighlightRequestedV1Tests
         OverlayHighlightRequestedV1 original =
             new(Guid.CreateVersion7(), 10_000, Moment, Guid.CreateVersion7(), Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        OverlayHighlightRequestedV1 deserialized =
+        var json = JsonSerializer.Serialize(original);
+        var deserialized =
             JsonSerializer.Deserialize<OverlayHighlightRequestedV1>(json)!;
 
         deserialized.ShouldBe(original);

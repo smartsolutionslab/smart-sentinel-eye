@@ -73,28 +73,28 @@ public class AelInterpreterBenchmarkTests(ITestOutputHelper output)
     [Fact]
     public void Predicate_evaluation_throughput_clears_NFR002()
     {
-        AelExpression expression = AelParser.Parse(AelFixtures.SimplePlcPredicate);
-        EvaluationContext context = AelFixtures.ContextFor(AelFixtures.PlcCycleStartContext);
+        var expression = AelParser.Parse(AelFixtures.SimplePlcPredicate);
+        var context = AelFixtures.ContextFor(AelFixtures.PlcCycleStartContext);
 
-        for (int i = 0; i < BatchSize; i++)
+        for (var i = 0; i < BatchSize; i++)
         {
             _ = AelInterpreter.Evaluate(expression, context);
         }
 
-        double[] batchMilliseconds = new double[Batches];
+        var batchMilliseconds = new double[Batches];
 #pragma warning disable S1215 // Intentional: deterministic benchmark stabilisation, not production code.
         GC.Collect();
         GC.WaitForPendingFinalizers();
         GC.Collect();
 #pragma warning restore S1215
-        GCLatencyMode previousLatencyMode = GCSettings.LatencyMode;
+        var previousLatencyMode = GCSettings.LatencyMode;
         GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
         try
         {
-            for (int batch = 0; batch < Batches; batch++)
+            for (var batch = 0; batch < Batches; batch++)
             {
-                long start = Stopwatch.GetTimestamp();
-                for (int i = 0; i < BatchSize; i++)
+                var start = Stopwatch.GetTimestamp();
+                for (var i = 0; i < BatchSize; i++)
                 {
                     _ = AelInterpreter.Evaluate(expression, context);
                 }
@@ -107,8 +107,8 @@ public class AelInterpreterBenchmarkTests(ITestOutputHelper output)
         }
 
         Array.Sort(batchMilliseconds);
-        double median = batchMilliseconds[Batches / 2];
-        double slowest = batchMilliseconds[^1];
+        var median = batchMilliseconds[Batches / 2];
+        var slowest = batchMilliseconds[^1];
 
         // Reported whether or not it passes (#2149): both customMessages below
         // are built only on failure, so a green run discarded the throughput it

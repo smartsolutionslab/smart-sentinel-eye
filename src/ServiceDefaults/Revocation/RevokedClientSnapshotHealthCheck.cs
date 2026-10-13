@@ -29,8 +29,8 @@ public sealed class RevokedClientSnapshotHealthCheck(RevokedClientRefresher refr
                 "No revocation snapshot has loaded yet; tokens are admitted without a revocation check."));
         }
 
-        TimeSpan staleAfter = TimeSpan.FromTicks(RevokedClientRefresher.RefreshPeriod.Ticks * StaleAfterPeriods);
-        TimeSpan age = clock.GetUtcNow() - lastSuccessAt;
+        var staleAfter = TimeSpan.FromTicks(RevokedClientRefresher.RefreshPeriod.Ticks * StaleAfterPeriods);
+        var age = clock.GetUtcNow() - lastSuccessAt;
         if (age > staleAfter)
         {
             return Task.FromResult(HealthCheckResult.Degraded(

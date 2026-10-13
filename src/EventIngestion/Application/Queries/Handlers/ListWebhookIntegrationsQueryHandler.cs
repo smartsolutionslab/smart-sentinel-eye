@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.EventIngestion.Application.DTOs;
-using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -16,14 +15,14 @@ public sealed class ListWebhookIntegrationsQueryHandler(IWebhookIntegrationQuery
 
         var (fabs, includeRevoked) = query;
 
-        IQueryable<WebhookIntegration> source = integrations.WebhookIntegrations
+        var source = integrations.WebhookIntegrations
             .Where(integration => fabs.Contains(integration.Fab));
         if (!includeRevoked)
         {
             source = source.Where(integration => integration.RevokedAt == null);
         }
 
-        List<WebhookIntegration> rows = await source
+        var rows = await source
             .ToListAsync(cancellationToken);
 
         IReadOnlyList<WebhookIntegrationDto> dtos = rows

@@ -14,7 +14,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void Register_returns_an_integration_with_a_freshly_generated_token_hash()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, string token) =
+        (var integration, var token) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -38,7 +38,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void Register_raises_a_WebhookIntegrationRegisteredDomainEvent()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -52,7 +52,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void Revoke_flips_the_state_and_raises_a_domain_event()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -77,7 +77,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void Revoke_raises_a_domain_event_carrying_the_integrations_fab()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -87,7 +87,7 @@ public class WebhookIntegrationTests
 
         integration.Revoke(new FakeClock(Now.AddHours(1)));
 
-        WebhookIntegrationRevokedDomainEvent raised = integration.PendingEvents
+        var raised = integration.PendingEvents
             .OfType<WebhookIntegrationRevokedDomainEvent>()
             .ShouldHaveSingleItem();
         raised.Fab.ShouldBe(FabIdentifier.From("munich"));
@@ -98,7 +98,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void Revoke_is_idempotent_on_an_already_revoked_integration()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -116,7 +116,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void Register_starts_in_StaticHash_validation_mode()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -131,7 +131,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void MarkAsRotated_flips_validation_mode_and_raises_event()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),
@@ -151,7 +151,7 @@ public class WebhookIntegrationTests
     [Fact]
     public void MarkAsRotated_is_idempotent_on_the_same_clientId()
     {
-        (Domain.WebhookIntegration.WebhookIntegration integration, _) =
+        (var integration, _) =
             Domain.WebhookIntegration.WebhookIntegration.Register(
                 WebhookIntegrationName.From("qa"),
                 FabIdentifier.From("munich"),

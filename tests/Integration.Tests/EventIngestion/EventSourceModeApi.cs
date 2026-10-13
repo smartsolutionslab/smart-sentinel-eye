@@ -110,7 +110,7 @@ internal static class EventSourceModeApi
 
     internal static async Task<JsonElement> ListRowsAsync(HttpClient client, string message)
     {
-        HttpResponseMessage listed = await ListAsync(client);
+        var listed = await ListAsync(client);
         listed.StatusCode.ShouldBe(HttpStatusCode.OK, message);
 
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
@@ -123,10 +123,10 @@ internal static class EventSourceModeApi
 
     internal static async Task<string?> TitleOfAsync(HttpResponseMessage response)
     {
-        JsonElement problem = await response.Content.ReadFromJsonAsync<JsonElement>();
+        var problem = await response.Content.ReadFromJsonAsync<JsonElement>();
 
         return problem.ValueKind == JsonValueKind.Object
-               && problem.TryGetProperty("title", out JsonElement title)
+               && problem.TryGetProperty("title", out var title)
             ? title.GetString()
             : null;
     }
@@ -140,24 +140,24 @@ internal static class EventSourceModeApi
     /// </summary>
     internal static async Task SetAsync(HttpClient client, string source, string mode)
     {
-        JsonElement rows = await ListRowsAsync(client, $"reading current modes before setting '{source}'");
-        JsonElement? existing = RowFor(rows, source);
+        var rows = await ListRowsAsync(client, $"reading current modes before setting '{source}'");
+        var existing = RowFor(rows, source);
 
         if (existing is { } row)
         {
-            int version = row.GetProperty("version").GetInt32();
+            var version = row.GetProperty("version").GetInt32();
             if (row.GetProperty("mode").GetString() == mode)
             {
                 return; // already at the wanted mode; PUT would be a no-op anyway
             }
 
-            HttpResponseMessage changed = await ChangeAsync(client, source, mode, version);
+            var changed = await ChangeAsync(client, source, mode, version);
             changed.StatusCode.ShouldBe(
                 HttpStatusCode.OK, $"setting '{source}' to '{mode}': {await changed.Content.ReadAsStringAsync()}");
         }
         else
         {
-            HttpResponseMessage declared = await DeclareAsync(client, source, mode);
+            var declared = await DeclareAsync(client, source, mode);
             declared.StatusCode.ShouldBe(
                 HttpStatusCode.Created, $"declaring '{source}' as '{mode}': {await declared.Content.ReadAsStringAsync()}");
         }
@@ -173,15 +173,15 @@ internal static class EventSourceModeApi
     /// </summary>
     internal static async Task UndeclareAsync(HttpClient client, string source)
     {
-        JsonElement rows = await ListRowsAsync(client, $"reading current modes before undeclaring '{source}'");
-        JsonElement? existing = RowFor(rows, source);
+        var rows = await ListRowsAsync(client, $"reading current modes before undeclaring '{source}'");
+        var existing = RowFor(rows, source);
         if (existing is not { } row)
         {
             return; // already undeclared
         }
 
-        int version = row.GetProperty("version").GetInt32();
-        HttpResponseMessage deleted = await DeleteAsync(client, source, version);
+        var version = row.GetProperty("version").GetInt32();
+        var deleted = await DeleteAsync(client, source, version);
         deleted.StatusCode.ShouldBe(
             HttpStatusCode.NoContent, $"undeclaring '{source}': {await deleted.Content.ReadAsStringAsync()}");
     }

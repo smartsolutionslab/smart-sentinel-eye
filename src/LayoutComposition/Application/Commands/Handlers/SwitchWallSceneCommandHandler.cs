@@ -3,7 +3,6 @@ using SmartSentinelEye.LayoutComposition.Application.DTOs;
 using SmartSentinelEye.LayoutComposition.Application.Queries.Handlers;
 using SmartSentinelEye.LayoutComposition.Domain.Layout;
 using SmartSentinelEye.LayoutComposition.Domain.Wall;
-using SmartSentinelEye.LayoutComposition.Domain.Wall.Events;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 
@@ -28,16 +27,16 @@ public sealed class SwitchWallSceneCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (IReadOnlyList<FabIdentifier> fabs, WallIdentifier wallIdentifier, int expectedVersion,
-            SceneTarget target, OperatorIdentifier by) = command;
+        (var fabs, var wallIdentifier, var expectedVersion,
+            var target, var by) = command;
 
-        Option<Wall> found = await walls.FindAsync(wallIdentifier, fabs, cancellationToken);
+        var found = await walls.FindAsync(wallIdentifier, fabs, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(SwitchWallSceneFailures.WallNotFound(wallIdentifier.Value));
         }
 
-        Wall wall = found.Value;
+        var wall = found.Value;
 
         if (wall.Version != expectedVersion)
         {
@@ -61,7 +60,7 @@ public sealed class SwitchWallSceneCommandHandler(
             return Success(GetWallQueryHandler.Map(wall));
         }
 
-        IReadOnlySet<LayoutIdentifier> publishable =
+        var publishable =
             await lookup.PublishedAmong(wall.Scenes, wall.Fab, cancellationToken);
 
         if (namedLayout is { } wanted && !publishable.Contains(wanted))
@@ -69,7 +68,7 @@ public sealed class SwitchWallSceneCommandHandler(
             return Failure(SwitchWallSceneFailures.SceneNotPublished(wanted.Value));
         }
 
-        Option<WallSceneSwitchedDomainEvent> switched =
+        var switched =
             wall.SwitchTo(target, publishable, new SceneSwitchCause.Operator(by), clock);
         await walls.SaveAsync(cancellationToken);
 

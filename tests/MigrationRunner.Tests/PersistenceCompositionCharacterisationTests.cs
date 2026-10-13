@@ -59,7 +59,7 @@ public class PersistenceCompositionCharacterisationTests
     [Fact]
     public void MigrationRunners_persistence_composition_registers_no_health_check_tracer_or_meter_provider()
     {
-        HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder(null);
+        var builder = Host.CreateEmptyApplicationBuilder(null);
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["ConnectionStrings:camera-catalog-db"] = "Host=127.0.0.1;Database=unused;Username=unused;Password=unused",
@@ -86,10 +86,10 @@ public class PersistenceCompositionCharacterisationTests
         builder.AddIdentityPersistence();
         builder.AddAuditObservabilityPersistence();
 
-        using ServiceProvider provider = builder.Services.BuildServiceProvider(
+        using var provider = builder.Services.BuildServiceProvider(
             new ServiceProviderOptions { ValidateScopes = true });
 
-        HealthCheckServiceOptions? healthCheckOptions =
+        var healthCheckOptions =
             provider.GetService<IOptions<HealthCheckServiceOptions>>()?.Value;
         (healthCheckOptions?.Registrations ?? []).ShouldBeEmpty(
             "the nine AddXPersistence calls MigrationRunner makes must register no health check. "
@@ -106,7 +106,7 @@ public class PersistenceCompositionCharacterisationTests
             + "metrics are wired only from AddXInfrastructure (plan §4), which MigrationRunner "
             + "never calls.");
 
-        using IServiceScope scope = provider.CreateScope();
+        using var scope = provider.CreateScope();
 
         AssertNonRetryingExecutionStrategy<CameraCatalogDbContext>(scope.ServiceProvider);
         AssertNonRetryingExecutionStrategy<StreamDistributionDbContext>(scope.ServiceProvider);
@@ -134,7 +134,7 @@ public class PersistenceCompositionCharacterisationTests
         const string NonRetryingStrategyTypeName =
             "Npgsql.EntityFrameworkCore.PostgreSQL.Storage.Internal.NpgsqlExecutionStrategy";
 
-        using TContext dbContext = serviceProvider.GetRequiredService<IDbContextFactory<TContext>>().CreateDbContext();
+        using var dbContext = serviceProvider.GetRequiredService<IDbContextFactory<TContext>>().CreateDbContext();
 
         dbContext.Database.CreateExecutionStrategy().GetType().FullName.ShouldBe(
             NonRetryingStrategyTypeName,

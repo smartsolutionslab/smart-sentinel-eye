@@ -85,7 +85,7 @@ public class IdempotentKeyReuseDeclarationTests
     public static TheoryData<string> EndpointFiles()
     {
         TheoryData<string> data = [];
-        foreach (string file in TheSurface.Value.EndpointSources)
+        foreach (var file in TheSurface.Value.EndpointSources)
         {
             data.Add(file);
         }
@@ -103,14 +103,14 @@ public class IdempotentKeyReuseDeclarationTests
     [Fact]
     public void Every_route_mapping_resolves_to_one_handler_body_the_guard_can_read()
     {
-        IReadOnlyList<ResolvedMapping> mappings = TheSurface.Value.Routes;
+        var mappings = TheSurface.Value.Routes;
 
         mappings.Count.ShouldBeGreaterThan(
             0,
             "no route mappings were found under src/*/Api. That is the reader failing, not the product: "
             + "every later assertion in this file would then pass over an empty set.");
 
-        string[] unresolved = mappings
+        var unresolved = mappings
             .Where(m => m.Failure is not null)
             .Select(m => $"{Describe(m.Mapping)}: {m.Failure}")
             .ToArray();
@@ -133,14 +133,14 @@ public class IdempotentKeyReuseDeclarationTests
     [Fact]
     public void Every_endpoint_that_runs_an_idempotent_request_declares_the_422_it_answers()
     {
-        ResolvedMapping[] running = TheSurface.Value.Routes.Where(RunsIdempotentRequest).ToArray();
+        var running = TheSurface.Value.Routes.Where(RunsIdempotentRequest).ToArray();
 
         running.Length.ShouldBeGreaterThan(
             0,
             "no endpoint under src/*/Api was read as running IdempotentRequest, which cannot be true while "
             + "twelve call sites exist. The body reader has stopped finding the helper calls.");
 
-        string[] offenders = running
+        var offenders = running
             .Where(m => !DeclaresReuseRefusal.IsMatch(m.Mapping.Chain))
             .Select(m => $"{Describe(m.Mapping)} -> {m.Mapping.ContainingClass}.{m.Mapping.HandlerArgument} "
                 + $"[{string.Join(", ", m.Calls.Select(c => $"{c.File}:{c.Line} IdempotentRequest.{c.Method}"))}]")
@@ -167,9 +167,9 @@ public class IdempotentKeyReuseDeclarationTests
     [Fact]
     public void No_endpoint_declares_422_without_running_an_idempotent_request()
     {
-        IReadOnlyList<ResolvedMapping> mappings = TheSurface.Value.Routes;
+        var mappings = TheSurface.Value.Routes;
 
-        string[] offenders = mappings
+        var offenders = mappings
             .Where(m => DeclaresReuseRefusal.IsMatch(m.Mapping.Chain) && !RunsIdempotentRequest(m))
             .Select(m => $"{Describe(m.Mapping)} -> {m.Mapping.ContainingClass}.{m.Mapping.HandlerArgument}")
             .ToArray();
@@ -192,9 +192,9 @@ public class IdempotentKeyReuseDeclarationTests
     [Fact]
     public void Every_idempotent_request_call_site_sits_in_a_mapped_handler()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Files.Sum(file => HelperCall.Count(surface.Masked[file]));
-        int walked = surface.Routes
+        var surface = TheSurface.Value;
+        var swept = surface.Files.Sum(file => HelperCall.Count(surface.Masked[file]));
+        var walked = surface.Routes
             .Where(m => m.Handler is not null)
             .DistinctBy(m => (m.Handler!.File, m.Handler.BodyStart))
             .Sum(m => m.Calls.Count);
@@ -218,9 +218,9 @@ public class IdempotentKeyReuseDeclarationTests
     [Fact]
     public void Every_422_declaration_under_the_api_directories_sits_in_a_mapping_chain()
     {
-        Surface surface = TheSurface.Value;
-        int swept = surface.Files.Sum(file => Occurrences(surface.Masked[file], DeclarationToken));
-        int walked = surface.Routes.Sum(m => Occurrences(m.Mapping.Chain, DeclarationToken));
+        var surface = TheSurface.Value;
+        var swept = surface.Files.Sum(file => Occurrences(surface.Masked[file], DeclarationToken));
+        var walked = surface.Routes.Sum(m => Occurrences(m.Mapping.Chain, DeclarationToken));
 
         walked.ShouldBe(
             swept,
@@ -236,8 +236,8 @@ public class IdempotentKeyReuseDeclarationTests
     [Fact]
     public void The_idempotent_request_corpus_is_twelve_endpoints_across_twelve_files()
     {
-        ResolvedMapping[] running = TheSurface.Value.Routes.Where(RunsIdempotentRequest).ToArray();
-        string[] files = running
+        var running = TheSurface.Value.Routes.Where(RunsIdempotentRequest).ToArray();
+        var files = running
             .Select(m => m.Mapping.File)
             .Distinct(StringComparer.Ordinal)
             .Order(StringComparer.Ordinal)
@@ -259,7 +259,7 @@ public class IdempotentKeyReuseDeclarationTests
     [MemberData(nameof(EndpointFiles))]
     public void Every_endpoint_file_contributes_at_least_one_mapping(string file)
     {
-        ResolvedMapping[] mappings = TheSurface.Value.Routes
+        var mappings = TheSurface.Value.Routes
             .Where(m => string.Equals(m.Mapping.File, file, StringComparison.Ordinal))
             .ToArray();
 
@@ -282,7 +282,7 @@ public class IdempotentKeyReuseDeclarationTests
     [InlineData("#pragma warning disable")]
     public void The_guard_offers_no_way_to_excuse_an_endpoint(string mechanism)
     {
-        string[] offenders = RepositorySource.ExecutableLines(ReadRepositoryFile(GuardSource))
+        var offenders = RepositorySource.ExecutableLines(ReadRepositoryFile(GuardSource))
             .Where(line => line.Contains(mechanism, StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
@@ -301,8 +301,8 @@ public class IdempotentKeyReuseDeclarationTests
 
     private static int Occurrences(string text, string token)
     {
-        int count = 0;
-        int index = text.IndexOf(token, StringComparison.Ordinal);
+        var count = 0;
+        var index = text.IndexOf(token, StringComparison.Ordinal);
         while (index >= 0)
         {
             count++;
@@ -318,21 +318,21 @@ public class IdempotentKeyReuseDeclarationTests
 
     private static Surface Read()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        List<string> files = ApiSourceFiles(root);
+        var root = RepositorySource.Root();
+        var files = ApiSourceFiles(root);
 
         Dictionary<string, string> masked = new(StringComparer.Ordinal);
         Dictionary<string, string> text = new(StringComparer.Ordinal);
-        foreach (string file in files)
+        foreach (var file in files)
         {
-            string body = File.ReadAllText(Path.Combine(root.FullName, file))
+            var body = File.ReadAllText(Path.Combine(root.FullName, file))
                 .Replace("\r", string.Empty, StringComparison.Ordinal);
             text[file] = body;
             masked[file] = SourceMask.Apply(body, MaskStrictness.CommentsAndLiteralInteriors);
         }
 
-        List<RouteChainReader.ClassSpan> classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
-        List<ResolvedMapping> mappings = files
+        var classes = files.SelectMany(file => ClassSpans(file, masked[file])).ToList();
+        var mappings = files
             .SelectMany(file => Mappings(file, text[file], masked[file], classes))
             .Select(mapping => Resolve(mapping, classes, masked))
             .ToList();
@@ -346,7 +346,7 @@ public class IdempotentKeyReuseDeclarationTests
 
     private static List<string> ApiSourceFiles(DirectoryInfo root)
     {
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateDirectories(src)
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)
@@ -362,13 +362,13 @@ public class IdempotentKeyReuseDeclarationTests
     {
         foreach (Match declaration in ClassDeclaration.Matches(masked))
         {
-            int open = masked.IndexOf('{', declaration.Index + declaration.Length);
+            var open = masked.IndexOf('{', declaration.Index + declaration.Length);
             if (open < 0)
             {
                 continue;
             }
 
-            int close = RouteChainReader.Balanced(masked, open, '{', '}');
+            var close = RouteChainReader.Balanced(masked, open, '{', '}');
             if (close > 0)
             {
                 yield return new RouteChainReader.ClassSpan(file, declaration.Groups["name"].Value, open, close);
@@ -384,20 +384,20 @@ public class IdempotentKeyReuseDeclarationTests
     {
         foreach (Match call in MappingCall.Matches(masked))
         {
-            int open = call.Index + call.Length - 1;
-            int close = RouteChainReader.Balanced(masked, open, '(', ')');
+            var open = call.Index + call.Length - 1;
+            var close = RouteChainReader.Balanced(masked, open, '(', ')');
             if (close < 0)
             {
                 continue;
             }
 
-            int end = RouteChainReader.StatementEnd(
+            var end = RouteChainReader.StatementEnd(
                 masked, close + 1, ChainEndSentinel.NotFound, ChainLiteralHandling.AlreadyMasked);
-            string chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
+            var chain = end < 0 ? masked[call.Index..] : masked[call.Index..end];
 
-            List<(int Start, int End)> arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
-            string route = arguments.Count > 0 ? text[arguments[0].Start..arguments[0].End].Trim() : string.Empty;
-            string handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
+            var arguments = RouteChainReader.SplitArguments(masked, open + 1, close);
+            var route = arguments.Count > 0 ? text[arguments[0].Start..arguments[0].End].Trim() : string.Empty;
+            var handler = arguments.Count > 1 ? text[arguments[1].Start..arguments[1].End].Trim() : string.Empty;
 
             yield return new RouteMapping(
                 file,
@@ -427,7 +427,7 @@ public class IdempotentKeyReuseDeclarationTests
             return Unreadable(mapping, "the mapping is not inside a class declaration this reader can find");
         }
 
-        RouteChainReader.HandlerResolution resolution = RouteChainReader.HandlerBodyFor(
+        var resolution = RouteChainReader.HandlerBodyFor(
             mapping.ContainingClass, mapping.HandlerArgument, mapping.File, classes, masked);
 
         if (!resolution.IsBareMethodGroupName)
@@ -451,8 +451,8 @@ public class IdempotentKeyReuseDeclarationTests
                 + $"{resolution.Candidates.Count} method declarations");
         }
 
-        RouteChainReader.HandlerBody body = resolution.Body;
-        List<IdempotentCall> calls = HelperCall.Matches(body.Body)
+        var body = resolution.Body;
+        var calls = HelperCall.Matches(body.Body)
             .Select(match => new IdempotentCall(
                 match.Groups["method"].Value,
                 body.File,

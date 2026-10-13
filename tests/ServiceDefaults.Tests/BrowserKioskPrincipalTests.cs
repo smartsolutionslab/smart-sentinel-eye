@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using SmartSentinelEye.ServiceDefaults;
 
 namespace SmartSentinelEye.ServiceDefaults.Tests;
 

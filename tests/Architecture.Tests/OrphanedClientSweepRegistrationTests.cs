@@ -35,7 +35,7 @@ public class OrphanedClientSweepRegistrationTests
     /// </summary>
     private static IServiceCollection IdentityInfrastructure()
     {
-        HostApplicationBuilder builder = Host.CreateApplicationBuilder();
+        var builder = Host.CreateApplicationBuilder();
 
         // Nothing here is dialled: the collection is inspected and, below, one
         // scoped resolution is performed. Both connection strings exist only
@@ -56,7 +56,7 @@ public class OrphanedClientSweepRegistrationTests
     [Fact]
     public void The_identity_api_registers_a_startup_service_that_drives_the_orphan_sweep()
     {
-        Type[] startupServices = IdentityInfrastructure()
+        var startupServices = IdentityInfrastructure()
             .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
                 && descriptor.ImplementationType is not null
                 && descriptor.ImplementationType.Assembly == typeof(IdentityInfrastructureModule).Assembly)
@@ -77,9 +77,9 @@ public class OrphanedClientSweepRegistrationTests
     [Fact]
     public async Task The_sweep_can_be_resolved_from_the_container_that_registration_builds()
     {
-        await using ServiceProvider provider = IdentityInfrastructure()
+        await using var provider = IdentityInfrastructure()
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
-        await using AsyncServiceScope scope = provider.CreateAsyncScope();
+        await using var scope = provider.CreateAsyncScope();
 
         scope.ServiceProvider.GetService<OrphanedClientSweep>().ShouldNotBeNull(
             "a startup service can only drive the pass if the container it resolves from "

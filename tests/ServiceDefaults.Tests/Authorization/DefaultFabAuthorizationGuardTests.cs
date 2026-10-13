@@ -8,7 +8,7 @@ public class DefaultFabAuthorizationGuardTests
     private static ClaimsPrincipal UserIn(params string[] groups)
     {
         ClaimsIdentity identity = new("test");
-        foreach (string g in groups)
+        foreach (var g in groups)
         {
             identity.AddClaim(new Claim(DefaultFabAuthorizationGuard.GroupClaimType, g));
         }
@@ -26,7 +26,7 @@ public class DefaultFabAuthorizationGuardTests
     public async Task Multi_fab_user_passes_for_each_owned_fab()
     {
         DefaultFabAuthorizationGuard guard = new();
-        ClaimsPrincipal user = UserIn("/fabs/munich", "/fabs/berlin");
+        var user = UserIn("/fabs/munich", "/fabs/berlin");
 
         await guard.EnsureAccessAsync(user, "munich", CancellationToken.None);
         await guard.EnsureAccessAsync(user, "berlin", CancellationToken.None);
@@ -36,9 +36,9 @@ public class DefaultFabAuthorizationGuardTests
     public async Task Throws_FabAuthorizationException_when_caller_lacks_the_group()
     {
         DefaultFabAuthorizationGuard guard = new();
-        ClaimsPrincipal user = UserIn("/fabs/munich");
+        var user = UserIn("/fabs/munich");
 
-        FabAuthorizationException ex = await Should.ThrowAsync<FabAuthorizationException>(
+        var ex = await Should.ThrowAsync<FabAuthorizationException>(
             () => guard.EnsureAccessAsync(user, "berlin", CancellationToken.None));
         ex.FabId.ShouldBe("berlin");
     }

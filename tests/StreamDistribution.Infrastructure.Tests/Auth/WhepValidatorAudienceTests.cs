@@ -7,8 +7,6 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Revocation;
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 
 namespace SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Auth;
@@ -85,9 +83,9 @@ public sealed class WhepValidatorAudienceTests : IDisposable
     [Fact]
     public async Task The_validator_refuses_a_token_minted_for_another_api()
     {
-        WhepAuthValidator validator = ValidatorWithStubbedMetadata();
+        var validator = ValidatorWithStubbedMetadata();
 
-        Result<WhepAuthSubject, WhepAuthFailure> subject =
+        var subject =
             await validator.ValidateAsync(TokenFor("some-other-api"), CancellationToken.None);
 
         subject.IsSuccess.ShouldBeFalse(
@@ -106,9 +104,9 @@ public sealed class WhepValidatorAudienceTests : IDisposable
     [Fact]
     public async Task The_validator_accepts_a_token_minted_for_this_api()
     {
-        WhepAuthValidator validator = ValidatorWithStubbedMetadata();
+        var validator = ValidatorWithStubbedMetadata();
 
-        Result<WhepAuthSubject, WhepAuthFailure> subject = await validator.ValidateAsync(
+        var subject = await validator.ValidateAsync(
             TokenFor(AuthenticationDefaults.ApiAudience), CancellationToken.None);
 
         subject.IsSuccess.ShouldBeTrue(
@@ -141,9 +139,9 @@ public sealed class WhepValidatorAudienceTests : IDisposable
     /// </summary>
     private string JsonWebKeySet()
     {
-        RSAParameters publicKey = signingKey.ExportParameters(includePrivateParameters: false);
-        string modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
-        string exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
+        var publicKey = signingKey.ExportParameters(includePrivateParameters: false);
+        var modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
+        var exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
 
         return $$"""
             {"keys":[{"kty":"RSA","use":"sig","alg":"RS256","kid":"{{SigningKeyIdentifier}}","n":"{{modulus}}","e":"{{exponent}}"}]}

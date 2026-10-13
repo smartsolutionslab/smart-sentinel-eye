@@ -37,7 +37,7 @@ public class KioskScopeParityTests
     [Fact]
     public void The_kiosk_client_grants_nothing_an_enrolled_kiosk_device_does_not()
     {
-        IReadOnlyCollection<string> realm = KioskClientPermissions();
+        var realm = KioskClientPermissions();
 
         realm.Except(KeycloakScopeBundles.Kiosk, StringComparer.Ordinal).ShouldBeEmpty(
             customMessage: $"the realm's {KioskClientId} client grants a scope no enrolled kiosk device "
@@ -48,7 +48,7 @@ public class KioskScopeParityTests
     [Fact]
     public void The_kiosk_client_grants_everything_an_enrolled_kiosk_device_does()
     {
-        IReadOnlyCollection<string> realm = KioskClientPermissions();
+        var realm = KioskClientPermissions();
 
         KeycloakScopeBundles.Kiosk.Except(realm, StringComparer.Ordinal).ShouldBeEmpty(
             customMessage: $"an enrolled kiosk device holds a scope the realm's {KioskClientId} client "
@@ -185,11 +185,11 @@ public class KioskScopeParityTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
         return JsonDocument.Parse(File.ReadAllText(path));
     }

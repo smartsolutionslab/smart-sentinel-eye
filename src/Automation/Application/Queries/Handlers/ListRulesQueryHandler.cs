@@ -23,7 +23,7 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
         // Value object, not .Value: Fab is value-converted, and a member
         // access on it throws at EF translation time rather than filtering.
         FabIdentifier[] scopedFabs = [.. fabs];
-        IQueryable<Rule> filtered = rules.Rules.Where(rule => scopedFabs.Contains(rule.Fab));
+        var filtered = rules.Rules.Where(rule => scopedFabs.Contains(rule.Fab));
 
         if (!string.IsNullOrWhiteSpace(state))
         {
@@ -75,7 +75,7 @@ public sealed class ListRulesQueryHandler(IRuleQuerySource rules)
             filtered = filtered.Where(rule => rule.TriggerKind == parsedTriggerKind);
         }
 
-        List<Rule> matches = await filtered
+        var matches = await filtered
             .OrderByDescending(rule => rule.Creation.At)
             .ToListAsync(cancellationToken);
 

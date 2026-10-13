@@ -42,7 +42,7 @@ public class PostgresPoolBoundTests
     [MemberData(nameof(Assemblies))]
     public void No_context_reads_its_database_connection_string_unbounded(string assemblyName)
     {
-        Assembly assembly = Assembly.Load(assemblyName);
+        var assembly = Assembly.Load(assemblyName);
 
         List<string> offenders = [.. assembly.GetTypes()
             .SelectMany(type => UnboundedDatabaseReads(type).Select(name => $"{type.Name} -> \"{name}\""))];
@@ -58,7 +58,7 @@ public class PostgresPoolBoundTests
     public static TheoryData<string> Assemblies()
     {
         TheoryData<string> data = [];
-        foreach (string assembly in PersistenceAssemblies)
+        foreach (var assembly in PersistenceAssemblies)
         {
             data.Add(assembly);
         }
@@ -86,18 +86,18 @@ public class PostgresPoolBoundTests
 
         IEnumerable<Type> candidates = [type, .. type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic)];
 
-        foreach (Type candidate in candidates)
+        foreach (var candidate in candidates)
         {
-            foreach (MethodBase method in candidate.GetMethods(Declared).Cast<MethodBase>()
+            foreach (var method in candidate.GetMethods(Declared).Cast<MethodBase>()
                          .Concat(candidate.GetConstructors(Declared)))
             {
-                MethodBody? body = method.GetMethodBody();
+                var body = method.GetMethodBody();
                 if (body is null)
                 {
                     continue;
                 }
 
-                foreach (string name in DatabaseNamesReadDirectly(body, candidate.Module))
+                foreach (var name in DatabaseNamesReadDirectly(body, candidate.Module))
                 {
                     yield return name;
                 }
@@ -107,23 +107,23 @@ public class PostgresPoolBoundTests
 
     private static IEnumerable<string> DatabaseNamesReadDirectly(MethodBody body, Module module)
     {
-        byte[] il = body.GetILAsByteArray() ?? [];
+        var il = body.GetILAsByteArray() ?? [];
 
         // ldstr (0x72) + token, then call (0x28) or callvirt (0x6F) + token.
-        for (int i = 0; i + 9 < il.Length; i++)
+        for (var i = 0; i + 9 < il.Length; i++)
         {
             if (il[i] != 0x72 || il[i + 5] is not (0x28 or 0x6F))
             {
                 continue;
             }
 
-            string? literal = Resolve(() => module.ResolveString(BitConverter.ToInt32(il, i + 1)));
+            var literal = Resolve(() => module.ResolveString(BitConverter.ToInt32(il, i + 1)));
             if (literal is null || !literal.EndsWith("-db", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            MethodBase? called = Resolve(() => module.ResolveMethod(BitConverter.ToInt32(il, i + 6)));
+            var called = Resolve(() => module.ResolveMethod(BitConverter.ToInt32(il, i + 6)));
             if (called?.Name == nameof(ConfigurationExtensions.GetConnectionString)
                 && called.DeclaringType == typeof(ConfigurationExtensions))
             {

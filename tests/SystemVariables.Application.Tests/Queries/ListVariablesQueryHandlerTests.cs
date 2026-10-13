@@ -1,5 +1,3 @@
-using SmartSentinelEye.Shared.Kernel;
-using SmartSentinelEye.SystemVariables.Application.DTOs;
 using SmartSentinelEye.SystemVariables.Application.Queries;
 using SmartSentinelEye.SystemVariables.Application.Queries.Handlers;
 using SmartSentinelEye.SystemVariables.Application.Tests.Fakes;
@@ -12,7 +10,7 @@ public class ListVariablesQueryHandlerTests
 {
     private static Variable Define(string name, VariableType type, VariableValue? value = null)
     {
-        VariableBuilder builder = new VariableBuilder().Named(name).OfType(type);
+        var builder = new VariableBuilder().Named(name).OfType(type);
         if (value is not null)
         {
             builder.WithInitialValue(value);
@@ -26,7 +24,7 @@ public class ListVariablesQueryHandlerTests
     {
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource([]));
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -44,7 +42,7 @@ public class ListVariablesQueryHandlerTests
         ];
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource(seeded));
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
@@ -54,20 +52,20 @@ public class ListVariablesQueryHandlerTests
     [Fact]
     public async Task Filters_by_state_when_a_state_is_provided()
     {
-        VariableBuilder archivedBuilder = new VariableBuilder().Named("oldVar").OfType(VariableType.String);
+        var archivedBuilder = new VariableBuilder().Named("oldVar").OfType(VariableType.String);
 
-        Variable defined = Define("active", VariableType.String);
-        Variable archived = archivedBuilder.Build();
+        var defined = Define("active", VariableType.String);
+        var archived = archivedBuilder.Build();
         archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
 
         ListVariablesQueryHandler handler = new(
             new TestVariableQuerySource([defined, archived]));
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: VariableState.Archived), CancellationToken.None);
 
         result.IsSuccess.ShouldBeTrue();
-        VariableDto only = result.Value.ShouldHaveSingleItem();
+        var only = result.Value.ShouldHaveSingleItem();
         only.Name.ShouldBe("oldVar");
         only.State.ShouldBe("Archived");
     }
@@ -77,12 +75,12 @@ public class ListVariablesQueryHandlerTests
     [Fact]
     public async Task The_listing_omits_variables_in_fabs_the_caller_does_not_hold()
     {
-        Variable own = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
-        Variable foreign = new VariableBuilder().WithFab("dresden").Named("oeeLine9").Build();
+        var own = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
+        var foreign = new VariableBuilder().WithFab("dresden").Named("oeeLine9").Build();
         TestVariableQuerySource source = new([own, foreign]);
         ListVariablesQueryHandler handler = new(source);
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
 
         result.Value.Select(dto => dto.Name).ShouldBe(["oeeLine1"]);
@@ -93,12 +91,12 @@ public class ListVariablesQueryHandlerTests
     {
         // The same name in two fabs is the case VariableDto.Fab exists for:
         // without it these two rows are indistinguishable on the wire.
-        Variable munich = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
-        Variable dresden = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
+        var munich = new VariableBuilder().WithFab("munich").Named("oeeLine1").Build();
+        var dresden = new VariableBuilder().WithFab("dresden").Named("oeeLine1").Build();
         TestVariableQuerySource source = new([munich, dresden]);
         ListVariablesQueryHandler handler = new(source);
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery(
                 [FabIdentifier.From("munich"), FabIdentifier.From("dresden")], State: null),
             CancellationToken.None);
@@ -120,10 +118,10 @@ public class ListVariablesQueryHandlerTests
     [Fact]
     public async Task An_archived_variable_leaves_the_default_listing()
     {
-        (Variable defined, Variable archived) = OneOfEach();
+        (var defined, var archived) = OneOfEach();
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource([defined, archived]));
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: null), CancellationToken.None);
 
         result.Value.Select(dto => dto.Name).ShouldBe(["active"]);
@@ -132,10 +130,10 @@ public class ListVariablesQueryHandlerTests
     [Fact]
     public async Task An_archived_variable_comes_back_when_the_caller_asks_for_it()
     {
-        (Variable defined, Variable archived) = OneOfEach();
+        (var defined, var archived) = OneOfEach();
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource([defined, archived]));
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: null, IncludeArchived: true),
             CancellationToken.None);
 
@@ -151,10 +149,10 @@ public class ListVariablesQueryHandlerTests
     [Fact]
     public async Task Asking_for_the_archived_state_needs_no_second_flag()
     {
-        (Variable defined, Variable archived) = OneOfEach();
+        (var defined, var archived) = OneOfEach();
         ListVariablesQueryHandler handler = new(new TestVariableQuerySource([defined, archived]));
 
-        Result<IReadOnlyList<VariableDto>, ListVariablesError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new ListVariablesQuery([FabIdentifier.From("munich")], State: VariableState.Archived),
             CancellationToken.None);
 
@@ -163,8 +161,8 @@ public class ListVariablesQueryHandlerTests
 
     private static (Variable Defined, Variable Archived) OneOfEach()
     {
-        VariableBuilder archivedBuilder = new VariableBuilder().Named("oldVar").OfType(VariableType.String);
-        Variable archived = archivedBuilder.Build();
+        var archivedBuilder = new VariableBuilder().Named("oldVar").OfType(VariableType.String);
+        var archived = archivedBuilder.Build();
         archived.Archive(archivedBuilder.Operator, archivedBuilder.Clock);
 
         return (Define("active", VariableType.String), archived);

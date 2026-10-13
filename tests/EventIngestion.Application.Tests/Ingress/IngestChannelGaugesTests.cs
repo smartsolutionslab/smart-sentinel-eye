@@ -76,7 +76,7 @@ public class IngestChannelGaugesTests
         await channel.WriteAsync(Delivery("a"), CancellationToken.None);
         gauges.Poll();
 
-        double elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
+        var elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
         elapsed.ShouldBeInRange(0d, 1d);
     }
 
@@ -98,13 +98,13 @@ public class IngestChannelGaugesTests
         await channel.WriteAsync(Delivery("1"), CancellationToken.None);
         await Task.Delay(TimeSpan.FromMilliseconds(300));
 
-        ValueTask pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
+        var pending = channel.WriteAsync(Delivery("2"), CancellationToken.None);
         await channel.ReadBatchAsync(1, CancellationToken.None);
         await pending;
 
         gauges.Poll();
 
-        double elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
+        var elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
         elapsed.ShouldBeLessThan(
             0.2,
             "the blocked write's own completion, not the earlier fast write, should have set the last-write marker");
@@ -138,7 +138,7 @@ public class IngestChannelGaugesTests
         await Task.Delay(TimeSpan.FromMilliseconds(300));
         gauges.Poll();
 
-        double elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
+        var elapsed = gauges.TimeSinceLastWriteReadings.ShouldHaveSingleItem();
         elapsed.ShouldBeInRange(
             0.25,
             2.0,

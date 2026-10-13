@@ -42,7 +42,7 @@ public class EventTypeCommandHandlerTests
             repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -54,7 +54,7 @@ public class EventTypeCommandHandlerTests
     public async Task Registering_a_kind_already_registered_in_that_fab_is_refused()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Add(seeded);
 
@@ -62,7 +62,7 @@ public class EventTypeCommandHandlerTests
             repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -74,7 +74,7 @@ public class EventTypeCommandHandlerTests
     public async Task Registering_a_kind_another_fab_already_has_is_allowed()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Munich, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Add(seeded);
 
@@ -82,7 +82,7 @@ public class EventTypeCommandHandlerTests
             repo, new InMemoryDeadLetterRepository(), new FakeClock(Now),
             NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -95,7 +95,7 @@ public class EventTypeCommandHandlerTests
     public async Task Registering_a_kind_a_fab_has_retired_is_allowed()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         seeded.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
         repo.Add(seeded);
@@ -104,7 +104,7 @@ public class EventTypeCommandHandlerTests
             repo, new InMemoryDeadLetterRepository(), new FakeClock(Now.AddHours(2)),
             NullLogger<RegisterEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RegisterEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RegisterEventTypeCommand(Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -116,14 +116,14 @@ public class EventTypeCommandHandlerTests
     public async Task Retiring_a_registered_type_flips_it_and_leaves_the_row()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded);
 
         RetireEventTypeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -140,14 +140,14 @@ public class EventTypeCommandHandlerTests
     public async Task Retiring_a_type_outside_the_callers_fabs_reports_it_as_not_found()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Munich, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded);
 
         RetireEventTypeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -163,7 +163,7 @@ public class EventTypeCommandHandlerTests
     public async Task Retiring_an_already_retired_type_reports_it_as_not_found()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         seeded.Retire(OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now.AddHours(1)));
         repo.Seed(seeded);
@@ -171,7 +171,7 @@ public class EventTypeCommandHandlerTests
         RetireEventTypeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(2)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -183,14 +183,14 @@ public class EventTypeCommandHandlerTests
     public async Task Retiring_with_a_stale_expected_version_is_refused()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Dresden, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded, version: 3);
 
         RetireEventTypeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 
@@ -214,14 +214,14 @@ public class EventTypeCommandHandlerTests
     public async Task The_version_gate_runs_after_the_lookup()
     {
         InMemoryRegisteredEventTypeRepository repo = new();
-        RegisteredEventType seeded = RegisteredEventType.Register(
+        var seeded = RegisteredEventType.Register(
             Munich, PersonInRestrictedZone, OperatorIdentifier.From(Guid.CreateVersion7()), new FakeClock(Now));
         repo.Seed(seeded, version: 3);
 
         RetireEventTypeCommandHandler handler = new(
             repo, new FakeClock(Now.AddHours(1)), NullLogger<RetireEventTypeCommandHandler>.Instance);
 
-        Result<RegisteredEventTypeIdentifier, RetireEventTypeError> result = await handler.HandleAsync(
+        var result = await handler.HandleAsync(
             new RetireEventTypeCommand(Dresden, PersonInRestrictedZone, 0, OperatorIdentifier.From(Guid.CreateVersion7())),
             CancellationToken.None);
 

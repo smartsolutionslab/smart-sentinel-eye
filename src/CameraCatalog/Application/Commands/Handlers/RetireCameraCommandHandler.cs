@@ -16,11 +16,11 @@ public sealed class RetireCameraCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (FabIdentifier? fab, CameraIdentifier camera, OperatorIdentifier retiredBy) = command;
+        (var fab, var camera, var retiredBy) = command;
 
         // Scoped to the fab, so another plant's camera is indistinguishable
         // from one that does not exist (FR-004).
-        Option<Camera> found = await cameras.GetWithinFabAsync(fab, camera, cancellationToken);
+        var found = await cameras.GetWithinFabAsync(fab, camera, cancellationToken);
 
         if (!found.HasValue)
         {
@@ -28,7 +28,7 @@ public sealed class RetireCameraCommandHandler(
             return Failure(RetireCameraFailures.CameraNotFound(camera.Value));
         }
 
-        Camera retiring = found.Value;
+        var retiring = found.Value;
 
         // Idempotency lives in the aggregate, not here: Retire returns without
         // raising when the camera is already retired, so a second call saves

@@ -39,7 +39,7 @@ public class EventMetadataRootIngestedAtTests
             }
             """;
 
-        EventMetadata metadata = JsonSerializer.Deserialize<EventMetadata>(beforeTheChange)!;
+        var metadata = JsonSerializer.Deserialize<EventMetadata>(beforeTheChange)!;
 
         metadata.ShouldNotBeNull();
         metadata.Fab.ShouldBe("munich");
@@ -60,9 +60,9 @@ public class EventMetadataRootIngestedAtTests
             Guid.Parse("00000000-0000-0000-0000-0000000000bb"),
             DecisionAt, "munich", null, Ingested);
 
-        string wire = JsonSerializer.Serialize(current);
+        var wire = JsonSerializer.Serialize(current);
 
-        MetadataAsItWasBefore old = JsonSerializer.Deserialize<MetadataAsItWasBefore>(wire)!;
+        var old = JsonSerializer.Deserialize<MetadataAsItWasBefore>(wire)!;
 
         old.ShouldNotBeNull();
         old.Fab.ShouldBe("munich");

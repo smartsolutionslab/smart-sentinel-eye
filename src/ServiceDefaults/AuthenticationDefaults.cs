@@ -5,7 +5,6 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults.Authorization;
@@ -37,7 +36,7 @@ public static class AuthenticationDefaults
 
         // Aspire publishes Keycloak under one of three keys depending on
         // the dev-cert / HTTPS-upgrade configuration. Accept any of them.
-        string keycloakBaseUrl =
+        var keycloakBaseUrl =
             builder.Configuration.GetConnectionString(keycloakResourceName)
             ?? builder.Configuration[$"services:{keycloakResourceName}:http:0"]
             ?? builder.Configuration[$"services:{keycloakResourceName}:https:0"]
@@ -45,7 +44,7 @@ public static class AuthenticationDefaults
                 $"Keycloak base URL not found. Looked for ConnectionStrings:{keycloakResourceName}, " +
                 $"services:{keycloakResourceName}:http:0, services:{keycloakResourceName}:https:0.");
 
-        string authority = $"{keycloakBaseUrl.TrimEnd('/')}/realms/{realm}";
+        var authority = $"{keycloakBaseUrl.TrimEnd('/')}/realms/{realm}";
 
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -95,11 +94,11 @@ public static class AuthenticationDefaults
         builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IRevokedClientRegistry, IServiceProvider>((options, registry, services) =>
             {
-                ILogger? logger = services.GetService<ILoggerFactory>()?
+                var logger = services.GetService<ILoggerFactory>()?
                     .CreateLogger("SmartSentinelEye.ServiceDefaults.AuthenticationDefaults");
 
                 options.Events ??= new JwtBearerEvents();
-                Func<TokenValidatedContext, Task>? previousOnTokenValidated = options.Events.OnTokenValidated;
+                var previousOnTokenValidated = options.Events.OnTokenValidated;
                 options.Events.OnTokenValidated = async context =>
                 {
                     if (previousOnTokenValidated is not null)
@@ -264,8 +263,8 @@ public static class AuthenticationDefaults
     {
         Ensure.That(context).IsNotNull();
 
-        string? azp = context.Principal?.FindFirst("azp")?.Value;
-        DateTimeOffset? issuedAt = IssuedAtOf(context.SecurityToken);
+        var azp = context.Principal?.FindFirst("azp")?.Value;
+        var issuedAt = IssuedAtOf(context.SecurityToken);
 
         if (!registry.Refuses(azp, issuedAt))
         {

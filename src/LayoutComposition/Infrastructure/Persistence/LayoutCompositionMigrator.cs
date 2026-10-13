@@ -15,7 +15,7 @@ public sealed class LayoutCompositionMigrator(IDbContextFactory<LayoutCompositio
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        await using LayoutCompositionDbContext context =
+        await using var context =
             await dbContextFactory.CreateDbContextAsync(cancellationToken);
 
         logger.ApplyingMigrations();

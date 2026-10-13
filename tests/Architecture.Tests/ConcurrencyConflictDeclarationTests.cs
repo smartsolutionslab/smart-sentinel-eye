@@ -508,7 +508,7 @@ public class ConcurrencyConflictDeclarationTests
             "no mutating mapping was found under src/*/Api. That is the reader failing, not the product: "
             + "every later assertion in this file would then pass over an empty set.");
 
-        string[] unreadable = mappings
+        var unreadable = mappings
             .Where(mapping => mapping.Failure is not null)
             .Select(mapping => $"{mapping.File}:{mapping.Line} {mapping.Verb} — {mapping.Failure}")
             .ToArray();
@@ -534,8 +534,8 @@ public class ConcurrencyConflictDeclarationTests
     {
         IReadOnlyList<MutatingMapping> mappings = TheMappings.Value;
 
-        string[] files = mappings.Select(m => m.File).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        string[] contexts = mappings.Select(m => m.Context).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var files = mappings.Select(m => m.File).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var contexts = mappings.Select(m => m.Context).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
 
         mappings.Count.ShouldBe(
             MutatingMappingCount,
@@ -567,8 +567,8 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void A_flat_sweep_of_the_api_directories_counts_the_same_mutating_mappings_as_the_walk()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        int swept = ApiSourceFiles(root)
+        var root = RepositorySource.Root();
+        var swept = ApiSourceFiles(root)
             .Sum(file => MutatingMappingCall.Count(Source(root, file)));
 
         swept.ShouldBe(
@@ -595,7 +595,7 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void Every_endpoint_that_can_answer_a_conflict_declares_it()
     {
-        string[] undeclared = TheMappings.Value
+        var undeclared = TheMappings.Value
             .Where(mapping => CanAnswerConflict.Any(capable => Same(capable.Route, mapping.Identity)))
             .Where(mapping => !ConflictDeclaration.IsMatch(mapping.Chain))
             .OrderBy(mapping => mapping.File, StringComparer.Ordinal)
@@ -626,7 +626,7 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void No_endpoint_that_cannot_answer_a_conflict_declares_one()
     {
-        string[] surplus = TheMappings.Value
+        var surplus = TheMappings.Value
             .Where(mapping => CannotAnswerConflict.Any(free => Same(free.Route, mapping.Identity)))
             .Where(mapping => ConflictDeclaration.IsMatch(mapping.Chain))
             .OrderBy(mapping => mapping.File, StringComparer.Ordinal)
@@ -658,7 +658,7 @@ public class ConcurrencyConflictDeclarationTests
         IReadOnlyList<MutatingMapping> mappings = TheMappings.Value;
         string[] pinned = [.. CanAnswerConflict.Select(c => c.Route), .. CannotAnswerConflict.Select(f => f.Route)];
 
-        string[] unclassified = mappings
+        var unclassified = mappings
             .Where(mapping => !pinned.Contains(mapping.Identity, StringComparer.Ordinal))
             .Select(Describe)
             .ToArray();
@@ -676,7 +676,7 @@ public class ConcurrencyConflictDeclarationTests
             + "to CannotAnswerConflict with the reason that clears all four. This guard is a register and "
             + "cannot answer that question for you — but it will not let it go unanswered.");
 
-        string[] ghosts = pinned
+        var ghosts = pinned
             .Where(route => !mappings.Any(mapping => Same(mapping.Identity, route)))
             .ToArray();
 
@@ -713,9 +713,9 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void Every_conflict_declaration_under_the_api_directories_sits_in_a_mapping_chain()
     {
-        DirectoryInfo root = RepositorySource.Root();
-        int swept = ApiSourceFiles(root).Sum(file => ConflictDeclaration.Count(Source(root, file)));
-        int walked = TheMappings.Value.Sum(mapping => ConflictDeclaration.Count(mapping.Chain));
+        var root = RepositorySource.Root();
+        var swept = ApiSourceFiles(root).Sum(file => ConflictDeclaration.Count(Source(root, file)));
+        var walked = TheMappings.Value.Sum(mapping => ConflictDeclaration.Count(mapping.Chain));
 
         swept.ShouldBeGreaterThan(
             0,
@@ -749,16 +749,16 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void No_route_group_declares_a_response_so_a_mappings_own_chain_is_its_whole_metadata()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> offenders = [];
 
-        foreach (string file in ApiSourceFiles(root))
+        foreach (var file in ApiSourceFiles(root))
         {
-            string text = Source(root, file);
+            var text = Source(root, file);
             foreach (Match group in GroupPrefix.Matches(text))
             {
-                int end = RouteChainReader.StatementEnd(text, group.Index, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
-                string chain = end < 0 ? text[group.Index..] : text[group.Index..end];
+                var end = RouteChainReader.StatementEnd(text, group.Index, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
+                var chain = end < 0 ? text[group.Index..] : text[group.Index..end];
                 if (chain.Contains(".Produces", StringComparison.Ordinal))
                 {
                     offenders.Add($"{file}:{RouteChainReader.LineOf(text, group.Index)} MapGroup(\"{group.Groups["prefix"].Value}\")");
@@ -788,15 +788,15 @@ public class ConcurrencyConflictDeclarationTests
     [Fact]
     public void The_api_sources_use_only_the_string_and_comment_forms_this_reader_can_mask()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> offenders = [];
 
-        foreach (string file in ApiSourceFiles(root))
+        foreach (var file in ApiSourceFiles(root))
         {
-            string text = Text(root, file);
-            foreach ((string form, string why) in SourceMask.UnhandledForms(MaskStrictness.CommentsOnlyLiteralsIntact))
+            var text = Text(root, file);
+            foreach ((var form, var why) in SourceMask.UnhandledForms(MaskStrictness.CommentsOnlyLiteralsIntact))
             {
-                int at = text.IndexOf(form, StringComparison.Ordinal);
+                var at = text.IndexOf(form, StringComparison.Ordinal);
                 if (at >= 0)
                 {
                     offenders.Add($"{file}:{RouteChainReader.LineOf(text, at)} contains {form} — {why}");
@@ -873,15 +873,15 @@ public class ConcurrencyConflictDeclarationTests
             + "group.MapPost(\"/rename\", Rename)\n"
             + "    .ProducesProblem(StatusCodes.Status409Conflict);\n";
 
-        string masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
-        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
+        var masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
+        var end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
 
         end.ShouldBeGreaterThan(
             0,
             "the first chain's terminating semicolon was not found at all, so every mapping in a file "
             + "like this would be reported as unreadable.");
 
-        string chain = masked[..end];
+        var chain = masked[..end];
 
         chain.ShouldNotContain(
             "MapPost(\"/rename\"",
@@ -920,22 +920,22 @@ public class ConcurrencyConflictDeclarationTests
     [InlineData("'\\''", "an escaped quote, which reopens the literal if the backslash is ignored")]
     public void A_char_literal_does_not_run_one_chain_into_the_next(string literal, string why)
     {
-        string source =
+        var source =
             "writes.MapPost(\"/{camera:guid}/retire\", Retire)\n"
             + $"    .WithName(NameOf({literal}))\n"
             + "    .ProducesProblem(StatusCodes.Status404NotFound);\n"
             + "writes.MapPost(\"/\", Register)\n"
             + "    .ProducesProblem(StatusCodes.Status409Conflict);\n";
 
-        string masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
-        int end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
+        var masked = SourceMask.Apply(source, MaskStrictness.CommentsOnlyLiteralsIntact);
+        var end = RouteChainReader.StatementEnd(masked, 0, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
 
         end.ShouldBeGreaterThan(
             0,
             $"the retire chain's terminating semicolon was not found at all past {literal} — {why}. "
             + "Every mapping in a file like this would be reported as unreadable.");
 
-        string chain = masked[..end];
+        var chain = masked[..end];
 
         chain.ShouldNotContain(
             "MapPost(\"/\"",
@@ -971,12 +971,12 @@ public class ConcurrencyConflictDeclarationTests
     /// </summary>
     private static List<MutatingMapping> Read()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<MutatingMapping> mappings = [];
 
-        foreach (string file in ApiSourceFiles(root))
+        foreach (var file in ApiSourceFiles(root))
         {
-            string text = Source(root, file);
+            var text = Source(root, file);
             foreach (Match call in MutatingMappingCall.Matches(text))
             {
                 mappings.Add(Mapping(file, text, call));
@@ -988,12 +988,12 @@ public class ConcurrencyConflictDeclarationTests
 
     private static MutatingMapping Mapping(string file, string text, Match call)
     {
-        int line = RouteChainReader.LineOf(text, call.Index);
-        string verb = call.Groups["verb"].Value.ToUpperInvariant();
-        string prefix = PrecedingGroupPrefix(text, call.Index);
-        int open = call.Index + call.Length;
+        var line = RouteChainReader.LineOf(text, call.Index);
+        var verb = call.Groups["verb"].Value.ToUpperInvariant();
+        var prefix = PrecedingGroupPrefix(text, call.Index);
+        var open = call.Index + call.Length;
 
-        Match route = PlainRouteLiteral.Match(text[open..Math.Min(text.Length, open + 400)]);
+        var route = PlainRouteLiteral.Match(text[open..Math.Min(text.Length, open + 400)]);
         if (!route.Success)
         {
             return new MutatingMapping(
@@ -1006,7 +1006,7 @@ public class ConcurrencyConflictDeclarationTests
                 "its first argument is not a plain string literal, so the route cannot be read");
         }
 
-        int end = RouteChainReader.StatementEnd(text, call.Index, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
+        var end = RouteChainReader.StatementEnd(text, call.Index, ChainEndSentinel.NotFound, ChainLiteralHandling.StepOverStringAndCharLiterals);
         if (end < 0)
         {
             return new MutatingMapping(
@@ -1036,7 +1036,7 @@ public class ConcurrencyConflictDeclarationTests
     /// </summary>
     private static string PrecedingGroupPrefix(string text, int index)
     {
-        string prefix = string.Empty;
+        var prefix = string.Empty;
         foreach (Match group in GroupPrefix.Matches(text))
         {
             if (group.Index >= index)
@@ -1079,7 +1079,7 @@ public class ConcurrencyConflictDeclarationTests
 
     private static List<string> ApiSourceFiles(DirectoryInfo root)
     {
-        string src = Path.Combine(root.FullName, "src");
+        var src = Path.Combine(root.FullName, "src");
         return Directory.EnumerateDirectories(src)
             .Select(context => Path.Combine(context, "Api"))
             .Where(Directory.Exists)

@@ -56,7 +56,7 @@ public class SystemVariableReadScopeTests
     [MemberData(nameof(Reads))]
     public void Every_system_variable_read_enforces_the_variables_read_scope(string route)
     {
-        string?[] policies = PoliciesOn("GET", route);
+        var policies = PoliciesOn("GET", route);
 
         policies.ShouldContain(
             Scope.Sse.Variables.Read,
@@ -79,7 +79,7 @@ public class SystemVariableReadScopeTests
     [MemberData(nameof(Writes))]
     public void Every_system_variable_write_enforces_the_variables_write_scope(string verb, string route)
     {
-        string?[] policies = PoliciesOn(verb, route);
+        var policies = PoliciesOn(verb, route);
 
         policies.ShouldContain(
             Scope.Sse.Variables.Write, $"{verb} {route} no longer enforces {Scope.Sse.Variables.Write}");
@@ -94,7 +94,7 @@ public class SystemVariableReadScopeTests
     /// </summary>
     private static string?[] PoliciesOn(string verb, string route)
     {
-        Endpoint endpoint = MappedEndpoints()
+        var endpoint = MappedEndpoints()
             .Where(candidate => string.Equals(RouteOf(candidate), route, StringComparison.Ordinal))
             .FirstOrDefault(candidate => Verbs(candidate).Contains(verb, StringComparer.Ordinal))
             ?? throw new InvalidOperationException(
@@ -106,7 +106,7 @@ public class SystemVariableReadScopeTests
 
     private static IReadOnlyList<Endpoint> MappedEndpoints()
     {
-        WebApplication app = WebApplication.CreateBuilder([]).Build();
+        var app = WebApplication.CreateBuilder([]).Build();
         app.MapSystemVariableEndpoints();
 
         return [.. ((IEndpointRouteBuilder)app).DataSources.SelectMany(source => source.Endpoints)];

@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
-using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
 using SmartSentinelEye.SystemVariables.Application.Commands.Handlers;
@@ -62,7 +61,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             return;
         }
 
-        bool reserved = await dedup.TryReserveAsync(fab, name, causingEventIdentifier, cancellationToken);
+        var reserved = await dedup.TryReserveAsync(fab, name, causingEventIdentifier, cancellationToken);
         if (!reserved)
         {
             logger.DedupHit(fab, name, causingEventIdentifier);
@@ -80,7 +79,7 @@ public sealed class SystemVariableValueRequestedV1Handler(
             return;
         }
 
-        Result<VariableIdentifier, SetVariableValueError> result = await setHandler.HandleAsync(
+        var result = await setHandler.HandleAsync(
             new SetVariableValueCommand(
                 fab,
                 variableName,

@@ -33,7 +33,7 @@ public sealed class RepointStreamCommandHandler(
             return Failure(RepointStreamFailures.InvalidRtspSource(ex.Message));
         }
 
-        Option<Stream> existing = await streams.GetByCameraAsync(camera, cancellationToken);
+        var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
         if (!existing.HasValue)
         {
@@ -44,7 +44,7 @@ public sealed class RepointStreamCommandHandler(
             return Success(Option<StreamIdentifier>.None);
         }
 
-        Stream stream = existing.Value;
+        var stream = existing.Value;
 
         if (stream.State == StreamState.Retired)
         {

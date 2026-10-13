@@ -1,5 +1,4 @@
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
@@ -17,7 +16,7 @@ public static class AuditObservabilityPersistenceModule
     {
         Ensure.That(builder).IsNotNull();
 
-        string connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
+        var connectionString = builder.GetBoundedPostgresConnectionString(DatabaseConnectionName);
 
         // Register the factory only (singleton factory + singleton options).
         // The background retention worker needs IDbContextFactory; repositories,

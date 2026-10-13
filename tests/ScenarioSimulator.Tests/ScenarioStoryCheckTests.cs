@@ -1,4 +1,3 @@
-using Shouldly;
 using SmartSentinelEye.ScenarioSimulator.Cues;
 using SmartSentinelEye.ScenarioSimulator.Scenario;
 using SmartSentinelEye.Shared.Kernel;
@@ -39,13 +38,13 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void An_orphan_reaction_yields_exactly_one_finding_naming_the_scenario_asset_reaction_and_trigger()
     {
-        AssetDefinition asset = Asset("coiler", "coiler.mp4");
+        var asset = Asset("coiler", "coiler.mp4");
         asset.Reactions = [Reaction("person-in-exclusion", "inference", "ObjectDetected")];
         // No sensor and no cue on this asset emits inference/ObjectDetected.
 
-        IReadOnlyList<StoryFinding> findings = ScenarioStoryCheck.Find("rolling-mill", [asset], NoManifests(asset));
+        var findings = ScenarioStoryCheck.Find("rolling-mill", [asset], NoManifests(asset));
 
-        StoryFinding finding = findings.ShouldHaveSingleItem();
+        var finding = findings.ShouldHaveSingleItem();
         finding.Scenario.ShouldBe("rolling-mill");
         finding.Asset.ShouldBe("coiler");
         finding.Reaction.ShouldBe("person-in-exclusion");
@@ -55,7 +54,7 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void A_reaction_whose_trigger_a_sensor_emits_yields_no_finding()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Sensors = [Sensor("Temperature", "plc")];
         asset.Reactions = [Reaction("overheat", "plc", "Temperature")];
 
@@ -65,7 +64,7 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void A_reaction_whose_trigger_a_valid_cue_emits_yields_no_finding()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Reactions = [Reaction("billet-on-conveyor", "inference", "ObjectDetected")];
 
         IReadOnlyDictionary<string, ClipManifestLoadResult> manifests =
@@ -82,7 +81,7 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void A_trigger_satisfied_only_by_a_refused_sidecars_cue_yields_a_finding()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Reactions = [Reaction("billet-on-conveyor", "inference", "ObjectDetected")];
 
         IReadOnlyDictionary<string, ClipManifestLoadResult> manifests = new Dictionary<string, ClipManifestLoadResult>(StringComparer.Ordinal)
@@ -91,7 +90,7 @@ public sealed class ScenarioStoryCheckTests
                 Option<ClipManifest>.None, [new CueViolation(0, "AtMs 25000 is past the clip's 20000ms duration")]),
         };
 
-        StoryFinding finding = ScenarioStoryCheck.Find("rolling-mill", [asset], manifests).ShouldHaveSingleItem();
+        var finding = ScenarioStoryCheck.Find("rolling-mill", [asset], manifests).ShouldHaveSingleItem();
         finding.Reaction.ShouldBe("billet-on-conveyor");
         finding.Trigger.ShouldBe("inference/ObjectDetected");
     }
@@ -105,7 +104,7 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void The_legacy_highlight_is_satisfied_by_a_sensor_of_any_source_matching_only_its_kind()
     {
-        AssetDefinition asset = Asset("vision-station", "vision.mp4");
+        var asset = Asset("vision-station", "vision.mp4");
         asset.Highlight = Highlight("DefectCount");
         asset.Sensors = [Sensor("DefectCount", "camera")];
 
@@ -115,7 +114,7 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void The_legacy_highlight_is_satisfied_by_a_cue_matching_only_its_kind()
     {
-        AssetDefinition asset = Asset("station-4-roughing", "mill-roughing.mp4");
+        var asset = Asset("station-4-roughing", "mill-roughing.mp4");
         asset.Highlight = Highlight("ObjectDetected");
 
         IReadOnlyDictionary<string, ClipManifestLoadResult> manifests =
@@ -127,11 +126,11 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void A_legacy_highlight_whose_kind_no_sensor_or_cue_emits_yields_a_finding_naming_it_highlight()
     {
-        AssetDefinition asset = Asset("coiler", "coiler.mp4");
+        var asset = Asset("coiler", "coiler.mp4");
         asset.Highlight = Highlight("CoilWeight");
         asset.Sensors = [Sensor("Humidity", "plc")];
 
-        StoryFinding finding = ScenarioStoryCheck.Find("rolling-mill", [asset], NoManifests(asset)).ShouldHaveSingleItem();
+        var finding = ScenarioStoryCheck.Find("rolling-mill", [asset], NoManifests(asset)).ShouldHaveSingleItem();
         finding.Scenario.ShouldBe("rolling-mill");
         finding.Asset.ShouldBe("coiler");
         finding.Reaction.ShouldBe("highlight");
@@ -148,7 +147,7 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void All_three_shipped_scenarios_yield_zero_findings_against_the_real_clips_directory()
     {
-        List<StoryFinding> findings = FindingsAcrossShippedScenarios(ScenarioFileTests.ClipsDirectory());
+        var findings = FindingsAcrossShippedScenarios(ScenarioFileTests.ClipsDirectory());
 
         findings.ShouldBeEmpty(string.Join("; ", findings.Select(f => $"{f.Scenario}/{f.Asset}/{f.Reaction} ({f.Trigger})")));
     }
@@ -164,11 +163,11 @@ public sealed class ScenarioStoryCheckTests
     [Fact]
     public void An_empty_clips_directory_yields_exactly_two_findings_for_the_two_shipped_reactions()
     {
-        string emptyDirectory = Path.Combine(Path.GetTempPath(), "sse-story-check-empty-" + Guid.NewGuid());
+        var emptyDirectory = Path.Combine(Path.GetTempPath(), "sse-story-check-empty-" + Guid.NewGuid());
         Directory.CreateDirectory(emptyDirectory);
         try
         {
-            List<StoryFinding> findings = FindingsAcrossShippedScenarios(emptyDirectory);
+            var findings = FindingsAcrossShippedScenarios(emptyDirectory);
 
             findings.Count.ShouldBe(2);
             findings.ShouldAllBe(f => f.Trigger == "inference/ObjectDetected");
@@ -181,12 +180,12 @@ public sealed class ScenarioStoryCheckTests
 
     private static List<StoryFinding> FindingsAcrossShippedScenarios(string clipsDirectory)
     {
-        ScenarioOptions options = LoadShippedScenarios();
+        var options = LoadShippedScenarios();
 
         List<StoryFinding> findings = [];
-        foreach ((string key, ScenarioDefinition scenario) in options.Scenarios)
+        foreach ((var key, var scenario) in options.Scenarios)
         {
-            Dictionary<string, ClipManifestLoadResult> manifests = scenario.Assets
+            var manifests = scenario.Assets
                 .Select(asset => asset.Camera.Clip)
                 .Distinct(StringComparer.Ordinal)
                 .ToDictionary(clip => clip, clip => ClipManifestLoader.Load(clipsDirectory, clip), StringComparer.Ordinal);
@@ -205,12 +204,12 @@ public sealed class ScenarioStoryCheckTests
     /// </summary>
     private static ScenarioOptions LoadShippedScenarios()
     {
-        string scenarios = Path.Combine(AppContext.BaseDirectory, "Scenarios");
+        var scenarios = Path.Combine(AppContext.BaseDirectory, "Scenarios");
 
-        Microsoft.Extensions.Configuration.IConfigurationBuilder builder = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+        var builder = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
             .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "appsettings.json"), optional: true);
 
-        foreach (string file in Directory.EnumerateFiles(scenarios, "*.json"))
+        foreach (var file in Directory.EnumerateFiles(scenarios, "*.json"))
         {
             builder.AddJsonFile(file, optional: false);
         }

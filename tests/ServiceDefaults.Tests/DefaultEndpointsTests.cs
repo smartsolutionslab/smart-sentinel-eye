@@ -69,7 +69,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void A_production_host_maps_the_readiness_probe()
     {
-        using WebApplication app = ProbeHost(Environments.Production);
+        using var app = ProbeHost(Environments.Production);
 
         RoutesOf(app).ShouldContain(HealthPath);
     }
@@ -77,7 +77,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void A_production_host_maps_the_liveness_probe()
     {
-        using WebApplication app = ProbeHost(Environments.Production);
+        using var app = ProbeHost(Environments.Production);
 
         RoutesOf(app).ShouldContain(AlivenessPath);
     }
@@ -85,7 +85,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void A_development_host_maps_both_probes()
     {
-        using WebApplication app = ProbeHost(Environments.Development);
+        using var app = ProbeHost(Environments.Development);
 
         RoutesOf(app).ShouldBe([HealthPath, AlivenessPath], ignoreOrder: true);
     }
@@ -93,7 +93,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void An_environment_that_is_neither_development_nor_production_maps_both_probes()
     {
-        using WebApplication app = ProbeHost(Environments.Staging);
+        using var app = ProbeHost(Environments.Staging);
 
         RoutesOf(app).ShouldBe([HealthPath, AlivenessPath], ignoreOrder: true);
     }
@@ -101,7 +101,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void A_production_liveness_probe_carries_no_authorization_metadata()
     {
-        using WebApplication app = ProbeHost(Environments.Production);
+        using var app = ProbeHost(Environments.Production);
 
         AuthorizationOn(app, AlivenessPath).ShouldBeEmpty(
             "a kubelet cannot present a bearer token, so the probes are anonymous by design. "
@@ -112,7 +112,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void A_production_readiness_probe_carries_no_authorization_metadata()
     {
-        using WebApplication app = ProbeHost(Environments.Production);
+        using var app = ProbeHost(Environments.Production);
 
         AuthorizationOn(app, HealthPath).ShouldBeEmpty(
             "the gateway forwards /{context}/health unauthenticated for all nine contexts, "
@@ -122,7 +122,7 @@ public class DefaultEndpointsTests
     [Fact]
     public void A_development_readiness_probe_carries_no_authorization_metadata()
     {
-        using WebApplication app = ProbeHost(Environments.Development);
+        using var app = ProbeHost(Environments.Development);
 
         AuthorizationOn(app, HealthPath).ShouldBeEmpty();
     }
@@ -137,9 +137,9 @@ public class DefaultEndpointsTests
     [Fact]
     public async Task A_development_liveness_probe_ignores_a_failing_ready_tagged_check()
     {
-        await using WebApplication app = ProbeHost(Environments.Development, withFailingReadyCheck: true);
+        await using var app = ProbeHost(Environments.Development, withFailingReadyCheck: true);
 
-        (int status, string body) = await CallAsync(app, AlivenessPath);
+        (var status, var body) = await CallAsync(app, AlivenessPath);
 
         status.ShouldBe(StatusCodes.Status200OK);
         body.ShouldBe("Healthy");
@@ -161,9 +161,9 @@ public class DefaultEndpointsTests
     [Fact]
     public async Task A_development_readiness_probe_reports_a_failing_ready_tagged_check_as_one_word()
     {
-        await using WebApplication app = ProbeHost(Environments.Development, withFailingReadyCheck: true);
+        await using var app = ProbeHost(Environments.Development, withFailingReadyCheck: true);
 
-        (int status, string body) = await CallAsync(app, HealthPath);
+        (var status, var body) = await CallAsync(app, HealthPath);
 
         status.ShouldBe(StatusCodes.Status503ServiceUnavailable);
         body.ShouldBe("Unhealthy");
@@ -172,9 +172,9 @@ public class DefaultEndpointsTests
     [Fact]
     public async Task A_production_liveness_probe_ignores_a_failing_ready_tagged_check()
     {
-        await using WebApplication app = ProbeHost(Environments.Production, withFailingReadyCheck: true);
+        await using var app = ProbeHost(Environments.Production, withFailingReadyCheck: true);
 
-        (int status, string body) = await CallAsync(app, AlivenessPath);
+        (var status, var body) = await CallAsync(app, AlivenessPath);
 
         status.ShouldBe(StatusCodes.Status200OK);
         body.ShouldBe("Healthy");
@@ -208,12 +208,12 @@ public class DefaultEndpointsTests
     [Fact]
     public async Task A_production_readiness_probe_answers_two_hundred_for_a_degraded_ready_tagged_check()
     {
-        await using WebApplication app = ProbeHost(
+        await using var app = ProbeHost(
             Environments.Production,
             withFailingReadyCheck: true,
             readyCheckFailureStatus: HealthStatus.Degraded);
 
-        (int status, string body) = await CallAsync(app, HealthPath);
+        (var status, var body) = await CallAsync(app, HealthPath);
 
         status.ShouldBe(StatusCodes.Status200OK);
         body.ShouldBe("Degraded");
@@ -224,7 +224,7 @@ public class DefaultEndpointsTests
         bool withFailingReadyCheck = false,
         HealthStatus readyCheckFailureStatus = HealthStatus.Unhealthy)
     {
-        WebApplicationBuilder builder = WebApplication.CreateBuilder(
+        var builder = WebApplication.CreateBuilder(
             new WebApplicationOptions { EnvironmentName = environmentName });
 
         builder.AddDefaultHealthChecks();
@@ -242,7 +242,7 @@ public class DefaultEndpointsTests
                     ["ready"]);
         }
 
-        WebApplication app = builder.Build();
+        var app = builder.Build();
         app.MapDefaultEndpoints();
 
         // WebApplicationOptions is applied after the ASPNETCORE_* configuration
@@ -284,16 +284,16 @@ public class DefaultEndpointsTests
     /// </summary>
     private static async Task<(int Status, string Body)> CallAsync(WebApplication app, string route)
     {
-        RouteEndpoint endpoint = EndpointFor(app, route);
+        var endpoint = EndpointFor(app, route);
 
-        await using AsyncServiceScope scope = app.Services.CreateAsyncScope();
+        await using var scope = app.Services.CreateAsyncScope();
         using MemoryStream body = new();
         DefaultHttpContext context = new() { RequestServices = scope.ServiceProvider };
         context.Request.Method = HttpMethods.Get;
         context.Request.Path = route;
         context.Response.Body = body;
 
-        RequestDelegate handler = endpoint.RequestDelegate
+        var handler = endpoint.RequestDelegate
             ?? throw new InvalidOperationException($"{route} is mapped but carries no request delegate.");
 
         await handler(context);

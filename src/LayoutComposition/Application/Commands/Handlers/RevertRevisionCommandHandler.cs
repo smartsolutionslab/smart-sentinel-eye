@@ -15,16 +15,16 @@ public sealed class RevertRevisionCommandHandler(
         RevertRevisionCommand command, CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier revertedBy, int expectedVersion) = command;
+        (var fabs, var layoutIdentifier, var revisionNumber, var revertedBy, var expectedVersion) = command;
 
-        Option<Layout> found = await layouts
+        var found = await layouts
             .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(RevertRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
-        Layout layout = found.Value;
+        var layout = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
         // has since moved. Checked before any mutation so nothing is applied
@@ -33,7 +33,7 @@ public sealed class RevertRevisionCommandHandler(
         {
             return Failure(RevertRevisionFailures.LayoutRevisionStale(layoutIdentifier.Value, expectedVersion, layout.Version));
         }
-        Revision? revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
+        var revision = layout.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
         if (revision is null)
         {
             return Failure(RevertRevisionFailures.LayoutRevisionNotFound(

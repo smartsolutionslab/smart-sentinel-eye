@@ -14,9 +14,9 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void A_quoted_tag_round_trips_the_version_it_was_formatted_from()
     {
-        HttpRequest request = RequestWith(ConcurrencyHeaders.ETag(42));
+        var request = RequestWith(ConcurrencyHeaders.ETag(42));
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out int version, out IResult? problem).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out var version, out var problem).ShouldBeTrue();
         version.ShouldBe(42);
         problem.ShouldBeNull();
     }
@@ -24,9 +24,9 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void An_unquoted_tag_is_accepted()
     {
-        HttpRequest request = RequestWith("42");
+        var request = RequestWith("42");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out int version, out _).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out var version, out _).ShouldBeTrue();
         version.ShouldBe(42);
     }
 
@@ -35,28 +35,28 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void Version_zero_is_a_valid_tag()
     {
-        HttpRequest request = RequestWith("\"0\"");
+        var request = RequestWith("\"0\"");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out int version, out _).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out var version, out _).ShouldBeTrue();
         version.ShouldBe(0);
     }
 
     [Fact]
     public void Surrounding_whitespace_is_tolerated()
     {
-        HttpRequest request = RequestWith("  \"9\"  ");
+        var request = RequestWith("  \"9\"  ");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out int version, out _).ShouldBeTrue();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out var version, out _).ShouldBeTrue();
         version.ShouldBe(9);
     }
 
     [Fact]
     public void A_missing_header_is_rejected_with_428_rather_than_defaulting()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
-        ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
+        var result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MissingErrorCode);
     }
@@ -64,9 +64,9 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void An_empty_header_is_treated_as_missing()
     {
-        HttpRequest request = RequestWith("   ");
+        var request = RequestWith("   ");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status428PreconditionRequired);
     }
@@ -77,10 +77,10 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void A_wildcard_is_rejected_because_it_would_bypass_the_check()
     {
-        HttpRequest request = RequestWith("*");
+        var request = RequestWith("*");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
-        ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
+        var result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MalformedErrorCode);
     }
@@ -88,9 +88,9 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void A_weak_tag_is_rejected_because_If_Match_requires_strong_comparison()
     {
-        HttpRequest request = RequestWith("W/\"4\"");
+        var request = RequestWith("W/\"4\"");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
@@ -98,9 +98,9 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void A_list_of_tags_in_one_value_is_rejected_as_ambiguous()
     {
-        HttpRequest request = RequestWith("\"4\", \"5\"");
+        var request = RequestWith("\"4\", \"5\"");
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
@@ -108,10 +108,10 @@ public class ConcurrencyHeadersTests
     [Fact]
     public void Repeated_headers_are_rejected_as_ambiguous()
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = new Microsoft.Extensions.Primitives.StringValues(["\"4\"", "\"5\""]);
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
         problem.ShouldBeOfType<ProblemHttpResult>()
             .StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
     }
@@ -124,17 +124,17 @@ public class ConcurrencyHeadersTests
     [InlineData("\"\"")]
     public void A_value_that_is_not_a_whole_version_number_is_rejected(string headerValue)
     {
-        HttpRequest request = RequestWith(headerValue);
+        var request = RequestWith(headerValue);
 
-        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out IResult? problem).ShouldBeFalse();
-        ProblemHttpResult result = problem.ShouldBeOfType<ProblemHttpResult>();
+        ConcurrencyHeaders.TryReadExpectedVersion(request, out _, out var problem).ShouldBeFalse();
+        var result = problem.ShouldBeOfType<ProblemHttpResult>();
         result.StatusCode.ShouldBe(StatusCodes.Status400BadRequest);
         result.ProblemDetails.Title.ShouldBe(ConcurrencyHeaders.MalformedErrorCode);
     }
 
     private static HttpRequest RequestWith(string ifMatch)
     {
-        HttpRequest request = new DefaultHttpContext().Request;
+        var request = new DefaultHttpContext().Request;
         request.Headers.IfMatch = ifMatch;
 
         return request;

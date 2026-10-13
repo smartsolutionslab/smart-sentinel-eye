@@ -28,7 +28,7 @@ public sealed class VariableValueRequestDedupStore(
             VALUES ({0}, {1}, {2}, NOW())
             ON CONFLICT (fab, variable_name, causing_event_identifier) DO NOTHING;
             """;
-        int rowsAffected = await dbContext.Database
+        var rowsAffected = await dbContext.Database
             .ExecuteSqlRawAsync(sql, [fab.Value, variableName, causingEventIdentifier], cancellationToken);
         return rowsAffected == 1;
     }

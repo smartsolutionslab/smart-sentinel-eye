@@ -392,11 +392,22 @@ deploy/helm/            One hand-written Mosquitto chart. The Aspire k8s
   gap: a local named after a *different* field of the same record fails
   the build. Renaming a local is fine — `Camera` → `cameraId` — as long
   as the new name isn't another field's.
-- **`var` is allowed anywhere.** Both spellings are legal; pick
-  whichever reads better at the call site. Neither IDE0007 nor
-  IDE0008 fires — the `csharp_style_var_*` keys are `true:silent`.
-  Prefer it where the right-hand side already names the type:
-  `var items = rows.Select(Map).ToArray();`.
+- **`var` wherever it compiles.** A local takes `var` whether or not the
+  right-hand side names the type: `var result = await handler.HandleAsync(...)`,
+  not `Result<OverlayRevisionNumber, PublishRevisionError> result = ...`.
+  `csharp_style_var_*` are `true:warning` (IDE0007), so an explicit type fails
+  the Release build. The type is still written out where `var` cannot express
+  it — collection expressions, target-typed `new()`, `default` — and the
+  analyzer does not flag those. Redundant `using`s are removed
+  (`dotnet format style --diagnostics IDE0005`); `ImplicitUsings` is on.
+- **Chain repeated calls on one receiver; one parameter per line when wrapping.**
+  DI registrations are one fluent chain
+  (`services.AddScoped<A>().AddScoped<B>();`), not a column of
+  `services.AddScoped<…>();`. A signature or call that does not fit on one
+  line puts every parameter/argument on its own line — never two to a line.
+  When a call's argument is itself a multi-line `new Command(...)`, hoist it
+  into a named local (`var publishRevisionCommand = new …`) first. Convention
+  only: no analyzer enforces either, so it applies to code you touch.
 - **Private fields carry no leading underscore** — `gate`, not
   `_gate`. Most types use primary constructors, so an explicit field
   is already the exception. Where a constructor parameter shares the

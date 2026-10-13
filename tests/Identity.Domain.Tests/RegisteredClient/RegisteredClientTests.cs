@@ -3,7 +3,6 @@ using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Identity.Domain.RegisteredClient.Events;
 using SmartSentinelEye.Identity.Domain.Tests.RegisteredClient.Fakes;
 using SmartSentinelEye.Shared.Kernel;
-using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Domain.Tests.RegisteredClient;
 
@@ -15,7 +14,7 @@ public class RegisteredClientTests
     [Fact]
     public void Register_starts_in_Active_and_raises_ClientRegisteredDomainEvent()
     {
-        RegisteredClientAggregate client = new RegisteredClientBuilder().WithClock(Created).Build();
+        var client = new RegisteredClientBuilder().WithClock(Created).Build();
 
         client.DisabledAt.ShouldBeNull();
         client.LastRotatedAt.ShouldBeNull();
@@ -30,9 +29,9 @@ public class RegisteredClientTests
     [Fact]
     public void Register_records_when_it_happened_and_who_did_it()
     {
-        OperatorIdentifier registeredBy = OperatorIdentifier.From(Guid.CreateVersion7());
+        var registeredBy = OperatorIdentifier.From(Guid.CreateVersion7());
 
-        RegisteredClientAggregate client = new RegisteredClientBuilder()
+        var client = new RegisteredClientBuilder()
             .WithClock(Created)
             .WithRegisteredBy(registeredBy)
             .Build();
@@ -44,10 +43,10 @@ public class RegisteredClientTests
     [Fact]
     public void Disable_stamps_DisabledAt_and_raises_ClientDisabledDomainEvent()
     {
-        RegisteredClientAggregate client = new RegisteredClientBuilder().WithClock(Created).Build();
+        var client = new RegisteredClientBuilder().WithClock(Created).Build();
         client.ClearPendingEvents();
 
-        DateTimeOffset disabledMoment = Created.AddHours(1);
+        var disabledMoment = Created.AddHours(1);
         client.Disable(new FakeClock(disabledMoment));
 
         client.DisabledAt!.Value.ShouldBe(disabledMoment);
@@ -57,7 +56,7 @@ public class RegisteredClientTests
     [Fact]
     public void Disable_is_idempotent_on_an_already_disabled_client()
     {
-        RegisteredClientAggregate client = new RegisteredClientBuilder().WithClock(Created).Build();
+        var client = new RegisteredClientBuilder().WithClock(Created).Build();
         client.Disable(new FakeClock(Created.AddHours(1)));
         client.ClearPendingEvents();
 
@@ -70,14 +69,14 @@ public class RegisteredClientTests
     [Fact]
     public void Rotate_on_a_webhook_integration_stamps_LastRotatedAt_and_raises_ClientRotatedDomainEvent()
     {
-        RegisteredClientAggregate client = new RegisteredClientBuilder()
+        var client = new RegisteredClientBuilder()
             .WithKind(ClientKind.WebhookIntegration)
             .WithClientId("webhook-qa")
             .WithClock(Created)
             .Build();
         client.ClearPendingEvents();
 
-        DateTimeOffset rotatedMoment = Created.AddHours(2);
+        var rotatedMoment = Created.AddHours(2);
         client.Rotate(new FakeClock(rotatedMoment));
 
         client.LastRotatedAt!.Value.ShouldBe(rotatedMoment);
@@ -89,7 +88,7 @@ public class RegisteredClientTests
     [InlineData("Kiosk")]
     public void Rotate_throws_on_non_webhook_clients(string kindValue)
     {
-        RegisteredClientAggregate client = new RegisteredClientBuilder()
+        var client = new RegisteredClientBuilder()
             .WithKind(ClientKind.From(kindValue))
             .WithClock(Created)
             .Build();
@@ -101,7 +100,7 @@ public class RegisteredClientTests
     [Fact]
     public void Rotate_throws_on_a_disabled_client()
     {
-        RegisteredClientAggregate client = new RegisteredClientBuilder()
+        var client = new RegisteredClientBuilder()
             .WithKind(ClientKind.WebhookIntegration)
             .WithClock(Created)
             .Build();

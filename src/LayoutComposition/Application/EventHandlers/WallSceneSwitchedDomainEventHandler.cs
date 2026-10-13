@@ -36,7 +36,7 @@ public sealed class WallSceneSwitchedDomainEventHandler(IEventBus events)
         Ensure.That(domainEvent).IsNotNull();
 
         var (fab, wall, previous, current, sceneVersion, cause, at) = domainEvent;
-        (string label, Guid? actor, Guid? rule, Guid? causingEvent) = Describe(cause);
+        (var label, var actor, var rule, var causingEvent) = Describe(cause);
 
         await events.PublishAsync(
             new WallSceneChangedV1(

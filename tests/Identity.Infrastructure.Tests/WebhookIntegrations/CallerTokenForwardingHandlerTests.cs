@@ -21,7 +21,7 @@ public class CallerTokenForwardingHandlerTests
         HttpContextAccessor accessor = new() { HttpContext = context };
 
         RecordingHandler downstream = new();
-        using HttpClient client = Compose(new CallerTokenForwardingHandler(accessor), downstream);
+        using var client = Compose(new CallerTokenForwardingHandler(accessor), downstream);
 
         await client.GetAsync("https://event-ingestion.test/webhook-integrations", CancellationToken.None);
 
@@ -42,7 +42,7 @@ public class CallerTokenForwardingHandlerTests
         HttpContextAccessor accessor = new();
 
         RecordingHandler downstream = new();
-        using HttpClient client = Compose(new CallerTokenForwardingHandler(accessor), downstream);
+        using var client = Compose(new CallerTokenForwardingHandler(accessor), downstream);
 
         await client.GetAsync("https://event-ingestion.test/webhook-integrations", CancellationToken.None);
 
@@ -58,7 +58,7 @@ public class CallerTokenForwardingHandlerTests
         HttpContextAccessor accessor = new() { HttpContext = context };
 
         RecordingHandler downstream = new();
-        using HttpClient client = Compose(new CallerTokenForwardingHandler(accessor), downstream);
+        using var client = Compose(new CallerTokenForwardingHandler(accessor), downstream);
 
         await client.GetAsync("https://event-ingestion.test/webhook-integrations", CancellationToken.None);
 

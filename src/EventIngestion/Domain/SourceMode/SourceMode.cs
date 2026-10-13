@@ -35,8 +35,8 @@ public sealed class SourceMode : AggregateRoot<SourceModeIdentifier>
         Ensure.That(mode).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        DateTimeOffset now = clock.UtcNow;
-        DeclaredAt declaredAt = DeclaredAt.From(now);
+        var now = clock.UtcNow;
+        var declaredAt = DeclaredAt.From(now);
         SourceMode sourceMode = new()
         {
             Id = SourceModeIdentifier.New(),
@@ -66,8 +66,8 @@ public sealed class SourceMode : AggregateRoot<SourceModeIdentifier>
             return; // idempotent
         }
 
-        EventTypeMode previousMode = Mode;
-        DateTimeOffset now = clock.UtcNow;
+        var previousMode = Mode;
+        var now = clock.UtcNow;
         Mode = mode;
         Declaration = Declaration.From(DeclaredAt.From(now), changedBy);
 
@@ -83,7 +83,7 @@ public sealed class SourceMode : AggregateRoot<SourceModeIdentifier>
     {
         Ensure.That(clock).IsNotNull();
 
-        DateTimeOffset now = clock.UtcNow;
+        var now = clock.UtcNow;
         Raise(new SourceModeUndeclaredDomainEvent(Id, Fab, Source, Mode, now, undeclaredBy));
     }
 }

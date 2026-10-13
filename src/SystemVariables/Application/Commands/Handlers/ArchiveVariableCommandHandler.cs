@@ -17,19 +17,19 @@ public sealed class ArchiveVariableCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (FabIdentifier? fab, VariableName? name, OperatorIdentifier archivedBy, int expectedVersion) = command;
+        (var fab, var name, var archivedBy, var expectedVersion) = command;
 
         // The fab check runs before the version comparison below, so the
         // concurrency layer never gets to reveal that another fab's variable
         // exists: a 409 here would distinguish it from a name that was never
         // used, which is what FR-009 forbids.
-        Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
+        var found = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ArchiveVariableFailures.VariableNotFound(name.Value));
         }
 
-        Variable variable = found.Value;
+        var variable = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the variable that
         // has since moved. Checked before any mutation so nothing is applied on

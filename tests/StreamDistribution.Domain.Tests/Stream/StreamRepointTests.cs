@@ -23,7 +23,7 @@ public class StreamRepointTests
     [MemberData(nameof(EveryLiveState))]
     public void A_stream_can_be_repointed_from_any_live_state(string from)
     {
-        Domain.Stream.Stream stream = InState(from);
+        var stream = InState(from);
 
         stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), Clock());
 
@@ -39,8 +39,8 @@ public class StreamRepointTests
     [Fact]
     public void Repointing_does_not_change_the_path_a_viewer_is_watching()
     {
-        Domain.Stream.Stream stream = InState("Healthy");
-        MediaMtxPath before = stream.Path;
+        var stream = InState("Healthy");
+        var before = stream.Path;
 
         stream.RepointTo(StreamSourceUrl.From(CorrectedUrl), Clock());
 
@@ -51,7 +51,7 @@ public class StreamRepointTests
     [Fact]
     public void Repointing_to_the_url_it_already_has_changes_nothing()
     {
-        Domain.Stream.Stream stream = InState("Healthy");
+        var stream = InState("Healthy");
 
         stream.RepointTo(StreamSourceUrl.From(OriginalUrl), Clock());
 
@@ -66,7 +66,7 @@ public class StreamRepointTests
     [Fact]
     public void A_retired_stream_refuses_to_be_repointed()
     {
-        Domain.Stream.Stream stream = InState("Healthy");
+        var stream = InState("Healthy");
         stream.Retire(Clock());
 
         Should.Throw<InvalidOperationException>(() =>
@@ -79,11 +79,11 @@ public class StreamRepointTests
 
     private static Domain.Stream.Stream InState(string state)
     {
-        Domain.Stream.Stream stream = new StreamBuilder()
+        var stream = new StreamBuilder()
             .WithSourceUrl(StreamSourceUrl.From(OriginalUrl))
             .Build();
 
-        FixedClock clock = Clock();
+        var clock = Clock();
 
         switch (state)
         {

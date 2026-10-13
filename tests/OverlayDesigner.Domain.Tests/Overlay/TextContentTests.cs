@@ -13,7 +13,7 @@ public class TextContentTests
     [Fact]
     public void From_accepts_a_normal_payload()
     {
-        TextContent content = TextContent.From("Production Line 1", 48);
+        var content = TextContent.From("Production Line 1", 48);
 
         content.Value.ShouldBe("Production Line 1");
         content.FontSizePx.ShouldBe(48);
@@ -22,7 +22,7 @@ public class TextContentTests
     [Fact]
     public void From_trims_text_whitespace()
     {
-        TextContent content = TextContent.From("  Padded  ", 16);
+        var content = TextContent.From("  Padded  ", 16);
         content.Value.ShouldBe("Padded");
     }
 
@@ -52,8 +52,8 @@ public class TextContentTests
     [Fact]
     public void Two_contents_with_the_same_payload_are_equal()
     {
-        TextContent a = TextContent.From("text", 24);
-        TextContent b = TextContent.From("text", 24);
+        var a = TextContent.From("text", 24);
+        var b = TextContent.From("text", 24);
         a.ShouldBe(b);
         a.GetHashCode().ShouldBe(b.GetHashCode());
     }

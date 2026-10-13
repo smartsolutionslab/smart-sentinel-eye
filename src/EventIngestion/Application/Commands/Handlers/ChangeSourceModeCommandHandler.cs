@@ -23,13 +23,13 @@ public sealed class ChangeSourceModeCommandHandler(
 
         var (fab, source, mode, expectedVersion, changedBy) = command;
 
-        Option<SourceMode> found = await sourceModes.GetAsync(fab, source, cancellationToken);
+        var found = await sourceModes.GetAsync(fab, source, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ChangeSourceModeFailures.SourceModeNotDeclared(fab.Value, source.Value));
         }
 
-        SourceMode sourceMode = found.Value;
+        var sourceMode = found.Value;
 
         if (sourceMode.Version != expectedVersion)
         {

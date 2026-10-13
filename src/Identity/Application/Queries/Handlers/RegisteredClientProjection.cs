@@ -2,7 +2,6 @@ using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.Identity.Application.DTOs;
 using SmartSentinelEye.Identity.Domain.RegisteredClient;
 using SmartSentinelEye.Shared.Kernel;
-using RegisteredClientAggregate = SmartSentinelEye.Identity.Domain.RegisteredClient.RegisteredClient;
 
 namespace SmartSentinelEye.Identity.Application.Queries.Handlers;
 
@@ -24,7 +23,7 @@ internal static class RegisteredClientProjection
     {
         Ensure.That(fabs).IsNotNull();
 
-        IQueryable<RegisteredClientAggregate> query = source.RegisteredClients
+        var query = source.RegisteredClients
             .Where(client => client.Kind == kind && fabs.Contains(client.Fab));
 
         return await query

@@ -61,7 +61,7 @@ internal sealed class MqttConnectionLoop
     /// </summary>
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        IMqttClient client = connection.Client;
+        var client = connection.Client;
 
         try
         {
@@ -92,7 +92,7 @@ internal sealed class MqttConnectionLoop
     /// </summary>
     private async Task AttemptAsync(IMqttClient client, CancellationToken cancellationToken)
     {
-        TimeSpan delay = backoff.Next();
+        var delay = backoff.Next();
         if (delay > TimeSpan.Zero)
         {
             logger.MqttSubscriberRetryScheduled(delay.TotalSeconds, backoff.Attempt);
@@ -120,7 +120,7 @@ internal sealed class MqttConnectionLoop
             return;
         }
 
-        long connectedAt = Stopwatch.GetTimestamp();
+        var connectedAt = Stopwatch.GetTimestamp();
         logger.MqttSubscriberConnected(Broker(), options.Username);
 
         if (!await SubscribeAsync(client, cancellationToken))
@@ -170,7 +170,7 @@ internal sealed class MqttConnectionLoop
             // every refusal an Information line saying the subscriber was
             // connected, which during an outage is the only signal an operator
             // has and says the opposite of what happened.
-            MqttClientConnectResult result =
+            var result =
                 await client.ConnectAsync(connection.Options, cancellationToken);
 
             if (result.ResultCode == MqttClientConnectResultCode.Success)
@@ -230,7 +230,7 @@ internal sealed class MqttConnectionLoop
     /// </summary>
     private async Task<bool> SubscribeAsync(IMqttClient client, CancellationToken cancellationToken)
     {
-        string topic = options.SubscribeTopic;
+        var topic = options.SubscribeTopic;
         try
         {
             await client.SubscribeAsync(topic, MqttQualityOfServiceLevel.AtLeastOnce, cancellationToken);
@@ -364,7 +364,7 @@ internal sealed class MqttBackoff
             return servedDelay;
         }
 
-        double seconds = Math.Min(first.TotalSeconds * Math.Pow(2, attempts - 2), cap.TotalSeconds);
+        var seconds = Math.Min(first.TotalSeconds * Math.Pow(2, attempts - 2), cap.TotalSeconds);
         servedDelay = TimeSpan.FromSeconds(seconds * Jitter());
         return servedDelay;
     }
@@ -403,7 +403,7 @@ internal sealed class MqttBackoff
     /// </summary>
     public void ResetIfHeld(TimeSpan held)
     {
-        TimeSpan yardstick = (servedDelay > TimeSpan.Zero ? servedDelay : first) * 2;
+        var yardstick = (servedDelay > TimeSpan.Zero ? servedDelay : first) * 2;
 
         if (held >= yardstick)
         {

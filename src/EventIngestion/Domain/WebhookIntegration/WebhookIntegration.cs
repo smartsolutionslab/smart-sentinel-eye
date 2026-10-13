@@ -73,8 +73,8 @@ public sealed class WebhookIntegration : AggregateRoot<WebhookIntegrationIdentif
         Ensure.That(defaultKind).IsNotNull();
         Ensure.That(clock).IsNotNull();
 
-        (BearerTokenHash hash, string plaintext) = BearerTokenHash.Generate();
-        DateTimeOffset now = clock.UtcNow;
+        (var hash, var plaintext) = BearerTokenHash.Generate();
+        var now = clock.UtcNow;
         WebhookIntegration integration = new()
         {
             Id = WebhookIntegrationIdentifier.New(),

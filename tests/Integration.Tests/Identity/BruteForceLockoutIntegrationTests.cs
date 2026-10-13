@@ -74,10 +74,10 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_fresh_account_authenticates_with_its_correct_password()
     {
-        (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
+        (var username, var id) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
-            using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
+            using var response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
@@ -109,16 +109,16 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task The_correct_password_is_refused_after_too_many_wrong_ones()
     {
-        (string username, string id, int failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
+        (var username, var id, var failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
         try
         {
-            using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
-            string body = await response.Content.ReadAsStringAsync();
+            using var response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
+            var body = await response.Content.ReadAsStringAsync();
 
-            using JsonDocument document = JsonDocument.Parse(body);
-            bool hasAccessToken = document.RootElement.TryGetProperty("access_token", out _);
-            bool hasError = document.RootElement.TryGetProperty("error", out JsonElement error);
-            string? errorValue = hasError ? error.GetString() : null;
+            using var document = JsonDocument.Parse(body);
+            var hasAccessToken = document.RootElement.TryGetProperty("access_token", out _);
+            var hasError = document.RootElement.TryGetProperty("error", out var error);
+            var errorValue = hasError ? error.GetString() : null;
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.BadRequest,
@@ -157,15 +157,15 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Keycloak_records_the_account_as_temporarily_disabled()
     {
-        (string username, string id, int failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
+        (var username, var id, var failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+            using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            var attackDetection = await RealmProbe.ReadJsonAsync(
                 admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", CancellationToken.None);
 
-            bool disabled = attackDetection.GetProperty("disabled").GetBoolean();
-            int numFailures = attackDetection.GetProperty("numFailures").GetInt32();
+            var disabled = attackDetection.GetProperty("disabled").GetBoolean();
+            var numFailures = attackDetection.GetProperty("numFailures").GetInt32();
 
             disabled.ShouldBeTrue(
                 $"Keycloak's attack-detection record for '{username}' should report the account as "
@@ -191,10 +191,10 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_second_account_is_unaffected_while_the_first_is_locked()
     {
-        (string username, string id, int failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
+        (var username, var id, var failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
         try
         {
-            using HttpResponseMessage response = await RequestTokenAsync(
+            using var response = await RequestTokenAsync(
                 SecondAccountUsername, SecondAccountPassword, CancellationToken.None);
 
             response.StatusCode.ShouldBe(
@@ -229,10 +229,10 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task Clearing_the_lockout_restores_authentication()
     {
-        (string username, string id, int failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
+        (var username, var id, var failureFactor) = await CreateAndLockProbeAsync(CancellationToken.None);
         try
         {
-            using (HttpResponseMessage stillLocked = await RequestTokenAsync(username, ProbePassword, CancellationToken.None))
+            using (var stillLocked = await RequestTokenAsync(username, ProbePassword, CancellationToken.None))
             {
                 stillLocked.StatusCode.ShouldBe(
                     HttpStatusCode.BadRequest,
@@ -241,15 +241,15 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
                     + $"to have done anything. status: {(int)stillLocked.StatusCode}");
             }
 
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            HttpResponseMessage cleared = await admin.DeleteAsync(
+            using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            var cleared = await admin.DeleteAsync(
                 $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", CancellationToken.None);
             cleared.IsSuccessStatusCode.ShouldBeTrue(
                 $"clearing the attack-detection record for '{username}' answered "
                 + $"{(int)cleared.StatusCode}; without it this test cannot tell recovery from a lock "
                 + "that happened to have already expired.");
 
-            using HttpResponseMessage response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
+            using var response = await RequestTokenAsync(username, ProbePassword, CancellationToken.None);
 
             response.StatusCode.ShouldBe(
                 HttpStatusCode.OK,
@@ -283,13 +283,13 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_grant_with_no_username_is_a_bad_request_not_a_lockout()
     {
-        (string username, string id) = await CreateProbeUserAsync(CancellationToken.None);
+        (var username, var id) = await CreateProbeUserAsync(CancellationToken.None);
         try
         {
-            using HttpClient admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
-            int failuresBefore = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
+            using var admin = await realm.AuthorisedAdminClientAsync(CancellationToken.None);
+            var failuresBefore = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
 
-            using HttpClient keycloak = aspire.CreateKeycloakClient();
+            using var keycloak = aspire.CreateKeycloakClient();
             Dictionary<string, string> form = new()
             {
                 ["grant_type"] = "password",
@@ -297,11 +297,11 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
                 ["password"] = ProbePassword,
                 ["scope"] = "openid",
             };
-            using HttpResponseMessage response = await keycloak.PostAsync(
+            using var response = await keycloak.PostAsync(
                 $"/realms/{RealmProbe.Realm}/protocol/openid-connect/token",
                 new FormUrlEncodedContent(form),
                 CancellationToken.None);
-            string body = await response.Content.ReadAsStringAsync();
+            var body = await response.Content.ReadAsStringAsync();
 
             // Keycloak 26.6.4 answers this specific shape with 401, not the
             // RFC 6749 §5.2 400 the "invalid_request" body would suggest —
@@ -313,15 +313,15 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
                 HttpStatusCode.Unauthorized,
                 $"a grant with no username at all should be refused, not silently accepted. body: {body}");
 
-            using JsonDocument document = JsonDocument.Parse(body);
-            document.RootElement.TryGetProperty("error", out JsonElement error).ShouldBeTrue(
+            using var document = JsonDocument.Parse(body);
+            document.RootElement.TryGetProperty("error", out var error).ShouldBeTrue(
                 $"the refusal body should name an OAuth error. body: {body}");
             error.GetString().ShouldBe(
                 "invalid_request",
                 $"a missing username must be diagnosed as a bad request, not a lockout ('invalid_grant' "
                 + $"is what a lockout answers with). body: {body}");
 
-            int failuresAfter = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
+            var failuresAfter = await ReadAttackDetectionFailureCountAsync(admin, id, CancellationToken.None);
             failuresAfter.ShouldBe(
                 failuresBefore,
                 $"a malformed grant carrying no username must not move '{username}''s failure counter. "
@@ -344,12 +344,12 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     private async Task<(string Username, string Id, int FailureFactor)> CreateAndLockProbeAsync(
         CancellationToken cancellationToken)
     {
-        (string username, string id) = await CreateProbeUserAsync(cancellationToken);
-        int failureFactor = await ReadFailureFactorAsync(cancellationToken);
+        (var username, var id) = await CreateProbeUserAsync(cancellationToken);
+        var failureFactor = await ReadFailureFactorAsync(cancellationToken);
 
-        for (int attempt = 1; attempt <= failureFactor + 1; attempt++)
+        for (var attempt = 1; attempt <= failureFactor + 1; attempt++)
         {
-            using HttpResponseMessage wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
+            using var wrong = await RequestTokenAsync(username, WrongPassword, cancellationToken);
             wrong.IsSuccessStatusCode.ShouldBeFalse(
                 $"wrong-password grant #{attempt} of {failureFactor + 1} for '{username}' unexpectedly "
                 + "succeeded; the throwaway account's password should never be "
@@ -386,11 +386,11 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<int> ReadFailureFactorAsync(CancellationToken cancellationToken)
     {
-        using HttpClient admin = await MasterRealmAdminClientAsync(cancellationToken);
-        JsonElement representation = await RealmProbe.ReadJsonAsync(
+        using var admin = await MasterRealmAdminClientAsync(cancellationToken);
+        var representation = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{RealmProbe.Realm}", cancellationToken);
 
-        representation.TryGetProperty("failureFactor", out JsonElement failureFactor).ShouldBeTrue(
+        representation.TryGetProperty("failureFactor", out var failureFactor).ShouldBeTrue(
             $"the master-realm admin-cli read of 'admin/realms/{RealmProbe.Realm}' did not include "
             + "'failureFactor' at all — this path exists specifically to avoid identity-admin's "
             + $"silent, partial read (no view-realm role), so a missing field here is a real finding, "
@@ -410,7 +410,7 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<HttpClient> MasterRealmAdminClientAsync(CancellationToken cancellationToken)
     {
-        using HttpClient tokenClient = aspire.CreateKeycloakClient();
+        using var tokenClient = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",
@@ -419,19 +419,19 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
             ["password"] = MasterRealmAdminPassword,
         };
 
-        using HttpResponseMessage response = await tokenClient.PostAsync(
+        using var response = await tokenClient.PostAsync(
             "/realms/master/protocol/openid-connect/token",
             new FormUrlEncodedContent(form),
             cancellationToken);
-        string body = await response.Content.ReadAsStringAsync(cancellationToken);
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
         response.IsSuccessStatusCode.ShouldBeTrue(
             $"minting a master-realm admin-cli token failed with {(int)response.StatusCode}; without "
             + $"it ReadFailureFactorAsync cannot read the realm's real failureFactor. body: {body}");
 
-        using JsonDocument document = JsonDocument.Parse(body);
-        string token = document.RootElement.GetProperty("access_token").GetString()!;
+        using var document = JsonDocument.Parse(body);
+        var token = document.RootElement.GetProperty("access_token").GetString()!;
 
-        HttpClient admin = aspire.CreateKeycloakClient();
+        var admin = aspire.CreateKeycloakClient();
         admin.DefaultRequestHeaders.Authorization = new("Bearer", token);
         return admin;
     }
@@ -444,7 +444,7 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     private static async Task<int> ReadAttackDetectionFailureCountAsync(
         HttpClient admin, string id, CancellationToken cancellationToken)
     {
-        JsonElement attackDetection = await RealmProbe.ReadJsonAsync(
+        var attackDetection = await RealmProbe.ReadJsonAsync(
             admin, $"admin/realms/{RealmProbe.Realm}/attack-detection/brute-force/users/{id}", cancellationToken);
         return attackDetection.GetProperty("numFailures").GetInt32();
     }
@@ -469,10 +469,10 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task<(string Username, string Id)> CreateProbeUserAsync(CancellationToken cancellationToken)
     {
-        string username = $"lockout-probe-{Guid.NewGuid():N}";
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        var username = $"lockout-probe-{Guid.NewGuid():N}";
+        using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
 
-        HttpResponseMessage created = await admin.PostAsJsonAsync(
+        var created = await admin.PostAsJsonAsync(
             $"admin/realms/{RealmProbe.Realm}/users",
             new
             {
@@ -489,8 +489,8 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
             + $"without it every assertion below proves nothing. body: "
             + $"{await created.Content.ReadAsStringAsync(cancellationToken)}");
 
-        string location = created.Headers.Location!.ToString();
-        string id = location[(location.LastIndexOf('/') + 1)..];
+        var location = created.Headers.Location!.ToString();
+        var id = location[(location.LastIndexOf('/') + 1)..];
 
         // From here on the user exists in the realm even though setup has
         // not finished. If the reset-password call throws — a network
@@ -499,7 +499,7 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
         // way out instead of leaking it the way #2166 leaked clients.
         try
         {
-            HttpResponseMessage resetPassword = await admin.PutAsJsonAsync(
+            var resetPassword = await admin.PutAsJsonAsync(
                 $"admin/realms/{RealmProbe.Realm}/users/{id}/reset-password",
                 new { type = "password", value = ProbePassword, temporary = false },
                 cancellationToken);
@@ -526,8 +526,8 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     /// </summary>
     private async Task DeleteProbeUserAsync(string id, CancellationToken cancellationToken)
     {
-        using HttpClient admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
-        HttpResponseMessage deleted = await admin.DeleteAsync(
+        using var admin = await realm.AuthorisedAdminClientAsync(cancellationToken);
+        var deleted = await admin.DeleteAsync(
             $"admin/realms/{RealmProbe.Realm}/users/{id}", cancellationToken);
 
         deleted.IsSuccessStatusCode.ShouldBeTrue(
@@ -544,7 +544,7 @@ public class BruteForceLockoutIntegrationTests(AspireFixture aspire)
     private async Task<HttpResponseMessage> RequestTokenAsync(
         string username, string password, CancellationToken cancellationToken)
     {
-        using HttpClient keycloak = aspire.CreateKeycloakClient();
+        using var keycloak = aspire.CreateKeycloakClient();
         Dictionary<string, string> form = new()
         {
             ["grant_type"] = "password",

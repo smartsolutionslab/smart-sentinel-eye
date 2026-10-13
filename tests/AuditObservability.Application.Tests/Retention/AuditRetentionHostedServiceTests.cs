@@ -40,7 +40,7 @@ public class AuditRetentionHostedServiceTests
         FakeAuditChunkInventory? inventory = null,
         RecordingJourneyOrigin? journeys = null)
     {
-        FakeAuditChunkInventory chunkInventory = inventory ?? new FakeAuditChunkInventory(chunks);
+        var chunkInventory = inventory ?? new FakeAuditChunkInventory(chunks);
 
         // Mirror production: the worker is a singleton that resolves its
         // scoped collaborators from a scope factory, so feed the fakes
@@ -57,7 +57,7 @@ public class AuditRetentionHostedServiceTests
         // it flushes the outbox itself — there is no commit for the announcement
         // to ride on. Without this the sweep resolves nothing and throws.
         services.AddScoped<ITransactionalCommit>(_ => new RecordingCommit());
-        ServiceProvider provider = services.BuildServiceProvider();
+        var provider = services.BuildServiceProvider();
 
         return new AuditRetentionHostedService(
             provider.GetRequiredService<IServiceScopeFactory>(),
@@ -71,14 +71,14 @@ public class AuditRetentionHostedServiceTests
     [Fact]
     public async Task Archives_then_drops_each_stale_chunk_and_publishes_V1()
     {
-        AuditChunk stale1 = StaleChunk();
-        AuditChunk stale2 = StaleChunk(120);
-        AuditChunk fresh = FreshChunk();
+        var stale1 = StaleChunk();
+        var stale2 = StaleChunk(120);
+        var fresh = FreshChunk();
         FakeAuditChunkInventory inventory = new([stale1, stale2, fresh]);
         FakeAuditChunkArchiver archiver = new();
         FakeBus bus = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [], archiver: archiver, bus: bus, inventory: inventory);
 
         await worker.RunOnceAsync(default);
@@ -93,12 +93,12 @@ public class AuditRetentionHostedServiceTests
     [Fact]
     public async Task Re_run_after_a_successful_pass_is_a_no_op()
     {
-        AuditChunk stale = StaleChunk();
+        var stale = StaleChunk();
         FakeAuditChunkInventory inventory = new([stale]);
         FakeAuditChunkArchiver archiver = new();
         FakeBus bus = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [], archiver: archiver, bus: bus, inventory: inventory);
 
         await worker.RunOnceAsync(default);
@@ -114,7 +114,7 @@ public class AuditRetentionHostedServiceTests
     [Fact]
     public async Task Archiver_failure_leaves_the_chunk_in_place_for_next_sweep()
     {
-        AuditChunk stale = StaleChunk();
+        var stale = StaleChunk();
         FakeAuditChunkInventory inventory = new([stale]);
         FakeAuditChunkArchiver archiver = new()
         {
@@ -122,7 +122,7 @@ public class AuditRetentionHostedServiceTests
         };
         FakeBus bus = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [], archiver: archiver, bus: bus, inventory: inventory);
 
         await worker.RunOnceAsync(default);
@@ -156,7 +156,7 @@ public class AuditRetentionHostedServiceTests
         RecordingJourneyOrigin journeys = new();
         OpenJourneyRecordingBus bus = new(journeys);
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [StaleChunk()],
             archiver: new FakeAuditChunkArchiver(),
             bus: bus,
@@ -186,7 +186,7 @@ public class AuditRetentionHostedServiceTests
         FakeAuditChunkArchiver archiver = new();
         FakeBus bus = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [StaleChunk(), StaleChunk(), StaleChunk()],
             archiver: archiver,
             bus: bus,
@@ -220,7 +220,7 @@ public class AuditRetentionHostedServiceTests
         FakeAuditChunkArchiver archiver = new();
         FakeBus bus = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [StaleChunk(), StaleChunk(), StaleChunk()],
             archiver: archiver,
             bus: bus);
@@ -244,7 +244,7 @@ public class AuditRetentionHostedServiceTests
         RecordingJourneyOrigin journeys = new();
         FakeBus bus = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [FreshChunk(daysOld: 1)],
             archiver: new FakeAuditChunkArchiver(),
             bus: bus,
@@ -268,7 +268,7 @@ public class AuditRetentionHostedServiceTests
         InvalidOperationException refused = new("blob storage down");
         FakeAuditChunkArchiver archiver = new() { FailNextCall = refused };
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [StaleChunk()],
             archiver: archiver,
             bus: new FakeBus(),
@@ -288,7 +288,7 @@ public class AuditRetentionHostedServiceTests
     {
         RecordingJourneyOrigin journeys = new();
 
-        AuditRetentionHostedService worker = Build(
+        var worker = Build(
             chunks: [StaleChunk()],
             archiver: new FakeAuditChunkArchiver(),
             bus: new FakeBus(),

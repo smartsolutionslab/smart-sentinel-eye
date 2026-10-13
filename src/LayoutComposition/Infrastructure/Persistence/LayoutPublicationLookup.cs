@@ -21,7 +21,7 @@ public sealed class LayoutPublicationLookup(LayoutCompositionDbContext dbContext
         Ensure.That(fab).IsNotNull();
 
         LayoutIdentifier[] ids = [.. candidates];
-        List<LayoutIdentifier> published = await dbContext.Layouts
+        var published = await dbContext.Layouts
             .AsNoTracking()
             .Where(layout => ids.Contains(layout.Id) && layout.Fab == fab)
             .Where(layout => layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))

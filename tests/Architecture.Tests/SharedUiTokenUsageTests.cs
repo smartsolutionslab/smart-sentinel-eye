@@ -100,10 +100,10 @@ public class SharedUiTokenUsageTests
     [Fact]
     public void Each_carve_out_still_exists_and_still_violates()
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         List<string> problems = [];
 
-        foreach ((string relativePath, string reason) in CarveOuts)
+        foreach ((var relativePath, var reason) in CarveOuts)
         {
             // #2342's own four entries have all been removed (spec 293) — this
             // now checks the shape a future carve-out must follow, not a fixed
@@ -111,15 +111,15 @@ public class SharedUiTokenUsageTests
             IssueReference.IsMatch(reason).ShouldBeTrue(
                 $"{relativePath}'s carve-out entry must name the issue that owns converting it (e.g. #1234).");
 
-            string path = Path.Combine(root.FullName, relativePath);
+            var path = Path.Combine(root.FullName, relativePath);
             if (!File.Exists(path))
             {
                 problems.Add($"{relativePath} no longer exists — remove it from the carve-out list.");
                 continue;
             }
 
-            string literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
-            bool stillViolates = StockPaletteUtility.IsMatch(literalContent)
+            var literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
+            var stillViolates = StockPaletteUtility.IsMatch(literalContent)
                 || CallSiteAlphaOnSemantic.IsMatch(literalContent)
                 || ColourLiteral.IsMatch(literalContent);
 
@@ -137,20 +137,20 @@ public class SharedUiTokenUsageTests
 
     private static void AssertNoneOutsideCarveOuts(Regex rule, string description)
     {
-        DirectoryInfo root = RepositorySource.Root();
+        var root = RepositorySource.Root();
         HashSet<string> carveOutPaths = [.. CarveOuts.Select(carveOut => carveOut.RelativePath)];
 
         List<string> violators = [];
 
-        foreach (string relativePath in ScannedFiles(root))
+        foreach (var relativePath in ScannedFiles(root))
         {
             if (carveOutPaths.Contains(relativePath))
             {
                 continue;
             }
 
-            string path = Path.Combine(root.FullName, relativePath);
-            string literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
+            var path = Path.Combine(root.FullName, relativePath);
+            var literalContent = TypeScriptSource.StringLiteralContent(File.ReadAllText(path));
 
             if (rule.IsMatch(literalContent))
             {
@@ -166,16 +166,16 @@ public class SharedUiTokenUsageTests
 
     private static IEnumerable<string> ScannedFiles(DirectoryInfo root)
     {
-        string full = Path.Combine(root.FullName, SharedUiRoot);
+        var full = Path.Combine(root.FullName, SharedUiRoot);
 
-        foreach (string file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
+        foreach (var file in Directory.EnumerateFiles(full, "*", SearchOption.AllDirectories))
         {
             if (!file.EndsWith(".ts", StringComparison.Ordinal) && !file.EndsWith(".tsx", StringComparison.Ordinal))
             {
                 continue;
             }
 
-            string relative = RepositorySource.RelativePath(root, file);
+            var relative = RepositorySource.RelativePath(root, file);
 
             if (relative.Contains(".test.", StringComparison.Ordinal))
             {

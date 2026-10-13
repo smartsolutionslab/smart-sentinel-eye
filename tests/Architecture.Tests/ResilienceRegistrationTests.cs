@@ -93,7 +93,7 @@ public class ResilienceRegistrationTests
     [Fact]
     public void The_standard_resilience_handler_is_called_exactly_once_across_src()
     {
-        string[] callers = ReadSources(SourceTree)
+        var callers = ReadSources(SourceTree)
             .Where(file => CodeLines(file.Value).Any(line => line.Contains(Registration, StringComparison.Ordinal)))
             .Select(file => file.Key)
             .OrderBy(path => path, StringComparer.Ordinal)
@@ -119,12 +119,12 @@ public class ResilienceRegistrationTests
     [Fact]
     public void The_one_registration_is_the_one_that_reaches_every_client()
     {
-        string extensions = ReadSources(SourceTree)[SoleRegistrationSite];
+        var extensions = ReadSources(SourceTree)[SoleRegistrationSite];
 
         string[] code = [.. CodeLines(extensions)];
 
-        int defaults = Array.FindIndex(code, line => line.Contains("ConfigureHttpClientDefaults", StringComparison.Ordinal));
-        int resilience = Array.FindIndex(code, line => line.Contains(Registration, StringComparison.Ordinal));
+        var defaults = Array.FindIndex(code, line => line.Contains("ConfigureHttpClientDefaults", StringComparison.Ordinal));
+        var resilience = Array.FindIndex(code, line => line.Contains(Registration, StringComparison.Ordinal));
 
         defaults.ShouldBeGreaterThanOrEqualTo(0,
             "AddServiceDefaults is expected to configure HttpClient defaults; without "
@@ -149,7 +149,7 @@ public class ResilienceRegistrationTests
     [Fact]
     public void No_client_caps_the_resilience_pipeline_with_its_own_timeout()
     {
-        (string File, string Line)[] finite = ReadSources(SourceTree)
+        var finite = ReadSources(SourceTree)
             .SelectMany(file => CodeLines(file.Value).Select(line => (File: file.Key, Line: line.Trim())))
             .Where(entry => entry.Line.Contains(".Timeout = ", StringComparison.Ordinal))
             .Where(entry => !entry.Line.Contains("Timeout.InfiniteTimeSpan", StringComparison.Ordinal))
@@ -187,9 +187,9 @@ public class ResilienceRegistrationTests
     [Fact]
     public void Every_resilience_registration_under_the_tests_declares_the_predicate()
     {
-        Dictionary<string, string> sources = ReadSources(TestTree);
+        var sources = ReadSources(TestTree);
 
-        bool wired = sources.TryGetValue(FixtureWiringSite, out string? fixture)
+        var wired = sources.TryGetValue(FixtureWiringSite, out var fixture)
             && CodeLines(fixture).Any(line => line.Contains(FixtureWiring, StringComparison.Ordinal));
 
         wired.ShouldBeTrue(
@@ -275,7 +275,7 @@ public class ResilienceRegistrationTests
     /// </summary>
     private static bool Mentions(string line, string token)
     {
-        int at = line.IndexOf(token, StringComparison.Ordinal);
+        var at = line.IndexOf(token, StringComparison.Ordinal);
 
         return at >= 0 && !IsComment(line) && !IsQuoted(line, at);
     }
@@ -314,11 +314,11 @@ public class ResilienceRegistrationTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string scanned = Path.Combine(root.FullName, tree);
+        var scanned = Path.Combine(root.FullName, tree);
         return Directory.EnumerateFiles(scanned, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))

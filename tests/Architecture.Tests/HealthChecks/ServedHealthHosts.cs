@@ -50,7 +50,7 @@ internal static class ServedHealthHosts
     public static TheoryData<string> AllHosts()
     {
         TheoryData<string> data = [];
-        foreach (Host host in Hosts)
+        foreach (var host in Hosts)
         {
             data.Add(host.AssemblyName);
         }
@@ -69,9 +69,9 @@ internal static class ServedHealthHosts
     private static Dictionary<string, string?> BuildConfiguration()
     {
         Dictionary<string, string?> configuration = [];
-        foreach (string contextName in PostgresComposition.ContextNames)
+        foreach (var contextName in PostgresComposition.ContextNames)
         {
-            foreach (KeyValuePair<string, string?> entry in PostgresComposition.ConfigurationFor(contextName))
+            foreach (var entry in PostgresComposition.ConfigurationFor(contextName))
             {
                 configuration[entry.Key] = entry.Value;
             }

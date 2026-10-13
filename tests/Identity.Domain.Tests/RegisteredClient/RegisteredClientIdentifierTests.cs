@@ -7,7 +7,7 @@ public class RegisteredClientIdentifierTests
     [Fact]
     public void New_mints_a_Guid_v7_identifier()
     {
-        RegisteredClientIdentifier id = RegisteredClientIdentifier.New();
+        var id = RegisteredClientIdentifier.New();
         id.Value.ShouldNotBe(Guid.Empty);
         id.Value.Version.ShouldBe(7);
     }
@@ -22,7 +22,7 @@ public class RegisteredClientIdentifierTests
     [Fact]
     public void From_round_trips_a_valid_guid()
     {
-        Guid guid = Guid.CreateVersion7();
+        var guid = Guid.CreateVersion7();
         RegisteredClientIdentifier.From(guid).Value.ShouldBe(guid);
     }
 }

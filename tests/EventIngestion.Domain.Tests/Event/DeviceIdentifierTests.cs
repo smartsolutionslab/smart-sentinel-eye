@@ -12,7 +12,7 @@ public class DeviceIdentifierTests
     [InlineData("a")]
     public void Accepts_well_formed_identifiers(string raw)
     {
-        DeviceIdentifier device = DeviceIdentifier.From(raw);
+        var device = DeviceIdentifier.From(raw);
         device.Value.ShouldBe(raw);
     }
 

@@ -14,7 +14,7 @@ public sealed class ListWebhookClientsQueryHandler(IRegisteredClientQuerySource 
     {
         Ensure.That(query).IsNotNull();
 
-        IReadOnlyList<RegisteredClientSummaryDto> webhooks = await RegisteredClientProjection.ListAsync(
+        var webhooks = await RegisteredClientProjection.ListAsync(
             clients, ClientKind.WebhookIntegration, query.Fabs, cancellationToken);
 
         return Success(webhooks);

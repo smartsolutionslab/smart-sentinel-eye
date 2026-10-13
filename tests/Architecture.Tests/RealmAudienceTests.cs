@@ -46,7 +46,7 @@ public class RealmAudienceTests
     [Fact]
     public void The_realm_defines_an_audience_scope()
     {
-        JsonElement scope = ScopeNamed(AudienceScope);
+        var scope = ScopeNamed(AudienceScope);
 
         scope.ValueKind.ShouldBe(JsonValueKind.Object,
             $"the realm should define '{AudienceScope}'");
@@ -63,11 +63,11 @@ public class RealmAudienceTests
     [Fact]
     public void The_audience_scope_names_this_products_api()
     {
-        JsonElement scope = ScopeNamed(AudienceScope);
+        var scope = ScopeNamed(AudienceScope);
         scope.ValueKind.ShouldBe(JsonValueKind.Object,
             $"the realm should define '{AudienceScope}'");
 
-        JsonElement config = scope
+        var config = scope
             .GetProperty("protocolMappers").EnumerateArray()
             .Single(mapper => mapper.GetProperty("protocolMapper").GetString() == AudienceMapper)
             .GetProperty("config");
@@ -86,7 +86,7 @@ public class RealmAudienceTests
     [Fact]
     public void Every_client_holds_the_audience_scope()
     {
-        foreach (JsonElement client in Clients())
+        foreach (var client in Clients())
         {
             DefaultScopesOf(client).ShouldContain(AudienceScope,
                 customMessage: $"client '{ClientIdOf(client)}' mints tokens that do not name the "
@@ -106,7 +106,7 @@ public class RealmAudienceTests
     [Fact]
     public void No_client_carries_a_private_audience_mapper()
     {
-        foreach (JsonElement client in Clients())
+        foreach (var client in Clients())
         {
             client.TryGetProperty("protocolMappers", out _).ShouldBeFalse(
                 customMessage: $"client '{ClientIdOf(client)}' carries its own protocol mapper. "
@@ -145,11 +145,11 @@ public class RealmAudienceTests
             candidate = candidate.Parent;
         }
 
-        DirectoryInfo root = candidate
+        var root = candidate
             ?? throw new InvalidOperationException(
                 $"could not locate the repository root above {AppContext.BaseDirectory}");
 
-        string path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
+        var path = Path.Combine(root.FullName, "src", "AppHost", "Realms", "smart-sentinel-eye-realm.json");
         File.Exists(path).ShouldBeTrue($"the realm should be at {path}");
         return JsonDocument.Parse(File.ReadAllText(path));
     }

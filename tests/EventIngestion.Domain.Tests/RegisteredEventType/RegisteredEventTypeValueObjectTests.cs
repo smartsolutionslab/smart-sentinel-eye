@@ -46,7 +46,7 @@ public class RegisteredEventTypeValueObjectTests
     {
         DateTimeOffset nonUtc = new(2026, 5, 28, 10, 14, 33, TimeSpan.FromHours(2));
 
-        RegisteredAt at = RegisteredAt.From(nonUtc);
+        var at = RegisteredAt.From(nonUtc);
 
         at.Value.Offset.ShouldBe(TimeSpan.Zero, "a non-UTC instant must come back UTC");
         at.Value.ShouldBe(nonUtc.ToUniversalTime());
@@ -60,8 +60,8 @@ public class RegisteredEventTypeValueObjectTests
     [Fact]
     public void RegisteredAt_orders_by_instant()
     {
-        RegisteredAt earlier = RegisteredAt.From(Now);
-        RegisteredAt later = RegisteredAt.From(Now.AddMinutes(1));
+        var earlier = RegisteredAt.From(Now);
+        var later = RegisteredAt.From(Now.AddMinutes(1));
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         (earlier < later).ShouldBeTrue();
@@ -89,7 +89,7 @@ public class RegisteredEventTypeValueObjectTests
     [Fact]
     public void RegisteredEventTypeIdentifier_New_is_a_version_7_guid()
     {
-        RegisteredEventTypeIdentifier id = RegisteredEventTypeIdentifier.New();
+        var id = RegisteredEventTypeIdentifier.New();
 
         id.Value.ShouldNotBe(Guid.Empty);
         id.Value.Version.ShouldBe(7);

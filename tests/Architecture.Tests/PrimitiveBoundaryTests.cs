@@ -63,7 +63,7 @@ public class PrimitiveBoundaryTests
     [Fact]
     public void No_domain_model_exposes_primitive_typed_state()
     {
-        IReadOnlyList<string> offenders = Offenders(DomainAssemblies());
+        var offenders = Offenders(DomainAssemblies());
 
         offenders.ShouldBeEmpty(
             $"""
@@ -98,7 +98,7 @@ public class PrimitiveBoundaryTests
     [Fact]
     public void The_walk_sees_a_primitive_reached_through_a_collection_or_array()
     {
-        IReadOnlyList<string> offenders = Offenders([typeof(PrimitiveBoundaryTests).Assembly]);
+        var offenders = Offenders([typeof(PrimitiveBoundaryTests).Assembly]);
 
         offenders.ShouldBe(
         [
@@ -122,7 +122,7 @@ public class PrimitiveBoundaryTests
     [Fact]
     public void A_value_objects_own_backing_collection_is_exempt()
     {
-        List<StateMember> members = WalkAggregateState([typeof(PrimitiveBoundaryTests).Assembly]);
+        var members = WalkAggregateState([typeof(PrimitiveBoundaryTests).Assembly]);
 
         IReadOnlyList<string> exempted = [.. members
             .Where(member => member.DeclaringTypeIsValueObject)
@@ -132,7 +132,7 @@ public class PrimitiveBoundaryTests
         exempted.ShouldContain("ProbeTagSet.Values");
         exempted.ShouldContain("ProbeName.Value");
 
-        IReadOnlyList<string> offenders = Offenders([typeof(PrimitiveBoundaryTests).Assembly]);
+        var offenders = Offenders([typeof(PrimitiveBoundaryTests).Assembly]);
 
         offenders.ShouldNotContain("ProbeTagSet.Values : String");
         offenders.ShouldNotContain("ProbeName.Value : String");
@@ -141,7 +141,7 @@ public class PrimitiveBoundaryTests
     [Fact]
     public void The_walk_reaches_every_aggregate_and_a_useful_amount_of_state()
     {
-        (IReadOnlyList<Type> roots, int reached) = WalkFootprint();
+        (var roots, var reached) = WalkFootprint();
 
         // A guard on the guard: if a refactor stops the walk reaching aggregate
         // state, the rule above silently passes everything. That failure is
@@ -182,7 +182,7 @@ public class PrimitiveBoundaryTests
 
     private static (IReadOnlyList<Type> Roots, int Reached) WalkFootprint()
     {
-        IReadOnlyList<Type> roots = Roots();
+        var roots = Roots();
         return (roots, WalkAggregateState().Select(member => member.DeclaringType).Distinct().Count());
     }
 
@@ -209,7 +209,7 @@ public class PrimitiveBoundaryTests
 
     private static bool DerivesFromAggregateRoot(Type type)
     {
-        for (Type? baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
+        for (var baseType = type.BaseType; baseType is not null; baseType = baseType.BaseType)
         {
             if (baseType.IsGenericType
                 && baseType.GetGenericTypeDefinition().Name.StartsWith("AggregateRoot", StringComparison.Ordinal))
@@ -244,22 +244,22 @@ public class PrimitiveBoundaryTests
 
         while (pending.Count > 0)
         {
-            Type type = pending.Dequeue();
+            var type = pending.Dequeue();
             if (!seen.Add(type) || type.Namespace?.StartsWith("SmartSentinelEye", StringComparison.Ordinal) != true)
             {
                 continue;
             }
 
-            bool isValueObject = typeof(IValueObject).IsAssignableFrom(type);
+            var isValueObject = typeof(IValueObject).IsAssignableFrom(type);
 
-            foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
             {
                 if (property.Name == "PendingEvents")
                 {
                     continue;
                 }
 
-                foreach (Type constituent in Constituents(property.PropertyType))
+                foreach (var constituent in Constituents(property.PropertyType))
                 {
                     if (Banned.Contains(constituent))
                     {
@@ -276,7 +276,7 @@ public class PrimitiveBoundaryTests
             // aggregate only names the abstract parent.
             if (type.IsAbstract)
             {
-                foreach (Type subtype in allDomainTypes.Where(candidate => type.IsAssignableFrom(candidate) && candidate != type))
+                foreach (var subtype in allDomainTypes.Where(candidate => type.IsAssignableFrom(candidate) && candidate != type))
                 {
                     pending.Enqueue(subtype);
                 }
@@ -337,7 +337,7 @@ public class PrimitiveBoundaryTests
 
     private static IEnumerable<Type> ConstituentsCore(Type type, HashSet<Type> visited)
     {
-        Type underlying = Nullable.GetUnderlyingType(type) ?? type;
+        var underlying = Nullable.GetUnderlyingType(type) ?? type;
         if (!visited.Add(underlying))
         {
             yield break;
@@ -345,10 +345,10 @@ public class PrimitiveBoundaryTests
 
         if (underlying.IsArray)
         {
-            Type? elementType = underlying.GetElementType();
+            var elementType = underlying.GetElementType();
             if (elementType is not null)
             {
-                foreach (Type constituent in ConstituentsCore(elementType, visited))
+                foreach (var constituent in ConstituentsCore(elementType, visited))
                 {
                     yield return constituent;
                 }
@@ -363,9 +363,9 @@ public class PrimitiveBoundaryTests
         // matters once the outer walk dequeues it.
         if (underlying.IsGenericType)
         {
-            foreach (Type argument in underlying.GetGenericArguments())
+            foreach (var argument in underlying.GetGenericArguments())
             {
-                foreach (Type constituent in ConstituentsCore(argument, visited))
+                foreach (var constituent in ConstituentsCore(argument, visited))
                 {
                     yield return constituent;
                 }

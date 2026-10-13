@@ -1,6 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Protocols;
 using Microsoft.IdentityModel.Protocols.OpenIdConnect;
@@ -56,9 +55,9 @@ public sealed class WhepAuthValidatorResolutionTests
         services.AddSingleton<IRevokedClientRegistry>(new RevokedClientRegistry());
         services.AddSingleton<IWhepAuthValidator, WhepAuthValidator>();
 
-        using ServiceProvider provider = services.BuildServiceProvider();
+        using var provider = services.BuildServiceProvider();
 
-        IWhepAuthValidator validator = provider.GetRequiredService<IWhepAuthValidator>();
+        var validator = provider.GetRequiredService<IWhepAuthValidator>();
 
         validator.ShouldBeOfType<WhepAuthValidator>(
             customMessage: "the container no longer resolves IWhepAuthValidator to a "

@@ -16,16 +16,16 @@ public sealed class ArchiveRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (OverlayIdentifier overlayIdentifier, OverlayRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;
+        (var overlayIdentifier, var revisionNumber, var archivedBy, var expectedVersion) = command;
 
-        Option<Overlay> found = await overlays
+        var found = await overlays
             .GetByIdentifierAsync(overlayIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ArchiveRevisionFailures.OverlayNotFound(overlayIdentifier.Value));
         }
 
-        Overlay overlay = found.Value;
+        var overlay = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
         // has since moved. Checked before any mutation so nothing is applied

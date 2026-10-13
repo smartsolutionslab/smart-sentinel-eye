@@ -16,15 +16,15 @@ public sealed class SetVariableValueCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (FabIdentifier? fab, VariableName? name, string? wireValue, OperatorIdentifier changedBy, Option<int> expectedVersion, Option<DateTimeOffset> rootIngestedAt) = command;
+        (var fab, var name, var wireValue, var changedBy, var expectedVersion, var rootIngestedAt) = command;
 
-        Option<Variable> found = await variables.GetByNameAsync(fab, name, cancellationToken);
+        var found = await variables.GetByNameAsync(fab, name, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(SetVariableValueFailures.VariableNotFound(name.Value));
         }
 
-        Variable variable = found.Value;
+        var variable = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the variable that
         // has since moved. Checked before any mutation so nothing is applied on

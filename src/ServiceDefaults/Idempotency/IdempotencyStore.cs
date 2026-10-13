@@ -82,7 +82,7 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // non-composing terminal EF already uses for the fall-through SELECT
         // below, so there is nothing here for EF to wrap the RETURNING
         // statement in.
-        DateTime[] claimed = await dbContext.Database
+        var claimed = await dbContext.Database
             .SqlQueryRaw<DateTime>(
                 claim,
                 scope.Key.Value,
@@ -102,7 +102,7 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // question: a completed row replays, an unfinished one is the retry
         // racing the attempt that provoked it — but first, whether that row
         // is even an answer to *this* request at all (spec 302 I2).
-        StoredBinding[] existing = await dbContext.Database
+        var existing = await dbContext.Database
             .SqlQueryRaw<StoredBinding>(
                 """
                 SELECT resource_identifier AS "ResourceIdentifier",
@@ -122,17 +122,17 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
             return IdempotencyReservation.InProgress;
         }
 
-        StoredBinding row = existing[0];
+        var row = existing[0];
 
         // Spec 302 (#2424/#2492) I2/I3, checked before completed/in-progress:
         // a mismatched row — including one with a NULL stored fingerprint, a
         // legacy row that fails closed — is refused at once, whether it is
         // still running or already finished. Waiting on it, then replaying it,
         // would hand this caller another request's answer.
-        bool fabMatches = scope.Fab.Match(
+        var fabMatches = scope.Fab.Match(
             some: value => string.Equals(row.Fab, value, StringComparison.Ordinal),
             none: () => row.Fab is null);
-        bool fingerprintMatches = row.RequestFingerprint is { } storedFingerprint
+        var fingerprintMatches = row.RequestFingerprint is { } storedFingerprint
             && string.Equals(storedFingerprint, scope.Fingerprint.Value, StringComparison.Ordinal);
 
         if (!fabMatches || !fingerprintMatches)
@@ -156,7 +156,7 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
     {
         Ensure.That(claim).IsNotNull();
 
-        IdempotencyScope scope = claim.Scope;
+        var scope = claim.Scope;
 
         // Guarded on resource_identifier IS NULL (#2290 phase-6 review), the
         // same guard ReleaseAsync already carries below. Without it, a
@@ -193,7 +193,7 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
     {
         Ensure.That(claim).IsNotNull();
 
-        IdempotencyScope scope = claim.Scope;
+        var scope = claim.Scope;
 
         // Guarded on resource_identifier IS NULL so a release arriving late
         // cannot delete a reservation that has since completed — which would

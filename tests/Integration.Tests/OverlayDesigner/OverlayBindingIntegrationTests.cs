@@ -36,11 +36,11 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task Bound_overlay_appears_in_GET_layout_and_in_GET_overlay()
     {
-        using HttpClient overlays = await aspire.CreateAdminClientAsync("overlay-designer");
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var overlays = await aspire.CreateAdminClientAsync("overlay-designer");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
         // 1. Create + publish an overlay so it shows up as a binding candidate.
-        HttpResponseMessage overlayCreated = await overlays.PostAsJsonAsync(
+        var overlayCreated = await overlays.PostAsJsonAsync(
             "/overlays",
             new
             {
@@ -48,12 +48,12 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
                 elements = new[] { SampleLabelBody() },
             });
         overlayCreated.EnsureSuccessStatusCode();
-        Guid overlayIdentifier = await overlayCreated.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage overlayPublished = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
+        var overlayIdentifier = await overlayCreated.Content.ReadFromJsonAsync<Guid>();
+        var overlayPublished = await OverlayRequests.PostAsync(overlays, overlayIdentifier, $"revisions/1/publish");
         overlayPublished.EnsureSuccessStatusCode();
 
         // 2. Create + publish a layout bound to that overlay.
-        HttpResponseMessage layoutCreated = await layouts.PostAsJsonAsync(
+        var layoutCreated = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -62,23 +62,23 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
                 tiles = new[] { new { cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire), overlayIdentifier = (Guid?)overlayIdentifier, row = 0, col = 0 } },
             });
         layoutCreated.StatusCode.ShouldBe(HttpStatusCode.Created);
-        Guid layoutIdentifier = await layoutCreated.Content.ReadFromJsonAsync<Guid>();
-        HttpResponseMessage layoutPublished = await LayoutRequests.PostAsync(
+        var layoutIdentifier = await layoutCreated.Content.ReadFromJsonAsync<Guid>();
+        var layoutPublished = await LayoutRequests.PostAsync(
             layouts, layoutIdentifier, "revisions/1/publish");
         layoutPublished.EnsureSuccessStatusCode();
 
         // 3. GET /layouts/{id} carries the overlay identifier on the Published revision.
-        HttpResponseMessage layoutFetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var layoutFetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
         layoutFetched.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement layoutPayload = await layoutFetched.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement published = layoutPayload.GetProperty("revisions")[0];
+        var layoutPayload = await layoutFetched.Content.ReadFromJsonAsync<JsonElement>();
+        var published = layoutPayload.GetProperty("revisions")[0];
         published.GetProperty("tiles")[0].GetProperty("overlayIdentifier").GetGuid().ShouldBe(overlayIdentifier);
 
         // 4. GET /overlays/{id} returns the same overlay with its Published Label.
-        HttpResponseMessage overlayFetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
+        var overlayFetched = await overlays.GetAsync($"/overlays/{overlayIdentifier}");
         overlayFetched.StatusCode.ShouldBe(HttpStatusCode.OK);
-        JsonElement overlayPayload = await overlayFetched.Content.ReadFromJsonAsync<JsonElement>();
-        JsonElement publishedOverlay = overlayPayload.GetProperty("revisions")[0];
+        var overlayPayload = await overlayFetched.Content.ReadFromJsonAsync<JsonElement>();
+        var publishedOverlay = overlayPayload.GetProperty("revisions")[0];
         publishedOverlay.GetProperty("state").GetString().ShouldBe("Published");
         publishedOverlay.GetProperty("elements")[0].GetProperty("text").GetString().ShouldBe("Production Line 1");
     }
@@ -86,9 +86,9 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
     [Fact]
     public async Task An_unbound_layout_carries_overlayIdentifier_null()
     {
-        using HttpClient layouts = await aspire.CreateAdminClientAsync("layout-composition");
+        using var layouts = await aspire.CreateAdminClientAsync("layout-composition");
 
-        HttpResponseMessage created = await layouts.PostAsJsonAsync(
+        var created = await layouts.PostAsJsonAsync(
             "/layouts",
             new
             {
@@ -97,10 +97,10 @@ public class OverlayBindingIntegrationTests(AspireFixture aspire) : IAsyncLifeti
                 tiles = new[] { new { cameraIdentifier = await LayoutRequests.RegisterCameraAsync(aspire), overlayIdentifier = (Guid?)null, row = 0, col = 0 } },
             });
         created.EnsureSuccessStatusCode();
-        Guid layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
+        var layoutIdentifier = await created.Content.ReadFromJsonAsync<Guid>();
 
-        HttpResponseMessage fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
-        JsonElement payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
+        var fetched = await layouts.GetAsync($"/layouts/{layoutIdentifier}");
+        var payload = await fetched.Content.ReadFromJsonAsync<JsonElement>();
         payload.GetProperty("revisions")[0]
             .GetProperty("tiles")[0].GetProperty("overlayIdentifier").ValueKind.ShouldBe(JsonValueKind.Null);
     }

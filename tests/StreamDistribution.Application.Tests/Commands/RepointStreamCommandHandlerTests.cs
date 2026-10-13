@@ -27,13 +27,13 @@ public class RepointStreamCommandHandlerTests
     [Fact]
     public async Task Repointing_updates_the_aggregate_and_tells_the_SFU()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
-        Domain.Stream.Stream existing = await SeedAsync(streams, camera);
+        var existing = await SeedAsync(streams, camera);
 
         FakeRtspGateway gateway = new();
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(
                 new RepointStreamCommand(camera, CorrectedUrl), CancellationToken.None);
 
@@ -57,7 +57,7 @@ public class RepointStreamCommandHandlerTests
     [Fact]
     public async Task Repointing_does_not_remove_and_re_add_the_path()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
@@ -79,7 +79,7 @@ public class RepointStreamCommandHandlerTests
     [Fact]
     public async Task A_gateway_failure_does_not_lose_the_new_address()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
@@ -88,7 +88,7 @@ public class RepointStreamCommandHandlerTests
             OnRepointPath = (_, _) => throw new HttpRequestException("MediaMTX unreachable"),
         };
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(
                 new RepointStreamCommand(camera, CorrectedUrl), CancellationToken.None);
 
@@ -104,13 +104,13 @@ public class RepointStreamCommandHandlerTests
     [Fact]
     public async Task Repointing_to_the_address_it_already_has_is_a_success()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
         FakeRtspGateway gateway = new();
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(
                 new RepointStreamCommand(camera, OriginalUrl), CancellationToken.None);
 
@@ -129,7 +129,7 @@ public class RepointStreamCommandHandlerTests
         InMemoryStreamRepository streams = new();
         FakeRtspGateway gateway = new();
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(
                 new RepointStreamCommand(CameraIdentifier.From(Guid.CreateVersion7()), CorrectedUrl),
                 CancellationToken.None);
@@ -147,14 +147,14 @@ public class RepointStreamCommandHandlerTests
     [Fact]
     public async Task A_retired_stream_is_skipped_rather_than_retried_forever()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
-        Domain.Stream.Stream existing = await SeedAsync(streams, camera);
+        var existing = await SeedAsync(streams, camera);
         existing.Retire(new FixedClock(FixedMoment));
 
         FakeRtspGateway gateway = new();
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await NewHandler(streams, gateway).HandleAsync(
                 new RepointStreamCommand(camera, CorrectedUrl), CancellationToken.None);
 
@@ -167,11 +167,11 @@ public class RepointStreamCommandHandlerTests
     [Fact]
     public async Task An_address_this_context_cannot_parse_is_refused()
     {
-        CameraIdentifier camera = CameraIdentifier.From(Guid.CreateVersion7());
+        var camera = CameraIdentifier.From(Guid.CreateVersion7());
         InMemoryStreamRepository streams = new();
         await SeedAsync(streams, camera);
 
-        Result<Option<StreamIdentifier>, RepointStreamError> result =
+        var result =
             await NewHandler(streams, new FakeRtspGateway()).HandleAsync(
                 new RepointStreamCommand(camera, "http://not-rtsp.example/stream"),
                 CancellationToken.None);
@@ -185,7 +185,7 @@ public class RepointStreamCommandHandlerTests
         InMemoryStreamRepository streams,
         CameraIdentifier camera)
     {
-        Domain.Stream.Stream existing = new StreamBuilder()
+        var existing = new StreamBuilder()
             .ForCamera(camera)
             .WithSourceUrl(StreamSourceUrl.From(OriginalUrl))
             .ProvisionedBy(AnAdmin)

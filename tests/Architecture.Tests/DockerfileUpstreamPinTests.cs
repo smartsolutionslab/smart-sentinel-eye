@@ -124,7 +124,7 @@ public class DockerfileUpstreamPinTests
     [Fact]
     public void Every_base_image_a_dockerfile_builds_from_is_pinned_by_digest()
     {
-        UpstreamReference[] references = UpstreamReferences();
+        var references = UpstreamReferences();
 
         references.Length.ShouldBeGreaterThan(
             0,
@@ -159,7 +159,7 @@ public class DockerfileUpstreamPinTests
     [Fact]
     public void Two_stages_that_build_from_one_image_name_one_digest()
     {
-        Disagreement[] disagreements = PinnedImageDigestDisagreements();
+        var disagreements = PinnedImageDigestDisagreements();
 
         disagreements.ShouldBeEmpty(DisagreementExplanation(disagreements));
     }
@@ -181,7 +181,7 @@ public class DockerfileUpstreamPinTests
             new("src/AppHost/mosquitto/Dockerfile", 56, "debian:bookworm-slim", "3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251"),
         ];
 
-        Disagreement[] disagreements = PinnedImageDigestDisagreements(synthetic);
+        var disagreements = PinnedImageDigestDisagreements(synthetic);
 
         disagreements.Length.ShouldBe(1);
         disagreements[0].Repository.ShouldBe("debian");
@@ -191,7 +191,7 @@ public class DockerfileUpstreamPinTests
     [Fact]
     public void Every_archive_a_dockerfile_downloads_is_verified_against_a_checksum()
     {
-        FetchInstruction[] fetches = Fetches();
+        var fetches = Fetches();
 
         fetches.Length.ShouldBeGreaterThan(
             0,
@@ -224,8 +224,8 @@ public class DockerfileUpstreamPinTests
             + "https://example.com/archive.tar.gz /tmp/archive.tar.gz");
         LogicalInstruction local = new("Dockerfile", 3, "ADD ./local-file.txt /tmp/local-file.txt");
 
-        FetchInstruction? uncheckedFetch = ClassifyFetch(unverifiedInstruction);
-        FetchInstruction? checksummedFetch = ClassifyFetch(checksummed);
+        var uncheckedFetch = ClassifyFetch(unverifiedInstruction);
+        var checksummedFetch = ClassifyFetch(checksummed);
 
         uncheckedFetch.ShouldNotBeNull();
         uncheckedFetch.HasChecksum.ShouldBeFalse();
@@ -265,7 +265,7 @@ public class DockerfileUpstreamPinTests
     [Fact]
     public void The_scan_reads_the_dockerfiles_this_repository_actually_has()
     {
-        string[] files = DockerfileFiles();
+        var files = DockerfileFiles();
 
         files.Length.ShouldBeGreaterThanOrEqualTo(
             1,
@@ -299,16 +299,16 @@ public class DockerfileUpstreamPinTests
     [Fact]
     public void The_file_discovery_glob_also_matches_the_name_dot_Dockerfile_convention()
     {
-        DirectoryInfo root = RepositoryRoot();
-        string probeDirectory = Path.Combine(root.FullName, $".dockerfile-glob-probe-{Guid.NewGuid():N}");
+        var root = RepositoryRoot();
+        var probeDirectory = Path.Combine(root.FullName, $".dockerfile-glob-probe-{Guid.NewGuid():N}");
         Directory.CreateDirectory(probeDirectory);
-        string probeFile = Path.Combine(probeDirectory, "api.Dockerfile");
+        var probeFile = Path.Combine(probeDirectory, "api.Dockerfile");
 
         try
         {
             File.WriteAllText(probeFile, "FROM debian:bookworm-slim" + Environment.NewLine);
 
-            string[] files = DockerfileFiles();
+            var files = DockerfileFiles();
 
             files.ShouldContain(file => file.EndsWith("api.Dockerfile", StringComparison.Ordinal));
             files.ShouldNotContain(file => file.EndsWith("DockerfileUpstreamPinTests.cs", StringComparison.Ordinal));
@@ -390,7 +390,7 @@ public class DockerfileUpstreamPinTests
 
     private static string RepositoryPortion(string imageAndTag)
     {
-        int colonIndex = imageAndTag.IndexOf(':');
+        var colonIndex = imageAndTag.IndexOf(':');
         return colonIndex < 0 ? imageAndTag : imageAndTag[..colonIndex];
     }
 
@@ -398,26 +398,26 @@ public class DockerfileUpstreamPinTests
     {
         List<UpstreamReference> references = [];
 
-        foreach (string file in DockerfileFiles())
+        foreach (var file in DockerfileFiles())
         {
             HashSet<string> declaredStages = new(StringComparer.OrdinalIgnoreCase);
 
-            foreach (LogicalInstruction instruction in LogicalInstructions(file))
+            foreach (var instruction in LogicalInstructions(file))
             {
-                Match match = FromInstruction.Match(instruction.Text);
+                var match = FromInstruction.Match(instruction.Text);
                 if (!match.Success)
                 {
                     continue;
                 }
 
-                string reference = match.Groups["ref"].Value;
-                string? stage = match.Groups["stage"].Success ? match.Groups["stage"].Value : null;
+                var reference = match.Groups["ref"].Value;
+                var stage = match.Groups["stage"].Success ? match.Groups["stage"].Value : null;
 
                 if (!declaredStages.Contains(reference))
                 {
-                    Match digestMatch = DigestSuffix.Match(reference);
-                    string imageAndTag = digestMatch.Success ? reference[..digestMatch.Index] : reference;
-                    string? digest = digestMatch.Success ? digestMatch.Groups["digest"].Value : null;
+                    var digestMatch = DigestSuffix.Match(reference);
+                    var imageAndTag = digestMatch.Success ? reference[..digestMatch.Index] : reference;
+                    var digest = digestMatch.Success ? digestMatch.Groups["digest"].Value : null;
 
                     references.Add(new UpstreamReference(file, instruction.Line, imageAndTag, digest));
                 }
@@ -436,11 +436,11 @@ public class DockerfileUpstreamPinTests
     {
         List<FetchInstruction> fetches = [];
 
-        foreach (string file in DockerfileFiles())
+        foreach (var file in DockerfileFiles())
         {
-            foreach (LogicalInstruction instruction in LogicalInstructions(file))
+            foreach (var instruction in LogicalInstructions(file))
             {
-                FetchInstruction? fetch = ClassifyFetch(instruction);
+                var fetch = ClassifyFetch(instruction);
                 if (fetch is not null)
                 {
                     fetches.Add(fetch);
@@ -464,20 +464,20 @@ public class DockerfileUpstreamPinTests
     /// </summary>
     private static FetchInstruction? ClassifyFetch(LogicalInstruction instruction)
     {
-        bool isFetch = RemoteFetch.IsMatch(instruction.Text) || AddRemoteFetch.IsMatch(instruction.Text);
+        var isFetch = RemoteFetch.IsMatch(instruction.Text) || AddRemoteFetch.IsMatch(instruction.Text);
         if (!isFetch)
         {
             return null;
         }
 
-        bool hasChecksum = ChecksumCheck.IsMatch(instruction.Text) || AddChecksumFlag.IsMatch(instruction.Text);
+        var hasChecksum = ChecksumCheck.IsMatch(instruction.Text) || AddChecksumFlag.IsMatch(instruction.Text);
 
         return new FetchInstruction(instruction.File, instruction.Line, ExtractUrl(instruction.Text), hasChecksum);
     }
 
     private static string ExtractUrl(string text)
     {
-        Match match = UrlLiteral.Match(text);
+        var match = UrlLiteral.Match(text);
         return match.Success ? match.Value.TrimEnd('"', '\\') : "(no URL found)";
     }
 
@@ -491,13 +491,13 @@ public class DockerfileUpstreamPinTests
     /// </summary>
     private static LogicalInstruction[] LogicalInstructions(string relativeFile)
     {
-        string[] rawLines = ReadLines(relativeFile);
+        var rawLines = ReadLines(relativeFile);
         List<LogicalInstruction> instructions = [];
 
-        int index = 0;
+        var index = 0;
         while (index < rawLines.Length)
         {
-            string line = rawLines[index];
+            var line = rawLines[index];
 
             if (CommentLine.IsMatch(line) || string.IsNullOrWhiteSpace(line))
             {
@@ -505,13 +505,13 @@ public class DockerfileUpstreamPinTests
                 continue;
             }
 
-            int startLine = index + 1;
+            var startLine = index + 1;
             StringBuilder text = new(line.TrimEnd());
             index++;
 
             while (text.ToString().TrimEnd().EndsWith('\\') && index < rawLines.Length)
             {
-                string folded = text.ToString().TrimEnd();
+                var folded = text.ToString().TrimEnd();
                 text.Clear();
                 text.Append(folded, 0, folded.Length - 1);
                 text.Append(' ').Append(rawLines[index].Trim());
@@ -526,7 +526,7 @@ public class DockerfileUpstreamPinTests
 
     private static string[] DockerfileFiles()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         return
         [
@@ -545,7 +545,7 @@ public class DockerfileUpstreamPinTests
 
     private static string[] ReadLines(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        var path = Path.Combine(RepositoryRoot().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllLines(path);

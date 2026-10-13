@@ -30,7 +30,7 @@ public sealed class AuthorizeWhepCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        (MediaMtxPath? path, string? bearerToken, Option<MediaMtxAction> action, Option<ReportedMediaMtxAction> reportedAction) = command;
+        (var path, var bearerToken, var action, var reportedAction) = command;
 
         // The action is answered before the token, and that order is the point:
         // an absent or unpermitted action is refused whatever the caller holds,
@@ -70,7 +70,7 @@ public sealed class AuthorizeWhepCommandHandler(
             return Failure(AuthorizeWhepFailures.Unauthorized());
         }
 
-        Result<WhepAuthSubject, WhepAuthFailure> authentication =
+        var authentication =
             await whepAuth.ValidateAsync(bearerToken, cancellationToken);
 
         if (authentication.IsFailure)
@@ -78,14 +78,14 @@ public sealed class AuthorizeWhepCommandHandler(
             return Failure(RefusalFor(authentication.Error));
         }
 
-        WhepAuthSubject subject = authentication.Value;
+        var subject = authentication.Value;
 
         if (!subject.Scopes.Contains(RequiredScope, StringComparer.Ordinal))
         {
             return Failure(AuthorizeWhepFailures.Forbidden());
         }
 
-        Option<Stream> stream = await streams.GetByPathAsync(path, cancellationToken);
+        var stream = await streams.GetByPathAsync(path, cancellationToken);
 
         // ADR-0161. Before the stream-state check, so a caller refused on fab
         // learns nothing about whether the stream happens to be online — this

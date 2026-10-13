@@ -44,7 +44,7 @@ public class StreamHealthWatcherScopeTests
     {
         Guid[] cameras = [Camera(1), Camera(2), Camera(3), Camera(4)];
 
-        Sweep sweep = await DispatchAsync([.. cameras.Select(Stream)], _ => Unready);
+        var sweep = await DispatchAsync([.. cameras.Select(Stream)], _ => Unready);
 
         sweep.Scopes.Count.ShouldBe(4, "one scope per camera, not one for the sweep");
         sweep.Handled.Select(handled => handled.Camera).ShouldBe(cameras);
@@ -72,7 +72,7 @@ public class StreamHealthWatcherScopeTests
         (Guid Camera, MediaMtxPath Path, StreamState State)[] streams =
             [.. Enumerable.Range(1, 250).Select(_ => Stream(Guid.CreateVersion7()))];
 
-        Sweep sweep = await DispatchAsync(streams, _ => Unready);
+        var sweep = await DispatchAsync(streams, _ => Unready);
 
         sweep.BatchCalls.ShouldBe(1, "250 cameras must cost one MediaMTX call, not 250");
         sweep.PerPathCalls.ShouldBe(
@@ -93,7 +93,7 @@ public class StreamHealthWatcherScopeTests
     {
         Guid[] cameras = [Camera(1), Camera(2)];
 
-        Sweep sweep = await DispatchAsync([.. cameras.Select(Stream)], _ => Unready);
+        var sweep = await DispatchAsync([.. cameras.Select(Stream)], _ => Unready);
 
         sweep.Scopes.Count.ShouldBe(2);
         sweep.Scopes.ShouldAllBe(scope => scope.Disposed);
@@ -109,10 +109,10 @@ public class StreamHealthWatcherScopeTests
     [Fact]
     public async Task A_path_missing_from_the_batch_response_is_handled_as_not_registered_not_skipped()
     {
-        Guid present = Camera(1);
-        Guid missing = Camera(2);
+        var present = Camera(1);
+        var missing = Camera(2);
 
-        Sweep sweep = await DispatchAsync(
+        var sweep = await DispatchAsync(
             [Stream(present), Stream(missing)],
             _ => Unready,
             excludeFromBatch: [MediaMtxPath.For(CameraIdentifier.From(missing))]);
@@ -134,7 +134,7 @@ public class StreamHealthWatcherScopeTests
     {
         Guid[] cameras = [Camera(1), Camera(2), Camera(3)];
 
-        Sweep sweep = await DispatchAsync(
+        var sweep = await DispatchAsync(
             [.. cameras.Select(Stream)],
             _ => Unready,
             batchFailure: new HttpRequestException("MediaMTX unreachable"));
@@ -168,11 +168,11 @@ public class StreamHealthWatcherScopeTests
     [Fact]
     public async Task A_retired_stream_never_reaches_the_handler_and_opens_no_scope()
     {
-        Guid live = Camera(1);
-        Guid retired = Camera(2);
-        Guid alsoLive = Camera(3);
+        var live = Camera(1);
+        var retired = Camera(2);
+        var alsoLive = Camera(3);
 
-        Sweep sweep = await DispatchAsync(
+        var sweep = await DispatchAsync(
             [StreamIn(live, StreamState.Healthy),
              StreamIn(retired, StreamState.Retired),
              StreamIn(alsoLive, StreamState.Degraded)],
@@ -199,12 +199,12 @@ public class StreamHealthWatcherScopeTests
         services.AddSingleton(recorder);
         services.AddScoped<HealthCommandHandler, RecordingHandler>();
 
-        await using ServiceProvider provider = services.BuildServiceProvider();
+        await using var provider = services.BuildServiceProvider();
 
         CountingScopeFactory scopes = new(provider.GetRequiredService<IServiceScopeFactory>());
         StreamHealthWatcher watcher = new(scopes, new FixedClock(), NullLogger<StreamHealthWatcher>.Instance);
 
-        HashSet<MediaMtxPath> excluded = excludeFromBatch?.ToHashSet() ?? [];
+        var excluded = excludeFromBatch?.ToHashSet() ?? [];
         MediaMtxPath[] reported = [.. streams.Select(stream => stream.Path).Where(path => !excluded.Contains(path))];
         StubGateway gateway = new(reported, health, batchFailure);
 
@@ -344,7 +344,7 @@ public class StreamHealthWatcherScopeTests
             }
 
             Dictionary<MediaMtxPath, RtspPathHealth> result = [];
-            foreach (MediaMtxPath path in paths)
+            foreach (var path in paths)
             {
                 result[path] = health(path);
             }

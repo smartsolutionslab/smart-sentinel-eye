@@ -7,7 +7,6 @@ using Microsoft.IdentityModel.Protocols.OpenIdConnect;
 using Microsoft.IdentityModel.Tokens;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.ServiceDefaults.Revocation;
-using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Auth;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Tests.Fakes;
@@ -78,9 +77,9 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     [Fact]
     public async Task An_unreachable_realm_refuses_instead_of_throwing()
     {
-        WhepAuthValidator validator = ValidatorOver(new UnreachableRealm());
+        var validator = ValidatorOver(new UnreachableRealm());
 
-        Result<WhepAuthSubject, WhepAuthFailure> outcome =
+        var outcome =
             await validator.ValidateAsync(AToken(), CancellationToken.None);
 
         outcome.IsFailure.ShouldBeTrue(
@@ -102,11 +101,11 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     [Fact]
     public async Task An_unreachable_realm_is_logged_once_with_the_exception()
     {
-        WhepAuthValidator validator = ValidatorOver(new UnreachableRealm());
+        var validator = ValidatorOver(new UnreachableRealm());
 
         await validator.ValidateAsync(AToken(), CancellationToken.None);
 
-        (LogLevel Level, string Message, Exception? Exception) entry = logs.Entries.ShouldHaveSingleItem();
+        var entry = logs.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Exception.ShouldNotBeNull().Message.ShouldContain(
             "IDX20803",
@@ -136,7 +135,7 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     [Fact]
     public async Task A_request_cancelled_before_the_realm_is_reached_stays_cancelled()
     {
-        WhepAuthValidator validator = ValidatorOver(new UnreachableRealm());
+        var validator = ValidatorOver(new UnreachableRealm());
         using CancellationTokenSource cancelled = new();
         await cancelled.CancelAsync();
 
@@ -167,15 +166,15 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     public async Task A_cancellation_arriving_mid_fetch_does_not_abandon_the_first_metadata_read()
     {
         SlowRealm realm = new(DiscoveryDocument, JsonWebKeySet());
-        WhepAuthValidator validator = ValidatorOver(realm);
+        var validator = ValidatorOver(realm);
         using CancellationTokenSource cancelled = new();
 
-        Task<Result<WhepAuthSubject, WhepAuthFailure>> validating =
+        var validating =
             validator.ValidateAsync(AToken(), cancelled.Token);
         await realm.Entered;
         await cancelled.CancelAsync();
 
-        Result<WhepAuthSubject, WhepAuthFailure> outcome = await validating;
+        var outcome = await validating;
 
         outcome.IsSuccess.ShouldBeTrue(
             customMessage: "the first metadata read was abandoned by a cancellation that arrived "
@@ -200,14 +199,14 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     public async Task A_viewer_queued_behind_another_viewers_first_fetch_can_still_cancel()
     {
         GatedRealm realm = new(DiscoveryDocument, JsonWebKeySet());
-        WhepAuthValidator validator = ValidatorOver(realm);
+        var validator = ValidatorOver(realm);
         using CancellationTokenSource cancelledForSecondViewer = new();
 
-        Task<Result<WhepAuthSubject, WhepAuthFailure>> firstViewer =
+        var firstViewer =
             validator.ValidateAsync(AToken(), CancellationToken.None);
         await realm.Entered;
 
-        Task<Result<WhepAuthSubject, WhepAuthFailure>> secondViewer =
+        var secondViewer =
             validator.ValidateAsync(AToken(), cancelledForSecondViewer.Token);
         await cancelledForSecondViewer.CancelAsync();
 
@@ -223,7 +222,7 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
             realm.Release();
         }
 
-        Result<WhepAuthSubject, WhepAuthFailure> firstOutcome = await firstViewer;
+        var firstOutcome = await firstViewer;
         firstOutcome.IsSuccess.ShouldBeTrue(
             customMessage: "the second viewer's cancellation must not affect the first viewer's "
             + "own in-flight fetch.");
@@ -238,9 +237,9 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     [Fact]
     public async Task A_reachable_realm_still_authorizes_the_same_token()
     {
-        WhepAuthValidator validator = ValidatorOver(new ReachableRealm(DiscoveryDocument, JsonWebKeySet()));
+        var validator = ValidatorOver(new ReachableRealm(DiscoveryDocument, JsonWebKeySet()));
 
-        Result<WhepAuthSubject, WhepAuthFailure> outcome =
+        var outcome =
             await validator.ValidateAsync(AToken(), CancellationToken.None);
 
         outcome.IsSuccess.ShouldBeTrue(
@@ -264,9 +263,9 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     public async Task An_outage_is_logged_once_however_many_viewers_are_refused()
     {
         ScriptedRealm realm = new(SigningKey()) { Reachable = false };
-        WhepAuthValidator validator = ValidatorOver(realm);
+        var validator = ValidatorOver(realm);
 
-        for (int viewer = 0; viewer < 25; viewer++)
+        for (var viewer = 0; viewer < 25; viewer++)
         {
             await validator.ValidateAsync(AToken(), CancellationToken.None);
         }
@@ -287,7 +286,7 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
     public async Task A_recovery_is_logged_and_a_second_outage_speaks_again()
     {
         ScriptedRealm realm = new(SigningKey()) { Reachable = false };
-        WhepAuthValidator validator = ValidatorOver(realm);
+        var validator = ValidatorOver(realm);
 
         await validator.ValidateAsync(AToken(), CancellationToken.None);
         realm.Reachable = true;
@@ -323,9 +322,9 @@ public sealed class WhepValidatorUnreachableRealmTests : IDisposable
 
     private string JsonWebKeySet()
     {
-        RSAParameters publicKey = signingKey.ExportParameters(includePrivateParameters: false);
-        string modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
-        string exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
+        var publicKey = signingKey.ExportParameters(includePrivateParameters: false);
+        var modulus = Base64UrlEncoder.Encode(publicKey.Modulus!);
+        var exponent = Base64UrlEncoder.Encode(publicKey.Exponent!);
 
         return $$"""
             {"keys":[{"kty":"RSA","use":"sig","alg":"RS256","kid":"{{SigningKeyIdentifier}}","n":"{{modulus}}","e":"{{exponent}}"}]}

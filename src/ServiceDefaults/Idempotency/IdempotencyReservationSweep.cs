@@ -109,10 +109,10 @@ public sealed class IdempotencyReservationSweepHostedService<TDbContext>(
         // context is resolved inside its own scope rather than injected into
         // the constructor (the mistake AuditRetentionHostedService.cs:70-73
         // documents avoiding).
-        using IServiceScope scope = scopeFactory.CreateScope();
-        TDbContext dbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
+        using var scope = scopeFactory.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<TDbContext>();
 
-        int swept = await dbContext.Database.ExecuteSqlRawAsync(
+        var swept = await dbContext.Database.ExecuteSqlRawAsync(
             DeleteStaleReservationsSql, [IdempotencyReclamation.StaleAfter], cancellationToken);
 
         // Only when non-zero: a swept reservation means an attempt died

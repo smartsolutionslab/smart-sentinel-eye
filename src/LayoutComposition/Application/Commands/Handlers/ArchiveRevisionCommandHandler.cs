@@ -16,16 +16,16 @@ public sealed class ArchiveRevisionCommandHandler(
         CancellationToken cancellationToken)
     {
         Ensure.That(command).IsNotNull();
-        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier layoutIdentifier, LayoutRevisionNumber revisionNumber, OperatorIdentifier archivedBy, int expectedVersion) = command;
+        (var fabs, var layoutIdentifier, var revisionNumber, var archivedBy, var expectedVersion) = command;
 
-        Option<Layout> found = await layouts
+        var found = await layouts
             .GetByIdentifierAsync(fabs, layoutIdentifier, cancellationToken);
         if (!found.HasValue)
         {
             return Failure(ArchiveRevisionFailures.LayoutNotFound(layoutIdentifier.Value));
         }
 
-        Layout layout = found.Value;
+        var layout = found.Value;
 
         // ADR-0113 Layer 1: refuse an edit built on a view of the chain that
         // has since moved. Checked before any mutation so nothing is applied

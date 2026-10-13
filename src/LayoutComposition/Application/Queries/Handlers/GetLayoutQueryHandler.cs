@@ -14,12 +14,12 @@ public sealed class GetLayoutQueryHandler(ILayoutQuerySource layouts)
     {
         Ensure.That(query).IsNotNull();
 
-        (IReadOnlyList<FabIdentifier> fabs, LayoutIdentifier identifier) = query;
+        (var fabs, var identifier) = query;
 
         // FR-006: the fab is part of the lookup rather than a check afterwards,
         // so a layout outside the caller's fabs and one that never existed take
         // the same path out of here and produce the same response.
-        Layout? layout = await layouts.Layouts
+        var layout = await layouts.Layouts
             .SingleOrDefaultAsync(
                 candidate => candidate.Id == identifier && fabs.Contains(candidate.Fab),
                 cancellationToken);

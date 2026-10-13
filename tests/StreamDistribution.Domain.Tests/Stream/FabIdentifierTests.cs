@@ -57,7 +57,7 @@ public class FabIdentifierTests
     [Fact]
     public void Rejects_a_value_past_the_maximum_length()
     {
-        string tooLong = "f" + new string('a', FabIdentifier.MaximumLength);
+        var tooLong = "f" + new string('a', FabIdentifier.MaximumLength);
 
         Should.Throw<ArgumentException>(() => FabIdentifier.From(tooLong));
     }
@@ -65,7 +65,7 @@ public class FabIdentifierTests
     [Fact]
     public void Accepts_a_value_at_exactly_the_maximum_length()
     {
-        string atLimit = "f" + new string('a', FabIdentifier.MaximumLength - 1);
+        var atLimit = "f" + new string('a', FabIdentifier.MaximumLength - 1);
 
         FabIdentifier.From(atLimit).Value.Length.ShouldBe(FabIdentifier.MaximumLength);
     }
@@ -87,8 +87,8 @@ public class FabIdentifierTests
     [Fact]
     public void Orders_two_fabs_ordinally()
     {
-        FabIdentifier earlier = FabIdentifier.From("aachen");
-        FabIdentifier later = FabIdentifier.From("munich");
+        var earlier = FabIdentifier.From("aachen");
+        var later = FabIdentifier.From("munich");
 
         earlier.CompareTo(later).ShouldBeLessThan(0);
         later.CompareTo(earlier).ShouldBeGreaterThan(0);

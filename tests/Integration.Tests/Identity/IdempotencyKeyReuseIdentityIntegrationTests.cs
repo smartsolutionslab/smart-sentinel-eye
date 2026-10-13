@@ -1,5 +1,3 @@
-using System.Net;
-using System.Net.Http.Json;
 using System.Text.Json;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
@@ -48,21 +46,21 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_to_rotate_a_different_webhook_integration_is_refused_and_discloses_no_secret()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string alpha = UniqueIntegrationName();
-        string beta = UniqueIntegrationName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var alpha = UniqueIntegrationName();
+        var beta = UniqueIntegrationName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage first = await identity.SendAsync(CreateConditional(alpha, key));
+        var first = await identity.SendAsync(CreateConditional(alpha, key));
         first.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(first));
 
-        HttpResponseMessage second = await identity.SendAsync(CreateConditional(beta, key));
+        var second = await identity.SendAsync(CreateConditional(beta, key));
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
             "a key already used to create alpha must not be honoured for a different integration (beta): "
             + await DiagnoseAsync(second));
-        JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        var secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
         TitleOf(secondBody).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not carry a client secret — today it discloses alpha's, mislabelled as beta's");
@@ -81,15 +79,15 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_to_rotate_the_same_integration_under_a_different_precondition_is_refused()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage created = await identity.SendAsync(CreateConditional(name, key));
+        var created = await identity.SendAsync(CreateConditional(name, key));
         created.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(created));
-        int version = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetInt32();
+        var version = (await created.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("version").GetInt32();
 
-        HttpResponseMessage rotated = await identity.SendAsync(RotateConditional(name, version, key));
+        var rotated = await identity.SendAsync(RotateConditional(name, version, key));
 
         rotated.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
@@ -97,7 +95,7 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
             + "under the same integration: " + await DiagnoseAsync(rotated));
         TitleOf(await rotated.Content.ReadFromJsonAsync<JsonElement>()).ShouldBe("IDEMPOTENCY_KEY_REUSED");
 
-        JsonElement listed = await FindWebhookAsync(identity, name);
+        var listed = await FindWebhookAsync(identity, name);
         listed.GetProperty("version").GetInt32().ShouldBe(
             version, "the refused rotate must not have changed the client's version");
     }
@@ -111,18 +109,18 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_repeated_rotation_with_the_same_key_and_request_still_replays_the_same_secret()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string name = UniqueIntegrationName();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var name = UniqueIntegrationName();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage first = await identity.SendAsync(CreateConditional(name, key));
+        var first = await identity.SendAsync(CreateConditional(name, key));
         first.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(first));
-        JsonElement firstBody = await first.Content.ReadFromJsonAsync<JsonElement>();
+        var firstBody = await first.Content.ReadFromJsonAsync<JsonElement>();
 
-        HttpResponseMessage second = await identity.SendAsync(CreateConditional(name, key));
+        var second = await identity.SendAsync(CreateConditional(name, key));
 
         second.StatusCode.ShouldBe(HttpStatusCode.OK, await DiagnoseAsync(second));
-        JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        var secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
         secondBody.GetProperty("clientSecret").GetString().ShouldBe(
             firstBody.GetProperty("clientSecret").GetString(),
             "a genuine retry of the same request must still replay the same secret");
@@ -138,21 +136,21 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_to_register_a_different_device_is_refused_and_returns_no_secret()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string deviceOne = NewDeviceIdentifier();
-        string deviceTwo = NewDeviceIdentifier();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var deviceOne = NewDeviceIdentifier();
+        var deviceTwo = NewDeviceIdentifier();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage first = await RegisterDeviceAsync(identity, deviceOne, key);
+        var first = await RegisterDeviceAsync(identity, deviceOne, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(first));
 
-        HttpResponseMessage second = await RegisterDeviceAsync(identity, deviceTwo, key);
+        var second = await RegisterDeviceAsync(identity, deviceTwo, key);
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
             "a key already used to register device one must not be honoured for device two: "
             + await DiagnoseAsync(second));
-        JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        var secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
         TitleOf(secondBody).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not disclose device one's secret under device two's name");
@@ -166,21 +164,21 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
     [Fact]
     public async Task A_key_reused_to_enroll_a_different_kiosk_is_refused_and_returns_no_secret()
     {
-        using HttpClient identity = await aspire.CreateAdminClientAsync("identity");
-        string kioskOne = NewKioskIdentifier();
-        string kioskTwo = NewKioskIdentifier();
-        string key = $"key-{Guid.CreateVersion7():N}";
+        using var identity = await aspire.CreateAdminClientAsync("identity");
+        var kioskOne = NewKioskIdentifier();
+        var kioskTwo = NewKioskIdentifier();
+        var key = $"key-{Guid.CreateVersion7():N}";
 
-        HttpResponseMessage first = await EnrollKioskAsync(identity, kioskOne, key);
+        var first = await EnrollKioskAsync(identity, kioskOne, key);
         first.StatusCode.ShouldBe(HttpStatusCode.Created, await DiagnoseAsync(first));
 
-        HttpResponseMessage second = await EnrollKioskAsync(identity, kioskTwo, key);
+        var second = await EnrollKioskAsync(identity, kioskTwo, key);
 
         second.StatusCode.ShouldBe(
             HttpStatusCode.UnprocessableEntity,
             "a key already used to enroll kiosk one must not be honoured for kiosk two: "
             + await DiagnoseAsync(second));
-        JsonElement secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
+        var secondBody = await second.Content.ReadFromJsonAsync<JsonElement>();
         TitleOf(secondBody).ShouldBe("IDEMPOTENCY_KEY_REUSED");
         secondBody.TryGetProperty("clientSecret", out _).ShouldBeFalse(
             "a refusal must not disclose kiosk one's secret under kiosk two's name");
@@ -244,7 +242,7 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
 
     private static async Task<JsonElement> ListWebhooksAsync(HttpClient identity)
     {
-        HttpResponseMessage listed = await identity.GetAsync($"/webhook-integrations?fabId={Fab}");
+        var listed = await identity.GetAsync($"/webhook-integrations?fabId={Fab}");
         listed.EnsureSuccessStatusCode();
 
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
@@ -256,7 +254,7 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
 
     private static async Task<JsonElement> ListDevicesAsync(HttpClient identity)
     {
-        HttpResponseMessage listed = await identity.GetAsync($"/devices?fabId={Fab}");
+        var listed = await identity.GetAsync($"/devices?fabId={Fab}");
         listed.EnsureSuccessStatusCode();
 
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
@@ -264,7 +262,7 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
 
     private static async Task<JsonElement> ListKiosksAsync(HttpClient identity)
     {
-        HttpResponseMessage listed = await identity.GetAsync($"/kiosks?fabId={Fab}");
+        var listed = await identity.GetAsync($"/kiosks?fabId={Fab}");
         listed.EnsureSuccessStatusCode();
 
         return await listed.Content.ReadFromJsonAsync<JsonElement>();
@@ -277,7 +275,7 @@ public class IdempotencyKeyReuseIdentityIntegrationTests(AspireFixture aspire)
     /// read once and pass the parsed <see cref="JsonElement"/> to both.
     /// </summary>
     private static string? TitleOf(JsonElement problem) =>
-        problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out JsonElement title)
+        problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("title", out var title)
             ? title.GetString()
             : null;
 

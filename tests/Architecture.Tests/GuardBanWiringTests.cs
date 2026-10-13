@@ -53,9 +53,9 @@ public class GuardBanWiringTests
     [Fact]
     public void The_guard_ban_names_every_helper_it_replaces()
     {
-        string list = ReadRepositoryFile(GuardBanList);
+        var list = ReadRepositoryFile(GuardBanList);
 
-        string[] missing = BannedHelpers
+        var missing = BannedHelpers
             .Where(helper => !list.Contains($"M:{helper}", StringComparison.Ordinal))
             .ToArray();
 
@@ -69,7 +69,7 @@ public class GuardBanWiringTests
     [Fact]
     public void The_guard_ban_is_actually_read_by_the_analyzer()
     {
-        string properties = ReadRepositoryFile("Directory.Build.props");
+        var properties = ReadRepositoryFile("Directory.Build.props");
 
         properties.ShouldContain(
             @"build\guards\BannedSymbols.txt",
@@ -85,7 +85,7 @@ public class GuardBanWiringTests
     [Fact]
     public void Both_ban_lists_are_named_what_the_analyzer_matches()
     {
-        DirectoryInfo root = RepositoryRoot();
+        var root = RepositoryRoot();
 
         File.Exists(Path.Combine(root.FullName, "BannedSymbols.txt")).ShouldBeTrue(
             "the ConfigureAwait ban (ADR-0049) is expected at the repository root.");
@@ -105,8 +105,8 @@ public class GuardBanWiringTests
     [Fact]
     public void The_ban_reaches_everything_except_its_two_recorded_exemptions()
     {
-        string properties = ReadRepositoryFile("Directory.Build.props");
-        string editorconfig = ReadRepositoryFile(".editorconfig");
+        var properties = ReadRepositoryFile("Directory.Build.props");
+        var editorconfig = ReadRepositoryFile(".editorconfig");
 
         properties.ShouldContain(
             "'$(MSBuildProjectName)' != 'SmartSentinelEye.AppHost'",
@@ -128,7 +128,7 @@ public class GuardBanWiringTests
 
     private static string ReadRepositoryFile(string relativePath)
     {
-        string path = Path.Combine(RepositoryRoot().FullName, relativePath);
+        var path = Path.Combine(RepositoryRoot().FullName, relativePath);
         File.Exists(path).ShouldBeTrue(
             $"expected {relativePath} at {path} — if it moved, update this guard rather than deleting it.");
         return File.ReadAllText(path);

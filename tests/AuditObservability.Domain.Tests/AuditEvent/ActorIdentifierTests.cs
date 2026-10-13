@@ -7,8 +7,8 @@ public class ActorIdentifierTests
     [Fact]
     public void From_accepts_any_non_empty_Guid()
     {
-        Guid raw = Guid.CreateVersion7();
-        ActorIdentifier id = ActorIdentifier.From(raw);
+        var raw = Guid.CreateVersion7();
+        var id = ActorIdentifier.From(raw);
         id.Value.ShouldBe(raw);
         id.IsSystem.ShouldBeFalse();
     }
@@ -29,7 +29,7 @@ public class ActorIdentifierTests
     [Fact]
     public void Equality_treats_the_underlying_Guid_as_the_identity()
     {
-        Guid raw = Guid.CreateVersion7();
+        var raw = Guid.CreateVersion7();
         ActorIdentifier.From(raw).ShouldBe(ActorIdentifier.From(raw));
     }
 

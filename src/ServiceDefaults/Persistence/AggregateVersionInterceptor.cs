@@ -66,11 +66,11 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
             return;
         }
 
-        EntityEntry[] roots = context.ChangeTracker.Entries()
+        var roots = context.ChangeTracker.Entries()
             .Where(entry => entry.Entity is IVersionedAggregate)
             .ToArray();
 
-        foreach (EntityEntry root in roots.Where(root => RequiresBump(context, root)))
+        foreach (var root in roots.Where(root => RequiresBump(context, root)))
         {
             Bump(root);
         }
@@ -91,14 +91,14 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
 
     private static void Bump(EntityEntry root)
     {
-        PropertyEntry version = root.Property(nameof(IVersionedAggregate.Version));
+        var version = root.Property(nameof(IVersionedAggregate.Version));
 
         // OriginalValue carries the *model* value, so this casts to
         // AggregateVersion rather than to int. Casting to int compiled fine while
         // Version was an int and would have thrown InvalidCastException on every
         // save the moment it became a value object -- a runtime failure the
         // compiler cannot see.
-        AggregateVersion original = (AggregateVersion)version.OriginalValue!;
+        var original = (AggregateVersion)version.OriginalValue!;
         version.CurrentValue = AggregateVersion.From(original.Value + 1);
     }
 
@@ -115,9 +115,9 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     /// </summary>
     private static bool HasDirtyOwnedDescendant(DbContext context, EntityEntry owner)
     {
-        foreach (INavigation navigation in OwnedNavigations(owner))
+        foreach (var navigation in OwnedNavigations(owner))
         {
-            foreach (EntityEntry child in ChildrenOf(context, owner, navigation))
+            foreach (var child in ChildrenOf(context, owner, navigation))
             {
                 if (child.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
                 {
@@ -139,8 +139,8 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
 
     private static IEnumerable<EntityEntry> ChildrenOf(DbContext context, EntityEntry owner, INavigation navigation)
     {
-        IEntityType target = navigation.TargetEntityType;
-        IForeignKey? ownership = target.FindOwnership();
+        var target = navigation.TargetEntityType;
+        var ownership = target.FindOwnership();
 
         if (ownership is null)
         {
@@ -154,10 +154,10 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
 
     private static bool IsOwnedBy(EntityEntry child, IForeignKey ownership, EntityEntry owner)
     {
-        for (int index = 0; index < ownership.Properties.Count; index++)
+        for (var index = 0; index < ownership.Properties.Count; index++)
         {
-            object? childValue = ValueOf(child, ownership.Properties[index].Name);
-            object? ownerValue = ValueOf(owner, ownership.PrincipalKey.Properties[index].Name);
+            var childValue = ValueOf(child, ownership.Properties[index].Name);
+            var ownerValue = ValueOf(owner, ownership.PrincipalKey.Properties[index].Name);
 
             if (!Equals(childValue, ownerValue))
             {
@@ -172,7 +172,7 @@ public sealed class AggregateVersionInterceptor : SaveChangesInterceptor
     // carries the key it was loaded with.
     private static object? ValueOf(EntityEntry entry, string propertyName)
     {
-        PropertyEntry property = entry.Property(propertyName);
+        var property = entry.Property(propertyName);
 
         return entry.State == EntityState.Deleted ? property.OriginalValue : property.CurrentValue;
     }

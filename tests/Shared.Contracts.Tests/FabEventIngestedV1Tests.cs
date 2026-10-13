@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
-using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.EventIngestion;
 
 namespace SmartSentinelEye.Shared.Contracts.Tests;
@@ -21,7 +20,7 @@ public class FabEventIngestedV1Tests
     [Fact]
     public void Exposes_all_envelope_fields_via_the_positional_constructor()
     {
-        Guid identifier = Guid.CreateVersion7();
+        var identifier = Guid.CreateVersion7();
         FabEventIngestedV1 evt = new(
             identifier, "munich", "plc", "station-4", "PlcCycleStart",
             OccurredAt, IngestedAt, "{\"cycleId\":\"abc\"}", Metadata: TestMetadata);
@@ -48,7 +47,7 @@ public class FabEventIngestedV1Tests
     [Fact]
     public void Records_with_the_same_payload_are_equal()
     {
-        Guid identifier = Guid.CreateVersion7();
+        var identifier = Guid.CreateVersion7();
         FabEventIngestedV1 a = new(
             identifier, "munich", "inference", "camera-12", "PersonInRestrictedZone",
             OccurredAt, IngestedAt, "{\"confidence\":0.92}", Metadata: TestMetadata);
@@ -63,14 +62,14 @@ public class FabEventIngestedV1Tests
     [Fact]
     public void JSON_round_trip_preserves_a_large_60KB_payload()
     {
-        string largePayload =
+        var largePayload =
             "{\"data\":\"" + new string('a', 60 * 1024) + "\"}";
         FabEventIngestedV1 original = new(
             Guid.CreateVersion7(), "munich", "webhook", "qa", "QaResult",
             OccurredAt, IngestedAt, largePayload, Metadata: TestMetadata);
 
-        string json = JsonSerializer.Serialize(original);
-        FabEventIngestedV1 deserialized =
+        var json = JsonSerializer.Serialize(original);
+        var deserialized =
             JsonSerializer.Deserialize<FabEventIngestedV1>(json)!;
 
         deserialized.ShouldBe(original);

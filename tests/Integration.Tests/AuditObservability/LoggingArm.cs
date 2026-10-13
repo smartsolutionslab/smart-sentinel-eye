@@ -49,8 +49,8 @@ public sealed record LoggingArm(string Default, bool DefaultWasChosen, string Co
 
     public static LoggingArm Read()
     {
-        string? chosenDefault = Environment.GetEnvironmentVariable(DefaultKey);
-        string? chosenCommand = Environment.GetEnvironmentVariable(CommandKey);
+        var chosenDefault = Environment.GetEnvironmentVariable(DefaultKey);
+        var chosenCommand = Environment.GetEnvironmentVariable(CommandKey);
 
         return new LoggingArm(
             Default: Named(chosenDefault),
