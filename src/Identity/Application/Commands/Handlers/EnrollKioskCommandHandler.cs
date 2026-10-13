@@ -21,6 +21,44 @@ public sealed class EnrollKioskCommandHandler(
         Ensure.That(command).IsNotNull();
         (var name, var fab, var enrolledBy) = command;
 
+        var clientIdResult = ToClientId(name, fab);
+        if (clientIdResult.IsFailure)
+        {
+            return Failure(clientIdResult.Error);
+        }
+
+        var clientId = clientIdResult.Value;
+
+        var existing = await clients
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
+        if (existing.HasValue)
+        {
+            return Failure(EnrollKioskFailures.KioskAlreadyEnrolled(clientId.Value));
+        }
+
+        var created = await CreateInKeycloakAsync(KioskRepresentation(clientId, fab), fab, cancellationToken);
+        if (created.IsFailure)
+        {
+            return Failure(created.Error);
+        }
+
+        var registered = RegisteredClientAggregate.Register(
+            clientId, ClientKind.Kiosk, fab, enrolledBy, clock);
+        clients.Add(registered);
+        await clients.SaveAsync(cancellationToken);
+
+        logger.EnrolledKiosk(registered.Id, clientId, fab);
+
+        return Success(
+            new KioskCredentialsDto(
+                registered.Id.Value,
+                clientId.Value,
+                fab.Value,
+                created.Value.ClientSecret));
+    }
+
+    private static Result<ClientId, EnrollKioskError> ToClientId(string name, FabIdentifier fab)
+    {
         if (string.IsNullOrWhiteSpace(name))
         {
             return Failure(EnrollKioskFailures.InvalidName("must not be empty."));
@@ -32,24 +70,18 @@ public sealed class EnrollKioskCommandHandler(
                 "each hyphen-separated segment must be one or more letters or digits."));
         }
 
-        ClientId clientId;
         try
         {
-            clientId = ClientId.From($"kiosk.{fab.Value}.{name}");
+            return Success(ClientId.From($"kiosk.{fab.Value}.{name}"));
         }
         catch (ArgumentException ex)
         {
             return Failure(EnrollKioskFailures.InvalidName(ex.Message));
         }
+    }
 
-        var existing = await clients
-            .GetWithinFabAsync(fab, clientId, cancellationToken);
-        if (existing.HasValue)
-        {
-            return Failure(EnrollKioskFailures.KioskAlreadyEnrolled(clientId.Value));
-        }
-
-        KeycloakClientRepresentation representation = new(
+    private static KeycloakClientRepresentation KioskRepresentation(ClientId clientId, FabIdentifier fab) =>
+        new(
             ClientId: clientId.Value,
             Name: $"Kiosk {clientId.Value}",
             ServiceAccountsEnabled: true,
@@ -65,13 +97,17 @@ public sealed class EnrollKioskCommandHandler(
                 ["sse.fab"] = fab.Value,
             });
 
-        KeycloakClientCredentials credentials;
+    private async Task<Result<KeycloakClientCredentials, EnrollKioskError>> CreateInKeycloakAsync(
+        KeycloakClientRepresentation representation,
+        FabIdentifier fab,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            credentials = await keycloak.CreateClientAsync(
+            return Success(await keycloak.CreateClientAsync(
                 representation,
                 fabGroupPath: $"/fabs/{fab.Value}",
-                cancellationToken);
+                cancellationToken));
         }
         catch (KeycloakClientAlreadyExistsException ex)
         {
@@ -81,20 +117,6 @@ public sealed class EnrollKioskCommandHandler(
         {
             return Failure(EnrollKioskFailures.KeycloakUnavailable(ex.Message));
         }
-
-        var registered = RegisteredClientAggregate.Register(
-            clientId, ClientKind.Kiosk, fab, enrolledBy, clock);
-        clients.Add(registered);
-        await clients.SaveAsync(cancellationToken);
-
-        logger.EnrolledKiosk(registered.Id, clientId, fab);
-
-        return Success(
-            new KioskCredentialsDto(
-                registered.Id.Value,
-                clientId.Value,
-                fab.Value,
-                credentials.ClientSecret));
     }
 
     private static bool IsHyphenSeparatedAlphanumeric(string name) =>
