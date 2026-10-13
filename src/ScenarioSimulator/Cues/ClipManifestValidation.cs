@@ -89,25 +89,40 @@ public static class ClipManifestValidation
                 continue;
             }
 
-            ValidateOneCue(manifest.DurationMs, cue, index, previousAtMs, violations);
+            AddRangeViolation(cue, index, manifest.DurationMs, violations);
+            AddOrderViolation(cue, index, previousAtMs, violations);
+            ValidateCueContent(cue, index, violations);
             previousAtMs = cue.AtMs;
         }
     }
 
-    private static void ValidateOneCue(
-        int durationMs, CueDefinition cue, int index, int? previousAtMs, List<CueViolation> violations)
+    private static void AddRangeViolation(
+        CueDefinition cue,
+        int index,
+        int durationMs,
+        List<CueViolation> violations)
     {
         if (cue.AtMs < 0 || (durationMs > 0 && cue.AtMs >= durationMs))
         {
             violations.Add(new CueViolation(index, $"AtMs {cue.AtMs} is out of range for a {durationMs}ms clip."));
         }
+    }
 
+    private static void AddOrderViolation(
+        CueDefinition cue,
+        int index,
+        int? previousAtMs,
+        List<CueViolation> violations)
+    {
         if (previousAtMs is not null && cue.AtMs <= previousAtMs.Value)
         {
             violations.Add(new CueViolation(
                 index, $"AtMs {cue.AtMs} is not strictly ascending after {previousAtMs.Value}."));
         }
+    }
 
+    private static void ValidateCueContent(CueDefinition cue, int index, List<CueViolation> violations)
+    {
         if (string.IsNullOrWhiteSpace(cue.Class))
         {
             violations.Add(new CueViolation(index, "Class must not be blank."));
@@ -118,9 +133,7 @@ public static class ClipManifestValidation
             violations.Add(new CueViolation(index, $"Confidence {cue.Confidence} must be between 0 and 1."));
         }
 
-        if (cue.Box is { } box
-            && (box.X < 0 || box.Y < 0 || box.Width < 0 || box.Height < 0
-                || box.X + box.Width > 1 || box.Y + box.Height > 1))
+        if (cue.Box is { } box && ExtendsBeyondFrame(box))
         {
             violations.Add(new CueViolation(index, "Box extends beyond the normalised frame."));
         }
@@ -130,9 +143,16 @@ public static class ClipManifestValidation
             violations.Add(new CueViolation(index, $"Source '{cue.Source}' must be 'plc' or 'inference'."));
         }
 
-        if (string.IsNullOrWhiteSpace(cue.Kind) || cue.Kind.Length > MaxKindLength)
+        if (IsInvalidKind(cue.Kind))
         {
             violations.Add(new CueViolation(index, $"Kind must be non-blank and at most {MaxKindLength} characters."));
         }
     }
+
+    private static bool ExtendsBeyondFrame(CueBox box) =>
+        box.X < 0 || box.Y < 0 || box.Width < 0 || box.Height < 0
+        || box.X + box.Width > 1 || box.Y + box.Height > 1;
+
+    private static bool IsInvalidKind(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) || kind.Length > MaxKindLength;
 }
