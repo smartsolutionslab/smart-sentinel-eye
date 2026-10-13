@@ -29,7 +29,7 @@ public static partial class LayoutEndpoints
         }
 
         var fabsResolution =
-            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
@@ -77,7 +77,7 @@ public static partial class LayoutEndpoints
         }
 
         var fabsResolution =
-            await ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
