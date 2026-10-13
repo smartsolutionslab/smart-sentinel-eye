@@ -590,7 +590,8 @@ public class KeycloakRequestSequenceCharacterisationTests
     [Fact]
     public async Task A_refused_children_page_throws_after_the_pages_before_it()
     {
-        StubKeycloakHandler keycloak = new(GroupTree(_ => Rows(0, 100)))
+        StubKeycloakHandler keycloak = new(GroupTree(path =>
+            (path.Contains("first=0&", StringComparison.Ordinal) || path.Contains("first=100&", StringComparison.Ordinal)) ? Rows(0, 100) : "[]"))
         {
             Refuse = request => request.PathAndQuery.EndsWith("first=100&max=100", StringComparison.Ordinal)
                 ? HttpStatusCode.ServiceUnavailable : null,
