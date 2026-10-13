@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -48,8 +49,34 @@ public sealed class FabEventIngestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (eventIdentifier, fab, source, _, kind, _, ingestedAt, payload, _) = message;
+        var (eventIdentifier, fab, source, _, kind, _, ingestedAt, _, _) = message;
 
+        if (!TryParseFab(eventIdentifier, fab, out var parsedFab)
+            || !TryEvaluate(message, parsedFab, out var effects)
+            || effects.Count == 0)
+        {
+            return;
+        }
+
+        var requestedAt = clock.UtcNow;
+        foreach (var effect in effects)
+        {
+            // RootIngestedAt, not requestedAt: the leg the
+            // constitution budgets starts when the plant-floor
+            // event was accepted, not when this decision was
+            // made. Forwarding it is the only way the service
+            // that applies the effect can see both ends
+            // (spec 025).
+            var metadata = new EventMetadata(Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt);
+            var causation = new EffectCausation(requestedAt, eventIdentifier, metadata);
+            await PublishEffectAsync(effect, causation, cancellationToken);
+        }
+
+        logger.FannedOutActions(effects.Count, eventIdentifier, source, kind);
+    }
+
+    private bool TryParseFab(Guid eventIdentifier, string fab, [NotNullWhen(true)] out FabIdentifier? parsedFab)
+    {
         // An event that does not say which fab it came from triggers nothing
         // (spec 013 FR-012). Falling back to evaluating every rule is exactly
         // the behaviour #1252 describes, so the absence of a fab must fail
@@ -57,13 +84,14 @@ public sealed class FabEventIngestedV1Handler(
         if (string.IsNullOrWhiteSpace(fab))
         {
             logger.SkippedEventWithoutFab(eventIdentifier);
-            return;
+            parsedFab = null;
+            return false;
         }
 
-        FabIdentifier parsedFab;
         try
         {
             parsedFab = FabIdentifier.From(fab);
+            return true;
         }
         catch (ArgumentException exception)
         {
@@ -74,9 +102,16 @@ public sealed class FabEventIngestedV1Handler(
             // reason both go in the log, because neither is recoverable from
             // the event identifier alone.
             logger.SkippedEventWithUnparseableFab(exception, eventIdentifier, fab);
-            return;
+            parsedFab = null;
+            return false;
         }
+    }
 
+    private bool TryEvaluate(
+        FabEventIngestedV1 message,
+        FabIdentifier parsedFab,
+        out IReadOnlyList<RuleActionEffect> effects)
+    {
         JsonDocument document;
         try
         {
@@ -84,67 +119,82 @@ public sealed class FabEventIngestedV1Handler(
         }
         catch (JsonException exception)
         {
-            logger.SkippedEventWithUnparseablePayload(exception, eventIdentifier, payload?.Length ?? 0);
-            return;
+            logger.SkippedEventWithUnparseablePayload(
+                exception,
+                message.EventIdentifier,
+                message.Payload?.Length ?? 0);
+            effects = Array.Empty<RuleActionEffect>();
+            return false;
         }
 
-        IReadOnlyList<RuleActionEffect> effects;
         using (document)
         {
             effects = evaluator.Evaluate(
-                parsedFab, source, kind, new EvaluationContext(document.RootElement));
+                parsedFab, message.Source, message.Kind, new EvaluationContext(document.RootElement));
         }
 
-        if (effects.Count == 0)
-        {
-            return;
-        }
-
-        var requestedAt = clock.UtcNow;
-        foreach (var effect in effects)
-        {
-            switch (effect)
-            {
-                case RuleActionEffect.SetVariableValue setVariableValue:
-                    await events.PublishAsync(
-                        new SystemVariableValueRequestedV1(
-                            setVariableValue.Name, setVariableValue.Value, requestedAt, eventIdentifier,
-                            // RootIngestedAt, not requestedAt: the leg the
-                            // constitution budgets starts when the plant-floor
-                            // event was accepted, not when this decision was
-                            // made. Forwarding it is the only way the service
-                            // that applies the effect can see both ends
-                            // (spec 025).
-                            Metadata: new EventMetadata(
-                                Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
-                        cancellationToken);
-                    break;
-
-                case RuleActionEffect.HighlightOverlay highlightOverlay:
-                    await events.PublishAsync(
-                        new OverlayHighlightRequestedV1(
-                            highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, eventIdentifier,
-                            // Same reasoning as the variable effect above.
-                            Metadata: new EventMetadata(
-                                Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
-                        cancellationToken);
-                    break;
-
-                case RuleActionEffect.SwitchWallScene switchWallScene:
-                    await events.PublishAsync(
-                        new WallSceneSwitchRequestedV1(
-                            switchWallScene.Wall, switchWallScene.Target, switchWallScene.Layout,
-                            switchWallScene.Rule, requestedAt, eventIdentifier,
-                            // Same reasoning as the variable effect above.
-                            Metadata: new EventMetadata(
-                                Guid.CreateVersion7(), requestedAt, fab, null, ingestedAt)),
-                        cancellationToken);
-                    break;
-            }
-        }
-
-        logger.FannedOutActions(effects.Count, eventIdentifier, source, kind);
+        return true;
     }
+
+    private Task PublishEffectAsync(
+        RuleActionEffect effect,
+        EffectCausation causation,
+        CancellationToken cancellationToken) =>
+        effect switch
+        {
+            RuleActionEffect.SetVariableValue setVariableValue =>
+                PublishVariableAsync(setVariableValue, causation, cancellationToken),
+            RuleActionEffect.HighlightOverlay highlightOverlay =>
+                PublishHighlightAsync(highlightOverlay, causation, cancellationToken),
+            RuleActionEffect.SwitchWallScene switchWallScene =>
+                PublishSceneSwitchAsync(switchWallScene, causation, cancellationToken),
+            _ => Task.CompletedTask,
+        };
+
+    private Task PublishVariableAsync(
+        RuleActionEffect.SetVariableValue setVariableValue,
+        EffectCausation causation,
+        CancellationToken cancellationToken)
+    {
+        var (requestedAt, eventIdentifier, metadata) = causation;
+        return events.PublishAsync(
+            new SystemVariableValueRequestedV1(
+                setVariableValue.Name, setVariableValue.Value, requestedAt, eventIdentifier,
+                Metadata: metadata),
+            cancellationToken);
+    }
+
+    private Task PublishHighlightAsync(
+        RuleActionEffect.HighlightOverlay highlightOverlay,
+        EffectCausation causation,
+        CancellationToken cancellationToken)
+    {
+        var (requestedAt, eventIdentifier, metadata) = causation;
+        return events.PublishAsync(
+            new OverlayHighlightRequestedV1(
+                highlightOverlay.Overlay, highlightOverlay.DurationMs, requestedAt, eventIdentifier,
+                Metadata: metadata),
+            cancellationToken);
+    }
+
+    private Task PublishSceneSwitchAsync(
+        RuleActionEffect.SwitchWallScene switchWallScene,
+        EffectCausation causation,
+        CancellationToken cancellationToken)
+    {
+        var (requestedAt, eventIdentifier, metadata) = causation;
+        return events.PublishAsync(
+            new WallSceneSwitchRequestedV1(
+                switchWallScene.Wall, switchWallScene.Target, switchWallScene.Layout,
+                switchWallScene.Rule, requestedAt, eventIdentifier,
+                Metadata: metadata),
+            cancellationToken);
+    }
+
+    private readonly record struct EffectCausation(
+        DateTimeOffset RequestedAt,
+        Guid CausingEvent,
+        EventMetadata Metadata);
 
     /// <summary>
     /// Parses a <see cref="JsonDocument"/> whose root is a JSON object
