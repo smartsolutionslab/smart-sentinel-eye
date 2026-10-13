@@ -146,13 +146,13 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
 
     private async Task<Arrangement> ArrangeOnceAsync()
     {
-        // Captured before anything else: Postgres runs ContainerLifetime.Persistent
-        // with a data volume, so audit_events survives across runs, and a prior
-        // run's seed at the same ~400d age lands in the same monthly chunk. A
-        // match on chunk range alone can return an EARLIER run's announcement on
-        // the very first poll iteration, before this run's own sweep has done
-        // anything — PollForCoveringAnnouncementAsync's freshness check below is
-        // what tells this run's evidence apart from a stale one.
+        // Captured before anything else. The integration lane composes the AppHost
+        // with E2ETests=true, which keeps Postgres out of the persistent-dev-stack
+        // gate: no ContainerLifetime.Persistent, no data volume, so no earlier run's
+        // rows are in audit_events. PollForCoveringAnnouncementAsync's freshness
+        // check below does not rely on that — a chunk-range match alone would also
+        // accept an EARLIER announcement covering the same ~400d moment — so it
+        // stays correct if the lane's composition ever starts to persist.
         var arrangementStartedAt = DateTimeOffset.UtcNow;
 
         var seededMoment = DateTimeOffset.UtcNow.AddDays(-SeedAgeInDays);
@@ -272,14 +272,14 @@ public class NeutralFabRetentionRowIntegrationTests(AspireFixture aspire, ITestO
     }
 
     /// <summary>
-    /// Matches on chunk range <em>and</em> freshness. Chunk range alone is not
-    /// enough: the data volume persists across runs (<c>ContainerLifetime.Persistent</c>),
-    /// so a prior run's seed at the same ~400d age can already have an
-    /// announcement sitting in <c>audit_events</c> whose range covers this
-    /// run's <paramref name="seededMoment"/> too — a plain range match would
-    /// return that stale row on the very first poll, before this run's sweep
-    /// has archived anything. <paramref name="notBefore"/> — captured before
-    /// this run seeded its own row — rules that out: only a row whose
+    /// Matches on chunk range <em>and</em> freshness. Chunk range alone would
+    /// accept any announcement in <c>audit_events</c> whose range covers this
+    /// run's <paramref name="seededMoment"/>, including one that predates the
+    /// run's sweep. The integration lane is not persistent today (it composes
+    /// the AppHost with <c>E2ETests=true</c>, so no <c>ContainerLifetime.Persistent</c>
+    /// and no data volume), so this is a guard against a composition change, not
+    /// against a hazard the lane has now. <paramref name="notBefore"/> — captured
+    /// before this run seeded its own row — rules it out: only a row whose
     /// <c>receivedAt</c> postdates it can be this run's own announcement.
     /// </summary>
     private static async Task<JsonElement> PollForCoveringAnnouncementAsync(
