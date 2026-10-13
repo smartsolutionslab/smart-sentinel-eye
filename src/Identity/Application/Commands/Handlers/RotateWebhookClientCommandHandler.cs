@@ -93,7 +93,7 @@ public sealed class RotateWebhookClientCommandHandler(
             // was captured into the outbox with nothing left to release it.
             // Reordering is not available: the announcement carries a client
             // id that only exists once Keycloak has answered, and the
-            // save-then-Keycloak order above is load-bearing for its own
+            // save-then-Keycloak order in RollSecretAsync and RegisterAsync is load-bearing for its own
             // reasons. So the flush is explicit.
             await commit.CommitAsync(cancellationToken);
         }
@@ -155,8 +155,8 @@ public sealed class RotateWebhookClientCommandHandler(
         string integrationName,
         CancellationToken cancellationToken)
     {
-        // Before anything else, including the local lookup and both Layer-1
-        // branches below: a revoked (or unverifiable) integration is refused
+        // Before anything else, including the local lookup in PrepareAsync and both
+        // Layer-1 refusals in RefuseOnVersionMismatch: a revoked (or unverifiable) integration is refused
         // whichever precondition the caller sent, so the rotate branch's
         // aggregate.Rotate(clock) + SaveAsync can never run for it (plan §4).
         var status = await integrationStatus
@@ -219,7 +219,7 @@ public sealed class RotateWebhookClientCommandHandler(
         catch (KeycloakClientAlreadyExistsException)
         {
             // The clientId is already taken — by another fab's webhook client
-            // this fab-scoped lookup above never saw. This refusal stays
+            // the fab-scoped lookup in PrepareAsync never saw. This refusal stays
             // generic (see WebhookClientNameConflict) to avoid naming the
             // clientId in the message. That closes the message-text leak
             // only: the 409-vs-200 status code itself is still a cross-fab
@@ -246,8 +246,8 @@ public sealed class RotateWebhookClientCommandHandler(
         ClientId clientId,
         CancellationToken cancellationToken)
     {
-        // Claim the write before rolling the secret. The version check
-        // above is a read-then-compare with no lock, so two callers
+        // Claim the write before rolling the secret. The version check in
+        // RefuseOnVersionMismatch is a read-then-compare with no lock, so two callers
         // holding the same version both pass it; only Layer 2 (the EF
         // token on this save) picks a winner. Rolling first would let
         // the loser invalidate the winner's live credential and then
@@ -343,13 +343,13 @@ public sealed class RotateWebhookClientCommandHandler(
 
     /// <summary>
     /// Create-branch TOCTOU: a revoke can land in the window
-    /// between the pre-flight status read above and this branch's own
+    /// between the pre-flight status read in <c>RefuseIfRevokedAsync</c> and this branch's own
     /// <c>SaveAsync</c> committing the new row. EventIngestion's
     /// <c>WebhookIntegrationRevokedV1</c> disable (spec 264) has no row to
     /// disable yet at that moment, so it is dropped, and without this the
     /// client would stay live and enabled indefinitely. <c>Unverifiable</c> is
     /// treated the same as <c>Revoked</c> here, matching the pre-flight check's
-    /// own fail-closed philosophy a few lines above: a status this handler
+    /// own fail-closed philosophy in <c>RefuseIfRevokedAsync</c>: a status this handler
     /// cannot confirm is not one it leaves a live credential attached to.
     ///
     /// <para>
