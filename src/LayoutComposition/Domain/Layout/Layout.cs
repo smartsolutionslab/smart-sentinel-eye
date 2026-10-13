@@ -150,7 +150,11 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
             Creation = Creation.From(CreatedAt.From(now), createdBy),
         };
         layout.revisions.Add(
-            Revision.NewDraft(LayoutRevisionNumber.One, grid, tiles, now, createdBy));
+            Revision.NewDraft(
+                LayoutRevisionNumber.One,
+                grid,
+                tiles,
+                Creation.From(CreatedAt.From(now), createdBy)));
         layout.RecomputeArchival(now);
         return layout;
     }
@@ -178,7 +182,10 @@ public sealed class Layout : AggregateRoot<LayoutIdentifier>
         var now = clock.UtcNow;
         var next = MaxRevisionNumber().Next();
         var draft = Revision.Branch(
-            next, baseRevision.Grid, baseRevision.Tiles, now, by);
+            next,
+            baseRevision.Grid,
+            baseRevision.Tiles,
+            Creation.From(CreatedAt.From(now), by));
         revisions.Add(draft);
         RecomputeArchival(now);
         return draft;

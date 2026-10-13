@@ -48,8 +48,7 @@ public sealed class Revision
         LayoutRevisionNumber number,
         GridDimensions grid,
         IReadOnlyList<Tile> tiles,
-        DateTimeOffset createdAt,
-        OperatorIdentifier createdBy)
+        Creation creation)
     {
         Revision revision = new()
         {
@@ -57,7 +56,7 @@ public sealed class Revision
             Number = number,
             State = LayoutRevisionState.Draft,
             Grid = new GridDimensions(grid.Rows, grid.Cols),
-            Creation = Creation.From(CreatedAt.From(createdAt), createdBy),
+            Creation = creation,
         };
         // Clone the owned entities (Grid above + each tile below) so the
         // revision owns fresh instances. BranchDraft copies a Published
@@ -77,9 +76,8 @@ public sealed class Revision
         LayoutRevisionNumber number,
         GridDimensions grid,
         IReadOnlyList<Tile> tiles,
-        DateTimeOffset createdAt,
-        OperatorIdentifier createdBy) =>
-        NewDraft(number, grid, tiles, createdAt, createdBy);
+        Creation creation) =>
+        NewDraft(number, grid, tiles, creation);
 
     internal void Publish(DateTimeOffset publishedAt)
     {
