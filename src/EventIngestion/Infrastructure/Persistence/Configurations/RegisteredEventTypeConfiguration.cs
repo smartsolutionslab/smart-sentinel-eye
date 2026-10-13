@@ -23,6 +23,13 @@ public sealed class RegisteredEventTypeConfiguration : IEntityTypeConfiguration<
         builder.ToTable("registered_event_types");
         builder.HasKey(eventType => eventType.Id);
 
+        ConfigureColumns(builder);
+        ConfigureRegistration(builder);
+        ConfigureVersionAndIndexes(builder);
+    }
+
+    private static void ConfigureColumns(EntityTypeBuilder<RegisteredEventType> builder)
+    {
         builder.Property(eventType => eventType.Id)
             .HasColumnName("registered_event_type_id")
             .HasConversion(id => id.Value, value => RegisteredEventTypeIdentifier.From(value))
@@ -45,7 +52,10 @@ public sealed class RegisteredEventTypeConfiguration : IEntityTypeConfiguration<
             .HasMaxLength(16)
             .HasConversion(state => state.Value, value => RegistrationState.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureRegistration(EntityTypeBuilder<RegisteredEventType> builder)
+    {
         // Owned reference onto registered_at + registered_by. Navigation(...)
         // .IsRequired() keeps them NOT NULL; without it the model silently
         // diverges from the schema (VariableConfiguration.cs:86,98; #2022).
@@ -62,7 +72,10 @@ public sealed class RegisteredEventTypeConfiguration : IEntityTypeConfiguration<
                 .IsRequired();
         });
         builder.Navigation(eventType => eventType.Registration).IsRequired();
+    }
 
+    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<RegisteredEventType> builder)
+    {
         builder.Property(eventType => eventType.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
