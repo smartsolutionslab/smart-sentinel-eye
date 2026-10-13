@@ -33,15 +33,7 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
 
         var (fab, layout, revisionNumber, name, grid, domainTiles, publishedAt, publishedBy) = domainEvent;
 
-        IReadOnlyList<LayoutTileV2> tiles = domainTiles
-            .Select(tile => new LayoutTileV2(
-                Camera: tile.Camera.Value,
-                Overlay: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
-                Row: tile.Position.Row,
-                Col: tile.Position.Col,
-                RowSpan: tile.Span.Rows,
-                ColSpan: tile.Span.Cols))
-            .ToList();
+        var tiles = ToContractTiles(domainTiles);
 
         await events.PublishAsync(
             new LayoutRevisionPublishedV2(
@@ -65,4 +57,15 @@ public sealed class LayoutRevisionPublishedDomainEventHandler(
                 publishedAt),
             cancellationToken);
     }
+
+    private static List<LayoutTileV2> ToContractTiles(IReadOnlyList<Tile> domainTiles) =>
+        domainTiles
+            .Select(tile => new LayoutTileV2(
+                Camera: tile.Camera.Value,
+                Overlay: tile.Overlay.Match(overlay => (Guid?)overlay.Value, () => null),
+                Row: tile.Position.Row,
+                Col: tile.Position.Col,
+                RowSpan: tile.Span.Rows,
+                ColSpan: tile.Span.Cols))
+            .ToList();
 }
