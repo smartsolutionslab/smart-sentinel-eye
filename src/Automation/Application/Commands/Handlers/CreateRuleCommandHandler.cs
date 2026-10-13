@@ -29,6 +29,26 @@ public sealed class CreateRuleCommandHandler(
             return Failure(CreateRuleFailures.RuleNameTaken(fab.Value, name.Value));
         }
 
+        var refusal = RefuseUnparseable(predicate, action);
+        if (refusal.HasValue)
+        {
+            return Failure(refusal.Value);
+        }
+
+        var rule = Rule.Create(
+            fab, name, triggerSource, triggerKind,
+            predicate, action, createdBy, clock);
+
+        rules.Add(rule);
+        await rules.SaveAsync(cancellationToken);
+
+        logger.CreatedRule(rule.Id, name, triggerSource.Value, triggerKind.Value, createdBy);
+
+        return Success(rule.Id);
+    }
+
+    private static Option<CreateRuleError> RefuseUnparseable(RulePredicate predicate, RuleAction action)
+    {
         // Parse the predicate at command-time so a typo surfaces as a
         // 400 with position info rather than a runtime failure later.
         try
@@ -37,7 +57,7 @@ public sealed class CreateRuleCommandHandler(
         }
         catch (AelParseException ex)
         {
-            return Failure(CreateRuleFailures.PredicateParseFailed(ex.Message, ex.Position));
+            return Option<CreateRuleError>.Some(CreateRuleFailures.PredicateParseFailed(ex.Message, ex.Position));
         }
 
         // SetVariableValue's value expression is parsed up-front so
@@ -51,19 +71,11 @@ public sealed class CreateRuleCommandHandler(
             }
             catch (AelParseException ex)
             {
-                return Failure(CreateRuleFailures.ActionExpressionParseFailed(ex.Message, ex.Position));
+                return Option<CreateRuleError>.Some(
+                    CreateRuleFailures.ActionExpressionParseFailed(ex.Message, ex.Position));
             }
         }
 
-        var rule = Rule.Create(
-            fab, name, triggerSource, triggerKind,
-            predicate, action, createdBy, clock);
-
-        rules.Add(rule);
-        await rules.SaveAsync(cancellationToken);
-
-        logger.CreatedRule(rule.Id, name, triggerSource.Value, triggerKind.Value, createdBy);
-
-        return Success(rule.Id);
+        return Option<CreateRuleError>.None;
     }
 }
