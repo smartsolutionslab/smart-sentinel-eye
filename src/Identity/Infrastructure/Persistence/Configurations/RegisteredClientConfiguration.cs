@@ -19,6 +19,16 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
     {
         Ensure.That(builder).IsNotNull();
 
+        ConfigureColumns(builder);
+        ConfigureRegistration(builder);
+        ConfigureLifecycle(builder);
+        ConfigureIndexes(builder);
+
+        builder.Ignore(client => client.PendingEvents);
+    }
+
+    private static void ConfigureColumns(EntityTypeBuilder<RegisteredClientAggregate> builder)
+    {
         builder.ToTable("registered_clients");
         builder.HasKey(client => client.Id);
 
@@ -44,7 +54,10 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
             .HasMaxLength(FabIdentifier.MaximumLength)
             .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureRegistration(EntityTypeBuilder<RegisteredClientAggregate> builder)
+    {
         // Owned reference onto the two columns the pair occupied. The
         // Navigation(...).IsRequired() line keeps them NOT NULL; without it EF
         // treats the reference as optional and the model silently diverges
@@ -62,7 +75,10 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
                 .IsRequired();
         });
         builder.Navigation(client => client.Registration).IsRequired();
+    }
 
+    private static void ConfigureLifecycle(EntityTypeBuilder<RegisteredClientAggregate> builder)
+    {
         builder.Property(client => client.DisabledAt)
             .HasColumnName("disabled_at")
             .HasConversion(v => v!.Value, value => DisabledAt.From(value));
@@ -75,7 +91,10 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken()
             .IsRequired();
+    }
 
+    private static void ConfigureIndexes(EntityTypeBuilder<RegisteredClientAggregate> builder)
+    {
         // Active row uniqueness on client_id (FR-002 mirrors
         // spec 005's archived-name pattern: disabled rows release
         // the clientId for re-registration).
@@ -87,7 +106,5 @@ public sealed class RegisteredClientConfiguration : IEntityTypeConfiguration<Reg
         // Lookup index for the management UI / spec 009 audit queries.
         builder.HasIndex(client => new { client.Kind, client.Fab, client.DisabledAt })
             .HasDatabaseName("ix_registered_clients_kind_fab_disabled");
-
-        builder.Ignore(client => client.PendingEvents);
     }
 }
