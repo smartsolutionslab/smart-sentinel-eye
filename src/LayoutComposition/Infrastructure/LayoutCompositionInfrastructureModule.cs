@@ -39,95 +39,13 @@ public static class LayoutCompositionInfrastructureModule
         builder.AddLayoutCompositionPersistence();
         builder.EnrichPostgresDbContext<LayoutCompositionDbContext>();
 
-        builder.Services.AddScoped<ILayoutRepository, LayoutRepository>();
-        builder.Services.AddScoped<ILayoutQuerySource, LayoutQuerySource>();
-        builder.Services.AddScoped<IWallRepository, WallRepository>();
-        builder.Services.AddScoped<ILayoutPublicationLookup, LayoutPublicationLookup>();
-        builder.Services.AddScoped<IWallSwitchRequestDedupStore, WallSwitchRequestDedupStore>();
-        builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionPublishedDomainEvent>, LayoutRevisionPublishedDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventHandler<LayoutRevisionArchivedDomainEvent>, LayoutRevisionArchivedDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventHandler<WallConfiguredDomainEvent>, WallConfiguredDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventHandler<WallSceneSwitchedDomainEvent>, WallSceneSwitchedDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
-
-        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
-        // above drives the executor's wait for an in-flight attempt.
-        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<LayoutCompositionDbContext>>();
-        builder.Services.AddIdempotencyReservationSweep<LayoutCompositionDbContext>();
-        builder.Services.AddSignalR();
-        builder.Services.AddSingleton<ILayoutLifecycleBroadcaster, SignalRLayoutLifecycleBroadcaster>();
-
-        // FR-014: a tile's camera must be in its layout's fab, and only
-        // CameraCatalog knows a camera's fab. The first synchronous call from
-        // this context to another (plan.md §III) — write path only, carrying
-        // the caller's own token, so a CameraCatalog outage stops layout
-        // authoring and nothing else.
-        //
-        // Registered by resource name so Aspire service discovery rewrites
-        // "http://camera-catalog" — scheme included — to whatever that
-        // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
-        // literal; neither applies, because it is a logical name rather than
-        // an address.
-        builder.Services.AddHttpContextAccessor();
-        builder.Services.AddTransient<CallerTokenForwardingHandler>();
-        builder.Services.AddHttpClient<ICameraFabGuard, CameraCatalogFabGuard>(client =>
-        {
-#pragma warning disable S1075, S5332
-            client.BaseAddress = new Uri("http://camera-catalog");
-#pragma warning restore S1075, S5332
-        }).AddHttpMessageHandler<CallerTokenForwardingHandler>();
-
-        // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
-        builder.Services.AddScoped<
-            ICommandHandler<CreateLayoutDraftCommand, Result<LayoutIdentifier, CreateLayoutDraftError>>,
-            CreateLayoutDraftCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<PublishRevisionCommand, Result<LayoutRevisionNumber, PublishRevisionError>>,
-            PublishRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<ArchiveRevisionCommand, Result<LayoutRevisionNumber, ArchiveRevisionError>>,
-            ArchiveRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<BranchDraftRevisionCommand, Result<LayoutRevisionNumber, BranchDraftRevisionError>>,
-            BranchDraftRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<EditDraftRevisionCommand, Result<LayoutRevisionNumber, EditDraftRevisionError>>,
-            EditDraftRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>,
-            RevertRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<CreateWallCommand, Result<WallIdentifier, CreateWallError>>,
-            CreateWallCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<EditWallScenesCommand, Result<WallDto, EditWallScenesError>>,
-            EditWallScenesCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<SwitchWallSceneCommand, Result<WallDto, SwitchWallSceneError>>,
-            SwitchWallSceneCommandHandler>();
-
-        // Cross-context lifecycle relays: the publishing contexts emit an
-        // integration event; the SignalR broadcast lives here with the hub
-        // owner (no cross-context dependency). Wolverine binds a listener
-        // queue per handled message type (ADR-0088).
-        //   - Spec 007: Automation's overlay-highlight request.
-        //   - Spec 004: OverlayDesigner's overlay-revision publish/archive.
-        //   - Spec 005: SystemVariables' resolved-overlay-text change.
-        builder.Services.AddScoped<OverlayHighlightRequestedV1Handler>();
-        builder.Services.AddScoped<OverlayRevisionPublishedV3Handler>();
-        builder.Services.AddScoped<OverlayRevisionArchivedV1Handler>();
-        builder.Services.AddScoped<ResolvedOverlayTextChangedV3Handler>();
-        //   - Spec 296: Automation's rule-driven wall-switch request.
-        builder.Services.AddScoped<WallSceneSwitchRequestedV1Handler>();
-
-        // Same-context relay (spec 258 US1, phase-6 remediation): this
-        // context both publishes WallSceneChangedV1 and subscribes to it, so
-        // the broadcast only happens once Wolverine's outbox has actually
-        // released the message — after the commit that raised it, never
-        // before.
-        builder.Services.AddScoped<WallSceneChangedV1Handler>();
+        AddRepositories(builder.Services);
+        AddDomainEventHandlers(builder.Services);
+        AddClocks(builder.Services);
+        AddIdempotencyAndBroadcasting(builder.Services);
+        AddCameraFabGuard(builder.Services);
+        AddCommandHandlers(builder.Services);
+        AddIntegrationEventHandlers(builder.Services);
 
         builder.AddWolverineForContext<LayoutCompositionDbContext>(
             moduleQueuePrefix: ContextName,
@@ -141,4 +59,114 @@ public static class LayoutCompositionInfrastructureModule
 
         return builder;
     }
+
+    private static void AddRepositories(IServiceCollection services) =>
+        services
+            .AddScoped<ILayoutRepository, LayoutRepository>()
+            .AddScoped<ILayoutQuerySource, LayoutQuerySource>()
+            .AddScoped<IWallRepository, WallRepository>()
+            .AddScoped<ILayoutPublicationLookup, LayoutPublicationLookup>()
+            .AddScoped<IWallSwitchRequestDedupStore, WallSwitchRequestDedupStore>();
+
+    private static void AddDomainEventHandlers(IServiceCollection services) =>
+        services
+            .AddScoped<IDomainEventHandler<LayoutRevisionPublishedDomainEvent>, LayoutRevisionPublishedDomainEventHandler>()
+            .AddScoped<IDomainEventHandler<LayoutRevisionArchivedDomainEvent>, LayoutRevisionArchivedDomainEventHandler>()
+            .AddScoped<IDomainEventHandler<WallConfiguredDomainEvent>, WallConfiguredDomainEventHandler>()
+            .AddScoped<IDomainEventHandler<WallSceneSwitchedDomainEvent>, WallSceneSwitchedDomainEventHandler>()
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
+    private static void AddClocks(IServiceCollection services) =>
+        services
+            .AddSingleton<IClock, SystemClock>()
+            .AddSingleton(TimeProvider.System);
+
+    // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+    // (AddClocks) drives the executor's wait for an in-flight attempt.
+    private static void AddIdempotencyAndBroadcasting(IServiceCollection services)
+    {
+        services
+            .AddScoped<IIdempotencyStore, IdempotencyStore<LayoutCompositionDbContext>>()
+            .AddIdempotencyReservationSweep<LayoutCompositionDbContext>()
+            .AddSignalR();
+        services.AddSingleton<ILayoutLifecycleBroadcaster, SignalRLayoutLifecycleBroadcaster>();
+    }
+
+    // FR-014: a tile's camera must be in its layout's fab, and only
+    // CameraCatalog knows a camera's fab. The first synchronous call from
+    // this context to another (plan.md §III) — write path only, carrying
+    // the caller's own token, so a CameraCatalog outage stops layout
+    // authoring and nothing else.
+    //
+    // Registered by resource name so Aspire service discovery rewrites
+    // "http://camera-catalog" — scheme included — to whatever that
+    // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
+    // literal; neither applies, because it is a logical name rather than
+    // an address.
+    private static void AddCameraFabGuard(IServiceCollection services)
+    {
+        services
+            .AddHttpContextAccessor()
+            .AddTransient<CallerTokenForwardingHandler>();
+        services.AddHttpClient<ICameraFabGuard, CameraCatalogFabGuard>(client =>
+        {
+#pragma warning disable S1075, S5332
+            client.BaseAddress = new Uri("http://camera-catalog");
+#pragma warning restore S1075, S5332
+        }).AddHttpMessageHandler<CallerTokenForwardingHandler>();
+    }
+
+    // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
+    private static void AddCommandHandlers(IServiceCollection services) =>
+        services
+            .AddScoped<
+                ICommandHandler<CreateLayoutDraftCommand, Result<LayoutIdentifier, CreateLayoutDraftError>>,
+                CreateLayoutDraftCommandHandler>()
+            .AddScoped<
+                ICommandHandler<PublishRevisionCommand, Result<LayoutRevisionNumber, PublishRevisionError>>,
+                PublishRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<ArchiveRevisionCommand, Result<LayoutRevisionNumber, ArchiveRevisionError>>,
+                ArchiveRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<BranchDraftRevisionCommand, Result<LayoutRevisionNumber, BranchDraftRevisionError>>,
+                BranchDraftRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<EditDraftRevisionCommand, Result<LayoutRevisionNumber, EditDraftRevisionError>>,
+                EditDraftRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<RevertRevisionCommand, Result<LayoutRevisionNumber, RevertRevisionError>>,
+                RevertRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<CreateWallCommand, Result<WallIdentifier, CreateWallError>>,
+                CreateWallCommandHandler>()
+            .AddScoped<
+                ICommandHandler<EditWallScenesCommand, Result<WallDto, EditWallScenesError>>,
+                EditWallScenesCommandHandler>()
+            .AddScoped<
+                ICommandHandler<SwitchWallSceneCommand, Result<WallDto, SwitchWallSceneError>>,
+                SwitchWallSceneCommandHandler>();
+
+    // Cross-context lifecycle relays: the publishing contexts emit an
+    // integration event; the SignalR broadcast lives here with the hub
+    // owner (no cross-context dependency). Wolverine binds a listener
+    // queue per handled message type (ADR-0088).
+    //   - Spec 007: Automation's overlay-highlight request.
+    //   - Spec 004: OverlayDesigner's overlay-revision publish/archive.
+    //   - Spec 005: SystemVariables' resolved-overlay-text change.
+    //   - Spec 296: Automation's rule-driven wall-switch request.
+    //
+    // WallSceneChangedV1Handler is the same-context relay (spec 258 US1,
+    // phase-6 remediation): this context both publishes WallSceneChangedV1
+    // and subscribes to it, so the broadcast only happens once Wolverine's
+    // outbox has actually released the message — after the commit that
+    // raised it, never before.
+    private static void AddIntegrationEventHandlers(IServiceCollection services) =>
+        services
+            .AddScoped<OverlayHighlightRequestedV1Handler>()
+            .AddScoped<OverlayRevisionPublishedV3Handler>()
+            .AddScoped<OverlayRevisionArchivedV1Handler>()
+            .AddScoped<ResolvedOverlayTextChangedV3Handler>()
+            .AddScoped<WallSceneSwitchRequestedV1Handler>()
+            .AddScoped<WallSceneChangedV1Handler>();
 }
