@@ -100,7 +100,7 @@ public sealed partial class HttpKeycloakAdminClient(
         {
             // **The client exists but is not properly set up, so it must not
             // survive.** Leaving it behind fails the caller *and* blocks every
-            // retry — the existence probe above would answer "already enrolled"
+            // retry — the existence probe in RefuseOrReplaceExistingAsync would answer "already enrolled"
             // for a client that was never finished, while its account keeps the
             // privilege this step exists to remove.
             await TryDeleteClientAsync(
