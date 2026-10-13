@@ -335,7 +335,11 @@ public sealed class RotateWebhookClientCommandHandler(
 
     private readonly record struct PreparedRotation(ClientId ClientId, Option<RegisteredClientAggregate> Existing);
 
-    private readonly record struct RotationOutcome(RegisteredClientAggregate Aggregate, string ClientSecret);
+    private readonly record struct RotationOutcome(RegisteredClientAggregate Aggregate, string ClientSecret)
+    {
+        // The generated ToString prints every member, and ClientSecret is plaintext.
+        public override string ToString() => nameof(RotationOutcome);
+    }
 
     /// <summary>
     /// Create-branch TOCTOU: a revoke can land in the window
