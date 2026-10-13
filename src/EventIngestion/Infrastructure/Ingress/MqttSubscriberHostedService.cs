@@ -244,11 +244,12 @@ public sealed class MqttSubscriberHostedService(
             return new ParseResult(null, $"payload rejected: {ex.Message}");
         }
 
-        // Guarded like the two blocks above. Unguarded, a field the value
-        // objects reject threw straight out of the MQTT handler: MQTTnet never
-        // ACKed, the broker stalled once its in-flight window filled, and the
-        // delivery was never dead-lettered (FR-015) — so one bad message
-        // wedged ingestion permanently, because QoS 1 redelivers it forever.
+        // Guarded like the payload block above and the address/JSON block in
+        // TryParseEnvelope. Unguarded, a field the value objects reject threw
+        // straight out of the MQTT handler: MQTTnet never ACKed, the broker
+        // stalled once its in-flight window filled, and the delivery was never
+        // dead-lettered (FR-015) — so one bad message wedged ingestion
+        // permanently, because QoS 1 redelivers it forever.
         EventEnvelope envelope;
         try
         {
