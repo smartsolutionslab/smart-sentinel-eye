@@ -56,6 +56,9 @@ public sealed class Revision
             Number = number,
             State = LayoutRevisionState.Draft,
             Grid = new GridDimensions(grid.Rows, grid.Cols),
+            // Stored as is, so it must be a fresh instance (never layout.Creation or
+            // another revision's): Creation is an owned type on both tables, and EF
+            // throws "one owned entity under two owners" at SaveChanges.
             Creation = creation,
         };
         // Clone the owned entities (Grid above + each tile below) so the
@@ -64,9 +67,6 @@ public sealed class Revision
         // under that revision; reusing the same instances would make EF see
         // one owned entity under two owners and throw on save. Cloning is a
         // harmless copy on the create path (fresh grid + tiles).
-        // The incoming creation is stored as is, so it must be a fresh instance
-        // (never layout.Creation or another revision's): Creation is an owned
-        // type on both tables, and EF throws the same error at SaveChanges.
         foreach (var tile in tiles)
         {
             revision.tiles.Add(new Tile(tile.Camera, tile.Overlay, tile.Position, tile.Span));
