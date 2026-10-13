@@ -16,6 +16,14 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
         builder.ToTable("dead_letters");
         builder.HasKey(deadLetter => deadLetter.Id);
 
+        ConfigureDeliveryColumns(builder);
+        ConfigureRejectionColumns(builder);
+        ConfigureHoldColumns(builder);
+        ConfigureIndexes(builder);
+    }
+
+    private static void ConfigureDeliveryColumns(EntityTypeBuilder<DeadLetter> builder)
+    {
         builder.Property(deadLetter => deadLetter.Id)
             .HasColumnName("dead_letter_id")
             .HasConversion(id => id.Value, value => DeadLetterIdentifier.From(value))
@@ -48,7 +56,10 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .HasMaxLength(RejectionReason.MaximumLength)
             .HasConversion(reason => reason.Value, value => RejectionReason.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureRejectionColumns(EntityTypeBuilder<DeadLetter> builder)
+    {
         builder.Property(deadLetter => deadLetter.RejectedAt)
             .HasColumnName("rejected_at")
             .HasConversion(v => v.Value, value => RejectedAt.From(value))
@@ -69,7 +80,10 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .HasMaxLength(Kind.MaximumLength)
             .HasConversion(kind => kind!.Value, value => Kind.From(value))
             .IsRequired(false);
+    }
 
+    private static void ConfigureHoldColumns(EntityTypeBuilder<DeadLetter> builder)
+    {
         // Spec 317 FR-003. Defaults to 'Held' at the database level too, so a
         // row inserted outside this mapping (the migration's back-fill) still
         // satisfies the column's NOT NULL.
@@ -84,7 +98,10 @@ public sealed class DeadLetterConfiguration : IEntityTypeConfiguration<DeadLette
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken()
             .IsRequired();
+    }
 
+    private static void ConfigureIndexes(EntityTypeBuilder<DeadLetter> builder)
+    {
         builder.HasIndex(deadLetter => deadLetter.RejectedAt)
             .HasDatabaseName("ix_dead_letters_rejected_at");
 
