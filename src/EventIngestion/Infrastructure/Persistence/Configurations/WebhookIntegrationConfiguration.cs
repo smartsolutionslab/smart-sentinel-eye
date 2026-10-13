@@ -16,6 +16,14 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.ToTable("webhook_integrations");
         builder.HasKey(integration => integration.Id);
 
+        ConfigureIdentityColumns(builder);
+        ConfigureCredentialColumns(builder);
+        ConfigureValidationColumns(builder);
+        ConfigureVersionAndIndexes(builder);
+    }
+
+    private static void ConfigureIdentityColumns(EntityTypeBuilder<WebhookIntegration> builder)
+    {
         builder.Property(integration => integration.Id)
             .HasColumnName("integration_id")
             .HasConversion(id => id.Value, value => WebhookIntegrationIdentifier.From(value))
@@ -40,7 +48,10 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
             .HasMaxLength(Kind.MaximumLength)
             .HasConversion(kind => kind.Value, value => Kind.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureCredentialColumns(EntityTypeBuilder<WebhookIntegration> builder)
+    {
         builder.Property(integration => integration.TokenHash)
             .HasColumnName("token_hash")
             .HasMaxLength(128)
@@ -55,7 +66,10 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.Property(integration => integration.RevokedAt)
             .HasColumnName("revoked_at")
             .HasConversion(v => v!.Value, value => RevokedAt.From(value));
+    }
 
+    private static void ConfigureValidationColumns(EntityTypeBuilder<WebhookIntegration> builder)
+    {
         builder.Property(integration => integration.ValidationMode)
             .HasColumnName("validation_mode")
             .HasConversion<int>()
@@ -70,7 +84,10 @@ public sealed class WebhookIntegrationConfiguration : IEntityTypeConfiguration<W
         builder.Property(integration => integration.RotatedAt)
             .HasColumnName("rotated_at")
             .HasConversion(v => v!.Value, value => RotatedAt.From(value));
+    }
 
+    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<WebhookIntegration> builder)
+    {
         builder.Property(integration => integration.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
