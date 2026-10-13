@@ -38,42 +38,16 @@ public sealed class WallSceneSwitchRequestedV1Handler(
     {
         Ensure.That(message).IsNotNull();
 
-        var (wall, target, targetLayout, rule, _, causingEventIdentifier, metadata) = message;
+        var (wall, _, _, rule, _, causingEventIdentifier, _) = message;
 
         var trace = new SwitchRequestTrace(Wall: wall, Rule: rule, CausingEvent: causingEventIdentifier);
 
-        var fab = TryResolveFab(metadata, trace);
-        if (!fab.HasValue)
+        var resolved = await ResolveAsync(message, trace, cancellationToken);
+        if (!resolved.HasValue)
         {
             return;
         }
-
-        var loaded =
-            await TryLoadWall(fab.Value, trace, cancellationToken);
-        if (!loaded.HasValue)
-        {
-            return;
-        }
-        (var wallIdentifier, var targetWall) = loaded.Value;
-
-        SceneTarget parsedTarget;
-        try
-        {
-            parsedTarget = ParseTarget(target, targetLayout);
-        }
-        catch (ArgumentException)
-        {
-            logger.WallSwitchRequestMalformedTarget(wall, rule, causingEventIdentifier, target);
-            return;
-        }
-
-        var identifiers =
-            TryResolveRuleAndEvent(trace);
-        if (!identifiers.HasValue)
-        {
-            return;
-        }
-        (var ruleIdentifier, var causingEvent) = identifiers.Value;
+        (var wallIdentifier, var targetWall, var parsedTarget, var ruleIdentifier, var causingEvent) = resolved.Value;
 
         var reserved = await dedup.TryReserveAsync(ruleIdentifier, causingEvent, wallIdentifier, cancellationToken);
         if (!reserved)
@@ -82,19 +56,8 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return;
         }
 
-        if (parsedTarget is SceneTarget.Layout notInSet && !targetWall.Scenes.Contains(notInSet.Value))
+        if (DropsBeforeLookup(targetWall, parsedTarget, trace))
         {
-            logger.WallSwitchRequestSceneNotInSet(wall, rule, causingEventIdentifier, notInSet.Value);
-            return;
-        }
-
-        if (parsedTarget is SceneTarget.Layout alreadyShowing && alreadyShowing.Value == targetWall.Showing)
-        {
-            // Same no-op shortcut as the manual handler's own: whether the
-            // target is still Published is irrelevant to a switch that
-            // doesn't move Showing at all, so this must not depend on the
-            // publishable lookup below.
-            logger.RuleWallSceneSwitchWasNoOp(wall, rule, causingEventIdentifier);
             return;
         }
 
@@ -103,6 +66,86 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             parsedTarget,
             new SceneSwitchCause.Rule(ruleIdentifier, causingEvent));
         await ApplySwitchAsync(planned, trace, cancellationToken);
+    }
+
+    private async Task<Option<ResolvedSwitch>> ResolveAsync(
+        WallSceneSwitchRequestedV1 message,
+        SwitchRequestTrace trace,
+        CancellationToken cancellationToken)
+    {
+        var (_, target, targetLayout, _, _, _, metadata) = message;
+
+        var fab = TryResolveFab(metadata, trace);
+        if (!fab.HasValue)
+        {
+            return Option<ResolvedSwitch>.None;
+        }
+
+        var loaded =
+            await TryLoadWall(fab.Value, trace, cancellationToken);
+        if (!loaded.HasValue)
+        {
+            return Option<ResolvedSwitch>.None;
+        }
+
+        var parsedTarget = TryParseTarget(target, targetLayout, trace);
+        if (!parsedTarget.HasValue)
+        {
+            return Option<ResolvedSwitch>.None;
+        }
+
+        var identifiers =
+            TryResolveRuleAndEvent(trace);
+        if (!identifiers.HasValue)
+        {
+            return Option<ResolvedSwitch>.None;
+        }
+
+        return Option<ResolvedSwitch>.Some(new ResolvedSwitch(
+            loaded.Value.Identifier,
+            loaded.Value.Wall,
+            parsedTarget.Value,
+            identifiers.Value.Rule,
+            identifiers.Value.CausingEvent));
+    }
+
+    private Option<SceneTarget> TryParseTarget(string target, Guid? targetLayout, SwitchRequestTrace trace)
+    {
+        try
+        {
+            return Option<SceneTarget>.Some(ParseTarget(target, targetLayout));
+        }
+        catch (ArgumentException)
+        {
+            logger.WallSwitchRequestMalformedTarget(trace.Wall, trace.Rule, trace.CausingEvent, target);
+            return Option<SceneTarget>.None;
+        }
+    }
+
+    private bool DropsBeforeLookup(Wall targetWall, SceneTarget parsedTarget, SwitchRequestTrace trace)
+    {
+        if (parsedTarget is not SceneTarget.Layout named)
+        {
+            return false;
+        }
+
+        if (!targetWall.Scenes.Contains(named.Value))
+        {
+            logger.WallSwitchRequestSceneNotInSet(trace.Wall, trace.Rule, trace.CausingEvent, named.Value);
+            return true;
+        }
+
+        if (named.Value == targetWall.Showing)
+        {
+            // Same no-op shortcut as the manual handler's own: whether the
+            // target is still Published is irrelevant to a switch that
+            // doesn't move Showing at all, so this must not depend on the
+            // publishable lookup below.
+            logger.RuleWallSceneSwitchWasNoOp(trace.Wall, trace.Rule, trace.CausingEvent);
+            return true;
+        }
+
+        return false;
     }
 
     private Option<FabIdentifier> TryResolveFab(EventMetadata? metadata, SwitchRequestTrace trace)
@@ -219,6 +262,13 @@ public sealed class WallSceneSwitchRequestedV1Handler(
     private readonly record struct SwitchRequestTrace(Guid Wall, Guid Rule, Guid CausingEvent);
 
     private sealed record PlannedSwitch(Wall Wall, SceneTarget Target, SceneSwitchCause.Rule Cause);
+
+    private sealed record ResolvedSwitch(
+        WallIdentifier Identifier,
+        Wall Wall,
+        SceneTarget Target,
+        RuleIdentifier Rule,
+        CausingEventIdentifier CausingEvent);
 
     // "Next" / "Layout" (PascalCase) — WallSceneSwitchRequestedV1's own wire
     // literals, distinct from the manual switch request body's lowercase
