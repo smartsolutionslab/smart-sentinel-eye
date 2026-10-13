@@ -342,6 +342,18 @@ public sealed class HttpKeycloakAdminClient(
                 [.. parent.SubGroups.Select(child => child.Name)]);
         }
 
+        var names = await ReadAllChildGroupNamesAsync(realm, parent.Id, cancellationToken);
+
+        // Some, even when empty: the group answered, and "it has no children"
+        // is that answer rather than the absence of one.
+        return Option<IReadOnlyList<string>>.Some(names);
+    }
+
+    private async Task<List<string>> ReadAllChildGroupNamesAsync(
+        string realm,
+        string parentId,
+        CancellationToken cancellationToken)
+    {
         // Paged explicitly, and read to exhaustion. Keycloak applies a server-side
         // default page size to this endpoint, so a single unpaged call silently
         // returns a prefix once there are enough sub-groups — and a fab missing
@@ -354,7 +366,7 @@ public sealed class HttpKeycloakAdminClient(
         while (!lastPageReached)
         {
             using var children = await httpClient.GetAsync(
-                $"admin/realms/{realm}/groups/{parent.Id}/children?first={names.Count}&max={pageSize}",
+                $"admin/realms/{realm}/groups/{parentId}/children?first={names.Count}&max={pageSize}",
                 cancellationToken);
             children.EnsureSuccessStatusCode();
 
@@ -365,9 +377,7 @@ public sealed class HttpKeycloakAdminClient(
             lastPageReached = rows.Length < pageSize;
         }
 
-        // Some, even when empty: the group answered, and "it has no children"
-        // is that answer rather than the absence of one.
-        return Option<IReadOnlyList<string>>.Some(names);
+        return names;
     }
 
     public async Task<IReadOnlyList<string>> GetEnrolledKioskClientIdsAsync(
