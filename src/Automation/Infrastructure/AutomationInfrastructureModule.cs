@@ -37,55 +37,11 @@ public static class AutomationInfrastructureModule
         builder.AddAutomationPersistence();
         builder.EnrichPostgresDbContext<AutomationDbContext>();
 
-        builder.Services.AddScoped<IRuleRepository, RuleRepository>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
-
-        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
-        // above drives the executor's wait for an in-flight attempt.
-        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<AutomationDbContext>>();
-        builder.Services.AddIdempotencyReservationSweep<AutomationDbContext>();
-
-        // Rule cache + evaluator + cold-start seeder.
-        builder.Services.AddSingleton<IRuleCache, InMemoryRuleCache>();
-        builder.Services.AddScoped<RuleEvaluator>();
-        builder.Services.AddHostedService<RuleCacheSeederHostedService>();
-
-        // Wolverine subscriber on FabEventIngestedV1 (spec 006 -> 007 bridge).
-        // Discovered by Wolverine via assembly scanning; registered as scoped
-        // so a fresh RuleEvaluator (and its cache snapshot) is picked up per
-        // message.
-        builder.Services.AddScoped<FabEventIngestedV1Handler>();
-
-        // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
-        builder.Services.AddScoped<CreateRuleCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<CreateRuleCommand, Result<RuleIdentifier, CreateRuleError>>,
-            CreateRuleCommandHandler>();
-        builder.Services.AddScoped<PublishRuleCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<PublishRuleCommand, Result<RuleIdentifier, PublishRuleError>>,
-            PublishRuleCommandHandler>();
-        builder.Services.AddScoped<ArchiveRuleCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<ArchiveRuleCommand, Result<RuleIdentifier, ArchiveRuleError>>,
-            ArchiveRuleCommandHandler>();
-
-        // Read side (spec 007 T059 + T089).
-        builder.Services.AddScoped<IRuleQuerySource, RuleQuerySource>();
-        builder.Services.AddScoped<GetRuleQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<GetRuleQuery, Result<RuleDto, GetRuleError>>,
-            GetRuleQueryHandler>();
-        builder.Services.AddScoped<ListRulesQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<ListRulesQuery, Result<IReadOnlyList<RuleDto>, ListRulesError>>,
-            ListRulesQueryHandler>();
-        builder.Services.AddScoped<DryRunRuleQueryHandler>();
-        builder.Services.AddScoped<
-            IQueryHandler<DryRunRuleQuery, Result<DryRunResultDto, DryRunRuleError>>,
-            DryRunRuleQueryHandler>();
+        builder.Services
+            .AddPersistenceServices()
+            .AddRuleEvaluation()
+            .AddCommandHandlers()
+            .AddQueryHandlers();
 
         builder.AddWolverineForContext<AutomationDbContext>(
             moduleQueuePrefix: ContextName,
@@ -94,4 +50,60 @@ public static class AutomationInfrastructureModule
 
         return builder;
     }
+
+    private static IServiceCollection AddPersistenceServices(this IServiceCollection services) =>
+        services
+            .AddScoped<IRuleRepository, RuleRepository>()
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>()
+            .AddSingleton<IClock, SystemClock>()
+            .AddSingleton(TimeProvider.System)
+            // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+            // above drives the executor's wait for an in-flight attempt.
+            .AddScoped<IIdempotencyStore, IdempotencyStore<AutomationDbContext>>()
+            .AddIdempotencyReservationSweep<AutomationDbContext>();
+
+    private static IServiceCollection AddRuleEvaluation(this IServiceCollection services) =>
+        services
+            // Rule cache + evaluator + cold-start seeder.
+            .AddSingleton<IRuleCache, InMemoryRuleCache>()
+            .AddScoped<RuleEvaluator>()
+            .AddHostedService<RuleCacheSeederHostedService>()
+            // Wolverine subscriber on FabEventIngestedV1 (spec 006 -> 007 bridge).
+            // Discovered by Wolverine via assembly scanning; registered as scoped
+            // so a fresh RuleEvaluator (and its cache snapshot) is picked up per
+            // message.
+            .AddScoped<FabEventIngestedV1Handler>();
+
+    // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
+    private static IServiceCollection AddCommandHandlers(this IServiceCollection services) =>
+        services
+            .AddScoped<CreateRuleCommandHandler>()
+            .AddScoped<
+                ICommandHandler<CreateRuleCommand, Result<RuleIdentifier, CreateRuleError>>,
+                CreateRuleCommandHandler>()
+            .AddScoped<PublishRuleCommandHandler>()
+            .AddScoped<
+                ICommandHandler<PublishRuleCommand, Result<RuleIdentifier, PublishRuleError>>,
+                PublishRuleCommandHandler>()
+            .AddScoped<ArchiveRuleCommandHandler>()
+            .AddScoped<
+                ICommandHandler<ArchiveRuleCommand, Result<RuleIdentifier, ArchiveRuleError>>,
+                ArchiveRuleCommandHandler>();
+
+    // Read side (spec 007 T059 + T089).
+    private static void AddQueryHandlers(this IServiceCollection services) =>
+        services
+            .AddScoped<IRuleQuerySource, RuleQuerySource>()
+            .AddScoped<GetRuleQueryHandler>()
+            .AddScoped<
+                IQueryHandler<GetRuleQuery, Result<RuleDto, GetRuleError>>,
+                GetRuleQueryHandler>()
+            .AddScoped<ListRulesQueryHandler>()
+            .AddScoped<
+                IQueryHandler<ListRulesQuery, Result<IReadOnlyList<RuleDto>, ListRulesError>>,
+                ListRulesQueryHandler>()
+            .AddScoped<DryRunRuleQueryHandler>()
+            .AddScoped<
+                IQueryHandler<DryRunRuleQuery, Result<DryRunResultDto, DryRunRuleError>>,
+                DryRunRuleQueryHandler>();
 }
