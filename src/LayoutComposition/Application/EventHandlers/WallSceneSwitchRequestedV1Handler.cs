@@ -40,14 +40,16 @@ public sealed class WallSceneSwitchRequestedV1Handler(
 
         var (wall, target, targetLayout, rule, _, causingEventIdentifier, metadata) = message;
 
-        var fab = TryResolveFab(metadata, wall, rule, causingEventIdentifier);
+        var trace = new SwitchRequestTrace(Wall: wall, Rule: rule, CausingEvent: causingEventIdentifier);
+
+        var fab = TryResolveFab(metadata, trace);
         if (!fab.HasValue)
         {
             return;
         }
 
         var loaded =
-            await TryLoadWall(wall, fab.Value, rule, causingEventIdentifier, cancellationToken);
+            await TryLoadWall(fab.Value, trace, cancellationToken);
         if (!loaded.HasValue)
         {
             return;
@@ -66,7 +68,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
         }
 
         var identifiers =
-            TryResolveRuleAndEvent(wall, rule, causingEventIdentifier);
+            TryResolveRuleAndEvent(trace);
         if (!identifiers.HasValue)
         {
             return;
@@ -96,15 +98,18 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return;
         }
 
-        await ApplySwitchAsync(
-            targetWall, parsedTarget, ruleIdentifier, causingEvent, wall, rule, causingEventIdentifier, cancellationToken);
+        var planned = new PlannedSwitch(
+            targetWall,
+            parsedTarget,
+            new SceneSwitchCause.Rule(ruleIdentifier, causingEvent));
+        await ApplySwitchAsync(planned, trace, cancellationToken);
     }
 
-    private Option<FabIdentifier> TryResolveFab(EventMetadata? metadata, Guid wall, Guid rule, Guid causingEventIdentifier)
+    private Option<FabIdentifier> TryResolveFab(EventMetadata? metadata, SwitchRequestTrace trace)
     {
         if (string.IsNullOrWhiteSpace(metadata?.Fab))
         {
-            logger.WallSwitchRequestWithoutFab(wall, rule, causingEventIdentifier);
+            logger.WallSwitchRequestWithoutFab(trace.Wall, trace.Rule, trace.CausingEvent);
             return Option<FabIdentifier>.None;
         }
 
@@ -114,25 +119,25 @@ public sealed class WallSceneSwitchRequestedV1Handler(
         }
         catch (ArgumentException ex)
         {
-            logger.WallSwitchRequestWithUnusableFab(ex, metadata.Fab, wall, rule, causingEventIdentifier);
+            logger.WallSwitchRequestWithUnusableFab(ex, metadata.Fab, trace.Wall, trace.Rule, trace.CausingEvent);
             return Option<FabIdentifier>.None;
         }
     }
 
     private async Task<Option<(WallIdentifier Identifier, Wall Wall)>> TryLoadWall(
-        Guid wall, FabIdentifier fab, Guid rule, Guid causingEventIdentifier, CancellationToken cancellationToken)
+        FabIdentifier fab, SwitchRequestTrace trace, CancellationToken cancellationToken)
     {
         WallIdentifier wallIdentifier;
         try
         {
-            wallIdentifier = WallIdentifier.From(wall);
+            wallIdentifier = WallIdentifier.From(trace.Wall);
         }
         catch (ArgumentException)
         {
             // An empty wall identifier matches no wall, so this is the same
             // named drop as any other unknown wall (Automation never sends
             // one in practice; this is the defensive case).
-            logger.WallSwitchRequestForUnknownWall(wall, rule, causingEventIdentifier);
+            logger.WallSwitchRequestForUnknownWall(trace.Wall, trace.Rule, trace.CausingEvent);
             return Option<(WallIdentifier Identifier, Wall Wall)>.None;
         }
 
@@ -142,68 +147,78 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return Option<(WallIdentifier Identifier, Wall Wall)>.Some((wallIdentifier, found.Value));
         }
 
-        await LogMissingWall(wallIdentifier, fab, wall, rule, causingEventIdentifier, cancellationToken);
+        await LogMissingWall(wallIdentifier, fab, trace, cancellationToken);
         return Option<(WallIdentifier Identifier, Wall Wall)>.None;
     }
 
     private async Task LogMissingWall(
-        WallIdentifier wallIdentifier, FabIdentifier requestFab, Guid wall, Guid rule, Guid causingEventIdentifier,
+        WallIdentifier wallIdentifier,
+        FabIdentifier requestFab,
+        SwitchRequestTrace trace,
         CancellationToken cancellationToken)
     {
         var actualFab = await walls.FindFabAsync(wallIdentifier, cancellationToken);
         if (actualFab.HasValue)
         {
-            logger.WallSwitchRequestForWallInAnotherFab(wall, rule, causingEventIdentifier, requestFab, actualFab.Value);
+            logger.WallSwitchRequestForWallInAnotherFab(trace.Wall, trace.Rule, trace.CausingEvent, requestFab, actualFab.Value);
         }
         else
         {
-            logger.WallSwitchRequestForUnknownWall(wall, rule, causingEventIdentifier);
+            logger.WallSwitchRequestForUnknownWall(trace.Wall, trace.Rule, trace.CausingEvent);
         }
     }
 
     private Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)> TryResolveRuleAndEvent(
-        Guid wall, Guid rule, Guid causingEventIdentifier)
+        SwitchRequestTrace trace)
     {
         try
         {
             return Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)>.Some(
-                (RuleIdentifier.From(rule), CausingEventIdentifier.From(causingEventIdentifier)));
+                (RuleIdentifier.From(trace.Rule), CausingEventIdentifier.From(trace.CausingEvent)));
         }
         catch (ArgumentException)
         {
             // Defensive, like the empty-wall case above: Automation never
             // sends an empty rule or causing-event identifier in practice.
-            logger.WallSwitchRequestWithInvalidIdentifiers(wall, rule, causingEventIdentifier);
+            logger.WallSwitchRequestWithInvalidIdentifiers(trace.Wall, trace.Rule, trace.CausingEvent);
             return Option<(RuleIdentifier Rule, CausingEventIdentifier CausingEvent)>.None;
         }
     }
 
     private async Task ApplySwitchAsync(
-        Wall targetWall, SceneTarget parsedTarget, RuleIdentifier ruleIdentifier, CausingEventIdentifier causingEvent,
-        Guid wall, Guid rule, Guid causingEventIdentifier, CancellationToken cancellationToken)
+        PlannedSwitch planned,
+        SwitchRequestTrace trace,
+        CancellationToken cancellationToken)
     {
+        var (targetWall, parsedTarget, cause) = planned;
+
         var publishable =
             await lookup.PublishedAmong(targetWall.Scenes, targetWall.Fab, cancellationToken);
 
         if (parsedTarget is SceneTarget.Layout notPublished && !publishable.Contains(notPublished.Value))
         {
-            logger.WallSwitchRequestSceneNotPublished(wall, rule, causingEventIdentifier, notPublished.Value);
+            logger.WallSwitchRequestSceneNotPublished(trace.Wall, trace.Rule, trace.CausingEvent, notPublished.Value);
             return;
         }
 
-        var switched = targetWall.SwitchTo(
-            parsedTarget, publishable, new SceneSwitchCause.Rule(ruleIdentifier, causingEvent), clock);
+        var switched = targetWall.SwitchTo(parsedTarget, publishable, cause, clock);
         await walls.SaveAsync(cancellationToken);
 
         if (switched.HasValue)
         {
-            logger.RuleSwitchedWallScene(wall, rule, causingEventIdentifier);
+            logger.RuleSwitchedWallScene(trace.Wall, trace.Rule, trace.CausingEvent);
         }
         else
         {
-            logger.RuleWallSceneSwitchWasNoOp(wall, rule, causingEventIdentifier);
+            logger.RuleWallSceneSwitchWasNoOp(trace.Wall, trace.Rule, trace.CausingEvent);
         }
     }
+
+    // The three wire identifiers every drop is logged with, kept as the raw
+    // values because they are logged precisely when they fail to parse.
+    private readonly record struct SwitchRequestTrace(Guid Wall, Guid Rule, Guid CausingEvent);
+
+    private sealed record PlannedSwitch(Wall Wall, SceneTarget Target, SceneSwitchCause.Rule Cause);
 
     // "Next" / "Layout" (PascalCase) — WallSceneSwitchRequestedV1's own wire
     // literals, distinct from the manual switch request body's lowercase
