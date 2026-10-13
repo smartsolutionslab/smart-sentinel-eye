@@ -40,29 +40,57 @@ public static class EventIngestionInfrastructureModule
     {
         Ensure.That(builder).IsNotNull();
 
+        AddPersistence(builder);
+        AddRepositoriesAndQuerySources(builder.Services);
+        AddCrossCuttingServices(builder.Services);
+        AddDomainEventHandlers(builder.Services);
+        AddCommandHandlers(builder.Services);
+        AddQueryHandlers(builder.Services);
+        AddIngestChannel(builder.Services);
+        AddIngestTelemetryAndOptions(builder);
+        AddMqttIngress(builder);
+
+        builder.AddWolverineForContext<EventIngestionDbContext>(
+            moduleQueuePrefix: ContextName,
+            outboxSchema: OutboxSchema,
+            postgresConnectionName: EventIngestionPersistenceModule.DatabaseConnectionName);
+
+        return builder;
+    }
+
+    private static void AddPersistence(IHostApplicationBuilder builder)
+    {
         builder.AddEventIngestionPersistence();
         builder.EnrichPostgresDbContext<EventIngestionDbContext>();
+    }
 
-        builder.Services.AddScoped<IEventRepository, EventRepository>();
-        builder.Services.AddScoped<IWebhookIntegrationRepository, WebhookIntegrationRepository>();
-        builder.Services.AddScoped<IDeadLetterRepository, DeadLetterRepository>();
-        builder.Services.AddScoped<IRegisteredEventTypeRepository, RegisteredEventTypeRepository>();
-        builder.Services.AddScoped<IEventQuerySource, EventQuerySource>();
-        builder.Services.AddScoped<IDeadLetterQuerySource, DeadLetterQuerySource>();
-        builder.Services.AddScoped<IWebhookIntegrationQuerySource, WebhookIntegrationQuerySource>();
-        builder.Services.AddScoped<IRegisteredEventTypeQuerySource, RegisteredEventTypeQuerySource>();
-        builder.Services.AddScoped<ISourceModeRepository, SourceModeRepository>();
-        builder.Services.AddScoped<ISourceModeQuerySource, SourceModeQuerySource>();
-        builder.Services.AddScoped<IEventTypeAdmissionSource, EventTypeAdmissionSource>();
-        builder.Services.AddScoped<EventTypeAdmission>();
+    private static void AddRepositoriesAndQuerySources(IServiceCollection services)
+    {
+        services
+            .AddScoped<IEventRepository, EventRepository>()
+            .AddScoped<IWebhookIntegrationRepository, WebhookIntegrationRepository>()
+            .AddScoped<IDeadLetterRepository, DeadLetterRepository>()
+            .AddScoped<IRegisteredEventTypeRepository, RegisteredEventTypeRepository>()
+            .AddScoped<IEventQuerySource, EventQuerySource>()
+            .AddScoped<IDeadLetterQuerySource, DeadLetterQuerySource>()
+            .AddScoped<IWebhookIntegrationQuerySource, WebhookIntegrationQuerySource>()
+            .AddScoped<IRegisteredEventTypeQuerySource, RegisteredEventTypeQuerySource>()
+            .AddScoped<ISourceModeRepository, SourceModeRepository>()
+            .AddScoped<ISourceModeQuerySource, SourceModeQuerySource>()
+            .AddScoped<IEventTypeAdmissionSource, EventTypeAdmissionSource>()
+            .AddScoped<EventTypeAdmission>();
+    }
 
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
+    private static void AddCrossCuttingServices(IServiceCollection services)
+    {
+        services
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>()
+            .AddSingleton<IClock, SystemClock>();
 
         // ADR-0142. Scoped alongside the DbContext it writes through.
-        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<EventIngestionDbContext>>();
-        builder.Services.AddIdempotencyReservationSweep<EventIngestionDbContext>();
-        builder.Services.AddSingleton(TimeProvider.System);
+        services.AddScoped<IIdempotencyStore, IdempotencyStore<EventIngestionDbContext>>();
+        services.AddIdempotencyReservationSweep<EventIngestionDbContext>();
+        services.AddSingleton(TimeProvider.System);
 
         // Spec 019: the write paths ask whether a fab can store anything before
         // touching the ingest channel. Registered here rather than in the
@@ -72,11 +100,14 @@ public static class EventIngestionInfrastructureModule
         //
         // Singleton so the provisioned-fab set is shared: read from the catalog
         // once per TTL, not once per request.
-        builder.Services.AddSingleton<IFabStorageReadiness, CatalogFabStorageReadiness>();
+        services.AddSingleton<IFabStorageReadiness, CatalogFabStorageReadiness>();
+    }
 
+    private static void AddDomainEventHandlers(IServiceCollection services)
+    {
         // Domain event handler — translates EventIngestedDomainEvent
         // into FabEventIngestedV1 on the integration bus.
-        builder.Services.AddScoped<
+        services.AddScoped<
             IDomainEventHandler<EventIngestedDomainEvent>,
             EventIngestedDomainEventHandler>();
 
@@ -84,88 +115,111 @@ public static class EventIngestionInfrastructureModule
         // into WebhookIntegrationRevokedV1 on the integration bus (spec 264,
         // #2206). Without this the dispatcher resolves an empty set and the
         // revocation never reaches Identity.
-        builder.Services.AddScoped<
+        services.AddScoped<
             IDomainEventHandler<WebhookIntegrationRevokedDomainEvent>,
             WebhookIntegrationRevokedDomainEventHandler>();
+    }
 
+    private static void AddCommandHandlers(IServiceCollection services)
+    {
+        AddIngestAndWebhookCommandHandlers(services);
+        AddEventTypeCommandHandlers(services);
+        AddSourceModeCommandHandlers(services);
+    }
+
+    private static void AddIngestAndWebhookCommandHandlers(IServiceCollection services)
+    {
         // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
-        builder.Services.AddScoped<IngestEventCommandHandler>();
-        builder.Services.AddScoped<IngestEventBatchCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<IngestEventCommandHandler>();
+        services.AddScoped<IngestEventBatchCommandHandler>();
+        services.AddScoped<
             ICommandHandler<IngestEventCommand, Result<EventIdentifier, IngestEventError>>,
             IngestEventCommandHandler>();
-        builder.Services.AddScoped<RegisterWebhookIntegrationCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<RegisterWebhookIntegrationCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 RegisterWebhookIntegrationCommand,
                 Result<RegisterWebhookIntegrationResult, RegisterWebhookIntegrationError>>,
             RegisterWebhookIntegrationCommandHandler>();
-        builder.Services.AddScoped<RevokeWebhookIntegrationCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<RevokeWebhookIntegrationCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 RevokeWebhookIntegrationCommand,
                 Result<WebhookIntegrationIdentifier, RevokeWebhookIntegrationError>>,
             RevokeWebhookIntegrationCommandHandler>();
-        builder.Services.AddScoped<RegisterEventTypeCommandHandler>();
-        builder.Services.AddScoped<
+    }
+
+    private static void AddEventTypeCommandHandlers(IServiceCollection services)
+    {
+        services.AddScoped<RegisterEventTypeCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 RegisterEventTypeCommand,
                 Result<RegisteredEventTypeIdentifier, RegisterEventTypeError>>,
             RegisterEventTypeCommandHandler>();
-        builder.Services.AddScoped<RetireEventTypeCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<RetireEventTypeCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 RetireEventTypeCommand,
                 Result<RegisteredEventTypeIdentifier, RetireEventTypeError>>,
             RetireEventTypeCommandHandler>();
+    }
 
+    private static void AddSourceModeCommandHandlers(IServiceCollection services)
+    {
         // Spec 269: registered alongside T009's /event-sources mapping, the
         // first (and only) route that reaches them — see the comment this
         // replaces, above the repository/query-source registrations.
-        builder.Services.AddScoped<DeclareSourceModeCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<DeclareSourceModeCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 DeclareSourceModeCommand,
                 Result<SourceModeIdentifier, DeclareSourceModeError>>,
             DeclareSourceModeCommandHandler>();
-        builder.Services.AddScoped<ChangeSourceModeCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<ChangeSourceModeCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 ChangeSourceModeCommand,
                 Result<SourceModeIdentifier, ChangeSourceModeError>>,
             ChangeSourceModeCommandHandler>();
 
         // Spec 317 (#2325), FR-013/US4: the way back to undeclared.
-        builder.Services.AddScoped<UndeclareSourceModeCommandHandler>();
-        builder.Services.AddScoped<
+        services.AddScoped<UndeclareSourceModeCommandHandler>();
+        services.AddScoped<
             ICommandHandler<
                 UndeclareSourceModeCommand,
                 Result<SourceModeIdentifier, UndeclareSourceModeError>>,
             UndeclareSourceModeCommandHandler>();
+    }
 
-        // Query handlers.
-        builder.Services.AddScoped<GetEventQueryHandler>();
-        builder.Services.AddScoped<ListEventsQueryHandler>();
-        builder.Services.AddScoped<ListDeadLettersQueryHandler>();
-        builder.Services.AddScoped<ListWebhookIntegrationsQueryHandler>();
-        builder.Services.AddScoped<ListEventTypesQueryHandler>();
-        builder.Services.AddScoped<ListSourceModesQueryHandler>();
+    private static void AddQueryHandlers(IServiceCollection services)
+    {
+        services
+            .AddScoped<GetEventQueryHandler>()
+            .AddScoped<ListEventsQueryHandler>()
+            .AddScoped<ListDeadLettersQueryHandler>()
+            .AddScoped<ListWebhookIntegrationsQueryHandler>()
+            .AddScoped<ListEventTypesQueryHandler>()
+            .AddScoped<ListSourceModesQueryHandler>();
+    }
 
+    private static void AddIngestChannel(IServiceCollection services)
+    {
         // Bounded channel + ingress. Issue #2863: the gauge registration's
         // IDisposable is its own singleton — rather than discarded — so the
         // container disposes it when it disposes itself. That matters only
         // if this factory ever runs more than once per process (e.g. a
         // future WebApplicationFactory-style test); today's single
         // registration is kept alive for the app's lifetime either way.
-        builder.Services.AddSingleton<BoundedIngestChannel>(_ => new BoundedIngestChannel());
-        builder.Services.AddSingleton<IDisposable>(
+        services.AddSingleton<BoundedIngestChannel>(_ => new BoundedIngestChannel());
+        services.AddSingleton<IDisposable>(
             provider => IngestChannelSaturation.RegisterGauges(provider.GetRequiredService<BoundedIngestChannel>()));
 
         // IIngestChannel's factory runs exactly once per app lifetime — the
         // guarantee the gauges rely on to keep reading one channel instance —
         // and forces the IDisposable singleton above to resolve, since
         // nothing else in the container depends on a bare IDisposable.
-        builder.Services.AddSingleton<IIngestChannel>(provider =>
+        services.AddSingleton<IIngestChannel>(provider =>
         {
             var channel = provider.GetRequiredService<BoundedIngestChannel>();
             _ = provider.GetRequiredService<IDisposable>();
@@ -179,9 +233,12 @@ public static class EventIngestionInfrastructureModule
         // Spec 175: the bound is configurable, so it is read from
         // IngestWriteOptions rather than always taking the parameterless
         // constructor's default of 64.
-        builder.Services.AddSingleton(provider =>
+        services.AddSingleton(provider =>
             new IngestWriteLimiter(provider.GetRequiredService<IOptions<IngestWriteOptions>>().Value.Concurrency));
+    }
 
+    private static void AddIngestTelemetryAndOptions(IHostApplicationBuilder builder)
+    {
         // Spec 103 FR-004 (IngestVolume). ADR-0175 (IngestChannelSaturation).
         // A meter nobody registers records into nothing and raises no error,
         // so this line is the whole difference between an instrument and a
@@ -210,6 +267,10 @@ public static class EventIngestionInfrastructureModule
         // IngestWriteLimiter factory above.
         builder.Services.AddOptions<IngestWriteOptions>()
             .Bind(builder.Configuration.GetSection(IngestWriteOptions.SectionName));
+    }
+
+    private static void AddMqttIngress(IHostApplicationBuilder builder)
+    {
         // Resolve the broker + Keycloak from the Aspire-injected endpoints, and
         // fail fast when they are absent. Defaulting these (it used to be
         // localhost:1883) turns a wiring gap into a subscriber that silently
@@ -232,17 +293,11 @@ public static class EventIngestionInfrastructureModule
         // supersedes the first. Losing its retries would make a transient
         // Keycloak blip at startup fail the broker connection outright (ADR-0143).
         builder.Services.AddHttpClient(MqttTokenProvider.HttpClientName).RetryEveryMethod();
-        builder.Services.AddSingleton<MqttTokenProvider>();
-        builder.Services.AddSingleton<MosquittoConnectionFactory>();
-        builder.Services.AddHostedService<MqttSubscriberHostedService>();
-        builder.Services.AddHostedService<PersistenceLoopHostedService>();
-
-        builder.AddWolverineForContext<EventIngestionDbContext>(
-            moduleQueuePrefix: ContextName,
-            outboxSchema: OutboxSchema,
-            postgresConnectionName: EventIngestionPersistenceModule.DatabaseConnectionName);
-
-        return builder;
+        builder.Services
+            .AddSingleton<MqttTokenProvider>()
+            .AddSingleton<MosquittoConnectionFactory>()
+            .AddHostedService<MqttSubscriberHostedService>()
+            .AddHostedService<PersistenceLoopHostedService>();
     }
 
     /// <summary>
