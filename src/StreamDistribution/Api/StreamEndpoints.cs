@@ -181,13 +181,7 @@ public static class StreamEndpoints
         // mechanism worked (ADR-0129).
         var isLabelDelay = report.Measurement == "label_delay";
 
-        var segment = report.Measurement switch
-        {
-            "overlay_draw" => LatencySegment.KioskOverlayDraw,
-            "receive_to_decoded" => LatencySegment.KioskReceiveToDecoded,
-            "presentation_buffer" => LatencySegment.PresentationBuffer,
-            _ => null,
-        };
+        var segment = SegmentFor(report.Measurement);
 
         if (segment is null && !isWallSkew && !isLabelDelay)
         {
@@ -219,6 +213,27 @@ public static class StreamEndpoints
             });
         }
 
+        Record(report, segment, isWallSkew, isLabelDelay);
+        return Results.Accepted();
+    }
+
+    private static LatencySegment? SegmentFor(string measurement)
+    {
+        return measurement switch
+        {
+            "overlay_draw" => LatencySegment.KioskOverlayDraw,
+            "receive_to_decoded" => LatencySegment.KioskReceiveToDecoded,
+            "presentation_buffer" => LatencySegment.PresentationBuffer,
+            _ => null,
+        };
+    }
+
+    private static void Record(
+        KioskLatencyReport report,
+        LatencySegment? segment,
+        bool isWallSkew,
+        bool isLabelDelay)
+    {
         // Negative and absurd are dropped by LatencyBudget.Record rather than
         // refused here, and that is deliberate: the reasons live with the
         // recording so a second caller cannot forget them. A dropped
@@ -227,17 +242,16 @@ public static class StreamEndpoints
         if (isWallSkew)
         {
             WallSkew.Record(TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
-            return Results.Accepted();
+            return;
         }
 
         if (isLabelDelay)
         {
             LabelDelay.Record(TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
-            return Results.Accepted();
+            return;
         }
 
         LatencyBudget.Record(segment!, TimeSpan.FromMilliseconds(report.ElapsedMilliseconds), report.Camera);
-        return Results.Accepted();
     }
 
     private static async Task<IResult> GetOne(
