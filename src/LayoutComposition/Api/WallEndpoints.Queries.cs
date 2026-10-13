@@ -29,7 +29,7 @@ public static partial class WallEndpoints
         }
 
         var fabsResolution =
-            await LayoutEndpoints.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
@@ -60,7 +60,7 @@ public static partial class WallEndpoints
         [FromQuery] string fabId = "")
     {
         var fabsResolution =
-            await LayoutEndpoints.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveReadFabsAsync(user, fabId, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;

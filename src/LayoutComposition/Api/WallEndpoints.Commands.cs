@@ -50,7 +50,7 @@ public static partial class WallEndpoints
         }
 
         var fabResolution =
-            await LayoutEndpoints.ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
@@ -122,7 +122,7 @@ public static partial class WallEndpoints
 
         var actingOperator = user.ToOperatorIdentifier();
         var fabsResolution =
-            await LayoutEndpoints.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
@@ -177,7 +177,7 @@ public static partial class WallEndpoints
 
         var actingOperator = user.ToOperatorIdentifier();
         var fabsResolution =
-            await LayoutEndpoints.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
         if (fabsResolution.IsFailure)
         {
             return fabsResolution.Error;
