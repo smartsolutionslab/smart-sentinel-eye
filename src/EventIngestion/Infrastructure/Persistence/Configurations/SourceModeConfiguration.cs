@@ -23,6 +23,13 @@ public sealed class SourceModeConfiguration : IEntityTypeConfiguration<SourceMod
         builder.ToTable("source_modes");
         builder.HasKey(sourceMode => sourceMode.Id);
 
+        ConfigureColumns(builder);
+        ConfigureDeclaration(builder);
+        ConfigureVersionAndIndexes(builder);
+    }
+
+    private static void ConfigureColumns(EntityTypeBuilder<SourceMode> builder)
+    {
         builder.Property(sourceMode => sourceMode.Id)
             .HasColumnName("source_mode_id")
             .HasConversion(id => id.Value, value => SourceModeIdentifier.From(value))
@@ -45,7 +52,10 @@ public sealed class SourceModeConfiguration : IEntityTypeConfiguration<SourceMod
             .HasMaxLength(16)
             .HasConversion(mode => mode.Value, value => EventTypeMode.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureDeclaration(EntityTypeBuilder<SourceMode> builder)
+    {
         // Owned reference onto declared_at + declared_by. Navigation(...)
         // .IsRequired() keeps them NOT NULL; without it the model silently
         // diverges from the schema (VariableConfiguration.cs:86,98; #2022).
@@ -62,7 +72,10 @@ public sealed class SourceModeConfiguration : IEntityTypeConfiguration<SourceMod
                 .IsRequired();
         });
         builder.Navigation(sourceMode => sourceMode.Declaration).IsRequired();
+    }
 
+    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<SourceMode> builder)
+    {
         builder.Property(sourceMode => sourceMode.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
