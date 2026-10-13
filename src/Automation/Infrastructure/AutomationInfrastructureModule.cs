@@ -34,8 +34,9 @@ public static class AutomationInfrastructureModule
     {
         Ensure.That(builder).IsNotNull();
 
-        builder.AddAutomationPersistence();
-        builder.EnrichPostgresDbContext<AutomationDbContext>();
+        builder
+            .AddAutomationPersistence()
+            .EnrichPostgresDbContext<AutomationDbContext>();
 
         builder.Services
             .AddPersistenceServices()
