@@ -22,33 +22,46 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
 
         if (state == LayoutRevisionState.Published)
         {
-            // Kiosk picker shape: one row per chain that has a Published revision.
-            // Filter pushed into SQL via the LayoutRevisionState value-converter.
-            var source = await visible
-                .Where(layout => layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
-                .ToListAsync(cancellationToken);
-
-            IReadOnlyList<PublishedLayoutDto> published = source
-                .Select(layout =>
-                {
-                    var pub = layout.Revisions.Single(revision => revision.State == LayoutRevisionState.Published);
-                    return new PublishedLayoutDto(
-                        LayoutIdentifier: layout.Id.Value,
-                        Name: layout.Name.Value,
-                        RevisionNumber: pub.Number.Value,
-                        GridRows: pub.Grid.Rows,
-                        GridCols: pub.Grid.Cols,
-                        Tiles: GetLayoutQueryHandler.MapTiles(pub),
-                        PublishedAt: pub.PublishedAt!.Value);
-                })
-                .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-            return Success(
-                new ListLayoutsResult(Array.Empty<LayoutDto>(), published));
+            return Success(await ListPublishedAsync(visible, cancellationToken));
         }
 
-        // Default / admin shape: every chain with its full revision history.
+        return Success(await ListChainsAsync(visible, cancellationToken));
+    }
+
+    // Kiosk picker shape: one row per chain that has a Published revision.
+    // Filter pushed into SQL via the LayoutRevisionState value-converter.
+    private static async Task<ListLayoutsResult> ListPublishedAsync(
+        IQueryable<Layout> visible,
+        CancellationToken cancellationToken)
+    {
+        var source = await visible
+            .Where(layout => layout.Revisions.Any(revision => revision.State == LayoutRevisionState.Published))
+            .ToListAsync(cancellationToken);
+
+        IReadOnlyList<PublishedLayoutDto> published = source
+            .Select(layout =>
+            {
+                var pub = layout.Revisions.Single(revision => revision.State == LayoutRevisionState.Published);
+                return new PublishedLayoutDto(
+                    LayoutIdentifier: layout.Id.Value,
+                    Name: layout.Name.Value,
+                    RevisionNumber: pub.Number.Value,
+                    GridRows: pub.Grid.Rows,
+                    GridCols: pub.Grid.Cols,
+                    Tiles: GetLayoutQueryHandler.MapTiles(pub),
+                    PublishedAt: pub.PublishedAt!.Value);
+            })
+            .OrderBy(dto => dto.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new ListLayoutsResult(Array.Empty<LayoutDto>(), published);
+    }
+
+    // Default / admin shape: every chain with its full revision history.
+    private static async Task<ListLayoutsResult> ListChainsAsync(
+        IQueryable<Layout> visible,
+        CancellationToken cancellationToken)
+    {
         var all = await visible
             .ToListAsync(cancellationToken);
 
@@ -57,7 +70,6 @@ public sealed class ListLayoutsQueryHandler(ILayoutQuerySource layouts)
             .OrderByDescending(dto => dto.CreatedAt)
             .ToList();
 
-        return Success(
-            new ListLayoutsResult(chains, Array.Empty<PublishedLayoutDto>()));
+        return new ListLayoutsResult(chains, Array.Empty<PublishedLayoutDto>());
     }
 }
