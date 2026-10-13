@@ -1,6 +1,4 @@
-using System.Text.Json;
 using System.Threading.RateLimiting;
-using Microsoft.Extensions.Caching.Memory;
 using SmartSentinelEye.ServiceDefaults;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Api;
@@ -61,100 +59,12 @@ Ensure.That(mediaMtxApiAuthorizeWindowMilliseconds).AtLeast(1);
 
 builder.Services.AddMemoryCache();
 
-// ADR-0171 security review (#2862 blocker 2): MediaMTX's own control-API
-// calls and a real WHEP viewer's open both reach this one anonymous route
-// from MediaMTX's own address, so the limiter below used to key on source
-// address alone and put them in the same budget — the health sweep's batch
-// call (and this project's own fixture resets, in the integration lane)
-// could crowd out real viewers under load, and in CI it crowded out this
-// policy's own rate-limit tests sharing the test host's one address.
-//
-// The JSON body's `action` field is what tells the two apart, but the body
-// is not available yet when the limiter picks a partition — that happens in
-// RateLimiterMiddleware, ahead of the Minimal API model binding that would
-// otherwise read it. PeekMediaMtxActionAsync buffers and rewinds the body so
-// the real binder downstream still sees it untouched, then stashes a
-// classification the partition key below reads back.
-const string AuthorizeRoutePath = "/streams/authorize";
-const string MediaMtxActionPartitionItemKey = "WhepAuthorize.ActionPartition";
-const string ApiActionPartition = "api";
-const string WhepActionPartition = "whep";
-
-static async Task PeekMediaMtxActionAsync(HttpContext context)
-{
-    if (!HttpMethods.IsPost(context.Request.Method) ||
-        !context.Request.Path.Equals(AuthorizeRoutePath, StringComparison.OrdinalIgnoreCase))
-    {
-        return;
-    }
-
-    context.Request.EnableBuffering();
-
-    var action = WhepActionPartition;
-    try
-    {
-        using var body = await JsonDocument.ParseAsync(context.Request.Body);
-        if (body.RootElement.TryGetProperty("action", out var actionElement) &&
-            actionElement.ValueKind == JsonValueKind.String &&
-            string.Equals(actionElement.GetString(), "api", StringComparison.Ordinal))
-        {
-            action = ApiActionPartition;
-        }
-    }
-    catch (JsonException)
-    {
-        // Malformed body: leave it on the viewer-facing partition and let the
-        // endpoint's own model binding refuse it the way it always has.
-    }
-
-    context.Request.Body.Position = 0;
-    context.Items[MediaMtxActionPartitionItemKey] = action;
-}
-
-// Only the action classification is factored out, not the whole partition
-// key: WhepAuthorizePartitionKeyTests reads Program.cs's own source and
-// requires the "whep-authorize" policy's partition-key argument to spell
-// out "context.Connection.RemoteIpAddress" inline (FR-003's guard against a
-// regression to a fixed/global bucket) — hiding that behind a helper call
-// would pass this file's own tests while defeating that guard.
-static string WhepAuthorizeActionClassification(HttpContext context) =>
-    context.Items.TryGetValue(MediaMtxActionPartitionItemKey, out var value) && value is string classified
-        ? classified
-        : WhepActionPartition;
-
-// Spec 208 US2 (FR-009). One Warning per partition on the transition into
-// the throttled state, never per refusal — the same Interlocked-guarded
-// once-per-transition discipline WhepAuthValidator.cs:142-151 already
-// applies to the realm-unreachable case on this path (ADR-0118: one OTLP
-// sink, kept readable at exactly the moment a flood would otherwise drown
-// it).
-//
-// Spec 208 review S5: an IMemoryCache entry per partition, absolute-expiring
-// after whepAuthorizeWindow, gives the same "re-arm once a full window has
-// passed since the last logged transition" semantic a hand-rolled
-// ConcurrentDictionary<string, DateTimeOffset> computed via AddOrUpdate —
-// but with eviction built in. That dictionary never evicted an entry, so on
-// the one endpoint whose entire threat model is "an anonymous attacker with
-// nothing but network reach", keyed on attacker-influenced input (source
-// addresses), it grew for the process lifetime. IMemoryCache is already
-// part of the ASP.NET Core shared framework (no new package, NFR-002).
-bool IsNewWhepAuthorizeThrottleTransition(IMemoryCache cache, string partition, TimeSpan window)
-{
-    if (cache.TryGetValue(partition, out _))
-    {
-        return false;
-    }
-
-    cache.Set(partition, true, window);
-    return true;
-}
-
 // #2871: each classification now has its own ceiling (see
 // mediaMtxApiAuthorizePermitLimit above), so the throttle-transition log and
 // the limiter's own options factory both need to pick the pair that matches
 // the request actually being decided, not always the "whep" pair.
 (int PermitLimit, TimeSpan Window) RateLimitBudgetFor(string classification) =>
-    classification == ApiActionPartition
+    classification == WhepAuthorizeActionPartition.ApiActionPartition
         ? (mediaMtxApiAuthorizePermitLimit, mediaMtxApiAuthorizeWindow)
         : (whepAuthorizePermitLimit, whepAuthorizeWindow);
 
@@ -167,17 +77,16 @@ builder.Services.AddRateLimiter(options =>
         // Same "ip:{RemoteIpAddress}:action:{classification}" spelling as the
         // policy's own partition key below, so a transition log record names
         // exactly the partition the limiter itself keyed on.
-        var classification = WhepAuthorizeActionClassification(context.HttpContext);
+        var classification = WhepAuthorizeActionPartition.WhepAuthorizeActionClassification(context.HttpContext);
         var partition =
             $"ip:{context.HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"
             + $":action:{classification}";
         (var permitLimit, var window) = RateLimitBudgetFor(classification);
-        var cache = context.HttpContext.RequestServices.GetRequiredService<IMemoryCache>();
-        if (IsNewWhepAuthorizeThrottleTransition(cache, partition, window))
-        {
-            context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>()
-                .WhepAuthorizeThrottled(partition, permitLimit);
-        }
+        WhepAuthorizeActionPartition.LogThrottleTransition(
+            context.HttpContext,
+            partition,
+            permitLimit,
+            window);
 
         return ValueTask.CompletedTask;
     };
@@ -197,7 +106,7 @@ builder.Services.AddRateLimiter(options =>
             // open both arrive here from MediaMTX's one address, so source IP
             // alone put them in the same budget.
             $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}"
-                + $":action:{WhepAuthorizeActionClassification(context)}",
+                + $":action:{WhepAuthorizeActionPartition.WhepAuthorizeActionClassification(context)}",
             // #2871: api and whep draw from separate budgets
             // (mediaMtxApiAuthorizePermitLimit vs whepAuthorizePermitLimit) —
             // see that variable's own comment for why `api` needs a much
@@ -207,8 +116,8 @@ builder.Services.AddRateLimiter(options =>
             // per request.
             _ => new FixedWindowRateLimiterOptions
             {
-                PermitLimit = RateLimitBudgetFor(WhepAuthorizeActionClassification(context)).PermitLimit,
-                Window = RateLimitBudgetFor(WhepAuthorizeActionClassification(context)).Window,
+                PermitLimit = RateLimitBudgetFor(WhepAuthorizeActionPartition.WhepAuthorizeActionClassification(context)).PermitLimit,
+                Window = RateLimitBudgetFor(WhepAuthorizeActionPartition.WhepAuthorizeActionClassification(context)).Window,
                 QueueLimit = 0,
             }));
 });
@@ -228,7 +137,7 @@ app.UseExceptionHandler();
 // 208) — nothing here does authentication work either.
 app.Use(async (context, next) =>
 {
-    await PeekMediaMtxActionAsync(context);
+    await WhepAuthorizeActionPartition.PeekMediaMtxActionAsync(context);
     await next(context);
 });
 
