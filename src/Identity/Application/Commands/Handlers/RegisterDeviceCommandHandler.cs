@@ -23,6 +23,47 @@ public sealed class RegisterDeviceCommandHandler(
         Ensure.That(command).IsNotNull();
         (var deviceType, var deviceIdentifier, var fab, var registeredBy) = command;
 
+        var clientIdResult = ToClientId(deviceType, deviceIdentifier, fab);
+        if (clientIdResult.IsFailure)
+        {
+            return Failure(clientIdResult.Error);
+        }
+
+        var clientId = clientIdResult.Value;
+
+        var existing = await clients
+            .GetWithinFabAsync(fab, clientId, cancellationToken);
+        if (existing.HasValue)
+        {
+            return Failure(RegisterDeviceFailures.DeviceAlreadyRegistered(clientId.Value));
+        }
+
+        var representation = DeviceRepresentation(clientId, deviceType, deviceIdentifier, fab);
+        var created = await CreateInKeycloakAsync(representation, fab, cancellationToken);
+        if (created.IsFailure)
+        {
+            return Failure(created.Error);
+        }
+
+        var registered = await RegisterAsync(clientId, fab, registeredBy, cancellationToken);
+
+        logger.RegisteredDevice(registered.Id, clientId, deviceType, deviceIdentifier, fab);
+
+        return Success(
+            new DeviceCredentialsDto(
+                registered.Id.Value,
+                clientId.Value,
+                deviceType,
+                deviceIdentifier,
+                fab.Value,
+                created.Value.ClientSecret));
+    }
+
+    private static Result<ClientId, RegisterDeviceError> ToClientId(
+        string deviceType,
+        string deviceIdentifier,
+        FabIdentifier fab)
+    {
         if (!AllowedDeviceTypes.Contains(deviceType, StringComparer.Ordinal))
         {
             return Failure(RegisterDeviceFailures.InvalidDeviceType(deviceType));
@@ -39,24 +80,22 @@ public sealed class RegisterDeviceCommandHandler(
                 "each hyphen-separated segment must be one or more letters or digits."));
         }
 
-        ClientId clientId;
         try
         {
-            clientId = ClientId.From($"{deviceType}.{fab.Value}.{deviceIdentifier}");
+            return Success(ClientId.From($"{deviceType}.{fab.Value}.{deviceIdentifier}"));
         }
         catch (ArgumentException ex)
         {
             return Failure(RegisterDeviceFailures.InvalidDeviceIdentifier(ex.Message));
         }
+    }
 
-        var existing = await clients
-            .GetWithinFabAsync(fab, clientId, cancellationToken);
-        if (existing.HasValue)
-        {
-            return Failure(RegisterDeviceFailures.DeviceAlreadyRegistered(clientId.Value));
-        }
-
-        KeycloakClientRepresentation representation = new(
+    private static KeycloakClientRepresentation DeviceRepresentation(
+        ClientId clientId,
+        string deviceType,
+        string deviceIdentifier,
+        FabIdentifier fab) =>
+        new(
             ClientId: clientId.Value,
             Name: $"{deviceType} {deviceIdentifier}",
             ServiceAccountsEnabled: true,
@@ -74,13 +113,17 @@ public sealed class RegisterDeviceCommandHandler(
                 ["sse.fab"] = fab.Value,
             });
 
-        KeycloakClientCredentials credentials;
+    private async Task<Result<KeycloakClientCredentials, RegisterDeviceError>> CreateInKeycloakAsync(
+        KeycloakClientRepresentation representation,
+        FabIdentifier fab,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            credentials = await keycloak.CreateClientAsync(
+            return Success(await keycloak.CreateClientAsync(
                 representation,
                 fabGroupPath: $"/fabs/{fab.Value}",
-                cancellationToken);
+                cancellationToken));
         }
         catch (KeycloakClientAlreadyExistsException ex)
         {
@@ -90,22 +133,20 @@ public sealed class RegisterDeviceCommandHandler(
         {
             return Failure(RegisterDeviceFailures.KeycloakUnavailable(ex.Message));
         }
+    }
 
+    private async Task<RegisteredClientAggregate> RegisterAsync(
+        ClientId clientId,
+        FabIdentifier fab,
+        OperatorIdentifier registeredBy,
+        CancellationToken cancellationToken)
+    {
         var registered = RegisteredClientAggregate.Register(
             clientId, ClientKind.Device, fab, registeredBy, clock);
         clients.Add(registered);
         await clients.SaveAsync(cancellationToken);
 
-        logger.RegisteredDevice(registered.Id, clientId, deviceType, deviceIdentifier, fab);
-
-        return Success(
-            new DeviceCredentialsDto(
-                registered.Id.Value,
-                clientId.Value,
-                deviceType,
-                deviceIdentifier,
-                fab.Value,
-                credentials.ClientSecret));
+        return registered;
     }
 
     private static bool IsHyphenSeparatedAlphanumeric(string deviceIdentifier) =>
