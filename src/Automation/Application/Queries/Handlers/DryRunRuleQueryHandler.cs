@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,55 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
 
         var (fabs, name, sampleEvent) = query;
 
+        var found = await FindRuleAsync(fabs, name, cancellationToken);
+        if (found.IsFailure)
+        {
+            return Failure(found.Error);
+        }
+
+        var rule = found.Value;
+
+        JsonDocument sample;
+        try
+        {
+            sample = JsonDocument.Parse(sampleEvent ?? string.Empty);
+        }
+        catch (JsonException ex)
+        {
+            return Failure(DryRunRuleFailures.SampleEventNotJson(ex.Message));
+        }
+
+        return Evaluate(rule, sample);
+    }
+
+    private async Task<Result<Rule, DryRunRuleError>> FindRuleAsync(
+        IReadOnlyList<FabIdentifier> fabs, string name, CancellationToken cancellationToken)
+    {
+        if (!TryParseName(name, out var parsed))
+        {
+            return Failure(DryRunRuleFailures.RuleNotFound(name));
+        }
+
+        var matches = await FindMatchesAsync(fabs, parsed, cancellationToken);
+
+        if (matches.Count == 0)
+        {
+            return Failure(DryRunRuleFailures.RuleNotFound(name));
+        }
+
+        // Keyed on distinct fabs, not match count — same reason as
+        // GetRuleQueryHandler.
+        var fabsHolding = RuleFabCandidates.Fabs(matches);
+        if (fabsHolding.Count > 1)
+        {
+            return Failure(DryRunRuleFailures.FabAmbiguous(name, fabsHolding));
+        }
+
+        return Success(matches[0]);
+    }
+
+    private static bool TryParseName(string name, [NotNullWhen(true)] out RuleName? parsed)
+    {
         // Compare the value object, not its inner string. RuleName is mapped
         // with a value conversion (RuleConfiguration), which EF can translate
         // for the whole property but not for a member access on it — reaching
@@ -34,16 +84,21 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
         //
         // A name that is not a legal RuleName cannot match a stored row, so it
         // is not-found rather than a 500.
-        RuleName parsed;
         try
         {
             parsed = RuleName.From(name);
+            return true;
         }
         catch (ArgumentException)
         {
-            return Failure(DryRunRuleFailures.RuleNotFound(name));
+            parsed = null;
+            return false;
         }
+    }
 
+    private async Task<List<Rule>> FindMatchesAsync(
+        IReadOnlyList<FabIdentifier> fabs, RuleName parsed, CancellationToken cancellationToken)
+    {
         // Fab-scoped like the reads (spec 013 FR-006): a trial run must not
         // be usable as a side channel to discover how another fab's rule
         // behaves. Still carries no If-Match — it persists nothing, and spec
@@ -64,63 +119,22 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
         // Value object, not .Value: RuleState is value-converted, same trap as
         // RuleName and Fab above.
         FabIdentifier[] scopedFabs = [.. fabs];
-        var matches = await rules.Rules
+        return await rules.Rules
             .Where(candidate => scopedFabs.Contains(candidate.Fab)
                 && candidate.Name == parsed
                 && candidate.State != RuleState.Archived)
             .ToListAsync(cancellationToken);
+    }
 
-        if (matches.Count == 0)
-        {
-            return Failure(DryRunRuleFailures.RuleNotFound(name));
-        }
-
-        // Keyed on distinct fabs, not match count — same reason as
-        // GetRuleQueryHandler.
-        var fabsHolding = RuleFabCandidates.Fabs(matches);
-        if (fabsHolding.Count > 1)
-        {
-            return Failure(DryRunRuleFailures.FabAmbiguous(name, fabsHolding));
-        }
-
-        var rule = matches[0];
-
-        JsonDocument sample;
-        try
-        {
-            sample = JsonDocument.Parse(sampleEvent ?? string.Empty);
-        }
-        catch (JsonException ex)
-        {
-            return Failure(DryRunRuleFailures.SampleEventNotJson(ex.Message));
-        }
-
+    private Result<DryRunResultDto, DryRunRuleError> Evaluate(Rule rule, JsonDocument sample)
+    {
         using (sample)
         {
             EvaluationContext context = new(sample.RootElement);
 
             try
             {
-                var compiled = CompiledRule.From(rule);
-                var verdict = AelInterpreter.Evaluate(compiled.CompiledPredicate, context);
-
-                // Same truthiness rule as RuleEvaluator — a non-boolean result
-                // does NOT match. A dry run that disagreed with the live
-                // pipeline would be worse than no dry run at all.
-                if (verdict is not AelValue.BoolValue { Value: true })
-                {
-                    return Success(
-                        new DryRunResultDto(Matched: false, EvaluatedValue: null));
-                }
-
-                // Only SetVariableValue produces a value; HighlightOverlay and
-                // SwitchWallScene match but have nothing to evaluate.
-                var evaluated = compiled.CompiledValueExpression is null
-                    ? null
-                    : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();
-
-                return Success(
-                    new DryRunResultDto(Matched: true, EvaluatedValue: evaluated));
+                return EvaluateCompiled(rule, context);
             }
             // Widened to match RuleEvaluator's filter: a dry run that disagreed
             // with the live pipeline would be worse than no dry run at all, and
@@ -141,5 +155,29 @@ public sealed class DryRunRuleQueryHandler(IRuleQuerySource rules, ILogger<DryRu
                 return Failure(DryRunRuleFailures.EvaluationFailed(reason));
             }
         }
+    }
+
+    private static Result<DryRunResultDto, DryRunRuleError> EvaluateCompiled(Rule rule, EvaluationContext context)
+    {
+        var compiled = CompiledRule.From(rule);
+        var verdict = AelInterpreter.Evaluate(compiled.CompiledPredicate, context);
+
+        // Same truthiness rule as RuleEvaluator — a non-boolean result
+        // does NOT match. A dry run that disagreed with the live
+        // pipeline would be worse than no dry run at all.
+        if (verdict is not AelValue.BoolValue { Value: true })
+        {
+            return Success(
+                new DryRunResultDto(Matched: false, EvaluatedValue: null));
+        }
+
+        // Only SetVariableValue produces a value; HighlightOverlay and
+        // SwitchWallScene match but have nothing to evaluate.
+        var evaluated = compiled.CompiledValueExpression is null
+            ? null
+            : AelInterpreter.Evaluate(compiled.CompiledValueExpression, context).ToWireString();
+
+        return Success(
+            new DryRunResultDto(Matched: true, EvaluatedValue: evaluated));
     }
 }
