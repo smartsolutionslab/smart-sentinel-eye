@@ -83,21 +83,7 @@ public sealed class EventRepository(
     /// </summary>
     public async Task SaveAsync(CancellationToken cancellationToken)
     {
-        var tracked = dbContext.ChangeTracker
-            .Entries<EventAggregate>()
-            .Where(entry => entry.Entity.PendingEvents.Count > 0)
-            .Select(entry => entry.Entity)
-            .ToArray();
-
-        // Collected first and dispatched once. Dispatching per aggregate was
-        // invisible while the caller saved one event at a time and becomes a
-        // round trip per event the moment a batch is saved (spec 020 FR-010).
-        List<IDomainEvent> pending = [];
-        foreach (var @event in tracked)
-        {
-            pending.AddRange(@event.PendingEvents);
-            @event.ClearPendingEvents();
-        }
+        var pending = DrainPendingEvents();
 
         // Every event is offered to the dispatcher even after one of them
         // throws, and the failures are raised together at the end. Spec 020
@@ -126,12 +112,36 @@ public sealed class EventRepository(
             // uses a fresh AsyncServiceScope per attempt, which is what makes
             // that unreachable; the wording no longer promises a rollback this
             // method does not perform.
-            throw new AggregateException(
-                $"{failures.Count} of {pending.Count} domain event(s) could not be captured; "
-                + "this unit of work is not committed and must be discarded with its scope.",
-                failures);
+            throw NotCommitted(failures, pending.Count);
         }
 
         await commit.CommitAsync(cancellationToken);
     }
+
+    private List<IDomainEvent> DrainPendingEvents()
+    {
+        var tracked = dbContext.ChangeTracker
+            .Entries<EventAggregate>()
+            .Where(entry => entry.Entity.PendingEvents.Count > 0)
+            .Select(entry => entry.Entity)
+            .ToArray();
+
+        // Collected first and dispatched once. Dispatching per aggregate was
+        // invisible while the caller saved one event at a time and becomes a
+        // round trip per event the moment a batch is saved (spec 020 FR-010).
+        List<IDomainEvent> pending = [];
+        foreach (var @event in tracked)
+        {
+            pending.AddRange(@event.PendingEvents);
+            @event.ClearPendingEvents();
+        }
+
+        return pending;
+    }
+
+    private static AggregateException NotCommitted(List<Exception> failures, int pendingCount) =>
+        new(
+            $"{failures.Count} of {pendingCount} domain event(s) could not be captured; "
+            + "this unit of work is not committed and must be discarded with its scope.",
+            failures);
 }
