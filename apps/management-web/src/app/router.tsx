@@ -159,7 +159,7 @@ export const createAppRouter = () =>
           path: 'cameras/*',
           element: (
             <Gated path="/cameras">
-              <RemoteSurface remote="cameras" />
+              <RemoteSurface key="cameras" remote="cameras" />
             </Gated>
           ),
           errorElement: <SurfaceCrash />,
@@ -168,7 +168,7 @@ export const createAppRouter = () =>
           path: 'event-ingestion/*',
           element: (
             <Gated path="/event-ingestion">
-              <RemoteSurface remote="eventIngestion" />
+              <RemoteSurface key="eventIngestion" remote="eventIngestion" />
             </Gated>
           ),
           errorElement: <SurfaceCrash />,
