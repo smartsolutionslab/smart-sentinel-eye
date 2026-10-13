@@ -77,11 +77,12 @@ public static class IdentityInfrastructureModule
         builder.AddIdentityPersistence();
         builder.EnrichPostgresDbContext<IdentityDbContext>();
 
-        builder.Services.AddScoped<IRegisteredClientRepository, RegisteredClientRepository>();
-        builder.Services.AddScoped<IRegisteredClientQuerySource, RegisteredClientQuerySource>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
+        builder.Services
+            .AddScoped<IRegisteredClientRepository, RegisteredClientRepository>()
+            .AddScoped<IRegisteredClientQuerySource, RegisteredClientQuerySource>()
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>()
+            .AddSingleton<IClock, SystemClock>()
+            .AddSingleton(TimeProvider.System);
     }
 
     private static void AddWebhookIntegrationStatusLookup(IServiceCollection services)
@@ -98,8 +99,9 @@ public static class IdentityInfrastructureModule
         // resource publishes, in dev and on k3s alike. S1075/S5332 flag the
         // literal; neither applies, because it is a logical name rather than
         // an address.
-        services.AddHttpContextAccessor();
-        services.AddTransient<CallerTokenForwardingHandler>();
+        services
+            .AddHttpContextAccessor()
+            .AddTransient<CallerTokenForwardingHandler>();
         services.AddHttpClient<IWebhookIntegrationStatusLookup, EventIngestionWebhookIntegrationStatusLookup>(client =>
         {
 #pragma warning disable S1075, S5332
@@ -118,16 +120,18 @@ public static class IdentityInfrastructureModule
         // Here and deliberately not in AddKeycloakAdminClient, which
         // MigrationRunner also calls: MigrationRunner runs to completion and
         // exits, and a sweep there would race the migration it exists to run.
-        services.AddScoped<KioskPrivilegeSweep>();
-        services.AddHostedService<KioskPrivilegeSweepHostedService>();
+        services
+            .AddScoped<KioskPrivilegeSweep>()
+            .AddHostedService<KioskPrivilegeSweepHostedService>();
 
         // Spec 320 (#2181): a cancellation between creating a device/kiosk
         // Keycloak client and saving its RegisteredClient row leaves the
         // client live with no row. Startup + hourly (plan §4.4), unlike the
         // kiosk sweep above: an orphan blocks an operator now, and a 24/7
         // Identity API may not restart for weeks.
-        services.AddScoped<OrphanedClientSweep>();
-        services.AddHostedService<OrphanedClientSweepHostedService>();
+        services
+            .AddScoped<OrphanedClientSweep>()
+            .AddHostedService<OrphanedClientSweepHostedService>();
     }
 
     private static void AddCommandHandlers(IServiceCollection services)
@@ -144,43 +148,40 @@ public static class IdentityInfrastructureModule
         AddWebhookCommandHandlers(services);
     }
 
-    private static void AddKioskCommandHandlers(IServiceCollection services)
-    {
-        services.AddScoped<EnrollKioskCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<EnrollKioskCommand, Result<KioskCredentialsDto, EnrollKioskError>>,
-            EnrollKioskCommandHandler>();
-        services.AddScoped<DisableKioskCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<DisableKioskCommand, Result<RegisteredClientIdentifier, DisableKioskError>>,
-            DisableKioskCommandHandler>();
-    }
+    private static void AddKioskCommandHandlers(IServiceCollection services) =>
+        services
+            .AddScoped<EnrollKioskCommandHandler>()
+            .AddScoped<
+                ICommandHandler<EnrollKioskCommand, Result<KioskCredentialsDto, EnrollKioskError>>,
+                EnrollKioskCommandHandler>()
+            .AddScoped<DisableKioskCommandHandler>()
+            .AddScoped<
+                ICommandHandler<DisableKioskCommand, Result<RegisteredClientIdentifier, DisableKioskError>>,
+                DisableKioskCommandHandler>();
 
-    private static void AddDeviceCommandHandlers(IServiceCollection services)
-    {
-        services.AddScoped<RegisterDeviceCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<RegisterDeviceCommand, Result<DeviceCredentialsDto, RegisterDeviceError>>,
-            RegisterDeviceCommandHandler>();
-        services.AddScoped<DisableDeviceCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<DisableDeviceCommand, Result<RegisteredClientIdentifier, DisableDeviceError>>,
-            DisableDeviceCommandHandler>();
-    }
+    private static void AddDeviceCommandHandlers(IServiceCollection services) =>
+        services
+            .AddScoped<RegisterDeviceCommandHandler>()
+            .AddScoped<
+                ICommandHandler<RegisterDeviceCommand, Result<DeviceCredentialsDto, RegisterDeviceError>>,
+                RegisterDeviceCommandHandler>()
+            .AddScoped<DisableDeviceCommandHandler>()
+            .AddScoped<
+                ICommandHandler<DisableDeviceCommand, Result<RegisteredClientIdentifier, DisableDeviceError>>,
+                DisableDeviceCommandHandler>();
 
-    private static void AddWebhookCommandHandlers(IServiceCollection services)
-    {
-        services.AddScoped<DisableWebhookClientCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>>,
-            DisableWebhookClientCommandHandler>();
-        services.AddScoped<RotateWebhookClientCommandHandler>();
-        services.AddScoped<
-            ICommandHandler<
-                RotateWebhookClientCommand,
-                Result<WebhookClientCredentialsDto, RotateWebhookClientError>>,
-            RotateWebhookClientCommandHandler>();
-    }
+    private static void AddWebhookCommandHandlers(IServiceCollection services) =>
+        services
+            .AddScoped<DisableWebhookClientCommandHandler>()
+            .AddScoped<
+                ICommandHandler<DisableWebhookClientCommand, Result<RegisteredClientIdentifier, DisableWebhookClientError>>,
+                DisableWebhookClientCommandHandler>()
+            .AddScoped<RotateWebhookClientCommandHandler>()
+            .AddScoped<
+                ICommandHandler<
+                    RotateWebhookClientCommand,
+                    Result<WebhookClientCredentialsDto, RotateWebhookClientError>>,
+                RotateWebhookClientCommandHandler>();
 
     private static void AddQueryHandlers(IServiceCollection services)
     {
@@ -189,20 +190,21 @@ public static class IdentityInfrastructureModule
 
         // ADR-0142. Scoped alongside the DbContext it writes through; the store is
         // per context because there is no shared database to hold one table in.
-        services.AddScoped<IIdempotencyStore, IdempotencyStore<IdentityDbContext>>();
-        services.AddIdempotencyReservationSweep<IdentityDbContext>();
-        services.AddScoped<ReplayRegisteredClientQueryHandler>();
-        services.AddScoped<
-            IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
-            ListDevicesQueryHandler>();
-        services.AddScoped<ListKiosksQueryHandler>();
-        services.AddScoped<
-            IQueryHandler<ListKiosksQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
-            ListKiosksQueryHandler>();
-        services.AddScoped<ListWebhookClientsQueryHandler>();
-        services.AddScoped<
-            IQueryHandler<ListWebhookClientsQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
-            ListWebhookClientsQueryHandler>();
+        services
+            .AddScoped<IIdempotencyStore, IdempotencyStore<IdentityDbContext>>()
+            .AddIdempotencyReservationSweep<IdentityDbContext>()
+            .AddScoped<ReplayRegisteredClientQueryHandler>()
+            .AddScoped<
+                IQueryHandler<ListDevicesQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+                ListDevicesQueryHandler>()
+            .AddScoped<ListKiosksQueryHandler>()
+            .AddScoped<
+                IQueryHandler<ListKiosksQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+                ListKiosksQueryHandler>()
+            .AddScoped<ListWebhookClientsQueryHandler>()
+            .AddScoped<
+                IQueryHandler<ListWebhookClientsQuery, Result<IReadOnlyList<RegisteredClientSummaryDto>, ListClientsError>>,
+                ListWebhookClientsQueryHandler>();
     }
 
     private static void AddRevocationSource(IServiceCollection services)
@@ -212,12 +214,12 @@ public static class IdentityInfrastructureModule
         // TryAdd — AddBearerAuthentication registers the default
         // HttpRevokedClientSource with TryAddSingleton, and this is the one
         // context that must not use it, regardless of registration order.
-        services.AddScoped<ListRevokedClientsQueryHandler>();
-        services.AddScoped<
-            IQueryHandler<ListRevokedClientsQuery, Result<IReadOnlyList<RevokedClientEntry>, ListClientsError>>,
-            ListRevokedClientsQueryHandler>();
-        services.Replace(
-            ServiceDescriptor.Singleton<IRevokedClientSource, LocalRevokedClientSource>());
+        services
+            .AddScoped<ListRevokedClientsQueryHandler>()
+            .AddScoped<
+                IQueryHandler<ListRevokedClientsQuery, Result<IReadOnlyList<RevokedClientEntry>, ListClientsError>>,
+                ListRevokedClientsQueryHandler>()
+            .Replace(ServiceDescriptor.Singleton<IRevokedClientSource, LocalRevokedClientSource>());
     }
 
     /// <summary>
