@@ -20,196 +20,257 @@ public static class AelLexer
         var i = 0;
         while (i < source.Length)
         {
-            var c = source[i];
-
-            if (char.IsWhiteSpace(c))
+            if (char.IsWhiteSpace(source[i]))
             { i++; continue; }
 
-            switch (c)
-            {
-                case '$':
-                    tokens.Add(new AelToken(AelTokenKind.Dollar, "$", i));
-                    i++;
-                    continue;
-                case '.':
-                    tokens.Add(new AelToken(AelTokenKind.Dot, ".", i));
-                    i++;
-                    continue;
-                case '(':
-                    tokens.Add(new AelToken(AelTokenKind.LeftParen, "(", i));
-                    i++;
-                    continue;
-                case ')':
-                    tokens.Add(new AelToken(AelTokenKind.RightParen, ")", i));
-                    i++;
-                    continue;
-                case '+':
-                    tokens.Add(new AelToken(AelTokenKind.Plus, "+", i));
-                    i++;
-                    continue;
-                case '-':
-                    tokens.Add(new AelToken(AelTokenKind.Minus, "-", i));
-                    i++;
-                    continue;
-                case '*':
-                    tokens.Add(new AelToken(AelTokenKind.Star, "*", i));
-                    i++;
-                    continue;
-                case '/':
-                    tokens.Add(new AelToken(AelTokenKind.Slash, "/", i));
-                    i++;
-                    continue;
-                case '%':
-                    tokens.Add(new AelToken(AelTokenKind.Percent, "%", i));
-                    i++;
-                    continue;
-            }
-
-            if (c == '<')
-            {
-                if (i + 1 < source.Length && source[i + 1] == '=')
-                {
-                    tokens.Add(new AelToken(AelTokenKind.LessThanOrEqual, "<=", i));
-                    i += 2;
-                    continue;
-                }
-                tokens.Add(new AelToken(AelTokenKind.LessThan, "<", i));
-                i++;
-                continue;
-            }
-            if (c == '>')
-            {
-                if (i + 1 < source.Length && source[i + 1] == '=')
-                {
-                    tokens.Add(new AelToken(AelTokenKind.GreaterThanOrEqual, ">=", i));
-                    i += 2;
-                    continue;
-                }
-                tokens.Add(new AelToken(AelTokenKind.GreaterThan, ">", i));
-                i++;
-                continue;
-            }
-            if (c == '=')
-            {
-                if (i + 1 < source.Length && source[i + 1] == '=')
-                {
-                    tokens.Add(new AelToken(AelTokenKind.Equal, "==", i));
-                    i += 2;
-                    continue;
-                }
-                throw new AelParseException("expected '==' (single '=' is not an operator)", i);
-            }
-            if (c == '!')
-            {
-                if (i + 1 < source.Length && source[i + 1] == '=')
-                {
-                    tokens.Add(new AelToken(AelTokenKind.NotEqual, "!=", i));
-                    i += 2;
-                    continue;
-                }
-                tokens.Add(new AelToken(AelTokenKind.Bang, "!", i));
-                i++;
-                continue;
-            }
-            if (c == '&')
-            {
-                if (i + 1 < source.Length && source[i + 1] == '&')
-                {
-                    tokens.Add(new AelToken(AelTokenKind.AndAnd, "&&", i));
-                    i += 2;
-                    continue;
-                }
-                throw new AelParseException("expected '&&'", i);
-            }
-            if (c == '|')
-            {
-                if (i + 1 < source.Length && source[i + 1] == '|')
-                {
-                    tokens.Add(new AelToken(AelTokenKind.OrOr, "||", i));
-                    i += 2;
-                    continue;
-                }
-                throw new AelParseException("expected '||'", i);
-            }
-
-            if (c == '"' || c == '\'')
-            {
-                var start = i;
-                var quote = c;
-                i++;
-                StringBuilder buffer = new();
-                while (i < source.Length && source[i] != quote)
-                {
-                    buffer.Append(source[i]);
-                    i++;
-                }
-                if (i >= source.Length)
-                {
-                    throw new AelParseException($"unterminated string literal (started at {start})", start);
-                }
-                i++; // closing quote
-                tokens.Add(new AelToken(AelTokenKind.StringLiteral, buffer.ToString(), start));
-                continue;
-            }
-
-            if (char.IsAsciiDigit(c))
-            {
-                var start = i;
-                var isDecimal = false;
-                while (i < source.Length && char.IsAsciiDigit(source[i]))
-                {
-                    i++;
-                }
-
-                if (i < source.Length && source[i] == '.'
-                    && i + 1 < source.Length && char.IsAsciiDigit(source[i + 1]))
-                {
-                    isDecimal = true;
-                    i++;
-                    while (i < source.Length && char.IsAsciiDigit(source[i]))
-                    {
-                        i++;
-                    }
-                }
-                if (i < source.Length && source[i] is 'e' or 'E')
-                {
-                    throw new AelParseException(
-                        "exponent notation is not supported; write the number out in full", i);
-                }
-
-                var lexeme = source[start..i];
-                tokens.Add(new AelToken(
-                    isDecimal ? AelTokenKind.DecimalLiteral : AelTokenKind.IntLiteral,
-                    lexeme,
-                    start));
-                continue;
-            }
-
-            if (char.IsAsciiLetter(c) || c == '_')
-            {
-                var start = i;
-                while (i < source.Length &&
-                       (char.IsAsciiLetterOrDigit(source[i]) || source[i] == '_'))
-                {
-                    i++;
-                }
-                var lexeme = source[start..i];
-                var kind = lexeme switch
-                {
-                    "true" => AelTokenKind.TrueLiteral,
-                    "false" => AelTokenKind.FalseLiteral,
-                    "contains" => AelTokenKind.Contains,
-                    _ => AelTokenKind.Identifier,
-                };
-                tokens.Add(new AelToken(kind, lexeme, start));
-                continue;
-            }
-
-            throw new AelParseException($"unexpected character '{c}'", i);
+            i = LexToken(source, i, tokens);
         }
 
         tokens.Add(new AelToken(AelTokenKind.EndOfFile, string.Empty, source.Length));
         return tokens;
+    }
+
+    private static int LexToken(string source, int position, List<AelToken> tokens)
+    {
+        var c = source[position];
+
+        if (TryLexSingleCharacter(c, position, tokens))
+        {
+            return position + 1;
+        }
+        if (IsRelationalStart(c))
+        {
+            return LexRelational(source, position, tokens);
+        }
+        if (IsEqualityStart(c))
+        {
+            return LexEquality(source, position, tokens);
+        }
+        if (IsLogicalStart(c))
+        {
+            return LexLogical(source, position, tokens);
+        }
+        if (IsQuote(c))
+        {
+            return LexString(source, position, tokens);
+        }
+        if (char.IsAsciiDigit(c))
+        {
+            return LexNumber(source, position, tokens);
+        }
+        if (IsWordStart(c))
+        {
+            return LexWord(source, position, tokens);
+        }
+
+        throw new AelParseException($"unexpected character '{c}'", position);
+    }
+
+    private static bool IsRelationalStart(char c) => c is '<' or '>';
+
+    private static bool IsEqualityStart(char c) => c is '=' or '!';
+
+    private static bool IsLogicalStart(char c) => c is '&' or '|';
+
+    private static bool IsQuote(char c) => c is '"' or '\'';
+
+    private static bool IsWordStart(char c) => char.IsAsciiLetter(c) || c == '_';
+
+    private static bool NextIs(string source, int position, char expected) =>
+        position + 1 < source.Length && source[position + 1] == expected;
+
+    private static bool TryLexSingleCharacter(char c, int position, List<AelToken> tokens) =>
+        TryLexPunctuation(c, position, tokens) || TryLexArithmetic(c, position, tokens);
+
+    private static bool TryLexPunctuation(char c, int position, List<AelToken> tokens)
+    {
+        switch (c)
+        {
+            case '$':
+                tokens.Add(new AelToken(AelTokenKind.Dollar, "$", position));
+                return true;
+            case '.':
+                tokens.Add(new AelToken(AelTokenKind.Dot, ".", position));
+                return true;
+            case '(':
+                tokens.Add(new AelToken(AelTokenKind.LeftParen, "(", position));
+                return true;
+            case ')':
+                tokens.Add(new AelToken(AelTokenKind.RightParen, ")", position));
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static bool TryLexArithmetic(char c, int position, List<AelToken> tokens)
+    {
+        switch (c)
+        {
+            case '+':
+                tokens.Add(new AelToken(AelTokenKind.Plus, "+", position));
+                return true;
+            case '-':
+                tokens.Add(new AelToken(AelTokenKind.Minus, "-", position));
+                return true;
+            case '*':
+                tokens.Add(new AelToken(AelTokenKind.Star, "*", position));
+                return true;
+            case '/':
+                tokens.Add(new AelToken(AelTokenKind.Slash, "/", position));
+                return true;
+            case '%':
+                tokens.Add(new AelToken(AelTokenKind.Percent, "%", position));
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static int LexRelational(string source, int position, List<AelToken> tokens)
+    {
+        var c = source[position];
+
+        if (c == '<')
+        {
+            if (NextIs(source, position, '='))
+            {
+                tokens.Add(new AelToken(AelTokenKind.LessThanOrEqual, "<=", position));
+                return position + 2;
+            }
+            tokens.Add(new AelToken(AelTokenKind.LessThan, "<", position));
+            return position + 1;
+        }
+
+        if (NextIs(source, position, '='))
+        {
+            tokens.Add(new AelToken(AelTokenKind.GreaterThanOrEqual, ">=", position));
+            return position + 2;
+        }
+        tokens.Add(new AelToken(AelTokenKind.GreaterThan, ">", position));
+        return position + 1;
+    }
+
+    private static int LexEquality(string source, int position, List<AelToken> tokens)
+    {
+        var c = source[position];
+
+        if (c == '=')
+        {
+            if (NextIs(source, position, '='))
+            {
+                tokens.Add(new AelToken(AelTokenKind.Equal, "==", position));
+                return position + 2;
+            }
+            throw new AelParseException("expected '==' (single '=' is not an operator)", position);
+        }
+
+        if (NextIs(source, position, '='))
+        {
+            tokens.Add(new AelToken(AelTokenKind.NotEqual, "!=", position));
+            return position + 2;
+        }
+        tokens.Add(new AelToken(AelTokenKind.Bang, "!", position));
+        return position + 1;
+    }
+
+    private static int LexLogical(string source, int position, List<AelToken> tokens)
+    {
+        var c = source[position];
+
+        if (c == '&')
+        {
+            if (NextIs(source, position, '&'))
+            {
+                tokens.Add(new AelToken(AelTokenKind.AndAnd, "&&", position));
+                return position + 2;
+            }
+            throw new AelParseException("expected '&&'", position);
+        }
+
+        if (NextIs(source, position, '|'))
+        {
+            tokens.Add(new AelToken(AelTokenKind.OrOr, "||", position));
+            return position + 2;
+        }
+        throw new AelParseException("expected '||'", position);
+    }
+
+    private static int LexString(string source, int position, List<AelToken> tokens)
+    {
+        var start = position;
+        var quote = source[position];
+        var i = position + 1;
+        StringBuilder buffer = new();
+        while (i < source.Length && source[i] != quote)
+        {
+            buffer.Append(source[i]);
+            i++;
+        }
+        if (i >= source.Length)
+        {
+            throw new AelParseException($"unterminated string literal (started at {start})", start);
+        }
+        i++; // closing quote
+        tokens.Add(new AelToken(AelTokenKind.StringLiteral, buffer.ToString(), start));
+        return i;
+    }
+
+    private static int LexNumber(string source, int position, List<AelToken> tokens)
+    {
+        var start = position;
+        var isDecimal = false;
+        var i = SkipDigits(source, position);
+
+        if (i < source.Length && source[i] == '.'
+            && i + 1 < source.Length && char.IsAsciiDigit(source[i + 1]))
+        {
+            isDecimal = true;
+            i = SkipDigits(source, i + 1);
+        }
+        if (i < source.Length && source[i] is 'e' or 'E')
+        {
+            throw new AelParseException(
+                "exponent notation is not supported; write the number out in full", i);
+        }
+
+        var lexeme = source[start..i];
+        tokens.Add(new AelToken(
+            isDecimal ? AelTokenKind.DecimalLiteral : AelTokenKind.IntLiteral,
+            lexeme,
+            start));
+        return i;
+    }
+
+    private static int SkipDigits(string source, int position)
+    {
+        var i = position;
+        while (i < source.Length && char.IsAsciiDigit(source[i]))
+        {
+            i++;
+        }
+        return i;
+    }
+
+    private static int LexWord(string source, int position, List<AelToken> tokens)
+    {
+        var start = position;
+        var i = position;
+        while (i < source.Length &&
+               (char.IsAsciiLetterOrDigit(source[i]) || source[i] == '_'))
+        {
+            i++;
+        }
+        var lexeme = source[start..i];
+        var kind = lexeme switch
+        {
+            "true" => AelTokenKind.TrueLiteral,
+            "false" => AelTokenKind.FalseLiteral,
+            "contains" => AelTokenKind.Contains,
+            _ => AelTokenKind.Identifier,
+        };
+        tokens.Add(new AelToken(kind, lexeme, start));
+        return i;
     }
 
     internal static long ParseInt(AelToken token)
