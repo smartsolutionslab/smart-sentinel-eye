@@ -38,22 +38,17 @@ public sealed class CompiledRule
     public AelExpression? CompiledValueExpression { get; }
 
     private CompiledRule(
-        RuleIdentifier identifier,
-        FabIdentifier fab,
-        TriggerSource triggerSource,
-        TriggerKind triggerKind,
-        DateTimeOffset createdAt,
+        Rule rule,
         AelExpression compiledPredicate,
-        RuleAction action,
         AelExpression? compiledValueExpression)
     {
-        Identifier = identifier;
-        Fab = fab;
-        TriggerSource = triggerSource;
-        TriggerKind = triggerKind;
-        CreatedAt = createdAt;
+        Identifier = rule.Id;
+        Fab = rule.Fab;
+        TriggerSource = rule.TriggerSource;
+        TriggerKind = rule.TriggerKind;
+        CreatedAt = rule.Creation.At;
         CompiledPredicate = compiledPredicate;
-        Action = action;
+        Action = rule.Action;
         CompiledValueExpression = compiledValueExpression;
     }
 
@@ -64,8 +59,6 @@ public sealed class CompiledRule
         var valueExpression = rule.Action is RuleAction.SetVariableValue setVariableValue
             ? AelParser.Parse(setVariableValue.ValueExpression)
             : null;
-        return new CompiledRule(
-            rule.Id, rule.Fab, rule.TriggerSource, rule.TriggerKind,
-            rule.Creation.At, predicate, rule.Action, valueExpression);
+        return new CompiledRule(rule, predicate, valueExpression);
     }
 }
