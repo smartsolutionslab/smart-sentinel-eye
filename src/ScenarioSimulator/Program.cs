@@ -124,46 +124,49 @@ static void LoadScenarioFiles(HostApplicationBuilder builder)
 // AppHost passes explicitly arrive as plain configuration keys.
 static void BindRuntime(IConfiguration config, SimulatorOptions options)
 {
-    options.CameraCatalogUrl =
-        config["services:camera-catalog:http:0"]
-        ?? config["ScenarioSimulator:Runtime:CameraCatalogUrl"]
-        ?? throw new InvalidOperationException("camera-catalog URL not configured (services:camera-catalog:http:0).");
+    options.CameraCatalogUrl = RequiredSetting(
+        config,
+        "services:camera-catalog:http:0",
+        "ScenarioSimulator:Runtime:CameraCatalogUrl",
+        "camera-catalog URL not configured (services:camera-catalog:http:0).");
 
-    options.CameraSimApiUrl =
-        config["services:camera-sim:api:0"]
-        ?? config["ScenarioSimulator:Runtime:CameraSimApiUrl"]
-        ?? throw new InvalidOperationException("camera-sim API URL not configured (services:camera-sim:api:0).");
+    options.CameraSimApiUrl = RequiredSetting(
+        config,
+        "services:camera-sim:api:0",
+        "ScenarioSimulator:Runtime:CameraSimApiUrl",
+        "camera-sim API URL not configured (services:camera-sim:api:0).");
 
-    options.OverlayDesignerUrl =
-        config["services:overlay-designer:http:0"]
-        ?? config["ScenarioSimulator:Runtime:OverlayDesignerUrl"]
-        ?? throw new InvalidOperationException("overlay-designer URL not configured (services:overlay-designer:http:0).");
+    options.OverlayDesignerUrl = RequiredSetting(
+        config,
+        "services:overlay-designer:http:0",
+        "ScenarioSimulator:Runtime:OverlayDesignerUrl",
+        "overlay-designer URL not configured (services:overlay-designer:http:0).");
 
-    options.AutomationUrl =
-        config["services:automation:http:0"]
-        ?? config["ScenarioSimulator:Runtime:AutomationUrl"]
-        ?? throw new InvalidOperationException("automation URL not configured (services:automation:http:0).");
+    options.AutomationUrl = RequiredSetting(
+        config,
+        "services:automation:http:0",
+        "ScenarioSimulator:Runtime:AutomationUrl",
+        "automation URL not configured (services:automation:http:0).");
 
-    options.LayoutCompositionUrl =
-        config["services:layout-composition:http:0"]
-        ?? config["ScenarioSimulator:Runtime:LayoutCompositionUrl"]
-        ?? throw new InvalidOperationException("layout-composition URL not configured (services:layout-composition:http:0).");
+    options.LayoutCompositionUrl = RequiredSetting(
+        config,
+        "services:layout-composition:http:0",
+        "ScenarioSimulator:Runtime:LayoutCompositionUrl",
+        "layout-composition URL not configured (services:layout-composition:http:0).");
 
-    options.SystemVariablesUrl =
-        config["services:system-variables:http:0"]
-        ?? config["ScenarioSimulator:Runtime:SystemVariablesUrl"]
-        ?? throw new InvalidOperationException("system-variables URL not configured (services:system-variables:http:0).");
+    options.SystemVariablesUrl = RequiredSetting(
+        config,
+        "services:system-variables:http:0",
+        "ScenarioSimulator:Runtime:SystemVariablesUrl",
+        "system-variables URL not configured (services:system-variables:http:0).");
 
-    options.MqttHost =
-        config["services:mosquitto:mqtt:0"]
-        ?? config["ScenarioSimulator:Runtime:MqttHost"]
-        ?? throw new InvalidOperationException("mosquitto MQTT host not configured (services:mosquitto:mqtt:0).");
+    options.MqttHost = RequiredSetting(
+        config,
+        "services:mosquitto:mqtt:0",
+        "ScenarioSimulator:Runtime:MqttHost",
+        "mosquitto MQTT host not configured (services:mosquitto:mqtt:0).");
 
-    options.KeycloakUrl =
-        config.GetConnectionString("keycloak")
-        ?? config["services:keycloak:http:0"]
-        ?? config["services:keycloak:https:0"]
-        ?? throw new InvalidOperationException("Keycloak URL not configured for the scenario simulator.");
+    options.KeycloakUrl = ResolveKeycloakUrl(config);
 
     options.Realm = config["ScenarioSimulator:Runtime:Realm"] ?? "smart-sentinel-eye";
     options.ClientId = config["ScenarioSimulator:Runtime:ClientId"] ?? "scenario-simulator";
@@ -172,6 +175,21 @@ static void BindRuntime(IConfiguration config, SimulatorOptions options)
         ?? throw new InvalidOperationException("scenario-simulator client secret not configured.");
     options.RtspHost = config["ScenarioSimulator:Runtime:RtspHost"] ?? "camera-sim:8554";
 }
+
+static string RequiredSetting(
+    IConfiguration config,
+    string aspireKey,
+    string runtimeKey,
+    string missingMessage) =>
+    config[aspireKey]
+    ?? config[runtimeKey]
+    ?? throw new InvalidOperationException(missingMessage);
+
+static string ResolveKeycloakUrl(IConfiguration config) =>
+    config.GetConnectionString("keycloak")
+    ?? config["services:keycloak:http:0"]
+    ?? config["services:keycloak:https:0"]
+    ?? throw new InvalidOperationException("Keycloak URL not configured for the scenario simulator.");
 
 static SimulatorOptions Resolve(IServiceProvider sp) =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<SimulatorOptions>>().Value;
