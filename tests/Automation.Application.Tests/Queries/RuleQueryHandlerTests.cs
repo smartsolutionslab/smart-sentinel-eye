@@ -544,8 +544,8 @@ public class RuleQueryHandlerTests
         // deliberately defers full validation to the Application edge, so
         // this is the standard way this file reaches a state Create's real
         // validation gate normally prevents (same trick as the overflow test
-        // above). A single '=' is invalid AEL grammar: AelLexer throws
-        // AelParseException("expected '==' (single '=' is not an operator)", …).
+        // above). A single '=' is invalid AEL grammar: AelLexer throws an
+        // AelParseException saying a single '=' is not an operator.
         RuleAggregate rule = new RuleBuilder()
             .WithName("uncompilable")
             .WithPredicate("$.payload.cycleTime = 30")
