@@ -63,11 +63,10 @@ public sealed class OrphanedClientSweep(
             [.. stamped.Where(client => SweptKinds.Contains(client.Kind) && client.Enabled)]; // S1, S2
         var active = await clients.GetActiveClientIdsAsync(cancellationToken);
 
-        List<string> unreachable = [];
-        List<(StampedClient Client, TimeSpan Age)> orphans = [];
+        SweepTally tally = new();
         foreach (var candidate in eligible)
         {
-            await ClassifyAsync(candidate, active, orphans, unreachable, cancellationToken);
+            await ClassifyAsync(candidate, active, tally, cancellationToken);
         }
 
         // S6, the mass-disable guard. "More than half, and at least two"
@@ -75,19 +74,19 @@ public sealed class OrphanedClientSweep(
         // exactly the restored-or-wrong-database scenario the guard exists
         // to catch. The floor of two is not a substitute for that case; it
         // only rules out a single rare cancellation (#2845).
-        if (orphans.Count >= 2 && orphans.Count * 2 > eligible.Count)
+        if (tally.Orphans.Count >= 2 && tally.Orphans.Count * 2 > eligible.Count)
         {
-            logger.OrphanedClientSweepRefused(orphans.Count, eligible.Count);
-            return new OrphanedClientSweepOutcome(eligible.Count, Disabled: 0, Refused: true, unreachable);
+            logger.OrphanedClientSweepRefused(tally.Orphans.Count, eligible.Count);
+            return new OrphanedClientSweepOutcome(eligible.Count, Disabled: 0, Refused: true, tally.Unreachable);
         }
 
-        var disabledCount = await DisableAllAsync(orphans, unreachable, cancellationToken);
+        var disabledCount = await DisableAllAsync(tally, cancellationToken);
         if (disabledCount > 0)
         {
             logger.SweptOrphanedClients(disabledCount, eligible.Count);
         }
 
-        return new OrphanedClientSweepOutcome(eligible.Count, disabledCount, Refused: false, unreachable);
+        return new OrphanedClientSweepOutcome(eligible.Count, disabledCount, Refused: false, tally.Unreachable);
     }
 
     /// <summary>
@@ -95,13 +94,12 @@ public sealed class OrphanedClientSweep(
     /// (S3), a service account that cannot be read or does not exist, or one
     /// still inside <see cref="GraceWindow"/> (S4) are each handled and
     /// classified here; everything else still standing is appended to
-    /// <paramref name="orphans"/>.
+    /// <see cref="SweepTally.Orphans"/>.
     /// </summary>
     private async Task ClassifyAsync(
         StampedClient candidate,
         IReadOnlySet<ClientId> active,
-        List<(StampedClient Client, TimeSpan Age)> orphans,
-        List<string> unreachable,
+        SweepTally tally,
         CancellationToken cancellationToken)
     {
         ClientId clientId;
@@ -111,7 +109,7 @@ public sealed class OrphanedClientSweep(
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
-            unreachable.Add(candidate.ClientId);
+            tally.Unreachable.Add(candidate.ClientId);
             logger.CouldNotSweepOrphanedClient(candidate.ClientId, exception);
             return;
         }
@@ -121,22 +119,9 @@ public sealed class OrphanedClientSweep(
             return;
         }
 
-        Option<DateTimeOffset> createdAt;
-        try
-        {
-            createdAt = await keycloak.GetServiceAccountCreatedAtAsync(candidate.ClientId, cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            unreachable.Add(candidate.ClientId);
-            logger.CouldNotSweepOrphanedClient(candidate.ClientId, exception);
-            return;
-        }
-
+        var createdAt = await TryReadCreatedAtAsync(candidate.ClientId, tally, cancellationToken);
         if (!createdAt.HasValue)
         {
-            unreachable.Add(candidate.ClientId);
-            logger.CouldNotSweepOrphanedClient(candidate.ClientId, exception: null);
             return;
         }
 
@@ -146,16 +131,41 @@ public sealed class OrphanedClientSweep(
             return;
         }
 
-        orphans.Add((candidate, age));
+        tally.Orphans.Add((candidate, age));
+    }
+
+    private async Task<Option<DateTimeOffset>> TryReadCreatedAtAsync(
+        string clientId,
+        SweepTally tally,
+        CancellationToken cancellationToken)
+    {
+        Option<DateTimeOffset> createdAt;
+        try
+        {
+            createdAt = await keycloak.GetServiceAccountCreatedAtAsync(clientId, cancellationToken);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            tally.Unreachable.Add(clientId);
+            logger.CouldNotSweepOrphanedClient(clientId, exception);
+            return Option<DateTimeOffset>.None;
+        }
+
+        if (!createdAt.HasValue)
+        {
+            tally.Unreachable.Add(clientId);
+            logger.CouldNotSweepOrphanedClient(clientId, exception: null);
+        }
+
+        return createdAt;
     }
 
     private async Task<int> DisableAllAsync(
-        List<(StampedClient Client, TimeSpan Age)> orphans,
-        List<string> unreachable,
+        SweepTally tally,
         CancellationToken cancellationToken)
     {
         var disabledCount = 0;
-        foreach ((var client, var age) in orphans)
+        foreach ((var client, var age) in tally.Orphans)
         {
             try
             {
@@ -163,7 +173,7 @@ public sealed class OrphanedClientSweep(
             }
             catch (Exception exception) when (exception is not OperationCanceledException)
             {
-                unreachable.Add(client.ClientId);
+                tally.Unreachable.Add(client.ClientId);
                 logger.CouldNotSweepOrphanedClient(client.ClientId, exception);
                 continue;
             }
@@ -173,6 +183,17 @@ public sealed class OrphanedClientSweep(
         }
 
         return disabledCount;
+    }
+
+    /// <summary>
+    /// What one pass has found so far: the clients it will disable and the
+    /// ones it could not read or disable, in the order they were met.
+    /// </summary>
+    private sealed class SweepTally
+    {
+        public List<(StampedClient Client, TimeSpan Age)> Orphans { get; } = [];
+
+        public List<string> Unreachable { get; } = [];
     }
 }
 
