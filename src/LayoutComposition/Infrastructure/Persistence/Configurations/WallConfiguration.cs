@@ -37,6 +37,16 @@ public sealed class WallConfiguration : IEntityTypeConfiguration<Wall>
     {
         Ensure.That(builder).IsNotNull();
 
+        MapWall(builder);
+        MapCreation(builder);
+        MapVersionAndIndex(builder);
+        MapScenes(builder);
+
+        builder.Ignore(wall => wall.PendingEvents);
+    }
+
+    private static void MapWall(EntityTypeBuilder<Wall> builder)
+    {
         builder.ToTable("walls");
         builder.HasKey(wall => wall.Id);
 
@@ -71,7 +81,10 @@ public sealed class WallConfiguration : IEntityTypeConfiguration<Wall>
             .HasColumnName("showing_since")
             .HasConversion(since => since.Value, value => ShowingSince.From(value))
             .IsRequired();
+    }
 
+    private static void MapCreation(EntityTypeBuilder<Wall> builder)
+    {
         builder.OwnsOne(wall => wall.Creation, creation =>
         {
             creation.Property(value => value.At)
@@ -85,7 +98,10 @@ public sealed class WallConfiguration : IEntityTypeConfiguration<Wall>
                 .IsRequired();
         });
         builder.Navigation(wall => wall.Creation).IsRequired();
+    }
 
+    private static void MapVersionAndIndex(EntityTypeBuilder<Wall> builder)
+    {
         builder.Property(wall => wall.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
@@ -98,7 +114,10 @@ public sealed class WallConfiguration : IEntityTypeConfiguration<Wall>
         builder.HasIndex(wall => new { wall.Fab, wall.Name })
             .HasDatabaseName("ux_walls_fab_name_ci")
             .IsUnique();
+    }
 
+    private static void MapScenes(EntityTypeBuilder<Wall> builder)
+    {
         ValueComparer<IReadOnlyList<LayoutIdentifier>> scenesComparer = new(
             (left, right) => left!.SequenceEqual(right!),
             scenes => scenes.Aggregate(0, (hash, scene) => HashCode.Combine(hash, scene.Value)),
@@ -111,7 +130,5 @@ public sealed class WallConfiguration : IEntityTypeConfiguration<Wall>
                 value => value.Select(LayoutIdentifier.From).ToList(),
                 scenesComparer)
             .IsRequired();
-
-        builder.Ignore(wall => wall.PendingEvents);
     }
 }
