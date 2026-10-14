@@ -34,16 +34,16 @@ public sealed class EditDraftRevisionCommandHandler(
 
         var layout = found.Value;
 
-        var crossFab = await RefuseCrossFabTilesAsync(layout, tiles, cancellationToken);
-        if (crossFab.HasValue)
-        {
-            return Failure(crossFab.Value);
-        }
-
         var revisionRefusal = RefuseRevision(layout, layoutIdentifier, revisionNumber, expectedVersion);
         if (revisionRefusal.HasValue)
         {
             return Failure(revisionRefusal.Value);
+        }
+
+        var crossFab = await RefuseCrossFabTilesAsync(layout, tiles, cancellationToken);
+        if (crossFab.HasValue)
+        {
+            return Failure(crossFab.Value);
         }
 
         layout.EditDraft(revisionNumber, grid, tiles, clock);
