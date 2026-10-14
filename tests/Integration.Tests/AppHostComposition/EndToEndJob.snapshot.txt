@@ -1,0 +1,1737 @@
+resource PostgresUser : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource PostgresPassword : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource KeycloakPassword : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource IdentityAdminClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource MigrationRunnerClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource RabbitMqPassword : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource ScenarioSimulatorClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource EventIngestionMqttClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource StreamDistributionAttributionClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource SystemVariablesSeederClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource RevocationListReaderClientSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource MediaMtxApiSecret : ParameterResource
+  [0] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource postgres : PostgresServerResource
+  [0] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="tcp", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=5432, TlsEnabled=False, Transport="tcp", UriScheme="tcp" }
+  [1] ContainerImageAnnotation { Image="timescale/timescaledb", Registry="docker.io", SHA256=null, Tag="2.27.1-pg17" }
+  [2] ResourceIconAnnotation { IconName="DatabaseMultiple", IconVariant=Filled }
+  [3] EnvironmentAnnotation {  }
+      env POSTGRES_HOST_AUTH_METHOD="scram-sha-256"
+  [4] EnvironmentAnnotation {  }
+      env POSTGRES_INITDB_ARGS="--auth-host=scram-sha-256 --auth-local=scram-sha-256"
+  [5] EnvironmentCallbackAnnotation {  }
+      env POSTGRES_USER={PostgresUser.value}
+      env POSTGRES_PASSWORD=resource:PostgresPassword({PostgresPassword.value})
+  [6] HealthCheckAnnotation { Key="postgres_check" }
+  [7] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "-c"
+      arg[1] "max_connections=500"
+resource camera-catalog-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="camera-catalog-db_check" }
+resource stream-distribution-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="stream-distribution-db_check" }
+resource layout-composition-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="layout-composition-db_check" }
+resource overlay-designer-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="overlay-designer-db_check" }
+resource system-variables-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="system-variables-db_check" }
+resource event-ingestion-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="event-ingestion-db_check" }
+resource automation-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="automation-db_check" }
+resource identity-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="identity-db_check" }
+resource audit-db : PostgresDatabaseResource
+  [0] ResourceIconAnnotation { IconName="Database", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="audit-db_check" }
+resource rabbitmq : RabbitMQServerResource
+  [0] ContainerImageAnnotation { Image="library/rabbitmq", Registry="docker.io", SHA256=null, Tag="4-management-alpine" }
+  [1] ResourceIconAnnotation { IconName="MailMultiple", IconVariant=Filled }
+  [2] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="tcp", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=5672, TlsEnabled=False, Transport="tcp", UriScheme="tcp" }
+  [3] EnvironmentCallbackAnnotation {  }
+      env RABBITMQ_DEFAULT_USER=guest
+      env RABBITMQ_DEFAULT_PASS=resource:RabbitMqPassword({RabbitMqPassword.value})
+  [4] HealthCheckAnnotation { Key="rabbitmq_check" }
+  [5] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="management", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=15672, TlsEnabled=False, Transport="http", UriScheme="http" }
+resource keycloak : KeycloakResource
+  [0] ContainerImageAnnotation { Image="keycloak/keycloak", Registry="quay.io", SHA256=null, Tag="26.6.4" }
+  [1] ResourceIconAnnotation { IconName="PersonLock", IconVariant=Filled }
+  [2] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=8080, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [3] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=True, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="management", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=9000, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [4] HealthCheckAnnotation { Key="keycloak_management_/health/ready_200_check" }
+  [5] OtlpExporterAnnotation { RequiredProtocol=null }
+  [6] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [7] EnvironmentCallbackAnnotation {  }
+      env KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      env KC_BOOTSTRAP_ADMIN_PASSWORD=resource:KeycloakPassword({KeycloakPassword.value})
+      env KC_HEALTH_ENABLED="true"
+      env KC_FEATURES="opentelemetry"
+  [8] ResourceUrlsCallbackAnnotation {  }
+  [9] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [10] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "start-dev"
+  [11] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "--import-realm"
+  [12] ContainerFileSystemCallbackAnnotation { DefaultGroup=null, DefaultOwner=1000, DestinationPath="/opt/keycloak/data/import", Umask=null }
+resource mediamtx : ContainerResource
+  [0] ContainerImageAnnotation { Image="bluenviron/mediamtx", Registry=null, SHA256=null, Tag="1.21.0-ffmpeg" }
+  [1] ContainerMountAnnotation { IsReadOnly=False, Source="<repo>/src/AppHost/Resources/mediamtx.yml", Target="/mediamtx.yml", Type=BindMount }
+  [2] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="api", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=9997, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [3] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="metrics", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=9998, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [4] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="whep", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=8889, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [5] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="rtsp", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=8554, TlsEnabled=False, Transport="tcp", UriScheme="tcp" }
+  [6] HealthCheckAnnotation { Key="mediamtx_metrics_/metrics_200_check" }
+  [7] ContainerRuntimeArgsCallbackAnnotation {  }
+  [8] EnvironmentAnnotation {  }
+      env MTX_WEBRTCADDITIONALHOSTS="127.0.0.1"
+  [9] EnvironmentCallbackAnnotation {  }
+      env MTX_AUTHHTTPADDRESS={stream-distribution.bindings.http.url}/streams/authorize
+resource fixture-video : ContainerResource
+  [0] ContainerImageAnnotation { Image="bluenviron/mediamtx", Registry=null, SHA256=null, Tag="1.21.0-ffmpeg" }
+  [1] ContainerMountAnnotation { IsReadOnly=False, Source="<repo>/src/AppHost/Resources/fixture-video.yml", Target="/mediamtx.yml", Type=BindMount }
+  [2] ContainerMountAnnotation { IsReadOnly=False, Source="<repo>/src/AppHost/Resources/clips", Target="/media", Type=BindMount }
+  [3] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="rtsp", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=8554, TlsEnabled=False, Transport="tcp", UriScheme="tcp" }
+resource mosquitto : ContainerResource
+  [0] ContainerImageAnnotation { Image="placeholder", Registry=null, SHA256=null, Tag="latest" }
+  [1] DockerfileBuildAnnotation { BuildArguments=[], BuildContextIgnoreContent=null, BuildSecrets=[], ContextPath="<repo>/src/AppHost/mosquitto", DockerfilePath="<repo>/src/AppHost/mosquitto/Dockerfile", HasEntrypoint=True, ImageName="mosquitto", ImageTag="<hash>", Stage=null }
+  [2] ContainerBuildOptionsCallbackAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] PipelineConfigurationAnnotation {  }
+  [5] ContainerMountAnnotation { IsReadOnly=False, Source="<repo>/src/AppHost/mosquitto/mosquitto.conf", Target="/mosquitto/config/mosquitto.conf", Type=BindMount }
+  [6] ContainerMountAnnotation { IsReadOnly=False, Source="<repo>/src/AppHost/mosquitto/passwords.txt", Target="/mosquitto/config/passwords.txt", Type=BindMount }
+  [7] ContainerMountAnnotation { IsReadOnly=False, Source="<repo>/src/AppHost/mosquitto/acl.txt", Target="/mosquitto/config/acl.txt", Type=BindMount }
+  [8] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="mqtt", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=1883, TlsEnabled=False, Transport="tcp", UriScheme="tcp" }
+  [9] EnvironmentCallbackAnnotation {  }
+      env SSE_JWT_JWKS_URI={keycloak.bindings.http.url}/realms/smart-sentinel-eye/protocol/openid-connect/certs
+  [10] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [11] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+resource azure-environment : AzureEnvironmentResource
+  [0] PipelineStepAnnotation {  }
+  [1] ManifestPublishingCallbackAnnotation {  }
+  [2] ResourceIconAnnotation { IconName="CloudCube", IconVariant=Filled }
+  [3] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+  [4] ResourceCommandAnnotation { Arguments=[], ConfirmationMessage="This only clears the cached Azure tenant, subscription, resource group, location, and deployment state stored for this AppHost. Live Azure resources are not deleted and may be left orphaned. Do you want to continue?", DisplayDescription="Clears the cached Azure context and deployment state for this AppHost. This does not delete live Azure resources and may leave them orphaned.", DisplayName="Reset provisioning state", IconName="ArrowSync", IconVariant=Regular, IsHighlighted=True, Name="reset-provisioning-state", Parameter=null, Progress=null, Visibility=UI, Api }
+  [5] ResourceCommandAnnotation { Arguments=[InteractionInput, InteractionInput, InteractionInput, InteractionInput], ConfirmationMessage="This updates the Azure context for this AppHost and reprovisions all Azure resources using the values you enter next.", DisplayDescription="Updates the Azure tenant, subscription, resource group, or location for this AppHost and reprovisions all Azure resources.", DisplayName="Change Azure context", IconName="Edit", IconVariant=Regular, IsHighlighted=True, Name="change-azure-context", Parameter=null, Progress=null, Visibility=UI, Api }
+  [6] ResourceCommandAnnotation { Arguments=[], ConfirmationMessage="This clears the cached Azure deployment state for this AppHost and reprovisions all Azure resources again using the current Azure tenant, subscription, resource group, and location.", DisplayDescription="Clears the cached Azure deployment state for this AppHost and provisions all Azure resources again using the current Azure context.", DisplayName="Reprovision all", IconName="ArrowSync", IconVariant=Regular, IsHighlighted=False, Name="reprovision-all", Parameter=null, Progress=null, Visibility=UI, Api }
+  [7] ResourceCommandAnnotation { Arguments=[], ConfirmationMessage="This deletes the current Azure resource group and every Azure resource inside it for this AppHost, then clears the cached deployment state. Do you want to continue?", DisplayDescription="Deletes the current Azure resource group for this AppHost, clears cached deployment state, and leaves the Azure context intact for reprovisioning.", DisplayName="Delete Azure resources", IconName="Delete", IconVariant=Regular, IsHighlighted=False, Name="delete-azure-resources", Parameter=null, Progress=null, Visibility=UI, Api }
+  [8] ManifestPublishingCallbackAnnotation {  }
+resource storage : AzureStorageResource
+  [0] ManifestPublishingCallbackAnnotation {  }
+  [1] PipelineStepAnnotation {  }
+  [2] PipelineConfigurationAnnotation {  }
+  [3] ResourceIconAnnotation { IconName="HardDrive", IconVariant=Filled }
+  [4] DefaultRoleAssignmentsAnnotation { Roles=[RoleDefinition, RoleDefinition, RoleDefinition] }
+  [5] EmulatorResourceAnnotation {  }
+  [6] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="blob", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=10000, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [7] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="queue", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=10001, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [8] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="table", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=10002, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [9] ContainerImageAnnotation { Image="azure-storage/azurite", Registry="mcr.microsoft.com", SHA256=null, Tag="3.35.0" }
+  [10] HealthCheckAnnotation { Key="storage_check" }
+  [11] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "azurite"
+      arg[1] "-l"
+      arg[2] "/data"
+      arg[3] "--blobHost"
+      arg[4] "0.0.0.0"
+      arg[5] "--queueHost"
+      arg[6] "0.0.0.0"
+      arg[7] "--tableHost"
+      arg[8] "0.0.0.0"
+      arg[9] "--disableProductStyleUrl"
+      arg[10] "--skipApiVersionCheck"
+resource blobs : AzureBlobStorageResource
+  [0] ResourceIconAnnotation { IconName="DocumentMultiple", IconVariant=Filled }
+  [1] HealthCheckAnnotation { Key="blobs_check" }
+resource migrations : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_MigrationRunner { ProjectPath="<repo>/src/MigrationRunner/SmartSentinelEye.MigrationRunner.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+  [19] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="SmartSentinelEye.MigrationRunner"
+      env DOTNET_ENVIRONMENT="Development"
+  [20] ResourceRelationshipAnnotation { Resource=resource:camera-catalog-db({camera-catalog-db.connectionString}), Type="Reference" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__camera-catalog-db={camera-catalog-db.connectionString}
+      env ConnectionStrings__camera_catalog_db={camera-catalog-db.connectionString}
+      env CAMERA_CATALOG_DB_HOST={postgres.bindings.tcp.host}
+      env CAMERA_CATALOG_DB_PORT={postgres.bindings.tcp.port}
+      env CAMERA_CATALOG_DB_USERNAME={PostgresUser.value}
+      env CAMERA_CATALOG_DB_PASSWORD={PostgresPassword.value}
+      env CAMERA_CATALOG_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/camera-catalog-db
+      env CAMERA_CATALOG_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/camera-catalog-db
+      env CAMERA_CATALOG_DB_DATABASENAME=camera-catalog-db
+  [22] ResourceRelationshipAnnotation { Resource=resource:stream-distribution-db({stream-distribution-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__stream-distribution-db={stream-distribution-db.connectionString}
+      env ConnectionStrings__stream_distribution_db={stream-distribution-db.connectionString}
+      env STREAM_DISTRIBUTION_DB_HOST={postgres.bindings.tcp.host}
+      env STREAM_DISTRIBUTION_DB_PORT={postgres.bindings.tcp.port}
+      env STREAM_DISTRIBUTION_DB_USERNAME={PostgresUser.value}
+      env STREAM_DISTRIBUTION_DB_PASSWORD={PostgresPassword.value}
+      env STREAM_DISTRIBUTION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/stream-distribution-db
+      env STREAM_DISTRIBUTION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/stream-distribution-db
+      env STREAM_DISTRIBUTION_DB_DATABASENAME=stream-distribution-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:layout-composition-db({layout-composition-db.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__layout-composition-db={layout-composition-db.connectionString}
+      env ConnectionStrings__layout_composition_db={layout-composition-db.connectionString}
+      env LAYOUT_COMPOSITION_DB_HOST={postgres.bindings.tcp.host}
+      env LAYOUT_COMPOSITION_DB_PORT={postgres.bindings.tcp.port}
+      env LAYOUT_COMPOSITION_DB_USERNAME={PostgresUser.value}
+      env LAYOUT_COMPOSITION_DB_PASSWORD={PostgresPassword.value}
+      env LAYOUT_COMPOSITION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/layout-composition-db
+      env LAYOUT_COMPOSITION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/layout-composition-db
+      env LAYOUT_COMPOSITION_DB_DATABASENAME=layout-composition-db
+  [26] ResourceRelationshipAnnotation { Resource=resource:overlay-designer-db({overlay-designer-db.connectionString}), Type="Reference" }
+  [27] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__overlay-designer-db={overlay-designer-db.connectionString}
+      env ConnectionStrings__overlay_designer_db={overlay-designer-db.connectionString}
+      env OVERLAY_DESIGNER_DB_HOST={postgres.bindings.tcp.host}
+      env OVERLAY_DESIGNER_DB_PORT={postgres.bindings.tcp.port}
+      env OVERLAY_DESIGNER_DB_USERNAME={PostgresUser.value}
+      env OVERLAY_DESIGNER_DB_PASSWORD={PostgresPassword.value}
+      env OVERLAY_DESIGNER_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/overlay-designer-db
+      env OVERLAY_DESIGNER_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/overlay-designer-db
+      env OVERLAY_DESIGNER_DB_DATABASENAME=overlay-designer-db
+  [28] ResourceRelationshipAnnotation { Resource=resource:system-variables-db({system-variables-db.connectionString}), Type="Reference" }
+  [29] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__system-variables-db={system-variables-db.connectionString}
+      env ConnectionStrings__system_variables_db={system-variables-db.connectionString}
+      env SYSTEM_VARIABLES_DB_HOST={postgres.bindings.tcp.host}
+      env SYSTEM_VARIABLES_DB_PORT={postgres.bindings.tcp.port}
+      env SYSTEM_VARIABLES_DB_USERNAME={PostgresUser.value}
+      env SYSTEM_VARIABLES_DB_PASSWORD={PostgresPassword.value}
+      env SYSTEM_VARIABLES_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/system-variables-db
+      env SYSTEM_VARIABLES_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/system-variables-db
+      env SYSTEM_VARIABLES_DB_DATABASENAME=system-variables-db
+  [30] ResourceRelationshipAnnotation { Resource=resource:event-ingestion-db({event-ingestion-db.connectionString}), Type="Reference" }
+  [31] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__event-ingestion-db={event-ingestion-db.connectionString}
+      env ConnectionStrings__event_ingestion_db={event-ingestion-db.connectionString}
+      env EVENT_INGESTION_DB_HOST={postgres.bindings.tcp.host}
+      env EVENT_INGESTION_DB_PORT={postgres.bindings.tcp.port}
+      env EVENT_INGESTION_DB_USERNAME={PostgresUser.value}
+      env EVENT_INGESTION_DB_PASSWORD={PostgresPassword.value}
+      env EVENT_INGESTION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/event-ingestion-db
+      env EVENT_INGESTION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/event-ingestion-db
+      env EVENT_INGESTION_DB_DATABASENAME=event-ingestion-db
+  [32] ResourceRelationshipAnnotation { Resource=resource:automation-db({automation-db.connectionString}), Type="Reference" }
+  [33] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__automation-db={automation-db.connectionString}
+      env ConnectionStrings__automation_db={automation-db.connectionString}
+      env AUTOMATION_DB_HOST={postgres.bindings.tcp.host}
+      env AUTOMATION_DB_PORT={postgres.bindings.tcp.port}
+      env AUTOMATION_DB_USERNAME={PostgresUser.value}
+      env AUTOMATION_DB_PASSWORD={PostgresPassword.value}
+      env AUTOMATION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/automation-db
+      env AUTOMATION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/automation-db
+      env AUTOMATION_DB_DATABASENAME=automation-db
+  [34] ResourceRelationshipAnnotation { Resource=resource:identity-db({identity-db.connectionString}), Type="Reference" }
+  [35] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__identity-db={identity-db.connectionString}
+      env ConnectionStrings__identity_db={identity-db.connectionString}
+      env IDENTITY_DB_HOST={postgres.bindings.tcp.host}
+      env IDENTITY_DB_PORT={postgres.bindings.tcp.port}
+      env IDENTITY_DB_USERNAME={PostgresUser.value}
+      env IDENTITY_DB_PASSWORD={PostgresPassword.value}
+      env IDENTITY_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/identity-db
+      env IDENTITY_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/identity-db
+      env IDENTITY_DB_DATABASENAME=identity-db
+  [36] ResourceRelationshipAnnotation { Resource=resource:audit-db({audit-db.connectionString}), Type="Reference" }
+  [37] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__audit-db={audit-db.connectionString}
+      env ConnectionStrings__audit_db={audit-db.connectionString}
+      env AUDIT_DB_HOST={postgres.bindings.tcp.host}
+      env AUDIT_DB_PORT={postgres.bindings.tcp.port}
+      env AUDIT_DB_USERNAME={PostgresUser.value}
+      env AUDIT_DB_PASSWORD={PostgresPassword.value}
+      env AUDIT_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/audit-db
+      env AUDIT_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/audit-db
+      env AUDIT_DB_DATABASENAME=audit-db
+  [38] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [39] ResourceRelationshipAnnotation { Resource=resource:camera-catalog-db({camera-catalog-db.connectionString}), Type="WaitFor" }
+  [40] WaitAnnotation { ExitCode=0, Resource=resource:camera-catalog-db({camera-catalog-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [41] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [42] ResourceRelationshipAnnotation { Resource=resource:stream-distribution-db({stream-distribution-db.connectionString}), Type="WaitFor" }
+  [43] WaitAnnotation { ExitCode=0, Resource=resource:stream-distribution-db({stream-distribution-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [44] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [45] ResourceRelationshipAnnotation { Resource=resource:layout-composition-db({layout-composition-db.connectionString}), Type="WaitFor" }
+  [46] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition-db({layout-composition-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [47] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [48] ResourceRelationshipAnnotation { Resource=resource:overlay-designer-db({overlay-designer-db.connectionString}), Type="WaitFor" }
+  [49] WaitAnnotation { ExitCode=0, Resource=resource:overlay-designer-db({overlay-designer-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [50] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [51] ResourceRelationshipAnnotation { Resource=resource:system-variables-db({system-variables-db.connectionString}), Type="WaitFor" }
+  [52] WaitAnnotation { ExitCode=0, Resource=resource:system-variables-db({system-variables-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [53] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [54] ResourceRelationshipAnnotation { Resource=resource:event-ingestion-db({event-ingestion-db.connectionString}), Type="WaitFor" }
+  [55] WaitAnnotation { ExitCode=0, Resource=resource:event-ingestion-db({event-ingestion-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [56] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [57] ResourceRelationshipAnnotation { Resource=resource:automation-db({automation-db.connectionString}), Type="WaitFor" }
+  [58] WaitAnnotation { ExitCode=0, Resource=resource:automation-db({automation-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [59] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [60] ResourceRelationshipAnnotation { Resource=resource:identity-db({identity-db.connectionString}), Type="WaitFor" }
+  [61] WaitAnnotation { ExitCode=0, Resource=resource:identity-db({identity-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [62] WaitAnnotation { ExitCode=0, Resource=resource:postgres({postgres.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [63] ResourceRelationshipAnnotation { Resource=resource:audit-db({audit-db.connectionString}), Type="WaitFor" }
+  [64] WaitAnnotation { ExitCode=0, Resource=resource:audit-db({audit-db.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [65] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [66] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [67] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [68] EnvironmentAnnotation {  }
+      env Keycloak__AdminClientId="migration-runner"
+  [69] ResourceRelationshipAnnotation { Resource=resource:MigrationRunnerClientSecret({MigrationRunnerClientSecret.value}), Type="Reference" }
+  [70] EnvironmentCallbackAnnotation {  }
+      env Keycloak__AdminClientSecret=resource:MigrationRunnerClientSecret({MigrationRunnerClientSecret.value})
+  [71] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [72] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [73] ResourceRelationshipAnnotation { Resource=resource:postgres({postgres.connectionString}), Type="Parent" }
+resource migrations-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/MigrationRunner", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/MigrationRunner/SmartSentinelEye.MigrationRunner.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource camera-catalog : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_CameraCatalog_Api { ProjectPath="<repo>/src/CameraCatalog/Api/SmartSentinelEye.CameraCatalog.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={camera-catalog.bindings.https.port}
+      env ASPNETCORE_URLS={camera-catalog.bindings.https.scheme}://localhost:{camera-catalog.bindings.https.targetPort};{camera-catalog.bindings.http.scheme}://localhost:{camera-catalog.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7209, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5183, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:camera-catalog-db({camera-catalog-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__camera-catalog-db={camera-catalog-db.connectionString}
+      env ConnectionStrings__camera_catalog_db={camera-catalog-db.connectionString}
+      env CAMERA_CATALOG_DB_HOST={postgres.bindings.tcp.host}
+      env CAMERA_CATALOG_DB_PORT={postgres.bindings.tcp.port}
+      env CAMERA_CATALOG_DB_USERNAME={PostgresUser.value}
+      env CAMERA_CATALOG_DB_PASSWORD={PostgresPassword.value}
+      env CAMERA_CATALOG_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/camera-catalog-db
+      env CAMERA_CATALOG_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/camera-catalog-db
+      env CAMERA_CATALOG_DB_DATABASENAME=camera-catalog-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [30] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [31] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [32] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [33] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [34] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [35] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [36] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [37] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [38] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [39] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [40] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource camera-catalog-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/CameraCatalog/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/CameraCatalog/Api/SmartSentinelEye.CameraCatalog.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource stream-distribution : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_StreamDistribution_Api { ProjectPath="<repo>/src/StreamDistribution/Api/SmartSentinelEye.StreamDistribution.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={stream-distribution.bindings.https.port}
+      env ASPNETCORE_URLS={stream-distribution.bindings.https.scheme}://localhost:{stream-distribution.bindings.https.targetPort};{stream-distribution.bindings.http.scheme}://localhost:{stream-distribution.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7174, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5199, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:stream-distribution-db({stream-distribution-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__stream-distribution-db={stream-distribution-db.connectionString}
+      env ConnectionStrings__stream_distribution_db={stream-distribution-db.connectionString}
+      env STREAM_DISTRIBUTION_DB_HOST={postgres.bindings.tcp.host}
+      env STREAM_DISTRIBUTION_DB_PORT={postgres.bindings.tcp.port}
+      env STREAM_DISTRIBUTION_DB_USERNAME={PostgresUser.value}
+      env STREAM_DISTRIBUTION_DB_PASSWORD={PostgresPassword.value}
+      env STREAM_DISTRIBUTION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/stream-distribution-db
+      env STREAM_DISTRIBUTION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/stream-distribution-db
+      env STREAM_DISTRIBUTION_DB_DATABASENAME=stream-distribution-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=["api", "whep"], Resource=resource:mediamtx, UseAllEndpoints=False }
+  [30] EnvironmentCallbackAnnotation {  }
+      env MEDIAMTX_API={mediamtx.bindings.api.url}
+      env services__mediamtx__api__0={mediamtx.bindings.api.url}
+      env MEDIAMTX_WHEP={mediamtx.bindings.whep.url}
+      env services__mediamtx__whep__0={mediamtx.bindings.whep.url}
+  [31] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="Reference" }
+  [32] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="Reference" }
+  [33] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:camera-catalog, UseAllEndpoints=True }
+  [34] EnvironmentCallbackAnnotation {  }
+      env CAMERA_CATALOG_HTTPS={camera-catalog.bindings.https.url}
+      env services__camera-catalog__https__0={camera-catalog.bindings.https.url}
+      env CAMERA_CATALOG_HTTP={camera-catalog.bindings.http.url}
+      env services__camera-catalog__http__0={camera-catalog.bindings.http.url}
+  [35] ResourceRelationshipAnnotation { Resource=resource:camera-catalog, Type="Reference" }
+  [36] ResourceRelationshipAnnotation { Resource=resource:StreamDistributionAttributionClientSecret({StreamDistributionAttributionClientSecret.value}), Type="Reference" }
+  [37] EnvironmentCallbackAnnotation {  }
+      env StreamFabAttribution__ClientSecret=resource:StreamDistributionAttributionClientSecret({StreamDistributionAttributionClientSecret.value})
+  [38] ResourceRelationshipAnnotation { Resource=resource:MediaMtxApiSecret({MediaMtxApiSecret.value}), Type="Reference" }
+  [39] EnvironmentCallbackAnnotation {  }
+      env MediaMtxApi__Secret=resource:MediaMtxApiSecret({MediaMtxApiSecret.value})
+  [40] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [41] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [42] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [43] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [44] ResourceRelationshipAnnotation { Resource=resource:mediamtx, Type="WaitFor" }
+  [45] WaitAnnotation { ExitCode=0, Resource=resource:mediamtx, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [46] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [47] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [48] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [49] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [50] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [51] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [52] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [53] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource stream-distribution-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/StreamDistribution/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/StreamDistribution/Api/SmartSentinelEye.StreamDistribution.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource layout-composition : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_LayoutComposition_Api { ProjectPath="<repo>/src/LayoutComposition/Api/SmartSentinelEye.LayoutComposition.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={layout-composition.bindings.https.port}
+      env ASPNETCORE_URLS={layout-composition.bindings.https.scheme}://localhost:{layout-composition.bindings.https.targetPort};{layout-composition.bindings.http.scheme}://localhost:{layout-composition.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7131, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5245, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:layout-composition-db({layout-composition-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__layout-composition-db={layout-composition-db.connectionString}
+      env ConnectionStrings__layout_composition_db={layout-composition-db.connectionString}
+      env LAYOUT_COMPOSITION_DB_HOST={postgres.bindings.tcp.host}
+      env LAYOUT_COMPOSITION_DB_PORT={postgres.bindings.tcp.port}
+      env LAYOUT_COMPOSITION_DB_USERNAME={PostgresUser.value}
+      env LAYOUT_COMPOSITION_DB_PASSWORD={PostgresPassword.value}
+      env LAYOUT_COMPOSITION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/layout-composition-db
+      env LAYOUT_COMPOSITION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/layout-composition-db
+      env LAYOUT_COMPOSITION_DB_DATABASENAME=layout-composition-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:camera-catalog, UseAllEndpoints=True }
+  [30] EnvironmentCallbackAnnotation {  }
+      env CAMERA_CATALOG_HTTPS={camera-catalog.bindings.https.url}
+      env services__camera-catalog__https__0={camera-catalog.bindings.https.url}
+      env CAMERA_CATALOG_HTTP={camera-catalog.bindings.http.url}
+      env services__camera-catalog__http__0={camera-catalog.bindings.http.url}
+  [31] ResourceRelationshipAnnotation { Resource=resource:camera-catalog, Type="Reference" }
+  [32] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [33] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [34] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [35] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [36] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [37] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [38] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [39] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [40] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [41] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [42] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [43] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource layout-composition-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/LayoutComposition/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/LayoutComposition/Api/SmartSentinelEye.LayoutComposition.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource event-ingestion : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_EventIngestion_Api { ProjectPath="<repo>/src/EventIngestion/Api/SmartSentinelEye.EventIngestion.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={event-ingestion.bindings.https.port}
+      env ASPNETCORE_URLS={event-ingestion.bindings.https.scheme}://localhost:{event-ingestion.bindings.https.targetPort};{event-ingestion.bindings.http.scheme}://localhost:{event-ingestion.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7286, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5120, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:event-ingestion-db({event-ingestion-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__event-ingestion-db={event-ingestion-db.connectionString}
+      env ConnectionStrings__event_ingestion_db={event-ingestion-db.connectionString}
+      env EVENT_INGESTION_DB_HOST={postgres.bindings.tcp.host}
+      env EVENT_INGESTION_DB_PORT={postgres.bindings.tcp.port}
+      env EVENT_INGESTION_DB_USERNAME={PostgresUser.value}
+      env EVENT_INGESTION_DB_PASSWORD={PostgresPassword.value}
+      env EVENT_INGESTION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/event-ingestion-db
+      env EVENT_INGESTION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/event-ingestion-db
+      env EVENT_INGESTION_DB_DATABASENAME=event-ingestion-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=["mqtt"], Resource=resource:mosquitto, UseAllEndpoints=False }
+  [30] EnvironmentCallbackAnnotation {  }
+      env MOSQUITTO_MQTT={mosquitto.bindings.mqtt.url}
+      env services__mosquitto__mqtt__0={mosquitto.bindings.mqtt.url}
+  [31] ResourceRelationshipAnnotation { Resource=resource:mosquitto, Type="Reference" }
+  [32] ResourceRelationshipAnnotation { Resource=resource:EventIngestionMqttClientSecret({EventIngestionMqttClientSecret.value}), Type="Reference" }
+  [33] EnvironmentCallbackAnnotation {  }
+      env Mosquitto__ClientSecret=resource:EventIngestionMqttClientSecret({EventIngestionMqttClientSecret.value})
+  [34] EnvironmentAnnotation {  }
+      env EventIngestion__IngestRetry__MaximumRetryWindow="00:01:30"
+  [35] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [36] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [37] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [38] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [39] ResourceRelationshipAnnotation { Resource=resource:mosquitto, Type="WaitFor" }
+  [40] WaitAnnotation { ExitCode=0, Resource=resource:mosquitto, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [41] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [42] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [43] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [44] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [45] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [46] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [47] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [48] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource event-ingestion-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/EventIngestion/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/EventIngestion/Api/SmartSentinelEye.EventIngestion.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource overlay-designer : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_OverlayDesigner_Api { ProjectPath="<repo>/src/OverlayDesigner/Api/SmartSentinelEye.OverlayDesigner.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={overlay-designer.bindings.https.port}
+      env ASPNETCORE_URLS={overlay-designer.bindings.https.scheme}://localhost:{overlay-designer.bindings.https.targetPort};{overlay-designer.bindings.http.scheme}://localhost:{overlay-designer.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7176, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5288, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:overlay-designer-db({overlay-designer-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__overlay-designer-db={overlay-designer-db.connectionString}
+      env ConnectionStrings__overlay_designer_db={overlay-designer-db.connectionString}
+      env OVERLAY_DESIGNER_DB_HOST={postgres.bindings.tcp.host}
+      env OVERLAY_DESIGNER_DB_PORT={postgres.bindings.tcp.port}
+      env OVERLAY_DESIGNER_DB_USERNAME={PostgresUser.value}
+      env OVERLAY_DESIGNER_DB_PASSWORD={PostgresPassword.value}
+      env OVERLAY_DESIGNER_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/overlay-designer-db
+      env OVERLAY_DESIGNER_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/overlay-designer-db
+      env OVERLAY_DESIGNER_DB_DATABASENAME=overlay-designer-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [30] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [31] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [32] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [33] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [34] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [35] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [36] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [37] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [38] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [39] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [40] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource overlay-designer-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/OverlayDesigner/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/OverlayDesigner/Api/SmartSentinelEye.OverlayDesigner.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource system-variables : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_SystemVariables_Api { ProjectPath="<repo>/src/SystemVariables/Api/SmartSentinelEye.SystemVariables.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={system-variables.bindings.https.port}
+      env ASPNETCORE_URLS={system-variables.bindings.https.scheme}://localhost:{system-variables.bindings.https.targetPort};{system-variables.bindings.http.scheme}://localhost:{system-variables.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7273, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5053, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:system-variables-db({system-variables-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__system-variables-db={system-variables-db.connectionString}
+      env ConnectionStrings__system_variables_db={system-variables-db.connectionString}
+      env SYSTEM_VARIABLES_DB_HOST={postgres.bindings.tcp.host}
+      env SYSTEM_VARIABLES_DB_PORT={postgres.bindings.tcp.port}
+      env SYSTEM_VARIABLES_DB_USERNAME={PostgresUser.value}
+      env SYSTEM_VARIABLES_DB_PASSWORD={PostgresPassword.value}
+      env SYSTEM_VARIABLES_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/system-variables-db
+      env SYSTEM_VARIABLES_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/system-variables-db
+      env SYSTEM_VARIABLES_DB_DATABASENAME=system-variables-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:overlay-designer, UseAllEndpoints=True }
+  [30] EnvironmentCallbackAnnotation {  }
+      env OVERLAY_DESIGNER_HTTPS={overlay-designer.bindings.https.url}
+      env services__overlay-designer__https__0={overlay-designer.bindings.https.url}
+      env OVERLAY_DESIGNER_HTTP={overlay-designer.bindings.http.url}
+      env services__overlay-designer__http__0={overlay-designer.bindings.http.url}
+  [31] ResourceRelationshipAnnotation { Resource=resource:overlay-designer, Type="Reference" }
+  [32] ResourceRelationshipAnnotation { Resource=resource:SystemVariablesSeederClientSecret({SystemVariablesSeederClientSecret.value}), Type="Reference" }
+  [33] EnvironmentCallbackAnnotation {  }
+      env ReverseIndexSeeder__ClientSecret=resource:SystemVariablesSeederClientSecret({SystemVariablesSeederClientSecret.value})
+  [34] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [35] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [36] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [37] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [38] ResourceRelationshipAnnotation { Resource=resource:overlay-designer, Type="WaitFor" }
+  [39] WaitAnnotation { ExitCode=0, Resource=resource:overlay-designer, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [40] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [41] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [42] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [43] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [44] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [45] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [46] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [47] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource system-variables-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/SystemVariables/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/SystemVariables/Api/SmartSentinelEye.SystemVariables.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource automation : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_Automation_Api { ProjectPath="<repo>/src/Automation/Api/SmartSentinelEye.Automation.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={automation.bindings.https.port}
+      env ASPNETCORE_URLS={automation.bindings.https.scheme}://localhost:{automation.bindings.https.targetPort};{automation.bindings.http.scheme}://localhost:{automation.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7119, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5143, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:automation-db({automation-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__automation-db={automation-db.connectionString}
+      env ConnectionStrings__automation_db={automation-db.connectionString}
+      env AUTOMATION_DB_HOST={postgres.bindings.tcp.host}
+      env AUTOMATION_DB_PORT={postgres.bindings.tcp.port}
+      env AUTOMATION_DB_USERNAME={PostgresUser.value}
+      env AUTOMATION_DB_PASSWORD={PostgresPassword.value}
+      env AUTOMATION_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/automation-db
+      env AUTOMATION_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/automation-db
+      env AUTOMATION_DB_DATABASENAME=automation-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [30] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [31] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [32] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [33] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [34] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [35] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [36] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [37] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [38] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [39] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [40] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource automation-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/Automation/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/Automation/Api/SmartSentinelEye.Automation.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource identity : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_Identity_Api { ProjectPath="<repo>/src/Identity/Api/SmartSentinelEye.Identity.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={identity.bindings.https.port}
+      env ASPNETCORE_URLS={identity.bindings.https.scheme}://localhost:{identity.bindings.https.targetPort};{identity.bindings.http.scheme}://localhost:{identity.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7085, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5162, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:identity-db({identity-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__identity-db={identity-db.connectionString}
+      env ConnectionStrings__identity_db={identity-db.connectionString}
+      env IDENTITY_DB_HOST={postgres.bindings.tcp.host}
+      env IDENTITY_DB_PORT={postgres.bindings.tcp.port}
+      env IDENTITY_DB_USERNAME={PostgresUser.value}
+      env IDENTITY_DB_PASSWORD={PostgresPassword.value}
+      env IDENTITY_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/identity-db
+      env IDENTITY_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/identity-db
+      env IDENTITY_DB_DATABASENAME=identity-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:event-ingestion, UseAllEndpoints=True }
+  [30] EnvironmentCallbackAnnotation {  }
+      env EVENT_INGESTION_HTTPS={event-ingestion.bindings.https.url}
+      env services__event-ingestion__https__0={event-ingestion.bindings.https.url}
+      env EVENT_INGESTION_HTTP={event-ingestion.bindings.http.url}
+      env services__event-ingestion__http__0={event-ingestion.bindings.http.url}
+  [31] ResourceRelationshipAnnotation { Resource=resource:event-ingestion, Type="Reference" }
+  [32] ResourceRelationshipAnnotation { Resource=resource:IdentityAdminClientSecret({IdentityAdminClientSecret.value}), Type="Reference" }
+  [33] EnvironmentCallbackAnnotation {  }
+      env Keycloak__AdminClientSecret=resource:IdentityAdminClientSecret({IdentityAdminClientSecret.value})
+  [34] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [35] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [36] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [37] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [38] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [39] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource identity-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/Identity/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/Identity/Api/SmartSentinelEye.Identity.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource audit-observability : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_AuditObservability_Api { ProjectPath="<repo>/src/AuditObservability/Api/SmartSentinelEye.AuditObservability.Api.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_HTTPS_PORT={audit-observability.bindings.https.port}
+      env ASPNETCORE_URLS={audit-observability.bindings.https.scheme}://localhost:{audit-observability.bindings.https.targetPort};{audit-observability.bindings.http.scheme}://localhost:{audit-observability.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="https", Port=7215, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=True, Transport="http", UriScheme="https" }
+  [20] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=False, IsProxied=True, Name="http", Port=5010, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [21] EnvironmentCallbackAnnotation {  }
+      env DOTNET_LAUNCH_PROFILE="https"
+      env ASPNETCORE_ENVIRONMENT="Development"
+  [22] ResourceRelationshipAnnotation { Resource=resource:audit-db({audit-db.connectionString}), Type="Reference" }
+  [23] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__audit-db={audit-db.connectionString}
+      env ConnectionStrings__audit_db={audit-db.connectionString}
+      env AUDIT_DB_HOST={postgres.bindings.tcp.host}
+      env AUDIT_DB_PORT={postgres.bindings.tcp.port}
+      env AUDIT_DB_USERNAME={PostgresUser.value}
+      env AUDIT_DB_PASSWORD={PostgresPassword.value}
+      env AUDIT_DB_URI=postgresql://{PostgresUser.value}:{PostgresPassword.value}@{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/audit-db
+      env AUDIT_DB_JDBCCONNECTIONSTRING=jdbc:postgresql://{postgres.bindings.tcp.host}:{postgres.bindings.tcp.port}/audit-db
+      env AUDIT_DB_DATABASENAME=audit-db
+  [24] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="Reference" }
+  [25] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__rabbitmq={rabbitmq.connectionString}
+      env RABBITMQ_HOST={rabbitmq.bindings.tcp.host}
+      env RABBITMQ_PORT={rabbitmq.bindings.tcp.port}
+      env RABBITMQ_USERNAME=guest
+      env RABBITMQ_PASSWORD={RabbitMqPassword.value}
+      env RABBITMQ_URI=amqp://guest:{RabbitMqPassword.value}@{rabbitmq.bindings.tcp.host}:{rabbitmq.bindings.tcp.port}
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] ResourceRelationshipAnnotation { Resource=resource:blobs({blobs.connectionString}), Type="Reference" }
+  [30] EnvironmentCallbackAnnotation {  }
+      env ConnectionStrings__blobs={blobs.connectionString}
+      env BLOBS_URI={storage.bindings.blob.url}
+      env BLOBS_CONNECTIONSTRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint={storage.bindings.blob.scheme}://{storage.bindings.blob.host}:{storage.bindings.blob.port}/devstoreaccount1;
+  [31] EnvironmentAnnotation {  }
+      env AuditArchive__ContainerName="audit-archive"
+  [32] ResourceRelationshipAnnotation { Resource=resource:rabbitmq({rabbitmq.connectionString}), Type="WaitFor" }
+  [33] WaitAnnotation { ExitCode=0, Resource=resource:rabbitmq({rabbitmq.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [34] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="WaitFor" }
+  [35] WaitAnnotation { ExitCode=0, Resource=resource:keycloak, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [36] WaitAnnotation { ExitCode=0, Resource=resource:storage, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [37] ResourceRelationshipAnnotation { Resource=resource:blobs({blobs.connectionString}), Type="WaitFor" }
+  [38] WaitAnnotation { ExitCode=0, Resource=resource:blobs({blobs.connectionString}), WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [39] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [40] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [41] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [42] EnvironmentAnnotation {  }
+      env RevocationList__ClientId="revocation-list-reader"
+  [43] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [44] EnvironmentCallbackAnnotation {  }
+      env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
+  [45] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [46] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+resource audit-observability-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/AuditObservability/Api", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/AuditObservability/Api/SmartSentinelEye.AuditObservability.Api.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource api-gateway : ProjectResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=ProjectExecutableLaunchRecipe }
+  [1] ProjectLaunchDefaultsAnnotation { DefaultHttpsEndpoint=null }
+  [2] DotnetProgramPublishingAnnotation {  }
+  [3] PipelineStepAnnotation {  }
+  [4] ContainerBuildOptionsCallbackAnnotation {  }
+  [5] PipelineConfigurationAnnotation {  }
+  [6] SmartSentinelEye_ApiGateway { ProjectPath="<repo>/src/ApiGateway/SmartSentinelEye.ApiGateway.csproj", SuppressBuild=True }
+  [7] SupportsDebuggingAnnotation { LaunchConfigurationType="project" }
+  [8] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_OTLP_RETRY="in_memory"
+  [9] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_ASPNETCORE_DISABLE_URL_QUERY_REDACTION="true"
+  [10] EnvironmentAnnotation {  }
+      env OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION="true"
+  [11] OtlpExporterAnnotation { RequiredProtocol=null }
+  [12] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [13] EnvironmentCallbackAnnotation {  }
+      env DOTNET_SYSTEM_CONSOLE_ALLOW_ANSI_COLOR_REDIRECTION="true"
+      env LOGGING__CONSOLE__FORMATTERNAME="simple"
+  [14] CertificateTrustConfigurationCallbackAnnotation {  }
+  [15] HttpsCertificateConfigurationCallbackAnnotation {  }
+  [16] DefaultLaunchProfileAnnotation { LaunchProfileName="https" }
+  [17] EnvironmentCallbackAnnotation {  }
+  [18] EnvironmentCallbackAnnotation {  }
+      env ASPNETCORE_URLS={api-gateway.bindings.http.scheme}://localhost:{api-gateway.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=null, IsExternal=True, IsProxied=True, Name="http", Port=null, Protocol=Tcp, TargetHost="localhost", TargetPort=null, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [20] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:camera-catalog, UseAllEndpoints=True }
+  [21] EnvironmentCallbackAnnotation {  }
+      env CAMERA_CATALOG_HTTPS={camera-catalog.bindings.https.url}
+      env services__camera-catalog__https__0={camera-catalog.bindings.https.url}
+      env CAMERA_CATALOG_HTTP={camera-catalog.bindings.http.url}
+      env services__camera-catalog__http__0={camera-catalog.bindings.http.url}
+  [22] ResourceRelationshipAnnotation { Resource=resource:camera-catalog, Type="Reference" }
+  [23] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:stream-distribution, UseAllEndpoints=True }
+  [24] EnvironmentCallbackAnnotation {  }
+      env STREAM_DISTRIBUTION_HTTPS={stream-distribution.bindings.https.url}
+      env services__stream-distribution__https__0={stream-distribution.bindings.https.url}
+      env STREAM_DISTRIBUTION_HTTP={stream-distribution.bindings.http.url}
+      env services__stream-distribution__http__0={stream-distribution.bindings.http.url}
+  [25] ResourceRelationshipAnnotation { Resource=resource:stream-distribution, Type="Reference" }
+  [26] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:layout-composition, UseAllEndpoints=True }
+  [27] EnvironmentCallbackAnnotation {  }
+      env LAYOUT_COMPOSITION_HTTPS={layout-composition.bindings.https.url}
+      env services__layout-composition__https__0={layout-composition.bindings.https.url}
+      env LAYOUT_COMPOSITION_HTTP={layout-composition.bindings.http.url}
+      env services__layout-composition__http__0={layout-composition.bindings.http.url}
+  [28] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [29] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:event-ingestion, UseAllEndpoints=True }
+  [30] EnvironmentCallbackAnnotation {  }
+      env EVENT_INGESTION_HTTPS={event-ingestion.bindings.https.url}
+      env services__event-ingestion__https__0={event-ingestion.bindings.https.url}
+      env EVENT_INGESTION_HTTP={event-ingestion.bindings.http.url}
+      env services__event-ingestion__http__0={event-ingestion.bindings.http.url}
+  [31] ResourceRelationshipAnnotation { Resource=resource:event-ingestion, Type="Reference" }
+  [32] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:overlay-designer, UseAllEndpoints=True }
+  [33] EnvironmentCallbackAnnotation {  }
+      env OVERLAY_DESIGNER_HTTPS={overlay-designer.bindings.https.url}
+      env services__overlay-designer__https__0={overlay-designer.bindings.https.url}
+      env OVERLAY_DESIGNER_HTTP={overlay-designer.bindings.http.url}
+      env services__overlay-designer__http__0={overlay-designer.bindings.http.url}
+  [34] ResourceRelationshipAnnotation { Resource=resource:overlay-designer, Type="Reference" }
+  [35] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:system-variables, UseAllEndpoints=True }
+  [36] EnvironmentCallbackAnnotation {  }
+      env SYSTEM_VARIABLES_HTTPS={system-variables.bindings.https.url}
+      env services__system-variables__https__0={system-variables.bindings.https.url}
+      env SYSTEM_VARIABLES_HTTP={system-variables.bindings.http.url}
+      env services__system-variables__http__0={system-variables.bindings.http.url}
+  [37] ResourceRelationshipAnnotation { Resource=resource:system-variables, Type="Reference" }
+  [38] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:audit-observability, UseAllEndpoints=True }
+  [39] EnvironmentCallbackAnnotation {  }
+      env AUDIT_OBSERVABILITY_HTTPS={audit-observability.bindings.https.url}
+      env services__audit-observability__https__0={audit-observability.bindings.https.url}
+      env AUDIT_OBSERVABILITY_HTTP={audit-observability.bindings.http.url}
+      env services__audit-observability__http__0={audit-observability.bindings.http.url}
+  [40] ResourceRelationshipAnnotation { Resource=resource:audit-observability, Type="Reference" }
+  [41] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:automation, UseAllEndpoints=True }
+  [42] EnvironmentCallbackAnnotation {  }
+      env AUTOMATION_HTTPS={automation.bindings.https.url}
+      env services__automation__https__0={automation.bindings.https.url}
+      env AUTOMATION_HTTP={automation.bindings.http.url}
+      env services__automation__http__0={automation.bindings.http.url}
+  [43] ResourceRelationshipAnnotation { Resource=resource:automation, Type="Reference" }
+  [44] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [45] EnvironmentCallbackAnnotation {  }
+      env IDENTITY_HTTPS={identity.bindings.https.url}
+      env services__identity__https__0={identity.bindings.https.url}
+      env IDENTITY_HTTP={identity.bindings.http.url}
+      env services__identity__http__0={identity.bindings.http.url}
+  [46] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [47] EnvironmentAnnotation {  }
+      env RateLimiting__PermitLimit="6000"
+resource api-gateway-rebuilder : ProjectRebuilderResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/ApiGateway", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "build"
+      arg[1] "<repo>/src/ApiGateway/SmartSentinelEye.ApiGateway.csproj"
+      arg[2] "--configuration"
+      arg[3] "Release"
+  [4] ExplicitStartupAnnotation {  }
+  [5] ExcludeLifecycleCommandsAnnotation {  }
+  [6] ManifestPublishingCallbackAnnotation {  }
+  [7] HiddenAnnotation { Behavior=Always, SuccessfulExitCodes=[0] }
+  [8] ResourceSnapshotAnnotation { InitialSnapshot=CustomResourceSnapshot }
+resource management-cameras : JavaScriptAppResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="npm", WorkingDirectory="<repo>/apps/management-cameras", WorkingDirectoryExplicitlySet=False }
+  [2] OtlpExporterAnnotation { RequiredProtocol=null }
+  [3] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [4] EnvironmentAnnotation {  }
+      env NODE_ENV="development"
+  [5] CertificateTrustConfigurationCallbackAnnotation {  }
+  [6] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "run"
+      arg[1] "dev"
+  [7] ResourceIconAnnotation { IconName="CodeJsRectangle", IconVariant=Filled }
+  [8] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [9] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [10] ResourceRelationshipAnnotation { Resource=resource:management-cameras-installer, Type="WaitFor" }
+  [11] JavaScriptPackageInstallerAnnotation { Resource=resource:management-cameras-installer }
+  [12] ContainerFilesSourceAnnotation { SourcePath="/app/dist" }
+  [13] JavaScriptBuildScriptAnnotation { Args=[], ScriptName="build" }
+  [14] JavaScriptRunScriptAnnotation { Args=[], ScriptName="dev" }
+  [15] SupportsDebuggingAnnotation { LaunchConfigurationType="node" }
+  [16] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [17] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [18] EnvironmentCallbackAnnotation {  }
+      env PORT={management-cameras.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=False, IsExternal=True, IsProxied=False, Name="http", Port=5176, Protocol=Tcp, TargetHost="localhost", TargetPort=5176, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [20] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+resource management-cameras-installer : JavaScriptInstallerResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/management-cameras", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] ResourceRelationshipAnnotation { Resource=resource:management-cameras, Type="Parent" }
+  [4] ManifestPublishingCallbackAnnotation {  }
+  [5] ExplicitStartupAnnotation {  }
+resource management-event-ingestion : JavaScriptAppResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="npm", WorkingDirectory="<repo>/apps/management-event-ingestion", WorkingDirectoryExplicitlySet=False }
+  [2] OtlpExporterAnnotation { RequiredProtocol=null }
+  [3] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [4] EnvironmentAnnotation {  }
+      env NODE_ENV="development"
+  [5] CertificateTrustConfigurationCallbackAnnotation {  }
+  [6] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "run"
+      arg[1] "dev"
+  [7] ResourceIconAnnotation { IconName="CodeJsRectangle", IconVariant=Filled }
+  [8] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [9] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [10] ResourceRelationshipAnnotation { Resource=resource:management-event-ingestion-installer, Type="WaitFor" }
+  [11] JavaScriptPackageInstallerAnnotation { Resource=resource:management-event-ingestion-installer }
+  [12] ContainerFilesSourceAnnotation { SourcePath="/app/dist" }
+  [13] JavaScriptBuildScriptAnnotation { Args=[], ScriptName="build" }
+  [14] JavaScriptRunScriptAnnotation { Args=[], ScriptName="dev" }
+  [15] SupportsDebuggingAnnotation { LaunchConfigurationType="node" }
+  [16] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [17] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [18] EnvironmentCallbackAnnotation {  }
+      env PORT={management-event-ingestion.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=False, IsExternal=True, IsProxied=False, Name="http", Port=5177, Protocol=Tcp, TargetHost="localhost", TargetPort=5177, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [20] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+resource management-event-ingestion-installer : JavaScriptInstallerResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/management-event-ingestion", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] ResourceRelationshipAnnotation { Resource=resource:management-event-ingestion, Type="Parent" }
+  [4] ManifestPublishingCallbackAnnotation {  }
+  [5] ExplicitStartupAnnotation {  }
+resource management-web : JavaScriptAppResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="npm", WorkingDirectory="<repo>/apps/management-web", WorkingDirectoryExplicitlySet=False }
+  [2] OtlpExporterAnnotation { RequiredProtocol=null }
+  [3] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [4] EnvironmentAnnotation {  }
+      env NODE_ENV="development"
+  [5] CertificateTrustConfigurationCallbackAnnotation {  }
+  [6] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "run"
+      arg[1] "dev"
+  [7] ResourceIconAnnotation { IconName="CodeJsRectangle", IconVariant=Filled }
+  [8] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [9] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [10] ResourceRelationshipAnnotation { Resource=resource:management-web-installer, Type="WaitFor" }
+  [11] JavaScriptPackageInstallerAnnotation { Resource=resource:management-web-installer }
+  [12] ContainerFilesSourceAnnotation { SourcePath="/app/dist" }
+  [13] JavaScriptBuildScriptAnnotation { Args=[], ScriptName="build" }
+  [14] JavaScriptRunScriptAnnotation { Args=[], ScriptName="dev" }
+  [15] SupportsDebuggingAnnotation { LaunchConfigurationType="node" }
+  [16] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [17] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [18] EnvironmentCallbackAnnotation {  }
+      env PORT={management-web.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=False, IsExternal=True, IsProxied=False, Name="http", Port=5173, Protocol=Tcp, TargetHost="localhost", TargetPort=5173, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [20] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:api-gateway, UseAllEndpoints=True }
+  [21] EnvironmentCallbackAnnotation {  }
+      env API_GATEWAY_HTTP={api-gateway.bindings.http.url}
+      env services__api-gateway__http__0={api-gateway.bindings.http.url}
+  [22] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [23] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [24] EnvironmentCallbackAnnotation {  }
+      env VITE_API_GATEWAY_URL={api-gateway.bindings.http.url}
+  [25] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [26] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [27] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EnvironmentCallbackAnnotation {  }
+      env VITE_KEYCLOAK_URL={keycloak.bindings.http.url}
+  [30] ResourceRelationshipAnnotation { Resource=resource:management-cameras, Type="Reference" }
+  [31] EnvironmentCallbackAnnotation {  }
+      env VITE_CAMERAS_REMOTE_URL={management-cameras.bindings.http.url}
+  [32] ResourceRelationshipAnnotation { Resource=resource:management-event-ingestion, Type="Reference" }
+  [33] EnvironmentCallbackAnnotation {  }
+      env VITE_EVENT_INGESTION_REMOTE_URL={management-event-ingestion.bindings.http.url}
+  [34] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+resource management-web-installer : JavaScriptInstallerResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/management-web", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] ResourceRelationshipAnnotation { Resource=resource:management-web, Type="Parent" }
+  [4] ManifestPublishingCallbackAnnotation {  }
+  [5] ExplicitStartupAnnotation {  }
+resource kiosk-web : JavaScriptAppResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="npm", WorkingDirectory="<repo>/apps/kiosk-web", WorkingDirectoryExplicitlySet=False }
+  [2] OtlpExporterAnnotation { RequiredProtocol=null }
+  [3] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [4] EnvironmentAnnotation {  }
+      env NODE_ENV="development"
+  [5] CertificateTrustConfigurationCallbackAnnotation {  }
+  [6] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "run"
+      arg[1] "dev"
+  [7] ResourceIconAnnotation { IconName="CodeJsRectangle", IconVariant=Filled }
+  [8] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [9] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [10] ResourceRelationshipAnnotation { Resource=resource:kiosk-web-installer, Type="WaitFor" }
+  [11] JavaScriptPackageInstallerAnnotation { Resource=resource:kiosk-web-installer }
+  [12] ContainerFilesSourceAnnotation { SourcePath="/app/dist" }
+  [13] JavaScriptBuildScriptAnnotation { Args=[], ScriptName="build" }
+  [14] JavaScriptRunScriptAnnotation { Args=[], ScriptName="dev" }
+  [15] SupportsDebuggingAnnotation { LaunchConfigurationType="node" }
+  [16] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [17] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [18] EnvironmentCallbackAnnotation {  }
+      env PORT={kiosk-web.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=False, IsExternal=True, IsProxied=False, Name="http", Port=5174, Protocol=Tcp, TargetHost="localhost", TargetPort=5174, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [20] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:api-gateway, UseAllEndpoints=True }
+  [21] EnvironmentCallbackAnnotation {  }
+      env API_GATEWAY_HTTP={api-gateway.bindings.http.url}
+      env services__api-gateway__http__0={api-gateway.bindings.http.url}
+  [22] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [23] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [24] EnvironmentCallbackAnnotation {  }
+      env VITE_API_GATEWAY_URL={api-gateway.bindings.http.url}
+  [25] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [26] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [27] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EnvironmentCallbackAnnotation {  }
+      env VITE_KEYCLOAK_URL={keycloak.bindings.http.url}
+  [30] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:layout-composition, UseAllEndpoints=True }
+  [31] EnvironmentCallbackAnnotation {  }
+      env LAYOUT_COMPOSITION_HTTPS={layout-composition.bindings.https.url}
+      env services__layout-composition__https__0={layout-composition.bindings.https.url}
+      env LAYOUT_COMPOSITION_HTTP={layout-composition.bindings.http.url}
+      env services__layout-composition__http__0={layout-composition.bindings.http.url}
+  [32] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [33] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [34] EnvironmentCallbackAnnotation {  }
+      env VITE_LAYOUT_HUB_ORIGIN={layout-composition.bindings.http.url}
+  [35] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="WaitFor" }
+  [36] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [37] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+resource kiosk-web-installer : JavaScriptInstallerResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/kiosk-web", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] ResourceRelationshipAnnotation { Resource=resource:kiosk-web, Type="Parent" }
+  [4] ManifestPublishingCallbackAnnotation {  }
+  [5] ExplicitStartupAnnotation {  }
+resource kiosk-wall : JavaScriptAppResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="npm", WorkingDirectory="<repo>/apps/kiosk-web", WorkingDirectoryExplicitlySet=False }
+  [2] OtlpExporterAnnotation { RequiredProtocol=null }
+  [3] EnvironmentCallbackAnnotation {  }
+      env OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+      env OTEL_EXPORTER_OTLP_PROTOCOL="grpc"
+      env OTEL_RESOURCE_ATTRIBUTES="service.instance.id={{- index .Annotations "otel-service-instance-id" -}}"
+      env OTEL_SERVICE_NAME="{{- index .Annotations "otel-service-name" -}}"
+      env OTEL_EXPORTER_OTLP_HEADERS="x-otlp-api-key=hermetic-otlp-api-key"
+      env OTEL_BLRP_SCHEDULE_DELAY="1000"
+      env OTEL_BSP_SCHEDULE_DELAY="1000"
+      env OTEL_METRIC_EXPORT_INTERVAL="1000"
+      env OTEL_TRACES_SAMPLER="always_on"
+      env OTEL_METRICS_EXEMPLAR_FILTER="trace_based"
+      env OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT="true"
+  [4] EnvironmentAnnotation {  }
+      env NODE_ENV="development"
+  [5] CertificateTrustConfigurationCallbackAnnotation {  }
+  [6] CommandLineArgsCallbackAnnotation {  }
+      arg[0] "run"
+      arg[1] "dev"
+  [7] ResourceIconAnnotation { IconName="CodeJsRectangle", IconVariant=Filled }
+  [8] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [9] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [10] ResourceRelationshipAnnotation { Resource=resource:kiosk-wall-installer, Type="WaitFor" }
+  [11] JavaScriptPackageInstallerAnnotation { Resource=resource:kiosk-wall-installer }
+  [12] ContainerFilesSourceAnnotation { SourcePath="/app/dist" }
+  [13] JavaScriptBuildScriptAnnotation { Args=[], ScriptName="build" }
+  [14] JavaScriptRunScriptAnnotation { Args=[], ScriptName="dev" }
+  [15] SupportsDebuggingAnnotation { LaunchConfigurationType="node" }
+  [16] JavaScriptPackageManagerAnnotation { CacheMount="/root/.npm", CommandSeparator="--", ExecutableName="npm", PackageFilesPatterns=[CopyFilePattern], ScriptCommand="run" }
+  [17] JavaScriptInstallCommandAnnotation { Args=["install"], ProductionInstallArgs="--omit=dev" }
+  [18] EnvironmentCallbackAnnotation {  }
+      env PORT={kiosk-wall.bindings.http.targetPort}
+  [19] EndpointAnnotation { AllAllocatedEndpoints=[NetworkEndpointSnapshot], AllocatedEndpoint=null, AllocatedEndpointSnapshot=ValueSnapshot`1, DefaultNetworkID=NetworkIdentifier, ExcludeReferenceEndpoint=False, IsExplicitlyProxied=False, IsExternal=True, IsProxied=False, Name="http", Port=5175, Protocol=Tcp, TargetHost="localhost", TargetPort=5175, TlsEnabled=False, Transport="http", UriScheme="http" }
+  [20] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:api-gateway, UseAllEndpoints=True }
+  [21] EnvironmentCallbackAnnotation {  }
+      env API_GATEWAY_HTTP={api-gateway.bindings.http.url}
+      env services__api-gateway__http__0={api-gateway.bindings.http.url}
+  [22] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [23] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Reference" }
+  [24] EnvironmentCallbackAnnotation {  }
+      env VITE_API_GATEWAY_URL={api-gateway.bindings.http.url}
+  [25] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:keycloak, UseAllEndpoints=True }
+  [26] EnvironmentCallbackAnnotation {  }
+      env KEYCLOAK_HTTP={keycloak.bindings.http.url}
+      env services__keycloak__http__0={keycloak.bindings.http.url}
+  [27] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [28] ResourceRelationshipAnnotation { Resource=resource:keycloak, Type="Reference" }
+  [29] EnvironmentCallbackAnnotation {  }
+      env VITE_KEYCLOAK_URL={keycloak.bindings.http.url}
+  [30] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:layout-composition, UseAllEndpoints=True }
+  [31] EnvironmentCallbackAnnotation {  }
+      env LAYOUT_COMPOSITION_HTTPS={layout-composition.bindings.https.url}
+      env services__layout-composition__https__0={layout-composition.bindings.https.url}
+      env LAYOUT_COMPOSITION_HTTP={layout-composition.bindings.http.url}
+      env services__layout-composition__http__0={layout-composition.bindings.http.url}
+  [32] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [33] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="Reference" }
+  [34] EnvironmentCallbackAnnotation {  }
+      env VITE_LAYOUT_HUB_ORIGIN={layout-composition.bindings.http.url}
+  [35] EnvironmentAnnotation {  }
+      env VITE_KIOSK_MODE="wall"
+  [36] ResourceRelationshipAnnotation { Resource=resource:layout-composition, Type="WaitFor" }
+  [37] WaitAnnotation { ExitCode=0, Resource=resource:layout-composition, WaitBehavior=null, WaitType=WaitUntilHealthy }
+  [38] ResourceRelationshipAnnotation { Resource=resource:api-gateway, Type="Parent" }
+resource kiosk-wall-installer : JavaScriptInstallerResource
+  [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
+  [1] ExecutableAnnotation { Command="node", WorkingDirectory="<repo>/apps/kiosk-web", WorkingDirectoryExplicitlySet=False }
+  [2] NameValidationPolicyAnnotation { MaxLength=null, ValidateAllowedCharacters=False, ValidateNoConsecutiveHyphens=False, ValidateNoTrailingHyphen=False, ValidateStartsWithLetter=False }
+  [3] ResourceRelationshipAnnotation { Resource=resource:kiosk-wall, Type="Parent" }
+  [4] ManifestPublishingCallbackAnnotation {  }
+  [5] ExplicitStartupAnnotation {  }
