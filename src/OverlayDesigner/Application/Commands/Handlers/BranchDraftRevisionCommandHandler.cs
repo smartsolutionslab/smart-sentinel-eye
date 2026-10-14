@@ -34,17 +34,36 @@ public sealed class BranchDraftRevisionCommandHandler(
         {
             return Failure(BranchDraftRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
-        // Spec 037 (ADR-0121). This refusal used to be "no Published revision",
-        // which now covers two chains that deserve opposite answers: one with a
-        // draft still open, and one archived into strandedness. Only the first
-        // is still refused.
+        var refusal = await RefuseUnrecoverableAsync(overlay, overlayIdentifier, cancellationToken);
+        if (refusal.HasValue)
+        {
+            return Failure(refusal.Value);
+        }
+
+        var branched = overlay.BranchDraft(branchedBy, clock);
+        await overlays.SaveAsync(cancellationToken);
+
+        logger.BranchedDraftRevision(branched.Number, overlay.Id, branchedBy);
+
+        return Success(branched.Number);
+    }
+
+    // Spec 037 (ADR-0121). This refusal used to be "no Published revision",
+    // which now covers two chains that deserve opposite answers: one with a
+    // draft still open, and one archived into strandedness. Only the first
+    // is still refused.
+    private async Task<Option<BranchDraftRevisionError>> RefuseUnrecoverableAsync(
+        Overlay overlay,
+        OverlayIdentifier overlayIdentifier,
+        CancellationToken cancellationToken)
+    {
         if (overlay.Revisions.All(revision => revision.State != OverlayRevisionState.Published))
         {
             var openDraft = overlay.Revisions
                 .FirstOrDefault(revision => revision.State == OverlayRevisionState.Draft);
             if (openDraft is not null)
             {
-                return Failure(BranchDraftRevisionFailures.NoPublishedRevisionToBranchFrom(
+                return Option<BranchDraftRevisionError>.Some(BranchDraftRevisionFailures.NoPublishedRevisionToBranchFrom(
                     overlayIdentifier.Value, openDraft.Number.Value));
             }
 
@@ -60,16 +79,11 @@ public sealed class BranchDraftRevisionCommandHandler(
             var holder = await overlays.GetByNameAsync(overlay.Name, cancellationToken);
             if (holder.HasValue)
             {
-                return Failure(BranchDraftRevisionFailures.OverlayNameTaken(
+                return Option<BranchDraftRevisionError>.Some(BranchDraftRevisionFailures.OverlayNameTaken(
                     overlayIdentifier.Value, overlay.Name.Value));
             }
         }
 
-        var branched = overlay.BranchDraft(branchedBy, clock);
-        await overlays.SaveAsync(cancellationToken);
-
-        logger.BranchedDraftRevision(branched.Number, overlay.Id, branchedBy);
-
-        return Success(branched.Number);
+        return Option<BranchDraftRevisionError>.None;
     }
 }
