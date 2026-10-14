@@ -30,18 +30,7 @@ public sealed class ReportStreamHealthCommandHandler(
 
         try
         {
-            if (declareOffline)
-            {
-                stream.ReportOffline(StreamError.Truncating(observation.LastError ?? "offline (no frames within retry window)"), clock);
-            }
-            else if (observation.IsReady)
-            {
-                stream.ReportHealthy(observation.DetectedMode, clock);
-            }
-            else
-            {
-                stream.ReportDegraded(StreamError.Truncating(observation.LastError ?? "no frame within the health-watcher window"), clock);
-            }
+            ApplyObservation(stream, observation, declareOffline);
         }
         catch (InvalidOperationException ex)
         {
@@ -56,6 +45,25 @@ public sealed class ReportStreamHealthCommandHandler(
         await streams.SaveAsync(cancellationToken);
 
         return Success(stream.State);
+    }
+
+    private void ApplyObservation(
+        Stream stream,
+        RtspPathHealth observation,
+        bool declareOffline)
+    {
+        if (declareOffline)
+        {
+            stream.ReportOffline(StreamError.Truncating(observation.LastError ?? "offline (no frames within retry window)"), clock);
+        }
+        else if (observation.IsReady)
+        {
+            stream.ReportHealthy(observation.DetectedMode, clock);
+        }
+        else
+        {
+            stream.ReportDegraded(StreamError.Truncating(observation.LastError ?? "no frame within the health-watcher window"), clock);
+        }
     }
 
     private static string DescribeTarget(ReportStreamHealthCommand command)
