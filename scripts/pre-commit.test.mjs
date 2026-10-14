@@ -18,7 +18,16 @@
 
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import path from 'node:path';
@@ -33,10 +42,14 @@ after(() => {
   for (const root of scratchRoots) rmSync(root, { recursive: true, force: true });
 });
 
-function scratch(prefix) {
-  const root = mkdtempSync(path.join(tmpdir(), prefix));
+function scratchIn(parent, prefix) {
+  const root = mkdtempSync(path.join(parent, prefix));
   scratchRoots.push(root);
   return root;
+}
+
+function scratch(prefix) {
+  return scratchIn(tmpdir(), prefix);
 }
 
 // A missing module must fail the one test that needs it, not the whole file.
@@ -81,8 +94,8 @@ function dirtyContentFor(file) {
 // A repository with the real prettier config, the real ignore file and a
 // package.json carrying the real `format:check`, plus whatever the case needs
 // committed as the base.
-function buildRepository(baseFiles = {}) {
-  const repository = scratch('sse-pre-commit-');
+function buildRepository(baseFiles = {}, parent = tmpdir()) {
+  const repository = scratchIn(parent, 'sse-pre-commit-');
   git(repository, 'init', '-q', '--initial-branch=develop');
   copyFileSync(path.join(repositoryRoot, '.prettierrc.json'), path.join(repository, '.prettierrc.json'));
   copyFileSync(path.join(repositoryRoot, '.prettierignore'), path.join(repository, '.prettierignore'));
@@ -112,12 +125,11 @@ function snapshot(repository) {
 // The stand-in `dotnet`
 // ---------------------------------------------------------------------------
 
-let shimDirectory = null;
-let markerFile = null;
+let defaultShim = null;
 
-before(() => {
-  shimDirectory = scratch('sse-fake-dotnet-');
-  markerFile = path.join(shimDirectory, 'invocations.log');
+function createShim(parent = tmpdir()) {
+  const shimDirectory = scratchIn(parent, 'sse-fake-dotnet-');
+  const markerFile = path.join(shimDirectory, 'invocations.log');
   const executable = process.platform === 'win32' ? 'dotnet.exe' : 'dotnet';
   copyFileSync(process.execPath, path.join(shimDirectory, executable));
   writeFileSync(
@@ -133,9 +145,15 @@ before(() => {
       '',
     ].join('\n'),
   );
+  return { directory: shimDirectory, marker: markerFile };
+}
+
+before(() => {
+  defaultShim = createShim();
 });
 
-function dotnetInvocations() {
+function dotnetInvocations(shim = defaultShim) {
+  const markerFile = shim.marker;
   return existsSync(markerFile) ? readFileSync(markerFile, 'utf8').split('\n').filter(Boolean) : [];
 }
 
@@ -143,20 +161,25 @@ function dotnetInvocations() {
 // Running the real hook
 // ---------------------------------------------------------------------------
 
-function runHook(repository, { dotnetExit = 0, dotnetOutput = '', environment = {} } = {}) {
+function runHook(
+  repository,
+  { dotnetExit = 0, dotnetOutput = '', environment = {}, script = hookScript, shim = defaultShim } = {},
+) {
+  const shimDirectory = shim.directory;
+  const markerFile = shim.marker;
   rmSync(markerFile, { force: true });
   const env = { ...process.env };
   delete env.HUSKY;
   const pathKey = Object.keys(env).find((key) => key.toLowerCase() === 'path') ?? 'PATH';
   env[pathKey] = `${shimDirectory}${path.delimiter}${env[pathKey] ?? ''}`;
-  env.NODE_OPTIONS = `--require ${path.join(shimDirectory, 'preload.cjs')}`;
+  env.NODE_OPTIONS = `--require "${path.join(shimDirectory, 'preload.cjs').split(path.sep).join('/')}"`;
   env.FAKE_DOTNET_LOG = markerFile;
   env.FAKE_DOTNET_EXIT = String(dotnetExit);
   env.FAKE_DOTNET_OUT = dotnetOutput;
   Object.assign(env, environment);
 
   const before = existsSync(path.join(repository, '.git')) ? snapshot(repository) : null;
-  const result = spawnSync(process.execPath, [hookScript], { cwd: repository, encoding: 'utf8', env });
+  const result = spawnSync(process.execPath, [script], { cwd: repository, encoding: 'utf8', env });
   const after = existsSync(path.join(repository, '.git')) ? snapshot(repository) : null;
   return {
     status: result.status,
@@ -403,12 +426,16 @@ test('a deleted .cs file does not start dotnet', () => {
   assert.deepEqual(dotnetInvocations(), []);
 });
 
-test('a staged .cs file with no owning .csproj is not checked', () => {
+test('a staged .cs file with no owning .csproj is checked through the solution-wide fallback', () => {
   const repository = buildRepository();
   stage(repository, { 'src/Orphan/Z.cs': 'class Z { int a; }\n' });
 
   assertPassed(runHook(repository));
-  assert.deepEqual(dotnetInvocations(), []);
+
+  const invocations = dotnetInvocations();
+  assert.equal(invocations.length, 1, invocations.join('\n'));
+  assert.ok(invocations[0].includes('SmartSentinelEye.slnx'), invocations[0]);
+  assert.ok(invocations[0].includes('src/Orphan/Z.cs'), invocations[0]);
 });
 
 test('a staged .cs file that also has unstaged changes prints a working-tree note', () => {
@@ -569,12 +596,20 @@ test('planDotnetFormat groups files by owning project', async () => {
   ]);
 });
 
-test('planDotnetFormat drops files that have no owning project', async () => {
+test('planDotnetFormat sends a file with no owning project, and its neighbours, to one solution-wide run', async () => {
   const { planDotnetFormat } = await loadHook();
 
   const plan = planDotnetFormat(['src/A/X.cs', 'loose/Q.cs'], lookupOf({ 'src/A/X.cs': 'src/A/A.csproj' }));
 
-  assert.deepEqual(plan, [{ project: 'src/A/A.csproj', files: ['src/A/X.cs'] }]);
+  assert.deepEqual(plan, [{ project: 'SmartSentinelEye.slnx', files: ['src/A/X.cs', 'loose/Q.cs'] }]);
+});
+
+test('planDotnetFormat sends a lone file with no owning project to the solution-wide run', async () => {
+  const { planDotnetFormat } = await loadHook();
+
+  assert.deepEqual(planDotnetFormat(['loose/Q.cs'], lookupOf({})), [
+    { project: 'SmartSentinelEye.slnx', files: ['loose/Q.cs'] },
+  ]);
 });
 
 test('planDotnetFormat of nothing is an empty plan', async () => {
@@ -798,4 +833,255 @@ test('findScopeDrift of a command carrying both globs is empty', async () => {
   const { findScopeDrift } = await loadHook();
 
   assert.deepEqual(findScopeDrift(`prettier --check "${FORMAT_CHECK_GLOBS[0]}" ${FORMAT_CHECK_GLOBS[1]}`), []);
+});
+
+// ---------------------------------------------------------------------------
+// Review round: the entry point must run however the script is reached
+// ---------------------------------------------------------------------------
+
+const STACK_FRAME = /^\s+at .*:\d+:\d+\)?\s*$/m;
+
+test('the hook still blocks when started through a symlinked or junctioned directory', (t) => {
+  const link = path.join(scratch('sse-link-'), 'scripts-link');
+  try {
+    symlinkSync(path.dirname(hookScript), link, 'junction');
+  } catch (error) {
+    t.skip(`cannot create a symlink or junction here (${error.code})`);
+    return;
+  }
+  const repository = buildRepository();
+  stage(repository, { 'apps/a/x.ts': DIRTY_TS });
+
+  const outcome = runHook(repository, { script: path.join(link, 'pre-commit.mjs') });
+
+  assertBlocked(outcome, 'apps/a/x.ts');
+});
+
+test('the hook still blocks when started through a path whose drive letter has the other case', (t) => {
+  if (process.platform !== 'win32') {
+    t.skip('drive letters exist only on Windows');
+    return;
+  }
+  const drive = hookScript[0];
+  const flipped = drive === drive.toLowerCase() ? drive.toUpperCase() : drive.toLowerCase();
+  const repository = buildRepository();
+  stage(repository, { 'apps/a/x.ts': DIRTY_TS });
+
+  const outcome = runHook(repository, { script: `${flipped}${hookScript.slice(1)}` });
+
+  assertBlocked(outcome, 'apps/a/x.ts');
+});
+
+test('the hook still blocks when started through an upper-cased directory path', (t) => {
+  if (process.platform !== 'win32') {
+    t.skip('only case-insensitive file systems accept a re-cased path');
+    return;
+  }
+  const repository = buildRepository();
+  stage(repository, { 'apps/a/x.ts': DIRTY_TS });
+
+  const outcome = runHook(repository, {
+    script: path.join(path.dirname(hookScript).toUpperCase(), path.basename(hookScript)),
+  });
+
+  assertBlocked(outcome, 'apps/a/x.ts');
+});
+
+// ---------------------------------------------------------------------------
+// Review round: a file prettier cannot parse or git cannot read
+// ---------------------------------------------------------------------------
+
+test('a staged file with a syntax error is reported as unparseable without a stack trace', () => {
+  const repository = buildRepository();
+  stage(repository, { 'apps/a/broken.ts': 'const a = (\n' });
+
+  const outcome = runHook(repository);
+
+  assertBlocked(outcome, 'could not parse', 'apps/a/broken.ts', '--no-verify');
+  assert.doesNotMatch(outcome.output, STACK_FRAME);
+});
+
+test('an unparseable file does not hide other mis-formatted files or the C# leg', () => {
+  const repository = buildRepository(LIBRARY_BASE);
+  stage(repository, {
+    'apps/a/broken.ts': 'const a = (\n',
+    'apps/a/bad.ts': DIRTY_TS,
+    'src/Lib/X.cs': 'class X { int a; }\n',
+  });
+
+  const outcome = runHook(repository, { dotnetExit: 2 });
+
+  assertBlocked(outcome, 'could not parse', 'apps/a/broken.ts', 'apps/a/bad.ts', 'src/Lib/X.cs', '--no-verify');
+  assert.equal(dotnetInvocations().length, 1);
+});
+
+test('a staged entry git cannot show is reported as unreadable without a stack trace', () => {
+  const repository = buildRepository();
+  // A submodule's commit normally lives in another repository, so git cannot show it.
+  // Staged first: a later `git add -A` would drop a gitlink that has no checkout.
+  stage(repository, { 'apps/a/bad.ts': DIRTY_TS });
+  git(repository, 'update-index', '--add', '--cacheinfo', `160000,${'1'.repeat(40)},apps/a/sub.ts`);
+
+  const outcome = runHook(repository);
+
+  assertBlocked(outcome, 'could not read', 'apps/a/sub.ts', 'apps/a/bad.ts', '--no-verify');
+  assert.doesNotMatch(outcome.output, STACK_FRAME);
+});
+
+// ---------------------------------------------------------------------------
+// Review round: a .cs file with no single owning .csproj goes to the solution
+// ---------------------------------------------------------------------------
+
+test('a mis-formatted .cs file with no owning .csproj blocks and is named', () => {
+  const repository = buildRepository();
+  stage(repository, { 'src/Orphan/Z.cs': 'class Z { int a; }\n' });
+
+  const outcome = runHook(repository, { dotnetExit: 2 });
+
+  assertBlocked(outcome, 'src/Orphan/Z.cs', 'mis-formatted');
+});
+
+test('a .cs file in a directory chain whose only project directory holds two .csproj files uses the solution', () => {
+  const repository = buildRepository({
+    'src/Two/One.csproj': '<Project />\n',
+    'src/Two/Two.csproj': '<Project />\n',
+    'src/Two/Q.cs': 'class Q { }\n',
+  });
+  stage(repository, { 'src/Two/Q.cs': 'class Q { int a; }\n' });
+
+  assertPassed(runHook(repository));
+
+  const invocations = dotnetInvocations();
+  assert.equal(invocations.length, 1, invocations.join('\n'));
+  assert.ok(invocations[0].includes('SmartSentinelEye.slnx'), invocations[0]);
+  assert.ok(invocations[0].includes('src/Two/Q.cs'), invocations[0]);
+});
+
+// ---------------------------------------------------------------------------
+// Review round: prettier parity with the CLI (editorconfig, .gitignore)
+// ---------------------------------------------------------------------------
+
+function prettierCheck(repository, file) {
+  const cli = path.join(repositoryRoot, 'node_modules', 'prettier', 'bin', 'prettier.cjs');
+  const result = spawnSync(process.execPath, [cli, '--check', file], { cwd: repository, encoding: 'utf8' });
+  return { status: result.status, output: `${result.stdout}${result.stderr}` };
+}
+
+const TABBED_TS = 'function f() {\n\treturn 1;\n}\n';
+const SPACED_TS = 'function f() {\n  return 1;\n}\n';
+const TABS_EDITORCONFIG = { '.editorconfig': '[*.ts]\nindent_style = tab\n' };
+
+test('a file formatted the way .editorconfig asks passes, as it does for the prettier CLI', () => {
+  const repository = buildRepository(TABS_EDITORCONFIG);
+  stage(repository, { 'apps/a/t.ts': TABBED_TS });
+
+  const cli = prettierCheck(repository, 'apps/a/t.ts');
+  const outcome = runHook(repository);
+
+  assert.equal(cli.status, 0, cli.output);
+  assertPassed(outcome);
+});
+
+test('a file that ignores .editorconfig blocks, as it does for the prettier CLI', () => {
+  const repository = buildRepository(TABS_EDITORCONFIG);
+  stage(repository, { 'apps/a/t.ts': SPACED_TS });
+
+  const cli = prettierCheck(repository, 'apps/a/t.ts');
+  const outcome = runHook(repository);
+
+  assert.equal(cli.status, 1, cli.output);
+  assertBlocked(outcome, 'apps/a/t.ts');
+});
+
+test('a tracked file matched only by .gitignore is skipped, as the prettier CLI skips it', () => {
+  const repository = buildRepository({ '.gitignore': 'apps/a/generated/\n' });
+  write(repository, 'apps/a/generated/x.ts', DIRTY_TS);
+  git(repository, 'add', '-f', 'apps/a/generated/x.ts');
+
+  const cli = prettierCheck(repository, 'apps/a/generated/x.ts');
+  const outcome = runHook(repository);
+
+  assert.equal(git(repository, 'ls-files', '--cached', 'apps/a/generated').trim(), 'apps/a/generated/x.ts');
+  assert.notEqual(cli.status, 1, cli.output);
+  assertPassed(outcome);
+});
+
+// ---------------------------------------------------------------------------
+// Review round: dotnet exit 2 with a compile error is an unrestored project
+// ---------------------------------------------------------------------------
+
+const COMPILE_ERROR = 'src/A/X.cs(1,1): error CS0246: The type or namespace name Foo could not be found';
+
+test('checkCsharp reports exit 2 with a compile error on stdout as a tool failure', async () => {
+  const { checkCsharp } = await loadHook();
+
+  const result = checkCsharp(SINGLE_PLAN, () => ({ status: 2, stdout: COMPILE_ERROR, stderr: '' }));
+
+  assert.equal(result.ok, false);
+  assert.equal(result.messages.length, 1);
+  assert.ok(result.messages[0].includes('dotnet restore src/A/A.csproj'), result.messages[0]);
+  assert.equal(result.messages[0].includes('mis-formatted'), false, result.messages[0]);
+});
+
+test('checkCsharp reports exit 2 with a compile error on stderr as a tool failure', async () => {
+  const { checkCsharp } = await loadHook();
+
+  const result = checkCsharp(SINGLE_PLAN, () => ({ status: 2, stdout: '', stderr: COMPILE_ERROR }));
+
+  assert.ok(result.messages[0].includes('dotnet restore src/A/A.csproj'), result.messages[0]);
+  assert.equal(result.messages[0].includes('mis-formatted'), false, result.messages[0]);
+});
+
+test('checkCsharp keeps exit 2 with only a whitespace diagnostic a formatting failure', async () => {
+  const { checkCsharp } = await loadHook();
+
+  const result = checkCsharp(SINGLE_PLAN, () => ({
+    status: 2,
+    stdout: 'src/A/X.cs(1,11): error WHITESPACE: Fix whitespace formatting.',
+    stderr: '',
+  }));
+
+  assert.ok(result.messages[0].includes('mis-formatted'), result.messages[0]);
+  assert.equal(result.messages[0].includes('dotnet restore'), false, result.messages[0]);
+});
+
+test('checkCsharp keeps exit 2 with a compiler warning a formatting failure', async () => {
+  const { checkCsharp } = await loadHook();
+
+  const result = checkCsharp(SINGLE_PLAN, () => ({
+    status: 2,
+    stdout: 'src/A/X.cs(3,5): warning CS8618: Non-nullable property must contain a non-null value',
+    stderr: '',
+  }));
+
+  assert.ok(result.messages[0].includes('mis-formatted'), result.messages[0]);
+});
+
+test("dotnet exit 2 printing a compile error blocks as a tool failure and keeps dotnet's diagnostic visible", () => {
+  const repository = buildRepository(LIBRARY_BASE);
+  stage(repository, { 'src/Lib/X.cs': 'class X { Foo a; }\n' });
+
+  const outcome = runHook(repository, {
+    dotnetExit: 2,
+    dotnetOutput: 'src/Lib/X.cs(1,11): error CS0246: The type or namespace name Foo could not be found',
+  });
+
+  assertBlocked(outcome, 'error CS0246', 'dotnet restore src/Lib/Lib.csproj', '--no-verify');
+  assert.equal(outcome.output.includes('mis-formatted'), false, outcome.output);
+});
+
+// ---------------------------------------------------------------------------
+// Review round: the fixture itself works from a path with a space and non-ASCII
+// ---------------------------------------------------------------------------
+
+test('the end-to-end fixture works from a directory whose name has a space and a non-ASCII character', () => {
+  const parent = scratch('sse spaced Ünï ');
+  const shim = createShim(parent);
+  const repository = buildRepository(LIBRARY_BASE, parent);
+  stage(repository, { 'apps/a/x.ts': DIRTY_TS, 'src/Lib/X.cs': 'class X { int a; }\n' });
+
+  const outcome = runHook(repository, { shim });
+
+  assertBlocked(outcome, 'apps/a/x.ts');
+  assert.equal(dotnetInvocations(shim).length, 1);
 });
