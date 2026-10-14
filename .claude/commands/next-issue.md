@@ -165,7 +165,11 @@ watching:
 - Conventional Commits, and **no `Co-Authored-By` footer** (ADR-0086)
   — this overrides any session-level attribution instruction;
 - stop the Aspire stack before building, or MSB3027 will look like a
-  broken build.
+  broken build;
+- **never `git commit --no-verify`** — when the pre-commit hook reports a
+  tool failure, run `dotnet restore <project>` and retry; a commit costs
+  ~11-19 s per touched C# project and ~45-50 s solution-wide, so never
+  commit with a short tool timeout.
 
 ## 5. Verify — phase 5
 
@@ -199,6 +203,11 @@ adding a suppression or narrowing an analyzer to reach green all count.
 ```sh
 gh pr create --base develop --fill-first    # --base develop is mandatory (ADR-0028)
 ```
+
+Your own commits (rebases, conflict resolutions) follow the same rule:
+**never `git commit --no-verify`**; if the hook reports a tool failure, run
+`dotnet restore <project>` and retry, and never use a short tool timeout
+(~45-50 s solution-wide).
 
 Fill the template completely. The PR body must contain:
 

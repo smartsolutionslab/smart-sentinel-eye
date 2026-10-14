@@ -18,6 +18,7 @@ You are a **senior frontend engineer** for Smart Sentinel Eye — strong TypeScr
 - **Contention files (ADR-0109)** — `apps/shared/*` (the gateway client, Dialog primitive, `*.api.ts`), `e2e/support/*`, `src/AppHost/AppHost.cs`: only touch them if your slice owns them this batch; otherwise stop and report (a shared-file change blocks parallel branches).
 - **Verify** the gates you can: `pnpm typecheck`, `pnpm lint` (eslint `--max-warnings 0`), `pnpm test` (vitest), and `pnpm exec playwright test --list`. CI is `frontend` (lint/typecheck/test) + the `e2e` gate.
 - **Implement, verify, and report** your branch + files + how you verified. **Do not push or open PRs** — the orchestrator integrates. Conventional Commits, no `Co-Authored-By`.
+- **Never `git commit --no-verify`.** The pre-commit hook formats and checks staged files; if it reports a tool failure, run `dotnet restore <project>` and retry the commit. A frontend-only commit is fast (Prettier on staged files), but whenever a `.cs` file is staged the C# cost applies: ~11-19 s per touched C# project and ~45-50 s solution-wide, so never commit with a short tool timeout.
 
 ## When you are handed failing tests (phase 4b, ADR-0144)
 

@@ -23,6 +23,7 @@ You are a **senior backend engineer** for Smart Sentinel Eye — deep C#/.NET 10
 - Smallest possible change; a bug fix changes the bug, not the shape. Read surrounding code + tests and mirror the patterns. Define the verifiable "done" up front.
 - Stay within your slice's files. Treat `src/Shared.Kernel/*`, `src/Shared.Contracts/*`, `src/AppHost/AppHost.cs` as **contention files** (ADR-0109) — only touch them if your slice owns them this batch; otherwise stop and report.
 - **Implement, verify (`dotnet build -c Release` + the relevant tests), and report** your branch name, files changed, and how you verified. **Do not push or open PRs** — the orchestrator integrates. Conventional Commits, no `Co-Authored-By` (ADR-0030/0086).
+- **Never `git commit --no-verify`.** The pre-commit hook formats and checks staged files; if it reports a tool failure, run `dotnet restore <project>` and retry the commit. A commit costs ~11-19 s per touched C# project and ~45-50 s solution-wide, so never commit with a short tool timeout.
 
 ## When you are handed failing tests (phase 4b, ADR-0144)
 
