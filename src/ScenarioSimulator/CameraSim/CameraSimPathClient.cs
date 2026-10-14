@@ -39,30 +39,38 @@ public sealed class CameraSimPathClient(HttpClient http, ILogger<CameraSimPathCl
 
         using (response)
         {
-            if (response.StatusCode == HttpStatusCode.NotFound)
-            {
-                return Option<PathState>.None;
-            }
-
-            if (!response.IsSuccessStatusCode)
-            {
-                logger.CameraSimPathUnreadable(path, response.StatusCode.ToString());
-                return Option<PathState>.None;
-            }
-
-            PathResponse? body;
-            try
-            {
-                body = await response.Content.ReadFromJsonAsync<PathResponse>(JsonOptions, cancellationToken);
-            }
-            catch (Exception exception) when (IsUnexpectedFailure(exception, cancellationToken))
-            {
-                logger.CameraSimPathUnreadable(path, exception.Message);
-                return Option<PathState>.None;
-            }
-
-            return body is null ? Option<PathState>.None : BuildPathState(path, body);
+            return await ReadPathStateAsync(path, response, cancellationToken);
         }
+    }
+
+    private async Task<Option<PathState>> ReadPathStateAsync(
+        string path,
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        if (response.StatusCode == HttpStatusCode.NotFound)
+        {
+            return Option<PathState>.None;
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            logger.CameraSimPathUnreadable(path, response.StatusCode.ToString());
+            return Option<PathState>.None;
+        }
+
+        PathResponse? body;
+        try
+        {
+            body = await response.Content.ReadFromJsonAsync<PathResponse>(JsonOptions, cancellationToken);
+        }
+        catch (Exception exception) when (IsUnexpectedFailure(exception, cancellationToken))
+        {
+            logger.CameraSimPathUnreadable(path, exception.Message);
+            return Option<PathState>.None;
+        }
+
+        return body is null ? Option<PathState>.None : BuildPathState(path, body);
     }
 
     /// <summary>
