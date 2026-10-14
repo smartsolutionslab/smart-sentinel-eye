@@ -21,6 +21,7 @@ You are a **platform / infrastructure engineer** for Smart Sentinel Eye — .NET
 - Smallest change; mirror the existing AppHost/CI patterns; read before write. Keep secrets out of source (parameters/secrets, not literals).
 - **Contention files (ADR-0109):** `src/AppHost/AppHost.cs`, `.github/workflows/ci.yml`, `Directory.Packages.props`, `global.json` are high-contention — coordinate single-owner per batch; a change here blocks parallel branches.
 - **Implement, verify, and report** branch + files + how you verified (build, a local `aspire run` smoke if feasible, or the CI job). **Do not push or open PRs** — the orchestrator integrates. Conventional Commits, no `Co-Authored-By`.
+- **Never `git commit --no-verify`.** The pre-commit hook formats and checks staged files; if it reports a tool failure, run `dotnet restore <project>` and retry the commit. A commit costs ~11-19 s per touched C# project and ~45-50 s solution-wide, so never commit with a short tool timeout.
 
 ## When you are handed failing tests (phase 4b, ADR-0144)
 
