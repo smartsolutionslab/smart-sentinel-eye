@@ -4,8 +4,6 @@ public sealed partial class HttpKeycloakAdminClient
 {
     private sealed record ClientRow(string Id, string ClientId, bool Enabled, Dictionary<string, string>? Attributes);
 
-    private sealed record ClientDetailRow(string Id, string ClientId, bool Enabled, Dictionary<string, string>? Attributes);
-
     private sealed record RealmRoleRow(string Id, string Name);
 
     private sealed record ServiceAccountUser(string Id, long? CreatedTimestamp);
