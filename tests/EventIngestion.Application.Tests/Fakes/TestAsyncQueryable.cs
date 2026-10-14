@@ -47,11 +47,15 @@ internal sealed class TestSourceModeQuerySource(IEnumerable<SourceMode> seed) : 
     public IQueryable<SourceMode> SourceModes { get; } = new TestAsyncEnumerable<SourceMode>(seed);
 }
 
-internal sealed class TestAsyncEnumerable<T>(IEnumerable<T> enumerable)
-    : EnumerableQuery<T>(enumerable), IAsyncEnumerable<T>, IQueryable<T>
+internal sealed class TestAsyncEnumerable<T> : EnumerableQuery<T>, IAsyncEnumerable<T>, IQueryable<T>
 {
+    public TestAsyncEnumerable(IEnumerable<T> enumerable)
+        : base(enumerable) { }
+
+    // Deferred, so an ordered result stays an IOrderedQueryable and a ThenBy
+    // can follow an OrderBy; materialising here would break that chain.
     public TestAsyncEnumerable(Expression expression)
-        : this(((IQueryable<T>)new EnumerableQuery<T>(expression)).ToList()) { }
+        : base(expression) { }
 
     IAsyncEnumerator<T> IAsyncEnumerable<T>.GetAsyncEnumerator(CancellationToken cancellationToken) =>
         new TestAsyncEnumerator<T>(this.AsEnumerable().GetEnumerator());
