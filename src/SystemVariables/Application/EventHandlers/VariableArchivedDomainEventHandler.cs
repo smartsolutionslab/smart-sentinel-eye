@@ -31,16 +31,10 @@ public sealed class VariableArchivedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (variableIdentifier, fab, variableName, archivedAt, archivedBy) = domainEvent;
+        var (_, fab, variableName, archivedAt, archivedBy) = domainEvent;
 
-        SystemVariableArchivedV1 systemVariableArchivedEvent = new(
-            Variable: variableIdentifier.Value,
-            Name: variableName.Value,
-            ArchivedAt: archivedAt,
-            ArchivedBy: archivedBy.Value,
-            Metadata: new EventMetadata(Guid.CreateVersion7(), archivedAt, fab.Value, archivedBy.Value));
-
-        await events.PublishAsync(systemVariableArchivedEvent, cancellationToken);
+        var archivedMetadata = new EventMetadata(Guid.CreateVersion7(), archivedAt, fab.Value, archivedBy.Value);
+        await events.PublishAsync(ToArchivedV1(domainEvent, archivedMetadata), cancellationToken);
 
         var affectedOverlays = reverseIndex.LookupOverlays(variableName.Value);
         if (affectedOverlays.Count == 0)
@@ -62,58 +56,79 @@ public sealed class VariableArchivedDomainEventHandler(
                 continue;
             }
 
-            // Build a snapshot of every OTHER variable referenced by any
-            // label in the set (the archived one is intentionally absent
-            // so it resolves to its literal placeholder) — one snapshot
-            // over the union, not one per label (spec 150).
-            Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
-            foreach (var name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
-            {
-                if (string.Equals(name, variableName.Value, StringComparison.Ordinal))
-                {
-                    continue;
-                }
+            var snapshot = await BuildSnapshotAsync(labelTexts, fab, variableName, cancellationToken);
 
-                VariableName parsed;
-                try
-                { parsed = VariableName.From(name); }
-                catch (ArgumentException) { continue; }
+            var texts = ResolveTexts(labelTexts, snapshot);
+            var metadata = new EventMetadata(Guid.CreateVersion7(), archivedAt, fab.Value, archivedBy.Value);
 
-                // Siblings resolve in the fab that changed (ADR-0115).
-                var other = await variables.GetByNameAsync(
-                    fab, parsed, cancellationToken);
-                // None also covers an Archived sibling: GetByNameAsync excludes them (FR-005).
-                if (!other.HasValue)
-                {
-                    continue;
-                }
-
-                var variable = other.Value;
-                if (variable.Value is VariableValue.Unset)
-                {
-                    continue;
-                }
-
-                snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
-            }
-
-            IReadOnlyList<ResolvedOverlayTextV3> texts =
-                [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
-                    .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
-            var version = versionsByOverlay[overlayId];
-
-            ResolvedOverlayTextChangedV3 resolvedOverlayTextChangedEvent = new(
-                Overlay: overlayId,
-                Texts: texts,
-                Version: version,
-                Metadata: new(
-                    Guid.CreateVersion7(),
-                    archivedAt,
-                    fab.Value,
-                    archivedBy.Value));
-            await events.PublishAsync(resolvedOverlayTextChangedEvent, cancellationToken);
+            ResolvedOverlayTextChangedV3 @event = new(Overlay: overlayId, Texts: texts, Version: versionsByOverlay[overlayId], Metadata: metadata);
+            await events.PublishAsync(@event, cancellationToken);
         }
 
         logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, variableName);
+    }
+
+    private static SystemVariableArchivedV1 ToArchivedV1(
+        VariableArchivedDomainEvent archived,
+        EventMetadata metadata)
+    {
+        return new SystemVariableArchivedV1(
+            Variable: archived.Variable.Value,
+            Name: archived.Name.Value,
+            ArchivedAt: archived.ArchivedAt,
+            ArchivedBy: archived.ArchivedBy.Value,
+            Metadata: metadata);
+    }
+
+    // Build a snapshot of every OTHER variable referenced by any
+    // label in the set (the archived one is intentionally absent
+    // so it resolves to its literal placeholder) — one snapshot
+    // over the union, not one per label (spec 150).
+    private async Task<IReadOnlyDictionary<string, VariableSnapshotEntry>> BuildSnapshotAsync(
+        IReadOnlyList<string> labelTexts,
+        FabIdentifier fab,
+        VariableName archivedName,
+        CancellationToken cancellationToken)
+    {
+        Dictionary<string, VariableSnapshotEntry> snapshot = new(StringComparer.Ordinal);
+        foreach (var name in labelTexts.SelectMany(PlaceholderParser.ExtractNames).Distinct(StringComparer.Ordinal))
+        {
+            if (string.Equals(name, archivedName.Value, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
+            VariableName parsed;
+            try
+            { parsed = VariableName.From(name); }
+            catch (ArgumentException) { continue; }
+
+            // Siblings resolve in the fab that changed (ADR-0115).
+            var other = await variables.GetByNameAsync(
+                fab, parsed, cancellationToken);
+            // None also covers an Archived sibling: GetByNameAsync excludes them (FR-005).
+            if (!other.HasValue)
+            {
+                continue;
+            }
+
+            var variable = other.Value;
+            if (variable.Value is VariableValue.Unset)
+            {
+                continue;
+            }
+
+            snapshot[name] = new VariableSnapshotEntry(variable.Value, variable.BooleanLabels);
+        }
+
+        return snapshot;
+    }
+
+    private IReadOnlyList<ResolvedOverlayTextV3> ResolveTexts(
+        IReadOnlyList<string> labelTexts,
+        IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot)
+    {
+        return [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
+            .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
     }
 }
