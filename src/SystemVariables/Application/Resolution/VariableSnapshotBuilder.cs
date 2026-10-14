@@ -37,8 +37,7 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
             // and the caller holds several, the first by fab name wins —
             // arbitrary but stable. A caller who needs one plant's answer says
             // which; the kiosk does, from the wall it displays (ADR-0145).
-            (var found, var answeringFab) =
-                await FindInAnyFabAsync(fabs, parsed, cancellationToken);
+            var found = await FindInAnyFabAsync(fabs, parsed, cancellationToken);
             if (!found.HasValue)
             {
                 // GetByNameAsync already excludes Archived rows (FR-005: a
@@ -55,12 +54,12 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
                 continue;
             }
 
-            resolutions.Add(ResolutionOf(name, found.Value, answeringFab));
+            resolutions.Add(ResolutionOf(name, found.Value.Variable, found.Value.Fab));
         }
         return resolutions;
     }
 
-    private static PlaceholderResolution ResolutionOf(string name, Variable variable, FabIdentifier? answeringFab)
+    private static PlaceholderResolution ResolutionOf(string name, Variable variable, FabIdentifier answeringFab)
     {
         if (variable.Value is VariableValue.Unset)
         {
@@ -88,7 +87,7 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
     /// that case arbitrary-but-stable rather than a refusal, on a read that
     /// returns rendered text rather than a row to act on.
     /// </summary>
-    private async Task<(Option<Variable> Variable, FabIdentifier? Fab)> FindInAnyFabAsync(
+    private async Task<Option<(Variable Variable, FabIdentifier Fab)>> FindInAnyFabAsync(
         IReadOnlyList<FabIdentifier> fabs, VariableName name, CancellationToken cancellationToken)
     {
         foreach (var fab in fabs.OrderBy(candidate => candidate.Value, StringComparer.Ordinal))
@@ -96,11 +95,11 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
             var found = await variables.GetByNameAsync(fab, name, cancellationToken);
             if (found.HasValue)
             {
-                return (found, fab);
+                return Option<(Variable Variable, FabIdentifier Fab)>.Some((found.Value, fab));
             }
         }
 
-        return (Option<Variable>.None, null);
+        return Option<(Variable Variable, FabIdentifier Fab)>.None;
     }
 
     /// <summary>
