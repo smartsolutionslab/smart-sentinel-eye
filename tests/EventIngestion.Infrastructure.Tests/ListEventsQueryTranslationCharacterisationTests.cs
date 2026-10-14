@@ -31,7 +31,12 @@ public class ListEventsQueryTranslationCharacterisationTests
         where.ShouldContain("device_id");
         where.ShouldContain("kind");
         Occurrences(where, "occurred_at").ShouldBe(2, "OccurredAfter and OccurredBefore");
-        Occurrences(where, "ingested_at").ShouldBe(4, "IngestedAfter, IngestedBefore and the cursor's two-part compare");
+        Occurrences(where, "ingested_at").ShouldBe(
+            5,
+            "IngestedAfter, IngestedBefore, the cursor's non-strict bound (keeps the index range on "
+            + "ix_events_ingested), and its strict and tie compares");
+        where.ShouldContain("ingested_at\" <=", Case.Sensitive, "the redundant non-strict cursor bound");
+        where.ShouldContain("event_id\" <", Case.Sensitive, "the strict tiebreak on the identifier");
         where.ShouldContain("event_id");
     }
 

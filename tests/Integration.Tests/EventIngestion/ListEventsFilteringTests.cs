@@ -159,8 +159,9 @@ public class ListEventsFilteringTests(AspireFixture aspire)
     /// Only Postgres can show the two things this rests on: a <c>timestamptz</c>
     /// read back, carried through the cursor as ticks and decoded, compares
     /// equal to the stored value; and its <c>uuid</c> comparison agrees with
-    /// <c>ORDER BY event_id DESC</c>. The identifiers differ in the last byte
-    /// only, so the .NET and Postgres orderings of them cannot disagree.
+    /// <c>ORDER BY event_id DESC</c>. .NET <c>Guid.CompareTo</c> and Postgres
+    /// <c>uuid</c> order agree, so the expected order is computed with
+    /// <c>Guid.CompareTo</c> over fully random version-7 identifiers.
     /// </para>
     /// </summary>
     [Fact]
@@ -169,10 +170,10 @@ public class ListEventsFilteringTests(AspireFixture aspire)
         using var events = await aspire.CreateAdminClientAsync("event-ingestion");
         var kind = UniqueKind("Tied");
         var tied = new DateTimeOffset(2026, 5, 28, 12, 0, 0, TimeSpan.Zero).AddTicks(1_234_560);
-        var prefix = Guid.NewGuid().ToByteArray();
-        Guid IdentifierEnding(byte last) => new([.. prefix[..15], last]);
-        var (high, middle, low, older) =
-            (IdentifierEnding(3), IdentifierEnding(2), IdentifierEnding(1), IdentifierEnding(4));
+        var (high, middle, low) = (Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.CreateVersion7());
+        var older = Guid.CreateVersion7();
+        List<Guid> tiedDescending = [high, middle, low];
+        tiedDescending.Sort((left, right) => right.CompareTo(left));
 
         await using (var database = await aspire.CreateEventIngestionDbContextAsync())
         {
@@ -210,7 +211,7 @@ public class ListEventsFilteringTests(AspireFixture aspire)
         while (cursor is not null);
 
         walked.ShouldBe(
-            [high, middle, low, older],
+            [.. tiedDescending, older],
             "the cursor skipped or repeated events that share an ingested time");
     }
 
