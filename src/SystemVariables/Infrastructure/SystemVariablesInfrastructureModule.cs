@@ -119,7 +119,7 @@ public static class SystemVariablesInfrastructureModule
                 ArchiveVariableCommandHandler>();
 
     // Spec 007 bridge: subscribe to SystemVariableValueRequestedV1
-    // from Automation. Dedup on (variableName, causingEventIdentifier).
+    // from Automation. Dedup on (fab, variableName, causingEventIdentifier).
     private static IServiceCollection AddValueRequestBridge(this IServiceCollection services) =>
         services
             .AddScoped<IVariableValueRequestDedupStore, VariableValueRequestDedupStore>()
