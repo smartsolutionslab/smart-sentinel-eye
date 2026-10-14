@@ -85,11 +85,12 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
 
         if (cursor is { } c)
         {
-            // Strict 'less than' for descending order. IngestedAt is
-            // microsecond-precision; the chance of two events colliding across
-            // a page boundary is negligible at 1k/s. The eventId in the cursor
-            // is reserved for a future tuple-compare tightening.
-            source = source.Where(eventEntity => eventEntity.IngestedAt < c.Ingested);
+            // Strict 'less than' for descending order; the tuple compare
+            // breaks ties on the event identifier so events sharing an
+            // IngestedAt across a page boundary are neither skipped nor repeated.
+            source = source.Where(eventEntity =>
+                eventEntity.IngestedAt < c.Ingested ||
+                (eventEntity.IngestedAt == c.Ingested && ((Guid)eventEntity.Id).CompareTo(c.EventId) < 0));
         }
 
         return source
