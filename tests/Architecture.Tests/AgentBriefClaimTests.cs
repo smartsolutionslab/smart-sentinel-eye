@@ -772,6 +772,55 @@ public class AgentBriefClaimTests
             + "because no block parsed as a claim about a job. Fix the recogniser rather than the floor.");
     }
 
+    /// <summary>
+    /// <b>Assertion 8d — a brief that commits forbids bypassing the hook.</b>
+    ///
+    /// <para>
+    /// The pre-commit hook's own failure text offers <c>git commit --no-verify</c>
+    /// as the way past it, and a subagent reading that under pressure to reach
+    /// green takes the offer. Every brief that tells an agent to commit therefore
+    /// has to say, on one line, that the flag is never to be used. Briefs are
+    /// selected by what they do — they mention Conventional Commits and are not
+    /// a read-only reviewer — plus the <c>next-issue</c> command, which commits
+    /// on the lane's behalf.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void Every_brief_that_commits_forbids_no_verify()
+    {
+        var offenders = BriefFiles()
+            .Where(CommitsOnItsOwn)
+            .Where(brief => !ForbidsNoVerify(brief))
+            .ToArray();
+
+        offenders.ShouldBeEmpty(
+            $"these briefs tell an agent to commit but never forbid 'git commit --no-verify': "
+            + $"{string.Join(", ", offenders)}. The pre-commit hook's failure text offers the flag, so a "
+            + "brief that is silent on it leaves the bypass as the path of least resistance. Add a line "
+            + "pairing '--no-verify' with 'never', 'do not' or 'must not'.");
+    }
+
+    private static bool CommitsOnItsOwn(string brief)
+    {
+        var name = brief[(brief.LastIndexOf('/') + 1)..];
+
+        if (brief == ".claude/commands/next-issue.md")
+        {
+            return true;
+        }
+
+        return brief.StartsWith(".claude/agents/", StringComparison.Ordinal)
+            && !name.EndsWith("-reviewer.md", StringComparison.Ordinal)
+            && ReadRepositoryFile(brief).Contains("Conventional Commits", StringComparison.Ordinal);
+    }
+
+    private static bool ForbidsNoVerify(string brief) =>
+        Lines(brief).Any(line =>
+            line.Text.Contains("--no-verify", StringComparison.Ordinal)
+            && (line.Text.Contains("never", StringComparison.OrdinalIgnoreCase)
+                || line.Text.Contains("do not", StringComparison.OrdinalIgnoreCase)
+                || line.Text.Contains("must not", StringComparison.OrdinalIgnoreCase)));
+
     private static int DecisionClaimCount() => BriefFiles().Sum(brief => AdrClaims(brief).Length);
 
     private static int PathClaimCount() => BriefFiles().Sum(brief => PathClaims(brief).Length);
