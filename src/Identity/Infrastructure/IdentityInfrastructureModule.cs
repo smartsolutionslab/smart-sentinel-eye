@@ -50,8 +50,8 @@ public static class IdentityInfrastructureModule
 
         AddWebhookIntegrationStatusLookup(builder.Services);
         AddStartupSweeps(builder.Services);
-        AddCommandHandlers(builder.Services);
-        AddQueryHandlers(builder.Services);
+        AddCommandAndDomainEventHandlers(builder.Services);
+        AddQueryHandlersAndIdempotency(builder.Services);
         AddRevocationSource(builder.Services);
 
         builder.AddWolverineForContext<IdentityDbContext>(
@@ -134,7 +134,7 @@ public static class IdentityInfrastructureModule
             .AddHostedService<OrphanedClientSweepHostedService>();
     }
 
-    private static void AddCommandHandlers(IServiceCollection services)
+    private static void AddCommandAndDomainEventHandlers(IServiceCollection services)
     {
         // Domain event handler — fans out DeviceRegisteredV1 /
         // KioskEnrolledV1.
@@ -183,7 +183,7 @@ public static class IdentityInfrastructureModule
                     Result<WebhookClientCredentialsDto, RotateWebhookClientError>>,
                 RotateWebhookClientCommandHandler>();
 
-    private static void AddQueryHandlers(IServiceCollection services)
+    private static void AddQueryHandlersAndIdempotency(IServiceCollection services)
     {
         // Hand-rolled query handler registrations (read side; issues #826/#827).
         services.AddScoped<ListDevicesQueryHandler>();
