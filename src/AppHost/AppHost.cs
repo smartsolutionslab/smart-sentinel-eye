@@ -3,7 +3,7 @@ using SmartSentinelEye.AppHost;
 // Aspire composition root for Smart Sentinel Eye (ADR-0024).
 //
 // Resources wired here:
-// - postgres: per-context database "camera-catalog-db" + Keycloak's own "keycloak-db"
+// - postgres: one database per bounded context ("camera-catalog-db", ...); Keycloak has none here
 // - rabbitmq: shared broker with management plugin in dev
 // - keycloak: realm "smart-sentinel-eye" imported from Realms/ folder
 // - migrations: MigrationRunner that runs once on startup
@@ -506,7 +506,7 @@ auditObservability.WithIntegrationLaneTuning(eventIngestion, isE2ETests);
 // database, which only the migration runner waits on — so chaining
 // api-gateway behind all nine as well would inherit the union of those nine
 // chains and make it one of the last resources in the stack to reach Running, for
-// a guarantee that would still be incomplete — none of the three SPAs below
+// a guarantee that would still be incomplete — none of the five JavaScript apps below
 // wait for api-gateway either (WithReference only), so a request that beats
 // a backend here surfaces once, unretried, the same shape of race one layer
 // further out that this change does not touch. Same reasoning already
@@ -537,10 +537,12 @@ var apiGateway = builder
 
 apiGateway.WithRunLaneRateBudget(isRunMode, isE2ETests);
 
-// React apps per ADR-0074: two pnpm-workspace apps under apps/. Skipped in
-// test mode so the integration suite doesn't start two Node dev servers.
+// React apps per ADR-0074: five Vite dev-server resources (management-web, management-cameras,
+// management-event-ingestion, kiosk-web, kiosk-wall) over four pnpm-workspace
+// apps under apps/. Skipped in test mode so the integration suite doesn't start
+// five Node dev servers.
 // Endpoints are proxyless (isProxied: false): the Vite dev server binds the
-// fixed PORT (5173/5174) directly, so DCP must NOT also proxy that port — a
+// fixed PORT (5173-5177) directly, so DCP must NOT also proxy that port — a
 // shared port makes Vite fail to start with "Port is already in use".
 if (isRunMode && !isE2ETests)
 {
