@@ -57,15 +57,7 @@ public sealed class AzureBlobAuditChunkArchiver(
             .ToListAsync(cancellationToken);
 
         using MemoryStream payload = new();
-        await using (GZipStream gz = new(payload, CompressionLevel.Optimal, leaveOpen: true))
-        await using (StreamWriter writer = new(gz))
-        {
-            foreach (var row in rows)
-            {
-                await writer.WriteLineAsync(
-                    JsonSerializer.Serialize(BlobAuditRow.From(row)));
-            }
-        }
+        await WriteNdjsonAsync(payload, rows);
 
         payload.Position = 0;
 #pragma warning disable CA5351, S4790 // Content-MD5 is an integrity check, not a security primitive.
@@ -84,7 +76,33 @@ public sealed class AzureBlobAuditChunkArchiver(
         }
 
         payload.Position = 0;
-        await blob.UploadAsync(
+        await UploadPayloadAsync(blob, payload, md5Bytes, cancellationToken);
+
+        logger.ArchivedAuditChunk(chunk.ChunkIdentifier, rows.Count, objectKey);
+
+        return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: false);
+    }
+
+    private static async Task WriteNdjsonAsync(MemoryStream payload, List<AuditEventEntity> rows)
+    {
+        await using (GZipStream gz = new(payload, CompressionLevel.Optimal, leaveOpen: true))
+        await using (StreamWriter writer = new(gz))
+        {
+            foreach (var row in rows)
+            {
+                await writer.WriteLineAsync(
+                    JsonSerializer.Serialize(BlobAuditRow.From(row)));
+            }
+        }
+    }
+
+    private static Task<Response<BlobContentInfo>> UploadPayloadAsync(
+        BlobClient blob,
+        MemoryStream payload,
+        byte[] md5Bytes,
+        CancellationToken cancellationToken)
+    {
+        return blob.UploadAsync(
             payload,
             new BlobUploadOptions
             {
@@ -95,10 +113,6 @@ public sealed class AzureBlobAuditChunkArchiver(
                 },
             },
             cancellationToken);
-
-        logger.ArchivedAuditChunk(chunk.ChunkIdentifier, rows.Count, objectKey);
-
-        return new ChunkArchiveResult(objectKey, contentMd5, rows.Count, AlreadyArchived: false);
     }
 
     private static async Task<byte[]?> TryGetContentHashAsync(BlobClient blob, CancellationToken cancellationToken)
