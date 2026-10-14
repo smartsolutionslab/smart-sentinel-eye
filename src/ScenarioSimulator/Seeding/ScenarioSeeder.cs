@@ -41,86 +41,10 @@ public sealed class ScenarioSeeder(
                 continue;
             }
 
-            logger.SeedingScenario(scenario.Name, scenario.Assets.Count);
-
-            // Loaded once per scenario and shared with every asset below:
-            // the highlight's triggerSource derivation and the reaction
-            // manifest pre-filter would otherwise each read the same
-            // sidecar again. Scoped like the per-asset loop below, for the
-            // same reason (StopHost) — an I/O or JSON fault here must cost
-            // this scenario, not the whole simulator.
-            Dictionary<string, ClipManifestLoadResult> manifestsByClip;
-            try
-            {
-                manifestsByClip = ClipManifestLoader.LoadManifestsByClip(
-                    scenario.Assets.Select(asset => asset.Camera.Clip), scenarios.ClipsDirectory);
-                ReportUnreachableTriggers(key, scenario.Assets, manifestsByClip);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                failed++;
-                logger.ScenarioManifestLoadFailed(key, ex.Message);
-                continue;
-            }
-
-            foreach (var asset in scenario.Assets)
-            {
-                // Scoped, not swallowed. This is a `BackgroundService`, so an
-                // exception escaping here trips
-                // `BackgroundServiceExceptionBehavior.StopHost` and kills the whole
-                // simulator — the billet timeline, the CameraRegisteredV1 consumer
-                // and the rest of the seeding pass — while every other service
-                // stays healthy and the stack looks fine. That happened on a
-                // transient 30 s HTTP timeout, and the timeouts recur on every
-                // boot; only whether the retries fit the budget varies.
-                //
-                // So one asset's failure costs that asset. It is logged as a
-                // warning naming the scenario, the asset and the cause, and the
-                // run is reported as incomplete at the end — nothing here is
-                // silent, which is the distinction the constitution draws.
-                // `CameraSimReconciler` already treats a camera-sim outage this
-                // way, and the guards inside `CameraCatalogClient` and
-                // `OverlayDesignerClient` exist for exactly this reason, one call
-                // at a time; this is the same protection at the loop.
-                try
-                {
-                    await SeedOverlayAndRuleAsync(key, asset, manifestsByClip, stoppingToken);
-
-                    // Record the id whether the camera was created or already
-                    // existed: it is what correlates the camera to its wall tile,
-                    // and CameraRegisteredV1 only supplies it for a genuinely new
-                    // one. Null means the read-back could not determine it (logged
-                    // there); the wall simply stays incomplete rather than the seed
-                    // failing.
-                    var camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, stoppingToken);
-                    if (camera.HasValue)
-                    {
-                        correlation.RecordCamera(asset.Camera.Path, camera.Value);
-                    }
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    failed++;
-                    logger.AssetSeedFailed(key, asset.Key, ex.Message);
-                }
-            }
-
-            logger.ScenarioSeeded(scenario.Name);
+            failed += await SeedScenarioAsync(key, scenario, scenarios.ClipsDirectory, stoppingToken);
         }
 
-        // The event handler covers live registrations; this covers the restart
-        // where every camera already exists, so no event fires and the walls
-        // would otherwise never be rebuilt. Both are idempotent. Once, after all
-        // scenarios: it tries every wall and skips the incomplete ones.
-        try
-        {
-            await wall.TryCreateAsync(stoppingToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            failed++;
-            logger.WallSeedFailed(ex.Message);
-        }
+        failed += await SeedWallsAsync(stoppingToken);
 
         // Said once, at the end, so a partial seed is a statement rather than
         // something a reader has to reconstruct from scattered warnings. A stack
@@ -129,6 +53,108 @@ public sealed class ScenarioSeeder(
         if (failed > 0)
         {
             logger.SeedingIncomplete(failed);
+        }
+    }
+
+    private async Task<int> SeedScenarioAsync(
+        string key,
+        ScenarioDefinition scenario,
+        string clipsDirectory,
+        CancellationToken cancellationToken)
+    {
+        var failed = 0;
+
+        logger.SeedingScenario(scenario.Name, scenario.Assets.Count);
+
+        // Loaded once per scenario and shared with every asset below:
+        // the highlight's triggerSource derivation and the reaction
+        // manifest pre-filter would otherwise each read the same
+        // sidecar again. Scoped like the per-asset loop below, for the
+        // same reason (StopHost) — an I/O or JSON fault here must cost
+        // this scenario, not the whole simulator.
+        Dictionary<string, ClipManifestLoadResult> manifestsByClip;
+        try
+        {
+            manifestsByClip = ClipManifestLoader.LoadManifestsByClip(
+                scenario.Assets.Select(asset => asset.Camera.Clip), clipsDirectory);
+            ReportUnreachableTriggers(key, scenario.Assets, manifestsByClip);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.ScenarioManifestLoadFailed(key, ex.Message);
+            return 1;
+        }
+
+        foreach (var asset in scenario.Assets)
+        {
+            // Scoped, not swallowed. This is a `BackgroundService`, so an
+            // exception escaping here trips
+            // `BackgroundServiceExceptionBehavior.StopHost` and kills the whole
+            // simulator — the billet timeline, the CameraRegisteredV1 consumer
+            // and the rest of the seeding pass — while every other service
+            // stays healthy and the stack looks fine. That happened on a
+            // transient 30 s HTTP timeout, and the timeouts recur on every
+            // boot; only whether the retries fit the budget varies.
+            //
+            // So one asset's failure costs that asset. It is logged as a
+            // warning naming the scenario, the asset and the cause, and the
+            // run is reported as incomplete at the end — nothing here is
+            // silent, which is the distinction the constitution draws.
+            // `CameraSimReconciler` already treats a camera-sim outage this
+            // way, and the guards inside `CameraCatalogClient` and
+            // `OverlayDesignerClient` exist for exactly this reason, one call
+            // at a time; this is the same protection at the loop.
+            try
+            {
+                await SeedAssetAsync(key, asset, manifestsByClip, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                failed++;
+                logger.AssetSeedFailed(key, asset.Key, ex.Message);
+            }
+        }
+
+        logger.ScenarioSeeded(scenario.Name);
+        return failed;
+    }
+
+    private async Task SeedAssetAsync(
+        string key,
+        AssetDefinition asset,
+        IReadOnlyDictionary<string, ClipManifestLoadResult> manifestsByClip,
+        CancellationToken cancellationToken)
+    {
+        await SeedOverlayAndRuleAsync(key, asset, manifestsByClip, cancellationToken);
+
+        // Record the id whether the camera was created or already
+        // existed: it is what correlates the camera to its wall tile,
+        // and CameraRegisteredV1 only supplies it for a genuinely new
+        // one. Null means the read-back could not determine it (logged
+        // there); the wall simply stays incomplete rather than the seed
+        // failing.
+        var camera = await catalog.RegisterCameraAsync(asset.Name, asset.Camera.Path, cancellationToken);
+        if (camera.HasValue)
+        {
+            correlation.RecordCamera(asset.Camera.Path, camera.Value);
+        }
+    }
+
+    // The event handler covers live registrations; this covers the restart
+    // where every camera already exists, so no event fires and the walls
+    // would otherwise never be rebuilt. Both are idempotent. Once, after all
+    // scenarios: it tries every wall and skips the incomplete ones.
+    private async Task<int> SeedWallsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await wall.TryCreateAsync(cancellationToken);
+            return 0;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.WallSeedFailed(ex.Message);
+            return 1;
         }
     }
 
