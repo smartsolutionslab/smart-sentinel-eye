@@ -24,9 +24,10 @@ namespace SmartSentinelEye.SystemVariables.Infrastructure.Tests.Resolution;
 /// </para>
 ///
 /// <para>
-/// Spec 349 section 6 oddity (d) is pinned as it is: an identifier that is not a
-/// Guid aborts the seed partway, so the overlays before it stay upserted, the
-/// ones after it are never reached, and the count line is never logged.
+/// Spec 349 section 6 oddity (d) was fixed by spec 358: an identifier that is
+/// not a Guid, or not a string at all, is skipped like an overlay with no
+/// identifier, so the overlays after it are still seeded and the count line is
+/// still logged.
 /// </para>
 /// </summary>
 public class ReverseIndexSeederBranchCharacterisationTests
@@ -138,13 +139,13 @@ public class ReverseIndexSeederBranchCharacterisationTests
     }
 
     [Fact]
-    public async Task A_non_guid_identifier_aborts_the_seed_after_the_overlays_before_it()
+    public async Task A_non_guid_identifier_is_skipped_and_the_overlays_after_it_are_still_seeded()
     {
         var body = $$$"""
             {
               "published": [
                 { "overlayIdentifier": "{{{FirstOverlay}}}", "elements": [ { "kind": "Text", "text": "A {{x}}" } ] },
-                { "overlayIdentifier": "not-a-guid", "elements": [ { "kind": "Text", "text": "never reached" } ] },
+                { "overlayIdentifier": "not-a-guid", "elements": [ { "kind": "Text", "text": "skipped" } ] },
                 { "overlayIdentifier": "{{{ThirdOverlay}}}", "elements": [ { "kind": "Text", "text": "C {{z}}" } ] }
               ]
             }
@@ -152,15 +153,39 @@ public class ReverseIndexSeederBranchCharacterisationTests
 
         var seed = await RunAsync(HttpStatusCode.OK, body);
 
-        var upsert = seed.Upserts.ShouldHaveSingleItem();
-        upsert.Overlay.ShouldBe(Guid.Parse(FirstOverlay));
-        upsert.Texts.ShouldBe(["A {{x}}"]);
+        seed.Upserts.Count.ShouldBe(2);
+        seed.Upserts[0].Overlay.ShouldBe(Guid.Parse(FirstOverlay));
+        seed.Upserts[0].Texts.ShouldBe(["A {{x}}"]);
+        seed.Upserts[1].Overlay.ShouldBe(Guid.Parse(ThirdOverlay));
+        seed.Upserts[1].Texts.ShouldBe(["C {{z}}"]);
         var entry = seed.Logger.Entries.ShouldHaveSingleItem();
-        entry.Level.ShouldBe(LogLevel.Warning);
-        entry.Message.ShouldBe(
-            "ReverseIndex seed failed; starting with empty index. Self-heal will kick in as overlay V1 events arrive.");
-        entry.Exception.ShouldNotBeNull().GetType().ShouldBe(typeof(FormatException));
-        entry.Exception.Message.ShouldBe("One of the identified items was in an invalid format.");
+        entry.Level.ShouldBe(LogLevel.Information);
+        entry.Message.ShouldBe("ReverseIndex seeded with 2 published overlays.");
+    }
+
+    [Fact]
+    public async Task A_non_string_identifier_is_skipped_like_a_non_guid_one()
+    {
+        var body = $$$"""
+            {
+              "published": [
+                { "overlayIdentifier": "{{{FirstOverlay}}}", "elements": [ { "kind": "Text", "text": "A {{x}}" } ] },
+                { "overlayIdentifier": 42, "elements": [ { "kind": "Text", "text": "skipped" } ] },
+                { "overlayIdentifier": "{{{ThirdOverlay}}}", "elements": [ { "kind": "Text", "text": "C {{z}}" } ] }
+              ]
+            }
+            """;
+
+        var seed = await RunAsync(HttpStatusCode.OK, body);
+
+        seed.Upserts.Count.ShouldBe(2);
+        seed.Upserts[0].Overlay.ShouldBe(Guid.Parse(FirstOverlay));
+        seed.Upserts[0].Texts.ShouldBe(["A {{x}}"]);
+        seed.Upserts[1].Overlay.ShouldBe(Guid.Parse(ThirdOverlay));
+        seed.Upserts[1].Texts.ShouldBe(["C {{z}}"]);
+        var entry = seed.Logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Information);
+        entry.Message.ShouldBe("ReverseIndex seeded with 2 published overlays.");
     }
 
     [Fact]
