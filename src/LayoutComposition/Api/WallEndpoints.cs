@@ -21,6 +21,16 @@ public static partial class WallEndpoints
         var group = app.MapGroup("/walls")
             .WithTags("Walls");
 
+        MapCreateWall(group);
+        MapGetWall(group);
+        MapListWalls(group);
+        MapEditWallScenes(group);
+        MapSwitchWallScene(group);
+
+        return app;
+    }
+
+    private static void MapCreateWall(RouteGroupBuilder group) =>
         group.MapPost("/", CreateWall)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("CreateWall")
@@ -34,6 +44,7 @@ public static partial class WallEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+    private static void MapGetWall(RouteGroupBuilder group) =>
         group.MapGet("/{wallIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("GetWall")
@@ -46,6 +57,7 @@ public static partial class WallEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapListWalls(RouteGroupBuilder group) =>
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("ListWalls")
@@ -55,6 +67,7 @@ public static partial class WallEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapEditWallScenes(RouteGroupBuilder group) =>
         group.MapPut("/{wallIdentifier:guid}/scenes", EditScenes)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("EditWallScenes")
@@ -69,6 +82,7 @@ public static partial class WallEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapSwitchWallScene(RouteGroupBuilder group) =>
         group.MapPost("/{wallIdentifier:guid}/switch", Switch)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("SwitchWallScene")
@@ -82,7 +96,4 @@ public static partial class WallEndpoints
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
-    }
 }
