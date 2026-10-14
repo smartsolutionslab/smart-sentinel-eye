@@ -213,13 +213,19 @@ public sealed class RotateWebhookClientCommandHandler(
         RotateWebhookClientCommand command,
         ClientId clientId,
         Option<RegisteredClientAggregate> existing,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken) =>
+        existing.HasValue
+            ? await RollSecretAsync(existing.Value, clientId, cancellationToken)
+            : await RegisterAsync(command, clientId, cancellationToken);
+
+    // Only the Keycloak call is guarded: a SaveAsync failure is a persistence
+    // fault, not a Keycloak outage, and must propagate instead of becoming 502.
+    private static async Task<Result<string, RotateWebhookClientError>> CallKeycloakAsync(
+        Func<Task<string>> call)
     {
         try
         {
-            return Success(existing.HasValue
-                ? await RollSecretAsync(existing.Value, clientId, cancellationToken)
-                : await RegisterAsync(command, clientId, cancellationToken));
+            return Success(await call());
         }
         catch (KeycloakClientAlreadyExistsException)
         {
@@ -235,18 +241,13 @@ public sealed class RotateWebhookClientCommandHandler(
             return Failure(RotateWebhookClientFailures.WebhookClientNameConflict());
         }
         catch (Exception ex) when (ex is not OperationCanceledException
-                                   and not InvalidOperationException
-                                   // A Layer-2 loser's DbUpdateConcurrencyException must propagate
-                                   // to ConcurrencyConflictExceptionHandler's 409
-                                   // AGGREGATE_VERSION_STALE (ADR-0113), not be swallowed here as
-                                   // 502 KEYCLOAK_UNAVAILABLE.
-                                   and not DbUpdateConcurrencyException)
+                                   and not InvalidOperationException)
         {
             return Failure(RotateWebhookClientFailures.KeycloakUnavailable(ex.Message));
         }
     }
 
-    private async Task<RotationOutcome> RollSecretAsync(
+    private async Task<Result<RotationOutcome, RotateWebhookClientError>> RollSecretAsync(
         RegisteredClientAggregate aggregate,
         ClientId clientId,
         CancellationToken cancellationToken)
@@ -265,22 +266,29 @@ public sealed class RotateWebhookClientCommandHandler(
         aggregate.Rotate(clock);
         await clients.SaveAsync(cancellationToken);
 
-        var rolled = await keycloak
-            .RotateClientSecretAsync(clientId.Value, cancellationToken);
-        return new RotationOutcome(aggregate, rolled.ClientSecret);
+        var secret = await CallKeycloakAsync(async () =>
+            (await keycloak.RotateClientSecretAsync(clientId.Value, cancellationToken)).ClientSecret);
+        return secret.IsFailure
+            ? Failure(secret.Error)
+            : Success(new RotationOutcome(aggregate, secret.Value));
     }
 
-    private async Task<RotationOutcome> RegisterAsync(
+    private async Task<Result<RotationOutcome, RotateWebhookClientError>> RegisterAsync(
         RotateWebhookClientCommand command,
         ClientId clientId,
         CancellationToken cancellationToken)
     {
         (var integrationName, var fab, var rotatedBy, _) = command;
 
-        var credentials = await keycloak.CreateClientAsync(
-            WebhookRepresentation(clientId, integrationName, fab),
-            fabGroupPath: $"/fabs/{fab.Value}",
-            cancellationToken);
+        var secret = await CallKeycloakAsync(async () =>
+            (await keycloak.CreateClientAsync(
+                WebhookRepresentation(clientId, integrationName, fab),
+                fabGroupPath: $"/fabs/{fab.Value}",
+                cancellationToken)).ClientSecret);
+        if (secret.IsFailure)
+        {
+            return Failure(secret.Error);
+        }
 
         var aggregate = RegisteredClientAggregate.Register(
             clientId, ClientKind.WebhookIntegration,
@@ -293,7 +301,7 @@ public sealed class RotateWebhookClientCommandHandler(
         // take the rotate branch and try to roll a secret for a
         // Keycloak client that was never created.
         await clients.SaveAsync(cancellationToken);
-        return new RotationOutcome(aggregate, credentials.ClientSecret);
+        return Success(new RotationOutcome(aggregate, secret.Value));
     }
 
     private static KeycloakClientRepresentation WebhookRepresentation(
