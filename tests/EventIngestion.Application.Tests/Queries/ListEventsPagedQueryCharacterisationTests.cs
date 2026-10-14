@@ -13,7 +13,10 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Queries;
 /// orders, evaluated by LINQ-to-objects over an in-memory source. The SQL
 /// translation of the same query is pinned separately by the Infrastructure
 /// and Integration tests. These must pass unmodified after the method is
-/// split into helpers.
+/// split into helpers. The cursor is the pair (ingested time, event
+/// identifier), spec 360: dropping the identifier tie-break turns the
+/// tied-row test red, and changing <c>CompareTo(...) &lt; 0</c> to
+/// <c>&lt;= 0</c> turns the last-tied-row test red.
 /// </summary>
 public class ListEventsPagedQueryCharacterisationTests
 {
@@ -147,15 +150,23 @@ public class ListEventsPagedQueryCharacterisationTests
     }
 
     [Fact]
-    public void The_cursor_is_strict_on_the_ingested_time()
+    public void A_cursor_on_a_tied_ingested_time_serves_the_tied_rows_with_a_smaller_identifier()
     {
-        var older = Ingest(1, ingestedAt: Noon.AddMinutes(-1));
-        var atCursor = Ingest(2, ingestedAt: Noon);
-        var newer = Ingest(3, ingestedAt: Noon.AddMinutes(1));
+        var events = TiedAtNoonWithOneOlder();
 
-        var ids = Run([older, atCursor, newer], Query(), cursor: (Noon, Guid.Empty));
+        var ids = Run(events, Query(), cursor: (Noon, IdentifierOf(2)));
 
-        ids.ShouldBe([1]);
+        ids.ShouldBe([1, 4]);
+    }
+
+    [Fact]
+    public void A_cursor_on_the_last_tied_row_serves_only_older_rows()
+    {
+        var events = TiedAtNoonWithOneOlder();
+
+        var ids = Run(events, Query(), cursor: (Noon, IdentifierOf(1)));
+
+        ids.ShouldBe([4]);
     }
 
     [Fact]
@@ -192,6 +203,17 @@ public class ListEventsPagedQueryCharacterisationTests
             .ToList()
             .Select(Number)
             .ToList();
+
+    private static EventAggregate[] TiedAtNoonWithOneOlder() =>
+    [
+        Ingest(3, ingestedAt: Noon),
+        Ingest(2, ingestedAt: Noon),
+        Ingest(1, ingestedAt: Noon),
+        Ingest(4, ingestedAt: Noon.AddMinutes(-1)),
+    ];
+
+    private static Guid IdentifierOf(int number) =>
+        new(0, 0, 0, [0, 0, 0, 0, 0, 0, 0, (byte)number]);
 
     private static ListEventsQuery Query() =>
         new([Munich], null, null, null, null, null, null, null, 100, null);
