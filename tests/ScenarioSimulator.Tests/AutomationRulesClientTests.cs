@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
@@ -154,6 +155,87 @@ public class AutomationRulesClientTests
         automation.Calls.ShouldNotContain(call => call.PathAndQuery.Contains("/publish", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public async Task A_published_highlight_rule_logs_the_overlay()
+    {
+        var overlay = Guid.CreateVersion7();
+        RecordingLogger<AutomationRulesClient> logger = new();
+        RuleSeed seed = new("press-hot", "plc", "PlcCycleStart", "$.device == 'press-1'", new RuleSeedAction.HighlightOverlay(overlay, 5_000));
+
+        await SeedWithAsync(seed, new StubHandler(_ => Respond(HttpStatusCode.Created)), new StubHandler(TokenResponse), logger);
+
+        logger.Entries.ShouldContain(entry =>
+            entry.Level == LogLevel.Information && entry.Message == $"Seeded rule 'press-hot' -> overlay {overlay}.");
+    }
+
+    [Fact]
+    public async Task A_published_variable_rule_logs_the_variable()
+    {
+        RecordingLogger<AutomationRulesClient> logger = new();
+        RuleSeed seed = new("press-hot", "plc", "PlcCycleStart", "$.device == 'press-1'", new RuleSeedAction.SetVariableValue("cycle-state", "1"));
+
+        await SeedWithAsync(seed, new StubHandler(_ => Respond(HttpStatusCode.Created)), new StubHandler(TokenResponse), logger);
+
+        logger.Entries.ShouldContain(entry =>
+            entry.Level == LogLevel.Information && entry.Message == "Seeded rule 'press-hot' -> variable 'cycle-state'.");
+    }
+
+    [Fact]
+    public async Task The_publish_request_carries_the_bearer_token_and_the_If_Match_precondition()
+    {
+        StubHandler automation = new(_ => Respond(HttpStatusCode.Created));
+        RuleSeed seed = new("press-hot", "plc", "PlcCycleStart", "$.device == 'press-1'", new RuleSeedAction.HighlightOverlay(Guid.CreateVersion7(), 5_000));
+
+        await SeedWithAsync(seed, automation, new StubHandler(TokenResponse), new RecordingLogger<AutomationRulesClient>());
+
+        var publish = automation.Calls[^1];
+        publish.PathAndQuery.ShouldBe("/rules/press-hot/publish?fabId=munich");
+        publish.Authorization.ShouldBe("Bearer stub-token");
+        publish.IfMatch.ShouldBe("\"0\"");
+    }
+
+    [Fact]
+    public async Task An_unsupported_action_throws_before_any_token_is_fetched_or_request_sent()
+    {
+        StubHandler automation = new(_ => Respond(HttpStatusCode.Created));
+        StubHandler keycloak = new(TokenResponse);
+        RuleSeed seed = new("press-hot", "plc", "PlcCycleStart", "$.device == 'press-1'", new UnsupportedAction());
+
+        await Should.ThrowAsync<NotSupportedException>(
+            () => SeedWithAsync(seed, automation, keycloak, new RecordingLogger<AutomationRulesClient>()));
+
+        keycloak.Calls.ShouldBeEmpty();
+        automation.Calls.ShouldBeEmpty();
+    }
+
+    private sealed record UnsupportedAction : RuleSeedAction;
+
+    private static HttpResponseMessage TokenResponse(Call call) =>
+        RespondJson("""{"access_token":"stub-token","expires_in":300,"token_type":"Bearer"}""");
+
+    private static Task<RuleSeedResult> SeedWithAsync(
+        RuleSeed seed,
+        StubHandler automation,
+        StubHandler keycloak,
+        ILogger<AutomationRulesClient> logger)
+    {
+        KeycloakTokenProvider provider = new(
+            new FakeHttpClientFactory(new HttpClient(keycloak)),
+            Options.Create(new SimulatorOptions
+            {
+                KeycloakUrl = "https://keycloak.test",
+                Realm = "smart-sentinel-eye",
+                ClientId = "scenario-simulator",
+                ClientSecret = "stub-secret",
+            }),
+            TimeProvider.System,
+            NullLogger<KeycloakTokenProvider>.Instance);
+
+        HttpClient http = new(automation) { BaseAddress = new Uri("https://automation.test") };
+
+        return new AutomationRulesClient(http, provider, logger).EnsureRuleAsync(seed, CancellationToken.None);
+    }
+
     /// <summary>
     /// Kept alongside <see cref="SeedAsync"/> (which the five tests above use
     /// and ignore the result of) as the one that returns the
@@ -228,7 +310,7 @@ public class AutomationRulesClientTests
     private static HttpResponseMessage RespondJson(string body) =>
         new(HttpStatusCode.OK) { Content = new StringContent(body, Encoding.UTF8, "application/json") };
 
-    private sealed record Call(string Method, string Path, string PathAndQuery, string IfMatch);
+    private sealed record Call(string Method, string Path, string PathAndQuery, string IfMatch, string? Authorization);
 
     /// <summary>
     /// Records what was sent and answers from a per-request rule. Headers are
@@ -247,7 +329,8 @@ public class AutomationRulesClientTests
                 request.RequestUri.PathAndQuery,
                 request.Headers.TryGetValues("If-Match", out var values)
                     ? string.Join(",", values)
-                    : string.Empty);
+                    : string.Empty,
+                request.Headers.Authorization?.ToString());
 
             Calls.Add(call);
 

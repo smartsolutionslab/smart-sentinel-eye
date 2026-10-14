@@ -386,6 +386,57 @@ public sealed class ClipManifestValidationTests
         }
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void A_blank_clips_directory_gives_no_manifest_and_no_violations(string clipsDirectory)
+    {
+        var result = ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4");
+
+        result.Manifest.HasValue.ShouldBeFalse();
+        result.Violations.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_blank_clips_directory_does_not_fall_back_to_a_sidecar_in_the_working_directory()
+    {
+        var clip = "sse-cwd-" + Guid.NewGuid();
+        var stray = Path.Combine(Environment.CurrentDirectory, clip + ".cues.json");
+        await File.WriteAllTextAsync(stray, $$"""{ "Clip": "{{clip}}.mp4", "DurationMs": 1000, "Cues": [] }""");
+        try
+        {
+            var result = ClipManifestLoader.Load(string.Empty, clip + ".mp4");
+
+            result.Manifest.HasValue.ShouldBeFalse();
+            result.Violations.ShouldBeEmpty();
+        }
+        finally
+        {
+            File.Delete(stray);
+        }
+    }
+
+    [Fact]
+    public async Task A_sidecar_containing_json_null_is_one_did_not_deserialize_violation()
+    {
+        var clipsDirectory = CreateTempClipsDirectory();
+        try
+        {
+            var sidecar = Path.Combine(clipsDirectory, "mill-roughing.cues.json");
+            await File.WriteAllTextAsync(sidecar, "null");
+
+            var result = ClipManifestLoader.Load(clipsDirectory, "mill-roughing.mp4");
+
+            result.Manifest.HasValue.ShouldBeFalse();
+            var violation = result.Violations.ShouldHaveSingleItem();
+            violation.Message.ShouldBe($"'{sidecar}' did not deserialize to a manifest.");
+        }
+        finally
+        {
+            Directory.Delete(clipsDirectory, recursive: true);
+        }
+    }
+
     private static string CreateTempClipsDirectory()
     {
         var directory = Path.Combine(Path.GetTempPath(), "sse-cues-" + Guid.NewGuid());
