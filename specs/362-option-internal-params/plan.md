@@ -64,8 +64,8 @@ The two are disjoint and can run in parallel.
 | `TryParseTarget` / `ParseTarget` | `WallSceneSwitchRequestedV1HandlerTests`: `A_Layout_target_switches_the_wall_with_cause_Rule`, `A_Next_target_switches_the_wall_with_cause_Rule`, `FR010f_An_unknown_target_contract_violation_is_dropped_and_logged`, `FR010f_Layout_with_no_TargetLayout_is_dropped_and_logged`, `Drops_a_through_c_never_consume_a_dedup_key`; `WallSceneSwitchRequestLogSlotCharacterisationTests` | `FR010f_Next_with_a_TargetLayout_is_dropped_and_logged`; `FR010f_Layout_with_an_empty_TargetLayout_is_dropped_and_logged` |
 | `ResolutionOf` / `FindInAnyFabAsync` | `VariableSnapshotBuilderTests` (all 6, notably `A_defined_set_non_archived_variable_resolves`, `A_defined_variable_with_no_value_yet_is_Unset`, `A_name_held_in_two_fabs_resolves_in_the_first_by_ordinal_fab_name`); `VariableSnapshotBuilderOrderCharacterisationTests` (all 3); `ResolveOverlayTextQueryHandlerTests.The_entry_names_the_fab_that_answered_under_the_ordinal_tiebreak` | none needed |
 
-The new tests go in the existing `WallSceneSwitchRequestedV1HandlerTests` class (already in a shard
-filter — no `ci-shards/*.filter` edit; verify with a grep before committing).
+The new tests go in the existing `WallSceneSwitchRequestedV1HandlerTests` class (a unit-test project;
+`ci-shards/*.filter` covers Integration.Tests only, so no filter edit).
 
 Counterfactual for the new tests: dropping `when !targetLayout.HasValue` from the `Next` arm turns
 `FR010f_Next_with_a_TargetLayout…` red; moving `LayoutIdentifier.From` out of the `try` turns
