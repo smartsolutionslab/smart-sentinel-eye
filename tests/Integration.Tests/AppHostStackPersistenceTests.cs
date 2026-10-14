@@ -112,7 +112,7 @@ public class AppHostStackPersistenceTests
 
     /// <summary>
     /// FR-002 / spec scenario 1. <b>Expected red on the unfixed tree</b>:
-    /// <c>AppHost.cs</c> gates every <c>WithLifetime(ContainerLifetime.Persistent)</c>
+    /// <c>DeveloperLanePersistence.cs</c> gates every <c>WithLifetime(ContainerLifetime.Persistent)</c>
     /// on <c>isRunMode &amp;&amp; !isE2ETests</c> alone — no <c>PersistentStack</c>
     /// switch exists yet — so the e2e lane's own boot arguments still compose
     /// every container a developer's <c>aspire run</c> does.

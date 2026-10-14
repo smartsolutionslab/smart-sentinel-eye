@@ -41,7 +41,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// <b>What this does not govern.</b> <c>AppHost.cs</c>'s <c>isE2ETests</c>
+/// <b>What this does not govern.</b> <c>IntegrationLaneOverrides.cs</c>'s <c>isE2ETests</c>
 /// override (<c>PermitLimit=50</c>, <c>Window=00:00:10</c>, sized for 27 known
 /// integration-lane authorize consumers) is correct as written and out of
 /// scope. <c>appsettings.Development.json</c> carries no such section and is
@@ -66,7 +66,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// command line, each superseding the last. This guard reads only the shipped
 /// <b>file</b>, so it asserts what ships, not what a given host resolves at
 /// runtime. Today exactly one thing supersedes it, deliberately and out of
-/// scope: <c>AppHost.cs:441-442</c>'s <c>isE2ETests</c> block sets
+/// scope: <c>WithIntegrationLaneWhepCeiling</c> (<c>IntegrationLaneOverrides.cs</c>, called from <c>AppHost.cs</c>) sets
 /// <c>WhepAuthorizeRateLimiting__PermitLimit</c> / <c>__Window</c> as
 /// environment variables for the integration lane. An env var or a Development
 /// override introduced anywhere else would supersede this file at runtime

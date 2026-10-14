@@ -13,21 +13,21 @@ namespace SmartSentinelEye.Integration.Tests.StreamDistribution;
 /// <para>
 /// <b>Red, deliberately, for T003/T005/T006's declaration case.</b> T001+T002
 /// (commit <c>df311774</c>) landed only the configuration — <c>appsettings.json</c>'s
-/// production default and <c>AppHost.cs</c>'s <c>isE2ETests</c> override — and
+/// production default and the <c>isE2ETests</c> override in <c>IntegrationLaneOverrides.cs</c> — and
 /// nothing reads it yet. No policy is registered, so every request today is
 /// answered on its own merits, however many are sent.
 /// </para>
 ///
 /// <para>
-/// <b>The test-mode ceiling, not the production one.</b> <c>AppHost.cs</c>
-/// overrides <c>WhepAuthorizeRateLimiting__PermitLimit=50</c> and
+/// <b>The test-mode ceiling, not the production one.</b> <c>IntegrationLaneOverrides.cs</c>
+/// (<c>WithIntegrationLaneWhepCeiling</c>) overrides <c>WhepAuthorizeRateLimiting__PermitLimit=50</c> and
 /// <c>:Window=00:00:10</c> for the integration lane (<c>isE2ETests</c>), because
 /// the production ceiling (2000/min) cannot be exhausted from a test host without
 /// poisoning every other test on this shared fixture's one address for the rest
 /// of that minute (plan.md §Test-mode ceiling). <c>PermitLimit</c> was raised
 /// from its original <c>20</c> to <c>30</c>, then to <c>50</c> (spec 208 review
 /// S8), because this same collapsed partition is shared by more than just this
-/// class's own exhaustion technique — see <c>AppHost.cs</c>'s comment above the
+/// class's own exhaustion technique — see <c>IntegrationLaneOverrides.cs</c>'s comment above the
 /// override for the full accounting of every consumer. It is written here as
 /// the literal <c>50</c> rather than read live from the running service's
 /// configuration: no existing test helper resolves a downstream service's bound
@@ -78,7 +78,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     private const string StreamDistributionResource = "stream-distribution";
 
     /// <summary>
-    /// Matches <c>AppHost.cs</c>'s <c>isE2ETests</c> override, not the
+    /// Matches <c>IntegrationLaneOverrides.cs</c>'s <c>isE2ETests</c> override, not the
     /// production default in <c>appsettings.json</c> — see the class doc for
     /// why this is a literal rather than a live config read. Raised from the
     /// original <c>20</c> to <c>30</c> to give
@@ -89,14 +89,14 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// <c>WhepAuthIntegrationTests</c>' own 6 authorize POSTs on this same
     /// partition were accounted for (21 + 6 = 27 of 30) — tight enough that
     /// the next added authorize-related test could reintroduce the exact bug
-    /// this ceiling exists to avoid. See <c>AppHost.cs</c>'s comment above
+    /// this ceiling exists to avoid. See <c>IntegrationLaneOverrides.cs</c>'s comment above
     /// its override for the full three-consumer accounting
     /// (<c>WhepHandshakeLatencyTests</c>, <c>WhepAuthIntegrationTests</c>,
     /// and this class's own <see cref="ExhaustWindowAsync"/>).
     /// </summary>
     private const int PermitLimit = 50;
 
-    /// <summary>Matches <c>AppHost.cs</c>'s <c>isE2ETests</c> override.</summary>
+    /// <summary>Matches <c>IntegrationLaneOverrides.cs</c>'s <c>isE2ETests</c> override.</summary>
     private static readonly TimeSpan Window = TimeSpan.FromSeconds(10);
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);

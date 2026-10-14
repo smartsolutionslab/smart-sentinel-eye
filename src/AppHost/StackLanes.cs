@@ -14,7 +14,7 @@ internal sealed record StackLanes(
         // delivered that: the end-to-end job boots with a plain `dotnet run` — run
         // mode, flag unset — so the simulator has started there for as long as it has
         // existed (#2013). It cannot simply join the `E2ETests` gate, because that flag
-        // also removes the three Vite apps the Playwright suite drives and spec 056's
+        // also removes the five Vite apps the Playwright suite drives and spec 056's
         // `fixture-video`. Absent or unparseable means a developer's `aspire run`, the
         // only place it is wanted.
         var isScenarioSimulatorEnabled =
