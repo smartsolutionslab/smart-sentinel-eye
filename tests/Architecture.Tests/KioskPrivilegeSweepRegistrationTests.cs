@@ -133,9 +133,8 @@ public class KioskPrivilegeSweepRegistrationTests
             "AddIdentityInfrastructure registers no startup service that drives KioskPrivilegeSweep "
             + "when the Identity API starts. A client stamped "
             + "sse.kind=kiosk that HttpKeycloakAdminClient.TryDeleteClientAsync could not remove "
-            + "keeps offline_access for as long as the realm lives, and the best-effort comment "
-            + "in TryDeleteClientAsync (HttpKeycloakAdminClient.cs:363) delegates that case "
-            + "here by name.");
+            + "keeps offline_access for as long as the realm lives unless this sweep takes it "
+            + "(the client itself is OrphanedClientSweep's, not this sweep's).");
     }
 
     [Fact]
