@@ -189,6 +189,70 @@ public sealed class ReactionRuleSeedTests
         result.ShouldBeOfType<ReactionSeedResult.Refused>();
     }
 
+    [Theory]
+    [InlineData("", "ObjectDetected", "$.payload.class == 'person'", "trigger Source must not be blank.")]
+    [InlineData("   ", "ObjectDetected", "$.payload.class == 'person'", "trigger Source must not be blank.")]
+    [InlineData("inference", "", "$.payload.class == 'person'", "trigger Kind must not be blank.")]
+    [InlineData("inference", "   ", "$.payload.class == 'person'", "trigger Kind must not be blank.")]
+    [InlineData("inference", "ObjectDetected", "", "trigger Predicate must not be blank.")]
+    [InlineData("inference", "ObjectDetected", "   ", "trigger Predicate must not be blank.")]
+    public void A_blank_trigger_part_is_refused_with_its_own_reason(
+        string source, string kind, string predicate, string expectedReason)
+    {
+        var reaction = Reaction("person-in-exclusion", source, kind, predicate, "HighlightOverlay", durationMs: 4_000);
+
+        var result = ReactionRuleSeed.From("rolling-mill", Asset, reaction, Overlay);
+
+        var refused = result.ShouldBeOfType<ReactionSeedResult.Refused>();
+        refused.Reason.ShouldBe(expectedReason);
+    }
+
+    [Fact]
+    public void A_blank_source_and_kind_report_the_source()
+    {
+        var reaction = Reaction("person-in-exclusion", "", "", "", "HighlightOverlay", durationMs: 4_000);
+
+        var result = ReactionRuleSeed.From("rolling-mill", Asset, reaction, Overlay);
+
+        var refused = result.ShouldBeOfType<ReactionSeedResult.Refused>();
+        refused.Reason.ShouldBe("trigger Source must not be blank.");
+    }
+
+    [Fact]
+    public void A_blank_kind_and_predicate_report_the_kind()
+    {
+        var reaction = Reaction("person-in-exclusion", "inference", "", "", "HighlightOverlay", durationMs: 4_000);
+
+        var result = ReactionRuleSeed.From("rolling-mill", Asset, reaction, Overlay);
+
+        var refused = result.ShouldBeOfType<ReactionSeedResult.Refused>();
+        refused.Reason.ShouldBe("trigger Kind must not be blank.");
+    }
+
+    [Fact]
+    public void A_blank_trigger_is_refused_before_the_action_type_is_considered()
+    {
+        var reaction = Reaction("person-in-exclusion", "inference", "ObjectDetected", "", "SwitchWallScene", durationMs: null);
+
+        var result = ReactionRuleSeed.From("rolling-mill", Asset, reaction, Overlay);
+
+        var refused = result.ShouldBeOfType<ReactionSeedResult.Refused>();
+        refused.Reason.ShouldBe("trigger Predicate must not be blank.");
+    }
+
+    [Fact]
+    public void An_invalid_name_is_refused_before_a_blank_trigger()
+    {
+        var reaction = Reaction("Person In Exclusion", "", "", "", "HighlightOverlay", durationMs: 4_000);
+
+        var result = ReactionRuleSeed.From("rolling-mill", Asset, reaction, Overlay);
+
+        var refused = result.ShouldBeOfType<ReactionSeedResult.Refused>();
+        refused.Reason.ShouldBe(
+            "'rolling-mill-station-4-roughing-Person In Exclusion' is not a valid rule name "
+            + "(2-63 chars, lowercase letter then lowercase/digit/'-').");
+    }
+
     private static ReactionDefinition Reaction(
         string name, string source, string kind, string predicate, string actionType, int? durationMs) =>
         new()
