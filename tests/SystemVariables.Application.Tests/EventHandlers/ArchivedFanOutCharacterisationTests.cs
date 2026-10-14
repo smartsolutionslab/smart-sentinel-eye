@@ -28,6 +28,12 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.EventHandlers;
 /// </para>
 ///
 /// <para>
+/// Spec 349 section 6 oddity (a) was fixed by spec 358: the count in the log
+/// names only the overlays a message was pushed for, not one that was skipped
+/// for having no cached label texts.
+/// </para>
+///
+/// <para>
 /// Spec 349 section 6 oddity (b) is pinned as it is: with no overlay referencing
 /// the variable the handler publishes the V1 and logs nothing at all, where the
 /// value-changed handler logs at debug.
@@ -123,7 +129,7 @@ public class ArchivedFanOutCharacterisationTests
     }
 
     [Fact]
-    public async Task The_versions_are_advanced_once_and_the_log_counts_the_overlay_that_was_skipped()
+    public async Task The_versions_are_advanced_once_and_the_log_counts_only_the_pushed_overlay()
     {
         var run = await RunAsync(
             "munich",
@@ -137,7 +143,7 @@ public class ArchivedFanOutCharacterisationTests
         run.Versions.AdvanceCalls.ShouldHaveSingleItem().ShouldBe([OverlayA, OverlayB]);
         var entry = run.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
-        entry.Message.ShouldBe("Pushed ResolvedOverlayTextChanged to 2 overlays after 'retired' was archived.");
+        entry.Message.ShouldBe("Pushed ResolvedOverlayTextChanged to 1 overlays after 'retired' was archived.");
     }
 
     [Fact]
