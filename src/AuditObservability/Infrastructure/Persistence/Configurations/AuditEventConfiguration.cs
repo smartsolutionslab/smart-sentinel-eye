@@ -18,6 +18,15 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
     {
         Ensure.That(builder).IsNotNull();
 
+        ConfigureTableKeyAndTimestamps(builder);
+        ConfigureFabAndEventKindColumns(builder);
+        ConfigureResourceActorAndEventIdentifierColumns(builder);
+        ConfigurePayloadAndSchemaVersion(builder);
+        ConfigureIndexes(builder);
+    }
+
+    private static void ConfigureTableKeyAndTimestamps(EntityTypeBuilder<AuditEventEntity> builder)
+    {
         builder.ToTable("audit_events");
 
         // Composite key including occurred_at: TimescaleDB requires the
@@ -57,7 +66,10 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
         builder.Property(auditEvent => auditEvent.WrittenAt)
             .HasColumnName("written_at")
             .HasConversion(writtenAt => writtenAt!.Value, value => WrittenAt.From(value));
+    }
 
+    private static void ConfigureFabAndEventKindColumns(EntityTypeBuilder<AuditEventEntity> builder)
+    {
         builder.Property(auditEvent => auditEvent.Fab)
             .HasColumnName("fab_id")
             .HasMaxLength(FabIdentifier.MaximumLength)
@@ -79,7 +91,10 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
             .HasMaxLength(EventKind.MaximumLength)
             .HasConversion(kind => kind.Value, value => EventKind.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureResourceActorAndEventIdentifierColumns(EntityTypeBuilder<AuditEventEntity> builder)
+    {
         builder.Property(auditEvent => auditEvent.ResourceKind)
             .HasColumnName("resource_kind")
             .HasMaxLength(32)
@@ -108,7 +123,10 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
             .HasColumnName("event_identifier")
             .HasConversion(eventIdentifier => eventIdentifier.Value, value => EventIdentifier.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigurePayloadAndSchemaVersion(EntityTypeBuilder<AuditEventEntity> builder)
+    {
         // Owned reference onto the two columns the pair occupied. Both stay,
         // because payload_size_bytes is queried; the size is derived when a row
         // is built and read back from its column when one is loaded.
@@ -131,7 +149,10 @@ public sealed class AuditEventConfiguration : IEntityTypeConfiguration<AuditEven
             .HasColumnName("schema_version")
             .HasConversion(version => version.Value, value => SchemaVersion.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureIndexes(EntityTypeBuilder<AuditEventEntity> builder)
+    {
         // Idempotency: Wolverine at-least-once redeliveries are absorbed
         // via INSERT ... ON CONFLICT (event_identifier, occurred_at). The
         // unique index carries occurred_at because TimescaleDB forbids a
