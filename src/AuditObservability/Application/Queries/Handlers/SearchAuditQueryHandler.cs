@@ -1,8 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.EntityFrameworkCore;
 using SmartSentinelEye.AuditObservability.Application.DTOs;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.CQRS;
 using SmartSentinelEye.Shared.Kernel;
+using AuditEventEntity = SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent;
 using DomainResourceKind = SmartSentinelEye.AuditObservability.Domain.AuditEvent.ResourceKind;
 
 namespace SmartSentinelEye.AuditObservability.Application.Queries.Handlers;
@@ -32,18 +34,48 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             return Failure(SearchAuditFailures.InvalidResourceKind(rk));
         }
 
-        (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor = null;
+        if (IsUndecodableCursor(rawCursor, out var cursor))
+        {
+            return Failure(SearchAuditFailures.InvalidCursor(rawCursor));
+        }
+
+        var source = ScopeToFabs(events.AuditEvents, fab, callerFabs);
+        if (!TryFilterByActor(source, actor, actorUsername, out var actorFiltered))
+        {
+            return Success(new AuditPageDto([], null));
+        }
+
+        source = FilterByKindAndResource(actorFiltered, eventKind, resourceKind, resourceIdentifier);
+        source = FilterByWindowAndCursor(source, since, until, cursor);
+
+        var rows = await source
+            .OrderByDescending(auditEvent => auditEvent.OccurredAt)
+            .ThenByDescending(auditEvent => auditEvent.Id)
+            .Take(pageSize + 1)
+            .ToListAsync(cancellationToken);
+
+        return Success(ToPage(rows, pageSize));
+    }
+
+    private static bool IsUndecodableCursor(
+        [NotNullWhen(true)] string? rawCursor,
+        out (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor)
+    {
+        cursor = null;
         if (rawCursor is not null)
         {
             cursor = AuditCursor.TryDecode(rawCursor);
-            if (cursor is null)
-            {
-                return Failure(SearchAuditFailures.InvalidCursor(rawCursor));
-            }
+            return cursor is null;
         }
 
-        var source = events.AuditEvents;
+        return false;
+    }
 
+    private static IQueryable<AuditEventEntity> ScopeToFabs(
+        IQueryable<AuditEventEntity> source,
+        string? fab,
+        IReadOnlyList<string> callerFabs)
+    {
         // Compare value objects directly (not their `.Value`): EF Core
         // translates equality on a value-converted property to a column
         // comparison, but cannot translate member access on the converted
@@ -88,10 +120,20 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             }
         }
 
+        return source;
+    }
+
+    private static bool TryFilterByActor(
+        IQueryable<AuditEventEntity> source,
+        Guid? actor,
+        string? actorUsername,
+        out IQueryable<AuditEventEntity> filtered)
+    {
+        filtered = source;
         if (actor is { } actorValue)
         {
             var actorId = ActorIdentifier.From(actorValue);
-            source = source.Where(auditEvent => auditEvent.Actor == actorId);
+            filtered = filtered.Where(auditEvent => auditEvent.Actor == actorId);
         }
         if (actorUsername is not null)
         {
@@ -106,11 +148,21 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             }
             catch (ArgumentException)
             {
-                return Success(new AuditPageDto([], null));
+                return false;
             }
 
-            source = source.Where(auditEvent => auditEvent.ActorUsername == parsedActorUsername);
+            filtered = filtered.Where(auditEvent => auditEvent.ActorUsername == parsedActorUsername);
         }
+
+        return true;
+    }
+
+    private static IQueryable<AuditEventEntity> FilterByKindAndResource(
+        IQueryable<AuditEventEntity> source,
+        string? eventKind,
+        string? resourceKind,
+        string? resourceIdentifier)
+    {
         if (eventKind is not null)
         {
             var kind = EventKind.From(eventKind);
@@ -126,6 +178,16 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
             var resId = ResourceIdentifier.From(resourceIdentifier);
             source = source.Where(auditEvent => auditEvent.ResourceIdentifier == resId);
         }
+
+        return source;
+    }
+
+    private static IQueryable<AuditEventEntity> FilterByWindowAndCursor(
+        IQueryable<AuditEventEntity> source,
+        DateTimeOffset? since,
+        DateTimeOffset? until,
+        (DateTimeOffset OccurredAt, Guid AuditIdentifier)? cursor)
+    {
         if (since is { } sinceFrom)
         {
             source = source.Where(auditEvent => auditEvent.OccurredAt >= sinceFrom);
@@ -146,12 +208,13 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
                 (auditEvent.OccurredAt == c.OccurredAt && ((Guid)auditEvent.Id).CompareTo(c.AuditIdentifier) < 0));
         }
 
-        var rows = await source
-            .OrderByDescending(auditEvent => auditEvent.OccurredAt)
-            .ThenByDescending(auditEvent => auditEvent.Id)
-            .Take(pageSize + 1)
-            .ToListAsync(cancellationToken);
+        return source;
+    }
 
+    private static AuditPageDto ToPage(
+        List<AuditEventEntity> rows,
+        int pageSize)
+    {
         string? nextCursor = null;
         if (rows.Count > pageSize)
         {
@@ -161,7 +224,7 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         }
 
         var dtos = rows.Select(AuditRowMapper.Map).ToArray();
-        return Success(new AuditPageDto(dtos, nextCursor));
+        return new AuditPageDto(dtos, nextCursor);
     }
 
     // Per entry, not all-or-nothing: a single group outside FabIdentifier's
