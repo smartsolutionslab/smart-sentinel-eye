@@ -1,4 +1,6 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.SystemVariables.Application.Commands;
@@ -41,23 +43,8 @@ public sealed class SystemVariableValueRequestedV1Handler(
 
         var (name, value, _, causingEventIdentifier, metadata) = message;
 
-        // FR-006: a request that names no fab applies to none. Dropped before
-        // the dedup reservation, so it consumes no idempotency key — and said
-        // out loud, because a silent drop here is the shape of #1252.
-        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        if (!TryResolveFab(metadata, name, causingEventIdentifier, out var fab))
         {
-            logger.ValueRequestWithoutFab(name, causingEventIdentifier);
-            return;
-        }
-
-        FabIdentifier fab;
-        try
-        {
-            fab = FabIdentifier.From(metadata.Fab);
-        }
-        catch (ArgumentException ex)
-        {
-            logger.ValueRequestWithUnusableFab(ex, metadata.Fab, name, causingEventIdentifier);
             return;
         }
 
@@ -68,34 +55,13 @@ public sealed class SystemVariableValueRequestedV1Handler(
             return;
         }
 
-        VariableName variableName;
-        try
+        if (!TryParseVariableName(name, causingEventIdentifier, out var variableName))
         {
-            variableName = VariableName.From(name);
-        }
-        catch (ArgumentException ex)
-        {
-            logger.InvalidVariableName(ex, name, causingEventIdentifier);
             return;
         }
 
         var result = await setHandler.HandleAsync(
-            new SetVariableValueCommand(
-                fab,
-                variableName,
-                value,
-                AutomationOperator,
-                Option<int>.None,
-                // The near end of the `event → overlay state` leg, forwarded so
-                // the far end can close it. This handler used to *record* the
-                // leg here instead, which timed the value write — a prefix
-                // ending roughly 750 ms before the tile changed, under the
-                // leg's name (#2173). The measurement now belongs to
-                // LayoutComposition's ResolvedOverlayTextChangedV3Handler,
-                // where the frame is actually pushed.
-                metadata.RootIngestedAt is { } accepted
-                    ? Option<DateTimeOffset>.Some(accepted)
-                    : Option<DateTimeOffset>.None),
+            ToSetVariableValueCommand(fab, variableName, value, metadata),
             cancellationToken);
 
         if (result.IsSuccess)
@@ -114,5 +80,76 @@ public sealed class SystemVariableValueRequestedV1Handler(
         }
 
         logger.SetVariableValueFailed(name, value, causingEventIdentifier, result.Error.Code);
+    }
+
+    private bool TryResolveFab(
+        [NotNullWhen(true)] EventMetadata? metadata,
+        string name,
+        Guid causingEventIdentifier,
+        [NotNullWhen(true)] out FabIdentifier? fab)
+    {
+        fab = null;
+
+        // FR-006: a request that names no fab applies to none. Dropped before
+        // the dedup reservation, so it consumes no idempotency key — and said
+        // out loud, because a silent drop here is the shape of #1252.
+        if (string.IsNullOrWhiteSpace(metadata?.Fab))
+        {
+            logger.ValueRequestWithoutFab(name, causingEventIdentifier);
+            return false;
+        }
+
+        try
+        {
+            fab = FabIdentifier.From(metadata.Fab);
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            logger.ValueRequestWithUnusableFab(ex, metadata.Fab, name, causingEventIdentifier);
+            return false;
+        }
+    }
+
+    private bool TryParseVariableName(
+        string name,
+        Guid causingEventIdentifier,
+        [NotNullWhen(true)] out VariableName? variableName)
+    {
+        try
+        {
+            variableName = VariableName.From(name);
+            return true;
+        }
+        catch (ArgumentException ex)
+        {
+            logger.InvalidVariableName(ex, name, causingEventIdentifier);
+            variableName = null;
+            return false;
+        }
+    }
+
+    private static SetVariableValueCommand ToSetVariableValueCommand(
+        FabIdentifier fab,
+        VariableName variableName,
+        string value,
+        EventMetadata metadata)
+    {
+        return new SetVariableValueCommand(
+            fab,
+            variableName,
+            value,
+            AutomationOperator,
+            Option<int>.None,
+            // The near end of the `event → overlay state` leg, forwarded so
+            // the far end can close it. This handler used to *record* the
+            // leg here instead, which timed the value write — a prefix
+            // ending roughly 750 ms before the tile changed, under the
+            // leg's name (#2173). The measurement now belongs to
+            // LayoutComposition's ResolvedOverlayTextChangedV3Handler,
+            // where the frame is actually pushed.
+            metadata.RootIngestedAt is { } accepted
+                ? Option<DateTimeOffset>.Some(accepted)
+                : Option<DateTimeOffset>.None);
     }
 }
