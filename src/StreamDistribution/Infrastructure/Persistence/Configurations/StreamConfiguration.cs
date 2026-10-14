@@ -18,6 +18,18 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
     {
         Ensure.That(builder).IsNotNull();
 
+        MapTableKeyIdentifierCameraAndFab(builder);
+        MapPathSourceStateAndTranscodeMode(builder);
+        MapLastSuccessAndLastError(builder);
+        MapProvisioning(builder);
+        MapVersion(builder);
+        MapIndexes(builder);
+
+        builder.Ignore(stream => stream.PendingEvents);
+    }
+
+    private static void MapTableKeyIdentifierCameraAndFab(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
         builder.ToTable("streams");
 
         builder.HasKey(stream => stream.Id);
@@ -44,7 +56,10 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             // so the lambda only ever sees an attributed stream.
             .HasConversion(fab => fab!.Value, value => FabIdentifier.From(value))
             .IsRequired(false);
+    }
 
+    private static void MapPathSourceStateAndTranscodeMode(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
         builder.Property(stream => stream.Path)
             .HasColumnName("mediamtx_path")
             .HasMaxLength(80)
@@ -68,7 +83,10 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             .HasMaxLength(16)
             .HasConversion(mode => mode.Value, value => TranscodeMode.From(value))
             .IsRequired();
+    }
 
+    private static void MapLastSuccessAndLastError(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
         builder.Property(stream => stream.LastSuccessAt)
             .HasColumnName("last_success_at")
             .HasConversion(v => v!.Value, value => LastSuccessAt.From(value))
@@ -79,7 +97,10 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
             .HasMaxLength(StreamError.MaximumLength)
             .HasConversion(error => error!.Value, value => StreamError.From(value))
             .IsRequired(false);
+    }
 
+    private static void MapProvisioning(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
         // Owned reference onto the two columns the pair occupied, unchanged.
         // Navigation(...).IsRequired() below is load-bearing: without it EF
         // treats the reference as optional and both columns become nullable in
@@ -98,13 +119,19 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
                 .IsRequired();
         });
         builder.Navigation(stream => stream.Provisioning).IsRequired();
+    }
 
+    private static void MapVersion(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
         builder.Property(stream => stream.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
             .IsConcurrencyToken()
             .IsRequired();
+    }
 
+    private static void MapIndexes(EntityTypeBuilder<Domain.Stream.Stream> builder)
+    {
         // One stream per camera (FR-011 idempotency enforced at the DB layer too).
         builder.HasIndex(stream => stream.Camera)
             .HasDatabaseName("ux_streams_camera_id")
@@ -121,7 +148,5 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
         // takes part in.
         builder.HasIndex(stream => stream.Fab)
             .HasDatabaseName("ix_streams_fab");
-
-        builder.Ignore(stream => stream.PendingEvents);
     }
 }
