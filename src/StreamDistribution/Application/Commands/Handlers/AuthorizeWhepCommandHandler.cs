@@ -37,32 +37,11 @@ public sealed class AuthorizeWhepCommandHandler(
         // so answering the token first would hand a publish a 401 — the status
         // that invites the client back with credentials, when no credential can
         // make this request acceptable.
-        if (!action.HasValue)
-        {
-            RefuseUnknownAction(reportedAction, path);
-            return Failure(AuthorizeWhepFailures.ActionUnknown());
-        }
+        var actionRefusal = RefuseByAction(action, reportedAction, path);
 
-        // Nothing in this product publishes through this hook: every path is fed
-        // by MediaMTX pulling the camera's RTSP source. Until now the only thing
-        // refusing a publisher was MediaMTX itself declining them on a path with
-        // a static `source` (MediaMtxRtspGateway.cs:32) — another component's
-        // configuration file rather than this code, and one nobody here would
-        // notice losing.
-        //
-        // Api is refused here too, defensively: production never reaches this
-        // handler for it — StreamEndpoints.AuthorizeWhep branches an api action
-        // to AuthorizeMediaMtxApiCommandHandler before this command is even
-        // constructed (ADR-0171), because api carries no stream path and no
-        // bearer. But this handler's own job is to decide what a bearer token
-        // and a scope can authorize, and nothing they grant should ever admit a
-        // control-API call — if a future caller ever did reach this path with
-        // Api, a WHEP viewer's token must not be mistaken for the control-API
-        // secret.
-        if (action.Value == MediaMtxAction.Publish || action.Value == MediaMtxAction.Api)
+        if (actionRefusal.HasValue)
         {
-            logger.RefusedWhepAction(action.Value, path);
-            return Failure(AuthorizeWhepFailures.ActionNotPermitted());
+            return Failure(actionRefusal.Value);
         }
 
         if (string.IsNullOrWhiteSpace(bearerToken))
@@ -87,6 +66,57 @@ public sealed class AuthorizeWhepCommandHandler(
 
         var stream = await streams.GetByPathAsync(path, cancellationToken);
 
+        var streamRefusal = RefuseByStream(stream, subject, path);
+
+        if (streamRefusal.HasValue)
+        {
+            return Failure(streamRefusal.Value);
+        }
+
+        return Success(path);
+    }
+
+    private Option<AuthorizeWhepError> RefuseByAction(
+        Option<MediaMtxAction> action,
+        Option<ReportedMediaMtxAction> reportedAction,
+        MediaMtxPath path)
+    {
+        if (!action.HasValue)
+        {
+            RefuseUnknownAction(reportedAction, path);
+            return Option<AuthorizeWhepError>.Some(AuthorizeWhepFailures.ActionUnknown());
+        }
+
+        // Nothing in this product publishes through this hook: every path is fed
+        // by MediaMTX pulling the camera's RTSP source. Until now the only thing
+        // refusing a publisher was MediaMTX itself declining them on a path with
+        // a static `source` (MediaMtxRtspGateway.cs:32) — another component's
+        // configuration file rather than this code, and one nobody here would
+        // notice losing.
+        //
+        // Api is refused here too, defensively: production never reaches this
+        // handler for it — StreamEndpoints.AuthorizeWhep branches an api action
+        // to AuthorizeMediaMtxApiCommandHandler before this command is even
+        // constructed (ADR-0171), because api carries no stream path and no
+        // bearer. But this handler's own job is to decide what a bearer token
+        // and a scope can authorize, and nothing they grant should ever admit a
+        // control-API call — if a future caller ever did reach this path with
+        // Api, a WHEP viewer's token must not be mistaken for the control-API
+        // secret.
+        if (action.Value == MediaMtxAction.Publish || action.Value == MediaMtxAction.Api)
+        {
+            logger.RefusedWhepAction(action.Value, path);
+            return Option<AuthorizeWhepError>.Some(AuthorizeWhepFailures.ActionNotPermitted());
+        }
+
+        return Option<AuthorizeWhepError>.None;
+    }
+
+    private Option<AuthorizeWhepError> RefuseByStream(
+        Option<Stream> stream,
+        WhepAuthSubject subject,
+        MediaMtxPath path)
+    {
         // ADR-0161. Before the stream-state check, so a caller refused on fab
         // learns nothing about whether the stream happens to be online — this
         // hides stream *health*, not stream *existence*: a registered path in
@@ -103,15 +133,15 @@ public sealed class AuthorizeWhepCommandHandler(
             (stream.Value.Fab is null || !subject.Fabs.Contains(stream.Value.Fab.Value, StringComparer.Ordinal)))
         {
             logger.RefusedWhepFab(subject.Subject, path, stream.Value.Fab);
-            return Failure(AuthorizeWhepFailures.FabNotAuthorized());
+            return Option<AuthorizeWhepError>.Some(AuthorizeWhepFailures.FabNotAuthorized());
         }
 
         if (stream.HasValue && stream.Value.State == StreamState.Offline)
         {
-            return Failure(AuthorizeWhepFailures.StreamUnavailable());
+            return Option<AuthorizeWhepError>.Some(AuthorizeWhepFailures.StreamUnavailable());
         }
 
-        return Success(path);
+        return Option<AuthorizeWhepError>.None;
     }
 
     /// <summary>
