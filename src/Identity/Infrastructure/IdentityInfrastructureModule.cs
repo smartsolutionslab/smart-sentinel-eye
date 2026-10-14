@@ -296,6 +296,8 @@ public static class IdentityInfrastructureModule
     {
         var opts = sp.GetRequiredService<
             Microsoft.Extensions.Options.IOptions<KeycloakAdminOptions>>().Value;
+        // S1075 reads the trailing-slash char as a hardcoded path delimiter; this
+        // normalises a URI base address for relative joins, not a file path.
 #pragma warning disable S1075
         var baseUrl = opts.BaseUrl.EndsWith('/') ? opts.BaseUrl : opts.BaseUrl + '/';
 #pragma warning restore S1075
