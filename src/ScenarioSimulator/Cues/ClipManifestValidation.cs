@@ -51,6 +51,15 @@ public static class ClipManifestValidation
             return violations;
         }
 
+        AddCountViolation(manifest, violations);
+
+        ValidateCues(manifest, violations);
+
+        return violations;
+    }
+
+    private static void AddCountViolation(ClipManifest manifest, List<CueViolation> violations)
+    {
         if (manifest.Cues.Count == 0)
         {
             // A sidecar declaring zero cues is very likely an authoring
@@ -70,10 +79,6 @@ public static class ClipManifestValidation
                     + $"for a {manifest.DurationMs}ms clip."));
             }
         }
-
-        ValidateCues(manifest, violations);
-
-        return violations;
     }
 
     private static void ValidateCues(ClipManifest manifest, List<CueViolation> violations)
