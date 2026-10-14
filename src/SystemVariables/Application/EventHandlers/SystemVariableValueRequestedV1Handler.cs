@@ -48,15 +48,15 @@ public sealed class SystemVariableValueRequestedV1Handler(
             return;
         }
 
+        if (!TryParseVariableName(name, causingEventIdentifier, out var variableName))
+        {
+            return;
+        }
+
         var reserved = await dedup.TryReserveAsync(fab, name, causingEventIdentifier, cancellationToken);
         if (!reserved)
         {
             logger.DedupHit(fab, name, causingEventIdentifier);
-            return;
-        }
-
-        if (!TryParseVariableName(name, causingEventIdentifier, out var variableName))
-        {
             return;
         }
 
@@ -91,7 +91,8 @@ public sealed class SystemVariableValueRequestedV1Handler(
         fab = null;
 
         // FR-006: a request that names no fab applies to none. Dropped before
-        // the dedup reservation, so it consumes no idempotency key — and said
+        // the dedup reservation, so it consumes no idempotency key (nor does an
+        // invalid name, which is dropped ahead of it too) — and said
         // out loud, because a silent drop here is the shape of #1252.
         if (string.IsNullOrWhiteSpace(metadata?.Fab))
         {
