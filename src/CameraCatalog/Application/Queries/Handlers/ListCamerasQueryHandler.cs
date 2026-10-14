@@ -19,45 +19,18 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
         Ensure.That(query).IsNotNull();
         (var fabs, var sort, var order, var offset, var limit, var includeRetired, _) = query;
 
-        if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
+        var refusal = RefuseInvalidParameters(sort, order, offset, limit);
+        if (refusal.HasValue)
         {
-            return Failure(ListCamerasFailures.InvalidSortField(sort, AllowedSortFields));
-        }
-
-        if (!AllowedSortOrders.Contains(order, StringComparer.Ordinal))
-        {
-            return Failure(ListCamerasFailures.InvalidSortOrder(order));
-        }
-
-        if (offset < 0 || limit <= 0)
-        {
-            return Failure(ListCamerasFailures.InvalidPagination("Offset must be non-negative and limit must be positive."));
-        }
-
-        if (limit > ListCamerasDefaults.MaximumLimit)
-        {
-            return Failure(ListCamerasFailures.LimitExceeded(limit, ListCamerasDefaults.MaximumLimit));
+            return Failure(refusal.Value);
         }
 
         var descending = order == "desc";
 
-        // FR-005: only cameras in fabs the caller holds, and filtered before
-        // the count so the total reflects what they can actually page through.
-        var visible = cameras.Cameras.Where(camera => fabs.Contains(camera.Fab));
+        var visible = VisibleCameras(fabs, includeRetired);
 
-        // FR-007, and filtered here rather than at the endpoint so the count
-        // and the page agree: a total that included retired cameras while the
-        // rows excluded them would page past the end of the list.
-        //
-        // Spelled as the partial unique index spells it
-        // (`status <> 'Decommissioned'`) so the query and the constraint that
-        // makes name reuse work cannot drift apart.
-        if (!includeRetired)
-        {
-            visible = visible.Where(camera => camera.Status != CameraStatus.Decommissioned);
-        }
-
-        // Spec 055, and **it belongs here for the same reason as the two above**:
+        // Spec 055, and **it belongs here for the same reason as the fab and
+        // retired filters in VisibleCameras**:
         // the count is taken from this query, so filtering before it is what
         // makes the reported total describe the matches rather than the fab. At
         // the endpoint, or after Skip/Take, or in the browser, the total would
@@ -103,6 +76,58 @@ public sealed class ListCamerasQueryHandler(ICameraQuerySource cameras)
 
         return Success(
             new CameraListPageDto(items, total, offset, limit));
+    }
+
+    private static Option<ListCamerasError> RefuseInvalidParameters(
+        string sort,
+        string order,
+        int offset,
+        int limit)
+    {
+        if (!AllowedSortFields.Contains(sort, StringComparer.Ordinal))
+        {
+            return Option<ListCamerasError>.Some(ListCamerasFailures.InvalidSortField(sort, AllowedSortFields));
+        }
+
+        if (!AllowedSortOrders.Contains(order, StringComparer.Ordinal))
+        {
+            return Option<ListCamerasError>.Some(ListCamerasFailures.InvalidSortOrder(order));
+        }
+
+        if (offset < 0 || limit <= 0)
+        {
+            return Option<ListCamerasError>.Some(ListCamerasFailures.InvalidPagination("Offset must be non-negative and limit must be positive."));
+        }
+
+        if (limit > ListCamerasDefaults.MaximumLimit)
+        {
+            return Option<ListCamerasError>.Some(ListCamerasFailures.LimitExceeded(limit, ListCamerasDefaults.MaximumLimit));
+        }
+
+        return Option<ListCamerasError>.None;
+    }
+
+    private IQueryable<Camera> VisibleCameras(
+        IReadOnlyList<FabIdentifier> fabs,
+        bool includeRetired)
+    {
+        // FR-005: only cameras in fabs the caller holds, and filtered before
+        // the count so the total reflects what they can actually page through.
+        var visible = cameras.Cameras.Where(camera => fabs.Contains(camera.Fab));
+
+        // FR-007, and filtered here rather than at the endpoint so the count
+        // and the page agree: a total that included retired cameras while the
+        // rows excluded them would page past the end of the list.
+        //
+        // Spelled as the partial unique index spells it
+        // (`status <> 'Decommissioned'`) so the query and the constraint that
+        // makes name reuse work cannot drift apart.
+        if (!includeRetired)
+        {
+            visible = visible.Where(camera => camera.Status != CameraStatus.Decommissioned);
+        }
+
+        return visible;
     }
 
     // EF Core's converter exposes Name as a plain string column at query time, so
