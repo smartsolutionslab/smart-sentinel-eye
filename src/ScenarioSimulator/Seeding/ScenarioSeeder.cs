@@ -186,17 +186,7 @@ public sealed class ScenarioSeeder(
             return;
         }
 
-        var assetKey = asset.Camera.Path;
-        OverlayLabel label = new(
-            asset.Overlay.Label,
-            (decimal)asset.Overlay.X,
-            (decimal)asset.Overlay.Y,
-            (decimal)asset.Overlay.Width,
-            (decimal)asset.Overlay.Height,
-            (int)asset.Overlay.FontSize);
-
-        var overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", [label], cancellationToken);
-        correlation.RecordOverlay(scenario, assetKey, overlay, asset.Tile.Row, asset.Tile.Col);
+        var overlay = await SeedOverlayAsync(scenario, asset, cancellationToken);
 
         if (asset.Highlight is null)
         {
@@ -205,23 +195,54 @@ public sealed class ScenarioSeeder(
         else
         {
             var cues = ScenarioStoryCheck.ValidCuesFor(asset, manifestsByClip);
-            switch (HighlightRuleSeed.From(scenario, asset, overlay, cues))
-            {
-                case HighlightSeedResult.Refused refused:
-                    logger.HighlightRuleRefused(asset.Key, refused.Reason);
-                    break;
-                case HighlightSeedResult.Valid valid:
-                    var highlightResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
-                    if (highlightResult is RuleSeedResult.Refused highlightRefused)
-                    {
-                        logger.HighlightRuleRefused(asset.Key, highlightRefused.Reason);
-                    }
-
-                    break;
-            }
+            await SeedHighlightRuleAsync(
+                HighlightRuleSeed.From(scenario, asset, overlay, cues),
+                asset.Key,
+                cancellationToken);
         }
 
         await SeedReactionsAsync(scenario, asset, overlay, seededVariables, manifestsByClip, cancellationToken);
+    }
+
+    private async Task<Guid> SeedOverlayAsync(
+        string scenario,
+        AssetDefinition asset,
+        CancellationToken cancellationToken)
+    {
+        var definition = asset.Overlay!;
+        var assetKey = asset.Camera.Path;
+        OverlayLabel label = new(
+            definition.Label,
+            (decimal)definition.X,
+            (decimal)definition.Y,
+            (decimal)definition.Width,
+            (decimal)definition.Height,
+            (int)definition.FontSize);
+
+        var overlay = await overlays.EnsureOverlayAsync($"{scenario}-{asset.Key}", [label], cancellationToken);
+        correlation.RecordOverlay(scenario, assetKey, overlay, asset.Tile!.Row, asset.Tile.Col);
+        return overlay;
+    }
+
+    private async Task SeedHighlightRuleAsync(
+        HighlightSeedResult seedResult,
+        string assetKey,
+        CancellationToken cancellationToken)
+    {
+        switch (seedResult)
+        {
+            case HighlightSeedResult.Refused refused:
+                logger.HighlightRuleRefused(assetKey, refused.Reason);
+                break;
+            case HighlightSeedResult.Valid valid:
+                var highlightResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
+                if (highlightResult is RuleSeedResult.Refused highlightRefused)
+                {
+                    logger.HighlightRuleRefused(assetKey, highlightRefused.Reason);
+                }
+
+                break;
+        }
     }
 
     /// <summary>
