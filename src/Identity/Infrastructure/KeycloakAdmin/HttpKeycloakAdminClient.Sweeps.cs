@@ -17,7 +17,7 @@ public sealed partial class HttpKeycloakAdminClient
         response.EnsureSuccessStatusCode();
 
         var rows = await response.Content
-            .ReadFromJsonAsync<ClientDetailRow[]>(JsonOptions, cancellationToken) ?? [];
+            .ReadFromJsonAsync<ClientRow[]>(JsonOptions, cancellationToken) ?? [];
 
         // The same attribute enrolment stamps, read back. Deriving the set from
         // what enrolment writes is the point: a second naming convention would
@@ -60,7 +60,7 @@ public sealed partial class HttpKeycloakAdminClient
         response.EnsureSuccessStatusCode();
 
         var rows = await response.Content
-            .ReadFromJsonAsync<ClientDetailRow[]>(JsonOptions, cancellationToken) ?? [];
+            .ReadFromJsonAsync<ClientRow[]>(JsonOptions, cancellationToken) ?? [];
 
         return rows
             .Where(row => row.Attributes is not null
