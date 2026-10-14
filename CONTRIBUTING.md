@@ -133,8 +133,9 @@ instead of camera.id. Migration path: /docs/migrations/0042.md.
 **Spec-Kit auto-commits** keep their `[Spec Kit] <stage>` prefix —
 they're a separate namespace and don't need to conform.
 
-There is no `commitlint`/Husky `commit-msg` hook today — no `.husky`
-directory and no `husky`/`commitlint` dependency exist in the repo.
+There is no `commitlint`/Husky `commit-msg` hook today — Husky is
+installed for the [pre-commit format hook](#pre-commit-format-hook), but
+no `commitlint` dependency or `commit-msg` hook exists.
 Non-conforming commit messages are caught only by review, not
 tooling.
 
@@ -226,11 +227,40 @@ bump patch and follow the same dual-merge pattern from `hotfix/<short>`.
   - Nesting depth: **≤ 3** (S134)
   - Test projects exempt — narrative test methods are valuable.
 
-There is no pre-commit hook and no `dotnet format --verify-no-changes` (or
-equivalent) CI step for C# today — formatting is caught only by the Release
-build's `TreatWarningsAsErrors` on top of `.editorconfig` + the analyzers, at
-PR time. (The frontend has its own, separate `pnpm format:check` CI step;
-this gap is C#-only.)
+### Pre-commit format hook
+
+`pnpm install` installs a Husky pre-commit hook (`.husky/pre-commit`, which
+runs `scripts/pre-commit.mjs`) that checks the **staged** files against
+CI's two format gates and blocks the commit if either would fail:
+
+- **C#:** `dotnet format <owning project> --verify-no-changes --no-restore
+  --exclude-diagnostics IDE1006 --include <staged .cs files>` — CI's
+  `backend` flags, scoped to each file's nearest `.csproj` (above three
+  projects it runs once against `SmartSentinelEye.slnx`). It checks the
+  working-tree copy, because `dotnet format` cannot read the index. The
+  project must be restored (`dotnet restore`); an unrestored project can
+  fail with compile errors rather than a formatting verdict.
+- **Frontend:** `prettier --check` on the staged content of files inside
+  `pnpm format:check`'s scope (`{apps,e2e}`, plus `playwright.config.ts`),
+  honouring `.prettierignore`. Files outside that scope, such as `docs/`
+  and `specs/`, are not checked, matching CI.
+
+The hook only checks; it never rewrites your files or the index. The
+failure output names each file and the command that fixes it
+(`pnpm prettier --write <file>`, `dotnet format <project> --include
+<file>`). A dotnet failure that is not a formatting verdict is reported
+as a tool failure and also blocks.
+
+- **Skip once:** `git commit --no-verify`. CI's gates still apply.
+- **Opt out of the install:** `HUSKY=0 pnpm install`. The install is also
+  a no-op where there is no `.git` directory.
+- **Worktrees:** `core.hooksPath` is shared by every worktree of a clone,
+  but the hook scripts live in each worktree's own `.husky/_`, generated
+  by `pnpm install`. A worktree that has not run `pnpm install` commits
+  without the hook.
+- **GUI clients (Rider, Visual Studio):** Git runs the hook through its own
+  `sh`, so `node` and `dotnet` must be on that `PATH`. Husky sources
+  `~/.config/husky/init.sh` before each hook; set `PATH` there if needed.
 
 ### IDE code cleanup — don't bulk-run it
 
