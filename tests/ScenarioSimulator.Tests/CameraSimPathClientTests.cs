@@ -124,6 +124,70 @@ public sealed class CameraSimPathClientTests
         state.HasValue.ShouldBeFalse();
     }
 
+    [Fact]
+    public async Task An_unreachable_camera_sim_returns_None_rather_than_throwing()
+    {
+        var client = ClientThrowing(_ => new HttpRequestException("connection refused"));
+
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+
+        state.HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task An_unparseable_body_returns_None_rather_than_throwing()
+    {
+        var client = ClientReturning(HttpStatusCode.OK, "{ this is not json");
+
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+
+        state.HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_json_null_body_returns_None()
+    {
+        var client = ClientReturning(HttpStatusCode.OK, "null");
+
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+
+        state.HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task An_http_client_timeout_not_requested_by_the_caller_returns_None()
+    {
+        var client = ClientThrowing(_ => new TaskCanceledException("the request timed out"));
+
+        var state = await client.GetAsync("station-4-roughing", CancellationToken.None);
+
+        state.HasValue.ShouldBeFalse();
+    }
+
+    [Fact]
+    public async Task A_cancellation_the_caller_requested_propagates()
+    {
+        using CancellationTokenSource cancellation = new();
+        var client = ClientThrowing(token => new OperationCanceledException(token));
+        await cancellation.CancelAsync();
+
+        await Should.ThrowAsync<OperationCanceledException>(
+            () => client.GetAsync("station-4-roughing", cancellation.Token));
+    }
+
+    private static CameraSimPathClient ClientThrowing(Func<CancellationToken, Exception> fault)
+    {
+        HttpClient http = new(new ThrowingHandler(fault)) { BaseAddress = new Uri("https://camera-sim.test") };
+        return new CameraSimPathClient(http, NullLogger<CameraSimPathClient>.Instance);
+    }
+
+    private sealed class ThrowingHandler(Func<CancellationToken, Exception> fault) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw fault(cancellationToken);
+    }
+
     private static CameraSimPathClient ClientReturning(HttpStatusCode status, string body)
     {
         HttpClient http = new(new StubHandler(status, body)) { BaseAddress = new Uri("https://camera-sim.test") };

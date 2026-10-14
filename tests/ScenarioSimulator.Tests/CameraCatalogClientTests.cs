@@ -119,6 +119,28 @@ public class CameraCatalogClientTests
         catalog.Queries.Count.ShouldBe(3, "two pages of rows, then the empty page that stops it");
     }
 
+    [Fact]
+    public async Task A_read_back_the_catalog_refuses_degrades_to_an_unknown_identifier_rather_than_throwing()
+    {
+        StubHandler catalog = new(_ => new HttpResponseMessage(HttpStatusCode.Forbidden));
+
+        var found = await ReadBackAsync(catalog, "camera-007");
+
+        found.ShouldBeNull("a 403 on the list must degrade to 'identifier unknown', not stop the host");
+        catalog.Queries.Count.ShouldBe(1);
+    }
+
+    [Fact]
+    public async Task Every_read_back_request_carries_the_bearer_token()
+    {
+        var catalog = Catalog(total: 250, wanted: "camera-241", wantedAt: 240);
+
+        await ReadBackAsync(catalog, "camera-241");
+
+        catalog.Authorizations.Count.ShouldBe(2);
+        catalog.Authorizations.ShouldAllBe(authorization => authorization == "Bearer stub-token");
+    }
+
     private static StubHandler Catalog(int total, string wanted, int wantedAt, int? reportedCount = null)
     {
         return new StubHandler(query =>
@@ -185,6 +207,8 @@ public class CameraCatalogClientTests
     {
         public List<string> Queries { get; } = [];
 
+        public List<string?> Authorizations { get; } = [];
+
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request, CancellationToken cancellationToken)
         {
@@ -198,6 +222,7 @@ public class CameraCatalogClientTests
             if (query.StartsWith("/cameras", StringComparison.Ordinal))
             {
                 Queries.Add(query);
+                Authorizations.Add(request.Headers.Authorization?.ToString());
             }
 
             return Task.FromResult(respond(query));
