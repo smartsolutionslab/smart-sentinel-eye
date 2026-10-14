@@ -88,9 +88,14 @@ public sealed class ListEventsQueryHandler(IEventQuerySource events)
             // Strict 'less than' for descending order; the tuple compare
             // breaks ties on the event identifier so events sharing an
             // IngestedAt across a page boundary are neither skipped nor repeated.
+            //
+            // The leading '<=' is redundant for the result set; it exists so
+            // Postgres keeps a range condition on ix_events_ingested instead of
+            // planning the bare OR as a filter.
             source = source.Where(eventEntity =>
-                eventEntity.IngestedAt < c.Ingested ||
-                (eventEntity.IngestedAt == c.Ingested && ((Guid)eventEntity.Id).CompareTo(c.EventId) < 0));
+                eventEntity.IngestedAt <= c.Ingested &&
+                (eventEntity.IngestedAt < c.Ingested ||
+                    (eventEntity.IngestedAt == c.Ingested && ((Guid)eventEntity.Id).CompareTo(c.EventId) < 0)));
         }
 
         return source
