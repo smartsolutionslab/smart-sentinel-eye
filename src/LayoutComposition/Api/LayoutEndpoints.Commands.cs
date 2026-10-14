@@ -120,23 +120,14 @@ public static partial class LayoutEndpoints
         }
 
         var actingOperator = user.ToOperatorIdentifier();
-        var fabsResolution =
-            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
-        {
-            return fabsResolution.Error;
-        }
 
-        var fabs = fabsResolution.Value;
-
-        var result = await handler
-            .HandleAsync(
+        return await LayoutCompositionFabResolution.ForCallerFabsAsync(
+            user,
+            fabGuard,
+            async fabs => RevisionOutcome(await handler.HandleAsync(
                 new PublishRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
-                cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: published => Results.Ok(published.Value),
-            onFailure: error => error.ToProblem());
+                cancellationToken)),
+            cancellationToken);
     }
 
     private static async Task<IResult> Archive(
@@ -170,23 +161,14 @@ public static partial class LayoutEndpoints
         }
 
         var actingOperator = user.ToOperatorIdentifier();
-        var fabsResolution =
-            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
-        {
-            return fabsResolution.Error;
-        }
 
-        var fabs = fabsResolution.Value;
-
-        var result = await handler
-            .HandleAsync(
+        return await LayoutCompositionFabResolution.ForCallerFabsAsync(
+            user,
+            fabGuard,
+            async fabs => RevisionOutcome(await handler.HandleAsync(
                 new ArchiveRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
-                cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: archived => Results.Ok(archived.Value),
-            onFailure: error => error.ToProblem());
+                cancellationToken)),
+            cancellationToken);
     }
 
     private static async Task<IResult> BranchDraft(
@@ -271,23 +253,13 @@ public static partial class LayoutEndpoints
             return precondition;
         }
 
-        var fabsResolution =
-            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
-        {
-            return fabsResolution.Error;
-        }
-
-        var fabs = fabsResolution.Value;
-
-        var result = await handler
-            .HandleAsync(
+        return await LayoutCompositionFabResolution.ForCallerFabsAsync(
+            user,
+            fabGuard,
+            async fabs => RevisionOutcome(await handler.HandleAsync(
                 new EditDraftRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, grid, tiles, expectedVersion),
-                cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: edited => Results.Ok(edited.Value),
-            onFailure: error => error.ToProblem());
+                cancellationToken)),
+            cancellationToken);
     }
 
     private static async Task<IResult> Revert(
@@ -321,22 +293,19 @@ public static partial class LayoutEndpoints
         }
 
         var actingOperator = user.ToOperatorIdentifier();
-        var fabsResolution =
-            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
-        {
-            return fabsResolution.Error;
-        }
 
-        var fabs = fabsResolution.Value;
-
-        var result = await handler
-            .HandleAsync(
+        return await LayoutCompositionFabResolution.ForCallerFabsAsync(
+            user,
+            fabGuard,
+            async fabs => RevisionOutcome(await handler.HandleAsync(
                 new RevertRevisionCommand(fabs, LayoutIdentifier.From(layoutIdentifier), number, actingOperator, expectedVersion),
-                cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: reverted => Results.Ok(reverted.Value),
-            onFailure: error => error.ToProblem());
+                cancellationToken)),
+            cancellationToken);
     }
+
+    private static IResult RevisionOutcome<TError>(Result<LayoutRevisionNumber, TError> result)
+        where TError : ApiError =>
+        result.Match<IResult>(
+            onSuccess: number => Results.Ok(number.Value),
+            onFailure: error => error.ToProblem());
 }
