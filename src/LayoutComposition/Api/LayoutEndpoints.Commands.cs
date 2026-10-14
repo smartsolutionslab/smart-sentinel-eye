@@ -25,59 +25,58 @@ public static partial class LayoutEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var handler = services.Handler;
-        var fabGuard = services.FabGuard;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        LayoutName name;
-        GridDimensions grid;
-        IReadOnlyList<Tile> tiles;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseCreateLayout(body),
+            "LAYOUT_INVALID_INPUT",
+            out var input,
+            out var problem))
         {
-            name = LayoutName.From(body.Name);
-            grid = LayoutRequestParsing.ParseGrid(body.Grid);
-            tiles = LayoutRequestParsing.ParseTiles(body.Tiles);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "LAYOUT_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
-        var fabResolution =
-            await LayoutCompositionFabResolution.ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+        var (name, grid, tiles) = input;
+
+        var fabResolution = await LayoutCompositionFabResolution.ResolveWriteFabAsync(user, fabId, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
         }
 
         var fab = fabResolution.Value;
-
         var actingOperator = user.ToOperatorIdentifier();
+        var command = new CreateLayoutDraftCommand(fab, name, grid, tiles, actingOperator);
 
         return await IdempotentRequest.ExecuteCreateAsync(
-            new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    CreateEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
-                services.Idempotency,
-                services.Clock),
+            CreateExecution(key, command, body, services),
             identifier => $"/layouts/{identifier}",
-            async token => (await handler.HandleAsync(
-                    new CreateLayoutDraftCommand(fab, name, grid, tiles, actingOperator), token)).Match(
+            async token => (await services.Handler.HandleAsync(command, token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
     }
+
+    private static (LayoutName Name, GridDimensions Grid, IReadOnlyList<Tile> Tiles) ParseCreateLayout(CreateLayoutRequest body) =>
+        (LayoutName.From(body.Name), LayoutRequestParsing.ParseGrid(body.Grid), LayoutRequestParsing.ParseTiles(body.Tiles));
+
+    private static IdempotentExecution CreateExecution(
+        Option<IdempotencyKey> key,
+        CreateLayoutDraftCommand command,
+        CreateLayoutRequest body,
+        CreateLayoutServices services) =>
+        new(
+            key.Map(supplied => IdempotencyScope.For(
+                supplied,
+                CreateEndpoint,
+                command.CreatedBy.Value.ToString(),
+                Option<string>.Some(command.Fab.Value),
+                IdempotencyFingerprint.Of(body))),
+            services.Idempotency,
+            services.Clock);
 
     /// <summary>
     /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
@@ -231,22 +230,16 @@ public static partial class LayoutEndpoints
                 detail: "layoutIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        LayoutRevisionNumber number;
-        GridDimensions grid;
-        IReadOnlyList<Tile> tiles;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseDraftEdit(revisionNumber, body),
+            "LAYOUT_INVALID_INPUT",
+            out var input,
+            out var problem))
         {
-            number = LayoutRevisionNumber.From(revisionNumber);
-            grid = LayoutRequestParsing.ParseGrid(body.Grid);
-            tiles = LayoutRequestParsing.ParseTiles(body.Tiles);
+            return problem;
         }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "LAYOUT_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+
+        var (number, grid, tiles) = input;
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
@@ -302,6 +295,11 @@ public static partial class LayoutEndpoints
                 cancellationToken)),
             cancellationToken);
     }
+
+    private static (LayoutRevisionNumber Number, GridDimensions Grid, IReadOnlyList<Tile> Tiles) ParseDraftEdit(
+        int revisionNumber,
+        EditDraftRequest body) =>
+        (LayoutRevisionNumber.From(revisionNumber), LayoutRequestParsing.ParseGrid(body.Grid), LayoutRequestParsing.ParseTiles(body.Tiles));
 
     private static IResult RevisionOutcome<TError>(Result<LayoutRevisionNumber, TError> result)
         where TError : ApiError =>
