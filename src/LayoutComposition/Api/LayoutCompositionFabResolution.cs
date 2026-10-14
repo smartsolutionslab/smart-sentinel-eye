@@ -66,6 +66,21 @@ internal static class LayoutCompositionFabResolution
         CancellationToken cancellationToken) =>
         ResolveReadFabsAsync(user, fabId: string.Empty, fabGuard, cancellationToken);
 
+    internal static async Task<IResult> ForCallerFabsAsync(
+        ClaimsPrincipal user,
+        IFabAuthorizationGuard fabGuard,
+        Func<IReadOnlyList<FabIdentifier>, Task<IResult>> dispatch,
+        CancellationToken cancellationToken)
+    {
+        Ensure.That(dispatch).IsNotNull();
+
+        var fabsResolution = await ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
+
+        return fabsResolution.IsFailure
+            ? fabsResolution.Error
+            : await dispatch(fabsResolution.Value);
+    }
+
     /// <summary>
     /// The fabs a read may span. Unlike a write, nothing has to be chosen: a
     /// multi-fab caller listing sees all of theirs (FR-005).
