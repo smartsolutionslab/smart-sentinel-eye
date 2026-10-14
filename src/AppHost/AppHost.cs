@@ -101,6 +101,9 @@ var postgres = builder
     // what was written.
     .WithArgs("-c", "max_connections=500");
 
+// A persistent postgres keeps the args it was created with, so a changed WithArgs
+// (e.g. max_connections) needs `docker rm` of the container; the full note is on
+// DeveloperLanePersistence.WithPostgresDeveloperLanePersistence.
 postgres.WithPostgresDeveloperLanePersistence(isPersistentDevStack);
 
 var cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
@@ -147,6 +150,10 @@ var keycloak = builder
 // component) alongside the brute-force block — without them the imported realm
 // falls back to realm-import defaults that break the bootstrap admin's own
 // password grant (plan.md §2 for spec 324).
+
+// A persistent keycloak keeps its data volume, so an edited Realms/*.json is not
+// re-imported until that volume is dropped; the full note is on
+// DeveloperLanePersistence.WithKeycloakDeveloperLanePersistence.
 keycloak.WithKeycloakDeveloperLanePersistence(isPersistentDevStack);
 
 // MediaMTX SFU brings RTSP ingest + WHEP playback (spec 002 T003, ADR-0011).
