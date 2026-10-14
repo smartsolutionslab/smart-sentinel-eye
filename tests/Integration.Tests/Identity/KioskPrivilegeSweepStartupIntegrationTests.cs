@@ -13,14 +13,13 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// enrol loses nothing.
 ///
 /// <para>
-/// <b>The failure this covers is live, and the production code delegates it here
-/// by name.</b> <c>HttpKeycloakAdminClient.CreateClientAsync</c> strips inside
+/// <b>The failure this covers is live, and this sweep is what takes its privilege.</b> <c>HttpKeycloakAdminClient.CreateClientAsync</c> strips inside
 /// the create and deletes the client if the strip throws — but that delete is
 /// best effort, and when it also fails a client stamped <c>sse.kind=kiosk</c>
 /// survives holding <c>offline_access</c>, with a service account and a secret
-/// the caller never received. The best-effort comment in
-/// <c>TryDeleteClientAsync</c> (<c>HttpKeycloakAdminClient.cs:363</c>) says the
-/// startup sweep is the backstop for exactly that. The sweep has never run: it
+/// the caller never received. <c>HttpKeycloakAdminClient.TryDeleteClientAsync</c>
+/// reports such a residue; the startup sweep is what takes its privilege (the
+/// client itself is <c>OrphanedClientSweep</c>'s). The sweep has never run: it
 /// is registered nowhere (#2132).
 /// </para>
 ///

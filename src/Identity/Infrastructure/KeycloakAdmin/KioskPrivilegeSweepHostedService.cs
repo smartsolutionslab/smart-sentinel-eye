@@ -17,8 +17,7 @@ namespace SmartSentinelEye.Identity.Infrastructure.KeycloakAdmin;
 /// <c>sse.kind=kiosk</c> survives holding a privilege that mints credentials
 /// which never expire, with a secret the caller never received, and the
 /// existence probe answers already-enrolled for it forever. See
-/// <see cref="HttpKeycloakAdminClient"/>'s <c>TryDeleteClientAsync</c>, whose
-/// comment delegates that case here by name.
+/// <see cref="HttpKeycloakAdminClient"/>'s <c>TryDeleteClientAsync</c>.
 /// </para>
 ///
 /// <para>

@@ -18,7 +18,7 @@ namespace SmartSentinelEye.Identity.Application.KeycloakAdmin;
 /// <b>The live reason is one path forward, not a population behind.</b> Enrolment
 /// strips inside the create and deletes the client when the strip throws, but
 /// that delete is best effort — see <c>HttpKeycloakAdminClient</c>'s
-/// <c>TryDeleteClientAsync</c>, whose comment delegates the case here by name.
+/// <c>TryDeleteClientAsync</c>.
 /// When it also fails, a client stamped <c>sse.kind=kiosk</c> survives holding
 /// the privilege, with a service account and a secret the caller never
 /// received, and the existence probe answers already-enrolled for it. This
