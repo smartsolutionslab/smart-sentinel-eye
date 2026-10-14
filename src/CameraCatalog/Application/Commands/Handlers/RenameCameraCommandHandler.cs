@@ -17,7 +17,7 @@ public sealed class RenameCameraCommandHandler(
     {
         Ensure.That(command).IsNotNull();
 
-        var (fab, camera, name, expectedVersion, renamedBy) = command;
+        var (fab, camera, name, _, renamedBy) = command;
 
         // Scoped to the fab, so another plant's camera is indistinguishable
         // from one that does not exist (spec 029 FR-006). The fab is in the
@@ -34,33 +34,10 @@ public sealed class RenameCameraCommandHandler(
 
         var renaming = found.Value;
 
-        // Version before terminal state, matching the address correction: a
-        // caller working from a stale read should be told their view is stale,
-        // not told about a state their view may not have shown them.
-        if (renaming.Version != expectedVersion)
+        var refusal = await RefuseStaleVersionOrTakenNameAsync(renaming, command, cancellationToken);
+        if (refusal.HasValue)
         {
-            logger.RejectedCameraRenameStaleVersion(camera, expectedVersion, renaming.Version);
-            return Failure(RenameCameraFailures.VersionStale(
-                camera.Value, expectedVersion, renaming.Version));
-        }
-
-        // Uniqueness last, because it is the only step that reads other rows —
-        // and excluding this camera, or it finds itself: it is active, in this
-        // fab, and holds this normalised name whenever the rename is a no-op or
-        // changes only letter case (spec 033 FR-010, ADR-0120).
-        //
-        // This is a guard, not a guarantee. The check and the write are not
-        // atomic, so ux_cameras_fab_name_normalized_active is what actually
-        // holds the invariant under a race. Both are required and they do
-        // different jobs; concluding the index makes this redundant is the
-        // defect spec 028 found on this same predicate.
-        var taken = await cameras.ExistsByNameAsync(
-            fab, name, Option<CameraIdentifier>.Some(camera), cancellationToken);
-
-        if (taken)
-        {
-            logger.RejectedCameraRenameNameTaken(camera, name);
-            return Failure(RenameCameraFailures.NameTaken(name.Value, fab.Value));
+            return Failure(refusal.Value);
         }
 
         // The terminal rule lives in the aggregate, which throws; this
@@ -84,5 +61,44 @@ public sealed class RenameCameraCommandHandler(
         logger.RenamedCamera(renaming.Id, renaming.Name);
 
         return Success(renaming.Id);
+    }
+
+    private async Task<Option<RenameCameraError>> RefuseStaleVersionOrTakenNameAsync(
+        Camera renaming,
+        RenameCameraCommand command,
+        CancellationToken cancellationToken)
+    {
+        var (fab, camera, name, expectedVersion, _) = command;
+
+        // Version before terminal state, matching the address correction: a
+        // caller working from a stale read should be told their view is stale,
+        // not told about a state their view may not have shown them.
+        if (renaming.Version != expectedVersion)
+        {
+            logger.RejectedCameraRenameStaleVersion(camera, expectedVersion, renaming.Version);
+            return Option<RenameCameraError>.Some(RenameCameraFailures.VersionStale(
+                camera.Value, expectedVersion, renaming.Version));
+        }
+
+        // Uniqueness last, because it is the only step that reads other rows —
+        // and excluding this camera, or it finds itself: it is active, in this
+        // fab, and holds this normalised name whenever the rename is a no-op or
+        // changes only letter case (spec 033 FR-010, ADR-0120).
+        //
+        // This is a guard, not a guarantee. The check and the write are not
+        // atomic, so ux_cameras_fab_name_normalized_active is what actually
+        // holds the invariant under a race. Both are required and they do
+        // different jobs; concluding the index makes this redundant is the
+        // defect spec 028 found on this same predicate.
+        var taken = await cameras.ExistsByNameAsync(
+            fab, name, Option<CameraIdentifier>.Some(camera), cancellationToken);
+
+        if (taken)
+        {
+            logger.RejectedCameraRenameNameTaken(camera, name);
+            return Option<RenameCameraError>.Some(RenameCameraFailures.NameTaken(name.Value, fab.Value));
+        }
+
+        return Option<RenameCameraError>.None;
     }
 }
