@@ -207,7 +207,7 @@ public class WhepAuthorizeRateLimitTests(AspireFixture aspire) : IAsyncLifetime
     /// </summary>
     /// <remarks>
     /// <see cref="BeginCountingAsync"/>'s forced refusal is itself a genuine
-    /// throttle transition, debounced by <c>Program.cs</c>'s
+    /// throttle transition, debounced by <c>WhepAuthorizeActionPartition</c>'s
     /// <c>IsNewWhepAuthorizeThrottleTransition</c> (an absolute TTL equal to
     /// <see cref="Window"/>, keyed only on partition). Under the pre-#2537
     /// protocol, the prior fact's own trailing <c>Task.Delay(Window)</c>

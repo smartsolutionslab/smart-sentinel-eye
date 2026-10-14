@@ -18,9 +18,10 @@ internal static class LayoutCompositionFabResolution
     /// it applies the existing one (spec 017).
     ///
     /// <para>
-    /// Only <c>POST /layouts</c> uses this. The other five writes address an
-    /// existing layout, which already has a fab — letting the caller name one
-    /// there would allow the two to disagree.
+    /// Only the two writes that create something use this: <c>POST /layouts</c>
+    /// and <c>POST /walls</c>. The other writes address an existing layout or
+    /// wall, which already has a fab — letting the caller name one there would
+    /// allow the two to disagree.
     /// </para>
     /// </summary>
     internal static async Task<Result<FabIdentifier, IResult>> ResolveWriteFabAsync(
