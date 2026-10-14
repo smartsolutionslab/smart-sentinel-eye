@@ -1,4 +1,5 @@
 using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -36,7 +37,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
     // the ArgumentException catch below exists only to absorb its habit of surfacing
     // malformed-token paths as ArgumentException — a wart that goes away with it.
     // Deferred rather than done here because ValidateTokenAsync returns a result
-    // instead of throwing, so the migration rewrites this method's control flow and
+    // instead of throwing, so the migration rewrites ValidateAgainst's control flow and
     // needs its own adversarial pass over malformed inputs (spec 089 D4).
     private readonly JwtSecurityTokenHandler handler = new();
 
@@ -96,7 +97,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
 
     internal static TokenValidationParameters CreateParameters() => new()
     {
-        // No ValidIssuer/ValidIssuers here: the issuer is filled in ValidateAsync from
+        // No ValidIssuer/ValidIssuers here: the issuer is filled in ValidateAgainst from
         // the discovery document, exactly as JwtBearerHandler fills it per request. The
         // configured authority addresses discovery and nothing else — behind an ingress
         // it is not the issuer the realm mints (spec 089, #2095).
@@ -115,7 +116,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
         // making those nine stricter is the correct direction and a separate slice;
         // relaxing this one to match would be parity bought by relaxation (spec 089 D2).
         ValidateIssuerSigningKey = true,
-        // Inert: ValidateAsync reads "sub" and "scope" through FindFirst and never
+        // Inert: SubjectFrom reads "sub" and "scope" through FindFirst and never
         // touches Identity.Name, so this setting decides nothing here (spec 089 D3).
         NameClaimType = "preferred_username",
     };
@@ -173,6 +174,13 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
             logger.WhepIdentityProviderReachable();
         }
 
+        return ValidateAgainst(configuration, bearerToken);
+    }
+
+    private Result<WhepAuthSubject, WhepAuthFailure> ValidateAgainst(
+        OpenIdConnectConfiguration configuration,
+        string bearerToken)
+    {
         try
         {
             var validationParameters = parameters.Clone();
@@ -181,33 +189,7 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
 
             var principal = handler.ValidateToken(bearerToken, validationParameters, out var validated);
 
-            var subject = principal.FindFirst("sub")?.Value;
-            if (subject is null)
-            {
-                return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
-            }
-
-            // Spec 270 (ADR-0160): refuse a token whose client was disabled
-            // after it was minted. No RequestRefreshIfAStaleDocumentCouldExplain
-            // here — a fresher discovery document cannot cure a revocation
-            // (plan.md §4.4).
-            var azp = principal.FindFirst("azp")?.Value;
-            if (revokedClients.Refuses(azp, IssuedAtOf(validated)))
-            {
-                logger.TokenRefusedAsRevoked(azp ?? string.Empty);
-                return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
-            }
-
-            var scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
-            var scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            // ADR-0161: the same groups-claim parsing every other fab-checked
-            // endpoint uses, read off this hand-validated principal since this
-            // hook has no ASP.NET Core authenticated-request principal to run
-            // IFabAuthorizationGuard against.
-            var fabs = FabClaims.AssignedFabs(principal);
-
-            return Result<WhepAuthSubject, WhepAuthFailure>.Success(new WhepAuthSubject(subject, scopes, fabs));
+            return SubjectFrom(principal, validated);
         }
         catch (SecurityTokenException exception)
         {
@@ -231,6 +213,39 @@ public sealed class WhepAuthValidator : IWhepAuthValidator
 
             return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
         }
+    }
+
+    private Result<WhepAuthSubject, WhepAuthFailure> SubjectFrom(
+        ClaimsPrincipal principal,
+        SecurityToken validated)
+    {
+        var subject = principal.FindFirst("sub")?.Value;
+        if (subject is null)
+        {
+            return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
+        }
+
+        // Spec 270 (ADR-0160): refuse a token whose client was disabled
+        // after it was minted. No RequestRefreshIfAStaleDocumentCouldExplain
+        // here — a fresher discovery document cannot cure a revocation
+        // (plan.md §4.4).
+        var azp = principal.FindFirst("azp")?.Value;
+        if (revokedClients.Refuses(azp, IssuedAtOf(validated)))
+        {
+            logger.TokenRefusedAsRevoked(azp ?? string.Empty);
+            return Result<WhepAuthSubject, WhepAuthFailure>.Failure(WhepAuthFailure.TokenRejected);
+        }
+
+        var scopeClaim = principal.FindFirst("scope")?.Value ?? string.Empty;
+        var scopes = scopeClaim.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // ADR-0161: the same groups-claim parsing every other fab-checked
+        // endpoint uses, read off this hand-validated principal since this
+        // hook has no ASP.NET Core authenticated-request principal to run
+        // IFabAuthorizationGuard against.
+        var fabs = FabClaims.AssignedFabs(principal);
+
+        return Result<WhepAuthSubject, WhepAuthFailure>.Success(new WhepAuthSubject(subject, scopes, fabs));
     }
 
     /// <summary>
