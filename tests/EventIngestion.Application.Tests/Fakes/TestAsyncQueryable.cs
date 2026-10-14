@@ -14,8 +14,7 @@ namespace SmartSentinelEye.EventIngestion.Application.Tests.Fakes;
 /// / <see cref="IWebhookIntegrationQuerySource"/> wrappers backed by
 /// <see cref="TestAsyncEnumerable{T}"/> so EF Core's async extensions
 /// (<c>ToListAsync</c>, <c>FirstOrDefaultAsync</c>) work without a real
-/// DbContext. Same pattern as
-/// SystemVariables.Application.Tests/Fakes/TestAsyncQueryable.cs.
+/// DbContext.
 /// </summary>
 internal sealed class TestEventQuerySource(IEnumerable<EventAggregate> seed) : IEventQuerySource
 {

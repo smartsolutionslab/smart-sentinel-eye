@@ -124,18 +124,18 @@ Scenario: AS-6 auth and fab scope (unchanged)
 
 ## 6. Judgement calls
 
-- **[JUDGEMENT] J1 — OR-form predicate, not a Postgres row-value comparison.** `(ingested_at,
-  event_id) < (@t, @id)` is the index-friendlier SQL, but needs a provider-specific
-  `EF.Functions` call that LINQ-to-objects cannot run, which would break every in-memory test of
-  `BuildPagedQuery` (spec 346's characterisation suite). The OR form is what Audit already ships.
-  No NFR on `GET /events` latency exists to trade against; revisit only on a measured regression.
+- **[JUDGEMENT] J1 — OR-form predicate with a redundant bound, not a Postgres row-value comparison.**
+  `(ingested_at, event_id) < (@t, @id)` needs a provider-specific `EF.Functions` call that
+  LINQ-to-objects cannot run, which would break every in-memory test of `BuildPagedQuery`
+  (spec 346's characterisation suite). The OR form is what Audit already ships. A redundant
+  non-strict bound (`IngestedAt <= c.Ingested && (...)`) is plain LINQ and keeps an index range on
+  `ix_events_ingested`, so no row-value rewrite is needed. No NFR on `GET /events` latency exists to trade against; revisit only on a measured regression.
 - **[JUDGEMENT] J2 — the comparison is written as `((Guid)e.Id).CompareTo(c.EventId) < 0`**, the
   Audit spelling, because `EventIdentifier`'s own `<` operator is a user-defined operator on a
   value-converted struct and is not known to translate. The engineer may use the operator only if
   the translation tests prove it.
-- **[JUDGEMENT] J3 — Guid ordering agreement.** .NET `Guid.CompareTo` and Postgres `uuid` order may
-  differ for arbitrary GUIDs; it does not matter here because the `WHERE` and the `ORDER BY` are both
-  evaluated by Postgres in production and both by .NET in the unit tests. The integration test
+- **[JUDGEMENT] J3 — Guid ordering agreement.** .NET `Guid.CompareTo` and Postgres `uuid` ordering
+  agree; it would not matter anyway, as the `WHERE` and the `ORDER BY` run on the same engine. The integration test
   (T004) is what proves the Postgres side, including that a `timestamptz` read back and re-encoded as
   ticks compares *equal* to the stored value.
 - **[JUDGEMENT] J4 — the two pinned assertions are replaced, not edited to pass.** They pin the
