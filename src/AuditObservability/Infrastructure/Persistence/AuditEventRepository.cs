@@ -34,36 +34,41 @@ public sealed class AuditEventRepository(AuditObservabilityDbContext dbContext) 
 
         foreach (var row in pending)
         {
-            var fab = row.Fab?.Value;
-            var resourceKind = row.ResourceKind?.Value;
-            var resourceIdentifier = row.ResourceIdentifier?.Value;
-            await dbContext.Database.ExecuteSqlInterpolatedAsync(
-                $"""
-                INSERT INTO audit_events (
-                    audit_id, occurred_at, received_at, fab_id, fab_attribution,
-                    event_kind, resource_kind, resource_identifier,
-                    actor_identifier, actor_username, event_identifier,
-                    payload, payload_size_bytes, schema_version,
-                    handler_entered_at, written_at)
-                VALUES (
-                    {row.Id.Value}, {row.OccurredAt.Value}, {row.ReceivedAt.Value},
-                    {fab},
-                    {row.FabAttribution.ToString()},
-                    {row.EventKind.Value},
-                    {resourceKind},
-                    {resourceIdentifier},
-                    {row.Actor.Value}, {row.ActorUsername?.Value},
-                    {row.EventIdentifier.Value},
-                    {row.Payload.Content.Value}::jsonb, {row.Payload.Size.Value},
-                    {row.SchemaVersion.Value},
-                    {row.HandlerEnteredAt?.Value},
-                    CASE WHEN {row.HandlerEnteredAt?.Value}::timestamptz IS NULL
-                         THEN NULL ELSE clock_timestamp() END)
-                ON CONFLICT (event_identifier, occurred_at) DO NOTHING
-                """,
-                cancellationToken);
+            await InsertUnlessDuplicateAsync(row, cancellationToken);
         }
 
         pending.Clear();
+    }
+
+    private Task<int> InsertUnlessDuplicateAsync(AuditEventEntity row, CancellationToken cancellationToken)
+    {
+        var fab = row.Fab?.Value;
+        var resourceKind = row.ResourceKind?.Value;
+        var resourceIdentifier = row.ResourceIdentifier?.Value;
+        return dbContext.Database.ExecuteSqlInterpolatedAsync(
+            $"""
+            INSERT INTO audit_events (
+                audit_id, occurred_at, received_at, fab_id, fab_attribution,
+                event_kind, resource_kind, resource_identifier,
+                actor_identifier, actor_username, event_identifier,
+                payload, payload_size_bytes, schema_version,
+                handler_entered_at, written_at)
+            VALUES (
+                {row.Id.Value}, {row.OccurredAt.Value}, {row.ReceivedAt.Value},
+                {fab},
+                {row.FabAttribution.ToString()},
+                {row.EventKind.Value},
+                {resourceKind},
+                {resourceIdentifier},
+                {row.Actor.Value}, {row.ActorUsername?.Value},
+                {row.EventIdentifier.Value},
+                {row.Payload.Content.Value}::jsonb, {row.Payload.Size.Value},
+                {row.SchemaVersion.Value},
+                {row.HandlerEnteredAt?.Value},
+                CASE WHEN {row.HandlerEnteredAt?.Value}::timestamptz IS NULL
+                     THEN NULL ELSE clock_timestamp() END)
+            ON CONFLICT (event_identifier, occurred_at) DO NOTHING
+            """,
+            cancellationToken);
     }
 }
