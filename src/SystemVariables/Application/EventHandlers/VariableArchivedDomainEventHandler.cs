@@ -39,6 +39,7 @@ public sealed class VariableArchivedDomainEventHandler(
         var affectedOverlays = reverseIndex.LookupOverlays(variableName.Value);
         if (affectedOverlays.Count == 0)
         {
+            logger.NoOverlaysReferenceVariable(variableName);
             return;
         }
 
