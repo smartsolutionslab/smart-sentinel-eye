@@ -105,6 +105,9 @@ public sealed class RotateWebhookClientCommandHandler(
         return Success(CredentialsOf(rotation.Value, clientId, integrationName, fab));
     }
 
+    // The call order is the contract: a revoked or unverifiable integration is
+    // refused before any lookup, and a branch mismatch is refused before a
+    // stale version, so callers keep getting the same error code for the same input.
     private async Task<Result<PreparedRotation, RotateWebhookClientError>> PrepareAsync(
         RotateWebhookClientCommand command,
         CancellationToken cancellationToken)
