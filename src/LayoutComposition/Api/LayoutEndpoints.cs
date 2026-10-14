@@ -37,6 +37,19 @@ public static partial class LayoutEndpoints
         // assertion, so a caller who authenticates without sse.layouts.read or
         // .write is forbidden rather than challenged (spec 085). That second
         // producer has been reachable since spec 008 and went unnamed here.
+        MapCreateLayoutDraft(group);
+        MapGetLayout(group);
+        MapListLayouts(group);
+        MapPublishRevision(group);
+        MapArchiveRevision(group);
+        MapBranchDraftRevision(group);
+        MapEditDraftRevision(group);
+        MapRevertRevision(group);
+
+        return app;
+    }
+
+    private static void MapCreateLayoutDraft(RouteGroupBuilder group) =>
         group.MapPost("/", CreateDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("CreateLayoutDraft")
@@ -50,6 +63,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
+    private static void MapGetLayout(RouteGroupBuilder group) =>
         group.MapGet("/{layoutIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("GetLayout")
@@ -62,6 +76,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapListLayouts(RouteGroupBuilder group) =>
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Layouts.Read)
             .WithName("ListLayouts")
@@ -71,6 +86,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapPublishRevision(RouteGroupBuilder group) =>
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/publish", Publish)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("PublishRevision")
@@ -85,6 +101,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapArchiveRevision(RouteGroupBuilder group) =>
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("ArchiveRevision")
@@ -97,6 +114,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapBranchDraftRevision(RouteGroupBuilder group) =>
         group.MapPost("/{layoutIdentifier:guid}/draft", BranchDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("BranchDraftRevision")
@@ -111,6 +129,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapEditDraftRevision(RouteGroupBuilder group) =>
         group.MapPatch("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("EditDraftRevision")
@@ -125,6 +144,7 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapRevertRevision(RouteGroupBuilder group) =>
         group.MapPost("/{layoutIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
             .RequireAuthorization(Scope.Sse.Layouts.Write)
             .WithName("RevertRevision")
@@ -138,9 +158,6 @@ public static partial class LayoutEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
-    }
 }
 
 /// <summary>
