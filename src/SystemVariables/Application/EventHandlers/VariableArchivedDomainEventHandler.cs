@@ -48,6 +48,8 @@ public sealed class VariableArchivedDomainEventHandler(
         var versionsByOverlay =
             await overlayTextVersions.AdvanceAsync(affectedOverlays, cancellationToken);
 
+        var pushed = 0;
+
         foreach (var overlayId in affectedOverlays)
         {
             var labelTexts = reverseIndex.LookupLabelTexts(overlayId);
@@ -63,9 +65,10 @@ public sealed class VariableArchivedDomainEventHandler(
 
             ResolvedOverlayTextChangedV3 @event = new(Overlay: overlayId, Texts: texts, Version: versionsByOverlay[overlayId], Metadata: metadata);
             await events.PublishAsync(@event, cancellationToken);
+            pushed++;
         }
 
-        logger.PushedResolvedTextAfterArchive(affectedOverlays.Count, variableName);
+        logger.PushedResolvedTextAfterArchive(pushed, variableName);
     }
 
     private static SystemVariableArchivedV1 ToArchivedV1(
