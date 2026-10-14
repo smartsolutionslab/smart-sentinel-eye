@@ -40,37 +40,10 @@ public static class OverlayDesignerInfrastructureModule
         builder.AddOverlayDesignerPersistence();
         builder.EnrichPostgresDbContext<OverlayDesignerDbContext>();
 
-        builder.Services.AddScoped<IOverlayRepository, OverlayRepository>();
-        builder.Services.AddScoped<IOverlayQuerySource, OverlayQuerySource>();
-        builder.Services.AddScoped<IDomainEventHandler<OverlayRevisionPublishedDomainEvent>, OverlayRevisionPublishedDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventHandler<OverlayRevisionArchivedDomainEvent>, OverlayRevisionArchivedDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
-
-        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
-        // above drives the executor's wait for an in-flight attempt.
-        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<OverlayDesignerDbContext>>();
-        builder.Services.AddIdempotencyReservationSweep<OverlayDesignerDbContext>();
-
-        builder.Services.AddScoped<
-            ICommandHandler<CreateOverlayDraftCommand, Result<OverlayIdentifier, CreateOverlayDraftError>>,
-            CreateOverlayDraftCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<PublishRevisionCommand, Result<OverlayRevisionNumber, PublishRevisionError>>,
-            PublishRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<ArchiveRevisionCommand, Result<OverlayRevisionNumber, ArchiveRevisionError>>,
-            ArchiveRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<BranchDraftRevisionCommand, Result<OverlayRevisionNumber, BranchDraftRevisionError>>,
-            BranchDraftRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<EditDraftRevisionCommand, Result<OverlayRevisionNumber, EditDraftRevisionError>>,
-            EditDraftRevisionCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<RevertRevisionCommand, Result<OverlayRevisionNumber, RevertRevisionError>>,
-            RevertRevisionCommandHandler>();
+        builder.Services
+            .AddOverlayStoreAndDomainEventHandlers()
+            .AddClockAndIdempotencyStore()
+            .AddCommandHandlers();
 
         builder.AddWolverineForContext<OverlayDesignerDbContext>(
             moduleQueuePrefix: ContextName,
@@ -79,4 +52,42 @@ public static class OverlayDesignerInfrastructureModule
 
         return builder;
     }
+
+    private static IServiceCollection AddOverlayStoreAndDomainEventHandlers(this IServiceCollection services) =>
+        services
+            .AddScoped<IOverlayRepository, OverlayRepository>()
+            .AddScoped<IOverlayQuerySource, OverlayQuerySource>()
+            .AddScoped<IDomainEventHandler<OverlayRevisionPublishedDomainEvent>, OverlayRevisionPublishedDomainEventHandler>()
+            .AddScoped<IDomainEventHandler<OverlayRevisionArchivedDomainEvent>, OverlayRevisionArchivedDomainEventHandler>()
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+
+    private static IServiceCollection AddClockAndIdempotencyStore(this IServiceCollection services) =>
+        services
+            .AddSingleton<IClock, SystemClock>()
+            .AddSingleton(TimeProvider.System)
+            // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+            // above drives the executor's wait for an in-flight attempt.
+            .AddScoped<IIdempotencyStore, IdempotencyStore<OverlayDesignerDbContext>>()
+            .AddIdempotencyReservationSweep<OverlayDesignerDbContext>();
+
+    private static void AddCommandHandlers(this IServiceCollection services) =>
+        services
+            .AddScoped<
+                ICommandHandler<CreateOverlayDraftCommand, Result<OverlayIdentifier, CreateOverlayDraftError>>,
+                CreateOverlayDraftCommandHandler>()
+            .AddScoped<
+                ICommandHandler<PublishRevisionCommand, Result<OverlayRevisionNumber, PublishRevisionError>>,
+                PublishRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<ArchiveRevisionCommand, Result<OverlayRevisionNumber, ArchiveRevisionError>>,
+                ArchiveRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<BranchDraftRevisionCommand, Result<OverlayRevisionNumber, BranchDraftRevisionError>>,
+                BranchDraftRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<EditDraftRevisionCommand, Result<OverlayRevisionNumber, EditDraftRevisionError>>,
+                EditDraftRevisionCommandHandler>()
+            .AddScoped<
+                ICommandHandler<RevertRevisionCommand, Result<OverlayRevisionNumber, RevertRevisionError>>,
+                RevertRevisionCommandHandler>();
 }
