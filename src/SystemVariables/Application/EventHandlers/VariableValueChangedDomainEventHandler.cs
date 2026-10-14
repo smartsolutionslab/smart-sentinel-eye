@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.SystemVariables;
@@ -33,17 +34,10 @@ public sealed class VariableValueChangedDomainEventHandler(
     {
         Ensure.That(domainEvent).IsNotNull();
 
-        var (variable, fab, name, type, value, changedAt, changedBy, _, rootIngestedAt) = domainEvent;
+        var (_, fab, name, _, _, changedAt, changedBy, _, rootIngestedAt) = domainEvent;
 
-        SystemVariableValueChangedV1 systemVariableValueChangedEvent = new(
-            Variable: variable.Value,
-            Name: name.Value,
-            Type: type.Value,
-            Value: value.ToWireString(),
-            ChangedAt: changedAt,
-            ChangedBy: changedBy.Value,
-            Metadata: new EventMetadata(Guid.CreateVersion7(), changedAt, fab.Value, changedBy.Value));
-        await events.PublishAsync(systemVariableValueChangedEvent, cancellationToken);
+        var valueChangedMetadata = new EventMetadata(Guid.CreateVersion7(), changedAt, fab.Value, changedBy.Value);
+        await events.PublishAsync(ToValueChangedV1(domainEvent, valueChangedMetadata), cancellationToken);
 
         // The near end of the `event → overlay state` leg, handed on rather than
         // re-stamped. LayoutComposition closes the leg when it pushes the frame
@@ -79,25 +73,36 @@ public sealed class VariableValueChangedDomainEventHandler(
             var snapshot =
                 await BuildSnapshotAsync(labelTexts, domainEvent, cancellationToken);
 
-            IReadOnlyList<ResolvedOverlayTextV3> texts =
-                [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
-                    .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
-            var version = versionsByOverlay[overlayId];
+            var texts = ResolveTexts(labelTexts, snapshot);
+            var metadata = new EventMetadata(Guid.CreateVersion7(), changedAt, fab.Value, changedBy.Value, accepted);
 
-            ResolvedOverlayTextChangedV3 @event = new(
-                Overlay: overlayId,
-                Texts: texts,
-                Version: version,
-                Metadata: new(
-                    Guid.CreateVersion7(),
-                    changedAt,
-                    fab.Value,
-                    changedBy.Value,
-                    accepted));
+            ResolvedOverlayTextChangedV3 @event = new(Overlay: overlayId, Texts: texts, Version: versionsByOverlay[overlayId], Metadata: metadata);
             await events.PublishAsync(@event, cancellationToken);
         }
 
         logger.PushedResolvedTextAfterChange(affectedOverlays.Count, name);
+    }
+
+    private static SystemVariableValueChangedV1 ToValueChangedV1(
+        VariableValueChangedDomainEvent changed,
+        EventMetadata metadata)
+    {
+        return new SystemVariableValueChangedV1(
+            Variable: changed.Variable.Value,
+            Name: changed.Name.Value,
+            Type: changed.Type.Value,
+            Value: changed.Value.ToWireString(),
+            ChangedAt: changed.ChangedAt,
+            ChangedBy: changed.ChangedBy.Value,
+            Metadata: metadata);
+    }
+
+    private IReadOnlyList<ResolvedOverlayTextV3> ResolveTexts(
+        IReadOnlyList<string> labelTexts,
+        IReadOnlyDictionary<string, VariableSnapshotEntry> snapshot)
+    {
+        return [.. ResolvedTextPairs.Build(labelTexts, resolver, snapshot)
+            .Select(pair => new ResolvedOverlayTextV3(pair.Template, pair.Resolved))];
     }
 
     /// <summary>
@@ -126,12 +131,7 @@ public sealed class VariableValueChangedDomainEventHandler(
                 continue;
             }
 
-            VariableName parsed;
-            try
-            {
-                parsed = VariableName.From(name);
-            }
-            catch (ArgumentException)
+            if (!TryParseVariableName(name, out var parsed))
             {
                 continue;
             }
@@ -156,5 +156,21 @@ public sealed class VariableValueChangedDomainEventHandler(
         }
 
         return snapshot;
+    }
+
+    private static bool TryParseVariableName(
+        string name,
+        [NotNullWhen(true)] out VariableName? parsed)
+    {
+        try
+        {
+            parsed = VariableName.From(name);
+            return true;
+        }
+        catch (ArgumentException)
+        {
+            parsed = null;
+            return false;
+        }
     }
 }
