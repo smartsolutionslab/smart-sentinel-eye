@@ -39,15 +39,11 @@ public sealed class EditDraftRevisionCommandHandler(
         {
             return Failure(EditDraftRevisionFailures.OverlayRevisionStale(overlayIdentifier.Value, expectedVersion, overlay.Version));
         }
-        var revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
-        if (revision is null)
+
+        var refusal = RefuseUnlessDraft(overlay, overlayIdentifier, revisionNumber);
+        if (refusal.HasValue)
         {
-            return Failure(EditDraftRevisionFailures.OverlayRevisionNotFound(
-                    overlayIdentifier.Value, revisionNumber.Value));
-        }
-        if (revision.State != OverlayRevisionState.Draft)
-        {
-            return Failure(EditDraftRevisionFailures.NotADraft(revision.State.Value));
+            return Failure(refusal.Value);
         }
 
         overlay.EditDraft(revisionNumber, elements, clock);
@@ -56,5 +52,24 @@ public sealed class EditDraftRevisionCommandHandler(
         logger.EditedDraftRevision(revisionNumber, overlay.Id);
 
         return Success(revisionNumber);
+    }
+
+    private static Option<EditDraftRevisionError> RefuseUnlessDraft(
+        Overlay overlay,
+        OverlayIdentifier overlayIdentifier,
+        OverlayRevisionNumber revisionNumber)
+    {
+        var revision = overlay.Revisions.SingleOrDefault(candidate => candidate.Number == revisionNumber);
+        if (revision is null)
+        {
+            return Option<EditDraftRevisionError>.Some(EditDraftRevisionFailures.OverlayRevisionNotFound(
+                overlayIdentifier.Value, revisionNumber.Value));
+        }
+        if (revision.State != OverlayRevisionState.Draft)
+        {
+            return Option<EditDraftRevisionError>.Some(EditDraftRevisionFailures.NotADraft(revision.State.Value));
+        }
+
+        return Option<EditDraftRevisionError>.None;
     }
 }
