@@ -1,4 +1,6 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using SmartSentinelEye.EventIngestion.Infrastructure.Persistence;
 using SmartSentinelEye.Integration.Tests.Fixtures;
 
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
@@ -145,6 +147,84 @@ public class ListEventsFilteringTests(AspireFixture aspire)
 
         walked.Distinct().Count().ShouldBe(
             seeded, "the same event was served on more than one page");
+    }
+
+    /// <summary>
+    /// Spec 360, #2938. Rows that share an <c>ingested_at</c> to the microsecond
+    /// must still be served exactly once when a page boundary falls inside the
+    /// tie. HTTP ingest cannot make a tie (the server stamps the time), so the
+    /// rows are inserted directly.
+    ///
+    /// <para>
+    /// Only Postgres can show the two things this rests on: a <c>timestamptz</c>
+    /// read back, carried through the cursor as ticks and decoded, compares
+    /// equal to the stored value; and its <c>uuid</c> comparison agrees with
+    /// <c>ORDER BY event_id DESC</c>. The identifiers differ in the last byte
+    /// only, so the .NET and Postgres orderings of them cannot disagree.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public async Task Paging_through_events_sharing_an_ingested_time_yields_each_exactly_once()
+    {
+        using var events = await aspire.CreateAdminClientAsync("event-ingestion");
+        var kind = UniqueKind("Tied");
+        var tied = new DateTimeOffset(2026, 5, 28, 12, 0, 0, TimeSpan.Zero).AddTicks(1_234_560);
+        var prefix = Guid.NewGuid().ToByteArray();
+        Guid IdentifierEnding(byte last) => new([.. prefix[..15], last]);
+        var (high, middle, low, older) =
+            (IdentifierEnding(3), IdentifierEnding(2), IdentifierEnding(1), IdentifierEnding(4));
+
+        await using (var database = await aspire.CreateEventIngestionDbContextAsync())
+        {
+            await InsertAtAsync(database, kind, high, tied);
+            await InsertAtAsync(database, kind, middle, tied);
+            await InsertAtAsync(database, kind, low, tied);
+            await InsertAtAsync(database, kind, older, tied.AddMinutes(-1));
+        }
+
+        List<Guid> walked = [];
+        string? cursor = null;
+        var pages = 0;
+
+        do
+        {
+            var query = $"kind={kind}&pageSize=2"
+                + (cursor is null ? "" : $"&cursor={Uri.EscapeDataString(cursor)}");
+
+            var response = await events.GetAsync($"/events?fabId={Fab}&{query}");
+            response.EnsureSuccessStatusCode();
+            var page = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+            walked.AddRange(
+                page.GetProperty("items").EnumerateArray()
+                    .Select(item => item.GetProperty("eventIdentifier").GetGuid()));
+
+            cursor = page.TryGetProperty("nextCursor", out var next)
+                && next.ValueKind == JsonValueKind.String
+                    ? next.GetString()
+                    : null;
+
+            (++pages).ShouldBeLessThanOrEqualTo(
+                4, "pagination did not terminate — the cursor is not advancing");
+        }
+        while (cursor is not null);
+
+        walked.ShouldBe(
+            [high, middle, low, older],
+            "the cursor skipped or repeated events that share an ingested time");
+    }
+
+    private static async Task InsertAtAsync(
+        EventIngestionDbContext database, string kind, Guid identifier, DateTimeOffset ingestedAt)
+    {
+        await database.Database.ExecuteSqlRawAsync(
+            """
+            INSERT INTO events (event_id, fab_id, source, device_id, kind, occurred_at, ingested_at, payload, version)
+            VALUES ({0}, 'munich', 'manual', 'tie-device', {1}, {2}, {2}, '{{}}'::jsonb, 0)
+            """,
+            identifier,
+            kind,
+            ingestedAt);
     }
 
     // ---- seeding and reading -------------------------------------------------
