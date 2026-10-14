@@ -29,6 +29,24 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
     {
         Ensure.That(builder).IsNotNull();
 
+        ConfigureKeyAndFab(builder);
+        ConfigureName(builder);
+        ConfigureAddressAndStatus(builder);
+        ConfigureRegistration(builder);
+
+        builder.Property(camera => camera.Version)
+            .HasColumnName("version")
+            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
+            .IsConcurrencyToken()
+            .IsRequired();
+
+        ConfigureNormalizedNameIndex(builder);
+
+        builder.Ignore(camera => camera.PendingEvents);
+    }
+
+    private static void ConfigureKeyAndFab(EntityTypeBuilder<Camera> builder)
+    {
         builder.ToTable("cameras");
 
         builder.HasKey(camera => camera.Id);
@@ -43,7 +61,10 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasMaxLength(FabIdentifier.MaximumLength)
             .HasConversion(fab => fab.Value, value => FabIdentifier.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureName(EntityTypeBuilder<Camera> builder)
+    {
         // The comparer is not optional here, and its absence is invisible until
         // something renames a camera by letter case alone (spec 033).
         //
@@ -68,7 +89,10 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
                     name => name == null ? 0 : name.Value.GetHashCode(StringComparison.Ordinal),
                     name => CameraName.From(name.Value)))
             .IsRequired();
+    }
 
+    private static void ConfigureAddressAndStatus(EntityTypeBuilder<Camera> builder)
+    {
         builder.Property(camera => camera.Url)
             .HasColumnName("rtsp_url")
             .HasMaxLength(RtspUrl.MaximumLength)
@@ -80,7 +104,10 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .HasMaxLength(32)
             .HasConversion(status => status.Value, value => CameraStatus.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureRegistration(EntityTypeBuilder<Camera> builder)
+    {
         // Owned reference onto the two columns the pair occupied. The
         // Navigation(...).IsRequired() line keeps them NOT NULL; without it EF
         // treats the reference as optional and the model silently diverges
@@ -98,13 +125,10 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
                 .IsRequired();
         });
         builder.Navigation(camera => camera.Registration).IsRequired();
+    }
 
-        builder.Property(camera => camera.Version)
-            .HasColumnName("version")
-            .HasConversion(version => version.Value, value => AggregateVersion.From(value))
-            .IsConcurrencyToken()
-            .IsRequired();
-
+    private static void ConfigureNormalizedNameIndex(EntityTypeBuilder<Camera> builder)
+    {
         // #1434. The normalised name, computed by Postgres rather than written
         // by us: a stored generated column cannot drift from `name`, whereas a
         // column the application maintains is one forgotten assignment away
@@ -134,7 +158,5 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
             .IsUnique()
             .HasMethod("btree")
             .HasFilter("status <> 'Decommissioned'");
-
-        builder.Ignore(camera => camera.PendingEvents);
     }
 }
