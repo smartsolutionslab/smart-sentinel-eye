@@ -30,10 +30,9 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.EventHandlers;
 /// </para>
 ///
 /// <para>
-/// Spec 349 section 6 oddity (c) is pinned as it is, not as it ought to be: the
-/// reservation is taken before the name is validated, so an invalid name
-/// consumes a dedup key
-/// (<see cref="An_invalid_name_has_already_consumed_its_reservation"/>).
+/// Spec 349 section 6 oddity (c) was fixed by spec 358: the name is validated
+/// before the reservation is taken, so an invalid name consumes no dedup key
+/// (<see cref="An_invalid_name_is_dropped_before_any_reservation"/>).
 /// </para>
 /// </summary>
 public class ValueRequestRefusalOrderCharacterisationTests
@@ -142,23 +141,23 @@ public class ValueRequestRefusalOrderCharacterisationTests
     }
 
     [Fact]
-    public async Task A_duplicate_with_an_invalid_name_is_reported_as_a_duplicate_not_as_an_invalid_name()
+    public async Task An_invalid_name_is_reported_as_invalid_even_when_its_key_would_be_a_duplicate()
     {
         var run = await RunAsync("1bad", "82.5", OtherCausing, MetadataFor("dresden"), reserves: false);
 
-        run.Dedup.Calls.ShouldBe(["dresden|1bad|8f4a2b6c-1e9d-47a3-b5c0-d2e8f7a61b94"]);
+        run.Dedup.Calls.ShouldBeEmpty();
         var entry = run.Logger.Entries.ShouldHaveSingleItem();
-        entry.Level.ShouldBe(LogLevel.Debug);
+        entry.Level.ShouldBe(LogLevel.Warning);
         entry.Message.ShouldBe(
-            "Dedup hit for variable '1bad' in fab 'dresden' caused by 8f4a2b6c-1e9d-47a3-b5c0-d2e8f7a61b94; no-op.");
+            "Invalid variable name '1bad' in V1; dropping (caused by 8f4a2b6c-1e9d-47a3-b5c0-d2e8f7a61b94).");
     }
 
     [Fact]
-    public async Task An_invalid_name_has_already_consumed_its_reservation()
+    public async Task An_invalid_name_is_dropped_before_any_reservation()
     {
         var run = await RunAsync("1bad", "82.5", OtherCausing, MetadataFor("dresden"));
 
-        run.Dedup.Calls.ShouldBe(["dresden|1bad|8f4a2b6c-1e9d-47a3-b5c0-d2e8f7a61b94"]);
+        run.Dedup.Calls.ShouldBeEmpty();
         var entry = run.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Warning);
         entry.Message.ShouldBe(
