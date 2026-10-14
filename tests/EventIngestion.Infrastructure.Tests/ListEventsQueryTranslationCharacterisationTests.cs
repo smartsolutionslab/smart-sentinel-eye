@@ -35,8 +35,8 @@ public class ListEventsQueryTranslationCharacterisationTests
             5,
             "IngestedAfter, IngestedBefore, the cursor's non-strict bound (keeps the index range on "
             + "ix_events_ingested), and its strict and tie compares");
-        where.ShouldContain("ingested_at\" <=", Case.Sensitive, "the redundant non-strict cursor bound");
-        where.ShouldContain("event_id\" <", Case.Sensitive, "the strict tiebreak on the identifier");
+        where.ShouldContain("ingested_at::timestamptz <=", Case.Sensitive, "the redundant non-strict cursor bound");
+        where.ShouldContain("event_id::uuid <", Case.Sensitive, "the strict tiebreak on the identifier");
         where.ShouldContain("event_id");
     }
 
