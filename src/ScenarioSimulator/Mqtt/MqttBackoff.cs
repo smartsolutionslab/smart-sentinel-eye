@@ -104,9 +104,5 @@ internal sealed class MqttBackoff
         }
     }
 
-    // Not a security decision: this de-synchronises retries between clients, it
-    // does not generate anything anyone could guess their way into.
-#pragma warning disable CA5394
     private static double Jitter() => 0.8 + (Random.Shared.NextDouble() * 0.4);
-#pragma warning restore CA5394
 }

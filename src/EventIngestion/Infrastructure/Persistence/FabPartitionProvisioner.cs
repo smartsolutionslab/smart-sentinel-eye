@@ -33,9 +33,7 @@ public sealed class FabPartitionProvisioner(ILogger<FabPartitionProvisioner> log
     {
         foreach (var fab in fabs)
         {
-#pragma warning disable S2077
             await context.Database.ExecuteSqlRawAsync(BuildPartitionDdl(fab), cancellationToken);
-#pragma warning restore S2077
 
             logger.EnsuredFabPartition(PartitionName(fab), fab);
         }
