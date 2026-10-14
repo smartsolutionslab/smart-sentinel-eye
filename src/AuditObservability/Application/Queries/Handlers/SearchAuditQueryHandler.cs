@@ -76,10 +76,6 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         string? fab,
         IReadOnlyList<string> callerFabs)
     {
-        // Compare value objects directly (not their `.Value`): EF Core
-        // translates equality on a value-converted property to a column
-        // comparison, but cannot translate member access on the converted
-        // CLR type (`a.EventKind.Value == x` throws "could not be translated").
         if (fab is not null)
         {
             var fabId = FabIdentifier.From(fab);
@@ -163,6 +159,10 @@ public sealed class SearchAuditQueryHandler(IAuditEventQuerySource events)
         string? resourceKind,
         string? resourceIdentifier)
     {
+        // Compare value objects directly (not their `.Value`): EF Core
+        // translates equality on a value-converted property to a column
+        // comparison, but cannot translate member access on the converted
+        // CLR type (`a.EventKind.Value == x` throws "could not be translated").
         if (eventKind is not null)
         {
             var kind = EventKind.From(eventKind);
