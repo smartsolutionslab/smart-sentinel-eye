@@ -325,22 +325,13 @@ public sealed class ScenarioSeeder(
 
         // Loaded once per scenario by the caller, not reloaded here.
         var clip = manifestsByClip[asset.Camera.Clip];
-        var clipRefused = clip.Violations.Count > 0;
 
         foreach (var reaction in asset.Reactions)
         {
-            (var source, var kind) = (reaction.When.Source, reaction.When.Kind);
-
-            var sensorSatisfiesTrigger = asset.Sensors.Any(sensor =>
-                string.Equals(sensor.Source, source, StringComparison.Ordinal)
-                && string.Equals(sensor.Kind, kind, StringComparison.Ordinal));
-            var cueSatisfiesTrigger = clip.Manifest.HasValue && clip.Manifest.Value.Cues.Any(cue =>
-                string.Equals(cue.Source, source, StringComparison.Ordinal)
-                && string.Equals(cue.Kind, kind, StringComparison.Ordinal));
-
-            if (!sensorSatisfiesTrigger && !cueSatisfiesTrigger && clipRefused)
+            if (IsUnreachable(asset, reaction.When, clip))
             {
-                logger.ReactionSkippedRefusedManifest(asset.Key, reaction.Name, source, kind);
+                logger.ReactionSkippedRefusedManifest(
+                    asset.Key, reaction.Name, reaction.When.Source, reaction.When.Kind);
                 continue;
             }
 
@@ -352,17 +343,42 @@ public sealed class ScenarioSeeder(
                     logger.ReactionSkippedVariableRefused(asset.Key, reaction.Name, setVariable.VariableName);
                     break;
                 case ReactionSeedResult.Valid valid:
-                    var ruleResult = await rules.EnsureRuleAsync(valid.Seed, cancellationToken);
-                    if (ruleResult is RuleSeedResult.Refused ruleRefused)
-                    {
-                        logger.ReactionRefused(asset.Key, reaction.Name, ruleRefused.Reason);
-                    }
-
+                    await EnsureReactionRuleAsync(asset.Key, reaction.Name, valid.Seed, cancellationToken);
                     break;
                 case ReactionSeedResult.Refused refused:
                     logger.ReactionRefused(asset.Key, reaction.Name, refused.Reason);
                     break;
             }
+        }
+    }
+
+    private static bool IsUnreachable(
+        AssetDefinition asset,
+        ReactionTrigger when,
+        ClipManifestLoadResult clip)
+    {
+        var (source, kind) = (when.Source, when.Kind);
+
+        var sensorSatisfiesTrigger = asset.Sensors.Any(sensor =>
+            string.Equals(sensor.Source, source, StringComparison.Ordinal)
+            && string.Equals(sensor.Kind, kind, StringComparison.Ordinal));
+        var cueSatisfiesTrigger = clip.Manifest.HasValue && clip.Manifest.Value.Cues.Any(cue =>
+            string.Equals(cue.Source, source, StringComparison.Ordinal)
+            && string.Equals(cue.Kind, kind, StringComparison.Ordinal));
+
+        return !sensorSatisfiesTrigger && !cueSatisfiesTrigger && clip.Violations.Count > 0;
+    }
+
+    private async Task EnsureReactionRuleAsync(
+        string assetKey,
+        string reactionName,
+        RuleSeed seed,
+        CancellationToken cancellationToken)
+    {
+        var ruleResult = await rules.EnsureRuleAsync(seed, cancellationToken);
+        if (ruleResult is RuleSeedResult.Refused ruleRefused)
+        {
+            logger.ReactionRefused(assetKey, reactionName, ruleRefused.Reason);
         }
     }
 
