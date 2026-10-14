@@ -26,31 +26,23 @@ public static partial class WallEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var handler = services.Handler;
-        var fabGuard = services.FabGuard;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        WallName name;
-        List<LayoutIdentifier> scenes;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseCreateWall(body),
+            "WALL_INVALID_INPUT",
+            out var input,
+            out var problem))
         {
-            name = WallName.From(body.Name);
-            scenes = ParseScenes(body.Scenes);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "WALL_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
-        var fabResolution =
-            await LayoutCompositionFabResolution.ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+        var (name, scenes) = input;
+
+        var fabResolution = await LayoutCompositionFabResolution.ResolveWriteFabAsync(user, fabId, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
@@ -58,24 +50,34 @@ public static partial class WallEndpoints
 
         var fab = fabResolution.Value;
         var actingOperator = user.ToOperatorIdentifier();
+        var command = new CreateWallCommand(fab, name, scenes, actingOperator);
 
         return await IdempotentRequest.ExecuteCreateAsync(
-            new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    CreateEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
-                services.Idempotency,
-                services.Clock),
+            CreateExecution(key, command, body, services),
             identifier => $"/walls/{identifier}",
-            async token => (await handler.HandleAsync(
-                    new CreateWallCommand(fab, name, scenes, actingOperator), token)).Match(
+            async token => (await services.Handler.HandleAsync(command, token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
     }
+
+    private static (WallName Name, List<LayoutIdentifier> Scenes) ParseCreateWall(CreateWallRequest body) =>
+        (WallName.From(body.Name), ParseScenes(body.Scenes));
+
+    private static IdempotentExecution CreateExecution(
+        Option<IdempotencyKey> key,
+        CreateWallCommand command,
+        CreateWallRequest body,
+        CreateWallServices services) =>
+        new(
+            key.Map(supplied => IdempotencyScope.For(
+                supplied,
+                CreateEndpoint,
+                command.By.Value.ToString(),
+                Option<string>.Some(command.Fab.Value),
+                IdempotencyFingerprint.Of(body))),
+            services.Idempotency,
+            services.Clock);
 
     /// <summary>Bundled with <c>[AsParameters]</c> so the handler keeps a readable signature (ADR-0084).</summary>
     private sealed record CreateWallServices(
