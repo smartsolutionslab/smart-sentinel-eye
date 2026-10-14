@@ -88,7 +88,8 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             return Option<ResolvedSwitch>.None;
         }
 
-        var parsedTarget = TryParseTarget(target, targetLayout, trace);
+        var layout = targetLayout is { } value ? Option<Guid>.Some(value) : Option<Guid>.None;
+        var parsedTarget = TryParseTarget(target, layout, trace);
         if (!parsedTarget.HasValue)
         {
             return Option<ResolvedSwitch>.None;
@@ -109,7 +110,7 @@ public sealed class WallSceneSwitchRequestedV1Handler(
             identifiers.Value.CausingEvent));
     }
 
-    private Option<SceneTarget> TryParseTarget(string target, Guid? targetLayout, SwitchRequestTrace trace)
+    private Option<SceneTarget> TryParseTarget(string target, Option<Guid> targetLayout, SwitchRequestTrace trace)
     {
         try
         {
@@ -274,13 +275,13 @@ public sealed class WallSceneSwitchRequestedV1Handler(
     // literals, distinct from the manual switch request body's lowercase
     // "next" / "layout" (WallEndpoints.Commands): two different wire shapes
     // that happen to share a word.
-    private static SceneTarget ParseTarget(string target, Guid? targetLayout) =>
+    private static SceneTarget ParseTarget(string target, Option<Guid> targetLayout) =>
         target switch
         {
-            WallSceneSwitchRequestedV1.NextTarget when targetLayout is null =>
+            WallSceneSwitchRequestedV1.NextTarget when !targetLayout.HasValue =>
                 new SceneTarget.Next(),
-            WallSceneSwitchRequestedV1.LayoutTarget when targetLayout is { } layout =>
-                new SceneTarget.Layout(LayoutIdentifier.From(layout)),
+            WallSceneSwitchRequestedV1.LayoutTarget when targetLayout.HasValue =>
+                new SceneTarget.Layout(LayoutIdentifier.From(targetLayout.Value)),
             _ => throw new ArgumentException($"Malformed SwitchWallScene target '{target}'.", nameof(target)),
         };
 }
