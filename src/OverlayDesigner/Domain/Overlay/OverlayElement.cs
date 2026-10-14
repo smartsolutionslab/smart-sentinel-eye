@@ -81,11 +81,12 @@ public sealed record OverlayElement : IValueObject
 
     /// <summary>
     /// EF's materialization constructor. A constructor parameter can only
-    /// bind to a mapped scalar, never to a navigation, so EF refuses the
-    /// parts constructor above outright — <c>Position</c>,
-    /// <c>Size</c> and <c>Text</c> are owned references. It binds the two
-    /// scalars (<c>Kind</c> and <c>Color</c>, both converted) here and sets
-    /// the navigations afterwards (through the <c>private init</c>
+    /// bind to a mapped property, so EF cannot bind the parts constructor
+    /// above: its single <c>ElementParts</c> parameter is not a mapped
+    /// property. Nor can a constructor parameter bind to a navigation, and
+    /// <c>Position</c>, <c>Size</c> and <c>Text</c> are owned references.
+    /// This constructor binds the two scalars (<c>Kind</c> and <c>Color</c>,
+    /// both converted) and EF sets the navigations afterwards (through the <c>private init</c>
     /// accessors, which reflection reaches the same way it reaches a
     /// private setter), which is why they are handed nulls it immediately
     /// replaces.
