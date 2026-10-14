@@ -30,8 +30,9 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.EventHandlers;
 /// </para>
 ///
 /// <para>
-/// Spec 349 section 6 oddity (a) is pinned as it is: the count in the log
-/// includes an overlay that was skipped for having no cached label texts.
+/// Spec 349 section 6 oddity (a) was fixed by spec 358: the count in the log
+/// names only the overlays a message was pushed for, not one that was skipped
+/// for having no cached label texts.
 /// </para>
 /// </summary>
 public class ValueChangedFanOutCharacterisationTests
@@ -113,7 +114,7 @@ public class ValueChangedFanOutCharacterisationTests
     }
 
     [Fact]
-    public async Task The_versions_are_advanced_once_for_both_listed_overlays_and_the_log_counts_the_skipped_one()
+    public async Task The_versions_are_advanced_once_for_both_listed_overlays_and_the_log_counts_only_the_pushed_one()
     {
         var run = await RunAsync(
             Changed("munich", "oeeLine1", VariableType.Number, new VariableValue.NumberValue(82.5), Option<DateTimeOffset>.Some(RootIngestedAt)),
@@ -127,7 +128,7 @@ public class ValueChangedFanOutCharacterisationTests
         run.Versions.AdvanceCalls.ShouldHaveSingleItem().ShouldBe([OverlayA, OverlayB]);
         var entry = run.Logger.Entries.ShouldHaveSingleItem();
         entry.Level.ShouldBe(LogLevel.Information);
-        entry.Message.ShouldBe("Pushed ResolvedOverlayTextChanged to 2 overlays after 'oeeLine1' changed.");
+        entry.Message.ShouldBe("Pushed ResolvedOverlayTextChanged to 1 overlays after 'oeeLine1' changed.");
     }
 
     [Fact]
