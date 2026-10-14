@@ -89,14 +89,7 @@ public sealed class CameraCatalogClient(
 
             do
             {
-                using HttpRequestMessage list = new(
-                    HttpMethod.Get, $"/cameras?limit={PageSize}&offset={offset}");
-                list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-                using var response = await http.SendAsync(list, cancellationToken);
-                response.EnsureSuccessStatusCode();
-
-                var payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
-                var items = payload?.Items ?? [];
+                var (items, count) = await ReadPageAsync(offset, token, cancellationToken);
 
                 var match = items
                     .FirstOrDefault(item => string.Equals(item.Name, name, StringComparison.Ordinal));
@@ -114,7 +107,7 @@ public sealed class CameraCatalogClient(
                     break;
                 }
 
-                reported = payload?.Count ?? 0;
+                reported = count;
                 offset += items.Count;
             }
             while (offset < reported);
@@ -129,6 +122,21 @@ public sealed class CameraCatalogClient(
             logger.CameraReadBackFailed(name, ex.Message);
             return null;
         }
+    }
+
+    private async Task<(IReadOnlyList<CameraSummary> Items, int Count)> ReadPageAsync(
+        int offset,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage list = new(
+            HttpMethod.Get, $"/cameras?limit={PageSize}&offset={offset}");
+        list.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        using var response = await http.SendAsync(list, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        var payload = await response.Content.ReadFromJsonAsync<CameraPage>(cancellationToken);
+        return (payload?.Items ?? [], payload?.Count ?? 0);
     }
 
     // Matches CameraCatalog.Api RegisterCameraRequest { Name, RtspUrl }.
