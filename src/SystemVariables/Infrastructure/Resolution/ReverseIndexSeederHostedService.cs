@@ -57,15 +57,7 @@ public sealed class ReverseIndexSeederHostedService(
 
             if (!response.IsSuccessStatusCode)
             {
-                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                {
-                    logger.SeedRefused(response.StatusCode);
-                }
-                else
-                {
-                    logger.SeedNonSuccessStatus(response.StatusCode);
-                }
-
+                LogUnsuccessfulStatus(response.StatusCode);
                 return;
             }
 
@@ -77,33 +69,7 @@ public sealed class ReverseIndexSeederHostedService(
                 return;
             }
 
-            var seeded = 0;
-            foreach (var overlay in published.EnumerateArray())
-            {
-                if (!overlay.TryGetProperty("overlayIdentifier", out var idElement))
-                {
-                    continue;
-                }
-
-                // Spec 150 (#2345): the scalar "text" property is gone — a
-                // revision carries "labels", an array of objects each with
-                // its own "text". Spec 300 (#2349, ADR-0165) renamed the
-                // field again, to "elements", and widened each entry to a
-                // kind + colour; a Box/Ellipse has no "text" at all.
-                // Reading the old property name ("labels") would compile
-                // and throw nothing; it would just seed zero overlays on
-                // every cold start — the exact class of bug spec 150
-                // shipped once already.
-                if (!overlay.TryGetProperty("elements", out var elementsElement)
-                    || elementsElement.ValueKind != JsonValueKind.Array)
-                {
-                    continue;
-                }
-
-                var id = idElement.GetGuid();
-                reverseIndex.UpsertOverlayReferences(id, ExtractElementTexts(elementsElement));
-                seeded++;
-            }
+            var seeded = SeedOverlays(published);
 
             logger.SeededOverlays(seeded);
         }
@@ -125,6 +91,51 @@ public sealed class ReverseIndexSeederHostedService(
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    private void LogUnsuccessfulStatus(HttpStatusCode statusCode)
+    {
+        if (statusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+        {
+            logger.SeedRefused(statusCode);
+        }
+        else
+        {
+            logger.SeedNonSuccessStatus(statusCode);
+        }
+    }
+
+    private int SeedOverlays(JsonElement published)
+    {
+        var seeded = 0;
+        foreach (var overlay in published.EnumerateArray())
+        {
+            if (!overlay.TryGetProperty("overlayIdentifier", out var idElement))
+            {
+                continue;
+            }
+
+            // Spec 150 (#2345): the scalar "text" property is gone — a
+            // revision carries "labels", an array of objects each with
+            // its own "text". Spec 300 (#2349, ADR-0165) renamed the
+            // field again, to "elements", and widened each entry to a
+            // kind + colour; a Box/Ellipse has no "text" at all.
+            // Reading the old property name ("labels") would compile
+            // and throw nothing; it would just seed zero overlays on
+            // every cold start — the exact class of bug spec 150
+            // shipped once already.
+            if (!overlay.TryGetProperty("elements", out var elementsElement)
+                || elementsElement.ValueKind != JsonValueKind.Array)
+            {
+                continue;
+            }
+
+            var id = idElement.GetGuid();
+            reverseIndex.UpsertOverlayReferences(id, ExtractElementTexts(elementsElement));
+            seeded++;
+        }
+
+        return seeded;
+    }
 
     /// <summary>
     /// Reads every element's <c>"text"</c> out of a revision's
