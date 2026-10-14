@@ -14,6 +14,13 @@ namespace SmartSentinelEye.LayoutComposition.Application.Tests.Commands;
 /// tests exercise each refusal alone; none of them has two refusable
 /// conditions true at once, which is exactly what reordering an extracted
 /// refusal would change.
+///
+/// <para>
+/// Spec 359 reverses one pin: the edit handler now refuses a stale version,
+/// a missing revision and a non-draft revision <em>before</em> asking
+/// CameraCatalog, so those refusals no longer cost a network call and no
+/// longer fail when CameraCatalog is down.
+/// </para>
 /// </summary>
 public class DraftRefusalOrderCharacterisationTests
 {
@@ -37,9 +44,10 @@ public class DraftRefusalOrderCharacterisationTests
         layouts.Add(layout);
         var outsider = CameraIdentifier.From(Guid.CreateVersion7());
         CapturingLogger<EditDraftRevisionCommandHandler> logger = new();
+        var guard = FakeCameraFabGuard.Strict();
         EditDraftRevisionCommandHandler handler = new(
             layouts,
-            FakeCameraFabGuard.Strict(),
+            guard,
             new FakeClock(FixedMoment),
             logger);
 
@@ -58,35 +66,111 @@ public class DraftRefusalOrderCharacterisationTests
         refusal.Code.ShouldBe("LAYOUT_TILE_CAMERA_OUTSIDE_FAB");
         refusal.Fab.ShouldBe("munich");
         refusal.Cameras.ShouldBe([outsider.Value]);
+        guard.Calls.ShouldBe(1);
         logger.Entries.Count.ShouldBe(1);
         logger.Entries[0].Level.ShouldBe(LogLevel.Warning);
         logger.Entries[0].Message.ShouldBe("Refused 1 tile(s) naming a camera outside fab munich (spec 017 FR-014).");
     }
 
     [Fact]
-    public async Task Edit_with_a_camera_outside_the_fab_and_a_stale_version_returns_TileCameraOutsideFab()
+    public async Task Edit_with_a_camera_outside_the_fab_and_a_stale_version_returns_LayoutRevisionStale_without_asking_camera_catalog()
     {
         InMemoryLayoutRepository layouts = new();
         var layout = new LayoutBuilder().At(FixedMoment).Build();
         layouts.Add(layout);
-        EditDraftRevisionCommandHandler handler = new(
+        var guard = FakeCameraFabGuard.Strict();
+
+        var result = await NewEditHandler(layouts, guard).HandleAsync(
+            EditCommand(layout.Id, LayoutRevisionNumber.One, Stale),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.LayoutRevisionStale>();
+        guard.Calls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Edit_with_a_stale_version_never_asks_camera_catalog()
+    {
+        InMemoryLayoutRepository layouts = new();
+        var layout = new LayoutBuilder().At(FixedMoment).Build();
+        layouts.Add(layout);
+        var guard = FakeCameraFabGuard.Permissive();
+
+        var result = await NewEditHandler(layouts, guard).HandleAsync(
+            EditCommand(layout.Id, LayoutRevisionNumber.One, Stale),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.LayoutRevisionStale>();
+        guard.Calls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Edit_naming_a_missing_revision_never_asks_camera_catalog()
+    {
+        InMemoryLayoutRepository layouts = new();
+        var layout = new LayoutBuilder().At(FixedMoment).Build();
+        layouts.Add(layout);
+        var guard = FakeCameraFabGuard.Permissive();
+
+        var result = await NewEditHandler(layouts, guard).HandleAsync(
+            EditCommand(layout.Id, LayoutRevisionNumber.From(42), layout.Version),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.LayoutRevisionNotFound>();
+        guard.Calls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Edit_of_a_published_revision_never_asks_camera_catalog()
+    {
+        InMemoryLayoutRepository layouts = new();
+        var layout = new LayoutBuilder().At(FixedMoment).Build();
+        layout.Publish(LayoutRevisionNumber.One, NewOperator(), new FakeClock(FixedMoment));
+        layouts.Add(layout);
+        var guard = FakeCameraFabGuard.Permissive();
+
+        var result = await NewEditHandler(layouts, guard).HandleAsync(
+            EditCommand(layout.Id, LayoutRevisionNumber.One, layout.Version),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.NotADraft>();
+        guard.Calls.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task Edit_with_a_stale_version_is_answered_LayoutRevisionStale_while_camera_catalog_is_unreachable()
+    {
+        InMemoryLayoutRepository layouts = new();
+        var layout = new LayoutBuilder().At(FixedMoment).Build();
+        layouts.Add(layout);
+
+        var result = await NewEditHandler(layouts, FakeCameraFabGuard.Unreachable()).HandleAsync(
+            EditCommand(layout.Id, LayoutRevisionNumber.One, Stale),
+            CancellationToken.None);
+
+        result.Error.ShouldBeOfType<EditDraftRevisionError.LayoutRevisionStale>();
+    }
+
+    private static EditDraftRevisionCommandHandler NewEditHandler(
+        InMemoryLayoutRepository layouts,
+        FakeCameraFabGuard guard) =>
+        new(
             layouts,
-            FakeCameraFabGuard.Strict(),
+            guard,
             new FakeClock(FixedMoment),
             NullLogger<EditDraftRevisionCommandHandler>.Instance);
 
-        var result = await handler.HandleAsync(
-            new EditDraftRevisionCommand(
-                [Munich],
-                layout.Id,
-                LayoutRevisionNumber.One,
-                GridDimensions.Cell,
-                [TileFor(CameraIdentifier.From(Guid.CreateVersion7()))],
-                Stale),
-            CancellationToken.None);
-
-        result.Error.ShouldBeOfType<EditDraftRevisionError.TileCameraOutsideFab>();
-    }
+    private static EditDraftRevisionCommand EditCommand(
+        LayoutIdentifier layout,
+        LayoutRevisionNumber revision,
+        int expectedVersion) =>
+        new(
+            [Munich],
+            layout,
+            revision,
+            GridDimensions.Cell,
+            [TileFor(CameraIdentifier.From(Guid.CreateVersion7()))],
+            expectedVersion);
 
     [Fact]
     public async Task Edit_with_a_stale_version_and_a_missing_revision_returns_LayoutRevisionStale()
