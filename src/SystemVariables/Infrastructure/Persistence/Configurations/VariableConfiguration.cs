@@ -30,6 +30,14 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
     {
         Ensure.That(builder).IsNotNull();
 
+        ConfigureTableAndIdentifier(builder);
+        ConfigureScalarColumns(builder);
+        ConfigureOwnedValues(builder);
+        ConfigureVersionAndIndexes(builder);
+    }
+
+    private static void ConfigureTableAndIdentifier(EntityTypeBuilder<Variable> builder)
+    {
         builder.ToTable("system_variables");
         builder.HasKey(variable => variable.Id);
 
@@ -37,7 +45,10 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
             .HasColumnName("variable_id")
             .HasConversion(id => id.Value, value => VariableIdentifier.From(value))
             .ValueGeneratedNever();
+    }
 
+    private static void ConfigureScalarColumns(EntityTypeBuilder<Variable> builder)
+    {
         builder.Property(variable => variable.Fab)
             .HasColumnName("fab")
             .HasMaxLength(FabIdentifier.MaximumLength)
@@ -69,7 +80,10 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
                 value => VariableValueColumnConverter.ToColumn(value),
                 packed => VariableValueColumnConverter.FromColumn(packed))
             .IsRequired();
+    }
 
+    private static void ConfigureOwnedValues(EntityTypeBuilder<Variable> builder)
+    {
         builder.OwnsOne(variable => variable.BooleanLabels, labels =>
         {
             labels.Property(label => label.TruthyLabel)
@@ -96,7 +110,10 @@ public sealed class VariableConfiguration : IEntityTypeConfiguration<Variable>
                 .IsRequired();
         });
         builder.Navigation(variable => variable.Creation).IsRequired();
+    }
 
+    private static void ConfigureVersionAndIndexes(EntityTypeBuilder<Variable> builder)
+    {
         builder.Property(variable => variable.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
