@@ -143,6 +143,13 @@ public static class StreamDistributionInfrastructureModule
             // camera.
             .RetryEveryMethod();
 
+        DemoteRoutineMediaMtxProbeLogs(services);
+
+        return builder;
+    }
+
+    private static void DemoteRoutineMediaMtxProbeLogs(IServiceCollection services)
+    {
         // Keyed on the request's target host, not the pipeline name: every
         // StreamDistribution client shares one literal "{name}-standard"
         // pipeline name (ConfigureHttpClientDefaults wires it that way), so a
@@ -174,8 +181,6 @@ public static class StreamDistributionInfrastructureModule
                     return previousProvider?.Invoke(arguments) ?? arguments.Event.Severity;
                 };
             });
-
-        return builder;
     }
 
     private static void BindMediaMtxOptions(IHostApplicationBuilder builder)
