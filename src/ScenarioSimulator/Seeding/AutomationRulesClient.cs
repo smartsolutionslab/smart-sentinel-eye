@@ -25,16 +25,9 @@ public sealed class AutomationRulesClient(
     {
         Ensure.That(seed).IsNotNull();
 
-        (var name, var triggerSource, var triggerKind, var predicate, var action) = seed;
+        var (name, _, _, _, action) = seed;
 
-        var body = action switch
-        {
-            RuleSeedAction.HighlightOverlay highlight => new CreateRuleBody(
-                name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, highlight.Overlay, highlight.DurationMs),
-            RuleSeedAction.SetVariableValue setVariable => new CreateRuleBody(
-                name, triggerSource, triggerKind, predicate, "SetVariableValue", setVariable.VariableName, setVariable.ValueExpression, null, null),
-            _ => throw new NotSupportedException($"Unsupported rule seed action '{action.GetType().Name}'."),
-        };
+        var body = CreateBody(seed);
 
         var token = await tokens.GetAccessTokenAsync(cancellationToken);
 
@@ -49,12 +42,7 @@ public sealed class AutomationRulesClient(
             return new RuleSeedResult.Seeded();
         }
 
-        using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={FabId}");
-        publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        publish.Headers.TryAddWithoutValidation(
-            "If-Match", ConcurrencyHeaders.ETag(expectedVersion.Value));
-        using var published = await http.SendAsync(publish, cancellationToken);
-        published.EnsureSuccessStatusCode();
+        await PublishAsync(name, expectedVersion.Value, token, cancellationToken);
 
         switch (action)
         {
@@ -67,6 +55,34 @@ public sealed class AutomationRulesClient(
         }
 
         return new RuleSeedResult.Seeded();
+    }
+
+    private static CreateRuleBody CreateBody(RuleSeed seed)
+    {
+        var (name, triggerSource, triggerKind, predicate, action) = seed;
+
+        return action switch
+        {
+            RuleSeedAction.HighlightOverlay highlight => new CreateRuleBody(
+                name, triggerSource, triggerKind, predicate, "HighlightOverlay", null!, null!, highlight.Overlay, highlight.DurationMs),
+            RuleSeedAction.SetVariableValue setVariable => new CreateRuleBody(
+                name, triggerSource, triggerKind, predicate, "SetVariableValue", setVariable.VariableName, setVariable.ValueExpression, null, null),
+            _ => throw new NotSupportedException($"Unsupported rule seed action '{action.GetType().Name}'."),
+        };
+    }
+
+    private async Task PublishAsync(
+        string name,
+        int expectedVersion,
+        string token,
+        CancellationToken cancellationToken)
+    {
+        using HttpRequestMessage publish = new(HttpMethod.Post, $"/rules/{name}/publish?fabId={FabId}");
+        publish.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        publish.Headers.TryAddWithoutValidation(
+            "If-Match", ConcurrencyHeaders.ETag(expectedVersion));
+        using var published = await http.SendAsync(publish, cancellationToken);
+        published.EnsureSuccessStatusCode();
     }
 
     /// <summary>
