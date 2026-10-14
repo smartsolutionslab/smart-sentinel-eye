@@ -92,9 +92,11 @@ public sealed class RotateWebhookClientCommandHandler(
             // Spec 021. The publish happens after the save, so the message
             // was captured into the outbox with nothing left to release it.
             // Reordering is not available: the announcement carries a client
-            // id that only exists once Keycloak has answered, and the
-            // save-then-Keycloak order in RollSecretAsync and RegisterAsync is load-bearing for its own
-            // reasons. So the flush is explicit.
+            // id that only exists once Keycloak has answered, and each branch's
+            // order is load-bearing for its own reasons: the rotate branch saves
+            // before it rolls the secret (RollSecretAsync), the create branch
+            // calls Keycloak before it saves (RegisterAsync). So the flush is
+            // explicit.
             await commit.CommitAsync(cancellationToken);
         }
 
