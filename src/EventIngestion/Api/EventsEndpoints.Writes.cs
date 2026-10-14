@@ -305,7 +305,7 @@ public static partial class EventsEndpoints
     private static readonly TimeSpan RevokedWebhookDeliveryLogWindow = TimeSpan.FromMinutes(1);
 
     /// <summary>
-    /// Mirrors <c>StreamDistribution/Api/WhepAuthorizeActionPartition</c>'s
+    /// Mirrors the <c>WhepAuthorizeActionPartition</c> (StreamDistribution)
     /// <c>IsNewWhepAuthorizeThrottleTransition</c>: an <see cref="IMemoryCache"/>
     /// entry per key, absolute-expiring after <see cref="RevokedWebhookDeliveryLogWindow"/>,
     /// gives "log once per transition, re-arm once a full window has passed"

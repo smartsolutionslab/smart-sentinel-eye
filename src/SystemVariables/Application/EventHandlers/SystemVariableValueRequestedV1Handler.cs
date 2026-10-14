@@ -13,7 +13,7 @@ namespace SmartSentinelEye.SystemVariables.Application.EventHandlers;
 /// Wolverine subscriber on <see cref="SystemVariableValueRequestedV1"/>
 /// (spec 007 → 005 bridge). Dispatches the existing
 /// <see cref="SetVariableValueCommand"/> if the
-/// <c>(variableName, causingEventIdentifier)</c> dedup row reserves
+/// <c>(fab, variableName, causingEventIdentifier)</c> dedup row reserves
 /// fresh. Wolverine outbox redelivery becomes a no-op.
 ///
 /// <para>
