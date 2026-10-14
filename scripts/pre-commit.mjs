@@ -8,13 +8,15 @@
 //
 // Check-only by design: it never writes to the working tree or the index, so a
 // partially staged file cannot have unstaged hunks committed behind the
-// developer's back. The planning functions are pure and exported for
-// scripts/pre-commit.test.mjs; the I/O shell runs only as the entry point.
+// developer's back. (`dotnet format`'s design-time build does write gitignored
+// obj/ files; tracked files and the index are never touched.) The planning
+// functions are pure and exported for scripts/pre-commit.test.mjs; the I/O
+// shell runs only as the entry point.
 
 import { spawnSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { readdirSync, realpathSync } from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import * as prettier from 'prettier';
 
 // Must stay verbatim in package.json's `format:check`; findScopeDrift and its
@@ -28,9 +30,11 @@ const SCOPE_DIRECTORIES = new Set(['apps', 'e2e']);
 const SCOPE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.json', '.css', '.md', '.yaml', '.yml']);
 const SCOPE_FILES = new Set(['playwright.config.ts']);
 
-// `dotnet format` loads the whole project graph it is pointed at (13-23 s per
-// project, 73 s for the solution; measured 2026-10-14, spec 355 §1.1), so four
-// per-project runs already cost more than one solution-wide run.
+// `dotnet format` loads the whole project graph it is pointed at. Measured warm
+// (2026-10-14): Shared.Kernel/Domain 11-12 s, Api 18-19 s, the solution 43-51 s.
+// Four small projects (~48 s) cost about the solution; a typical four-project
+// slice (~60 s) is slower than the solution (~49 s), so beyond three projects one
+// solution-wide run is used.
 export const SOLUTION_FALLBACK_PROJECT_COUNT = 3;
 const SOLUTION = 'SmartSentinelEye.slnx';
 
@@ -73,13 +77,17 @@ export function owningProject(file, listDirectory) {
 
 export function planDotnetFormat(files, lookupProject) {
   const byProject = new Map();
+  let orphaned = false;
   for (const file of files) {
     const project = lookupProject(file);
-    if (project === null) continue;
+    if (project === null) {
+      orphaned = true;
+      continue;
+    }
     byProject.set(project, [...(byProject.get(project) ?? []), file]);
   }
-  if (byProject.size > SOLUTION_FALLBACK_PROJECT_COUNT) {
-    return [{ project: SOLUTION, files: [...byProject.values()].flat() }];
+  if (orphaned || byProject.size > SOLUTION_FALLBACK_PROJECT_COUNT) {
+    return [{ project: SOLUTION, files }];
   }
   return [...byProject].map(([project, projectFiles]) => ({ project, files: projectFiles }));
 }
@@ -117,19 +125,26 @@ function quoted(file) {
   return /\s/.test(file) ? `"${file}"` : file;
 }
 
-// `runner(args)` returns `{ status }`; dotnet exits 2 for a formatting
-// violation, so any other non-zero (or null: could not start) is a tool failure
-// and still blocks rather than letting an unchecked commit through.
+// `runner(args)` returns `{ status, stdout, stderr }`; dotnet exits 2 for a
+// formatting violation, so any other non-zero (or null: could not start) is a
+// tool failure and still blocks rather than letting an unchecked commit through.
+// Exit 2 whose output holds a compile error (`error CS####`) is also a tool
+// failure: the project is not restored, so no formatting verdict was reached.
+const COMPILE_ERROR = /\berror CS\d{4}\b/;
+
 export function checkCsharp(plan, runner) {
   const messages = [];
   for (const entry of plan) {
     let status = 0;
+    let output = '';
     for (const args of dotnetInvocations(entry)) {
-      status = runner(args).status;
+      const result = runner(args);
+      status = result.status;
+      output = `${result.stdout ?? ''}\n${result.stderr ?? ''}`;
       if (status !== 0) break;
     }
     if (status === 0) continue;
-    if (status === 2) {
+    if (status === 2 && !COMPILE_ERROR.test(output)) {
       messages.push(
         `C#: ${entry.files.map(quoted).join(', ')} is mis-formatted (dotnet format, project ${entry.project}).\n` +
           `  Fix: dotnet format ${entry.project} --include ${entry.files.map(quoted).join(' ')}`,
@@ -138,7 +153,8 @@ export function checkCsharp(plan, runner) {
       messages.push(
         `C#: dotnet format could not check ${entry.files.map(quoted).join(', ')} (project ${entry.project}; ` +
           `exit status ${status}).\n` +
-          '  Run dotnet restore for the project, or bypass the check with --no-verify.',
+          `  Run dotnet restore ${entry.project} (a project that is not restored cannot be checked), ` +
+          'or bypass the check with --no-verify.',
       );
     }
   }
@@ -146,20 +162,34 @@ export function checkCsharp(plan, runner) {
 }
 
 async function checkPrettier(files, root, readStaged) {
-  const ignorePath = path.join(root, '.prettierignore');
+  const ignorePath = [path.join(root, '.gitignore'), path.join(root, '.prettierignore')];
   const failing = [];
+  const problems = [];
   for (const file of files) {
     const absolute = path.join(root, file);
-    const info = await prettier.getFileInfo(absolute, { ignorePath });
-    if (info.ignored) continue;
-    const options = (await prettier.resolveConfig(absolute)) ?? {};
-    if (!(await prettier.check(readStaged(file), { ...options, filepath: absolute }))) failing.push(file);
+    try {
+      const info = await prettier.getFileInfo(absolute, { ignorePath });
+      if (info.ignored) continue;
+      const content = readStaged(file);
+      if (content === null) {
+        problems.push(`Prettier: could not read ${quoted(file)} from the index.`);
+        continue;
+      }
+      const options = (await prettier.resolveConfig(absolute, { editorconfig: true })) ?? {};
+      if (!(await prettier.check(content, { ...options, filepath: absolute }))) failing.push(file);
+    } catch (error) {
+      const reason = String(error?.message ?? error).split('\n')[0];
+      problems.push(`Prettier: could not parse ${quoted(file)} (${reason}).`);
+    }
   }
   return {
-    ok: failing.length === 0,
-    messages: failing.map(
-      (file) => `Prettier: ${quoted(file)} is mis-formatted.\n  Fix: pnpm prettier --write ${quoted(file)}`,
-    ),
+    ok: failing.length === 0 && problems.length === 0,
+    messages: [
+      ...problems,
+      ...failing.map(
+        (file) => `Prettier: ${quoted(file)} is mis-formatted.\n  Fix: pnpm prettier --write ${quoted(file)}`,
+      ),
+    ],
   };
 }
 
@@ -193,7 +223,10 @@ export async function main() {
 
   const failures = [];
 
-  const readStaged = (file) => git(root, ['show', `:${file}`]).stdout;
+  const readStaged = (file) => {
+    const shown = git(root, ['show', `:${file}`]);
+    return shown.status === 0 ? shown.stdout : null;
+  };
   failures.push(...(await checkPrettier(prettierFiles, root, readStaged)).messages);
 
   const plan = planDotnetFormat(csharp, (file) => owningProject(file, listDirectoryOf(root)));
@@ -205,7 +238,12 @@ export async function main() {
         `Note: ${partial.join(', ')} also has unstaged changes; dotnet format checked the working-tree copy, not the index.`,
       );
     }
-    const runner = (args) => spawnSync('dotnet', args, { cwd: root, stdio: 'inherit' });
+    const runner = (args) => {
+      const result = spawnSync('dotnet', args, { cwd: root, encoding: 'utf8', maxBuffer: 1024 * 1024 * 1024 });
+      process.stdout.write(result.stdout ?? '');
+      process.stderr.write(result.stderr ?? '');
+      return { status: result.status, stdout: result.stdout ?? '', stderr: result.stderr ?? '' };
+    };
     failures.push(...checkCsharp(plan, runner).messages);
   }
 
@@ -214,5 +252,14 @@ export async function main() {
   return 1;
 }
 
-const isMainModule = process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href;
+function isEntryPoint() {
+  if (process.argv[1] === undefined) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+
+const isMainModule = isEntryPoint();
 if (isMainModule) process.exitCode = await main();
