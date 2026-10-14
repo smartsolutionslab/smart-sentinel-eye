@@ -102,17 +102,13 @@ public static partial class WallEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        List<LayoutIdentifier> scenes;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseScenes(body.Scenes),
+            "WALL_INVALID_INPUT",
+            out var scenes,
+            out var problem))
         {
-            scenes = ParseScenes(body.Scenes);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "WALL_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
@@ -121,22 +117,16 @@ public static partial class WallEndpoints
         }
 
         var actingOperator = user.ToOperatorIdentifier();
-        var fabsResolution =
-            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
-        {
-            return fabsResolution.Error;
-        }
 
-        var fabs = fabsResolution.Value;
-
-        var result = await handler.HandleAsync(
-            new EditWallScenesCommand(fabs, WallIdentifier.From(wallIdentifier), expectedVersion, scenes, actingOperator),
+        return await LayoutCompositionFabResolution.ForCallerFabsAsync(
+            user,
+            fabGuard,
+            async fabs => (await handler.HandleAsync(
+                new EditWallScenesCommand(fabs, WallIdentifier.From(wallIdentifier), expectedVersion, scenes, actingOperator),
+                cancellationToken)).Match<IResult>(
+                onSuccess: wall => Results.Ok(wall),
+                onFailure: error => error.ToProblem()),
             cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: wall => Results.Ok(wall),
-            onFailure: error => error.ToProblem());
     }
 
     private static async Task<IResult> Switch(
@@ -157,17 +147,13 @@ public static partial class WallEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        SceneTarget target;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseSceneTarget(body),
+            "WALL_INVALID_INPUT",
+            out var target,
+            out var problem))
         {
-            target = ParseSceneTarget(body);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "WALL_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
@@ -176,22 +162,16 @@ public static partial class WallEndpoints
         }
 
         var actingOperator = user.ToOperatorIdentifier();
-        var fabsResolution =
-            await LayoutCompositionFabResolution.ResolveCallerFabsAsync(user, fabGuard, cancellationToken);
-        if (fabsResolution.IsFailure)
-        {
-            return fabsResolution.Error;
-        }
 
-        var fabs = fabsResolution.Value;
-
-        var result = await handler.HandleAsync(
-            new SwitchWallSceneCommand(fabs, WallIdentifier.From(wallIdentifier), expectedVersion, target, actingOperator),
+        return await LayoutCompositionFabResolution.ForCallerFabsAsync(
+            user,
+            fabGuard,
+            async fabs => (await handler.HandleAsync(
+                new SwitchWallSceneCommand(fabs, WallIdentifier.From(wallIdentifier), expectedVersion, target, actingOperator),
+                cancellationToken)).Match<IResult>(
+                onSuccess: wall => Results.Ok(wall),
+                onFailure: error => error.ToProblem()),
             cancellationToken);
-
-        return result.Match<IResult>(
-            onSuccess: wall => Results.Ok(wall),
-            onFailure: error => error.ToProblem());
     }
 
     /// <summary>
