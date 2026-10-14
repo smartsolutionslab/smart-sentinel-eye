@@ -20,40 +20,25 @@ public sealed class RepointStreamCommandHandler(
 
         var (camera, rtspSourceUrl) = command;
 
-        // Re-validated at the trust boundary: the address arrives as a
-        // primitive from CameraCatalog, so its invariants are asserted again
-        // rather than trusted because another context checked them.
-        StreamSourceUrl sourceUrl;
-        try
+        var parsedSource = ParseSource(rtspSourceUrl);
+
+        if (parsedSource.IsFailure)
         {
-            sourceUrl = StreamSourceUrl.From(rtspSourceUrl);
+            return Failure(parsedSource.Error);
         }
-        catch (ArgumentException ex)
-        {
-            return Failure(RepointStreamFailures.InvalidRtspSource(ex.Message));
-        }
+
+        var sourceUrl = parsedSource.Value;
 
         var existing = await streams.GetByCameraAsync(camera, cancellationToken);
 
-        if (!existing.HasValue)
+        var repointable = StreamToRepoint(existing, camera);
+
+        if (!repointable.HasValue)
         {
-            // Not a failure: a camera registered without a resolvable fab is
-            // never provisioned a stream (spec 016 FR-004), and a failure here
-            // would have the outbox redeliver the correction forever.
-            logger.NoStreamToRepoint(camera);
             return Success(Option<StreamIdentifier>.None);
         }
 
-        var stream = existing.Value;
-
-        if (stream.State == StreamState.Retired)
-        {
-            // The camera's address changed after its stream was retired. The
-            // aggregate would refuse, and rightly — but that is not an error
-            // worth redelivering, because no retry will make it succeed.
-            logger.SkippedRepointOfRetiredStream(camera);
-            return Success(Option<StreamIdentifier>.None);
-        }
+        var stream = repointable.Value;
 
         stream.RepointTo(sourceUrl, clock);
 
@@ -80,5 +65,47 @@ public sealed class RepointStreamCommandHandler(
         logger.RepointedStream(stream.Id, camera, stream.Path);
 
         return Success(Option<StreamIdentifier>.Some(stream.Id));
+    }
+
+    private static Result<StreamSourceUrl, RepointStreamError> ParseSource(string rtspSourceUrl)
+    {
+        // Re-validated at the trust boundary: the address arrives as a
+        // primitive from CameraCatalog, so its invariants are asserted again
+        // rather than trusted because another context checked them.
+        try
+        {
+            return Success(StreamSourceUrl.From(rtspSourceUrl));
+        }
+        catch (ArgumentException ex)
+        {
+            return Failure(RepointStreamFailures.InvalidRtspSource(ex.Message));
+        }
+    }
+
+    private Option<Stream> StreamToRepoint(
+        Option<Stream> existing,
+        CameraIdentifier camera)
+    {
+        if (!existing.HasValue)
+        {
+            // Not a failure: a camera registered without a resolvable fab is
+            // never provisioned a stream (spec 016 FR-004), and a failure here
+            // would have the outbox redeliver the correction forever.
+            logger.NoStreamToRepoint(camera);
+            return Option<Stream>.None;
+        }
+
+        var stream = existing.Value;
+
+        if (stream.State == StreamState.Retired)
+        {
+            // The camera's address changed after its stream was retired. The
+            // aggregate would refuse, and rightly — but that is not an error
+            // worth redelivering, because no retry will make it succeed.
+            logger.SkippedRepointOfRetiredStream(camera);
+            return Option<Stream>.None;
+        }
+
+        return Option<Stream>.Some(stream);
     }
 }
