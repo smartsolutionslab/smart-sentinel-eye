@@ -31,7 +31,8 @@ public class ListEventsQueryTranslationCharacterisationTests
         where.ShouldContain("device_id");
         where.ShouldContain("kind");
         Occurrences(where, "occurred_at").ShouldBe(2, "OccurredAfter and OccurredBefore");
-        Occurrences(where, "ingested_at").ShouldBe(3, "IngestedAfter, IngestedBefore and the cursor");
+        Occurrences(where, "ingested_at").ShouldBe(4, "IngestedAfter, IngestedBefore and the cursor's two-part compare");
+        where.ShouldContain("event_id");
     }
 
     [Fact]
