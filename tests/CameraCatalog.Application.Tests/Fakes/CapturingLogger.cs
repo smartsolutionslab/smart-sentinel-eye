@@ -1,0 +1,45 @@
+using Microsoft.Extensions.Logging;
+
+namespace SmartSentinelEye.CameraCatalog.Application.Tests.Fakes;
+
+/// <summary>
+/// Records what was logged: level and rendered message. The handlers' log
+/// lines are only observable here (spec 353's characterisation tests pin their
+/// exact text), which <c>NullLogger</c> cannot show.
+///
+/// <para>
+/// Mirrors <c>OverlayDesigner.Application.Tests.Fakes.CapturingLogger</c>.
+/// Copied rather than shared: test projects do not reference one another.
+/// </para>
+/// </summary>
+public sealed class CapturingLogger<T> : ILogger<T>
+{
+    private readonly List<(LogLevel Level, string Message, Exception? Exception)> entries = [];
+
+    public IReadOnlyList<(LogLevel Level, string Message, Exception? Exception)> Entries => entries;
+
+    public IDisposable BeginScope<TState>(TState state)
+        where TState : notnull => CapturingLoggerScope.Instance;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        entries.Add((logLevel, formatter(state, exception), exception));
+    }
+}
+
+/// <summary>Outside the generic on purpose: one instance, not one per T.</summary>
+internal sealed class CapturingLoggerScope : IDisposable
+{
+    public static CapturingLoggerScope Instance { get; } = new();
+
+    public void Dispose()
+    {
+    }
+}
