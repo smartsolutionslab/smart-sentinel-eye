@@ -37,6 +37,11 @@ public static class ClipManifestLoader
             return new ClipManifestLoadResult(Option<ClipManifest>.None, []);
         }
 
+        return LoadSidecar(sidecar, clip);
+    }
+
+    private static ClipManifestLoadResult LoadSidecar(string sidecar, string clip)
+    {
         ClipManifest? manifest;
         try
         {
