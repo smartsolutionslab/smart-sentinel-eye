@@ -40,6 +40,17 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
     {
         Ensure.That(builder).IsNotNull();
 
+        ConfigureOverlayKeyAndName(builder);
+        ConfigureOverlayCreation(builder);
+        ConfigureOverlayVersionAndArchival(builder);
+
+        builder.OwnsMany(overlay => overlay.Revisions, ConfigureRevisions);
+
+        builder.Ignore(overlay => overlay.PendingEvents);
+    }
+
+    private static void ConfigureOverlayKeyAndName(EntityTypeBuilder<Overlay> builder)
+    {
         builder.ToTable("overlays");
         builder.HasKey(overlay => overlay.Id);
 
@@ -53,7 +64,10 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
             .HasMaxLength(OverlayName.MaximumLength)
             .HasConversion(name => name.Value, value => OverlayName.From(value))
             .IsRequired();
+    }
 
+    private static void ConfigureOverlayCreation(EntityTypeBuilder<Overlay> builder)
+    {
         // Owned reference onto the two columns the pair occupied. The
         // Navigation(...).IsRequired() line keeps them NOT NULL (#2022).
         builder.OwnsOne(overlay => overlay.Creation, creation =>
@@ -69,7 +83,10 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
                 .IsRequired();
         });
         builder.Navigation(overlay => overlay.Creation).IsRequired();
+    }
 
+    private static void ConfigureOverlayVersionAndArchival(EntityTypeBuilder<Overlay> builder)
+    {
         builder.Property(overlay => overlay.Version)
             .HasColumnName("version")
             .HasConversion(version => version.Value, value => AggregateVersion.From(value))
@@ -100,142 +117,152 @@ public sealed class OverlayConfiguration : IEntityTypeConfiguration<Overlay>
             .HasDatabaseName("ux_overlays_name_active")
             .IsUnique()
             .HasFilter("archived_at IS NULL");
+    }
 
-        builder.OwnsMany(overlay => overlay.Revisions, revisions =>
+    private static void ConfigureRevisions(OwnedNavigationBuilder<Overlay, Revision> revisions)
+    {
+        revisions.ToTable("overlay_revisions");
+        revisions.WithOwner().HasForeignKey("overlay_id");
+        revisions.HasKey(revision => revision.Id);
+
+        revisions.Property(revision => revision.Id)
+            .HasColumnName("revision_id")
+            .HasConversion(id => id.Value, value => OverlayRevisionIdentifier.From(value))
+            .ValueGeneratedNever();
+
+        revisions.Property(revision => revision.Number)
+            .HasColumnName("revision_number")
+            .HasConversion(number => number.Value, value => OverlayRevisionNumber.From(value))
+            .IsRequired();
+
+        revisions.Property(revision => revision.State)
+            .HasColumnName("state")
+            .HasMaxLength(16)
+            .HasConversion(state => state.Value, value => OverlayRevisionState.From(value))
+            .IsRequired();
+
+        // Elements are a nested owned collection, one level deeper than
+        // anything else in this feature: a composite value object
+        // (OverlayElement) owning two more composite value objects
+        // (Position, Size) plus an optional one (Text), itself owned by
+        // the revisions collection. An element has no identity of its
+        // own, so the composite key is (revision_id, ordinal) — the
+        // element's ElementOrdinal, flattened into the scalar that
+        // ConfigureElements maps (spec 150 FR-005). Spec 300 (#2349, ADR-0165)
+        // widened the table from text-only labels to a closed kind + colour
+        // model; the migration (T009) renames the physical table from
+        // <c>overlay_revision_labels</c> to <c>overlay_revision_elements</c>
+        // and its columns to match this mapping.
+        revisions.OwnsMany(revision => revision.Elements, ConfigureElements);
+
+        ConfigureRevisionCreationTimestampsAndIndexes(revisions);
+    }
+
+    private static void ConfigureElements(OwnedNavigationBuilder<Revision, OverlayElement> elements)
+    {
+        elements.ToTable("overlay_revision_elements");
+        elements.WithOwner().HasForeignKey("revision_id");
+
+        // Field-backed, not a CLR property: the element exposes only
+        // its ElementOrdinal value object, so the scalar the key
+        // needs is mapped onto its private field rather than
+        // published as an int on a domain type (constitution §II).
+        // The name must be the field name exactly — EF refuses a
+        // field-only property whose name differs
+        // (LayoutConfiguration's row/col comment records the same
+        // cost).
+        elements.Property<int>("ordinal").HasColumnName("ordinal").IsRequired().ValueGeneratedNever();
+        elements.HasKey("revision_id", "ordinal");
+        elements.Ignore(element => element.Ordinal);
+
+        elements.Property(element => element.Kind)
+            .HasColumnName("kind")
+            .HasMaxLength(16)
+            .HasConversion(kind => kind.Value, value => ElementKind.From(value))
+            .IsRequired();
+
+        elements.Property(element => element.Color)
+            .HasColumnName("color")
+            .HasMaxLength(9)
+            .HasConversion(color => color.Value, value => OverlayColor.From(value))
+            .IsRequired();
+
+        ConfigureElementGeometryAndText(elements);
+    }
+
+    private static void ConfigureElementGeometryAndText(OwnedNavigationBuilder<Revision, OverlayElement> elements)
+    {
+        // The four columns stay where they were — the owned-reference
+        // default would name them Position_X and make them nullable,
+        // which is #2022's shape, so both the column name and the
+        // Navigation(...).IsRequired() below are load-bearing.
+        elements.OwnsOne(element => element.Position, position =>
         {
-            revisions.ToTable("overlay_revisions");
-            revisions.WithOwner().HasForeignKey("overlay_id");
-            revisions.HasKey(revision => revision.Id);
-
-            revisions.Property(revision => revision.Id)
-                .HasColumnName("revision_id")
-                .HasConversion(id => id.Value, value => OverlayRevisionIdentifier.From(value))
-                .ValueGeneratedNever();
-
-            revisions.Property(revision => revision.Number)
-                .HasColumnName("revision_number")
-                .HasConversion(number => number.Value, value => OverlayRevisionNumber.From(value))
-                .IsRequired();
-
-            revisions.Property(revision => revision.State)
-                .HasColumnName("state")
-                .HasMaxLength(16)
-                .HasConversion(state => state.Value, value => OverlayRevisionState.From(value))
-                .IsRequired();
-
-            // Elements are a nested owned collection, one level deeper than
-            // anything else in this feature: a composite value object
-            // (OverlayElement) owning two more composite value objects
-            // (Position, Size) plus an optional one (Text), itself owned by
-            // the revisions collection. An element has no identity of its
-            // own, so the composite key is (revision_id, ordinal) — the
-            // element's ElementOrdinal, flattened into the scalar mapped
-            // below (spec 150 FR-005). Spec 300 (#2349, ADR-0165) widened
-            // the table from text-only labels to a closed kind + colour
-            // model; the migration (T009) renames the physical table from
-            // <c>overlay_revision_labels</c> to <c>overlay_revision_elements</c>
-            // and its columns to match this mapping.
-            revisions.OwnsMany(revision => revision.Elements, elements =>
-            {
-                elements.ToTable("overlay_revision_elements");
-                elements.WithOwner().HasForeignKey("revision_id");
-
-                // Field-backed, not a CLR property: the element exposes only
-                // its ElementOrdinal value object, so the scalar the key
-                // needs is mapped onto its private field rather than
-                // published as an int on a domain type (constitution §II).
-                // The name must be the field name exactly — EF refuses a
-                // field-only property whose name differs
-                // (LayoutConfiguration's row/col comment records the same
-                // cost).
-                elements.Property<int>("ordinal").HasColumnName("ordinal").IsRequired().ValueGeneratedNever();
-                elements.HasKey("revision_id", "ordinal");
-                elements.Ignore(element => element.Ordinal);
-
-                elements.Property(element => element.Kind)
-                    .HasColumnName("kind")
-                    .HasMaxLength(16)
-                    .HasConversion(kind => kind.Value, value => ElementKind.From(value))
-                    .IsRequired();
-
-                elements.Property(element => element.Color)
-                    .HasColumnName("color")
-                    .HasMaxLength(9)
-                    .HasConversion(color => color.Value, value => OverlayColor.From(value))
-                    .IsRequired();
-
-                // The four columns stay where they were — the owned-reference
-                // default would name them Position_X and make them nullable,
-                // which is #2022's shape, so both the column name and the
-                // Navigation(...).IsRequired() below are load-bearing.
-                elements.OwnsOne(element => element.Position, position =>
-                {
-                    position.Property(value => value.X).HasColumnName("x").IsRequired();
-                    position.Property(value => value.Y).HasColumnName("y").IsRequired();
-                });
-                elements.Navigation(element => element.Position).IsRequired();
-
-                elements.OwnsOne(element => element.Size, size =>
-                {
-                    size.Property(value => value.Width).HasColumnName("width").IsRequired();
-                    size.Property(value => value.Height).HasColumnName("height").IsRequired();
-                });
-                elements.Navigation(element => element.Size).IsRequired();
-
-                // Text is the one optional owned reference in this
-                // configuration (#2022's Position/Size comment says NOT
-                // NULL is load-bearing there; here it is the opposite,
-                // deliberately): present iff Kind is Text (ADR-0165 §1), so
-                // there is no Navigation(...).IsRequired() call and its two
-                // columns are nullable.
-                elements.OwnsOne(element => element.Text, text =>
-                {
-                    text.Property(value => value.Value)
-                        .HasColumnName("text")
-                        .HasMaxLength(TextContent.MaximumTextLength);
-
-                    text.Property(value => value.FontSizePx)
-                        .HasColumnName("font_size_px");
-                });
-            });
-
-            // The nested case: a composite inside an owned collection, one
-            // level deeper than anything else in this feature. The columns
-            // land on the revisions table exactly as the pair did.
-            revisions.OwnsOne(revision => revision.Creation, creation =>
-            {
-                creation.Property(value => value.At)
-                    .HasColumnName("created_at")
-                    .HasConversion(at => at.Value, value => CreatedAt.From(value))
-                    .IsRequired();
-
-                creation.Property(value => value.By)
-                    .HasColumnName("created_by")
-                    .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
-                    .IsRequired();
-            });
-            revisions.Navigation(revision => revision.Creation).IsRequired();
-
-            revisions.Property(revision => revision.PublishedAt)
-                .HasColumnName("published_at")
-            .HasConversion(v => v!.Value, value => PublishedAt.From(value))
-                .IsRequired(false);
-
-            revisions.Property(revision => revision.ArchivedAt)
-                .HasColumnName("archived_at")
-            .HasConversion(v => v!.Value, value => ArchivedAt.From(value))
-                .IsRequired(false);
-
-            revisions.HasIndex("overlay_id", nameof(Revision.Number))
-                .HasDatabaseName("ux_overlay_revisions_number")
-                .IsUnique();
-
-            revisions.HasIndex("overlay_id")
-                .HasDatabaseName("ux_overlay_revisions_one_published")
-                .IsUnique()
-                .HasFilter("state = 'Published'");
+            position.Property(value => value.X).HasColumnName("x").IsRequired();
+            position.Property(value => value.Y).HasColumnName("y").IsRequired();
         });
+        elements.Navigation(element => element.Position).IsRequired();
 
-        builder.Ignore(overlay => overlay.PendingEvents);
+        elements.OwnsOne(element => element.Size, size =>
+        {
+            size.Property(value => value.Width).HasColumnName("width").IsRequired();
+            size.Property(value => value.Height).HasColumnName("height").IsRequired();
+        });
+        elements.Navigation(element => element.Size).IsRequired();
+
+        // Text is the one optional owned reference in this
+        // configuration (#2022's Position/Size comment says NOT
+        // NULL is load-bearing there; here it is the opposite,
+        // deliberately): present iff Kind is Text (ADR-0165 §1), so
+        // there is no Navigation(...).IsRequired() call and its two
+        // columns are nullable.
+        elements.OwnsOne(element => element.Text, text =>
+        {
+            text.Property(value => value.Value)
+                .HasColumnName("text")
+                .HasMaxLength(TextContent.MaximumTextLength);
+
+            text.Property(value => value.FontSizePx)
+                .HasColumnName("font_size_px");
+        });
+    }
+
+    private static void ConfigureRevisionCreationTimestampsAndIndexes(OwnedNavigationBuilder<Overlay, Revision> revisions)
+    {
+        // The nested case: a composite inside an owned collection, one
+        // level deeper than anything else in this feature. The columns
+        // land on the revisions table exactly as the pair did.
+        revisions.OwnsOne(revision => revision.Creation, creation =>
+        {
+            creation.Property(value => value.At)
+                .HasColumnName("created_at")
+                .HasConversion(at => at.Value, value => CreatedAt.From(value))
+                .IsRequired();
+
+            creation.Property(value => value.By)
+                .HasColumnName("created_by")
+                .HasConversion(by => by.Value, value => OperatorIdentifier.From(value))
+                .IsRequired();
+        });
+        revisions.Navigation(revision => revision.Creation).IsRequired();
+
+        revisions.Property(revision => revision.PublishedAt)
+            .HasColumnName("published_at")
+            .HasConversion(v => v!.Value, value => PublishedAt.From(value))
+            .IsRequired(false);
+
+        revisions.Property(revision => revision.ArchivedAt)
+            .HasColumnName("archived_at")
+            .HasConversion(v => v!.Value, value => ArchivedAt.From(value))
+            .IsRequired(false);
+
+        revisions.HasIndex("overlay_id", nameof(Revision.Number))
+            .HasDatabaseName("ux_overlay_revisions_number")
+            .IsUnique();
+
+        revisions.HasIndex("overlay_id")
+            .HasDatabaseName("ux_overlay_revisions_one_published")
+            .IsUnique()
+            .HasFilter("state = 'Published'");
     }
 }
