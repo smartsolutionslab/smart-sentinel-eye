@@ -21,7 +21,7 @@ contexts are disjoint, so T001/T003 and T002/T004 may run in parallel.
   - `FR010f_Layout_with_an_empty_TargetLayout_is_dropped_and_logged` — Target `"Layout"`,
     TargetLayout `Guid.Empty`; same assertions (and `Handle` does not throw).
   Run the class plus `WallSceneSwitchRequestLogSlotCharacterisationTests` on the branch base; quote
-  the green output verbatim. Confirm the class is already listed in a `ci-shards/shard-*.filter`.
+  the green output verbatim. (Unit-test project: no `ci-shards` filter applies — those cover Integration.Tests only.)
 - [ ] **T002 [P] [US1]** Run `tests/SystemVariables.Application.Tests` filtered to
   `VariableSnapshotBuilderTests`, `VariableSnapshotBuilderOrderCharacterisationTests` and
   `ResolveOverlayTextQueryHandlerTests`; quote the green output verbatim. No new test.
