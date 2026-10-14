@@ -452,6 +452,54 @@ public class WallSceneSwitchRequestedV1HandlerTests
         logger.Entries.ShouldHaveSingleItem().Level.ShouldBe(LogLevel.Warning);
     }
 
+    [Fact]
+    public async Task FR010f_Next_with_a_TargetLayout_is_dropped_and_logged()
+    {
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
+        InMemoryWallRepository walls = new();
+        walls.Add(wall);
+        FakeDedupStore dedup = new();
+        CapturingLogger<WallSceneSwitchRequestedV1Handler> logger = new();
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), dedup, logger);
+
+        WallSceneSwitchRequestedV1 message = new(
+            wall.Id.Value, "Next", b.Value, Guid.CreateVersion7(), Moment, Guid.CreateVersion7(),
+            Metadata: new EventMetadata(Guid.CreateVersion7(), Moment, Munich.Value, null, Moment));
+        await handler.Handle(message, CancellationToken.None);
+
+        wall.Showing.ShouldBe(a);
+        wall.PendingEvents.ShouldBeEmpty();
+        dedup.Calls.ShouldBeEmpty();
+        logger.Entries.ShouldHaveSingleItem().Level.ShouldBe(LogLevel.Warning);
+    }
+
+    [Fact]
+    public async Task FR010f_Layout_with_an_empty_TargetLayout_is_dropped_and_logged()
+    {
+        var a = NewScene();
+        var b = NewScene();
+        var wall = new WallBuilder().WithFab(Munich).WithScenes([a, b]).At(Moment).Build();
+        wall.ClearPendingEvents(); // Build() raises WallConfiguredDomainEvent; hydration via FindAsync never does.
+        InMemoryWallRepository walls = new();
+        walls.Add(wall);
+        FakeDedupStore dedup = new();
+        CapturingLogger<WallSceneSwitchRequestedV1Handler> logger = new();
+        var handler = Handler(walls, AllPublishedIn(Munich, a, b), dedup, logger);
+
+        WallSceneSwitchRequestedV1 message = new(
+            wall.Id.Value, "Layout", Guid.Empty, Guid.CreateVersion7(), Moment, Guid.CreateVersion7(),
+            Metadata: new EventMetadata(Guid.CreateVersion7(), Moment, Munich.Value, null, Moment));
+        await handler.Handle(message, CancellationToken.None);
+
+        wall.Showing.ShouldBe(a);
+        wall.PendingEvents.ShouldBeEmpty();
+        dedup.Calls.ShouldBeEmpty();
+        logger.Entries.ShouldHaveSingleItem().Level.ShouldBe(LogLevel.Warning);
+    }
+
     // ---- No-ops: distinct from the warnings above, logged at information level ----
 
     [Fact]
