@@ -109,7 +109,9 @@ public sealed class ReverseIndexSeederHostedService(
         var seeded = 0;
         foreach (var overlay in published.EnumerateArray())
         {
-            if (!overlay.TryGetProperty("overlayIdentifier", out var idElement))
+            if (!overlay.TryGetProperty("overlayIdentifier", out var idElement)
+                || idElement.ValueKind != JsonValueKind.String
+                || !idElement.TryGetGuid(out var id))
             {
                 continue;
             }
@@ -129,7 +131,6 @@ public sealed class ReverseIndexSeederHostedService(
                 continue;
             }
 
-            var id = idElement.GetGuid();
             reverseIndex.UpsertOverlayReferences(id, ExtractElementTexts(elementsElement));
             seeded++;
         }
