@@ -41,23 +41,10 @@ internal static class ReactionRuleSeed
                 $"'{name}' is not a valid rule name (2-63 chars, lowercase letter then lowercase/digit/'-').");
         }
 
-        // Validated locally rather than left to AutomationRulesClient.EnsureRuleAsync: that call sits
-        // inside ScenarioSeeder's per-asset try/catch, which is the I/O backstop, not the place a bad
-        // reaction spec should be caught — a throw there costs the asset everything seeded after it,
-        // camera registration included, not just the one reaction.
-        if (string.IsNullOrWhiteSpace(reaction.When.Source))
+        var blankTrigger = RefuseBlankTrigger(reaction.When);
+        if (blankTrigger.HasValue)
         {
-            return new ReactionSeedResult.Refused("trigger Source must not be blank.");
-        }
-
-        if (string.IsNullOrWhiteSpace(reaction.When.Kind))
-        {
-            return new ReactionSeedResult.Refused("trigger Kind must not be blank.");
-        }
-
-        if (string.IsNullOrWhiteSpace(reaction.When.Predicate))
-        {
-            return new ReactionSeedResult.Refused("trigger Predicate must not be blank.");
+            return blankTrigger.Value;
         }
 
         var predicate = $"$.device == '{asset.Camera.Path}' && ({reaction.When.Predicate})";
@@ -72,6 +59,30 @@ internal static class ReactionRuleSeed
                 return new ReactionSeedResult.Refused(
                     $"action type '{reaction.Then.Type}' is not supported yet.");
         }
+    }
+
+    // Validated locally rather than left to AutomationRulesClient.EnsureRuleAsync: that call sits
+    // inside ScenarioSeeder's per-asset try/catch, which is the I/O backstop, not the place a bad
+    // reaction spec should be caught — a throw there costs the asset everything seeded after it,
+    // camera registration included, not just the one reaction.
+    private static Option<ReactionSeedResult> RefuseBlankTrigger(ReactionTrigger when)
+    {
+        if (string.IsNullOrWhiteSpace(when.Source))
+        {
+            return Option<ReactionSeedResult>.Some(new ReactionSeedResult.Refused("trigger Source must not be blank."));
+        }
+
+        if (string.IsNullOrWhiteSpace(when.Kind))
+        {
+            return Option<ReactionSeedResult>.Some(new ReactionSeedResult.Refused("trigger Kind must not be blank."));
+        }
+
+        if (string.IsNullOrWhiteSpace(when.Predicate))
+        {
+            return Option<ReactionSeedResult>.Some(new ReactionSeedResult.Refused("trigger Predicate must not be blank."));
+        }
+
+        return Option<ReactionSeedResult>.None;
     }
 
     private static ReactionSeedResult FromHighlightOverlay(
