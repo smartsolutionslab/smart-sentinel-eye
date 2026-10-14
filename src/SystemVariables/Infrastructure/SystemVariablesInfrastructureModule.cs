@@ -43,62 +43,20 @@ public static class SystemVariablesInfrastructureModule
     {
         Ensure.That(builder).IsNotNull();
 
-        builder.AddSystemVariablesPersistence();
-        builder.EnrichPostgresDbContext<SystemVariablesDbContext>();
+        builder
+            .AddSystemVariablesPersistence()
+            .EnrichPostgresDbContext<SystemVariablesDbContext>();
 
-        builder.Services.AddScoped<IVariableRepository, VariableRepository>();
-        builder.Services.AddScoped<IVariableQuerySource, VariableQuerySource>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
-
-        // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
-        // above drives the executor's wait for an in-flight attempt.
-        builder.Services.AddScoped<IIdempotencyStore, IdempotencyStore<SystemVariablesDbContext>>();
-        builder.Services.AddIdempotencyReservationSweep<SystemVariablesDbContext>();
-
-        // Reverse-index + resolver are process-wide singletons (the
-        // index is mutated concurrently; the resolver is stateless).
-        builder.Services.AddSingleton<IReverseIndex, InMemoryReverseIndex>();
-        builder.Services.AddSingleton<IResolver, Resolver>();
-
-        // Scoped, not singleton (spec 148): VariableSnapshotBuilder depends on
-        // IVariableRepository, which is itself scoped — a singleton capturing
-        // it would be a captive dependency.
-        builder.Services.AddScoped<IVariableSnapshotBuilder, VariableSnapshotBuilder>();
-
-        // Domain event handlers (in-process, fan out to V1 + broadcaster).
-        builder.Services.AddScoped<
-            IDomainEventHandler<VariableDefinedDomainEvent>,
-            VariableDefinedDomainEventHandler>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<VariableValueChangedDomainEvent>,
-            VariableValueChangedDomainEventHandler>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<VariableArchivedDomainEvent>,
-            VariableArchivedDomainEventHandler>();
-
-        // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
-        builder.Services.AddScoped<
-            ICommandHandler<DefineVariableCommand, Result<VariableIdentifier, DefineVariableError>>,
-            DefineVariableCommandHandler>();
-        builder.Services.AddScoped<SetVariableValueCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<SetVariableValueCommand, Result<VariableIdentifier, SetVariableValueError>>,
-            SetVariableValueCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>,
-            ArchiveVariableCommandHandler>();
-
-        // Spec 007 bridge: subscribe to SystemVariableValueRequestedV1
-        // from Automation. Dedup on (variableName, causingEventIdentifier).
-        builder.Services.AddScoped<IVariableValueRequestDedupStore, VariableValueRequestDedupStore>();
-        builder.Services.AddScoped<SystemVariableValueRequestedV1Handler>();
-
-        // Issue #2426. Scoped alongside the DbContext it writes through —
-        // it holds no state of its own, so a singleton would only pin a
-        // captive scoped DbContext for no benefit.
-        builder.Services.AddScoped<IOverlayTextVersions, OverlayTextVersionStore>();
+        builder.Services
+            .AddPersistenceClockAndIdempotencyStore()
+            .AddOverlayTextResolution()
+            .AddDomainEventHandlers()
+            .AddCommandHandlers()
+            .AddValueRequestBridge()
+            // Issue #2426. Scoped alongside the DbContext it writes through —
+            // it holds no state of its own, so a singleton would only pin a
+            // captive scoped DbContext for no benefit.
+            .AddScoped<IOverlayTextVersions, OverlayTextVersionStore>();
 
         BindReverseIndexSeeder(builder);
 
@@ -109,6 +67,63 @@ public static class SystemVariablesInfrastructureModule
 
         return builder;
     }
+
+    private static IServiceCollection AddPersistenceClockAndIdempotencyStore(this IServiceCollection services) =>
+        services
+            .AddScoped<IVariableRepository, VariableRepository>()
+            .AddScoped<IVariableQuerySource, VariableQuerySource>()
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>()
+            .AddSingleton<IClock, SystemClock>()
+            .AddSingleton(TimeProvider.System)
+            // ADR-0142. Scoped alongside the DbContext it writes through; TimeProvider
+            // above drives the executor's wait for an in-flight attempt.
+            .AddScoped<IIdempotencyStore, IdempotencyStore<SystemVariablesDbContext>>()
+            .AddIdempotencyReservationSweep<SystemVariablesDbContext>();
+
+    private static IServiceCollection AddOverlayTextResolution(this IServiceCollection services) =>
+        services
+            // Reverse-index + resolver are process-wide singletons (the
+            // index is mutated concurrently; the resolver is stateless).
+            .AddSingleton<IReverseIndex, InMemoryReverseIndex>()
+            .AddSingleton<IResolver, Resolver>()
+            // Scoped, not singleton (spec 148): VariableSnapshotBuilder depends on
+            // IVariableRepository, which is itself scoped — a singleton capturing
+            // it would be a captive dependency.
+            .AddScoped<IVariableSnapshotBuilder, VariableSnapshotBuilder>();
+
+    // Domain event handlers (in-process, fan out to V1 + broadcaster).
+    private static IServiceCollection AddDomainEventHandlers(this IServiceCollection services) =>
+        services
+            .AddScoped<
+                IDomainEventHandler<VariableDefinedDomainEvent>,
+                VariableDefinedDomainEventHandler>()
+            .AddScoped<
+                IDomainEventHandler<VariableValueChangedDomainEvent>,
+                VariableValueChangedDomainEventHandler>()
+            .AddScoped<
+                IDomainEventHandler<VariableArchivedDomainEvent>,
+                VariableArchivedDomainEventHandler>();
+
+    // Hand-rolled command handler registrations (ADR-0042 + ADR-0057).
+    private static IServiceCollection AddCommandHandlers(this IServiceCollection services) =>
+        services
+            .AddScoped<
+                ICommandHandler<DefineVariableCommand, Result<VariableIdentifier, DefineVariableError>>,
+                DefineVariableCommandHandler>()
+            .AddScoped<SetVariableValueCommandHandler>()
+            .AddScoped<
+                ICommandHandler<SetVariableValueCommand, Result<VariableIdentifier, SetVariableValueError>>,
+                SetVariableValueCommandHandler>()
+            .AddScoped<
+                ICommandHandler<ArchiveVariableCommand, Result<VariableIdentifier, ArchiveVariableError>>,
+                ArchiveVariableCommandHandler>();
+
+    // Spec 007 bridge: subscribe to SystemVariableValueRequestedV1
+    // from Automation. Dedup on (variableName, causingEventIdentifier).
+    private static IServiceCollection AddValueRequestBridge(this IServiceCollection services) =>
+        services
+            .AddScoped<IVariableValueRequestDedupStore, VariableValueRequestDedupStore>()
+            .AddScoped<SystemVariableValueRequestedV1Handler>();
 
     /// <summary>
     /// The startup reverse-index seed and the credential it presents (spec 126,
