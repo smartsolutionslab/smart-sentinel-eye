@@ -66,22 +66,23 @@ public sealed record OverlayElement : IValueObject
     /// <summary>
     /// The one constructor that sets every property; every other
     /// constructor below delegates to this one. Private, like the rest —
-    /// reached only through the three factories, EF's materialisation
-    /// constructor, or <see cref="AtOrdinal"/>.
+    /// reached only through the three factories, <see cref="DeepClone"/>,
+    /// EF's materialisation constructor, or the copy constructor that
+    /// <see cref="AtOrdinal"/> uses.
     /// </summary>
-    private OverlayElement(ElementKind kind, NormalizedPosition position, NormalizedSize size, OverlayColor color, TextContent? text)
+    private OverlayElement(ElementParts parts)
     {
-        Kind = kind;
-        Position = position;
-        Size = size;
-        Color = color;
-        Text = text;
+        Kind = parts.Kind;
+        Position = parts.Position;
+        Size = parts.Size;
+        Color = parts.Color;
+        Text = parts.Text;
     }
 
     /// <summary>
     /// EF's materialization constructor. A constructor parameter can only
     /// bind to a mapped scalar, never to a navigation, so EF refuses the
-    /// five-parameter constructor above outright — <c>Position</c>,
+    /// parts constructor above outright — <c>Position</c>,
     /// <c>Size</c> and <c>Text</c> are owned references. It binds the two
     /// scalars (<c>Kind</c> and <c>Color</c>, both converted) here and sets
     /// the navigations afterwards (through the <c>private init</c>
@@ -90,7 +91,7 @@ public sealed record OverlayElement : IValueObject
     /// replaces.
     /// </summary>
     private OverlayElement(ElementKind kind, OverlayColor color)
-        : this(kind, null!, null!, color, null)
+        : this(new ElementParts(kind, null!, null!, color, null))
     {
     }
 
@@ -102,10 +103,22 @@ public sealed record OverlayElement : IValueObject
     /// instead.
     /// </summary>
     private OverlayElement(OverlayElement source, int ordinal)
-        : this(source.Kind, source.Position, source.Size, source.Color, source.Text)
+        : this(new ElementParts(source.Kind, source.Position, source.Size, source.Color, source.Text))
     {
         this.ordinal = ordinal;
     }
+
+    /// <summary>
+    /// An element's complete state, passed as one value so the parts
+    /// constructor takes one parameter and cannot be handed a part out of
+    /// order.
+    /// </summary>
+    private readonly record struct ElementParts(
+        ElementKind Kind,
+        NormalizedPosition Position,
+        NormalizedSize Size,
+        OverlayColor Color,
+        TextContent? Text);
 
     /// <summary>
     /// A text label. Refuses a colour that <see cref="TextLegibility.IsLegible"/>
@@ -131,7 +144,7 @@ public sealed record OverlayElement : IValueObject
         }
 
         var content = TextContent.From(text, fontSizePx);
-        OverlayElement element = new(ElementKind.Text, position, size, color, content);
+        OverlayElement element = new(new ElementParts(ElementKind.Text, position, size, color, content));
         element.RequireConsistent();
         return element;
     }
@@ -150,7 +163,7 @@ public sealed record OverlayElement : IValueObject
         Ensure.That(size).IsNotNull();
         Ensure.That(color).IsNotNull();
 
-        OverlayElement element = new(kind, position, size, color, null);
+        OverlayElement element = new(new ElementParts(kind, position, size, color, null));
         element.RequireConsistent();
         return element;
     }
@@ -180,7 +193,7 @@ public sealed record OverlayElement : IValueObject
     /// now that construction is locked to this type (phase-6 finding S2).
     /// </summary>
     internal OverlayElement DeepClone() =>
-        new(Kind, Position with { }, Size with { }, Color with { }, Text is null ? null : Text with { });
+        new(new ElementParts(Kind, Position with { }, Size with { }, Color with { }, Text is null ? null : Text with { }));
 
     /// <summary>
     /// An internal self-check that a <see cref="TextContent"/> is present
