@@ -47,56 +47,14 @@ public static class StreamDistributionInfrastructureModule
         BindWhepAuthOptions(builder);
         BindStreamFabAttribution(builder);
 
-        builder.Services.AddScoped<IStreamRepository, StreamRepository>();
-        builder.Services.AddScoped<IStreamQuerySource, StreamQuerySource>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<Domain.Stream.Events.StreamProvisionedDomainEvent>,
-            StreamProvisionedDomainEventHandler>();
-        builder.Services.AddScoped<
-            IDomainEventHandler<Domain.Stream.Events.StreamHealthChangedDomainEvent>,
-            StreamHealthChangedDomainEventHandler>();
-        builder.Services.AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
-        builder.Services.AddSingleton<IClock, SystemClock>();
-        builder.Services.AddSingleton(TimeProvider.System);
-        builder.Services.AddSingleton<IStreamWhepUrlBuilder, MediaMtxWhepUrlBuilder>();
-        builder.Services.AddSingleton<IWhepAuthValidator, WhepAuthValidator>();
-        builder.Services.AddSingleton<IMediaMtxApiAuthenticator, MediaMtxApiAuthenticator>();
-
-        // Hand-rolled command/query handler registrations (ADR-0042 + ADR-0057).
-        builder.Services.AddScoped<
-            ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>>,
-            ProvisionStreamCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>,
-            ReportStreamHealthCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>,
-            AuthorizeWhepCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<AuthorizeMediaMtxApiCommand, Result<bool, AuthorizeMediaMtxApiError>>,
-            AuthorizeMediaMtxApiCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<RetireStreamCommand, Result<Option<StreamIdentifier>, RetireStreamError>>,
-            RetireStreamCommandHandler>();
-        builder.Services.AddScoped<
-            ICommandHandler<RepointStreamCommand, Result<Option<StreamIdentifier>, RepointStreamError>>,
-            RepointStreamCommandHandler>();
-        // Query handlers are resolved as concrete classes by the API
-        // endpoints; no IQueryHandler<,> dispatcher registration needed
-        // because they're not invoked through Wolverine.
-        builder.Services.AddScoped<GetStreamQueryHandler>();
-        builder.Services.AddScoped<ListStreamsQueryHandler>();
-        builder.Services.AddScoped<CameraRegisteredIntegrationEventHandler>();
-        builder.Services.AddScoped<CameraRetiredIntegrationEventHandler>();
-        builder.Services.AddScoped<CameraAddressChangedIntegrationEventHandler>();
-        builder.Services.AddScoped<StreamHealthChangedDomainEventHandler>();
-        builder.Services.AddScoped<StreamProvisionedDomainEventHandler>();
+        AddStreamPersistenceAndDomainEventDispatch(builder.Services);
+        AddClockAndMediaMtxAccessServices(builder.Services);
+        AddCommandHandlers(builder.Services);
+        AddQueryIntegrationEventAndDomainEventHandlers(builder.Services);
 
         builder.Services.AddMediaMtxGateway();
 
-        builder.Services.AddHostedService<StreamHealthWatcher>();
-        builder.Services.AddHostedService<MediaMtxReconciler>();
-        builder.Services.AddHostedService<StreamFabAttributionService>();
+        AddStreamHostedServices(builder.Services);
 
         builder.AddWolverineForContext<StreamDistributionDbContext>(
             moduleQueuePrefix: ContextName,
@@ -181,6 +139,77 @@ public static class StreamDistributionInfrastructureModule
                     return previousProvider?.Invoke(arguments) ?? arguments.Event.Severity;
                 };
             });
+    }
+
+    private static void AddStreamPersistenceAndDomainEventDispatch(IServiceCollection services)
+    {
+        services
+            .AddScoped<IStreamRepository, StreamRepository>()
+            .AddScoped<IStreamQuerySource, StreamQuerySource>()
+            .AddScoped<
+                IDomainEventHandler<Domain.Stream.Events.StreamProvisionedDomainEvent>,
+                StreamProvisionedDomainEventHandler>()
+            .AddScoped<
+                IDomainEventHandler<Domain.Stream.Events.StreamHealthChangedDomainEvent>,
+                StreamHealthChangedDomainEventHandler>()
+            .AddScoped<IDomainEventDispatcher, DomainEventDispatcher>();
+    }
+
+    private static void AddClockAndMediaMtxAccessServices(IServiceCollection services)
+    {
+        services
+            .AddSingleton<IClock, SystemClock>()
+            .AddSingleton(TimeProvider.System)
+            .AddSingleton<IStreamWhepUrlBuilder, MediaMtxWhepUrlBuilder>()
+            .AddSingleton<IWhepAuthValidator, WhepAuthValidator>()
+            .AddSingleton<IMediaMtxApiAuthenticator, MediaMtxApiAuthenticator>();
+    }
+
+    private static void AddCommandHandlers(IServiceCollection services)
+    {
+        // Hand-rolled command/query handler registrations (ADR-0042 + ADR-0057).
+        services
+            .AddScoped<
+                ICommandHandler<ProvisionStreamCommand, Result<StreamIdentifier, ProvisionStreamError>>,
+                ProvisionStreamCommandHandler>()
+            .AddScoped<
+                ICommandHandler<ReportStreamHealthCommand, Result<StreamState, ReportStreamHealthError>>,
+                ReportStreamHealthCommandHandler>()
+            .AddScoped<
+                ICommandHandler<AuthorizeWhepCommand, Result<MediaMtxPath, AuthorizeWhepError>>,
+                AuthorizeWhepCommandHandler>()
+            .AddScoped<
+                ICommandHandler<AuthorizeMediaMtxApiCommand, Result<bool, AuthorizeMediaMtxApiError>>,
+                AuthorizeMediaMtxApiCommandHandler>()
+            .AddScoped<
+                ICommandHandler<RetireStreamCommand, Result<Option<StreamIdentifier>, RetireStreamError>>,
+                RetireStreamCommandHandler>()
+            .AddScoped<
+                ICommandHandler<RepointStreamCommand, Result<Option<StreamIdentifier>, RepointStreamError>>,
+                RepointStreamCommandHandler>();
+    }
+
+    private static void AddQueryIntegrationEventAndDomainEventHandlers(IServiceCollection services)
+    {
+        // Query handlers are resolved as concrete classes by the API
+        // endpoints; no IQueryHandler<,> dispatcher registration needed
+        // because they're not invoked through Wolverine.
+        services
+            .AddScoped<GetStreamQueryHandler>()
+            .AddScoped<ListStreamsQueryHandler>()
+            .AddScoped<CameraRegisteredIntegrationEventHandler>()
+            .AddScoped<CameraRetiredIntegrationEventHandler>()
+            .AddScoped<CameraAddressChangedIntegrationEventHandler>()
+            .AddScoped<StreamHealthChangedDomainEventHandler>()
+            .AddScoped<StreamProvisionedDomainEventHandler>();
+    }
+
+    private static void AddStreamHostedServices(IServiceCollection services)
+    {
+        services
+            .AddHostedService<StreamHealthWatcher>()
+            .AddHostedService<MediaMtxReconciler>()
+            .AddHostedService<StreamFabAttributionService>();
     }
 
     private static void BindMediaMtxOptions(IHostApplicationBuilder builder)
