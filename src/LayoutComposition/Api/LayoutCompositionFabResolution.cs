@@ -50,13 +50,13 @@ internal static class LayoutCompositionFabResolution
     }
 
     /// <summary>
-    /// Every fab the caller holds, with no narrowing — what the five
-    /// layout-addressing writes need.
+    /// Every fab the caller holds, with no narrowing — what the seven writes that
+    /// address an existing layout or wall need.
     ///
     /// <para>
-    /// They deliberately accept no <c>?fabId=</c>: the layout already has a
+    /// They deliberately accept no <c>?fabId=</c>: the layout or wall already has a
     /// fab, so letting the caller name one would allow the two to disagree.
-    /// The fabs are used to scope the lookup, so a layout outside them is
+    /// The fabs are used to scope the lookup, so a layout or wall outside them is
     /// reported exactly as one that never existed (FR-006).
     /// </para>
     /// </summary>
