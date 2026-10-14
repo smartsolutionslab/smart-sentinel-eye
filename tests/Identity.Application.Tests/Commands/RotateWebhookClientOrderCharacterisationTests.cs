@@ -37,9 +37,9 @@ namespace SmartSentinelEye.Identity.Application.Tests.Commands;
 ///
 /// <para>
 /// Expected values are literals written from reading the unrefactored
-/// handler. Two behaviours are pinned as they are and not as they ought to
-/// be: a rotate-branch save failure that is not a concurrency conflict is
-/// answered 502 KEYCLOAK_UNAVAILABLE although Keycloak was never called.
+/// handler. Spec 356 then changed one of them on purpose: a save failure that
+/// is not a concurrency conflict now propagates instead of being answered 502
+/// KEYCLOAK_UNAVAILABLE although Keycloak was never called.
 /// </para>
 /// </summary>
 public class RotateWebhookClientOrderCharacterisationTests
@@ -606,36 +606,49 @@ public class RotateWebhookClientOrderCharacterisationTests
         harness.Log.ShouldBe(["status", "lookup", "create", "add", "save"]);
     }
 
-    // Pinned as it is, not as it ought to be (spec 348 §6 oddity 1): the rotate
-    // branch's save sits inside the same try as the Keycloak call, so a save
-    // failure that is not a concurrency conflict is reported as Keycloak being
-    // unavailable although Keycloak was never asked anything.
+    // Spec 356: the rotate branch's save is not a Keycloak call, so a save
+    // failure that is not a concurrency conflict propagates rather than being
+    // reported as Keycloak being unavailable.
     [Fact]
-    public async Task A_non_concurrency_save_failure_on_rotate_is_answered_keycloak_unavailable_without_calling_keycloak()
+    public async Task A_non_concurrency_save_failure_on_rotate_propagates_and_never_calls_keycloak()
     {
         Harness harness = new();
         await harness.SeedRotatableClientAsync(version: 3);
         harness.Repository.FailNextSaveWith = new DbUpdateException("database unavailable");
 
-        var result = await harness.RunAsync(RotateIntent(version: 3));
+        await Should.ThrowAsync<DbUpdateException>(
+            () => harness.RunAsync(RotateIntent(version: 3)));
 
         harness.Log.ShouldBe(["status", "lookup", "save"]);
         harness.Keycloak.RotateRequests.ShouldBeEmpty();
-        result.Error.Code.ShouldBe("KEYCLOAK_UNAVAILABLE");
-        result.Error.Message.ShouldBe("Keycloak Admin API call failed: database unavailable");
+        harness.Bus.Published.ShouldBeEmpty();
     }
 
     [Fact]
-    public async Task A_non_concurrency_save_failure_on_create_is_answered_keycloak_unavailable_after_the_client_was_created()
+    public async Task A_save_failure_that_is_not_an_ef_exception_on_rotate_propagates_and_never_calls_keycloak()
+    {
+        Harness harness = new();
+        await harness.SeedRotatableClientAsync(version: 3);
+        harness.Repository.FailNextSaveWith = new TimeoutException("database unavailable");
+
+        await Should.ThrowAsync<TimeoutException>(
+            () => harness.RunAsync(RotateIntent(version: 3)));
+
+        harness.Log.ShouldBe(["status", "lookup", "save"]);
+        harness.Keycloak.RotateRequests.ShouldBeEmpty();
+        harness.Bus.Published.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public async Task A_non_concurrency_save_failure_on_create_propagates_after_keycloak_created_the_client()
     {
         Harness harness = new();
         harness.Repository.FailNextSaveWith = new DbUpdateException("database unavailable");
 
-        var result = await harness.RunAsync(CreateIntent());
+        await Should.ThrowAsync<DbUpdateException>(
+            () => harness.RunAsync(CreateIntent()));
 
         harness.Log.ShouldBe(["status", "lookup", "create", "add", "save"]);
-        result.Error.Code.ShouldBe("KEYCLOAK_UNAVAILABLE");
-        result.Error.Message.ShouldBe("Keycloak Admin API call failed: database unavailable");
         harness.Bus.Published.ShouldBeEmpty();
     }
 
