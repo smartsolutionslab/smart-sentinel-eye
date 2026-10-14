@@ -836,6 +836,126 @@ test('findScopeDrift of a command carrying both globs is empty', async () => {
 });
 
 // ---------------------------------------------------------------------------
+// Unit: the hook cannot drift from CI's format gates
+// ---------------------------------------------------------------------------
+
+function formatCheckGlobs(command) {
+  const tokens = command.match(/"[^"]*"|\S+/g) ?? [];
+  assert.deepEqual(tokens.slice(0, 2), ['prettier', '--check'], 'format:check is no longer a prettier --check');
+  return tokens
+    .slice(2)
+    .filter((token) => !token.startsWith('-'))
+    .map((token) => token.replace(/^"|"$/g, ''));
+}
+
+function scopeDifference(globs, files, classify) {
+  const expected = files.filter((file) => globs.some((glob) => path.posix.matchesGlob(file, glob)));
+  const actual = classify(files).prettier;
+  return {
+    checkOnly: expected.filter((file) => !actual.includes(file)).sort(),
+    hookOnly: actual.filter((file) => !expected.includes(file)).sort(),
+  };
+}
+
+function trackedFiles() {
+  const listed = spawnSync('git', ['ls-files', '-z'], {
+    cwd: repositoryRoot,
+    encoding: 'utf8',
+    maxBuffer: 64 * 1024 * 1024,
+  });
+  assert.equal(listed.status, 0, listed.stderr);
+  return listed.stdout.split('\0').filter((file) => file !== '');
+}
+
+function dotnetFormatStepFlags(ciYaml) {
+  const lines = ciYaml.split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    if (!/^\s*-\s*name:\s*Format check\s*$/.test(lines[index])) continue;
+    const run = /^\s*run:\s*(dotnet format\s.*)$/.exec(lines[index + 1] ?? '');
+    if (run === null) continue;
+    const tokens = run[1].trim().split(/\s+/);
+    return { project: tokens[2], flags: tokens.slice(3) };
+  }
+  return null;
+}
+
+function ciFlagsFromDotnetArgs(dotnetArgs) {
+  const [, , ...rest] = dotnetArgs({ project: 'P', files: [] });
+  return rest.filter((token) => token !== '--include');
+}
+
+const packageFormatCheck = () =>
+  JSON.parse(readFileSync(path.join(repositoryRoot, 'package.json'), 'utf8')).scripts['format:check'];
+const ciWorkflow = () => readFileSync(path.join(repositoryRoot, '.github', 'workflows', 'ci.yml'), 'utf8');
+
+test("the hook's prettier scope is exactly format:check's globs expanded over the tracked files", async () => {
+  const { classify } = await loadHook();
+
+  const difference = scopeDifference(formatCheckGlobs(packageFormatCheck()), trackedFiles(), classify);
+
+  assert.deepEqual(difference, { checkOnly: [], hookOnly: [] });
+});
+
+test("the hook's dotnet format flags are exactly ci.yml's Format check flags", async () => {
+  const { dotnetArgs } = await loadHook();
+
+  const step = dotnetFormatStepFlags(ciWorkflow());
+
+  assert.notEqual(step, null, "ci.yml has no 'Format check' step running dotnet format");
+  assert.deepEqual(ciFlagsFromDotnetArgs(dotnetArgs), step.flags);
+});
+
+test('an extension added to format:check and not to the hook is reported as check-only', async () => {
+  const { classify } = await loadHook();
+  const mutated = packageFormatCheck().replace('yml}', 'yml,mjs}');
+
+  const difference = scopeDifference(formatCheckGlobs(mutated), trackedFiles(), classify);
+
+  assert.ok(difference.checkOnly.includes('e2e/support/render-leg.test.mjs'));
+  assert.deepEqual(difference.hookOnly, []);
+});
+
+test('a glob added to format:check is reported as check-only', async () => {
+  const { classify } = await loadHook();
+  const mutated = `${packageFormatCheck()} "scripts/**/*.mjs"`;
+
+  const difference = scopeDifference(formatCheckGlobs(mutated), trackedFiles(), classify);
+
+  assert.ok(difference.checkOnly.includes('scripts/pre-commit.mjs'));
+});
+
+test('an extension removed from format:check but kept by the hook is reported as hook-only', async () => {
+  const { classify } = await loadHook();
+  const mutated = packageFormatCheck().replace(',css', '');
+
+  const difference = scopeDifference(formatCheckGlobs(mutated), trackedFiles(), classify);
+
+  assert.ok(difference.hookOnly.length > 0);
+  assert.ok(difference.hookOnly.every((file) => file.endsWith('.css')));
+  assert.deepEqual(difference.checkOnly, []);
+});
+
+test("a flag added to or removed from ci.yml's Format check fails the flag comparison", async () => {
+  const { dotnetArgs } = await loadHook();
+  const hookFlags = ciFlagsFromDotnetArgs(dotnetArgs);
+  const original = ciWorkflow();
+  const stepLine = /^(\s*run:\s*dotnet format .*)$/m;
+
+  const added = original.replace(stepLine, '$1 --severity warn');
+  const removed = original.replace(stepLine, (line) => line.replace(' --no-restore', ''));
+
+  assert.notDeepEqual(dotnetFormatStepFlags(added).flags, hookFlags);
+  assert.notDeepEqual(dotnetFormatStepFlags(removed).flags, hookFlags);
+  assert.deepEqual(dotnetFormatStepFlags(original).flags, hookFlags);
+});
+
+test('a ci.yml without a dotnet Format check step is reported as not found', () => {
+  const withoutStep = '- name: Build\n  run: dotnet build X.slnx\n- name: Format check\n  run: pnpm format:check\n';
+
+  assert.equal(dotnetFormatStepFlags(withoutStep), null);
+});
+
+// ---------------------------------------------------------------------------
 // Review round: the entry point must run however the script is reached
 // ---------------------------------------------------------------------------
 
