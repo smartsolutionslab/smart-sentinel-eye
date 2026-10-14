@@ -55,23 +55,26 @@ public sealed class VariableSnapshotBuilder(IVariableRepository variables) : IVa
                 continue;
             }
 
-            var variable = found.Value;
-            if (variable.Value is VariableValue.Unset)
-            {
-                // The fab it was found in, same as a Resolved row (plan.md:170)
-                // — the answering fab is already in hand here, unlike the
-                // not-found path below where Archived has none to give.
-                resolutions.Add(new PlaceholderResolution(name, PlaceholderOutcome.Unset, answeringFab, null));
-                continue;
-            }
-
-            resolutions.Add(new PlaceholderResolution(
-                name,
-                PlaceholderOutcome.Resolved,
-                answeringFab,
-                new VariableSnapshotEntry(variable.Value, variable.BooleanLabels)));
+            resolutions.Add(ResolutionOf(name, found.Value, answeringFab));
         }
         return resolutions;
+    }
+
+    private static PlaceholderResolution ResolutionOf(string name, Variable variable, FabIdentifier? answeringFab)
+    {
+        if (variable.Value is VariableValue.Unset)
+        {
+            // The fab it was found in, same as a Resolved row (plan.md:170)
+            // — the answering fab is already in hand here, unlike the
+            // not-found path in BuildAsync where Archived has none to give.
+            return new PlaceholderResolution(name, PlaceholderOutcome.Unset, answeringFab, null);
+        }
+
+        return new PlaceholderResolution(
+            name,
+            PlaceholderOutcome.Resolved,
+            answeringFab,
+            new VariableSnapshotEntry(variable.Value, variable.BooleanLabels));
     }
 
     /// <summary>
