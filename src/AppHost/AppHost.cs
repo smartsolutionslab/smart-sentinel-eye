@@ -101,20 +101,7 @@ var postgres = builder
     // what was written.
     .WithArgs("-c", "max_connections=500");
 
-// Persistent means this container, once created, keeps running the args it was
-// created with — Docker does not re-read WithArgs (e.g. max_connections above) on
-// a mere restart. Changing them needs `docker rm` of the postgres container (the
-// data volume can stay) before the next `aspire run`, or the old value keeps running.
-//
-// Developer lane only: PersistentStack=false (the e2e CI job) must not pin
-// this, mount a data volume, or add pgAdmin.
-if (isPersistentDevStack)
-{
-    postgres
-        .WithLifetime(ContainerLifetime.Persistent)
-        .WithDataVolume()
-        .WithPgAdmin();
-}
+postgres.WithPostgresDeveloperLanePersistence(isPersistentDevStack);
 
 var cameraCatalogDb = postgres.AddDatabase("camera-catalog-db");
 var streamDistributionDb = postgres.AddDatabase("stream-distribution-db");
@@ -131,13 +118,7 @@ var rabbitmq = builder
     .WithImageTag("4-management-alpine")
     .WithManagementPlugin();
 
-// Developer lane only (see postgres above).
-if (isPersistentDevStack)
-{
-    rabbitmq
-        .WithLifetime(ContainerLifetime.Persistent)
-        .WithDataVolume();
-}
+rabbitmq.WithRabbitMqDeveloperLanePersistence(isPersistentDevStack);
 
 // Image, tag and registry are spelled out because Aspire.Hosting.Keycloak
 // supplies all three coordinates and this file named none of them: a
@@ -166,20 +147,7 @@ var keycloak = builder
 // component) alongside the brute-force block — without them the imported realm
 // falls back to realm-import defaults that break the bootstrap admin's own
 // password grant (plan.md §2 for spec 324).
-//
-// Persistent means the keycloak-data volume survives AppHost restarts, so an edit to
-// either Realms/*.json file is NOT re-imported — WithRealmImport only runs
-// against a fresh volume. Drop the volume (`docker volume rm`, or its Aspire/Docker
-// Desktop equivalent) after a realm edit, or the stack looks healthy while still
-// running the old realm.
-//
-// Developer lane only (see postgres above).
-if (isPersistentDevStack)
-{
-    keycloak
-        .WithLifetime(ContainerLifetime.Persistent)
-        .WithDataVolume();
-}
+keycloak.WithKeycloakDeveloperLanePersistence(isPersistentDevStack);
 
 // MediaMTX SFU brings RTSP ingest + WHEP playback (spec 002 T003, ADR-0011).
 // MediaMTX is the runtime source of truth for live paths; the stream-distribution
@@ -287,12 +255,7 @@ if (isRunMode && !isE2ETests)
         .WithEnvironment("MTX_WEBRTCADDITIONALHOSTS", "127.0.0.1");
 }
 
-// Developer lane only (see postgres above) — mediamtx's lifetime, split out
-// from its ICE port map above, which the e2e lane still needs.
-if (isPersistentDevStack)
-{
-    mediamtx.WithLifetime(ContainerLifetime.Persistent);
-}
+mediamtx.WithContainerDeveloperLaneLifetime(isPersistentDevStack);
 
 // Mosquitto MQTT broker for spec 006 EventIngestion (ADR-0095). Each
 // PLC and inference device publishes on a per-device topic; the
@@ -322,13 +285,7 @@ var mosquitto = builder
     })
     .WaitFor(keycloak);
 
-// Developer lane only (see postgres above).
-if (isPersistentDevStack)
-{
-    mosquitto
-        .WithLifetime(ContainerLifetime.Persistent)
-        .WithVolume("mosquitto-data", "/mosquitto/data");
-}
+mosquitto.WithMosquittoDeveloperLanePersistence(isPersistentDevStack);
 
 // Azure Blob Storage (Azurite emulator in dev/CI) — ADR-0155. Used by
 // AuditObservability (spec 009 ADR-0101) for the per-chunk cold archive once
@@ -358,13 +315,7 @@ var storage = builder
     .AddAzureStorage("storage")
     .RunAsEmulator(azurite =>
     {
-        // Developer lane only (see postgres above).
-        if (isPersistentDevStack)
-        {
-            azurite
-                .WithLifetime(ContainerLifetime.Persistent)
-                .WithDataVolume();
-        }
+        azurite.WithAzuriteDeveloperLanePersistence(isPersistentDevStack);
     });
 var auditArchiveBlobs = storage.AddBlobs("blobs");
 
@@ -928,11 +879,7 @@ if (isRunMode && !isE2ETests && isScenarioSimulatorEnabled)
         .WithHttpEndpoint(targetPort: 9997, name: "api")
         .WithEndpoint(targetPort: 8554, name: "rtsp", scheme: "tcp");
 
-    // Developer lane only (see postgres above).
-    if (isPersistentDevStack)
-    {
-        cameraSim.WithLifetime(ContainerLifetime.Persistent);
-    }
+    cameraSim.WithContainerDeveloperLaneLifetime(isPersistentDevStack);
 
     var scenarioSimulator = builder
         .AddProject<Projects.SmartSentinelEye_ScenarioSimulator>("scenario-simulator")
