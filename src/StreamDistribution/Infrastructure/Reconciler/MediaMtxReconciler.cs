@@ -153,6 +153,27 @@ public sealed class MediaMtxReconciler(
         var configured =
             await gateway.ListConfiguredPathsAsync(cancellationToken);
 
+        var removed = await RemoveOrphanPathsAsync(
+            gateway,
+            configured,
+            expected,
+            cancellationToken);
+
+        var readded = await ReaddMissingPathsAsync(
+            gateway,
+            configured,
+            streams.Select(entry => (entry.Path, entry.SourceUrl)),
+            cancellationToken);
+
+        logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed, readded);
+    }
+
+    private async Task<int> RemoveOrphanPathsAsync(
+        IRtspGateway gateway,
+        IReadOnlyList<MediaMtxPath> configured,
+        HashSet<MediaMtxPath> expected,
+        CancellationToken cancellationToken)
+    {
         var removed = 0;
         foreach (var path in configured)
         {
@@ -173,17 +194,23 @@ public sealed class MediaMtxReconciler(
             }
         }
 
+        return removed;
+    }
+
+    private async Task<int> ReaddMissingPathsAsync(
+        IRtspGateway gateway,
+        IReadOnlyList<MediaMtxPath> configured,
+        IEnumerable<(MediaMtxPath Path, StreamSourceUrl SourceUrl)> streams,
+        CancellationToken cancellationToken)
+    {
         // Re-add the other half: a Stream whose path MediaMTX no longer knows
         // about. Without this a MediaMTX restart leaves every stream 404ing,
         // because CameraRegisteredV1 does not re-fire for existing cameras.
         var present = configured.ToHashSet();
 
         var readded = 0;
-        foreach (var entry in streams)
+        foreach (var (path, sourceUrl) in streams)
         {
-            var path = entry.Path;
-            var sourceUrl = entry.SourceUrl;
-
             if (present.Contains(path))
             {
                 continue;
@@ -201,6 +228,6 @@ public sealed class MediaMtxReconciler(
             }
         }
 
-        logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed, readded);
+        return readded;
     }
 }
