@@ -34,9 +34,9 @@ namespace SmartSentinelEye.SystemVariables.Application.Tests.EventHandlers;
 /// </para>
 ///
 /// <para>
-/// Spec 349 section 6 oddity (b) is pinned as it is: with no overlay referencing
-/// the variable the handler publishes the V1 and logs nothing at all, where the
-/// value-changed handler logs at debug.
+/// Spec 349 section 6 oddity (b) was fixed by spec 358: with no overlay
+/// referencing the variable the handler publishes the V1 and logs at debug,
+/// as the value-changed handler does.
 /// </para>
 /// </summary>
 public class ArchivedFanOutCharacterisationTests
@@ -201,13 +201,15 @@ public class ArchivedFanOutCharacterisationTests
     }
 
     [Fact]
-    public async Task With_no_referencing_overlay_only_the_V1_is_published_and_nothing_is_logged()
+    public async Task With_no_referencing_overlay_only_the_V1_is_published_and_the_debug_line_is_logged()
     {
         var run = await RunAsync("munich", overlays: [], labels: new Dictionary<Guid, IReadOnlyList<string>?>());
 
         run.Bus.Published.Select(published => published.Type).ShouldBe([typeof(SystemVariableArchivedV1)]);
         run.Versions.AdvanceCalls.ShouldBeEmpty();
-        run.Logger.Entries.ShouldBeEmpty();
+        var entry = run.Logger.Entries.ShouldHaveSingleItem();
+        entry.Level.ShouldBe(LogLevel.Debug);
+        entry.Message.ShouldBe("No overlays reference variable 'retired'; skipping push fan-out.");
     }
 
     private static InMemoryVariableRepository SiblingRepository()
