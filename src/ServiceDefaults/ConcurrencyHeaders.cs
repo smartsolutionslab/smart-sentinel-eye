@@ -91,15 +91,7 @@ public static class ConcurrencyHeaders
 
         if (hasIfNoneMatch)
         {
-            var raw = request.Headers.IfNoneMatch[0]?.Trim();
-            if (!string.Equals(raw, Wildcard, StringComparison.Ordinal))
-            {
-                problem = Malformed("If-None-Match must be '*' here; it asserts the resource does not exist yet.");
-
-                return false;
-            }
-
-            return true;
+            return TryReadCreateAssertion(request, out problem);
         }
 
         if (!hasIfMatch)
@@ -152,6 +144,21 @@ public static class ConcurrencyHeaders
         }
 
         return TryParseTag(raw, out expectedVersion, out problem);
+    }
+
+    private static bool TryReadCreateAssertion(HttpRequest request, [NotNullWhen(false)] out IResult? problem)
+    {
+        problem = null;
+
+        var raw = request.Headers.IfNoneMatch[0]?.Trim();
+        if (!string.Equals(raw, Wildcard, StringComparison.Ordinal))
+        {
+            problem = Malformed("If-None-Match must be '*' here; it asserts the resource does not exist yet.");
+
+            return false;
+        }
+
+        return true;
     }
 
     private static bool TryParseTag(string? raw, out int version, [NotNullWhen(false)] out IResult? problem)
