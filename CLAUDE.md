@@ -504,7 +504,7 @@ claims a discharge nobody earned.
 | Async | `CancellationToken` mandatory last param; no `ConfigureAwait` | 0049 |
 | Persistence | PostgreSQL. **Marten is permitted and unused** — no context has justified it (ADR-0130) | 0000-initial-decisions.md row 009, 0071, **0130** |
 | Concurrency | Two-layer optimistic: `If-Match` expected version (cross-request) + EF token (in-transaction); no retry-on-conflict | 0043, **0113** |
-| Retry safety | `POST`/`PATCH` not retried by default; five clients opt back in with a stated reason. Caller-supplied `Idempotency-Key` replays the original answer — opt-in, on 9 of the 10 creates and rotations | **0142**, **0143** |
+| Retry safety | `POST`/`PATCH` not retried by default; clients opt back in with a stated reason (`grep -rn "RetryEveryMethod()" src` lists them). Caller-supplied `Idempotency-Key` replays the original answer — opt-in, on 9 of the 10 creates and rotations | **0142**, **0143** |
 | Object store | Azure Blob Storage (Azurite emulator) — replaced MinIO after its registry access broke | 0000-initial-decisions.md row 009, **0155** |
 | Messaging | RabbitMQ (via Wolverine) | 0000-initial-decisions.md row 010, 0042 |
 | Sagas | Wolverine state machines + compensating actions | 0072 |
