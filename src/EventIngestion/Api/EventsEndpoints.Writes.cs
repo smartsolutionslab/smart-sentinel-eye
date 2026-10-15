@@ -35,65 +35,21 @@ public static partial class EventsEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var limiter = services.Limiter;
-        var scopeFactory = services.ScopeFactory;
-        var fabGuard = services.FabGuard;
-        var storage = services.Storage;
-        var webhookIntegrations = services.WebhookIntegrations;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        // ADR-0160's generic DisabledAt check only trusts a snapshot that is
-        // stamped *after* Keycloak successfully disables the client (spec 264,
-        // "Keycloak first, then the row") — a window #2629 widened to ~70 min.
-        // This integration's own RevokedAt is stamped at the revoke decision
-        // itself, the same moment /events/webhook/{name}'s check reads it
-        // (#2814), so a webhook-sourced caller is refused here just as fast.
-        if (await IsRevokedWebhookCallerAsync(user, webhookIntegrations, cancellationToken))
+        var admission = await AdmitManualCallerAsync(user, fabId, services, cancellationToken);
+        if (admission.IsFailure)
         {
-            return Results.Unauthorized();
-        }
-
-        // Resolved from the caller, never from the request (spec 018 FR-006).
-        // Before this, `fabId` went straight into the envelope unchecked, so an
-        // operator could file an event against any plant — where it drives that
-        // plant's automation rules and changes what its operators see.
-        //
-        // Resolved BEFORE anything is written (spec 018 FR-007): a refusal that
-        // had already stored would place a fabricated event in another plant's
-        // stream while reporting that it had been stopped.
-        var fabResolution =
-            await EventIngestionFabResolution.ResolveWriteFabAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
-        if (fabResolution.IsFailure)
-        {
-            return fabResolution.Error;
-        }
-
-        var fab = fabResolution.Value;
-
-        // Spec 019 FR-007. Still checked first: it names the cause precisely
-        // ("this plant has no storage") where the write below could only report
-        // that something failed. Since spec 020 the write is synchronous, so
-        // neither answer can be given after the event was already accepted.
-        if (!await storage.IsReadyAsync(fab, cancellationToken))
-        {
-            return FabNotProvisioned(fab);
+            return admission.Error;
         }
 
         EventEnvelope envelope;
         try
         {
-            envelope = new EventEnvelope(
-                EventIdentifier.New(),
-                fab,
-                Source.Manual,
-                DeviceIdentifier.From(body.DeviceId),
-                Kind.From(body.Kind),
-                OccurredAt.From(body.OccurredAt),
-                Payload.From(body.Payload));
+            envelope = ManualEnvelope(admission.Value, body);
         }
         catch (ArgumentException ex)
         {
@@ -108,18 +64,82 @@ public static partial class EventsEndpoints
         // event's identifier back instead.
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    IngestManualEndpoint,
-                    user.ToOperatorIdentifier().Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
+                ManualScope(key, user, admission.Value, body),
                 services.Idempotency,
                 services.Clock),
             identifier => $"/events/{identifier}",
-            token => StoreOrRefuseAsync(limiter, scopeFactory, envelope, token),
+            token => StoreOrRefuseAsync(services.Limiter, services.ScopeFactory, envelope, token),
             cancellationToken);
     }
+
+    private static async Task<Result<FabIdentifier, IResult>> AdmitManualCallerAsync(
+        ClaimsPrincipal user,
+        string? fabId,
+        IngestManualServices services,
+        CancellationToken cancellationToken)
+    {
+        // ADR-0160's generic DisabledAt check only trusts a snapshot that is
+        // stamped *after* Keycloak successfully disables the client (spec 264,
+        // "Keycloak first, then the row") — a window #2629 widened to ~70 min.
+        // This integration's own RevokedAt is stamped at the revoke decision
+        // itself, the same moment /events/webhook/{name}'s check reads it
+        // (#2814), so a webhook-sourced caller is refused here just as fast.
+        if (await IsRevokedWebhookCallerAsync(user, services.WebhookIntegrations, cancellationToken))
+        {
+            return Result<FabIdentifier, IResult>.Failure(Results.Unauthorized());
+        }
+
+        // Resolved from the caller, never from the request (spec 018 FR-006).
+        // Before this, `fabId` went straight into the envelope unchecked, so an
+        // operator could file an event against any plant — where it drives that
+        // plant's automation rules and changes what its operators see.
+        //
+        // Resolved BEFORE anything is written (spec 018 FR-007): a refusal that
+        // had already stored would place a fabricated event in another plant's
+        // stream while reporting that it had been stopped.
+        var fabResolution =
+            await EventIngestionFabResolution.ResolveWriteFabAsync(
+                user, fabId ?? string.Empty, services.FabGuard, cancellationToken);
+        if (fabResolution.IsFailure)
+        {
+            return fabResolution;
+        }
+
+        var fab = fabResolution.Value;
+
+        // Spec 019 FR-007. Still checked first: it names the cause precisely
+        // ("this plant has no storage") where the write below could only report
+        // that something failed. Since spec 020 the write is synchronous, so
+        // neither answer can be given after the event was already accepted.
+        if (!await services.Storage.IsReadyAsync(fab, cancellationToken))
+        {
+            return Result<FabIdentifier, IResult>.Failure(FabNotProvisioned(fab));
+        }
+
+        return fabResolution;
+    }
+
+    private static EventEnvelope ManualEnvelope(FabIdentifier fab, IngestManualEventRequest body) =>
+        new(
+            EventIdentifier.New(),
+            fab,
+            Source.Manual,
+            DeviceIdentifier.From(body.DeviceId),
+            Kind.From(body.Kind),
+            OccurredAt.From(body.OccurredAt),
+            Payload.From(body.Payload));
+
+    private static Option<IdempotencyScope> ManualScope(
+        Option<IdempotencyKey> key,
+        ClaimsPrincipal user,
+        FabIdentifier fab,
+        IngestManualEventRequest body) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            IngestManualEndpoint,
+            user.ToOperatorIdentifier().Value.ToString(),
+            Option<string>.Some(fab.Value),
+            IdempotencyFingerprint.Of(body)));
 
     /// <summary>
     /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
