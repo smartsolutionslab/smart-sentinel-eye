@@ -23,6 +23,26 @@ namespace SmartSentinelEye.ServiceDefaults.Resilience;
 /// so a logical Aspire name is the authority. The set of keys is never evicted:
 /// do not put a client whose authority is caller-supplied under these defaults.
 /// </para>
+///
+/// <para>
+/// <b>Nested token mints.</b> Four authorization handlers mint a token through an
+/// opted-in <c>RetryEveryMethod()</c> client from inside each attempt of the outer
+/// client's pipeline, so in a Keycloak outage one outer call drives several mints
+/// (about 9 token POSTs per call, measured on #2959). Which breaker a failure
+/// feeds follows the pinned package's transient predicate
+/// (Microsoft.Extensions.Http.Resilience 10.10.0): any <c>HttpRequestException</c>,
+/// any timeout rejection, 5xx, 408 and 429 are transient. Keycloak's own breaker
+/// is fed by every transient mint outcome — 5xx, 408, 429, a connection failure,
+/// the mint's own timeout. A mint failure that reaches the outer handler as an
+/// <c>HttpRequestException</c> (any non-success status after the mint's retries,
+/// or a connection failure) or as the outer attempt's timeout ALSO counts against
+/// THIS upstream's breaker and is retried by this call, so a rejected credential
+/// costs 4 token POSTs per outer GET, not 1. Only a <c>BrokenCircuitException</c>
+/// from an open Keycloak breaker is non-transient to the outer predicate and ends
+/// the call. Accepted: the mint is single-flight and the outer attempt timeout
+/// cancels it. Identity's admin client shares Keycloak's authority with its own
+/// mint, so they share one breaker.
+/// </para>
 /// </summary>
 internal static class UpstreamAuthority
 {

@@ -21,15 +21,16 @@ namespace SmartSentinelEye.ServiceDefaults.Tests.Resilience;
 /// <c>RetryEveryMethod()</c> reaches that pipeline: they pin the paths a partial fix
 /// would miss (synchronous <c>Send</c>, the body re-sent intact, 429, an attempt
 /// timeout). <b>Leak guards</b> are green today and must stay green: an opt-in that
-/// escapes its client fails toward duplicate effects. <b>Hazard</b> facts record
-/// behaviour that exists today and that the opt-in amplifies.
+/// escapes its client fails toward duplicate effects. <b>Isolation</b> facts record
+/// that one upstream authority's failures stay its own: the fact that used to record a
+/// shared circuit breaker as a hazard now pins the per-authority fix (#2959).
 /// </para>
 /// </summary>
 public class RetryEveryMethodAdversarialTests
 {
     private const string Url = "https://x.test/thing";
 
-    // ---- Opt-in contract: red until the opt-in reaches the shared pipeline ----
+    // ---- Opt-in contract: red until the opt-in reaches that client's pipeline ----
 
     /// <summary>
     /// <c>HttpClient.Send</c> walks <c>DelegatingHandler.Send</c>, not <c>SendAsync</c>.
@@ -265,7 +266,7 @@ public class RetryEveryMethodAdversarialTests
         server.Attempts.ShouldBe(1);
     }
 
-    // ---- Hazard: true today, amplified by the opt-in ----
+    // ---- Isolation: one upstream's breaker is not another's (#2959) ----
 
     /// <summary>
     /// <b>Inverted by #2959.</b> This fact used to record, as a hazard, that every client in a
