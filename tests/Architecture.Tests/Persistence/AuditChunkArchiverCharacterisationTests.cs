@@ -10,10 +10,16 @@ using Azure.Storage.Blobs.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using SmartSentinelEye.AuditObservability.Application.EventHandlers;
 using SmartSentinelEye.AuditObservability.Application.Retention;
+using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.AuditObservability.Infrastructure.Archive;
 using SmartSentinelEye.AuditObservability.Infrastructure.Persistence;
+using SmartSentinelEye.Shared.Contracts;
+using SmartSentinelEye.Shared.Contracts.CameraCatalog;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.Architecture.Tests.Persistence;
 
@@ -483,5 +489,49 @@ public class AuditChunkArchiverCharacterisationTests
         thrown.Status.ShouldBe(503);
         thrown.Message.ShouldBe("upload refused");
         harness.Calls.Entries.ShouldBe(CallsAfterTheProbe("Upload"));
+    }
+
+    // Spec 377 (#2977): the archive inherits the payload as written. The payload is produced by the real
+    // handler, put in the harness's payload column, and read back out of the gunzipped chunk.
+    [Fact]
+    public async Task An_archived_chunk_carries_the_payload_as_redacted_when_written()
+    {
+        CapturingAuditEventRepository repository = new();
+        IntegrationEventAuditHandler handler = new(new AuditingMessageHandler(
+            repository,
+            V1ResourceMap.Default,
+            new SystemClock(),
+            Options.Create(new AuditMeasurementOptions()),
+            NullLogger<AuditingMessageHandler>.Instance));
+        var occurredAt = DateTimeOffset.Parse("2026-03-02T08:00:00Z", CultureInfo.InvariantCulture);
+        CameraRegisteredV1 registered = new(
+            Guid.CreateVersion7(),
+            "north-gate",
+            "rtsp://cam/stream?token=SECRET",
+            occurredAt,
+            Guid.CreateVersion7(),
+            new EventMetadata(Guid.CreateVersion7(), occurredAt, Fab: "munich", Actor: null));
+        await handler.Handle(registered, default);
+        var table = TwoRows();
+        table.Rows[0]["payload"] = repository.Staged.Single().Payload.Content.Value;
+        var harness = Build(() => table);
+
+        await harness.Archiver.ArchiveChunkAsync(Chunk, default);
+
+        var archived = Gunzip(harness.Blob.UploadedBytes!);
+        archived.ShouldNotContain("SECRET");
+        var firstLine = archived.Split('\n')[0];
+        using var line = System.Text.Json.JsonDocument.Parse(firstLine);
+        using var payload = System.Text.Json.JsonDocument.Parse(line.RootElement.GetProperty("Payload").GetString()!);
+        payload.RootElement.GetProperty("Url").GetString().ShouldBe("rtsp://cam");
+    }
+
+    private sealed class CapturingAuditEventRepository : IAuditEventRepository
+    {
+        public List<SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent> Staged { get; } = [];
+
+        public void Add(SmartSentinelEye.AuditObservability.Domain.AuditEvent.AuditEvent audit) => Staged.Add(audit);
+
+        public Task SaveAsync(CancellationToken cancellationToken) => Task.CompletedTask;
     }
 }

@@ -37,8 +37,8 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
         var audited = await PollForAuditAsync(camera);
 
-        audited.Url.ShouldBe(CorrectedUrl);
-        audited.PreviousUrl.ShouldNotBe(CorrectedUrl, "the trail records what changed, not merely that it did");
+        audited.Url.ShouldBe("rtsp://10.0.5.44");
+        audited.PreviousUrl.ShouldBe("rtsp://10.0.5.12", "the trail records what changed, not merely that it did");
 
         // Not the system actor. If the metadata lost the operator the row would
         // fall back to it, and the trail would say the system corrected a
@@ -70,6 +70,66 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
 
         (await CountAsync(camera)).ShouldBe(1,
             "a correction that changed nothing must not announce, or the trail records a change that never happened");
+    }
+
+    /// <summary>
+    /// Spec 377 (#2977): a credential carried in a camera URL's query string reaches neither the stored
+    /// audit row nor what the audit API answers. A same-origin change keeps the trail honest with
+    /// <c>DetailChanged</c> instead.
+    /// </summary>
+    [Fact]
+    public async Task A_query_string_credential_reaches_neither_the_audit_row_nor_the_audit_api()
+    {
+        var marker = $"SECRET-{Guid.CreateVersion7():N}";
+        var changedMarker = $"SECRET2-{Guid.CreateVersion7():N}";
+        using var cameras = await ClientFor(MunichOperator);
+        var camera = await RegisterAsync(cameras, $"rtsp://10.0.5.12/h264?token={marker}");
+
+        await CorrectAsync(cameras, camera, $"rtsp://10.0.5.12/h264?token={changedMarker}");
+
+        var registered = await PollForAuditRowAsync(camera, "CameraRegisteredV1");
+        var changed = await PollForAuditRowAsync(camera, "CameraAddressChangedV1");
+        registered.Payload.ShouldNotContain(marker);
+        changed.Payload.ShouldNotContain(marker);
+        changed.Payload.ShouldNotContain(changedMarker);
+        using var changedPayload = JsonDocument.Parse(changed.Payload);
+        changedPayload.RootElement.GetProperty("DetailChanged").GetBoolean().ShouldBeTrue();
+
+        using var audit = await aspire.CreateAuthenticatedClientAsync(
+            "audit-observability", "admin@munich.test", SeededCredentials.AdminMunich);
+        var response = await audit.GetAsync($"/audit/{changed.AuditIdentifier}");
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        var body = await response.Content.ReadAsStringAsync();
+        body.ShouldNotContain(marker);
+        body.ShouldNotContain(changedMarker);
+    }
+
+    private async Task<(Guid AuditIdentifier, string Payload)> PollForAuditRowAsync(Guid camera, string eventKind)
+    {
+        for (var attempt = 0; attempt < 60; attempt++)
+        {
+            await using var context =
+                await aspire.CreateAuditObservabilityDbContextAsync();
+
+            var rows = await context.Database
+                .SqlQuery<string>($"""
+                    SELECT audit_id::text || '|' || payload::text AS "Value"
+                    FROM audit_events
+                    WHERE event_kind = {eventKind}
+                      AND payload->>'Camera' = {camera.ToString()}
+                    """)
+                .ToListAsync();
+
+            if (rows.Count > 0)
+            {
+                var separator = rows[0].IndexOf('|', StringComparison.Ordinal);
+                return (Guid.Parse(rows[0][..separator]), rows[0][(separator + 1)..]);
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(500));
+        }
+
+        throw new TimeoutException($"No {eventKind} audit row for camera {camera} within 30s.");
     }
 
     private async Task<HttpClient> ClientFor(string username) =>
@@ -136,14 +196,14 @@ public class CameraAddressAuditIntegrationTests(AspireFixture aspire) : IAsyncLi
         return rows[0];
     }
 
-    private static async Task<Guid> RegisterAsync(HttpClient cameras)
+    private static async Task<Guid> RegisterAsync(HttpClient cameras, string rtspUrl = "rtsp://10.0.5.12/h264")
     {
         var name = $"audit-{Guid.CreateVersion7():N}"[..24];
 
         var created = await cameras.PostAsJsonAsync("/cameras", new
         {
             name,
-            rtspUrl = "rtsp://10.0.5.12/h264",
+            rtspUrl,
         });
 
         created.StatusCode.ShouldBe(HttpStatusCode.Created);
