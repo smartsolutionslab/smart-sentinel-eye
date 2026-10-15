@@ -140,30 +140,20 @@ public static partial class CameraEndpoints
         Ensure.That(request).IsNotNull();
         Ensure.That(httpContext).IsNotNull();
 
-        var handler = services.Handler;
-        var fabGuard = services.FabGuard;
-
         if (!IdempotencyHeaders.TryRead(httpContext.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        CameraName name;
-        RtspUrl url;
-        try
+        if (!BoundaryParse.TryParse(() => ParseRegistration(request), "CAMERA_INVALID_REQUEST", out var input, out var problem))
         {
-            (name, url) = request;
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "CAMERA_INVALID_REQUEST",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
+        var (name, url) = input;
+
         var fabResolution =
-            await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+            await ResolveWriteFabAsync(httpContext.User, fabId, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
@@ -171,26 +161,38 @@ public static partial class CameraEndpoints
 
         var fab = fabResolution.Value;
 
-        var registeredBy = ResolveOperator(httpContext);
-
-        RegisterCameraCommand command = new(fab, name, url, registeredBy);
+        RegisterCameraCommand command = new(fab, name, url, ResolveOperator(httpContext));
 
         return await IdempotentRequest.ExecuteCreateAsync(
-            new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    RegisterEndpoint,
-                    registeredBy.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(request))),
-                services.Idempotency,
-                services.Clock),
+            CreateExecution(key, command, request, services),
             identifier => $"/cameras/{identifier}",
-            async token => (await handler.HandleAsync(command, token)).Match(
+            async token => (await services.Handler.HandleAsync(command, token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
     }
+
+    private static (CameraName Name, RtspUrl Url) ParseRegistration(RegisterCameraRequest request)
+    {
+        var (name, url) = request;
+
+        return (name, url);
+    }
+
+    private static IdempotentExecution CreateExecution(
+        Option<IdempotencyKey> key,
+        RegisterCameraCommand command,
+        RegisterCameraRequest request,
+        RegisterCameraServices services) =>
+        new(
+            key.Map(supplied => IdempotencyScope.For(
+                supplied,
+                RegisterEndpoint,
+                command.RegisteredBy.Value.ToString(),
+                Option<string>.Some(command.Fab.Value),
+                IdempotencyFingerprint.Of(request))),
+            services.Idempotency,
+            services.Clock);
 
     /// <summary>
     /// The registration endpoint's collaborators, bundled with
