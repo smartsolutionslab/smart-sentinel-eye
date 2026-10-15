@@ -185,14 +185,7 @@ public static class StreamEndpoints
 
         if (segment is null && !isWallSkew && !isLabelDelay)
         {
-            return Results.ValidationProblem(new Dictionary<string, string[]>
-            {
-                [nameof(report.Measurement)] =
-                    [
-                        "must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer', "
-                        + "'wall_skew' or 'label_delay'",
-                    ],
-            });
+            return UnknownMeasurement();
         }
 
         if (report.Camera == Guid.Empty)
@@ -216,6 +209,16 @@ public static class StreamEndpoints
         Record(report, segment, isWallSkew, isLabelDelay);
         return Results.Accepted();
     }
+
+    private static IResult UnknownMeasurement() =>
+        Results.ValidationProblem(new Dictionary<string, string[]>
+        {
+            [nameof(KioskLatencyReport.Measurement)] =
+                [
+                    "must be 'overlay_draw', 'receive_to_decoded', 'presentation_buffer', "
+                    + "'wall_skew' or 'label_delay'",
+                ],
+        });
 
     private static LatencySegment? SegmentFor(string measurement)
     {
