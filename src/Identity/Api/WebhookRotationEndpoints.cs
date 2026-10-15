@@ -99,24 +99,14 @@ public static class WebhookRotationEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(request).IsNotNull();
 
-        var fabGuard = services.FabGuard;
-        var handler = services.Handler;
-
         if (!IdempotencyHeaders.TryRead(request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        FabIdentifier fab;
-        try
+        if (!BoundaryParse.TryParse(() => FabIdentifier.From(body.FabId), "WEBHOOK_INVALID_INPUT", out var fab, out var invalid))
         {
-            fab = FabIdentifier.From(body.FabId);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "WEBHOOK_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return invalid;
         }
 
         // The guard runs before the precondition is parsed, per
@@ -124,7 +114,7 @@ public static class WebhookRotationEndpoints
         // binding. Reading If-Match first would answer a caller who may not
         // touch this fab at all with 428 and an invitation to retry, instead of
         // the 403 they have earned.
-        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
+        await services.FabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         // This endpoint upserts, so the caller states which operation it means:
         // If-None-Match: * to create the client, If-Match: "N" to rotate the
@@ -159,48 +149,67 @@ public static class WebhookRotationEndpoints
         // *rotate* of the same integration — or across two different
         // integrations — is two different operations, not one replayed onto
         // the other (spec 302 / #2424).
-        var preconditionText = expectedVersion.Match(
-            some: version => version.ToString(CultureInfo.InvariantCulture),
-            none: () => "*");
-
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    RotateEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body, name, preconditionText))),
+                RotateScope(key, actingOperator, fab, RotateFingerprint(body, name, expectedVersion)),
                 services.Idempotency,
                 services.Clock),
-            async token =>
-            {
-                var result = await handler.HandleAsync(
-                    new RotateWebhookClientCommand(name, fab, actingOperator, expectedVersion), token);
-
-                return result.Match(
-                    onSuccess: dto => IdempotentOutcome.Created(dto.RegisteredClientIdentifier, Results.Ok(dto)),
-                    onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
-            },
-            async (rotated, token) =>
-            {
-                var replayed =
-                    await services.Replay.HandleAsync(
-                        new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(rotated)), token);
-
-                // The integration name comes from the route the retry repeated.
-                return replayed.Match<IResult>(
-                    onSuccess: replay => Results.Ok(
-                        new WebhookClientCredentialsDto(
-                            replay.RegisteredClientIdentifier,
-                            replay.Version,
-                            replay.ClientId,
-                            name,
-                            replay.Fab,
-                            replay.ClientSecret)),
-                    onFailure: error => error.ToProblem());
-            },
+            async token => RotationOutcome(await services.Handler.HandleAsync(
+                new RotateWebhookClientCommand(name, fab, actingOperator, expectedVersion),
+                token)),
+            (rotated, token) => ReplayRotationAsync(rotated, name, services.Replay, token),
             cancellationToken);
+    }
+
+    private static IdempotentOutcome RotationOutcome(Result<WebhookClientCredentialsDto, RotateWebhookClientError> result) =>
+        result.Match(
+            onSuccess: dto => IdempotentOutcome.Created(dto.RegisteredClientIdentifier, Results.Ok(dto)),
+            onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
+
+    private static IdempotencyFingerprint RotateFingerprint(
+        RotateWebhookClientRequest body,
+        string name,
+        Option<int> expectedVersion) =>
+        IdempotencyFingerprint.Of(
+            body,
+            name,
+            expectedVersion.Match(
+                some: version => version.ToString(CultureInfo.InvariantCulture),
+                none: () => "*"));
+
+    private static Option<IdempotencyScope> RotateScope(
+        Option<IdempotencyKey> key,
+        OperatorIdentifier actingOperator,
+        FabIdentifier fab,
+        IdempotencyFingerprint fingerprint) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            RotateEndpoint,
+            actingOperator.Value.ToString(),
+            Option<string>.Some(fab.Value),
+            fingerprint));
+
+    private static async Task<IResult> ReplayRotationAsync(
+        Guid rotated,
+        string name,
+        ReplayRegisteredClientQueryHandler replay,
+        CancellationToken cancellationToken)
+    {
+        var replayed =
+            await replay.HandleAsync(
+                new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(rotated)), cancellationToken);
+
+        // The integration name comes from the route the retry repeated.
+        return replayed.Match<IResult>(
+            onSuccess: registered => Results.Ok(
+                new WebhookClientCredentialsDto(
+                    registered.RegisteredClientIdentifier,
+                    registered.Version,
+                    registered.ClientId,
+                    name,
+                    registered.Fab,
+                    registered.ClientSecret)),
+            onFailure: error => error.ToProblem());
     }
 
     /// <summary>
