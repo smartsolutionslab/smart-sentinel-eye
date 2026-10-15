@@ -31,6 +31,15 @@ public static class StreamEndpoints
         // generated OpenAPI from claiming a status that can happen cannot;
         // spec 013 shipped this wrong on one endpoint and it took a review to
         // catch.
+        MapGetStream(group);
+        MapListStreams(group);
+        MapAuthorizeWhep(group);
+        MapRecordKioskLatency(group);
+
+        return app;
+    }
+
+    private static void MapGetStream(RouteGroupBuilder group) =>
         group.MapGet("/{cameraIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Streams.Read)
             .WithName("GetStream")
@@ -44,6 +53,7 @@ public static class StreamEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+    private static void MapListStreams(RouteGroupBuilder group) =>
         group.MapGet("/", ListByCameras)
             .RequireAuthorization(Scope.Sse.Streams.Read)
             .WithName("ListStreams")
@@ -55,6 +65,7 @@ public static class StreamEndpoints
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
 
+    private static void MapAuthorizeWhep(RouteGroupBuilder group) =>
         // MediaMTX's external auth hook POSTs to a single fixed address with the
         // stream path + the client's bearer in the JSON body — it can't template
         // the path into the URL, so the route is fixed and the path is read from
@@ -85,6 +96,7 @@ public static class StreamEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status429TooManyRequests);
 
+    private static void MapRecordKioskLatency(RouteGroupBuilder group) =>
         // Spec 040 (ADR-0122). Two legs of the budget happen in the browser and
         // nowhere else, so their numbers have to get here somehow. The kiosk
         // reports a measurement; this records it through the meter every other
@@ -105,9 +117,6 @@ public static class StreamEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesValidationProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
-    }
 
     /// <summary>
     /// A latency measurement reported by a kiosk (spec 040).
@@ -220,22 +229,16 @@ public static class StreamEndpoints
                 ],
         });
 
-    private static LatencySegment? SegmentFor(string measurement)
-    {
-        return measurement switch
+    private static LatencySegment? SegmentFor(string measurement) =>
+        measurement switch
         {
             "overlay_draw" => LatencySegment.KioskOverlayDraw,
             "receive_to_decoded" => LatencySegment.KioskReceiveToDecoded,
             "presentation_buffer" => LatencySegment.PresentationBuffer,
             _ => null,
         };
-    }
 
-    private static void Record(
-        KioskLatencyReport report,
-        LatencySegment? segment,
-        bool isWallSkew,
-        bool isLabelDelay)
+    private static void Record(KioskLatencyReport report, LatencySegment? segment, bool isWallSkew, bool isLabelDelay)
     {
         // Negative and absurd are dropped by LatencyBudget.Record rather than
         // refused here, and that is deliberate: the reasons live with the
