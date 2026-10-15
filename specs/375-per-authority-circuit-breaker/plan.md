@@ -19,8 +19,14 @@ and a comment; stays under 30 lines (S138).
 
 ```
 http.AddStandardResilienceHandler(IdempotentRetry.RetryIdempotentMethodsOnly)
-    .SelectPipelineByAuthority();
+    .SelectPipelineByUpstreamAuthority();
 ```
+
+`SelectPipelineByUpstreamAuthority` is a small `SelectPipelineBy` selector in
+`src/ServiceDefaults/Resilience/UpstreamAuthority.cs`, keyed on lower-cased `scheme://host:port` only.
+The SDK's `SelectPipelineByAuthority()` keys on `GetLeftPart(UriPartial.Authority)`, which includes
+userinfo, and Polly publishes the key as `pipeline.instance` and in log lines; a credentialed URL would
+leak its password. A request without an absolute URI falls back to the empty key.
 
 Plus the comment it needs (why: one breaker per upstream so one outage stays one outage — ADR-0143
 "its share", ADR-0160 §3 fail-static; same authority shares intentionally; the key is the pre-discovery
@@ -66,18 +72,22 @@ No new test class needs a CI shard entry: shard filters exist for `Integration.T
 
 At each `.AddHttpMessageHandler<…AuthorizationHandler>()` registration listed in spec §5, one comment:
 the handler mints through an opted-in client, so in a Keycloak outage the mint's retries nest inside
-this client's attempts; accepted because the mint is single-flight, the outer attempt timeout cancels
-it, and 400/401 are not retried; the mint feeds the Keycloak breaker (Identity: the same breaker as the
-call, because it is the same Keycloak). Comment-only, proved by the strip-comments hash.
+this client's attempts; accepted because the mint is single-flight and the outer attempt timeout
+cancels it. Stated plainly (the earlier draft of this paragraph was wrong): a mint failure counts
+against the OUTER service's breaker when it surfaces as the attempt timeout or as the
+`HttpRequestException` from a 401 (only a Keycloak 503 feeds Keycloak's breaker); a rejected credential
+is retried by the outer call (4 token POSTs per outer GET); Identity's admin client shares one breaker
+with its own mint and that breaker can close without a real probe. Comment-only, proved by the
+strip-comments hash.
 
 ## 6. Security review focus (Phase 6, `security-reviewer`)
 
 - Revocation refresh (ADR-0160 §3): an unrelated upstream can no longer freeze the snapshot; a
   Keycloak outage still can (mint fails), and an `identity` outage still does — both unchanged and
   inherent to fail-static.
-- J1: authority instance name includes userinfo; none in `src` today.
+- J1: resolved by the custom selector; the key never carries userinfo.
 - FR-007: unbounded key growth only for caller-supplied authorities; none exist.
-- J3: per-authority concurrency limiter.
+- J3: per-authority concurrency limiter (a liability removed: a hung upstream no longer exhausts a shared cap).
 
 ## 7. Rejected alternatives
 
@@ -86,5 +96,5 @@ call, because it is the same Keycloak). Comment-only, proved by the strip-commen
   `ResilienceRegistrationTests` forbids (a gate the lane may not change); and per client is the wrong
   axis — two clients to one Keycloak should share what they learn about it (owner decision).
 - **Document the shared breaker and amend ADR-0143**: owner chose otherwise; the lane writes no ADR.
-- **Custom `SelectPipelineBy`**: held in reserve for J1 only.
+- **Stock `SelectPipelineByAuthority()`**: rejected after the adversarial pass (userinfo leak, see section 2).
 - **Hand-built pipeline**: excluded by the issue.
