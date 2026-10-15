@@ -140,6 +140,61 @@ public class HandlerDeconstructionTests
         scan.Failures.Single().ShouldContain("several contexts");
     }
 
+    [Theory]
+    [InlineData("public Task Handle(SampleV1 message, CancellationToken cancellationToken)")]
+    [InlineData("public Task<int> HandleAsync(SampleV1 message, CancellationToken cancellationToken)")]
+    [InlineData("public async ValueTask Handle(SampleV1 message, CancellationToken cancellationToken)")]
+    [InlineData("public async Task Handle(SampleV1 message)")]
+    [InlineData("public static Task Handle(SampleV1 message, CancellationToken cancellationToken)")]
+    public void A_transposition_is_reported_whatever_the_handler_signature(string signature)
+    {
+        var scan = HandlerDeconstructionScanner.Scan(Sources(
+            (AlphaSample, SampleRecord),
+            (AlphaHandler, ClassWith(signature + " { var (device, kind) = message; return default; }"))));
+
+        scan.Checked.ShouldBe(1);
+        scan.Failures.Count.ShouldBe(2);
+        scan.Failures.ShouldContain(f => f.Contains("position 0 is 'Kind'") && f.Contains("'device'"));
+        scan.Failures.ShouldContain(f => f.Contains("position 1 is 'Device'") && f.Contains("'kind'"));
+    }
+
+    [Theory]
+    [InlineData("public Task Handle(SampleV1 message, CancellationToken cancellationToken)")]
+    [InlineData("public Task<int> HandleAsync(SampleV1 message, CancellationToken cancellationToken)")]
+    [InlineData("public async ValueTask Handle(SampleV1 message, CancellationToken cancellationToken)")]
+    [InlineData("public async Task Handle(SampleV1 message)")]
+    [InlineData("public static Task Handle(SampleV1 message, CancellationToken cancellationToken)")]
+    public void A_correct_deconstruction_is_checked_whatever_the_handler_signature(string signature)
+    {
+        var scan = HandlerDeconstructionScanner.Scan(Sources(
+            (AlphaSample, SampleRecord),
+            (AlphaHandler, ClassWith(signature + " { var (kind, device) = message; return default; }"))));
+
+        scan.Checked.ShouldBe(1);
+        scan.Failures.ShouldBeEmpty();
+    }
+
+    [Theory]
+    [InlineData("public Task Handle(SampleV1 message, CancellationToken cancellationToken) => Task.CompletedTask;")]
+    [InlineData("public Task Handle(SampleV1 message, CancellationToken cancellationToken);")]
+    public void A_handler_without_a_block_body_does_not_borrow_the_next_members_body(string declaration)
+    {
+        var scan = HandlerDeconstructionScanner.Scan(Sources(
+            (AlphaSample, SampleRecord),
+            (AlphaHandler, ClassWith(declaration + " public void Other(SampleV1 message) { var (device, kind) = message; }"))));
+
+        scan.Checked.ShouldBe(0);
+        scan.Failures.ShouldBeEmpty();
+    }
+
+    [Fact]
+    public void Real_tree_non_async_handler_is_scanned()
+    {
+        var scan = HandlerDeconstructionScanner.Scan(HandlerDeconstructionScanner.ReadSources());
+
+        scan.CheckedSources.ShouldContain("src/SystemVariables/Application/EventHandlers/OverlayRevisionPublishedV3Handler.cs");
+    }
+
     private const string AlphaSample = "src/Alpha/Contracts/SampleV1.cs";
 
     private const string AlphaHandler = "src/Alpha/Handlers/H.cs";
@@ -155,6 +210,9 @@ public class HandlerDeconstructionTests
         + " message, CancellationToken cancellationToken) { "
         + statement
         + " } }";
+
+    private static string ClassWith(string members) =>
+        "public sealed class H { " + members + " }";
 
     private static Dictionary<string, string> Sources(params (string Path, string Text)[] files) =>
         files.ToDictionary(f => f.Path, f => f.Text, StringComparer.Ordinal);
