@@ -124,6 +124,21 @@ static void LoadScenarioFiles(HostApplicationBuilder builder)
 // AppHost passes explicitly arrive as plain configuration keys.
 static void BindRuntime(IConfiguration config, SimulatorOptions options)
 {
+    BindCameraEndpoints(config, options);
+    BindSeedingEndpoints(config, options);
+
+    options.MqttHost = RequiredSetting(
+        config,
+        "services:mosquitto:mqtt:0",
+        "ScenarioSimulator:Runtime:MqttHost",
+        "mosquitto MQTT host not configured (services:mosquitto:mqtt:0).");
+
+    BindIdentity(config, options);
+    options.RtspHost = config["ScenarioSimulator:Runtime:RtspHost"] ?? "camera-sim:8554";
+}
+
+static void BindCameraEndpoints(IConfiguration config, SimulatorOptions options)
+{
     options.CameraCatalogUrl = RequiredSetting(
         config,
         "services:camera-catalog:http:0",
@@ -135,7 +150,10 @@ static void BindRuntime(IConfiguration config, SimulatorOptions options)
         "services:camera-sim:api:0",
         "ScenarioSimulator:Runtime:CameraSimApiUrl",
         "camera-sim API URL not configured (services:camera-sim:api:0).");
+}
 
+static void BindSeedingEndpoints(IConfiguration config, SimulatorOptions options)
+{
     options.OverlayDesignerUrl = RequiredSetting(
         config,
         "services:overlay-designer:http:0",
@@ -159,13 +177,10 @@ static void BindRuntime(IConfiguration config, SimulatorOptions options)
         "services:system-variables:http:0",
         "ScenarioSimulator:Runtime:SystemVariablesUrl",
         "system-variables URL not configured (services:system-variables:http:0).");
+}
 
-    options.MqttHost = RequiredSetting(
-        config,
-        "services:mosquitto:mqtt:0",
-        "ScenarioSimulator:Runtime:MqttHost",
-        "mosquitto MQTT host not configured (services:mosquitto:mqtt:0).");
-
+static void BindIdentity(IConfiguration config, SimulatorOptions options)
+{
     options.KeycloakUrl = ResolveKeycloakUrl(config);
 
     options.Realm = config["ScenarioSimulator:Runtime:Realm"] ?? "smart-sentinel-eye";
@@ -173,7 +188,6 @@ static void BindRuntime(IConfiguration config, SimulatorOptions options)
     options.ClientSecret =
         config["ScenarioSimulator:Runtime:ClientSecret"]
         ?? throw new InvalidOperationException("scenario-simulator client secret not configured.");
-    options.RtspHost = config["ScenarioSimulator:Runtime:RtspHost"] ?? "camera-sim:8554";
 }
 
 static string RequiredSetting(
