@@ -45,7 +45,7 @@ the helper through `Shared.Kernel`). **No new ADR is needed**: the owner made th
 was to make, and nothing here changes a contract, a scope or a persistence shape.
 
 **Latency budget.** N/A. The audit subscriber is its own Wolverine queue (ADR-0088), off every §IV
-leg of the event-to-overlay path. The added work is one `JsonNode` round-trip for two message types.
+leg of the event-to-overlay path. The added work is one `with` copy and a reflection check for two message types.
 
 ---
 

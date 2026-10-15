@@ -73,7 +73,7 @@ T002 before dispatching Phase 2.
 ## Phase 2: Fix (backend-engineer; depends on Phase 1)
 
 - [ ] **T010** [US1] **Foundational.** New `src/AuditObservability/Application/EventHandlers/AuditPayloadRedaction.cs`
-  per plan §2.1 (register with `nameof`, pass-through for unregistered types, `JsonNode` path,
+  per plan §2.1 (register with `nameof`, pass-through for unregistered types, `with`-copy path,
   fail closed on an absent registered field, null left null, `DetailChanged` from the typed message).
 - [ ] **T011** [US1] `IntegrationEventAuditHandler.cs:75` →
   `Payload: AuditPayloadRedaction.Serialize(message)`. Nothing else in the handler. T001-T004 green;
