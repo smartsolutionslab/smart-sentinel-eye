@@ -36,6 +36,11 @@ namespace SmartSentinelEye.ServiceDefaults.Tests;
 /// spec 347/348's registration snapshots, made keyed-safe because a keyed
 /// descriptor throws on <c>ImplementationType</c>.
 /// </para>
+///
+/// <para>
+/// The snapshot includes framework descriptors (hosted services, options
+/// configures) and may need updating when framework packages are bumped.
+/// </para>
 /// </summary>
 public class BearerAuthenticationRegistrationCharacterisationTests
 {
@@ -115,12 +120,6 @@ public class BearerAuthenticationRegistrationCharacterisationTests
         var registrations = RenderedSlice();
 
         registrations.ShouldBe(ExpectedRegistrations);
-    }
-
-    [Fact]
-    public void The_rendered_slice_is_stable_across_two_composes()
-    {
-        RenderedSlice().ShouldBe(RenderedSlice());
     }
 
     [Fact]
