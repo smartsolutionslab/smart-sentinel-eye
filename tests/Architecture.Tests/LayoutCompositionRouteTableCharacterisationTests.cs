@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
@@ -278,12 +279,15 @@ public class LayoutCompositionRouteTableCharacterisationTests
     }
 
     /// <summary>
-    /// Two kinds of metadata are compiler or binder artefacts rather than contract: the async
-    /// state-machine marker (it follows whether a handler body awaits) and the per-parameter
-    /// binding record (it is derived from the parameter list, which is rendered in full).
+    /// Three kinds of metadata are compiler or binder artefacts rather than contract: the async
+    /// state-machine marker (it follows whether a handler body awaits), the debugger attribute
+    /// Roslyn adds to async methods in Debug builds only, and the per-parameter binding record
+    /// (it is derived from the parameter list, which is rendered in full).
     /// </summary>
     private static bool IsContract(object item) =>
-        item.GetType().Name != "ParameterBindingMetadata" && item is not AsyncStateMachineAttribute;
+        item.GetType().Name != "ParameterBindingMetadata"
+        && item is not AsyncStateMachineAttribute
+        && item is not DebuggerStepThroughAttribute;
 
     private static string RenderParameter(ParameterInfo parameter)
     {
