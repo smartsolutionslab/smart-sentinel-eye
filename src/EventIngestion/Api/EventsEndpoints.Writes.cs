@@ -213,14 +213,7 @@ public static partial class EventsEndpoints
         EventEnvelope envelope;
         try
         {
-            envelope = new EventEnvelope(
-                EventIdentifier.New(),
-                FabIdentifier.From(fabId),
-                Source.Webhook,
-                DeviceIdentifier.From(integration.Name.Value),
-                Kind.From(body.Kind ?? integration.DefaultKind.Value),
-                OccurredAt.From(body.OccurredAt ?? clock.UtcNow),
-                Payload.From(body.Payload));
+            envelope = WebhookEnvelope(integration, body, fabId, clock);
         }
         catch (ArgumentException ex)
         {
@@ -233,6 +226,20 @@ public static partial class EventsEndpoints
             onSuccess: identifier => Results.Created($"/events/{identifier}", identifier),
             onFailure: problem => problem);
     }
+
+    private static EventEnvelope WebhookEnvelope(
+        WebhookIntegration integration,
+        IngestWebhookEventRequest body,
+        string fabId,
+        IClock clock) =>
+        new(
+            EventIdentifier.New(),
+            FabIdentifier.From(fabId),
+            Source.Webhook,
+            DeviceIdentifier.From(integration.Name.Value),
+            Kind.From(body.Kind ?? integration.DefaultKind.Value),
+            OccurredAt.From(body.OccurredAt ?? clock.UtcNow),
+            Payload.From(body.Payload));
 
     /// <summary>
     /// Authenticates a webhook caller and returns the matching integration,
@@ -262,18 +269,7 @@ public static partial class EventsEndpoints
         }
         var token = authHeader[BearerPrefix.Length..];
 
-        WebhookIntegrationName parsedName;
-        try
-        {
-            parsedName = WebhookIntegrationName.From(integrationName);
-        }
-        catch (ArgumentException)
-        {
-            return null;
-        }
-
-        var found = await integrations
-            .GetByNameAsync(parsedName, cancellationToken);
+        var found = await FindIntegrationAsync(integrationName, integrations, cancellationToken);
         if (!found.HasValue)
         {
             return null;
@@ -281,14 +277,8 @@ public static partial class EventsEndpoints
 
         var integration = found.Value;
 
-        if (integration.RevokedAt is RevokedAt revokedAt)
+        if (IsRevokedLoggingOnce(integration, logger, cache))
         {
-            if (IsNewRevokedWebhookDeliveryLog(cache, integration.Id))
-            {
-                logger.RevokedWebhookIntegrationDeliveryRefused(
-                    integration.Name, integration.Id, integration.Fab, revokedAt);
-            }
-
             return null;
         }
 
@@ -309,6 +299,40 @@ public static partial class EventsEndpoints
             ? await ValidateJwtAsync(request, integration, fabId)
             : integration.TokenHash.Matches(token);
         return authorized ? integration : null;
+    }
+
+    private static async Task<Option<WebhookIntegration>> FindIntegrationAsync(
+        string integrationName,
+        IWebhookIntegrationRepository integrations,
+        CancellationToken cancellationToken)
+    {
+        WebhookIntegrationName parsedName;
+        try
+        {
+            parsedName = WebhookIntegrationName.From(integrationName);
+        }
+        catch (ArgumentException)
+        {
+            return Option<WebhookIntegration>.None;
+        }
+
+        return await integrations.GetByNameAsync(parsedName, cancellationToken);
+    }
+
+    private static bool IsRevokedLoggingOnce(WebhookIntegration integration, ILogger logger, IMemoryCache cache)
+    {
+        if (integration.RevokedAt is not RevokedAt revokedAt)
+        {
+            return false;
+        }
+
+        if (IsNewRevokedWebhookDeliveryLog(cache, integration.Id))
+        {
+            logger.RevokedWebhookIntegrationDeliveryRefused(
+                integration.Name, integration.Id, integration.Fab, revokedAt);
+        }
+
+        return true;
     }
 
     /// <summary>
