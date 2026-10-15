@@ -222,13 +222,8 @@ public class EventIngestionRegistrationCharacterisationTests
     [Fact]
     public void The_mqtt_token_client_opts_back_in_to_retrying_every_method()
     {
-        var retryPolicies = CaptureComposedRegistrations()
-            .Where(descriptor => descriptor.ServiceType == typeof(IConfigureOptions<HttpStandardResilienceOptions>))
-            .Select(descriptor => descriptor.ImplementationInstance)
-            .OfType<ConfigureNamedOptions<HttpStandardResilienceOptions>>()
-            .Select(configure => configure.Name)
-            .ToArray();
+        using var provider = PostgresComposition.Compose("event-ingestion");
 
-        retryPolicies.ShouldContain($"{MqttTokenProvider.HttpClientName}-standard");
+        RetryEveryMethodMarkerChain.Carries(provider, MqttTokenProvider.HttpClientName).ShouldBeTrue();
     }
 }
