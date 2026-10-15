@@ -195,6 +195,31 @@ public class HandlerDeconstructionTests
         scan.CheckedSources.ShouldContain("src/SystemVariables/Application/EventHandlers/OverlayRevisionPublishedV3Handler.cs");
     }
 
+    [Fact]
+    public void A_comment_between_the_signature_and_its_body_does_not_hide_the_handler()
+    {
+        var scan = HandlerDeconstructionScanner.Scan(Sources(
+            (AlphaSample, SampleRecord),
+            (AlphaHandler, ClassWith(
+                "public async Task Handle(SampleV1 message, CancellationToken cancellationToken) // why\n"
+                + "{ var (device, kind) = message; }"))));
+
+        scan.Checked.ShouldBe(1);
+        scan.Failures.Count.ShouldBe(2);
+    }
+
+    [Fact]
+    public void A_parenthesis_inside_a_default_value_does_not_end_the_parameter_list()
+    {
+        var scan = HandlerDeconstructionScanner.Scan(Sources(
+            (AlphaSample, SampleRecord),
+            (AlphaHandler, ClassWith(
+                "public async Task Handle(SampleV1 message, string s = \")\") { var (device, kind) = message; }"))));
+
+        scan.Checked.ShouldBe(1);
+        scan.Failures.Count.ShouldBe(2);
+    }
+
     private const string AlphaSample = "src/Alpha/Contracts/SampleV1.cs";
 
     private const string AlphaHandler = "src/Alpha/Handlers/H.cs";
