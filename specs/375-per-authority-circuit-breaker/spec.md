@@ -207,8 +207,10 @@ whether the inner mint and the outer call share a breaker (§5).
 
 - **FR-001** `ConfigureHttpClientDefaults` in `src/ServiceDefaults/Extensions.cs` remains the only
   place the standard handler is added, and it selects the pipeline instance by request authority
-  (`scheme://host:port`) with `SelectPipelineByAuthority()` chained on that one
-  `AddStandardResilienceHandler(...)` call. Exactly one `AddStandardResilienceHandler(` across `src`
+  (`scheme://host:port`, lower-cased, never userinfo, path or query) with the custom selector
+  `SelectPipelineByUpstreamAuthority()` (`src/ServiceDefaults/Resilience/UpstreamAuthority.cs`) chained
+  on that one `AddStandardResilienceHandler(...)` call. The SDK's `SelectPipelineByAuthority()` is not
+  used: see J1. Exactly one `AddStandardResilienceHandler(` across `src`
   (`ResilienceRegistrationTests`, unmodified).
 - **FR-002** Requests to different authorities never share a circuit breaker: a breaker opened by one
   authority's failures does not refuse a call to another.
@@ -226,8 +228,11 @@ whether the inner mint and the outer call share a breaker (§5).
   the registration as a comment.
 - **FR-008** The four authorization handlers that mint a token inside another client's pipeline carry
   a comment at their registration saying that the mint's retries nest inside the outer call's, why
-  that is accepted (single-flight mint gate, outer attempt timeout cancels the inner mint, 400/401 not
-  retried) and, for Identity's admin client, that the mint and the outer call share a breaker.
+  that is accepted (single-flight mint gate; the outer attempt timeout cancels the inner mint), what it
+  costs (a mint failure counts against the outer upstream's breaker when it surfaces as the attempt's
+  timeout or as the `HttpRequestException` from `EnsureSuccessStatusCode` on a 401; a credential the token
+  authority rejects is retried by the outer call, 4 token POSTs per outer GET) and, for Identity's admin
+  client, that the mint and the outer call share a breaker which can close without a real probe.
 - **FR-009** Stale prose updated: `IdempotentRetry` class doc ("its share of the breaker" — now per
   authority), and the `RetryEveryMethodAdversarialTests` class doc's "Hazard" paragraph.
 
@@ -302,15 +307,32 @@ opted-in client, **inside** the outer client's pipeline:
 | `SystemVariablesInfrastructureModule.cs:171` `OverlayDesignerAuthorizationHandler` | `http://overlay-designer` | Keycloak | no |
 
 In a Keycloak outage each outer attempt can drive up to 4 mint attempts, so token POSTs multiply
-(the issue measured roughly 9 per outer call, from ~3 before #2958). Accepted because it is bounded:
-`ClientCredentialsTokenProvider`'s gate makes the mint single-flight, the outer per-attempt timeout
-cancels the inner mint, and 400/401 are not transient so a bad credential is never retried. After this
-change the three cross-authority rows feed the **Keycloak** breaker, not the outer upstream's — so a
-Keycloak outage opens the Keycloak breaker and stops further mints quickly, without refusing calls to
-identity/camera-catalog/overlay-designer that already hold a cached token. The Identity admin row
-shares one breaker for mint and call, which is correct: both are the same Keycloak.
+(the issue measured roughly 9 per outer call, from ~3 before #2958). Accepted because it is bounded: `ClientCredentialsTokenProvider`'s gate makes the mint single-flight and
+the outer per-attempt timeout cancels the inner mint.
+
+**Corrected by the adversarial pass (the earlier wording of this section was wrong, and the nested-mint limits are stated here,
+both pinned by committed tests in `PerAuthorityPipelineRiskTests`):**
+
+- A nested mint **failure counts against the outer service's breaker**, not Keycloak's, when it
+  surfaces as the outer attempt's timeout or as the `HttpRequestException` from
+  `EnsureSuccessStatusCode` on a 401. Only a Keycloak 503 feeds Keycloak's own breaker.
+- **400/401 are retried by the outer call.** The mint's own pipeline does not retry a 401, but the
+  exception it raises is transient to the outer predicate, so a credential the token authority rejects
+  costs **4 token POSTs per outer GET**, not 1
+  (`Hazard_a_credential_the_token_authority_rejects_is_retried_by_the_outer_call`).
+- The same-authority row (Identity admin) shares one breaker for mint and call. While it is half-open
+  the outer call can take the only probe, the nested mint is refused, and the breaker can close without
+  Keycloak having been asked anything
+  (`Hazard_a_same_authority_nested_mint_lets_the_breaker_close_without_a_probe`). The selection narrows
+  this hazard from every nested pair to this one.
 
 ## 6. Judgement calls (marked, not clarifications)
+
+**J1 is superseded by the adversarial pass:** the stock `SelectPipelineByAuthority()` leaks userinfo
+(`user:password`) into the Polly `pipeline.instance` metric tag and 12 log lines (verified), so the
+fix uses a custom `SelectPipelineBy` keyed on lower-cased `scheme://host:port` only. Proved by
+counterfactual with `PipelineTelemetryCredentialTests` (red against the stock selector, green with
+the custom one). The J1 text below records the original reasoning.
 
 - **J1 `SelectPipelineByAuthority` over a custom `SelectPipelineBy`.** The built-in is the SDK's own
   idiom, one call, and is what the owner named. Its instance name is
@@ -324,7 +346,9 @@ shares one breaker for mint and call, which is correct: both are the same Keyclo
   per instance, so every instance reads `-standard`; no client configures its own resilience options
   or a finite `HttpClient.Timeout` (`ResilienceRegistrationTests.No_client_caps_the_resilience_pipeline_with_its_own_timeout`).
   Two clients to one authority therefore run identical budgets by construction.
-- **J3 The concurrency limiter splits too.** The standard pipeline's first strategy is a concurrency
+- **J3 The concurrency limiter splits too — a liability removed, not a cost.** With one shared limiter a
+  hung upstream holding its permits refused calls to every other upstream
+  (`A_saturated_authority_does_not_use_up_the_concurrency_limit_of_another`). Original text: The standard pipeline's first strategy is a concurrency
   limiter (`HttpStandardResilienceOptions.RateLimiter`, default 1000 permits, no queue); it becomes per
   authority with the breaker. The process-wide ceiling rises from 1000 to 1000 × (authorities, ≤ ~6).
   Accepted: nothing relies on the process-wide cap, and the per-upstream cap is the more meaningful one.
@@ -342,3 +366,6 @@ a `ConcurrentDictionary` hit plus a registry lookup.
   single shared breaker; its comments at `AspireFixture.cs:286` and `:524` describe the fixture, not
   production, and stay true.
 - Inter-display or any other leg: untouched.
+- The synchronous `HttpClient.Send` path and Aspire service-discovery interplay were observed by the
+  adversarial pass (`A_synchronous_send_to_a_healthy_authority_...` is green); nothing further is
+  specified for either here.

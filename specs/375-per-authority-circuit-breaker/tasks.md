@@ -46,8 +46,9 @@ task: nothing touches Shared.Kernel, Shared.Contracts or AppHost.
 
 ## Phase 3: Fix (backend-engineer; depends on T001-T002)
 
-- [ ] **T010** [US1] `src/ServiceDefaults/Extensions.cs` — chain `.SelectPipelineByAuthority()` on the
-  one `AddStandardResilienceHandler(...)` call, with the comment of plan §2 (FR-001, FR-007).
+- [ ] **T010** [US1] `src/ServiceDefaults/Extensions.cs` — chain `.SelectPipelineByUpstreamAuthority()` (custom selector,
+  `src/ServiceDefaults/Resilience/UpstreamAuthority.cs`, never userinfo) on the one
+  `AddStandardResilienceHandler(...)` call, with the comment of plan §2 (FR-001, FR-007).
   `src/ServiceDefaults/Resilience/IdempotentRetry.cs` — class doc sentence only (FR-009). T001-T002 green
   **unmodified**; spec §4.3 list green unmodified; Release build clean.
   Commit: `fix(service-defaults): each upstream authority gets its own circuit breaker`.
@@ -76,7 +77,7 @@ task: nothing touches Shared.Kernel, Shared.Contracts or AppHost.
 
 - [ ] **T020** Full `dotnet test tests/ServiceDefaults.Tests -c Release` and
   `dotnet test tests/Architecture.Tests -c Release` green; quote the T001-T002 red output and the green
-  re-run; record the counterfactual (remove `.SelectPipelineByAuthority()` → the inverted hazard fact
+  re-run; record the counterfactual (remove `.SelectPipelineByUpstreamAuthority()` → the inverted hazard fact
   and the three red rows fail; restore). Latency: N/A (spec §7).
 
 ## Dependencies
