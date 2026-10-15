@@ -25,7 +25,7 @@ Shared.Contracts or AppHost).
 
 ## Phase 1: Baseline (orchestrator; no files)
 
-- [ ] **T000** Record for the PR body, on `6acde2b9`:
+- [x] **T000** Record for the PR body, on `6acde2b9`:
   `dotnet test tests/Architecture.Tests --filter "FullyQualifiedName~HandlerDeconstructionTests"` →
   `Passed: 11`. Captured by the architect 2026-10-15. The architect's throwaway-script figures (105 →
   137 signatures; 85 → 86 checked; 40 parenthesised; 4 block-bodied + 28 expression-bodied newly
@@ -34,12 +34,12 @@ Shared.Contracts or AppHost).
 
 ## Phase 2: Tests (test-writer; blocks Phase 3)
 
-- [ ] **T001** [US1] Seam (characterisation). In `HandlerDeconstructionScanner.cs` only: add
+- [x] **T001** [US1] Seam (characterisation). In `HandlerDeconstructionScanner.cs` only: add
   `IReadOnlyList<string> CheckedSources` to `HandlerDeconstructionScan` (append `path` in
   `CheckBody` beside `state.Checked++`). Nothing else. Run the filter command: observed **green**,
   `Passed: 11`. Commit: `test(2984): expose the sources of checked handler deconstructions`.
 
-- [ ] **T002** [US1] Red cases, in the existing `HandlerDeconstructionTests` class (no new class):
+- [x] **T002** [US1] Red cases, in the existing `HandlerDeconstructionTests` class (no new class):
   the three theories and one fact of plan §4, exactly as tabled; a `ClassWith(members)` fixture
   helper; `/` paths; assert on `Scan`'s output only. Run:
 
@@ -54,7 +54,7 @@ Shared.Contracts or AppHost).
 
 ## Phase 3: Implementation (backend-engineer; after T002)
 
-- [ ] **T010** [US1] `HandlerDeconstructionScanner.cs` only — plan §3 steps 1-2: widen
+- [x] **T010** [US1] `HandlerDeconstructionScanner.cs` only — plan §3 steps 1-2: widen
   `HandlerSignature` (optional `static`, optional `async`, `Task|ValueTask`, first parameter
   followed by `,` or `)`); skip a signature whose parameter list is not followed by `{`.
   **Counterfactual first (SC-003, not committed):** apply the signature widening alone and run the
@@ -65,7 +65,7 @@ Shared.Contracts or AppHost).
 
 ## Phase 4: Verification (orchestrator / phase 5)
 
-- [ ] **T011** Run and quote:
+- [x] **T011** Run and quote:
   `dotnet test tests/Architecture.Tests -c Release` (whole project green);
   `dotnet build tests/Architecture.Tests -c Release` (0 warnings-as-errors);
   `git diff --stat origin/develop` (only `tests/Architecture.Tests/` and this spec dir).
@@ -80,3 +80,17 @@ Shared.Contracts or AppHost).
 
 T000 → T001 → T002 → T010 → T011. Each commit builds on its own; T002's commit leaves the filter red
 until T010 lands (the accepted phase-4a red/green pair, CLAUDE.md "Builds is not passes").
+
+## As executed
+
+Commit subjects differ from the drafts above, and one task was folded:
+
+- T001 landed as `test(2984): the scan reports which files it checked`.
+- T002 landed as `test(2984): pin the handler signatures the guard does not reach (red)`; its format
+  and test-name fixes were folded into that commit after review (the test is `Real_tree_non_async_handler_is_scanned`).
+- T010 landed as `test(architecture): the handler-deconstruction guard reaches non-async, ValueTask, single-parameter and static handlers`.
+- Review follow-ups: `test(2984): a comment between the signature and its body does not hide the handler`
+  (red), then `test(architecture): only a semicolon or => ends a handler signature without a block body`.
+  FR-002 was tightened accordingly: only `;` or `=>` skips a signature, and string literals are
+  honoured when balancing the parameter list.
+- T011 was run by the orchestrator; figures: Checked 86, CheckedParenthesised 40, failures 0.

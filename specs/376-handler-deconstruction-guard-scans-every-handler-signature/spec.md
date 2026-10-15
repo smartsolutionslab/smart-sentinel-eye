@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-15
 
-**Status**: Ready for the Phase 1 gate. No `[NEEDS CLARIFICATION]` remains. Two scope judgements are
+**Status**: Implemented (branch test/2984-handler-signature-coverage). No `[NEEDS CLARIFICATION]` remains. Two scope judgements are
 marked in §5 (`public static` is included; non-`public` and `void` are not).
 
 **Input**: Issue [#2984](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2984),
@@ -208,8 +208,10 @@ negative and no-body cases above are their analogue.)
 - **FR-001** `HandlerSignature` matches `public`, optionally `static`, optionally `async`, a return
   type starting with `Task` or `ValueTask` (generic or not), a method named `Handle` or
   `HandleAsync`, whose first parameter `Type name` is followed by `,` **or** `)`.
-- **FR-002** A matched signature whose parameter list is not followed (after whitespace) by `{` has
-  no statement body and is skipped — never given the body of a later member.
+- **FR-002** A matched signature whose parameter list is followed (after whitespace) by `;` or `=>` has
+  no block body and is skipped — never given the body of a later member. Anything else after the
+  list (a comment, a `where` constraint) is stepped over to the next `{`, as before the widening.
+  A `"` inside a parameter list (a string default value) does not end the list.
 - **FR-003** Everything else is unchanged: deconstruction regex, record resolution (spec 374
   FR-004), `Verify` and its message texts, the `/`-normalised source keys.
 - **FR-004** The scan result additionally exposes the source path of every checked deconstruction
@@ -248,6 +250,11 @@ negative and no-body cases above are their analogue.)
   (0 in `src/`; every handler interface returns `Task`), `Consume` (0), explicit interface
   implementations (0). Private helpers that deconstruct the command (spec 374 §1) remain out of reach,
   as today.
+  Also not widened, each 0 occurrences in `src/`: `public virtual` / `override`, the `async static`
+  word order, parameter attributes, `this` parameters, generic / nullable / qualified first-parameter
+  types, a return type on the previous line, generic `Handle<T>`, tuple returns.
+- **Skipped by design:** an `async` expression-bodied handler that deconstructs inside a lambda is not
+  the house-rule shape (0 in the tree); it has no block body and is not scanned.
 - **The block-body rule rides along (judgement).** Not in the issue text; required because the
   widening makes the borrowed-body hazard reachable (§1). Test-code defect, not a production bug, so
   the "refactor that is also a bug fix is two issues" rule does not apply.
