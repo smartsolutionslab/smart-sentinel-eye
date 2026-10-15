@@ -212,6 +212,20 @@ public static class AuthenticationDefaults
         builder.Services.TryAddSingleton<IRevokedClientRegistry>(
             sp => sp.GetRequiredService<RevokedClientRegistry>());
 
+        AddRevocationListOptions(builder, keycloakBaseUrl, realm);
+        AddRevocationListClients(builder.Services);
+
+        builder.Services.TryAddSingleton<RevokedClientRefresher>();
+        builder.Services.AddHostedService(sp => sp.GetRequiredService<RevokedClientRefresher>());
+
+        builder.Services.AddHealthChecks().AddCheck<RevokedClientSnapshotHealthCheck>(
+            "revocation-snapshot",
+            failureStatus: HealthStatus.Degraded,
+            tags: ["ready"]);
+    }
+
+    private static void AddRevocationListOptions(IHostApplicationBuilder builder, string keycloakBaseUrl, string realm)
+    {
         // Validated only against whichever IRevokedClientSource this host
         // ends up with, resolved once the container is built — after
         // Identity's own Replace has already run (phase-6 review, S6). A
@@ -235,17 +249,20 @@ public static class AuthenticationDefaults
                 "RevocationList:ClientId and RevocationList:ClientSecret must both be set for the "
                 + "HTTP revocation-list source.")
             .ValidateOnStart();
+    }
 
+    private static void AddRevocationListClients(IServiceCollection services)
+    {
         // Idempotent POST (ADR-0143): a second token supersedes the first.
-        builder.Services.AddHttpClient(RevocationListTokenProvider.HttpClientName).RetryEveryMethod();
-        builder.Services.TryAddSingleton<RevocationListTokenProvider>();
-        builder.Services.TryAddTransient<RevocationListAuthorizationHandler>();
+        services.AddHttpClient(RevocationListTokenProvider.HttpClientName).RetryEveryMethod();
+        services.TryAddSingleton<RevocationListTokenProvider>();
+        services.TryAddTransient<RevocationListAuthorizationHandler>();
         // A named client, not AddHttpClient<IRevokedClientSource, HttpRevokedClientSource>
         // (S3): that ties the wrapper's own lifetime to the client, which is
         // transient, while the singleton RevokedClientRefresher captures the
         // wrapper for the process lifetime. HttpRevokedClientSource instead
         // resolves this named client from the factory on every fetch.
-        builder.Services.AddHttpClient(HttpRevokedClientSource.HttpClientName, client =>
+        services.AddHttpClient(HttpRevokedClientSource.HttpClientName, client =>
         {
             // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
             // applies: "identity" is a logical resource name and Aspire rewrites
@@ -263,15 +280,7 @@ public static class AuthenticationDefaults
             client.BaseAddress = new Uri("http://identity");
 #pragma warning restore S1075, S5332
         }).AddHttpMessageHandler<RevocationListAuthorizationHandler>();
-        builder.Services.TryAddSingleton<IRevokedClientSource, HttpRevokedClientSource>();
-
-        builder.Services.TryAddSingleton<RevokedClientRefresher>();
-        builder.Services.AddHostedService(sp => sp.GetRequiredService<RevokedClientRefresher>());
-
-        builder.Services.AddHealthChecks().AddCheck<RevokedClientSnapshotHealthCheck>(
-            "revocation-snapshot",
-            failureStatus: HealthStatus.Degraded,
-            tags: ["ready"]);
+        services.TryAddSingleton<IRevokedClientSource, HttpRevokedClientSource>();
     }
 
     /// <summary>
