@@ -7,7 +7,8 @@
 **Status**: Ready for the Phase 1 gate. No `[NEEDS CLARIFICATION]` remains: the one open question the
 issue carried (redact vs reject) was decided by the owner on #2908 (option 1). One judgement call is
 marked in §6 (two ScenarioSimulator log sites found during the premise check are reported, not
-fixed).
+fixed; tracked as #2976). The audit payload and blob archive carry camera URLs in full; that is
+pre-existing, out of scope and tracked as #2977 (§1).
 
 **Input**: Issue [#2908](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2908),
 *Camera RTSP URLs are logged in full at Information; only user:password@ is refused, so a
@@ -65,12 +66,17 @@ query string or a path segment carrying a credential passes both and reaches eve
   gateway names the status, not the request body.
 - OpenTelemetry HTTP spans for the MediaMTX calls carry the request path
   (`/v3/config/paths/add/cam-<guid>`), never the JSON body holding the source.
-- No `Activity` tag, metric dimension, audit payload or Wolverine message-body audit in `src/`
-  carries a camera URL.
+- No `Activity` tag or metric dimension in `src/` carries a camera URL.
+- **Audit payloads do carry camera URLs.** `AuditObservability/Application/EventHandlers/IntegrationEventAuditHandler.cs:75`
+  serialises the whole integration message, so `CameraRegisteredV1.Url` and
+  `CameraAddressChangedV1.PreviousUrl` / `.Url` land in full in the audit row's jsonb,
+  `AuditRowDto.Payload` (`AuditRowMapper.cs:20`) and the blob archive
+  (`AzureBlobAuditChunkArchiver.cs:179`). Pre-existing, **not fixed by this spec**, and out of scope
+  pending an owner decision; tracked as #2977.
 - `StreamHealthWatcher` / `ParsePathHealth` report `"not ready"` / `"path not registered"`, never the
   source.
 
-Two further sites in `src/ScenarioSimulator/Log.cs` print a URL; they are outside this spec (§6).
+Two further sites in `src/ScenarioSimulator/Log.cs` print a URL; they are outside this spec (§6, tracked as #2976).
 
 ## 2. User story
 
@@ -144,9 +150,10 @@ Feature: camera URLs reach logs as their origin only
 ## 4. Requirements
 
 - **FR-001** One helper, in `Shared.Kernel`, renders a URL string as its origin: scheme, `://`,
-  host, and `:port` only when the parsed URL carries a port that is not its scheme's default.
-  Userinfo, path, query and fragment are never in the result. (For `rtsp`, which .NET's `Uri` has no
-  registered default for, this means "port iff written in the input".)
+  host, and `:port` only when the parsed URL carries a port that is not its scheme's registered
+  default. Userinfo, path, query and fragment are never in the result. (.NET has no default port for
+  the `rtsp` scheme, so the port is shown iff written in the input: `rtsp://cam:554` renders as
+  `rtsp://cam:554`.)
 - **FR-002** An input that does not parse as an absolute URL **with a non-empty host** renders the
   fixed string `<unparseable url>`. Note: on Linux (CI), `Uri.TryCreate("/x/y", Absolute)` succeeds
   as a `file://` URI with an empty host; the non-empty-host condition is what keeps that case on the
@@ -180,6 +187,8 @@ Feature: camera URLs reach logs as their origin only
 ## 6. Out of scope, and why
 
 - **Rejecting such URLs at the value object** (issue option 2): declined by the owner.
+- **ScenarioSimulator sites are tracked as #2976**, widened to include the path-derived
+  `CameraSimPathLabelled` site. The two below were found in the premise check.
 - **`src/ScenarioSimulator/Log.cs:40`** `Registered camera '{Name}' -> {RtspUrl}.` — the URL is one
   the simulator builds itself from `ScenarioSimulator:RtspHost` and a scenario path
   (`CameraCatalogClient.cs:22`); it cannot carry a camera credential. Not the same defect.

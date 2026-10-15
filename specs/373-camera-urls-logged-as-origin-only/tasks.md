@@ -73,7 +73,9 @@ was not run) and T004's compile error before dispatching T010.
 - [ ] **T021** Phase 6: `/code-review` and `security-reviewer` (ask it to look for any other path
   where a camera URL reaches a sink). Re-check spec number 373 is still free.
 - [ ] **T022** Open a follow-up issue for `src/ScenarioSimulator/Log.cs:71`
-  (`SkippedNonSimulatedCamera`, spec §6), linking #2908. Not fixed here.
+  (`SkippedNonSimulatedCamera`, spec §6), linking #2908. Not fixed here. Filed as #2976, widened to
+  include the path-derived `CameraSimPathLabelled` site. The audit-payload exposure (spec §1) is
+  tracked separately as #2977.
 
 ## Dependencies
 
