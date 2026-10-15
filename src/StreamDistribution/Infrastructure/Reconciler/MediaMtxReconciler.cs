@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Domain.Stream;
 using SmartSentinelEye.StreamDistribution.Infrastructure.Persistence;
 
@@ -220,7 +221,7 @@ public sealed class MediaMtxReconciler(
             {
                 await gateway.AddPathAsync(path, sourceUrl.Value, cancellationToken);
                 readded++;
-                logger.ReconcilerReaddedMissingPath(path, sourceUrl.Value);
+                logger.ReconcilerReaddedMissingPath(path, UrlRedaction.ToOrigin(sourceUrl.Value));
             }
             catch (HttpRequestException ex)
             {
