@@ -152,43 +152,20 @@ public static partial class SystemVariableEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var handler = services.Handler;
-        var fabGuard = services.FabGuard;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        VariableName name;
-        VariableType type;
-        VariableValue? initialValue = null;
-        BooleanLabels? booleanLabels = null;
-        try
+        if (!BoundaryParse.TryParse(() => ParseDefinition(body), "VARIABLE_INVALID_INPUT", out var input, out var problem))
         {
-            name = VariableName.From(body.Name);
-            type = VariableType.From(body.Type);
-            if (body.InitialValue is { } raw)
-            {
-                initialValue = VariableValue.From(type, raw);
-            }
-            if (body.TruthyLabel is not null || body.FalsyLabel is not null)
-            {
-                booleanLabels = BooleanLabels.From(
-                    body.TruthyLabel ?? string.Empty,
-                    body.FalsyLabel ?? string.Empty);
-            }
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "VARIABLE_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
+        var (name, type, initialValue, booleanLabels) = input;
+
         var fabResolution =
-            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+            await ResolveWriteFabAsync(user, fabId, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
@@ -200,21 +177,49 @@ public static partial class SystemVariableEndpoints
         DefineVariableCommand command = new(fab, name, type, initialValue, booleanLabels, actingOperator);
 
         return await IdempotentRequest.ExecuteCreateAsync(
-            new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    DefineEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
-                services.Idempotency,
-                services.Clock),
+            CreateExecution(key, command, body, services),
             _ => $"/system-variables/{name.Value}",
-            async token => (await handler.HandleAsync(command, token)).Match(
+            async token => (await services.Handler.HandleAsync(command, token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
     }
+
+    private static (VariableName Name, VariableType Type, VariableValue? InitialValue, BooleanLabels? BooleanLabels) ParseDefinition(
+        DefineVariableRequest body)
+    {
+        var name = VariableName.From(body.Name);
+        var type = VariableType.From(body.Type);
+        VariableValue? initialValue = null;
+        BooleanLabels? booleanLabels = null;
+        if (body.InitialValue is { } raw)
+        {
+            initialValue = VariableValue.From(type, raw);
+        }
+        if (body.TruthyLabel is not null || body.FalsyLabel is not null)
+        {
+            booleanLabels = BooleanLabels.From(
+                body.TruthyLabel ?? string.Empty,
+                body.FalsyLabel ?? string.Empty);
+        }
+
+        return (name, type, initialValue, booleanLabels);
+    }
+
+    private static IdempotentExecution CreateExecution(
+        Option<IdempotencyKey> key,
+        DefineVariableCommand command,
+        DefineVariableRequest body,
+        DefineVariableServices services) =>
+        new(
+            key.Map(supplied => IdempotencyScope.For(
+                supplied,
+                DefineEndpoint,
+                command.DefinedBy.Value.ToString(),
+                Option<string>.Some(command.Fab.Value),
+                IdempotencyFingerprint.Of(body))),
+            services.Idempotency,
+            services.Clock);
 
     /// <summary>
     /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
