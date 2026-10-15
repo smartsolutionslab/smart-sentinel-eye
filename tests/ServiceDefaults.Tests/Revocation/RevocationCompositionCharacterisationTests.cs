@@ -263,11 +263,10 @@ public class RevocationCompositionCharacterisationTests
         // The harness models per-client resilience, not the ConfigureHttpClientDefaults
         // pipeline production uses, so the retry tests pin the opt-in call
         // (RetryEveryMethod) and not a production guarantee about attempts.
-        // The idempotent-only default, registered per client and before the call:
-        // the order in which a default comes first and a client's own opt-in
-        // (RetryEveryMethod) comes after it and wins. A ConfigureHttpClientDefaults
-        // registration does not model that: it names its pipeline "-standard" for
-        // every client, so a per-client opt-in never reaches it.
+        // The idempotent-only default is registered per client here. The opt-in
+        // does not depend on registration order, because RetryEveryMethod adds a marker
+        // handler that tags each request and the shared predicate
+        // (RetryIdempotentMethodsOnly) reads the tag.
         foreach (var name in new[] { "revocation-list-token", "revocation-list-fetch" })
         {
             builder.Services.Configure<HttpStandardResilienceOptions>(

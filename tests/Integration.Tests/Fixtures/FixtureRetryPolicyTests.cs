@@ -105,8 +105,7 @@ public class FixtureRetryPolicyTests
         FixtureHttpClients.Configure(builder);
 
         // Zeroed after the fixture's own configuration, so the later Configure on
-        // the same named options wins — the ordering IdempotentRetry.RetryEveryMethod
-        // already depends on. The real 2/4/8 s backoff would cost ~14 s per
+        // the same named options wins. The real 2/4/8 s backoff would cost ~14 s per
         // four-attempt case; the attempt count is what these facts are about, and
         // it is the one thing the delay does not change.
         services.Configure<HttpStandardResilienceOptions>(
