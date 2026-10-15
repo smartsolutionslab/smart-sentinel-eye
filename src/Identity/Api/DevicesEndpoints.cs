@@ -35,6 +35,20 @@ public static class DevicesEndpoints
         // guard against the required ?fabId= (spec 180 US1), scoped into
         // GetWithinFabAsync's predicate so a fab the caller genuinely holds but
         // that does not own the target answers 404, not 403 (#2240).
+        MapRegisterDevice(group);
+        MapDisableDevice(group);
+
+        var reads = app.MapGroup("/devices")
+            .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Read)
+            .WithTags("IdentityDevices");
+
+        MapListDevices(reads);
+
+        return app;
+    }
+
+    private static void MapRegisterDevice(RouteGroupBuilder group)
+    {
         group.MapPost("/register", Register)
             .WithName("RegisterDevice")
             .WithSummary("Register a new PLC or inference device. Required scope: sse.identity.devices.write")
@@ -44,7 +58,10 @@ public static class DevicesEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapDisableDevice(RouteGroupBuilder group)
+    {
         // 409 because DisableDeviceCommandHandler loads a client that already
         // exists, mutates it and saves — the lost update ADR-0113 Layer 2
         // answers as AGGREGATE_VERSION_STALE.
@@ -57,11 +74,10 @@ public static class DevicesEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+    }
 
-        var reads = app.MapGroup("/devices")
-            .RequireAuthorization(Scope.Sse.Identity.DeviceClients.Read)
-            .WithTags("IdentityDevices");
-
+    private static void MapListDevices(RouteGroupBuilder reads)
+    {
         reads.MapGet("/", List)
             .WithName("ListDevices")
             .WithSummary("List registered devices in your fabs. Omit fabId to span all of them; name one to narrow. Required scope: sse.identity.devices.read")
@@ -69,8 +85,6 @@ public static class DevicesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
     }
 
     private static async Task<IResult> List(
@@ -109,43 +123,28 @@ public static class DevicesEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var fabGuard = services.FabGuard;
-        var handler = services.Handler;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        FabIdentifier fab;
-        try
+        if (!BoundaryParse.TryParse(() => FabIdentifier.From(fabId), "DEVICE_INVALID_INPUT", out var fab, out var invalid))
         {
-            fab = FabIdentifier.From(fabId);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "DEVICE_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return invalid;
         }
 
-        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
+        await services.FabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    RegisterEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
+                RegisterScope(key, actingOperator, fab, body),
                 services.Idempotency,
                 services.Clock),
             async token =>
             {
-                var result = await handler.HandleAsync(
+                var result = await services.Handler.HandleAsync(
                     new RegisterDeviceCommand(body.DeviceType, body.DeviceIdentifier, fab, actingOperator), token);
 
                 // A refusal is recorded as a success of no registration: there is
@@ -156,27 +155,45 @@ public static class DevicesEndpoints
                         dto.RegisteredClientIdentifier, Results.Created($"/devices/{dto.ClientId}", dto)),
                     onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
             },
-            async (client, token) =>
-            {
-                var replayed =
-                    await services.Replay.HandleAsync(
-                        new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(client)), token);
-
-                // The device type and identifier come from the retry's own body:
-                // a transparent retry is the same request, so it carries them.
-                return replayed.Match<IResult>(
-                    onSuccess: replay => Results.Created(
-                        $"/devices/{replay.ClientId}",
-                        new DeviceCredentialsDto(
-                            replay.RegisteredClientIdentifier,
-                            replay.ClientId,
-                            body.DeviceType,
-                            body.DeviceIdentifier,
-                            replay.Fab,
-                            replay.ClientSecret)),
-                    onFailure: error => error.ToProblem());
-            },
+            (client, token) => ReplayDeviceAsync(client, body, services.Replay, token),
             cancellationToken);
+    }
+
+    private static Option<IdempotencyScope> RegisterScope(
+        Option<IdempotencyKey> key,
+        OperatorIdentifier actingOperator,
+        FabIdentifier fab,
+        RegisterDeviceRequest body) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            RegisterEndpoint,
+            actingOperator.Value.ToString(),
+            Option<string>.Some(fab.Value),
+            IdempotencyFingerprint.Of(body)));
+
+    private static async Task<IResult> ReplayDeviceAsync(
+        Guid client,
+        RegisterDeviceRequest body,
+        ReplayRegisteredClientQueryHandler replay,
+        CancellationToken cancellationToken)
+    {
+        var replayed =
+            await replay.HandleAsync(
+                new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(client)), cancellationToken);
+
+        // The device type and identifier come from the retry's own body:
+        // a transparent retry is the same request, so it carries them.
+        return replayed.Match<IResult>(
+            onSuccess: registered => Results.Created(
+                $"/devices/{registered.ClientId}",
+                new DeviceCredentialsDto(
+                    registered.RegisteredClientIdentifier,
+                    registered.ClientId,
+                    body.DeviceType,
+                    body.DeviceIdentifier,
+                    registered.Fab,
+                    registered.ClientSecret)),
+            onFailure: error => error.ToProblem());
     }
 
     /// <summary>
