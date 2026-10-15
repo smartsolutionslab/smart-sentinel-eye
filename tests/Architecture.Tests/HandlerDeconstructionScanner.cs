@@ -275,9 +275,9 @@ internal static class HandlerDeconstructionScanner
     private static string? BodyAfter(string text, int signatureIndex)
     {
         // The parameter list opens at the first '(' after the signature start: the
-        // signature pattern forbids '(' in the return type. Only a '{' straight
-        // after its ')' opens this method's body; an expression body or a bodiless
-        // declaration must not borrow the next member's.
+        // signature pattern forbids '(' in the return type. A ';' or '=' (=>) straight
+        // after its ')' means no block body, and must not borrow the next member's;
+        // anything else (a comment, a constraint) is skipped to the real '{'.
         var open = text.IndexOf('(', signatureIndex);
         var parameters = Balanced(text, open, '(', ')');
         if (parameters is null)
@@ -291,22 +291,31 @@ internal static class HandlerDeconstructionScanner
             afterList++;
         }
 
-        return afterList < text.Length && text[afterList] == '{'
-            ? Balanced(text, afterList, '{', '}')
-            : null;
+        if (afterList >= text.Length || text[afterList] is ';' or '=')
+        {
+            return null;
+        }
+
+        var bodyOpen = text.IndexOf('{', afterList);
+        return bodyOpen < 0 ? null : Balanced(text, bodyOpen, '{', '}');
     }
 
     /// <summary>Contents between <paramref name="openIndex"/> and its match.</summary>
     private static string? Balanced(string text, int openIndex, char open, char close)
     {
         var depth = 0;
+        var inString = false;
         for (var i = openIndex; i < text.Length; i++)
         {
-            if (text[i] == open)
+            if (open == '(' && text[i] == '"' && (!inString || text[i - 1] != '\\'))
+            {
+                inString = !inString;
+            }
+            else if (!inString && text[i] == open)
             {
                 depth++;
             }
-            else if (text[i] == close)
+            else if (!inString && text[i] == close)
             {
                 depth--;
                 if (depth == 0)
