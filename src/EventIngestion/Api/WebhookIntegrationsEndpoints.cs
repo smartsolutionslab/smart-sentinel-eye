@@ -28,6 +28,15 @@ public static class WebhookIntegrationsEndpoints
             .RequireAuthorization(Scope.Sse.Webhooks.Write)
             .WithTags("EventIngestion");
 
+        MapRegisterWebhookIntegration(group);
+        MapListWebhookIntegrations(group);
+        MapRevokeWebhookIntegration(group);
+
+        return app;
+    }
+
+    private static void MapRegisterWebhookIntegration(RouteGroupBuilder group)
+    {
         // 403 became reachable when the registry became fab-owned (#1545): the
         // caller may name a fab they do not hold, or hold none at all. 400 now
         // also covers a multi-fab admin registering without naming one.
@@ -41,14 +50,20 @@ public static class WebhookIntegrationsEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict);
+    }
 
+    private static void MapListWebhookIntegrations(RouteGroupBuilder group)
+    {
         group.MapGet("/", List)
             .WithSummary("List the webhook integrations of the fabs you hold. Required scope: sse.webhooks.write")
             .Produces<IReadOnlyList<WebhookIntegrationDto>>(StatusCodes.Status200OK)
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapRevokeWebhookIntegration(RouteGroupBuilder group)
+    {
         group.MapDelete("/{name}", Revoke)
             .WithSummary(
                 "Revoke a webhook integration. Requires If-Match with the version from "
@@ -60,8 +75,6 @@ public static class WebhookIntegrationsEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
-
-        return app;
     }
 
     private static async Task<IResult> Register(
@@ -74,19 +87,16 @@ public static class WebhookIntegrationsEndpoints
     {
         Ensure.That(body).IsNotNull();
 
-        WebhookIntegrationName name;
-        Kind defaultKind;
-        try
+        if (!BoundaryParse.TryParse(
+            () => (WebhookIntegrationName.From(body.Name), Kind.From(body.DefaultKind)),
+            "WEBHOOK_INVALID_INPUT",
+            out var parsed,
+            out var invalid))
         {
-            name = WebhookIntegrationName.From(body.Name);
-            defaultKind = Kind.From(body.DefaultKind);
+            return invalid;
         }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "WEBHOOK_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+
+        var (name, defaultKind) = parsed;
 
         // The integration's plant is the registering operator's, resolved the
         // same way the manual write resolves an event's (#1545). It decides
