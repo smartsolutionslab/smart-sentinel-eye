@@ -10,7 +10,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// <summary>
 /// End-to-end coverage of the dual-mode bearer validation in
 /// <c>POST /events/webhook/{integrationName}</c> (spec 008 FR-016,
-/// <c>EventsEndpoints.AuthenticateWebhookAsync</c>). Both modes route
+/// <c>WebhookDeliveryAuthentication.AuthenticateWebhookAsync</c>). Both modes route
 /// through the same anonymous endpoint, and the JWT branch delegates
 /// signature/expiry/scope/azp/group validation to the real ASP.NET Core
 /// JwtBearer middleware, so the only faithful test is through the booted

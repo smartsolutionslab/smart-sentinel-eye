@@ -5,9 +5,10 @@ using SmartSentinelEye.Integration.Tests.Fixtures;
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 
 /// <summary>
-/// Spec 173 (#2203) — <c>Payload.From(body.Payload.GetRawText())</c> at
-/// <c>EventsEndpoints.Writes.cs:85</c> (<c>POST /events/manual</c>) and
-/// <c>:162</c> (<c>POST /events/webhook/{name}</c>) sits inside <c>catch
+/// Spec 173 (#2203) — <c>Payload.From(body.Payload)</c> in
+/// <c>EventsEndpoints.ManualEnvelope</c> (<c>POST /events/manual</c>) and
+/// <c>EventsEndpoints.WebhookEnvelope</c> (<c>POST /events/webhook/{name}</c>), both in
+/// <c>EventsEndpoints.Writes.cs</c>, is called inside <c>catch
 /// (ArgumentException ex)</c>. A body omitting <c>payload</c> leaves that
 /// <c>JsonElement</c> at <c>JsonValueKind.Undefined</c>; <c>GetRawText()</c>
 /// throws <see cref="InvalidOperationException"/>, uncaught, so the minimal
