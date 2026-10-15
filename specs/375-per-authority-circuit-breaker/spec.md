@@ -5,13 +5,17 @@ to `911501d5`)
 
 **Created**: 2026-10-15
 
-**Status**: Ready for the Phase 1 gate. No `[NEEDS CLARIFICATION]` remains. The owner's decision is
-recorded on the issue; three judgement calls are marked (§6).
+**Status**: Implemented on this branch (phases 4-6 done); awaiting PR review. No `[NEEDS CLARIFICATION]`
+remains. The owner's decision is recorded on the issue; the judgement calls are marked (§6).
 
 **Input**: Issue [#2959](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2959), found
 while reviewing the #2958 fix (spec 370). Owner decision (issue comment, 2026-10-15): per-authority
-pipelines through `SelectPipelineByAuthority`, wired in `ConfigureHttpClientDefaults` only; same
-authority still shares a breaker; nested token-mint retry multiplication is accepted and documented.
+pipelines, wired in `ConfigureHttpClientDefaults` only; same authority still shares a breaker; nested
+token-mint retry multiplication is accepted and documented. The decision is per-authority pipelines;
+the **mechanism** is a custom `SelectPipelineBy` keyed on lower-cased `scheme://host:port`, not the stock
+`SelectPipelineByAuthority()` the comment named: the stock key carries URL userinfo into the Polly
+`pipeline.instance` metric tag and log lines (reproduced, §6 J1). That is the plan's own pre-approved
+fallback, and it deviates from the letter of the recorded decision.
 
 **Lane.** Autonomous (ADR-0144). **Behaviour-changing**, so Phase 4a is **red** (constitution
 §Testing): a failing upstream stops opening the breaker for a healthy upstream on another authority.
@@ -123,9 +127,9 @@ for ~250 cameras is **one** authority). Searched: `AddHttpClient`, `CreateClient
 | StreamDistribution | `CameraCatalogFabLookup` | `http://camera-catalog` | literal |
 | SystemVariables | `OverlayDesignerTokenProvider` (opt-in) | Keycloak | option |
 | SystemVariables | `overlay-designer` | `http://overlay-designer` | literal |
-| ScenarioSimulator | `KeycloakTokenProvider` (opt-in), `CameraCatalogClient`, `CameraSimProvisioner` + `CameraSimPathClient` (one authority), four seeding clients | Keycloak, five service URLs | `SimulatorOptions` |
+| ScenarioSimulator | `KeycloakTokenProvider` (opt-in), `CameraCatalogClient`, `CameraSimProvisioner` + `CameraSimPathClient` (one authority), four seeding clients | Keycloak, six service URLs | `SimulatorOptions` |
 
-So a process holds at most ~6 pipeline instances. `JwtBearer`'s metadata/JWKS fetch uses its own
+So a process holds at most ~7 pipeline instances (the simulator: six service URLs plus Keycloak). `JwtBearer`'s metadata/JWKS fetch uses its own
 backchannel `HttpClient`, not the factory, and is unaffected. The unbounded-cache risk is real **only**
 for a future client addressing caller-supplied hosts (e.g. outbound webhooks to arbitrary URLs); FR-007
 makes that a stated constraint rather than a surprise.
@@ -313,9 +317,13 @@ the outer per-attempt timeout cancels the inner mint.
 **Corrected by the adversarial pass (the earlier wording of this section was wrong, and the nested-mint limits are stated here,
 both pinned by committed tests in `PerAuthorityPipelineRiskTests`):**
 
-- A nested mint **failure counts against the outer service's breaker**, not Keycloak's, when it
-  surfaces as the outer attempt's timeout or as the `HttpRequestException` from
-  `EnsureSuccessStatusCode` on a 401. Only a Keycloak 503 feeds Keycloak's own breaker.
+- Keycloak's own breaker is fed by **every transient mint outcome** (5xx, 408, 429, a connection failure, the
+  mint's own timeout): the pinned package's `IsTransient` (Microsoft.Extensions.Http.Resilience 10.10.0) treats
+  any `HttpRequestException`, any `TimeoutRejectedException`, 5xx, 408 and 429 as transient. A mint failure
+  that reaches the outer handler as an `HttpRequestException` (any non-success status after the mint's
+  retries, or a connection failure) or as the outer attempt's timeout **also counts against the outer
+  service's breaker** and is retried by the outer call. Only a `BrokenCircuitException` from an open
+  Keycloak breaker is non-transient to the outer predicate and ends the call.
 - **400/401 are retried by the outer call.** The mint's own pipeline does not retry a 401, but the
   exception it raises is transient to the outer predicate, so a credential the token authority rejects
   costs **4 token POSTs per outer GET**, not 1
@@ -342,6 +350,9 @@ the custom one). The J1 text below records the original reasoning.
   `https?://[^"' ]*@` over `src/**/*.cs` and `*.json`: none); all upstream URLs come from options and
   logical names. Recorded for `security-reviewer`; if review rejects the residual, the alternative is a
   three-line `SelectPipelineBy` keyed on `Scheme`, `Host`, `Port` only — not a hand-built pipeline.
+- **N2 Key splits are harmless.** An IDN host, a trailing-dot FQDN and an IPv6 zone id can each split
+  one logical upstream into two keys (two breakers). Accepted; `IdnHost` is deliberately not used, because
+  it would carry the IPv6 zone text into telemetry.
 - **J2 Different timeouts on one authority.** Not reachable: the options are per pipeline **name**, not
   per instance, so every instance reads `-standard`; no client configures its own resilience options
   or a finite `HttpClient.Timeout` (`ResilienceRegistrationTests.No_client_caps_the_resilience_pipeline_with_its_own_timeout`).
@@ -350,7 +361,7 @@ the custom one). The J1 text below records the original reasoning.
   hung upstream holding its permits refused calls to every other upstream
   (`A_saturated_authority_does_not_use_up_the_concurrency_limit_of_another`). Original text: The standard pipeline's first strategy is a concurrency
   limiter (`HttpStandardResilienceOptions.RateLimiter`, default 1000 permits, no queue); it becomes per
-  authority with the breaker. The process-wide ceiling rises from 1000 to 1000 × (authorities, ≤ ~6).
+  authority with the breaker. The process-wide ceiling rises from 1000 to 1000 × (authorities, ≤ ~7).
   Accepted: nothing relies on the process-wide cap, and the per-upstream cap is the more meaningful one.
 
 ## 7. Latency budget
@@ -358,7 +369,7 @@ the custom one). The J1 text below records the original reasoning.
 **N/A.** No leg of the event-to-overlay path (constitution §IV) makes an `HttpClient` call: token
 mints run at startup and refresh, MediaMTX `add/`/`patch/` at provisioning, the revocation fetch on a
 background timer, camera/fab lookups on stream attribution. The per-request cost the selection adds is
-a `ConcurrentDictionary` hit plus a registry lookup.
+two short strings allocated per request (the key, lower-cased) plus the SDK's pipeline-registry lookup; there is no key cache.
 
 ## 8. Out of scope (found, reported, not fixed here)
 

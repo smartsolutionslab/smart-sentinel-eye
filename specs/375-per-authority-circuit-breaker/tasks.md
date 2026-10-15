@@ -85,3 +85,10 @@ task: nothing touches Shared.Kernel, Shared.Contracts or AppHost.
 T000 → {T001, T002} (parallel, disjoint files) → T010 → {T003, T011} (parallel: T003 writes tests only,
 T011 writes comments in `src` only) → T012 → T020. Every commit builds on its own; the T001-T002 commit
 leaves `ServiceDefaults.Tests` red until T010 lands (accepted red/green pair, CLAUDE.md).
+
+## As executed (recorded after the fact)
+
+The order above was not the order of history. T003 (the adversarial tests) was written and committed
+**before** T010 (`ee1862fc`, `5a61fc7d` precede the fix `22289290`), not after it, and T011 (the
+comments, `372a532a`) landed **after** the fix as a sequential step, not in parallel with T003. The
+adversarial pass also changed the mechanism (J1: custom selector) after the first plan was written.
