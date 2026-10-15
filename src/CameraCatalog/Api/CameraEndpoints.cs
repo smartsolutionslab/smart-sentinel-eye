@@ -330,7 +330,7 @@ public static partial class CameraEndpoints
 
         var result = await apply(value);
 
-        // 204 rather than 200: the caller asked for the address to be a
+        // 204 rather than 200: the caller asked for the attribute to be a
         // particular value and it is. The new version travels on the ETag for
         // a caller making a second change without re-reading.
         return result.Match<IResult>(
