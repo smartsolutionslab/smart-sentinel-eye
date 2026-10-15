@@ -11,7 +11,7 @@ builder.Services.AddEventIngestionApi();
 builder.Services.AddOpenApi();
 
 // Backs IsNewRevokedWebhookDeliveryLog's once-per-window dedup
-// (EventsEndpoints.Writes.cs, spec 302 review finding on #2205).
+// (WebhookDeliveryAuthentication.cs, spec 302 review finding on #2205).
 builder.Services.AddMemoryCache();
 
 var app = builder.Build();
