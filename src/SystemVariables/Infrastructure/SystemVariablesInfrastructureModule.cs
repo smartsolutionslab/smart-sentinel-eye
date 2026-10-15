@@ -164,6 +164,14 @@ public static class SystemVariablesInfrastructureModule
         // scheme, and neither applies: Aspire service discovery treats
         // "overlay-designer" as a logical resource name and rewrites the whole
         // URI, scheme included, in dev and on k3s alike.
+        // Nested mint: this handler mints a token through an opted-in client from inside
+        // each attempt of this client's pipeline, so in a Keycloak outage one call can drive
+        // several mints (about 9 token POSTs per call, measured on #2959). A failed mint counts
+        // against THIS upstream's breaker when it surfaces as the attempt's timeout or as the
+        // HttpRequestException from EnsureSuccessStatusCode on a 401; only a Keycloak 503
+        // feeds Keycloak's own breaker. A credential Keycloak rejects is retried by the outer
+        // call as well (4 token POSTs per outer GET, not 1). Accepted: the mint is
+        // single-flight and the outer attempt timeout cancels it.
 #pragma warning disable S1075, S5332
         builder.Services.AddHttpClient("overlay-designer", client =>
                 client.BaseAddress = new Uri("http://overlay-designer"))
