@@ -251,8 +251,7 @@ public static partial class CameraEndpoints
         // another fab's camera would confirm that camera exists, which is the
         // enumeration FR-006 exists to prevent. The cheap checks are the
         // tempting ones to hoist; they must stay below this.
-        var fabResolution =
-            await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
+        var fabResolution = await ResolveWriteFabAsync(httpContext.User, fabId, fabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
@@ -260,8 +259,7 @@ public static partial class CameraEndpoints
 
         var fab = fabResolution.Value;
 
-        if (!ConcurrencyHeaders.TryReadExpectedVersion(
-                httpContext.Request, out var expectedVersion, out var precondition))
+        if (!ConcurrencyHeaders.TryReadExpectedVersion(httpContext.Request, out var expectedVersion, out var precondition))
         {
             return precondition;
         }
@@ -277,57 +275,38 @@ public static partial class CameraEndpoints
         {
             return Results.Problem(
                 title: "CAMERA_INVALID_REQUEST",
-                detail: changingAddress
-                    ? "Send either rtspUrl or name, not both: each is applied under its own version."
-                    : "Send either rtspUrl or name.",
+                detail: ExactlyOneAttribute(changingAddress),
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
         var identifier = CameraIdentifier.From(camera);
         var actor = ResolveOperator(httpContext);
 
-        if (changingName)
+        return changingName
+            ? await PatchAttributeAsync(
+                () => CameraName.From(request.Name),
+                name => renameHandler.HandleAsync(new RenameCameraCommand(fab, identifier, name, expectedVersion, actor), cancellationToken))
+            : await PatchAttributeAsync(
+                () => RtspUrl.From(request.RtspUrl),
+                url => addressHandler.HandleAsync(new ChangeCameraAddressCommand(fab, identifier, url, expectedVersion, actor), cancellationToken));
+    }
+
+    private static string ExactlyOneAttribute(bool changingAddress) =>
+        changingAddress
+            ? "Send either rtspUrl or name, not both: each is applied under its own version."
+            : "Send either rtspUrl or name.";
+
+    private static async Task<IResult> PatchAttributeAsync<TValue, TError>(
+        Func<TValue> parse,
+        Func<TValue, Task<Result<CameraIdentifier, TError>>> apply)
+        where TError : ApiError
+    {
+        if (!BoundaryParse.TryParse(parse, "CAMERA_INVALID_REQUEST", out var value, out var problem))
         {
-            CameraName name;
-            try
-            {
-                name = CameraName.From(request.Name);
-            }
-            catch (ArgumentException ex)
-            {
-                return Results.Problem(
-                    title: "CAMERA_INVALID_REQUEST",
-                    detail: ex.Message,
-                    statusCode: StatusCodes.Status400BadRequest);
-            }
-
-            var renamed = await renameHandler.HandleAsync(
-                new RenameCameraCommand(fab, identifier, name, expectedVersion, actor),
-                cancellationToken);
-
-            return renamed.Match<IResult>(
-                onSuccess: _ => Results.NoContent(),
-                onFailure: error => error.ToProblem());
+            return problem;
         }
 
-        RtspUrl url;
-        try
-        {
-            url = RtspUrl.From(request.RtspUrl);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "CAMERA_INVALID_REQUEST",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
-
-        ChangeCameraAddressCommand command = new(
-            fab, identifier, url, expectedVersion, actor);
-
-        var result =
-            await addressHandler.HandleAsync(command, cancellationToken);
+        var result = await apply(value);
 
         // 204 rather than 200: the caller asked for the address to be a
         // particular value and it is. The new version travels on the ETag for
