@@ -33,6 +33,15 @@ public static class EventTypesEndpoints
         // (plan.md §5; EndpointScopeDeclarationTests).
         var group = app.MapGroup("/event-types").WithTags("EventIngestion");
 
+        MapRegisterEventType(group);
+        MapListEventTypes(group);
+        MapRetireEventType(group);
+
+        return app;
+    }
+
+    private static void MapRegisterEventType(RouteGroupBuilder group)
+    {
         group.MapPost("/", Register)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
             .WithSummary(
@@ -48,7 +57,10 @@ public static class EventTypesEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapListEventTypes(RouteGroupBuilder group)
+    {
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Events.Read)
             .WithSummary(
@@ -58,7 +70,10 @@ public static class EventTypesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapRetireEventType(RouteGroupBuilder group)
+    {
         group.MapDelete("/{kind}", Retire)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
             .WithSummary(
@@ -74,8 +89,6 @@ public static class EventTypesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
-
-        return app;
     }
 
     private static async Task<IResult> Register(
@@ -88,16 +101,13 @@ public static class EventTypesEndpoints
     {
         Ensure.That(body).IsNotNull();
 
-        Kind kind;
-        try
+        if (!BoundaryParse.TryParse(
+            () => Kind.From(body.Kind),
+            "EVENT_TYPE_INVALID_INPUT",
+            out var kind,
+            out var invalid))
         {
-            kind = Kind.From(body.Kind);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "EVENT_TYPE_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return invalid;
         }
 
         if (!IdempotencyHeaders.TryRead(request, out var key, out var keyProblem))
@@ -113,23 +123,29 @@ public static class EventTypesEndpoints
             return fabResolution.Error;
         }
 
-        var fab = fabResolution.Value;
         var registeredBy = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    RegisterEndpoint,
-                    registeredBy.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
+                RegisterScope(key, registeredBy, fabResolution.Value, body),
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-types/{kind.Value}",
-            token => RegisterAsync(services.Handler, fab, kind, registeredBy, token),
+            token => RegisterAsync(services.Handler, fabResolution.Value, kind, registeredBy, token),
             cancellationToken);
     }
+
+    private static Option<IdempotencyScope> RegisterScope(
+        Option<IdempotencyKey> key,
+        OperatorIdentifier registeredBy,
+        FabIdentifier fab,
+        RegisterEventTypeRequest body) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            RegisterEndpoint,
+            registeredBy.Value.ToString(),
+            Option<string>.Some(fab.Value),
+            IdempotencyFingerprint.Of(body)));
 
     private static async Task<Result<Guid, IResult>> RegisterAsync(
         RegisterEventTypeCommandHandler handler,
