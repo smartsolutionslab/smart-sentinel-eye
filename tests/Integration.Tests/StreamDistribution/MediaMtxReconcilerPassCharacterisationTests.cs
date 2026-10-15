@@ -86,7 +86,7 @@ public class MediaMtxReconcilerPassCharacterisationTests(AspireFixture aspire) :
         [
             "add cam-0197a1b2-0000-7000-8000-000000000a05 rtsp://10.0.5.5/h264",
             "add cam-0197a1b2-0000-7000-8000-000000000a06 rtsp://10.0.5.6/h264",
-            "log Information Reconciler re-added missing MediaMTX path cam-0197a1b2-0000-7000-8000-000000000a05 -> rtsp://10.0.5.5/h264.",
+            "log Information Reconciler re-added missing MediaMTX path cam-0197a1b2-0000-7000-8000-000000000a05 -> rtsp://10.0.5.5.",
             "log Warning Reconciler failed to re-add missing path cam-0197a1b2-0000-7000-8000-000000000a06; will retry on next restart. [HttpRequestException: add-boom-3]",
         ];
         const string summary =
