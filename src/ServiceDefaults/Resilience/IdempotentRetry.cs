@@ -34,6 +34,9 @@ namespace SmartSentinelEye.ServiceDefaults.Resilience;
 /// </summary>
 public static class IdempotentRetry
 {
+    private static readonly HttpRequestOptionsKey<bool> RetryEveryMethodRequested =
+        new("SmartSentinelEye.ServiceDefaults.RetryEveryMethod");
+
     /// <summary>
     /// RFC 9110 §9.2.2. <c>POST</c> and <c>PATCH</c> are the two that are not,
     /// and are the two this excludes — <c>PATCH</c> despite most of ours being
@@ -47,6 +50,9 @@ public static class IdempotentRetry
         || method == HttpMethod.Delete
         || method == HttpMethod.Options
         || method == HttpMethod.Trace;
+
+    private static bool IsMarked(HttpRequestMessage request) =>
+        request.Options.TryGetValue(RetryEveryMethodRequested, out var requested) && requested;
 
     /// <summary>
     /// Applied to every client through <c>ConfigureHttpClientDefaults</c>.
@@ -65,7 +71,7 @@ public static class IdempotentRetry
             // Unknown method, no retry. Failing closed is the whole point: the
             // damage this prevents is silent, and the cost of being wrong is one
             // extra attempt nobody makes.
-            if (request is null || !IsIdempotent(request.Method))
+            if (request is null || !(IsIdempotent(request.Method) || IsMarked(request)))
             {
                 return ValueTask.FromResult(false);
             }
@@ -75,8 +81,7 @@ public static class IdempotentRetry
     }
 
     /// <summary>
-    /// Puts the library's own predicate back for one client, so its
-    /// <c>POST</c>s and <c>PATCH</c>es are retried again.
+    /// Opts one client's <c>POST</c>s and <c>PATCH</c>es back into retrying.
     ///
     /// <para>
     /// For a client whose non-idempotent calls are idempotent <i>in fact</i> — a
@@ -84,17 +89,40 @@ public static class IdempotentRetry
     /// that sets a field to a fixed value. Call it where that is true and say
     /// why at the call site; the default exists because it is usually not.
     /// </para>
+    ///
+    /// <para>
+    /// The opt-in is a request option read by the shared predicate in
+    /// <see cref="RetryIdempotentMethodsOnly"/>, not named options: the defaults
+    /// pipeline reads one options name for every client, so a per-client name is
+    /// never consulted. It relies on the pipeline re-sending the same request
+    /// instance on each attempt.
+    /// </para>
     /// </summary>
     public static IHttpClientBuilder RetryEveryMethod(this IHttpClientBuilder builder)
     {
         Ensure.That(builder).IsNotNull();
 
-        builder.Services
-            .Configure<HttpStandardResilienceOptions>(
-                $"{builder.Name}-standard",
-                options => options.Retry.ShouldHandle = arguments =>
-                    ValueTask.FromResult(HttpClientResiliencePredicates.IsTransient(arguments.Outcome)));
+        return builder.AddHttpMessageHandler(() => new RetryEveryMethodMarker());
+    }
 
-        return builder;
+    internal sealed class RetryEveryMethodMarker : DelegatingHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            request.Options.Set(RetryEveryMethodRequested, true);
+
+            return base.SendAsync(request, cancellationToken);
+        }
+
+        protected override HttpResponseMessage Send(
+            HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            request.Options.Set(RetryEveryMethodRequested, true);
+
+            return base.Send(request, cancellationToken);
+        }
     }
 }
