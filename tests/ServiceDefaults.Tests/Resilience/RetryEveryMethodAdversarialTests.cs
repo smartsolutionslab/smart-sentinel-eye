@@ -268,17 +268,14 @@ public class RetryEveryMethodAdversarialTests
     // ---- Hazard: true today, amplified by the opt-in ----
 
     /// <summary>
-    /// <b>Hazard, not a requirement.</b> The defaults builder has no name, so every client in
-    /// a host resolves the same <c>-standard</c> pipeline — and with it one circuit breaker.
-    /// One upstream failing opens the breaker for calls to every other upstream. Once
-    /// <c>RetryEveryMethod()</c> works, an opted-in POST feeds the breaker four failures where
-    /// it fed one. This is a hazard record, not a requirement: a follow-up that makes the breaker
-    /// per client (which needs its own ADR) is expected to invert it. If this fact goes red, the
-    /// breaker became per client; that is a change to
-    /// ADR-0143's "its share of the circuit breaker", not a regression.
+    /// <b>Inverted by #2959.</b> This fact used to record, as a hazard, that every client in a
+    /// host resolved the same <c>-standard</c> pipeline and so shared one circuit breaker: one
+    /// upstream failing refused calls to every other upstream. The flip is the expected outcome
+    /// of #2959, not a regression: a failing upstream opens the breaker for its own authority
+    /// only, and a healthy upstream on another authority is still called.
     /// </summary>
     [Fact]
-    public async Task Hazard_one_failing_client_opens_the_circuit_breaker_for_a_healthy_sibling()
+    public async Task A_failing_upstream_does_not_open_the_circuit_breaker_for_a_healthy_upstream_on_another_authority()
     {
         CountingServer failingServer = new(HttpStatusCode.ServiceUnavailable);
         CountingServer healthyServer = new(HttpStatusCode.OK);
@@ -298,9 +295,11 @@ public class RetryEveryMethodAdversarialTests
         await Should.ThrowAsync<BrokenCircuitException>(
             () => factory.CreateClient("failing").GetAsync("https://failing.test/thing", CancellationToken.None));
 
-        await Should.ThrowAsync<BrokenCircuitException>(
-            () => factory.CreateClient("healthy").GetAsync("https://healthy.test/thing", CancellationToken.None));
-        healthyServer.Attempts.ShouldBe(0, "the healthy upstream was never asked: the shared breaker refused the call.");
+        using var response = await factory.CreateClient("healthy")
+            .GetAsync("https://healthy.test/thing", CancellationToken.None);
+
+        response.StatusCode.ShouldBe(HttpStatusCode.OK);
+        healthyServer.Attempts.ShouldBe(1);
     }
 
     private static ServiceProvider Compose(
