@@ -73,10 +73,11 @@ No new test class needs a CI shard entry: shard filters exist for `Integration.T
 At each `.AddHttpMessageHandler<…AuthorizationHandler>()` registration listed in spec §5, one comment:
 the handler mints through an opted-in client, so in a Keycloak outage the mint's retries nest inside
 this client's attempts; accepted because the mint is single-flight and the outer attempt timeout
-cancels it. Stated plainly (the earlier draft of this paragraph was wrong): a mint failure counts
-against the OUTER service's breaker when it surfaces as the attempt timeout or as the
-`HttpRequestException` from a 401 (only a Keycloak 503 feeds Keycloak's breaker); a rejected credential
-is retried by the outer call (4 token POSTs per outer GET); Identity's admin client shares one breaker
+cancels it. Stated plainly (the earlier draft of this paragraph was wrong): every transient mint outcome
+(5xx, 408, 429, connection failure, the mint's own timeout) feeds Keycloak's own breaker; a mint failure
+that reaches the outer handler as an `HttpRequestException` or as the attempt timeout ALSO counts against
+the OUTER service's breaker and is retried by the outer call (a rejected credential = 4 token POSTs per
+outer GET); only a `BrokenCircuitException` from an open Keycloak breaker ends the call; Identity's admin client shares one breaker
 with its own mint and that breaker can close without a real probe. Comment-only, proved by the
 strip-comments hash.
 
