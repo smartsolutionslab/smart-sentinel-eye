@@ -21,7 +21,7 @@ public class PipelineTelemetryCredentialTests
     public async Task A_credential_in_the_url_reaches_neither_the_metric_tags_nor_the_log_lines()
     {
         List<string> emitted = [];
-        using var listener = new MeterListener();
+        var listener = new MeterListener();
         listener.InstrumentPublished = (instrument, meterListener) =>
         {
             if (instrument.Meter.Name == "Polly")
@@ -49,11 +49,26 @@ public class PipelineTelemetryCredentialTests
         using var provider = builder.Services.BuildServiceProvider();
         var client = provider.GetRequiredService<IHttpClientFactory>().CreateClient("reader");
 
-        await Should.ThrowAsync<BrokenCircuitException>(
-            () => client.GetAsync($"https://reader:{Secret}@userinfo.test/thing", CancellationToken.None));
-        listener.Dispose();
+        try
+        {
+            await Should.ThrowAsync<BrokenCircuitException>(
+                () => client.GetAsync($"https://reader:{Secret}@userinfo.test/thing", CancellationToken.None));
+        }
+        finally
+        {
+            listener.Dispose();
+        }
 
-        emitted.ShouldNotContain(entry => entry.Contains(Secret, StringComparison.Ordinal));
+        string[] snapshot;
+        lock (emitted)
+        {
+            snapshot = [.. emitted];
+        }
+
+        snapshot.ShouldContain(
+            entry => entry.StartsWith("pipeline.instance=", StringComparison.Ordinal),
+            "the Polly meter must have published the instance tag, or the secret check below proves nothing.");
+        snapshot.ShouldNotContain(entry => entry.Contains(Secret, StringComparison.Ordinal));
         logs.Lines.ShouldNotBeEmpty("the pipeline logs its retries and the breaker opening.");
         logs.Lines.ShouldNotContain(line => line.Contains(Secret, StringComparison.Ordinal));
     }
