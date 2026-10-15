@@ -6,7 +6,7 @@ namespace SmartSentinelEye.Architecture.Tests;
 /// Spec 377 (#2977, FR-007): the audit payload redaction is an explicit register
 /// (<c>AuditPayloadRedaction.UrlFields</c>), so the way a new contract field slips past it is by being
 /// named something a name match would miss. This guard does not look for URLs. It demands a decision for
-/// every <c>string</c> or <c>Uri</c> property of every concrete <c>IIntegrationEvent</c> in
+/// every <c>string</c> or <c>Uri</c> property or public field of every concrete <c>IIntegrationEvent</c> in
 /// <c>Shared.Contracts</c>, nested records and collection elements included: each is either a redacted URL
 /// field (the register, top level only) or listed in <see cref="VerbatimInventory"/> below, where a
 /// reviewer sees it in the diff.
@@ -116,6 +116,15 @@ public class AuditPayloadRedactionCoverageTests
             "CameraAddressChangedV1.Url",
             "CameraRegisteredV1.Url",
         ]);
+
+        // A registered Uri or collection field is not what the redaction rewrites, and would throw on every delivery.
+        foreach (var (type, names) in register)
+        {
+            foreach (var name in names)
+            {
+                type.GetProperty(name)?.PropertyType.ShouldBe(typeof(string), $"{type.Name}.{name}");
+            }
+        }
     }
 
     [Fact]
@@ -195,6 +204,39 @@ public class AuditPayloadRedactionCoverageTests
         problems[0].ShouldContain("ProbeV1.Removed");
     }
 
+    public static TheoryData<Type, string> HiddenShapes() =>
+        new()
+        {
+            { typeof(ProbeListOfListsV1), "ProbeListOfListsV1.Values" },
+            { typeof(ProbeJaggedV1), "ProbeJaggedV1.Values" },
+            { typeof(ProbeArrayOfListsV1), "ProbeArrayOfListsV1.Values" },
+            { typeof(ProbeListOfLeafArraysV1), "ProbeLeafV1.Address" },
+            { typeof(ProbeJaggedLeavesV1), "ProbeLeafV1.Address" },
+            { typeof(ProbeFieldV1), "ProbeFieldV1.Endpoint" },
+            { typeof(ProbeFieldHolderV1), "ProbeLeafV1.Address" },
+        };
+
+    [Theory]
+    [MemberData(nameof(HiddenShapes))]
+    public void The_classification_reports_a_string_hidden_in_a_nested_collection_or_a_public_field(Type probe, string expected)
+    {
+        var problems = Classify([probe], new Dictionary<Type, IReadOnlyList<string>>(), new HashSet<string>());
+
+        problems.ShouldContain(problem => problem.Contains(expected, StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void The_classification_reports_two_audited_types_that_share_a_short_name()
+    {
+        HashSet<string> verbatim = ["DuplicateV1.Name"];
+
+        var problems = Classify([typeof(ProbeDuplicatesV1)], new Dictionary<Type, IReadOnlyList<string>>(), verbatim);
+
+        problems.Count.ShouldBe(1);
+        problems[0].ShouldContain("DuplicateV1");
+        problems[0].ShouldContain("short name");
+    }
+
     private static IReadOnlyDictionary<Type, IReadOnlyList<string>> ReadRegister()
     {
         var application = Assembly.Load("SmartSentinelEye.AuditObservability.Application");
@@ -239,6 +281,14 @@ public class AuditPayloadRedactionCoverageTests
         }
 
         List<string> problems = [];
+        foreach (var group in reachable.Keys.GroupBy(type => type.Name, StringComparer.Ordinal).Where(group => group.Count() > 1))
+        {
+            problems.Add(
+                $"{group.Key} is the short name of {group.Count()} audited types "
+                + $"({string.Join(", ", group.Select(type => type.FullName).OrderBy(name => name, StringComparer.Ordinal))}); "
+                + "the verbatim inventory is keyed by short name, so rename one.");
+        }
+
         HashSet<string> existing = [];
         foreach (var (type, isTopLevel) in reachable.OrderBy(entry => entry.Key.FullName, StringComparer.Ordinal))
         {
@@ -293,9 +343,9 @@ public class AuditPayloadRedactionCoverageTests
         }
 
         reachable[type] = isTopLevel;
-        foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        foreach (var (_, memberType) in Members(type))
         {
-            var element = ElementTypeOf(property.PropertyType);
+            var element = ElementTypeOf(memberType);
             if (element.Assembly == type.Assembly && element.IsClass && !element.IsAbstract)
             {
                 Walk(element, isTopLevel: false, reachable);
@@ -304,23 +354,28 @@ public class AuditPayloadRedactionCoverageTests
     }
 
     private static IEnumerable<string> StringProperties(Type type) =>
-        type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
-            .Where(property => ElementTypeOf(property.PropertyType) is var element
+        Members(type)
+            .Where(member => ElementTypeOf(member.Type) is var element
                 && (element == typeof(string) || element == typeof(Uri)))
-            .Select(property => property.Name)
+            .Select(member => member.Name)
             .OrderBy(name => name, StringComparer.Ordinal);
+
+    private static IEnumerable<(string Name, Type Type)> Members(Type type) =>
+        type.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(property => (property.Name, Type: property.PropertyType))
+            .Concat(type.GetFields(BindingFlags.Public | BindingFlags.Instance)
+                .Select(field => (field.Name, Type: field.FieldType)));
 
     private static Type ElementTypeOf(Type type)
     {
         if (type.IsArray)
         {
-            return type.GetElementType()!;
+            return ElementTypeOf(type.GetElementType()!);
         }
 
         if (type != typeof(string) && type.IsGenericType)
         {
-            var arguments = type.GetGenericArguments();
-            return arguments[^1];
+            return ElementTypeOf(type.GetGenericArguments()[^1]);
         }
 
         return type;
@@ -329,4 +384,26 @@ public class AuditPayloadRedactionCoverageTests
     private sealed record ProbeTileV1(string Address, IReadOnlyList<string> Labels);
 
     private sealed record ProbeV1(string StreamEndpoint, int Port, ProbeTileV1 Tile, IReadOnlyList<ProbeTileV1> Tiles);
+
+    private sealed record ProbeListOfListsV1(IReadOnlyList<IReadOnlyList<string>> Values);
+
+    private sealed record ProbeJaggedV1(string[][] Values);
+
+    private sealed record ProbeArrayOfListsV1(IReadOnlyList<string>[] Values);
+
+    private sealed record ProbeListOfLeafArraysV1(IReadOnlyList<ProbeLeafV1[]> Leaves);
+
+    private sealed record ProbeJaggedLeavesV1(ProbeLeafV1[][] Leaves);
+
+    private static class ProbeFirst
+    {
+        public sealed record DuplicateV1(string Name);
+    }
+
+    private static class ProbeSecond
+    {
+        public sealed record DuplicateV1(string Name);
+    }
+
+    private sealed record ProbeDuplicatesV1(ProbeFirst.DuplicateV1 First, ProbeSecond.DuplicateV1 Second);
 }
