@@ -33,32 +33,16 @@ public static partial class EventsEndpoints
         [FromServices] ListEventsQueryHandler handler,
         CancellationToken cancellationToken)
     {
-        Source? sourceVo = null;
-        DeviceIdentifier? deviceVo = null;
-        Kind? kindVo = null;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseListFilters(source, deviceId, kind),
+            "EVENT_LIST_INVALID_INPUT",
+            out var filters,
+            out var invalid))
         {
-            if (!string.IsNullOrEmpty(source))
-            {
-                sourceVo = Source.From(source);
-            }
-
-            if (!string.IsNullOrEmpty(deviceId))
-            {
-                deviceVo = DeviceIdentifier.From(deviceId);
-            }
-
-            if (!string.IsNullOrEmpty(kind))
-            {
-                kindVo = Kind.From(kind);
-            }
+            return invalid;
         }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "EVENT_LIST_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+
+        var (sourceVo, deviceVo, kindVo) = filters;
 
         var fabsResolution =
             await EventIngestionFabResolution.ResolveReadFabsAsync(user, fabId ?? string.Empty, fabGuard, cancellationToken);
@@ -80,6 +64,15 @@ public static partial class EventsEndpoints
             onSuccess: Results.Ok,
             onFailure: error => error.ToProblem());
     }
+
+    private static (Source? Source, DeviceIdentifier? Device, Kind? Kind) ParseListFilters(
+        string? source,
+        string? deviceId,
+        string? kind) =>
+        (
+            string.IsNullOrEmpty(source) ? null : Source.From(source),
+            string.IsNullOrEmpty(deviceId) ? null : DeviceIdentifier.From(deviceId),
+            string.IsNullOrEmpty(kind) ? null : Kind.From(kind));
 
     private static async Task<IResult> GetEvent(
         Guid eventId,
