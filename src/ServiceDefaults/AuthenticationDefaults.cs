@@ -34,18 +34,41 @@ public static class AuthenticationDefaults
         Ensure.That(keycloakResourceName).IsNotNull().IsNotNullOrWhiteSpace();
         Ensure.That(realm).IsNotNull().IsNotNullOrWhiteSpace();
 
-        // Aspire publishes Keycloak under one of three keys depending on
-        // the dev-cert / HTTPS-upgrade configuration. Accept any of them.
-        var keycloakBaseUrl =
-            builder.Configuration.GetConnectionString(keycloakResourceName)
-            ?? builder.Configuration[$"services:{keycloakResourceName}:http:0"]
-            ?? builder.Configuration[$"services:{keycloakResourceName}:https:0"]
-            ?? throw new InvalidOperationException(
-                $"Keycloak base URL not found. Looked for ConnectionStrings:{keycloakResourceName}, " +
-                $"services:{keycloakResourceName}:http:0, services:{keycloakResourceName}:https:0.");
+        var keycloakBaseUrl = KeycloakBaseUrl(builder.Configuration, keycloakResourceName);
 
         var authority = $"{keycloakBaseUrl.TrimEnd('/')}/realms/{realm}";
 
+        AddJwtBearerScheme(builder, authority);
+
+        AddRevocationHook(builder.Services);
+
+        AddMetadataTransportCheck(builder);
+        AddRevocationCheck(builder, keycloakBaseUrl, realm);
+
+        builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
+        AddExceptionHandlers(builder.Services);
+        builder.Services.AddProblemDetails();
+        builder.Services.AddAuthorizationBuilder()
+            .AddScopePolicies(Scope.All);
+
+        return builder;
+    }
+
+    private static string KeycloakBaseUrl(IConfiguration configuration, string keycloakResourceName)
+    {
+        // Aspire publishes Keycloak under one of three keys depending on
+        // the dev-cert / HTTPS-upgrade configuration. Accept any of them.
+        return
+            configuration.GetConnectionString(keycloakResourceName)
+            ?? configuration[$"services:{keycloakResourceName}:http:0"]
+            ?? configuration[$"services:{keycloakResourceName}:https:0"]
+            ?? throw new InvalidOperationException(
+                $"Keycloak base URL not found. Looked for ConnectionStrings:{keycloakResourceName}, " +
+                $"services:{keycloakResourceName}:http:0, services:{keycloakResourceName}:https:0.");
+    }
+
+    private static void AddJwtBearerScheme(IHostApplicationBuilder builder, string authority)
+    {
         builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
             {
@@ -74,7 +97,10 @@ public static class AuthenticationDefaults
                 // directly to build OperatorIdentifier.
                 options.MapInboundClaims = false;
             });
+    }
 
+    private static void AddRevocationHook(IServiceCollection serviceCollection)
+    {
         // Spec 270 (ADR-0160): refuse a token whose client was disabled after
         // it was minted. A separate, DI-aware Configure<JwtBearerOptions,...>
         // rather than wiring this inside AddJwtBearer's own plain
@@ -91,7 +117,7 @@ public static class AuthenticationDefaults
         // HostApplicationBuilder this file's own tests build (no AddLogging()),
         // so requiring it here would fail every one of them at options-resolve
         // time rather than only failing to log.
-        builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+        serviceCollection.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
             .Configure<IRevokedClientRegistry, IServiceProvider>((options, registry, services) =>
             {
                 var logger = services.GetService<ILoggerFactory>()?
@@ -109,29 +135,23 @@ public static class AuthenticationDefaults
                     RefuseIfRevoked(context, registry, logger);
                 };
             });
+    }
 
-        AddMetadataTransportCheck(builder);
-        AddRevocationCheck(builder, keycloakBaseUrl, realm);
-
-        builder.Services.AddSingleton<IFabAuthorizationGuard, DefaultFabAuthorizationGuard>();
+    private static void AddExceptionHandlers(IServiceCollection services)
+    {
         // First: a request the caller got wrong is not a server failure, and
         // saying 500 sends them away to retry something that cannot succeed.
-        builder.Services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
-        builder.Services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
-        builder.Services.AddExceptionHandler<UnattributableOperatorExceptionHandler>();
-        builder.Services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
+        services.AddExceptionHandler<BadHttpRequestExceptionHandler>();
+        services.AddExceptionHandler<FabAuthorizationExceptionHandler>();
+        services.AddExceptionHandler<UnattributableOperatorExceptionHandler>();
+        services.AddExceptionHandler<ConcurrencyConflictExceptionHandler>();
         // After the concurrency handler, and the reason is worth more than the
         // rule: DbUpdateConcurrencyException derives from DbUpdateException, so
         // a handler matching the base type ahead of it would swallow every lost
         // update and report it as a name collision. UniqueConstraintExceptionHandler
         // matches the SQLSTATE instead, so it cannot — this ordering is the
         // second defence, kept because a later edit might widen that match.
-        builder.Services.AddExceptionHandler<UniqueConstraintExceptionHandler>();
-        builder.Services.AddProblemDetails();
-        builder.Services.AddAuthorizationBuilder()
-            .AddScopePolicies(Scope.All);
-
-        return builder;
+        services.AddExceptionHandler<UniqueConstraintExceptionHandler>();
     }
 
     /// <summary>
