@@ -87,7 +87,7 @@ public class BearerAuthenticationRegistrationCharacterisationTests
         "Singleton IRevokedClientRegistry -> factory",
         "Singleton IConfigureOptions<RevocationListOptions> -> instance of ConfigureNamedOptions<RevocationListOptions>",
         "Transient IValidateOptions<RevocationListOptions> -> factory",
-        "Singleton IConfigureOptions<HttpStandardResilienceOptions> -> instance of ConfigureNamedOptions<HttpStandardResilienceOptions>",
+        "Singleton IConfigureOptions<HttpClientFactoryOptions> -> instance of ConfigureNamedOptions<HttpClientFactoryOptions>",
         "Singleton RevocationListTokenProvider -> RevocationListTokenProvider",
         "Transient RevocationListAuthorizationHandler -> RevocationListAuthorizationHandler",
         "Singleton IConfigureOptions<HttpClientFactoryOptions> -> instance of ConfigureNamedOptions<HttpClientFactoryOptions>",
