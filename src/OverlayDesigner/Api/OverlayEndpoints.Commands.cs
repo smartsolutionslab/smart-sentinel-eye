@@ -23,48 +23,50 @@ public static partial class OverlayEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var handler = services.Handler;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        OverlayName name;
-        List<OverlayElement> elements;
-        try
+        if (!BoundaryParse.TryParse(() => ParseCreateOverlay(body), "OVERLAY_INVALID_INPUT", out var input, out var problem))
         {
-            Ensure.That(body.Elements).IsNotNull();
-            name = OverlayName.From(body.Name);
-            elements = [.. body.Elements.Select(OverlayElementParsing.ParseElement)];
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "OVERLAY_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return problem;
         }
 
-        var actingOperator = user.ToOperatorIdentifier();
+        var (name, elements) = input;
+
+        var command = new CreateOverlayDraftCommand(name, elements, user.ToOperatorIdentifier());
 
         return await IdempotentRequest.ExecuteCreateAsync(
-            new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    CreateEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.None,
-                    IdempotencyFingerprint.Of(body))),
-                services.Idempotency,
-                services.Clock),
+            CreateExecution(key, command, body, services),
             identifier => $"/overlays/{identifier}",
-            async token => (await handler.HandleAsync(
-                    new CreateOverlayDraftCommand(name, elements, actingOperator), token)).Match(
+            async token => (await services.Handler.HandleAsync(command, token)).Match(
                 onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
                 onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
             cancellationToken);
     }
+
+    private static (OverlayName Name, List<OverlayElement> Elements) ParseCreateOverlay(CreateOverlayRequest body)
+    {
+        Ensure.That(body.Elements).IsNotNull();
+
+        return (OverlayName.From(body.Name), [.. body.Elements.Select(OverlayElementParsing.ParseElement)]);
+    }
+
+    private static IdempotentExecution CreateExecution(
+        Option<IdempotencyKey> key,
+        CreateOverlayDraftCommand command,
+        CreateOverlayRequest body,
+        CreateOverlayServices services) =>
+        new(
+            key.Map(supplied => IdempotencyScope.For(
+                supplied,
+                CreateEndpoint,
+                command.CreatedBy.Value.ToString(),
+                Option<string>.None,
+                IdempotencyFingerprint.Of(body))),
+            services.Idempotency,
+            services.Clock);
 
     /// <summary>
     /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
@@ -208,21 +210,16 @@ public static partial class OverlayEndpoints
                 detail: "overlayIdentifier must be a non-empty Guid.",
                 statusCode: StatusCodes.Status400BadRequest);
         }
-        OverlayRevisionNumber number;
-        List<OverlayElement> elements;
-        try
+        if (!BoundaryParse.TryParse(
+            () => ParseDraftEdit(revisionNumber, body),
+            "OVERLAY_INVALID_INPUT",
+            out var input,
+            out var problem))
         {
-            Ensure.That(body.Elements).IsNotNull();
-            number = OverlayRevisionNumber.From(revisionNumber);
-            elements = [.. body.Elements.Select(OverlayElementParsing.ParseElement)];
+            return problem;
         }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "OVERLAY_INVALID_INPUT",
-                detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+
+        var (number, elements) = input;
 
         if (!ConcurrencyHeaders.TryReadExpectedVersion(request, out var expectedVersion, out var precondition))
         {
@@ -241,6 +238,15 @@ public static partial class OverlayEndpoints
             onFailure: error => error.ToProblem());
     }
 
+
+    private static (OverlayRevisionNumber Number, List<OverlayElement> Elements) ParseDraftEdit(
+        int revisionNumber,
+        EditDraftRequest body)
+    {
+        Ensure.That(body.Elements).IsNotNull();
+
+        return (OverlayRevisionNumber.From(revisionNumber), [.. body.Elements.Select(OverlayElementParsing.ParseElement)]);
+    }
     private static async Task<IResult> Revert(
         Guid overlayIdentifier,
         int revisionNumber,
