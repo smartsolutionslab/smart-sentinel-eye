@@ -35,6 +35,25 @@ public static partial class RulesEndpoints
             .RequireAuthorization(Scope.Sse.Rules.Write)
             .WithTags("Rules");
 
+        MapCreateRule(group);
+        MapPublishRule(group);
+        MapArchiveRule(group);
+
+        // Reads are a separate group: sse.rules.read, not the write scope
+        // (spec 007 T090).
+        var reads = app.MapGroup("/rules")
+            .RequireAuthorization(Scope.Sse.Rules.Read)
+            .WithTags("Rules");
+
+        MapListRules(reads);
+        MapGetRule(reads);
+        MapDryRunRule(reads);
+
+        return app;
+    }
+
+    private static void MapCreateRule(RouteGroupBuilder group)
+    {
         group.MapPost("/", Create)
             .WithName("CreateRule")
             .WithSummary("Author a rule. Omit fabId when you belong to exactly one fab; name it when you belong to several (ADR-0114). Required scope: sse.rules.write")
@@ -44,7 +63,10 @@ public static partial class RulesEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapPublishRule(RouteGroupBuilder group)
+    {
         group.MapPost("/{name}/publish", Publish)
             .WithName("PublishRule")
             .WithSummary("Publish a rule. Requires If-Match with the rule's current version. Required scope: sse.rules.write")
@@ -55,7 +77,10 @@ public static partial class RulesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+    }
 
+    private static void MapArchiveRule(RouteGroupBuilder group)
+    {
         group.MapPost("/{name}/archive", Archive)
             .WithName("ArchiveRule")
             .WithSummary("Archive a rule. Requires If-Match with the rule's current version. Required scope: sse.rules.write")
@@ -66,13 +91,10 @@ public static partial class RulesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+    }
 
-        // Reads are a separate group: sse.rules.read, not the write scope
-        // (spec 007 T090).
-        var reads = app.MapGroup("/rules")
-            .RequireAuthorization(Scope.Sse.Rules.Read)
-            .WithTags("Rules");
-
+    private static void MapListRules(RouteGroupBuilder reads)
+    {
         reads.MapGet("/", List)
             .WithName("ListRules")
             .WithSummary("List rules in the fabs you are assigned to. Required scope: sse.rules.read")
@@ -80,7 +102,10 @@ public static partial class RulesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapGetRule(RouteGroupBuilder reads)
+    {
         reads.MapGet("/{name}", GetOne)
             .WithName("GetRule")
             .WithSummary("Read one rule by name, within the fabs you are assigned to. Required scope: sse.rules.read")
@@ -89,7 +114,10 @@ public static partial class RulesEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+    }
 
+    private static void MapDryRunRule(RouteGroupBuilder reads)
+    {
         // Dry-run is a POST because it carries a sample-event body, but it is
         // a read: nothing is persisted and no integration event is published,
         // so it sits behind the read scope.
@@ -103,8 +131,6 @@ public static partial class RulesEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
-
-        return app;
     }
 
     /// <summary>
@@ -146,16 +172,13 @@ public static partial class RulesEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var fabGuard = services.FabGuard;
-        var handler = services.Handler;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
         var fabResolution =
-            await ResolveWriteFabAsync(user, fabId, fabGuard, cancellationToken);
+            await ResolveWriteFabAsync(user, fabId, services.FabGuard, cancellationToken);
         if (fabResolution.IsFailure)
         {
             return fabResolution.Error;
@@ -163,49 +186,56 @@ public static partial class RulesEndpoints
 
         var fab = fabResolution.Value;
 
-        RuleName name;
-        RulePredicate predicate;
-        RuleAction action;
-        TriggerSource triggerSource;
-        TriggerKind triggerKind;
-        try
+        if (!BoundaryParse.TryParse(() => ParseRule(body), "RULE_INVALID_INPUT", out var parsed, out var invalid))
         {
-            name = RuleName.From(body.Name);
-            predicate = RulePredicate.From(body.Predicate);
-            action = BuildAction(body);
-            triggerSource = TriggerSource.From(body.TriggerSource);
-            triggerKind = TriggerKind.From(body.TriggerKind);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "RULE_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return invalid;
         }
 
+        var (name, predicate, action, triggerSource, triggerKind) = parsed;
         var actingOperator = user.ToOperatorIdentifier();
+        var createRuleCommand = new CreateRuleCommand(fab, name, triggerSource, triggerKind, predicate, action, actingOperator);
 
         // The location names the rule rather than its identifier, so the helper's
         // identifier argument is unused here — the route is stable across a replay
         // either way.
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    CreateEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
+                CreateScope(key, actingOperator, fab, body),
                 services.Idempotency,
                 services.Clock),
             _ => $"/rules/{name.Value}",
-            async token => (await handler.HandleAsync(
-                    new CreateRuleCommand(fab, name, triggerSource, triggerKind, predicate, action, actingOperator),
-                    token)).Match(
-                onSuccess: id => Result<Guid, IResult>.Success(id.Value),
-                onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem())),
+            token => CreateAsync(services.Handler, createRuleCommand, token),
             cancellationToken);
     }
+
+    private static (RuleName Name, RulePredicate Predicate, RuleAction Action, TriggerSource TriggerSource, TriggerKind TriggerKind) ParseRule(
+        CreateRuleRequest body) =>
+        (
+            RuleName.From(body.Name),
+            RulePredicate.From(body.Predicate),
+            BuildAction(body),
+            TriggerSource.From(body.TriggerSource),
+            TriggerKind.From(body.TriggerKind));
+
+    private static Option<IdempotencyScope> CreateScope(
+        Option<IdempotencyKey> key,
+        OperatorIdentifier actingOperator,
+        FabIdentifier fab,
+        CreateRuleRequest body) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            CreateEndpoint,
+            actingOperator.Value.ToString(),
+            Option<string>.Some(fab.Value),
+            IdempotencyFingerprint.Of(body)));
+
+    private static async Task<Result<Guid, IResult>> CreateAsync(
+        CreateRuleCommandHandler handler,
+        CreateRuleCommand command,
+        CancellationToken cancellationToken) =>
+        (await handler.HandleAsync(command, cancellationToken)).Match(
+            onSuccess: id => Result<Guid, IResult>.Success(id.Value),
+            onFailure: error => Result<Guid, IResult>.Failure(error.ToProblem()));
 
     /// <summary>
     /// Bundled with <c>[AsParameters]</c> so the handler keeps a readable
