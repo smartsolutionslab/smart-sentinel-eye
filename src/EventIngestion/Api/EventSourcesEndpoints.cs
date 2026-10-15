@@ -43,6 +43,16 @@ public static class EventSourcesEndpoints
         // plan.md §5, as EndpointScopeDeclarationTests requires.
         var group = app.MapGroup("/event-sources").WithTags("EventIngestion");
 
+        MapDeclareSourceMode(group);
+        MapListSourceModes(group);
+        MapChangeSourceMode(group);
+        MapUndeclareSourceMode(group);
+
+        return app;
+    }
+
+    private static void MapDeclareSourceMode(RouteGroupBuilder group)
+    {
         group.MapPost("/", Declare)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
             .WithSummary(
@@ -57,7 +67,10 @@ public static class EventSourcesEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapListSourceModes(RouteGroupBuilder group)
+    {
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Events.Read)
             .WithSummary(
@@ -69,7 +82,10 @@ public static class EventSourcesEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapChangeSourceMode(RouteGroupBuilder group)
+    {
         group.MapPut("/{source}/mode", Change)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
             .WithSummary(
@@ -82,7 +98,10 @@ public static class EventSourcesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+    }
 
+    private static void MapUndeclareSourceMode(RouteGroupBuilder group)
+    {
         group.MapDelete("/{source}", Undeclare)
             .RequireAuthorization(Scope.Sse.Events.TypesWrite)
             .WithSummary(
@@ -97,8 +116,6 @@ public static class EventSourcesEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
-
-        return app;
     }
 
     private static async Task<IResult> Declare(
@@ -111,19 +128,16 @@ public static class EventSourcesEndpoints
     {
         Ensure.That(body).IsNotNull();
 
-        Source source;
-        EventTypeMode mode;
-        try
+        if (!BoundaryParse.TryParse(
+            () => (Source.From(body.Source), EventTypeMode.From(body.Mode)),
+            "SOURCE_MODE_INVALID_INPUT",
+            out var parsed,
+            out var invalid))
         {
-            source = Source.From(body.Source);
-            mode = EventTypeMode.From(body.Mode);
+            return invalid;
         }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "SOURCE_MODE_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
-        }
+
+        var (source, mode) = parsed;
 
         if (!IdempotencyHeaders.TryRead(request, out var key, out var keyProblem))
         {
@@ -138,23 +152,29 @@ public static class EventSourcesEndpoints
             return fabResolution.Error;
         }
 
-        var fab = fabResolution.Value;
         var declaredBy = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteCreateAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    DeclareEndpoint,
-                    declaredBy.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
+                DeclareScope(key, declaredBy, fabResolution.Value, body),
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-sources/{source.Value}",
-            token => DeclareAsync(services.Handler, fab, source, mode, declaredBy, token),
+            token => DeclareAsync(services.Handler, fabResolution.Value, source, mode, declaredBy, token),
             cancellationToken);
     }
+
+    private static Option<IdempotencyScope> DeclareScope(
+        Option<IdempotencyKey> key,
+        OperatorIdentifier declaredBy,
+        FabIdentifier fab,
+        DeclareSourceModeRequest body) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            DeclareEndpoint,
+            declaredBy.Value.ToString(),
+            Option<string>.Some(fab.Value),
+            IdempotencyFingerprint.Of(body)));
 
     private static async Task<Result<Guid, IResult>> DeclareAsync(
         DeclareSourceModeCommandHandler handler,
@@ -248,15 +268,16 @@ public static class EventSourcesEndpoints
         }
 
         var changedBy = user.ToOperatorIdentifier();
+        var changeSourceModeCommand =
+            new ChangeSourceModeCommand(fabResolution.Value, parsedSource, parsedMode, expectedVersion, changedBy);
 
-        var result = await handler.HandleAsync(
-            new ChangeSourceModeCommand(fabResolution.Value, parsedSource, parsedMode, expectedVersion, changedBy),
-            cancellationToken);
+        return ChangeOutcome(await handler.HandleAsync(changeSourceModeCommand, cancellationToken));
+    }
 
-        return result.Match<IResult>(
+    private static IResult ChangeOutcome(Result<SourceModeIdentifier, ChangeSourceModeError> result) =>
+        result.Match<IResult>(
             onSuccess: identifier => Results.Ok(identifier.Value),
             onFailure: error => error.ToProblem());
-    }
 
     /// <summary>
     /// Returns a declared pair to undeclared (spec 317, #2325, FR-013, US4) —
