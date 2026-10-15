@@ -11,8 +11,8 @@ internal sealed record HandlerDeconstructionScan(
 internal static class HandlerDeconstructionScanner
 {
     private static readonly Regex HandlerSignature = new(
-        @"public\s+async\s+Task[^(\n]*?\s(?:Handle|HandleAsync)\s*\(\s*"
-        + @"([A-Za-z0-9_]+)\s+(\w+)\s*,",
+        @"public\s+(?:static\s+)?(?:async\s+)?(?:Task|ValueTask)\b[^(\n]*?\s(?:Handle|HandleAsync)\s*\(\s*"
+        + @"([A-Za-z0-9_]+)\s+(\w+)\s*[,)]",
         RegexOptions.Singleline | RegexOptions.Compiled);
 
     private static readonly Regex Deconstruction = new(
@@ -274,8 +274,26 @@ internal static class HandlerDeconstructionScanner
 
     private static string? BodyAfter(string text, int signatureIndex)
     {
-        var open = text.IndexOf('{', signatureIndex);
-        return open < 0 ? null : Balanced(text, open, '{', '}');
+        // The parameter list opens at the first '(' after the signature start: the
+        // signature pattern forbids '(' in the return type. Only a '{' straight
+        // after its ')' opens this method's body; an expression body or a bodiless
+        // declaration must not borrow the next member's.
+        var open = text.IndexOf('(', signatureIndex);
+        var parameters = Balanced(text, open, '(', ')');
+        if (parameters is null)
+        {
+            return null;
+        }
+
+        var afterList = open + parameters.Length + 2;
+        while (afterList < text.Length && char.IsWhiteSpace(text[afterList]))
+        {
+            afterList++;
+        }
+
+        return afterList < text.Length && text[afterList] == '{'
+            ? Balanced(text, afterList, '{', '}')
+            : null;
     }
 
     /// <summary>Contents between <paramref name="openIndex"/> and its match.</summary>
