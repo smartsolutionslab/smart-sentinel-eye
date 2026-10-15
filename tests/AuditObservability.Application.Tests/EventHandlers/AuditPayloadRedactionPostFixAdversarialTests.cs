@@ -106,6 +106,27 @@ public class AuditPayloadRedactionPostFixAdversarialTests
         }
     }
 
+    [Theory]
+    [InlineData("[1,2]")]
+    [InlineData("\"text\"")]
+    [InlineData("")]
+    [InlineData("{} ")]
+    public void A_serialisation_that_does_not_end_in_a_closing_brace_is_refused_without_echoing_it(string json)
+    {
+        var thrown = Should.Throw<InvalidOperationException>(
+            () => AuditPayloadRedaction.AppendMember(typeof(CameraRegisteredV1), json, "\"DetailChanged\":true"));
+
+        thrown.Message.ShouldContain(nameof(CameraRegisteredV1));
+        thrown.Message.ShouldNotContain(json.Length == 0 ? "\u0001" : json);
+    }
+
+    [Fact]
+    public void A_serialisation_that_ends_in_a_closing_brace_gets_the_member_appended()
+    {
+        AuditPayloadRedaction.AppendMember(typeof(CameraRegisteredV1), "{\"A\":1}", "\"B\":2")
+            .ShouldBe("{\"A\":1,\"B\":2}");
+    }
+
     private static object[] ConstructorArguments(Type type, IReadOnlyList<string> fields) =>
         [.. type.GetConstructors().Single().GetParameters().Select(parameter => (object)(parameter.ParameterType switch
         {
