@@ -78,6 +78,17 @@ public static class IdempotencyHeaders
             return false;
         }
 
+        return TryParse(raw, out key, out problem);
+    }
+
+    private static bool TryParse(
+        string raw,
+        out Option<IdempotencyKey> key,
+        [NotNullWhen(false)] out IResult? problem)
+    {
+        key = Option<IdempotencyKey>.None;
+        problem = null;
+
         // Spelled out rather than routed through BoundaryParse.TryParse. That
         // helper is generic and unconstrained, so its MaybeNullWhen(false) does
         // not narrow the out parameter for a reference type — the call site
