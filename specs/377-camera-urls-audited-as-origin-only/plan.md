@@ -55,16 +55,20 @@ Shape (names indicative; the engineer mirrors `FabNeutralEvents` / `V1ResourceMa
   `CameraRegisteredV1 → [nameof(Url)]`, `CameraAddressChangedV1 → [nameof(PreviousUrl), nameof(Url)]`.
 - `public static string Serialize(IIntegrationEvent message)`:
   1. `Ensure.That(message).IsNotNull()`.
-  2. Type not in `UrlFields` → return `JsonSerializer.Serialize(message, message.GetType())`
-     **unchanged** (FR-006; no `JsonNode` round-trip, so number/escape formatting of the other 22
-     types cannot drift).
-  3. Otherwise `JsonSerializer.SerializeToNode(message, message.GetType())` as a `JsonObject`; for
-     each registered name, read the node: absent → **throw** `InvalidOperationException` (fail
-     closed: Wolverine retries then dead-letters; no unredacted row is written); JSON `null` → leave;
-     string → replace with `UrlRedaction.ToOrigin(value)`.
-  4. For `CameraAddressChangedV1` only, append `DetailChanged` per spec FR-003, computed from the
-     **typed message's** raw values (not from the node after replacement).
-  5. Return `node.ToJsonString()` with default options (the same encoder the old path used).
+  2. Type not in the register → return `JsonSerializer.Serialize(message, message.GetType())`
+     **unchanged** (FR-006; byte-identical, so number/escape formatting of the other 22 types
+     cannot drift).
+  3. Otherwise apply the registered redactor: a `with` copy of the record whose registered fields are
+     replaced by `UrlRedaction.ToOrigin(value)` (null stays null). The register and the redactor are
+     one table, so a field cannot be listed without being redacted. Each delivery then checks the
+     copy by reflection: a registered field that is absent, not a string, or not equal to the origin
+     of the original **throws** `InvalidOperationException` naming the type and field, never the
+     value (fail closed: Wolverine retries then dead-letters; no unredacted row is written).
+  4. Serialise the copy normally (`JsonSerializer.Serialize(copy, type)`). A `JsonNode`
+     round-trip is **not** used: it rewrites every `DateTimeOffset` `+` as `002B` and so changes
+     the bytes and `PayloadSizeBytes` of a payload that needed no redaction.
+  5. For `CameraAddressChangedV1` only, append `,"DetailChanged":<bool>}` to the serialised text per
+     spec FR-003, computed from the **typed original's** raw values.
 - Property names in the payload stay PascalCase (default `JsonSerializer` options; existing queries
   use `payload->>'Camera'`, `payload->>'Url'`). `DetailChanged` follows the same casing.
 
@@ -98,7 +102,7 @@ No new domain type. Invariants this plan relies on, all existing:
 
 - `StoredPayload.From(content)` derives size from content: the size of a redacted payload is the
   redacted size, by construction.
-- `AuditPayload` refuses empty: `ToJsonString` of an object is never empty.
+- `AuditPayload` refuses empty: the serialised text of an object is never empty.
 - `UrlRedaction.ToOrigin` is total over non-null input (placeholder for anything unparseable) and
   idempotent on its own output.
 
@@ -184,7 +188,7 @@ Userinfo `rtsp://user:SECRET@cam/x`; path `rtsp://cam/SECRET/x`; query; fragment
 query without path `rtsp://cam?SECRET`; percent-encoded marker; backslash `rtsp://cam\SECRET`;
 `@` in path `rtsp://cam/x@SECRET`; uppercase scheme; IPv6 `rtsp://[fd00::5]:554/SECRET`; unicode host
 `rtsp://kämera.example/SECRET` (assert no marker, whatever the host form); 2048- and 70000-character
-URLs (the latter beyond `Uri`'s limit → placeholder, no throw); whitespace-padded URL; null on either
+URLs (on .NET 10 `Uri` parses the latter, so `ToOrigin` returns `rtsp://cam`, not the placeholder; no throw); whitespace-padded URL; null on either
 field of the address change; both fields unparseable but different (`DetailChanged == true` by the
 rule; confirm it leaks nothing but the bit).
 
@@ -204,7 +208,7 @@ dotnet build -c Release   # analyzers as errors
   written for that delivery (retried, then dead-lettered with its full body). Chosen deliberately: a
   missing row is visible in the dead-letter queue; an unredacted row is the defect being fixed. With
   `nameof` and default serializer options the branch is unreachable today.
-- **Payload drift for other types** is prevented by not routing them through `JsonNode` (§2.1 step 2)
+- **Payload drift for other types** is prevented by not touching their serialisation (§2.1 step 2)
   and pinned by the characterisation tests.
 - **Code metrics** (ADR-0084, advisory): `Serialize` stays under 30 LOC by splitting the
   `DetailChanged` computation into its own method.
