@@ -18,6 +18,22 @@ public static partial class EventsEndpoints
 
         var writes = app.MapGroup("/events").WithTags("Events");
 
+        MapIngestManualEvent(writes);
+        MapIngestWebhookEvent(writes);
+
+        var reads = app.MapGroup("/events")
+            .RequireAuthorization(Scope.Sse.Events.Read)
+            .WithTags("EventsRead");
+
+        MapListEvents(reads);
+        MapGetEvent(reads);
+        MapListDeadLetters(reads);
+
+        return app;
+    }
+
+    private static void MapIngestManualEvent(RouteGroupBuilder writes)
+    {
         // 403 became reachable with spec 018: the caller may name a fab they do
         // not hold, or hold none at all. 400 was already declared but now
         // covers a second cause — a multi-fab operator omitting fabId. Spec 013
@@ -55,7 +71,10 @@ public static partial class EventsEndpoints
             // Spec 302 (#2424/#2492): a key already bound to a different
             // manual event is refused rather than replayed.
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapIngestWebhookEvent(RouteGroupBuilder writes)
+    {
         writes.MapPost("/webhook/{integrationName}", IngestWebhook)
             .AllowAnonymous() // auth is the static bearer token, not OIDC
             .WithName("IngestWebhookEvent")
@@ -74,11 +93,10 @@ public static partial class EventsEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
             .ProducesProblem(StatusCodes.Status503ServiceUnavailable);
+    }
 
-        var reads = app.MapGroup("/events")
-            .RequireAuthorization(Scope.Sse.Events.Read)
-            .WithTags("EventsRead");
-
+    private static void MapListEvents(RouteGroupBuilder reads)
+    {
         reads.MapGet("/", ListEvents)
             .WithName("ListEvents")
             .WithSummary("List events from the fabs you hold. Required scope: sse.events.read")
@@ -86,7 +104,10 @@ public static partial class EventsEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapGetEvent(RouteGroupBuilder reads)
+    {
         reads.MapGet("/{eventId:guid}", GetEvent)
             .WithName("GetEvent")
             .WithSummary("Read one event by its identifier, within the fabs you hold. Required scope: sse.events.read")
@@ -95,7 +116,10 @@ public static partial class EventsEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapListDeadLetters(RouteGroupBuilder reads)
+    {
         reads.MapGet("/dead-letters", ListDeadLetters)
             .WithName("ListDeadLetters")
             .WithSummary(
@@ -108,7 +132,5 @@ public static partial class EventsEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
     }
 }
