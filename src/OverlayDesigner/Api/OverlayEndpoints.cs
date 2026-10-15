@@ -30,6 +30,20 @@ public static partial class OverlayEndpoints
         // the whole of it here. Unlike the contexts whose declarations cite fab
         // resolution, OverlayDesigner runs no fab guard, so nothing else in this
         // file can answer 403.
+        MapCreateOverlayDraft(group);
+        MapGetOverlay(group);
+        MapListOverlays(group);
+        MapPublishOverlayRevision(group);
+        MapArchiveOverlayRevision(group);
+        MapBranchDraftOverlayRevision(group);
+        MapEditDraftOverlayRevision(group);
+        MapRevertOverlayRevision(group);
+
+        return app;
+    }
+
+    private static void MapCreateOverlayDraft(RouteGroupBuilder group)
+    {
         group.MapPost("/", CreateDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("CreateOverlayDraft")
@@ -42,7 +56,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapGetOverlay(RouteGroupBuilder group)
+    {
         group.MapGet("/{overlayIdentifier:guid}", GetOne)
             .RequireAuthorization(Scope.Sse.Overlays.Read)
             .WithName("GetOverlay")
@@ -52,7 +69,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapListOverlays(RouteGroupBuilder group)
+    {
         group.MapGet("/", List)
             .RequireAuthorization(Scope.Sse.Overlays.Read)
             .WithName("ListOverlays")
@@ -61,7 +81,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapPublishOverlayRevision(RouteGroupBuilder group)
+    {
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/publish", Publish)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("PublishOverlayRevision")
@@ -75,7 +98,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapArchiveOverlayRevision(RouteGroupBuilder group)
+    {
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("ArchiveOverlayRevision")
@@ -87,7 +113,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapBranchDraftOverlayRevision(RouteGroupBuilder group)
+    {
         group.MapPost("/{overlayIdentifier:guid}/draft", BranchDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("BranchDraftOverlayRevision")
@@ -101,7 +130,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapEditDraftOverlayRevision(RouteGroupBuilder group)
+    {
         group.MapPatch("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}", EditDraft)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("EditDraftOverlayRevision")
@@ -115,7 +147,10 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapRevertOverlayRevision(RouteGroupBuilder group)
+    {
         group.MapPost("/{overlayIdentifier:guid}/revisions/{revisionNumber:int}/revert", Revert)
             .RequireAuthorization(Scope.Sse.Overlays.Write)
             .WithName("RevertOverlayRevision")
@@ -129,8 +164,6 @@ public static partial class OverlayEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
     }
 }
 
