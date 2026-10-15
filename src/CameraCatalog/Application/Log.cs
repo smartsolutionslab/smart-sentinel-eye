@@ -29,7 +29,7 @@ internal static partial class Log
     public static partial void RejectedCameraAddressChangeStaleVersion(this ILogger logger, CameraIdentifier camera, int expected, int actual);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Changed camera {Camera} address to {Url}.")]
-    public static partial void ChangedCameraAddress(this ILogger logger, CameraIdentifier camera, RtspUrl url);
+    public static partial void ChangedCameraAddress(this ILogger logger, CameraIdentifier camera, string url);
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Rejected rename for camera {Camera}: not found in the caller's fab.")]
     public static partial void RejectedCameraRenameNotFound(this ILogger logger, CameraIdentifier camera);

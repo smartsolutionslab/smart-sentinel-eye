@@ -48,7 +48,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         }
 
         response.EnsureSuccessStatusCode();
-        logger.RegisteredMediaMtxPath(path, rtspSourceUrl);
+        logger.RegisteredMediaMtxPath(path, UrlRedaction.ToOrigin(rtspSourceUrl));
     }
 
     public async Task RepointPathAsync(MediaMtxPath path, string rtspSourceUrl, CancellationToken cancellationToken)
@@ -64,7 +64,7 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
             .PatchAsJsonAsync($"/v3/config/paths/patch/{path.Value}", new { source = rtspSourceUrl }, cancellationToken);
 
         response.EnsureSuccessStatusCode();
-        logger.RepointedMediaMtxPath(path, rtspSourceUrl);
+        logger.RepointedMediaMtxPath(path, UrlRedaction.ToOrigin(rtspSourceUrl));
     }
 
     public async Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)

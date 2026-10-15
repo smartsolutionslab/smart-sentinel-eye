@@ -61,7 +61,7 @@ public sealed class ChangeCameraAddressCommandHandler(
         // announces nothing while the request still succeeds.
         await cameras.SaveAsync(cancellationToken);
 
-        logger.ChangedCameraAddress(changing.Id, changing.Url);
+        logger.ChangedCameraAddress(changing.Id, UrlRedaction.ToOrigin(changing.Url.Value));
 
         return Success(changing.Id);
     }
