@@ -65,7 +65,7 @@ Shape (names indicative; the engineer mirrors `FabNeutralEvents` / `V1ResourceMa
      of the original **throws** `InvalidOperationException` naming the type and field, never the
      value (fail closed: Wolverine retries then dead-letters; no unredacted row is written).
   4. Serialise the copy normally (`JsonSerializer.Serialize(copy, type)`). A `JsonNode`
-     round-trip is **not** used: it rewrites every `DateTimeOffset` `+` as `002B` and so changes
+     round-trip is **not** used: it rewrites every `DateTimeOffset` `+` as `+` and so changes
      the bytes and `PayloadSizeBytes` of a payload that needed no redaction.
   5. For `CameraAddressChangedV1` only, append `,"DetailChanged":<bool>}` to the serialised text per
      spec FR-003, computed from the **typed original's** raw values.
