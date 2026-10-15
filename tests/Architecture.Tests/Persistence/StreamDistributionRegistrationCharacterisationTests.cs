@@ -28,9 +28,9 @@ namespace SmartSentinelEye.Architecture.Tests.Persistence;
 /// plumbing is left out, as is any total count: both move with package bumps and
 /// say nothing about this module. A factory renders as <c>factory</c>, never as
 /// its compiler-generated name, which moves when the lambda moves to another
-/// method. Two named <see cref="HttpStandardResilienceOptions"/> configurations
-/// are pinned separately: they are the ADR-0143 opt-ins that let a retried
-/// MediaMTX <c>add/</c>/<c>patch/</c> and the camera-catalog token mint be
+/// method. Two clients are pinned separately by walking their handler chain for
+/// the <c>RetryEveryMethod()</c> marker: they are the ADR-0143 opt-ins that let a
+/// retried MediaMTX <c>add/</c>/<c>patch/</c> and the camera-catalog token mint be
 /// repeated.
 /// </para>
 ///
@@ -194,17 +194,17 @@ public class StreamDistributionRegistrationCharacterisationTests
     [Fact]
     public void The_mediamtx_gateway_client_opts_back_in_to_retrying_every_method()
     {
-        var retryPolicies = NamedStandardResilienceConfigurations();
+        using var provider = PostgresComposition.Compose("stream-distribution");
 
-        retryPolicies.Count(name => name == "IRtspGateway-standard").ShouldBe(1);
+        RetryEveryMethodMarkerChain.Carries(provider, "IRtspGateway").ShouldBeTrue();
     }
 
     [Fact]
     public void The_camera_catalog_token_client_opts_back_in_to_retrying_every_method()
     {
-        var retryPolicies = NamedStandardResilienceConfigurations();
+        using var provider = PostgresComposition.Compose("stream-distribution");
 
-        retryPolicies.Count(name => name == "stream-distribution-attribution-token-standard").ShouldBe(1);
+        RetryEveryMethodMarkerChain.Carries(provider, "stream-distribution-attribution-token").ShouldBeTrue();
     }
 
     [Fact]
@@ -246,13 +246,4 @@ public class StreamDistributionRegistrationCharacterisationTests
         client.DefaultRequestHeaders.Authorization.Scheme.ShouldBe("Basic");
         client.DefaultRequestHeaders.Authorization.Parameter.ShouldBe("c3RyZWFtLWRpc3RyaWJ1dGlvbjpmYWtlLXNlY3JldC0x");
     }
-
-    private static string?[] NamedStandardResilienceConfigurations() =>
-        [
-            .. CaptureComposedRegistrations()
-                .Where(descriptor => descriptor.ServiceType == typeof(IConfigureOptions<HttpStandardResilienceOptions>))
-                .Select(descriptor => descriptor.ImplementationInstance)
-                .OfType<ConfigureNamedOptions<HttpStandardResilienceOptions>>()
-                .Select(configure => configure.Name),
-        ];
 }
