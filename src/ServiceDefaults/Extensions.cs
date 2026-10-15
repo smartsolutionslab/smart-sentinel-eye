@@ -48,7 +48,13 @@ public static class Extensions
             // GET — and a POST whose response was lost is indistinguishable from
             // one that never arrived, which is how a caller came to be told its
             // own successful registration was a conflict (#2039).
-            http.AddStandardResilienceHandler(IdempotentRetry.RetryIdempotentMethodsOnly);
+            //
+            // One pipeline instance per upstream authority, so a breaker opened by
+            // one upstream does not refuse calls to another; clients of the same
+            // authority share it on purpose. Keys never evict: no client with a
+            // caller-supplied authority belongs under these defaults.
+            http.AddStandardResilienceHandler(IdempotentRetry.RetryIdempotentMethodsOnly)
+                .SelectPipelineByUpstreamAuthority();
 
             // Turn on service discovery by default
             http.AddServiceDiscovery();

@@ -29,7 +29,8 @@ namespace SmartSentinelEye.ServiceDefaults.Resilience;
 /// <para>
 /// <b>Timeouts and the circuit breaker are untouched.</b> Only the retry
 /// predicate narrows, so a <c>POST</c> still gets its per-attempt timeout, its
-/// total budget, and its share of the breaker — it simply gets one attempt.
+/// total budget, and its share of the breaker (one per upstream authority) — it
+/// simply gets one attempt.
 /// </para>
 /// </summary>
 public static class IdempotentRetry
