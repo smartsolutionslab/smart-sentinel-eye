@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Http.Resilience;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ServiceDefaults.Resilience;
 
@@ -48,6 +49,8 @@ internal static class UpstreamAuthority
 {
     internal static string KeyOf(HttpRequestMessage request)
     {
+        Ensure.That(request).IsNotNull();
+
         var uri = request.RequestUri;
 
         // A request with no absolute URI has no authority to select by; it
@@ -58,6 +61,10 @@ internal static class UpstreamAuthority
     }
 
     internal static IHttpStandardResiliencePipelineBuilder SelectPipelineByUpstreamAuthority(
-        this IHttpStandardResiliencePipelineBuilder builder) =>
-        builder.SelectPipelineBy(_ => KeyOf);
+        this IHttpStandardResiliencePipelineBuilder builder)
+    {
+        Ensure.That(builder).IsNotNull();
+
+        return builder.SelectPipelineBy(_ => KeyOf);
+    }
 }
