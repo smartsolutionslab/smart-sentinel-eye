@@ -35,6 +35,20 @@ public static class KiosksEndpoints
         // guard against the required ?fabId= (spec 180 US1), scoped into
         // GetWithinFabAsync's predicate so a fab the caller genuinely holds but
         // that does not own the target answers 404, not 403 (#2240).
+        MapEnrollKiosk(group);
+        MapDisableKiosk(group);
+
+        var reads = app.MapGroup("/kiosks")
+            .RequireAuthorization(Scope.Sse.Identity.KioskClients.Read)
+            .WithTags("IdentityKiosks");
+
+        MapListKiosks(reads);
+
+        return app;
+    }
+
+    private static void MapEnrollKiosk(RouteGroupBuilder group)
+    {
         group.MapPost("/enroll", Enroll)
             .WithName("EnrollKiosk")
             .WithSummary("Enroll a new kiosk in the fab. Required scope: sse.identity.kiosks.write")
@@ -44,7 +58,10 @@ public static class KiosksEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapDisableKiosk(RouteGroupBuilder group)
+    {
         // 409 because DisableKioskCommandHandler loads a client that already
         // exists, mutates it and saves — the lost update ADR-0113 Layer 2
         // answers as AGGREGATE_VERSION_STALE.
@@ -57,11 +74,10 @@ public static class KiosksEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+    }
 
-        var reads = app.MapGroup("/kiosks")
-            .RequireAuthorization(Scope.Sse.Identity.KioskClients.Read)
-            .WithTags("IdentityKiosks");
-
+    private static void MapListKiosks(RouteGroupBuilder reads)
+    {
         reads.MapGet("/", List)
             .WithName("ListKiosks")
             .WithSummary("List enrolled kiosks in your fabs. Omit fabId to span all of them; name one to narrow. Required scope: sse.identity.kiosks.read")
@@ -69,8 +85,6 @@ public static class KiosksEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
     }
 
     private static async Task<IResult> List(
@@ -109,43 +123,28 @@ public static class KiosksEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(http).IsNotNull();
 
-        var fabGuard = services.FabGuard;
-        var handler = services.Handler;
-
         if (!IdempotencyHeaders.TryRead(http.Request, out var key, out var keyProblem))
         {
             return keyProblem;
         }
 
-        FabIdentifier fab;
-        try
+        if (!BoundaryParse.TryParse(() => FabIdentifier.From(fabId), "KIOSK_INVALID_INPUT", out var fab, out var invalid))
         {
-            fab = FabIdentifier.From(fabId);
-        }
-        catch (ArgumentException ex)
-        {
-            return Results.Problem(
-                title: "KIOSK_INVALID_INPUT", detail: ex.Message,
-                statusCode: StatusCodes.Status400BadRequest);
+            return invalid;
         }
 
-        await fabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
+        await services.FabGuard.EnsureAccessAsync(user, fab.Value, cancellationToken);
 
         var actingOperator = user.ToOperatorIdentifier();
 
         return await IdempotentRequest.ExecuteAsync(
             new IdempotentExecution(
-                key.Map(supplied => IdempotencyScope.For(
-                    supplied,
-                    EnrollEndpoint,
-                    actingOperator.Value.ToString(),
-                    Option<string>.Some(fab.Value),
-                    IdempotencyFingerprint.Of(body))),
+                EnrollScope(key, actingOperator, fab, body),
                 services.Idempotency,
                 services.Clock),
             async token =>
             {
-                var result = await handler.HandleAsync(
+                var result = await services.Handler.HandleAsync(
                     new EnrollKioskCommand(body.Name, fab, actingOperator), token);
 
                 return result.Match(
@@ -153,25 +152,42 @@ public static class KiosksEndpoints
                         dto.RegisteredClientIdentifier, Results.Created($"/kiosks/{dto.ClientId}", dto)),
                     onFailure: error => IdempotentOutcome.NothingCreated(error.ToProblem()));
             },
-            async (enrolled, token) =>
-            {
-                var replayed =
-                    await services.Replay.HandleAsync(
-                        new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(enrolled)), token);
-
-                // Every field of a kiosk's answer is server-held, so unlike the
-                // device endpoint this one needs nothing from the replayed body.
-                return replayed.Match<IResult>(
-                    onSuccess: replay => Results.Created(
-                        $"/kiosks/{replay.ClientId}",
-                        new KioskCredentialsDto(
-                            replay.RegisteredClientIdentifier,
-                            replay.ClientId,
-                            replay.Fab,
-                            replay.ClientSecret)),
-                    onFailure: error => error.ToProblem());
-            },
+            (enrolled, token) => ReplayKioskAsync(enrolled, services.Replay, token),
             cancellationToken);
+    }
+
+    private static Option<IdempotencyScope> EnrollScope(
+        Option<IdempotencyKey> key,
+        OperatorIdentifier actingOperator,
+        FabIdentifier fab,
+        EnrollKioskRequest body) =>
+        key.Map(supplied => IdempotencyScope.For(
+            supplied,
+            EnrollEndpoint,
+            actingOperator.Value.ToString(),
+            Option<string>.Some(fab.Value),
+            IdempotencyFingerprint.Of(body)));
+
+    private static async Task<IResult> ReplayKioskAsync(
+        Guid enrolled,
+        ReplayRegisteredClientQueryHandler replay,
+        CancellationToken cancellationToken)
+    {
+        var replayed =
+            await replay.HandleAsync(
+                new ReplayRegisteredClientQuery(RegisteredClientIdentifier.From(enrolled)), cancellationToken);
+
+        // Every field of a kiosk's answer is server-held, so unlike the
+        // device endpoint this one needs nothing from the replayed body.
+        return replayed.Match<IResult>(
+            onSuccess: registered => Results.Created(
+                $"/kiosks/{registered.ClientId}",
+                new KioskCredentialsDto(
+                    registered.RegisteredClientIdentifier,
+                    registered.ClientId,
+                    registered.Fab,
+                    registered.ClientSecret)),
+            onFailure: error => error.ToProblem());
     }
 
     /// <summary>
