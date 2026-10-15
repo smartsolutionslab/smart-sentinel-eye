@@ -167,6 +167,34 @@ internal sealed class EventIngestionEndpointHost : IAsyncDisposable
     private static readonly System.Text.Json.JsonSerializerOptions Relaxed =
         new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
+    /// <summary>Registers an Alarm-defaulting integration the lookup will find, and returns its plaintext token.</summary>
+    public string Integration(string name, string fab, out WebhookIntegration integration)
+    {
+        var (created, token) = WebhookIntegration.Register(
+            WebhookIntegrationName.From(name),
+            FabIdentifier.From(fab),
+            Kind.From("Alarm"),
+            Clock.Object);
+        Integrations
+            .Setup(integrations => integrations.GetByNameAsync(WebhookIntegrationName.From(name), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Option<WebhookIntegration>.Some(created));
+        integration = created;
+
+        return token;
+    }
+
+    /// <summary>Makes the JWT mode authenticate the bearer as <paramref name="principal"/>.</summary>
+    public void Authenticated(ClaimsPrincipal principal) =>
+        Authentication
+            .Setup(authentication => authentication.AuthenticateAsync(It.IsAny<HttpContext>(), "Bearer"))
+            .ReturnsAsync(AuthenticateResult.Success(new AuthenticationTicket(principal, "Bearer")));
+
+    /// <summary>Makes <paramref name="fab"/> report that it has no event storage yet.</summary>
+    public void NotProvisioned(string fab) =>
+        Storage
+            .Setup(storage => storage.IsReadyAsync(FabIdentifier.From(fab), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
     /// <summary>The one scope the idempotency store was asked to reserve.</summary>
     public IdempotencyScope BegunScope() =>
         IdempotencyStore.Invocations
