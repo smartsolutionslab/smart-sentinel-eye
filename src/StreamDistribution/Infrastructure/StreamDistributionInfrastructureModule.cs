@@ -287,6 +287,14 @@ public static class StreamDistributionInfrastructureModule
         // itself.
         builder.Services.AddTransient<CameraCatalogAuthorizationHandler>();
 
+        // Nested mint: this handler mints a token through an opted-in client from inside
+        // each attempt of this client's pipeline, so in a Keycloak outage one call can drive
+        // several mints (about 9 token POSTs per call, measured on #2959). A failed mint counts
+        // against THIS upstream's breaker when it surfaces as the attempt's timeout or as the
+        // HttpRequestException from EnsureSuccessStatusCode on a 401; only a Keycloak 503
+        // feeds Keycloak's own breaker. A credential Keycloak rejects is retried by the outer
+        // call as well (4 token POSTs per outer GET, not 1). Accepted: the mint is
+        // single-flight and the outer attempt timeout cancels it.
         builder.Services.AddHttpClient<ICameraFabLookup, CameraCatalogFabLookup>(client =>
         {
             // S1075 flags the literal URI, S5332 the clear-text scheme. Neither
