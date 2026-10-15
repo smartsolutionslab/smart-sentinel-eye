@@ -16,7 +16,9 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// </para>
 ///
 /// <para>
-/// Unbounded, matching its column, and stored exactly as given.
+/// Unbounded, matching its column, and stored exactly as given. What it is
+/// given is the audit copy, not the contract: <c>AuditPayloadRedaction</c>
+/// has already reduced a camera address to its origin (spec 377).
 /// </para>
 ///
 /// <para>
@@ -30,7 +32,7 @@ namespace SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 /// difference is reachability rather than taste. That payload comes from
 /// <c>Encoding.UTF8.GetString</c> over an arbitrary MQTT body, so <c>""</c> is
 /// both reachable and meaningful. This one is produced by
-/// <c>JsonSerializer.Serialize</c> in <c>IntegrationEventAuditHandler</c>, which
+/// <c>AuditPayloadRedaction.Serialize</c> in <c>IntegrationEventAuditHandler</c>, which
 /// yields at least <c>{}</c> for any object — so an empty payload here is not a
 /// malformed message but a defect upstream, and failing loudly is right.
 /// </para>

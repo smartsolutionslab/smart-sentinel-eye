@@ -19,8 +19,10 @@ namespace SmartSentinelEye.Shared.Contracts.CameraCatalog;
 /// <para>
 /// <paramref name="PreviousUrl"/> travels alongside the new one so a subscriber
 /// can tell a real move from a redelivery without re-reading the aggregate, and
-/// so the audit trail records what changed rather than merely that something
-/// did.
+/// so a subscriber sees what changed rather than merely that something
+/// did. The audit trail does not keep either address in full: it records both
+/// as their origin plus a <c>DetailChanged</c> flag for a change that stays on
+/// one origin (spec 377), so this event carries more than the audit shows.
 /// </para>
 /// </remarks>
 public sealed record CameraAddressChangedV1(
