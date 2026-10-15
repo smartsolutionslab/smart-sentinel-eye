@@ -34,6 +34,22 @@ public static partial class CameraEndpoints
         // omitting fabId. Declaring them keeps the generated OpenAPI from
         // claiming a status that can happen cannot; spec 013 shipped this wrong
         // on one endpoint and it took a review to catch.
+        MapRegisterCamera(writes);
+        MapRetireCamera(writes);
+        MapPatchCamera(writes);
+
+        var reads = app.MapGroup("/cameras")
+            .WithTags("Cameras")
+            .RequireAuthorization(Scope.Sse.Cameras.Read);
+
+        MapGetCamera(reads);
+        MapListCameras(reads);
+
+        return app;
+    }
+
+    private static void MapRegisterCamera(RouteGroupBuilder writes)
+    {
         writes.MapPost("/", Register)
             .WithName("RegisterCamera")
             .WithSummary(
@@ -45,7 +61,10 @@ public static partial class CameraEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapRetireCamera(RouteGroupBuilder writes)
+    {
         // 404 rather than 403 for another fab's camera (spec 028 FR-004), and
         // it is declared here so the generated OpenAPI says so: a 403 would
         // confirm the camera exists, letting an operator enumerate another
@@ -68,7 +87,10 @@ public static partial class CameraEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict);
+    }
 
+    private static void MapPatchCamera(RouteGroupBuilder writes)
+    {
         // 412 and 428 are declared because both are reachable and neither is a
         // failure of the request's content: 428 when no If-Match is sent, 412
         // when the version quoted is stale (ADR-0113, no retry on conflict).
@@ -94,11 +116,10 @@ public static partial class CameraEndpoints
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status412PreconditionFailed)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+    }
 
-        var reads = app.MapGroup("/cameras")
-            .WithTags("Cameras")
-            .RequireAuthorization(Scope.Sse.Cameras.Read);
-
+    private static void MapGetCamera(RouteGroupBuilder reads)
+    {
         // 404 for another fab's camera, never 403 — the same choice the retire
         // endpoint makes above, and declared here so the generated OpenAPI says
         // so. This is the endpoint spec 015 had to withdraw FR-006 for: without
@@ -114,7 +135,10 @@ public static partial class CameraEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+    }
 
+    private static void MapListCameras(RouteGroupBuilder reads)
+    {
         reads.MapGet("/", List)
             .WithName("ListCameras")
             .WithSummary(
@@ -126,8 +150,6 @@ public static partial class CameraEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
-
-        return app;
     }
 
     private static async Task<IResult> Register(
