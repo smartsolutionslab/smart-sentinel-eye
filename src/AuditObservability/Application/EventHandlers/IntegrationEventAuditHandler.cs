@@ -1,4 +1,3 @@
-using System.Text.Json;
 using SmartSentinelEye.AuditObservability.Domain.AuditEvent;
 using SmartSentinelEye.Shared.Contracts;
 using SmartSentinelEye.Shared.Contracts.AuditObservability;
@@ -72,7 +71,7 @@ public sealed class IntegrationEventAuditHandler(AuditingMessageHandler auditing
                 : ActorIdentifier.System,
             ActorUsername: Option<string>.None,
             EventIdentifier: EventIdentifier.From(meta.EventIdentifier),
-            Payload: JsonSerializer.Serialize(message, message.GetType()),
+            Payload: AuditPayloadRedaction.Serialize(message),
             FabScope: FabNeutralEvents.ScopeOf(message.GetType()));
 
         return auditing.HandleAsync(message.GetType(), message, envelope, cancellationToken);
