@@ -559,20 +559,22 @@ resource stream-distribution : ProjectResource
       env WhepAuthorizeRateLimiting__PermitLimit="50"
   [47] EnvironmentAnnotation {  }
       env WhepAuthorizeRateLimiting__Window="00:00:10"
-  [48] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
-  [49] EnvironmentCallbackAnnotation {  }
+  [48] EnvironmentAnnotation {  }
+      env MediaMtxSourceRepair__Interval="00:10:00"
+  [49] EndpointReferenceAnnotation { ContextNetworkId=NetworkIdentifier, EndpointNames=[], Resource=resource:identity, UseAllEndpoints=True }
+  [50] EnvironmentCallbackAnnotation {  }
       env IDENTITY_HTTPS={identity.bindings.https.url}
       env services__identity__https__0={identity.bindings.https.url}
       env IDENTITY_HTTP={identity.bindings.http.url}
       env services__identity__http__0={identity.bindings.http.url}
-  [50] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
-  [51] EnvironmentAnnotation {  }
+  [51] ResourceRelationshipAnnotation { Resource=resource:identity, Type="Reference" }
+  [52] EnvironmentAnnotation {  }
       env RevocationList__ClientId="revocation-list-reader"
-  [52] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
-  [53] EnvironmentCallbackAnnotation {  }
+  [53] ResourceRelationshipAnnotation { Resource=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value}), Type="Reference" }
+  [54] EnvironmentCallbackAnnotation {  }
       env RevocationList__ClientSecret=resource:RevocationListReaderClientSecret({RevocationListReaderClientSecret.value})
-  [54] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
-  [55] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
+  [55] ResourceRelationshipAnnotation { Resource=resource:migrations, Type="WaitFor" }
+  [56] WaitAnnotation { ExitCode=0, Resource=resource:migrations, WaitBehavior=null, WaitType=WaitForCompletion }
 resource stream-distribution-rebuilder : ProjectRebuilderResource
   [0] ExecutableLaunchRecipeAnnotation { Recipe=DirectExecutableLaunchRecipe }
   [1] ExecutableAnnotation { Command="dotnet", WorkingDirectory="<repo>/src/StreamDistribution/Api", WorkingDirectoryExplicitlySet=False }
