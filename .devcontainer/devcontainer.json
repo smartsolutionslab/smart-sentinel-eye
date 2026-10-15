@@ -1,0 +1,44 @@
+{
+  "name": "Smart Sentinel Eye",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0"
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "22"
+    },
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/powershell:1": {},
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "forwardPorts": [15276, 17069, 5173, 5174],
+  "portsAttributes": {
+    "15276": { "label": "Aspire dashboard (http)", "onAutoForward": "notify" },
+    "17069": { "label": "Aspire dashboard (https)", "onAutoForward": "silent" },
+    "5173": { "label": "kiosk-web", "onAutoForward": "notify" },
+    "5174": { "label": "management-web", "onAutoForward": "notify" }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "JetBrains.resharper-code",
+        "microsoft-aspire.aspire-vscode",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-playwright.playwright",
+        "bradlc.vscode-tailwindcss",
+        "vitest.explorer",
+        "SonarSource.sonarlint-vscode",
+        "anthropic.claude-code"
+      ]
+    }
+  }
+}
