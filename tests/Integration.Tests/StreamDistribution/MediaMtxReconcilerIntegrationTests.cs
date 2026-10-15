@@ -202,6 +202,77 @@ public class MediaMtxReconcilerIntegrationTests(AspireFixture aspire) : IAsyncLi
             "a Retired stream's leftover path must be swept as an orphan, not kept alive because its row still exists");
     }
 
+    /// <summary>
+    /// #2960 — a retried PATCH can land after a newer repoint and leave the
+    /// path pulling an address the database no longer records. The pass puts
+    /// the database's value back.
+    /// </summary>
+    [Fact]
+    public async Task Reconciler_repoints_a_path_whose_source_differs_from_the_persisted_source()
+    {
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
+
+        var camera = Guid.CreateVersion7();
+        var path = MediaMtxPath.For(CameraIdentifier.From(camera));
+        const string persisted = "rtsp://10.0.8.1/h264";
+
+        await AddMediaMtxPathAsync(mediaMtx, path, "rtsp://10.0.8.2/h264");
+        await PersistStreamAsync(camera, persisted);
+
+        var reconciler = await BuildReconcilerAsync();
+        await reconciler.ReconcileOnceAsync(CancellationToken.None);
+
+        (await ReadConfiguredSourceAsync(mediaMtx, path)).ShouldBe(persisted);
+    }
+
+    [Fact]
+    public async Task Reconciler_leaves_a_path_whose_source_matches_the_persisted_source()
+    {
+        using var mediaMtx = aspire.CreateMediaMtxApiClient();
+
+        var camera = Guid.CreateVersion7();
+        var path = MediaMtxPath.For(CameraIdentifier.From(camera));
+        const string persisted = "rtsp://10.0.8.3/h264";
+
+        await AddMediaMtxPathAsync(mediaMtx, path, persisted);
+        await PersistStreamAsync(camera, persisted);
+        var before = await ReadConfiguredPathAsync(mediaMtx, path);
+
+        var reconciler = await BuildReconcilerAsync();
+        await reconciler.ReconcileOnceAsync(CancellationToken.None);
+        await reconciler.ReconcileOnceAsync(CancellationToken.None);
+
+        var after = await ReadConfiguredPathAsync(mediaMtx, path);
+        after.GetProperty("source").GetString().ShouldBe(persisted);
+        after.GetRawText().ShouldBe(before.GetRawText());
+    }
+
+    private async Task PersistStreamAsync(Guid camera, string source)
+    {
+        await using var context = await aspire.CreateStreamDistributionDbContextAsync();
+        var stream = Stream.Provision(
+            FabIdentifier.From("munich"),
+            CameraIdentifier.From(camera),
+            StreamSourceUrl.From(source),
+            OperatorIdentifier.From(Guid.CreateVersion7()),
+            new TestClock(DateTimeOffset.UtcNow));
+        context.Streams.Add(stream);
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task<JsonElement> ReadConfiguredPathAsync(HttpClient client, MediaMtxPath path)
+    {
+        var response = await client.GetAsync($"/v3/config/paths/get/{path.Value}");
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<JsonElement>();
+    }
+
+    private static async Task<string?> ReadConfiguredSourceAsync(HttpClient client, MediaMtxPath path)
+    {
+        var configured = await ReadConfiguredPathAsync(client, path);
+        return configured.GetProperty("source").GetString();
+    }
+
     private async Task<MediaMtxReconciler> BuildReconcilerAsync()
     {
         var connection = await aspire.App
