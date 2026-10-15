@@ -21,7 +21,7 @@ The generic `/security-review` skill knows OWASP; it does not know this system's
 
 ## Replay, retry and idempotency
 
-- **`POST`/`PATCH` are not retried by default** (ADR-0143). A client opting back in with `RetryEveryMethod()` **must state why at the call site**. Five do today: four token mints (a second token supersedes the first) and the MediaMTX gateway. A sixth without a stated justification is a finding.
+- **`POST`/`PATCH` are not retried by default** (ADR-0143). A client opting back in with `RetryEveryMethod()` **must state why at the call site**. Today they are the `client_credentials` token mints (a second token supersedes the first) and the MediaMTX gateway; `grep -rn "RetryEveryMethod()" src` is the authoritative list, not a number written here. An opt-in without a stated justification is a finding.
 - **`Idempotency-Key`** (ADR-0142) makes an operation apply at most once. Wired with `IdempotencyHeaders.TryRead` + `IdempotentRequest.ExecuteCreateAsync`/`ExecuteAsync`, an `IdempotencyStore<TDbContext>` registration, and `IdempotencyKeyTable.Create` in a migration.
   - **The key's scope must include the authenticated caller** (`IdempotencyScope`). Keys are strings callers invent — `"1"` and `"retry"` will collide — so a key scoped on the string alone hands the second caller the first caller's resource. **This is a cross-tenant data leak, not a correctness nit.** Verify the scope, every time.
   - Nine of the ten creates/rotations carry a key. `POST /webhook-integrations` cannot: it returns a bearer token persisted only as a hash, so nothing server-side can rebuild it. That exception is deliberate and documented.
