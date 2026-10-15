@@ -5,7 +5,8 @@ namespace SmartSentinelEye.Architecture.Tests;
 internal sealed record HandlerDeconstructionScan(
     int Checked,
     int CheckedParenthesised,
-    IReadOnlyList<string> Failures);
+    IReadOnlyList<string> Failures,
+    IReadOnlyList<string> CheckedSources);
 
 internal static class HandlerDeconstructionScanner
 {
@@ -32,6 +33,8 @@ internal static class HandlerDeconstructionScanner
 
         public List<string> Failures { get; } = [];
 
+        public List<string> CheckedSources { get; } = [];
+
         public int Checked { get; set; }
 
         public int CheckedParenthesised { get; set; }
@@ -53,7 +56,7 @@ internal static class HandlerDeconstructionScanner
             }
         }
 
-        return new HandlerDeconstructionScan(state.Checked, state.CheckedParenthesised, state.Failures);
+        return new HandlerDeconstructionScan(state.Checked, state.CheckedParenthesised, state.Failures, state.CheckedSources);
     }
 
     private static void CheckBody(string path, Match signature, string body, ScanState state)
@@ -69,6 +72,7 @@ internal static class HandlerDeconstructionScanner
             }
 
             state.Checked++;
+            state.CheckedSources.Add(path);
             var parenthesised = deconstruction.Groups["paren"].Success;
             if (parenthesised)
             {
