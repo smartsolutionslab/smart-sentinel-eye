@@ -289,12 +289,15 @@ public class EventIngestionRouteTableCharacterisationTests
     }
 
     /// <summary>
-    /// Two kinds of metadata are compiler or binder artefacts rather than contract: the async
-    /// state-machine marker (it follows whether a handler body awaits) and the per-parameter
+    /// Some metadata is a compiler or binder artefact rather than contract: the async
+    /// state-machine marker and the debugger-step marker Debug builds add to async methods (both follow
+    /// whether a handler body awaits), and the per-parameter
     /// binding record (it is derived from the parameter list, which is rendered in full).
     /// </summary>
     private static bool IsContract(object item) =>
-        item.GetType().Name != "ParameterBindingMetadata" && item is not AsyncStateMachineAttribute;
+        item.GetType().Name != "ParameterBindingMetadata"
+        && item is not AsyncStateMachineAttribute
+        && item is not System.Diagnostics.DebuggerStepThroughAttribute;
 
     private static string RenderParameter(ParameterInfo parameter)
     {

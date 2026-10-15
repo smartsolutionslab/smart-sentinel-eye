@@ -156,6 +156,24 @@ internal sealed class EventIngestionEndpointHost : IAsyncDisposable
             .SelectMany(source => source.Endpoints)
             .OfType<RouteEndpoint>();
 
+    /// <summary>The JSON a problem result is written as: type first when the framework supplies one, then title, status, detail.</summary>
+    public static string Problem(int status, string title, string detail, string? type = null) =>
+        System.Text.Json.JsonSerializer.Serialize(
+            type is null
+                ? new Dictionary<string, object> { ["title"] = title, ["status"] = status, ["detail"] = detail }
+                : new Dictionary<string, object> { ["type"] = type, ["title"] = title, ["status"] = status, ["detail"] = detail },
+            Relaxed);
+
+    private static readonly System.Text.Json.JsonSerializerOptions Relaxed =
+        new() { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+
+    /// <summary>The one scope the idempotency store was asked to reserve.</summary>
+    public IdempotencyScope BegunScope() =>
+        IdempotencyStore.Invocations
+            .Where(invocation => invocation.Method.Name == nameof(IIdempotencyStore.BeginAsync))
+            .SelectMany(invocation => invocation.Arguments.OfType<IdempotencyScope>())
+            .ShouldHaveSingleItem();
+
     public static ClaimsPrincipal Operator(Guid subject, params string[] fabs) => OperatorFrom(subject, null, fabs);
 
     /// <summary>An operator whose token also names the Keycloak client it was minted for (<c>azp</c>).</summary>
