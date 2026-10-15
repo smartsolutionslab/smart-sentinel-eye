@@ -238,7 +238,6 @@ public static partial class OverlayEndpoints
             onFailure: error => error.ToProblem());
     }
 
-
     private static (OverlayRevisionNumber Number, List<OverlayElement> Elements) ParseDraftEdit(
         int revisionNumber,
         EditDraftRequest body)
@@ -247,6 +246,7 @@ public static partial class OverlayEndpoints
 
         return (OverlayRevisionNumber.From(revisionNumber), [.. body.Elements.Select(OverlayElementParsing.ParseElement)]);
     }
+
     private static async Task<IResult> Revert(
         Guid overlayIdentifier,
         int revisionNumber,
