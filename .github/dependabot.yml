@@ -33,6 +33,14 @@ updates:
       interval: "weekly"
     labels:
       - "dependencies"
+    ignore:
+      # scripts/node-types-alignment.test.mjs requires @types/node's major to
+      # equal the Node major CI installs (setup-node, currently 22), so a bump
+      # past it fails by design until the runtime moves. Raise both together,
+      # by hand, and move this floor with them.
+      - dependency-name: "@types/node"
+        versions:
+          - ">=23"
     groups:
       npm-minor-patch:
         update-types:
