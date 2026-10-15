@@ -2,7 +2,7 @@ namespace SmartSentinelEye.AuditObservability.Application.DTOs;
 
 /// <summary>
 /// HTTP-shaped projection of a single audit row (spec 009 FR-008
-/// / FR-010). The verbatim V1 JSON sits in <see cref="Payload"/>;
+/// / FR-010). The V1 JSON, camera URLs reduced to their origin, sits in <see cref="Payload"/>;
 /// the indexed metadata duplicates it for predictable client
 /// access without a second JSON parse. The payload is the audit copy: a
 /// camera address in it is already reduced to its origin, so the URL an
