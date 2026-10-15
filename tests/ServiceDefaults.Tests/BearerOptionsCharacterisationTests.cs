@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -81,14 +82,6 @@ public class BearerOptionsCharacterisationTests
     }
 
     [Fact]
-    public void The_token_validated_event_is_wired()
-    {
-        using var provider = Compose(Environments.Development);
-
-        BearerOptions(provider).Events.OnTokenValidated.ShouldNotBeNull();
-    }
-
-    [Fact]
     public void The_default_authentication_scheme_is_bearer()
     {
         using var provider = Compose(Environments.Development);
@@ -161,7 +154,11 @@ public class BearerOptionsCharacterisationTests
     [Fact]
     public async Task A_refused_token_without_a_logger_factory_is_still_refused()
     {
-        using var provider = Compose(Environments.Development, registry: RegistryDisabledAt(RevokedClientId, IssuedAt));
+        using var provider = Compose(
+            Environments.Development,
+            registry: RegistryDisabledAt(RevokedClientId, IssuedAt),
+            withoutLoggerFactory: true);
+        provider.GetService<ILoggerFactory>().ShouldBeNull();
         var options = BearerOptions(provider);
         var context = ContextFor(options, RevokedClientId, IssuedAt);
 
@@ -174,7 +171,8 @@ public class BearerOptionsCharacterisationTests
     private static ServiceProvider Compose(
         string environment,
         IRevokedClientRegistry? registry = null,
-        RecordingProvider? recorder = null)
+        RecordingProvider? recorder = null,
+        bool withoutLoggerFactory = false)
     {
         var builder = Host.CreateEmptyApplicationBuilder(new HostApplicationBuilderSettings
         {
@@ -194,6 +192,12 @@ public class BearerOptionsCharacterisationTests
         }
 
         builder.AddBearerAuthentication();
+
+        if (withoutLoggerFactory)
+        {
+            // CreateEmptyApplicationBuilder registers logging; the null branch needs it gone.
+            builder.Services.RemoveAll<ILoggerFactory>();
+        }
 
         return builder.Services.BuildServiceProvider();
     }

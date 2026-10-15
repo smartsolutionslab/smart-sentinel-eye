@@ -190,7 +190,7 @@ public class RevocationCompositionCharacterisationTests
     }
 
     [Fact]
-    public async Task A_failing_post_through_the_token_client_is_attempted_four_times()
+    public async Task The_token_client_opts_in_to_retrying_post()
     {
         RecordingHandler tokenServer = new(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         using var provider = Compose(tokenServer: tokenServer);
@@ -203,7 +203,7 @@ public class RevocationCompositionCharacterisationTests
     }
 
     [Fact]
-    public async Task A_failing_post_through_the_fetch_client_is_attempted_once()
+    public async Task The_fetch_client_does_not_opt_in_to_retrying_post()
     {
         RecordingHandler fetchServer = new(_ => new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
         RecordingHandler tokenServer = new(_ => new HttpResponseMessage(HttpStatusCode.OK)
@@ -233,7 +233,6 @@ public class RevocationCompositionCharacterisationTests
 
         registration.FailureStatus.ShouldBe(HealthStatus.Degraded);
         registration.Tags.ShouldBe(["ready"]);
-        registration.Tags.Count.ShouldBe(1);
     }
 
     [Fact]
@@ -261,6 +260,9 @@ public class RevocationCompositionCharacterisationTests
         ];
         var builder = EmptyBuilder(keycloakUrl, settings);
 
+        // The harness models per-client resilience, not the ConfigureHttpClientDefaults
+        // pipeline production uses, so the retry tests pin the opt-in call
+        // (RetryEveryMethod) and not a production guarantee about attempts.
         // The idempotent-only default, registered per client and before the call:
         // the order in which a default comes first and a client's own opt-in
         // (RetryEveryMethod) comes after it and wins. A ConfigureHttpClientDefaults
