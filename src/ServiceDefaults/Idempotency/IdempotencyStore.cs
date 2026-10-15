@@ -31,42 +31,77 @@ namespace SmartSentinelEye.ServiceDefaults.Idempotency;
 public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempotencyStore
     where TDbContext : DbContext
 {
+    // #2290 US1. On conflict, a plain DO NOTHING left a dead attempt's
+    // reservation wedged forever: nothing ever cleared resource_identifier
+    // IS NULL for a process that crashed between reserve and complete. The
+    // DO UPDATE below reclaims such a row for the caller attempting it now
+    // — guarded to a stale, still-unfinished row only, never a completed
+    // one (ADR-0142 §Consequences; the same resource_identifier IS NULL
+    // guard ReleaseAsync already carries below).
+    //
+    // SET reserved_at = NOW() is not bookkeeping — it is what keeps the
+    // reclaim atomic against a second concurrent reclaimer. Postgres
+    // serializes the two attempts on the row's lock; the winner's UPDATE
+    // commits first and bumps reserved_at to NOW(), so the loser's own
+    // WHERE re-evaluates against that just-bumped timestamp, no longer
+    // satisfies "< NOW() - StaleAfter", and it gets 0 rows back — falling
+    // through to the InProgress path below exactly as it would for any
+    // other live attempt. Without this SET, both requests would match and
+    // both would run the work, which is the exact double-application
+    // ADR-0142 exists to prevent.
+    private const string ClaimSql =
+        """
+        INSERT INTO idempotency_key (key, endpoint, caller, fab, request_fingerprint, reserved_at)
+        VALUES ({0}, {1}, {2}, {3}, {4}, NOW())
+        ON CONFLICT (key, endpoint, caller) DO UPDATE
+           SET reserved_at = NOW(),
+               fab = EXCLUDED.fab,
+               request_fingerprint = EXCLUDED.request_fingerprint
+         WHERE idempotency_key.resource_identifier IS NULL
+           AND idempotency_key.reserved_at < NOW() - {5}
+        RETURNING reserved_at AS "Value";
+        """;
+
+    private const string ReadBindingSql =
+        """
+        SELECT resource_identifier AS "ResourceIdentifier",
+               fab AS "Fab",
+               request_fingerprint AS "RequestFingerprint"
+        FROM idempotency_key
+        WHERE key = {0} AND endpoint = {1} AND caller = {2};
+        """;
+
     public async Task<IdempotencyReservation> BeginAsync(
         IdempotencyScope scope, CancellationToken cancellationToken)
     {
         Ensure.That(scope).IsNotNull();
 
-        // #2290 US1. On conflict, a plain DO NOTHING left a dead attempt's
-        // reservation wedged forever: nothing ever cleared resource_identifier
-        // IS NULL for a process that crashed between reserve and complete. The
-        // DO UPDATE below reclaims such a row for the caller attempting it now
-        // — guarded to a stale, still-unfinished row only, never a completed
-        // one (ADR-0142 §Consequences; the same resource_identifier IS NULL
-        // guard ReleaseAsync already carries below).
-        //
-        // SET reserved_at = NOW() is not bookkeeping — it is what keeps the
-        // reclaim atomic against a second concurrent reclaimer. Postgres
-        // serializes the two attempts on the row's lock; the winner's UPDATE
-        // commits first and bumps reserved_at to NOW(), so the loser's own
-        // WHERE re-evaluates against that just-bumped timestamp, no longer
-        // satisfies "< NOW() - StaleAfter", and it gets 0 rows back — falling
-        // through to the InProgress path below exactly as it would for any
-        // other live attempt. Without this SET, both requests would match and
-        // both would run the work, which is the exact double-application
-        // ADR-0142 exists to prevent.
-        const string claim =
-            """
-            INSERT INTO idempotency_key (key, endpoint, caller, fab, request_fingerprint, reserved_at)
-            VALUES ({0}, {1}, {2}, {3}, {4}, NOW())
-            ON CONFLICT (key, endpoint, caller) DO UPDATE
-               SET reserved_at = NOW(),
-                   fab = EXCLUDED.fab,
-                   request_fingerprint = EXCLUDED.request_fingerprint
-             WHERE idempotency_key.resource_identifier IS NULL
-               AND idempotency_key.reserved_at < NOW() - {5}
-            RETURNING reserved_at AS "Value";
-            """;
+        var claimed = await ClaimAsync(scope, cancellationToken);
 
+        if (claimed.Length == 1)
+        {
+            return IdempotencyReservation.ReservedAs(new IdempotencyClaim(scope, claimed[0]));
+        }
+
+        // Someone else holds the key. Whether they finished is the whole
+        // question: a completed row replays, an unfinished one is the retry
+        // racing the attempt that provoked it — but first, whether that row
+        // is even an answer to *this* request at all (spec 302 I2).
+        var existing = await ReadBindingAsync(scope, cancellationToken);
+
+        // Empty means the holder released it between our insert and this read.
+        // Reporting in-progress rather than reserved keeps this caller honest:
+        // it does not own the key, so it must claim it again rather than assume.
+        if (existing.Length == 0)
+        {
+            return IdempotencyReservation.InProgress;
+        }
+
+        return Classify(scope, existing[0]);
+    }
+
+    private async Task<DateTime[]> ClaimAsync(IdempotencyScope scope, CancellationToken cancellationToken)
+    {
         // Spec 302 (#2424/#2492). A typed parameter, not a bare `null`: an
         // untyped null in the raw-SQL parameter array cannot be type-inferred
         // against the fab column, and Npgsql throws rather than guessing.
@@ -82,9 +117,9 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         // non-composing terminal EF already uses for the fall-through SELECT
         // below, so there is nothing here for EF to wrap the RETURNING
         // statement in.
-        var claimed = await dbContext.Database
+        return await dbContext.Database
             .SqlQueryRaw<DateTime>(
-                claim,
+                ClaimSql,
                 scope.Key.Value,
                 scope.Endpoint,
                 scope.Caller,
@@ -92,38 +127,17 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
                 scope.Fingerprint.Value,
                 IdempotencyReclamation.StaleAfter)
             .ToArrayAsync(cancellationToken);
+    }
 
-        if (claimed.Length == 1)
-        {
-            return IdempotencyReservation.ReservedAs(new IdempotencyClaim(scope, claimed[0]));
-        }
-
-        // Someone else holds the key. Whether they finished is the whole
-        // question: a completed row replays, an unfinished one is the retry
-        // racing the attempt that provoked it — but first, whether that row
-        // is even an answer to *this* request at all (spec 302 I2).
-        var existing = await dbContext.Database
+    private async Task<StoredBinding[]> ReadBindingAsync(IdempotencyScope scope, CancellationToken cancellationToken) =>
+        await dbContext.Database
             .SqlQueryRaw<StoredBinding>(
-                """
-                SELECT resource_identifier AS "ResourceIdentifier",
-                       fab AS "Fab",
-                       request_fingerprint AS "RequestFingerprint"
-                FROM idempotency_key
-                WHERE key = {0} AND endpoint = {1} AND caller = {2};
-                """,
+                ReadBindingSql,
                 scope.Key.Value, scope.Endpoint, scope.Caller)
             .ToArrayAsync(cancellationToken);
 
-        // Empty means the holder released it between our insert and this read.
-        // Reporting in-progress rather than reserved keeps this caller honest:
-        // it does not own the key, so it must claim it again rather than assume.
-        if (existing.Length == 0)
-        {
-            return IdempotencyReservation.InProgress;
-        }
-
-        var row = existing[0];
-
+    private static IdempotencyReservation Classify(IdempotencyScope scope, StoredBinding row)
+    {
         // Spec 302 (#2424/#2492) I2/I3, checked before completed/in-progress:
         // a mismatched row — including one with a NULL stored fingerprint, a
         // legacy row that fails closed — is refused at once, whether it is
