@@ -41,6 +41,19 @@ public static partial class SystemVariableEndpoints
             .RequireAuthorization()
             .WithTags("SystemVariables");
 
+        MapListSystemVariables(group);
+        MapGetOverlaySnapshot(group);
+        MapResolveOverlayText(group);
+        MapGetSystemVariable(group);
+        MapDefineSystemVariable(group);
+        MapSetSystemVariableValue(group);
+        MapArchiveSystemVariable(group);
+
+        return app;
+    }
+
+    private static void MapListSystemVariables(RouteGroupBuilder group)
+    {
         // Reads — the read scope. 400 and 403 became reachable on every
         // one of these when fab resolution landed (spec 014 T029): 403 when the
         // caller names a fab they lack or holds none, 400 when their groups
@@ -58,7 +71,10 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapGetOverlaySnapshot(RouteGroupBuilder group)
+    {
         group.MapGet("/-/snapshot", GetSnapshot)
             .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("GetOverlaySnapshot")
@@ -72,7 +88,10 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+    }
 
+    private static void MapResolveOverlayText(RouteGroupBuilder group)
+    {
         group.MapGet("/-/resolve", ResolveText)
             .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("ResolveOverlayText")
@@ -88,7 +107,10 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status401Unauthorized)
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden);
+    }
 
+    private static void MapGetSystemVariable(RouteGroupBuilder group)
+    {
         group.MapGet("/{name}", GetOne)
             .RequireAuthorization(Scope.Sse.Variables.Read)
             .WithName("GetSystemVariable")
@@ -100,7 +122,10 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status404NotFound);
+    }
 
+    private static void MapDefineSystemVariable(RouteGroupBuilder group)
+    {
         // Writes — admin policy. A caller in exactly one fab may omit fabId; a
         // caller in several must name it. See ADR-0114, amended by spec 014.
         group.MapPost("/", Define)
@@ -113,7 +138,10 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status403Forbidden)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+    }
 
+    private static void MapSetSystemVariableValue(RouteGroupBuilder group)
+    {
         group.MapPut("/{name}/value", SetValue)
             .RequireAuthorization(Scope.Sse.Variables.Write)
             .WithName("SetSystemVariableValue")
@@ -125,7 +153,10 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
+    }
 
+    private static void MapArchiveSystemVariable(RouteGroupBuilder group)
+    {
         group.MapPost("/{name}/archive", Archive)
             .RequireAuthorization(Scope.Sse.Variables.Write)
             .WithName("ArchiveSystemVariable")
@@ -137,8 +168,6 @@ public static partial class SystemVariableEndpoints
             .ProducesProblem(StatusCodes.Status404NotFound)
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status428PreconditionRequired);
-
-        return app;
     }
 
     private static async Task<IResult> Define(
