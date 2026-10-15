@@ -207,6 +207,24 @@ public class StreamDistributionRegistrationCharacterisationTests
         RetryEveryMethodMarkerChain.Carries(provider, "stream-distribution-attribution-token").ShouldBeTrue();
     }
 
+    /// <summary>
+    /// The negative half. The two facts above pass just as well for a marker added to
+    /// every client through <c>ConfigureHttpClientDefaults</c> — which would retry every
+    /// POST in every host. The camera-catalog lookup did not opt in, so its chain must not
+    /// carry the marker. Its own authorization handler is asserted first, so a client name
+    /// that resolved to an empty default chain cannot make this pass.
+    /// </summary>
+    [Fact]
+    public void The_camera_fab_lookup_client_does_not_opt_in_to_retrying_every_method()
+    {
+        using var provider = PostgresComposition.Compose("stream-distribution");
+
+        var chain = RetryEveryMethodMarkerChain.Chain(provider, "ICameraFabLookup");
+
+        chain.ShouldContain("CameraCatalogAuthorizationHandler");
+        chain.ShouldNotContain("RetryEveryMethodMarker");
+    }
+
     [Fact]
     public void The_probe_log_demotion_is_one_telemetry_configuration_made_after_the_gateway_client_and_before_the_hosted_services()
     {
