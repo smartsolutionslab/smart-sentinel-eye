@@ -1,11 +1,7 @@
 using System.Security.Claims;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
 using SmartSentinelEye.EventIngestion.Api.Requests;
-using SmartSentinelEye.EventIngestion.Application.Commands;
-using SmartSentinelEye.EventIngestion.Application.Commands.Handlers;
 using SmartSentinelEye.EventIngestion.Application.Ingress;
 using SmartSentinelEye.EventIngestion.Domain.Event;
 using SmartSentinelEye.EventIngestion.Domain.WebhookIntegration;
@@ -19,8 +15,6 @@ namespace SmartSentinelEye.EventIngestion.Api;
 /// <summary>Write-path handlers for <see cref="EventsEndpoints"/>.</summary>
 public static partial class EventsEndpoints
 {
-    private const string BearerPrefix = "Bearer ";
-
     /// <summary>Route identity an idempotency key is scoped to (ADR-0142).</summary>
     private const string IngestManualEndpoint = "POST /events/manual";
 
@@ -68,7 +62,7 @@ public static partial class EventsEndpoints
                 services.Idempotency,
                 services.Clock),
             identifier => $"/events/{identifier}",
-            token => StoreOrRefuseAsync(services.Limiter, services.ScopeFactory, envelope, token),
+            token => EventIngestStore.StoreOrRefuseAsync(services.Limiter, services.ScopeFactory, envelope, token),
             cancellationToken);
     }
 
@@ -194,7 +188,7 @@ public static partial class EventsEndpoints
 
         var logger = loggerFactory.CreateLogger(typeof(EventsEndpoints));
 
-        var integration = await AuthenticateWebhookAsync(
+        var integration = await WebhookDeliveryAuthentication.AuthenticateWebhookAsync(
             integrationName, request, fabId, integrations, logger, cache, cancellationToken);
         if (integration is null)
         {
@@ -222,7 +216,7 @@ public static partial class EventsEndpoints
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return (await StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken)).Match(
+        return (await EventIngestStore.StoreOrRefuseAsync(limiter, scopeFactory, envelope, cancellationToken)).Match(
             onSuccess: identifier => Results.Created($"/events/{identifier}", identifier),
             onFailure: problem => problem);
     }
@@ -242,192 +236,6 @@ public static partial class EventsEndpoints
             Payload.From(body.Payload));
 
     /// <summary>
-    /// Authenticates a webhook caller and returns the matching integration,
-    /// or <c>null</c> if the bearer token is missing/malformed, the
-    /// integration is unknown or revoked, the token fails validation, or the
-    /// delivery names a plant other than the integration's own.
-    /// Every failure path collapses to <c>null</c> so the 401 response never
-    /// leaks which integrations exist — including, now, whether one exists in
-    /// another plant. A revoked integration is additionally written to an
-    /// internal application log (spec 302, #2205), at most once per
-    /// <see cref="RevokedWebhookDeliveryLogWindow"/> per integration; every
-    /// other refusal stays silent, exactly as before.
-    /// </summary>
-    private static async Task<WebhookIntegration?> AuthenticateWebhookAsync(
-        string integrationName,
-        HttpRequest request,
-        string fabId,
-        IWebhookIntegrationRepository integrations,
-        ILogger logger,
-        IMemoryCache cache,
-        CancellationToken cancellationToken)
-    {
-        string? authHeader = request.Headers.Authorization;
-        if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith(BearerPrefix, StringComparison.Ordinal))
-        {
-            return null;
-        }
-        var token = authHeader[BearerPrefix.Length..];
-
-        var found = await FindIntegrationAsync(integrationName, integrations, cancellationToken);
-        if (!found.HasValue)
-        {
-            return null;
-        }
-
-        var integration = found.Value;
-
-        if (IsRevokedLoggingOnce(integration, logger, cache))
-        {
-            return null;
-        }
-
-        // The delivery's plant must be the integration's own, in BOTH modes and
-        // before the token is even considered (#1545). Until this, only the JWT
-        // branch looked at the fab — StaticHash, the default and the mode of
-        // every integration until it is rotated, matched the hash and let
-        // `?fabId=` through unchecked, so a token issued for one plant could
-        // file events into another. It is the same manipulation FR-006 closed on
-        // the manual write, and the reason it survived is that there was no fab
-        // on the integration to compare against.
-        if (!IsIntegrationsOwnFab(integration, fabId))
-        {
-            return null;
-        }
-
-        var authorized = integration.ValidationMode == BearerValidationMode.Jwt
-            ? await ValidateJwtAsync(request, integration, fabId)
-            : integration.TokenHash.Matches(token);
-        return authorized ? integration : null;
-    }
-
-    private static async Task<Option<WebhookIntegration>> FindIntegrationAsync(
-        string integrationName,
-        IWebhookIntegrationRepository integrations,
-        CancellationToken cancellationToken)
-    {
-        WebhookIntegrationName parsedName;
-        try
-        {
-            parsedName = WebhookIntegrationName.From(integrationName);
-        }
-        catch (ArgumentException)
-        {
-            return Option<WebhookIntegration>.None;
-        }
-
-        return await integrations.GetByNameAsync(parsedName, cancellationToken);
-    }
-
-    private static bool IsRevokedLoggingOnce(WebhookIntegration integration, ILogger logger, IMemoryCache cache)
-    {
-        if (integration.RevokedAt is not RevokedAt revokedAt)
-        {
-            return false;
-        }
-
-        if (IsNewRevokedWebhookDeliveryLog(cache, integration.Id))
-        {
-            logger.RevokedWebhookIntegrationDeliveryRefused(
-                integration.Name, integration.Id, integration.Fab, revokedAt);
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Dedup window for the revoked-webhook-delivery log (review finding on
-    /// #2205): matches <c>WhepAuthorizeRateLimiting</c>'s production default
-    /// (<c>StreamDistribution/Api/appsettings.json</c>'s <c>Window: "00:01:00"</c>).
-    /// This route is <c>AllowAnonymous</c> and the revoked check runs before any
-    /// credential or fab check, so an integration's <b>name</b> — public, it is
-    /// in every sender's config and in the URL path, never secret — is enough
-    /// for anyone to trigger this branch at an unlimited rate; logging on every
-    /// refusal would let that caller flood the one OTLP sink ADR-0118 gives
-    /// this service.
-    /// </summary>
-    private static readonly TimeSpan RevokedWebhookDeliveryLogWindow = TimeSpan.FromMinutes(1);
-
-    /// <summary>
-    /// Mirrors the <c>WhepAuthorizeActionPartition</c> (StreamDistribution)
-    /// <c>IsNewWhepAuthorizeThrottleTransition</c>: an <see cref="IMemoryCache"/>
-    /// entry per key, absolute-expiring after <see cref="RevokedWebhookDeliveryLogWindow"/>,
-    /// gives "log once per transition, re-arm once a full window has passed"
-    /// without a hand-rolled dictionary that never evicts. Keyed on the
-    /// integration's identifier, not the caller, so the window is shared by
-    /// every anonymous caller refused for the same revoked integration.
-    /// </summary>
-    private static bool IsNewRevokedWebhookDeliveryLog(
-        IMemoryCache cache, WebhookIntegrationIdentifier identifier)
-    {
-        var key = $"revoked-webhook-delivery-log:{identifier.Value}";
-        if (cache.TryGetValue(key, out _))
-        {
-            return false;
-        }
-
-        cache.Set(key, true, RevokedWebhookDeliveryLogWindow);
-        return true;
-    }
-
-    /// <summary>
-    /// Whether the delivery names the integration's own plant. An unparseable
-    /// <c>fabId</c> is not its plant either, so it collapses to the same
-    /// refusal rather than a 400 that would confirm the integration exists.
-    /// </summary>
-    private static bool IsIntegrationsOwnFab(WebhookIntegration integration, string fabId)
-    {
-        try
-        {
-            return integration.Fab == FabIdentifier.From(fabId);
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Validates a Keycloak-minted JWT against the integration's
-    /// rotated <c>KeycloakClientId</c> (spec 008 FR-016). The
-    /// caller is authorised iff: signature + expiry valid, scope
-    /// contains <c>sse.events.write</c>, azp matches the
-    /// integration's clientId, and groups contains
-    /// <c>/fabs/&lt;fabId&gt;</c>.
-    /// </summary>
-    private static async Task<bool> ValidateJwtAsync(
-        HttpRequest request, WebhookIntegration integration, string fabId)
-    {
-        var auth = await request.HttpContext
-            .AuthenticateAsync(JwtBearerDefaults.AuthenticationScheme);
-        if (!auth.Succeeded || auth.Principal is null)
-        {
-            return false;
-        }
-
-        var user = auth.Principal;
-
-        var hasEventsWriteScope = user.FindAll("scope").Any(claim =>
-            claim.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Contains("sse.events.write", StringComparer.Ordinal));
-        if (!hasEventsWriteScope)
-        {
-            return false;
-        }
-
-        var azp = user.FindFirst("azp")?.Value;
-        if (!string.Equals(azp, integration.KeycloakClientId?.Value, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        var targetGroup = "/fabs/" + fabId;
-        return user.FindAll("groups").Any(claim =>
-            claim.Value.Split([' ', '\t'], StringSplitOptions.RemoveEmptyEntries)
-                .Contains(targetGroup, StringComparer.Ordinal));
-    }
-
-    /// <summary>
     /// 503, not 400 and not 403 (spec 019). The request is well-formed and the
     /// caller is entitled to that fab — nothing about what they did is wrong.
     /// The system is not ready to store it, and the condition is temporary by
@@ -441,79 +249,4 @@ public static partial class EventsEndpoints
             detail: $"Fab '{fab.Value}' has no event storage yet, so this event cannot be stored. "
                 + "It has not been lost — it was never accepted. Retry once provisioning has run.",
             statusCode: StatusCodes.Status503ServiceUnavailable);
-
-    /// <summary>
-    /// Stores the event, then answers (spec 020 FR-001). Replaces the enqueue
-    /// that answered 202 the moment the envelope was buffered.
-    ///
-    /// <para>
-    /// <b>201, not 202.</b> 202 means "accepted for processing, outcome
-    /// unknown", which is exactly the promise this feature removes — and the
-    /// promise that used to be broken silently whenever the write failed
-    /// afterwards. Once the row is committed before the response, 201 with a
-    /// <c>Location</c> is the truthful answer, and the location resolves.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>429 when the limiter is saturated</b>, not when a channel is full.
-    /// These writes no longer use the channel, so without this the endpoint
-    /// would quietly become "queue indefinitely and time out" — a worse answer
-    /// to overload than a fast refusal, arrived at by omission (FR-013).
-    /// </para>
-    /// </summary>
-    /// <summary>
-    /// Yields the stored event's identifier, or the problem to answer with.
-    ///
-    /// <para>
-    /// Returns the identifier rather than a finished <c>IResult</c> so the manual
-    /// path can hand it to <c>IdempotentRequest.ExecuteCreateAsync</c>, which
-    /// needs to record what was created (ADR-0142). The webhook path maps it
-    /// straight back to a 201 and is otherwise unchanged.
-    /// </para>
-    /// </summary>
-    private static async Task<Result<Guid, IResult>> StoreOrRefuseAsync(
-        IngestWriteLimiter limiter,
-        IServiceScopeFactory scopeFactory,
-        EventEnvelope envelope,
-        CancellationToken cancellationToken)
-    {
-        using var lease = limiter.TryAcquire();
-        if (!lease.Acquired)
-        {
-            return Result<Guid, IResult>.Failure(Results.Problem(
-                title: "EVENT_INGEST_BACKPRESSURE",
-                detail: "Too many events are being stored at once; please retry.",
-                statusCode: StatusCodes.Status429TooManyRequests));
-        }
-
-        await using var scope = scopeFactory.CreateAsyncScope();
-        var handler =
-            scope.ServiceProvider.GetRequiredService<IngestEventCommandHandler>();
-
-        try
-        {
-            var result =
-                await handler.HandleAsync(new IngestEventCommand(envelope), cancellationToken);
-
-            // Spec 317 (#2325), A2: a held event is a 2xx — accepted, not an
-            // error — so it takes the same "answered without a Location"
-            // branch as a problem rather than ToProblem()'s ProblemDetails
-            // body, which exists for actual failures.
-            return result.Match(
-                onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
-                onFailure: error => Result<Guid, IResult>.Failure(
-                    error is IngestEventError.EventTypeHeld ? Results.Accepted() : error.ToProblem()));
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            // The caller is told, which is the whole point: a 202 followed by
-            // silence is what this replaces. Nothing has been stored and
-            // nothing has been buffered, so retrying is safe and is the
-            // caller's to decide.
-            return Result<Guid, IResult>.Failure(Results.Problem(
-                title: "EVENT_NOT_STORED",
-                detail: "The event could not be stored and has not been accepted. Retry.",
-                statusCode: StatusCodes.Status503ServiceUnavailable));
-        }
-    }
 }
