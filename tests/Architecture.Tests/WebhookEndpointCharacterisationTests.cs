@@ -157,7 +157,7 @@ public class WebhookEndpointCharacterisationTests
         integration.Revoke(host.Clock.Object);
 
         var first = await Deliver(host, "line-7", "Bearer " + token, fab: "bremen");
-        var second = await Deliver(host, "line-7", "Bearer " + token, fab: "dresden");
+        var second = await Deliver(host, "line-7", "Bearer " + token, fab: "bremen");
 
         AssertRefused(first);
         AssertRefused(second);
