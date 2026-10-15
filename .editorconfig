@@ -170,6 +170,12 @@ dotnet_diagnostic.S107.severity = warning
 dotnet_diagnostic.S1541.severity = warning
 dotnet_diagnostic.S134.severity = warning
 
+# ADR-0084, 2026-10-15 amendment: a `[LoggerMessage]` method's parameters are the
+# structured fields the sink indexes (ADR-0050), so S107 counts log fields, not
+# design. Later section, so it wins over `[src/**.cs]` above.
+[src/**/Log.cs]
+dotnet_diagnostic.S107.severity = none
+
 # ADR-0084: "Test projects exempt — long, narrative test methods are valuable."
 # Restated here, not only as NoWarn in Directory.Build.props, because the NoWarn
 # is not the deciding input: editorconfig severity beats it. The exemption has to

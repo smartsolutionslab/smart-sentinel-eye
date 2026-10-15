@@ -135,3 +135,44 @@ obligation, mixed into a configuration change. Dropping the limits would discard
 a bar that has been shaping review decisions for four months. Advisory makes the
 build answer "does this pass ADR-0084?" today, and leaves tightening as a
 decision someone can make on evidence.
+
+---
+
+## Amendment — 2026-10-15: S107 does not apply to `[LoggerMessage]` methods
+
+**Status of this amendment: proposed, pending the repository owner's acceptance.**
+The autonomous lane may not amend an ADR (ADR-0144); this was drafted for review.
+
+**What the measurement showed.** The 2026-09-17 baseline put S107 at 84. After
+the per-context refactors (#2887–#2895, #2929–#2933, #2951–#2952, #2962–#2963)
+S104 is 0 and S138 is 1 (`WolverineDefaults`, #2953), but S107 stands at **113**
+in production code (Release, `--no-incremental`, `sort -u`, migrations
+excluded, measured 2026-10-15). By location:
+
+| Where | S107 hits |
+|---|---|
+| Api layer — endpoint and handler methods | 50 |
+| `Log.cs` — `[LoggerMessage]` methods | 31 |
+| Other — ScenarioSimulator, ServiceDefaults, AppHost | 13 |
+| Domain — constructors and factories | 12 |
+| Application — handlers | 7 |
+
+**Decision.** The 31 `Log.cs` hits are not a design smell. A `[LoggerMessage]`
+extension method carries `this ILogger`, usually an `Exception`, and then the
+fields of the message; ADR-0050 requires those to be separate, named,
+structured parameters so the sink can index them. Bundling them into a record
+would defeat the source generator and the structured fields it exists to
+produce. S107 is therefore switched off for files named `Log.cs`, in
+`.editorconfig` after the `src/` section so that it wins.
+
+**What this does not do.** It does not touch the other 82. The 50 Api-layer
+hits follow the precedent of spec 341 (`IngestManualServices`: injected
+services bundled into one record bound with `[AsParameters]`) and are tracked
+as per-context issues. The Domain, Application and "other" hits (32) are
+per-case design decisions and remain advisory warnings; none is exempted.
+
+**Consequences.** The S107 count falls by 31 with no code change, so it now
+measures something a person could act on. The exemption is by file name: a
+`[LoggerMessage]` method placed outside a file called `Log.cs` is still
+counted, which at the date of this amendment is none (verified by searching
+`src/` for `[LoggerMessage` outside `Log.cs`).
