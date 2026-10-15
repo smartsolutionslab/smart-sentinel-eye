@@ -52,6 +52,27 @@ public class AuditPayloadRedactionPostFixAdversarialTests
         repo.Committed[0].Payload.Content.Value.ShouldNotContain(MarkerTail, Case.Insensitive);
     }
 
+    // The encoded spellings never contain the literal marker tail, so Registration_leaks_nothing cannot fail
+    // on them; each row names the fragment that an unredacted copy of that very input would still carry.
+    public static TheoryData<string, string> EncodedSpellings() =>
+        new()
+        {
+            { "rtsp://cam/%53E%43RET", "RET" },
+            { "rtsp://cam/%53E%43RET", "%43" },
+            { "rtsp://cam/%53%45%43%52%45%54", "%53" },
+            { "rtsp://cam/%53%45%43%52%45%54", "%54" },
+        };
+
+    [Theory]
+    [MemberData(nameof(EncodedSpellings))]
+    public async Task Registration_of_an_encoded_url_keeps_no_fragment_of_it(string url, string fragment)
+    {
+        InMemoryAuditEventRepository repo = new();
+        await Build(repo).Handle(new CameraRegisteredV1(Guid.CreateVersion7(), "n", url, At, Guid.CreateVersion7(), Metadata()), default);
+        repo.Committed[0].Payload.Content.Value.ShouldNotContain(fragment, Case.Insensitive);
+        AuditRowMapper.Map(repo.Committed[0]).Payload.ShouldNotContain(fragment, Case.Insensitive);
+    }
+
     [Fact]
     public async Task A_70000_char_url_is_reduced_to_its_origin_not_the_placeholder()
     {
