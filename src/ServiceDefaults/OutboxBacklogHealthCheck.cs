@@ -81,50 +81,7 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
         {
             (var pending, var attempts) = await ReadBacklogAsync(cancellationToken);
 
-            Dictionary<string, object> data = new(StringComparer.Ordinal)
-            {
-                ["pending"] = pending,
-                ["maxAttempts"] = attempts,
-                ["schema"] = outboxSchema,
-            };
-
-            if (pending == 0)
-            {
-                return HealthCheckResult.Healthy("No announcements are waiting.", data);
-            }
-
-            var description = string.Create(
-                CultureInfo.InvariantCulture,
-                $"{pending} announcement(s) waiting; most-retried has failed {attempts} time(s).");
-
-            // Both signals, because they catch different failures and this check
-            // exists for the one nobody would think to look for.
-            //
-            // Attempts climb when delivery is failing. But a message that is
-            // captured and never *released* — the "sits in the outbox for ever"
-            // case the IEventBus documentation describes, and the one a publish
-            // outside a write produces — is never attempted at all, so attempts
-            // stays 0 while pending grows without bound. Watching only the retry
-            // counter would report Healthy right up until the disk filled, which
-            // is the silent backlog this feature promised not to trade a silent
-            // loss for.
-            if (attempts < ConcerningAttempts && pending < ConcerningBacklog)
-            {
-                return HealthCheckResult.Healthy(description, data);
-            }
-
-            // Logged as well as reported, because the two carry different
-            // things and the log carries the only one an operator can act on.
-            // The readiness probe is reachable in production now, but a Degraded
-            // aggregate answers 200 — the framework's default ResultStatusCodes
-            // map Degraded to 200 and only Unhealthy to 503 — which is the
-            // behaviour this check wants: a service behind on delivery is still
-            // serving and must not leave rotation. So the probe says nothing an
-            // orchestrator reacts to, and its default writer emits one word, so
-            // the schema, the pending count and the attempt count appear nowhere
-            // on that surface. They exist here or not at all (FR-009).
-            logger.OutboxBacklogConcerning(outboxSchema, pending, attempts);
-            return HealthCheckResult.Degraded(description, data: data);
+            return Assess(pending, attempts);
         }
         catch (InvalidOperationException ex) when (ex.InnerException is DbException inner && IsUnreachable(inner))
         {
@@ -181,6 +138,54 @@ public sealed class OutboxBacklogHealthCheck<TDbContext>(
                     ["schema"] = outboxSchema,
                 });
         }
+    }
+
+    private HealthCheckResult Assess(long pending, int attempts)
+    {
+        Dictionary<string, object> data = new(StringComparer.Ordinal)
+        {
+            ["pending"] = pending,
+            ["maxAttempts"] = attempts,
+            ["schema"] = outboxSchema,
+        };
+
+        if (pending == 0)
+        {
+            return HealthCheckResult.Healthy("No announcements are waiting.", data);
+        }
+
+        var description = string.Create(
+            CultureInfo.InvariantCulture,
+            $"{pending} announcement(s) waiting; most-retried has failed {attempts} time(s).");
+
+        // Both signals, because they catch different failures and this check
+        // exists for the one nobody would think to look for.
+        //
+        // Attempts climb when delivery is failing. But a message that is
+        // captured and never *released* — the "sits in the outbox for ever"
+        // case the IEventBus documentation describes, and the one a publish
+        // outside a write produces — is never attempted at all, so attempts
+        // stays 0 while pending grows without bound. Watching only the retry
+        // counter would report Healthy right up until the disk filled, which
+        // is the silent backlog this feature promised not to trade a silent
+        // loss for.
+        if (attempts < ConcerningAttempts && pending < ConcerningBacklog)
+        {
+            return HealthCheckResult.Healthy(description, data);
+        }
+
+        // Logged as well as reported, because the two carry different
+        // things and the log carries the only one an operator can act on.
+        // The readiness probe is reachable in production now, but a Degraded
+        // aggregate answers 200 — the framework's default ResultStatusCodes
+        // map Degraded to 200 and only Unhealthy to 503 — which is the
+        // behaviour this check wants: a service behind on delivery is still
+        // serving and must not leave rotation. So the probe says nothing an
+        // orchestrator reacts to, and its default writer emits one word, so
+        // the schema, the pending count and the attempt count appear nowhere
+        // on that surface. They exist here or not at all (FR-009).
+        logger.OutboxBacklogConcerning(outboxSchema, pending, attempts);
+        return HealthCheckResult.Degraded(description, data: data);
     }
 
     /// <summary>
