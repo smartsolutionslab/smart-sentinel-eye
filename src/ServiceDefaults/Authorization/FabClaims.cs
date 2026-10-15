@@ -16,7 +16,7 @@ namespace SmartSentinelEye.ServiceDefaults.Authorization;
 ///
 /// <para>
 /// Promoted here from a private copy in <c>AuditEndpoints</c>. A second,
-/// ad-hoc variant lives in <c>EventsEndpoints.Writes</c>, and Automation
+/// ad-hoc variant lives in <c>WebhookDeliveryAuthentication</c>, and Automation
 /// would have been the third hand-written parse of a security-relevant claim
 /// — which is how the three drift apart.
 /// </para>
