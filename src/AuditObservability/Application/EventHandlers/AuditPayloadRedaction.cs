@@ -12,10 +12,11 @@ namespace SmartSentinelEye.AuditObservability.Application.EventHandlers;
 /// returned and archived audit payload is redacted.
 /// </summary>
 /// <remarks>
-/// The register and the code that applies it are one table, so a field cannot be listed without being
-/// redacted. Each delivery is checked against the register by reflection, and a registered field that
-/// cannot be redacted throws: a missing audit row is visible, an unredacted one is the defect.
-/// Redaction is idempotent, so re-applying it to an already redacted payload is safe.
+/// The register and the code that applies it are one table (the fields, how each is redacted and any member
+/// appended to the stored JSON), so a field cannot be listed without being redacted. Each delivery is
+/// checked against the register by reflection, and a registered field that cannot be redacted throws: a
+/// missing audit row is visible, an unredacted one is the defect. Redaction is idempotent, so re-applying
+/// it to an already redacted payload is safe.
 /// </remarks>
 public static class AuditPayloadRedaction
 {
@@ -24,14 +25,23 @@ public static class AuditPayloadRedaction
         {
             [typeof(CameraRegisteredV1)] = new(
                 [nameof(CameraRegisteredV1.Url)],
-                message => message is CameraRegisteredV1 registered
-                    ? registered with { Url = Origin(registered.Url) }
-                    : message),
+                message =>
+                {
+                    var registered = (CameraRegisteredV1)message;
+                    return registered with { Url = Origin(registered.Url) };
+                }),
             [typeof(CameraAddressChangedV1)] = new(
                 [nameof(CameraAddressChangedV1.PreviousUrl), nameof(CameraAddressChangedV1.Url)],
-                message => message is CameraAddressChangedV1 change
-                    ? change with { PreviousUrl = Origin(change.PreviousUrl), Url = Origin(change.Url) }
-                    : message),
+                message =>
+                {
+                    var change = (CameraAddressChangedV1)message;
+                    return change with { PreviousUrl = Origin(change.PreviousUrl), Url = Origin(change.Url) };
+                },
+                message =>
+                {
+                    var change = (CameraAddressChangedV1)message;
+                    return DetailChangedMember(DetailChanged(change.PreviousUrl, change.Url));
+                }),
         }.ToFrozenDictionary();
 
     public static IReadOnlyDictionary<Type, IReadOnlyList<string>> UrlFields { get; } =
@@ -53,11 +63,27 @@ public static class AuditPayloadRedaction
 
         var json = JsonSerializer.Serialize(redacted, type);
 
-        return message is CameraAddressChangedV1 change
-            ? WithDetailChanged(json, DetailChanged(change.PreviousUrl, change.Url))
+        return registration.Suffix is { } suffix
+            ? AppendMember(type, json, suffix(message))
             : json;
     }
 
+    internal static string AppendMember(Type type, string json, string member)
+    {
+        if (!json.EndsWith('}'))
+        {
+            throw new InvalidOperationException($"Audit redaction could not append to the serialised {type.Name}.");
+        }
+
+        return string.Concat(
+            json.AsSpan(0, json.Length - 1),
+            ",",
+            member,
+            "}");
+    }
+
+    // The contract declares the property non-nullable, but a wire message can carry null (FR-005); the
+    // redacted copy must carry it through unchanged rather than fail the audit write.
     private static string Origin(string? url) => url is null ? null! : UrlRedaction.ToOrigin(url);
 
     private static void VerifyRedacted(
@@ -72,15 +98,18 @@ public static class AuditPayloadRedaction
 
             if (property is null
                 || property.PropertyType != typeof(string)
-                || !string.Equals((string?)property.GetValue(redacted), Origin((string?)property.GetValue(original)), StringComparison.Ordinal))
+                || !string.Equals(
+                    (string?)property.GetValue(redacted),
+                    Origin((string?)property.GetValue(original)),
+                    StringComparison.Ordinal))
             {
                 throw new InvalidOperationException($"Audit redaction could not redact field {field} of {type.Name}.");
             }
         }
     }
 
-    private static string WithDetailChanged(string json, bool detailChanged) =>
-        string.Concat(json.AsSpan(0, json.Length - 1), detailChanged ? ",\"DetailChanged\":true}" : ",\"DetailChanged\":false}");
+    private static string DetailChangedMember(bool detailChanged) =>
+        detailChanged ? "\"DetailChanged\":true" : "\"DetailChanged\":false";
 
     private static bool DetailChanged(string? previousUrl, string? url) =>
         previousUrl is not null
@@ -88,5 +117,8 @@ public static class AuditPayloadRedaction
         && string.Equals(UrlRedaction.ToOrigin(previousUrl), UrlRedaction.ToOrigin(url), StringComparison.Ordinal)
         && !string.Equals(previousUrl, url, StringComparison.Ordinal);
 
-    private sealed record Registration(IReadOnlyList<string> Fields, Func<IIntegrationEvent, IIntegrationEvent> Redact);
+    private sealed record Registration(
+        IReadOnlyList<string> Fields,
+        Func<IIntegrationEvent, IIntegrationEvent> Redact,
+        Func<IIntegrationEvent, string>? Suffix = null);
 }
