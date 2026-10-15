@@ -21,8 +21,9 @@ namespace SmartSentinelEye.AuditObservability.Application.Tests.EventHandlers;
 /// <b>Spelling of the other fields.</b> Plan §2.1 and §2.2 promise "unchanged keys, value reduced" for a
 /// redacted type. A message whose URL is already an origin has nothing to reduce, so its stored payload
 /// must still be what the serializer writes, byte for byte. A <c>JsonNode</c> round-trip does not do that:
-/// it re-escapes the <c>+</c> of every <c>DateTimeOffset</c> offset as <c>+</c>, which changes
-/// <c>PayloadSizeBytes</c> without changing the content.
+/// it re-escapes the <c>+</c> of every <c>DateTimeOffset</c> offset as <c>\u002B</c>, which changes
+/// <c>PayloadSizeBytes</c> without changing the content. The stored column is <c>jsonb</c>, so byte identity
+/// is a property of the string and of <c>PayloadSizeBytes</c>, not of what is on disk.
 /// </para>
 ///
 /// <para>

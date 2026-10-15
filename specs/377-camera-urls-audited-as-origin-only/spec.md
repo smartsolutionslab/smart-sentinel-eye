@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Ready for the Phase 1 gate. No `[NEEDS CLARIFICATION]` remains: the decision the issue
+**Status**: Implemented. No `[NEEDS CLARIFICATION]` remains: the decision the issue
 asked for was made by the owner on #2977 (option 1, with a stated deviation). Three judgement calls
 are marked **[Assumption]** in §6 for the reviewer to overturn if wanted.
 
