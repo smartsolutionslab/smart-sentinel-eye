@@ -14,13 +14,18 @@ internal static class HandlerDeconstructionScanner
         + @"([A-Za-z0-9_]+)\s+(\w+)\s*,",
         RegexOptions.Singleline | RegexOptions.Compiled);
 
+
     private static readonly Regex Deconstruction = new(
-        @"var\s*\(([^)]*)\)\s*=\s*(\w+);",
+        @"(?:var\s*\((?<plain>[^)]*)\)"
+        + @"|\((?<paren>\s*(?:var\s+\w+|_)\s*(?:,\s*(?:var\s+\w+|_)\s*)+)\))"
+        + @"\s*=\s*(?<target>\w+);",
         RegexOptions.Compiled);
+
+    private static readonly Regex VarPrefix = new(@"^var\s+", RegexOptions.Compiled);
 
     internal static HandlerDeconstructionScan Scan(IReadOnlyDictionary<string, string> sources)
     {
-        Dictionary<string, IReadOnlyList<IReadOnlyList<string>>> records = new(StringComparer.Ordinal);
+        Dictionary<(string Context, string Name), Resolution> records = [];
         List<string> failures = [];
         var checkedCount = 0;
         var checkedParenthesised = 0;
@@ -38,31 +43,49 @@ internal static class HandlerDeconstructionScanner
                     continue;
                 }
 
-                var deconstruction = Deconstruction.Match(body);
-                if (!deconstruction.Success || deconstruction.Groups[2].Value != parameter)
+                foreach (Match deconstruction in Deconstruction.Matches(body))
                 {
-                    continue;
+                    if (deconstruction.Groups["target"].Value != parameter)
+                    {
+                        continue;
+                    }
+
+                    checkedCount++;
+                    var parenthesised = deconstruction.Groups["paren"].Success;
+                    if (parenthesised)
+                    {
+                        checkedParenthesised++;
+                    }
+
+                    var bound = BoundNames(deconstruction, parenthesised);
+                    var resolution = Resolve(path, typeName, sources, records);
+                    failures.AddRange(Verify(path, typeName, bound, resolution));
                 }
-
-                checkedCount++;
-                if (deconstruction.Value.StartsWith('('))
-                {
-                    checkedParenthesised++;
-                }
-
-                var bound = deconstruction.Groups[1].Value
-                    .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
-
-                failures.AddRange(Verify(path, typeName, bound, Candidates(typeName, sources, records)));
             }
         }
 
         return new HandlerDeconstructionScan(checkedCount, checkedParenthesised, failures);
     }
 
-    private static IEnumerable<string> Verify(
-        string path, string typeName, string[] bound, IReadOnlyList<IReadOnlyList<string>>? candidates)
+    private static string[] BoundNames(Match deconstruction, bool parenthesised)
     {
+        var list = parenthesised ? deconstruction.Groups["paren"].Value : deconstruction.Groups["plain"].Value;
+        return list
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(name => parenthesised ? VarPrefix.Replace(name, string.Empty) : name)
+            .ToArray();
+    }
+
+    private static IEnumerable<string> Verify(
+        string path, string typeName, string[] bound, Resolution resolution)
+    {
+        if (resolution.Problem is not null)
+        {
+            yield return $"{path}: {resolution.Problem}";
+            yield break;
+        }
+
+        var candidates = resolution.Candidates;
         if (candidates is null)
         {
             yield return $"{path}: record '{typeName}' not found — cannot verify its deconstruction.";
@@ -115,44 +138,68 @@ internal static class HandlerDeconstructionScanner
     private static bool Same(string local, string field) =>
         string.Equals(local, field, StringComparison.OrdinalIgnoreCase);
 
+
+    private sealed record Resolution(IReadOnlyList<IReadOnlyList<string>>? Candidates, string? Problem);
+
+    private static string ContextOf(string path)
+    {
+        var segments = path.Split('/');
+        return segments.Length > 2 ? segments[1] : string.Empty;
+    }
+
     /// <summary>
     /// Every way <paramref name="typeName"/> can be deconstructed: the record's
     /// positional header, plus any hand-written <c>Deconstruct</c> overload.
     /// C# selects between them by arity, so the guard must too — checking only
     /// the header would misreport a type that declares its own overload.
+    /// The handler's own context wins; otherwise the declaration must be unique.
     /// </summary>
-    private static IReadOnlyList<IReadOnlyList<string>>? Candidates(
+    private static Resolution Resolve(
+        string handlerPath,
         string typeName,
         IReadOnlyDictionary<string, string> sources,
-        Dictionary<string, IReadOnlyList<IReadOnlyList<string>>> cache)
+        Dictionary<(string Context, string Name), Resolution> cache)
     {
-        if (cache.TryGetValue(typeName, out var cached))
+        var context = ContextOf(handlerPath);
+        if (cache.TryGetValue((context, typeName), out var cached))
         {
             return cached;
         }
 
         Regex declaration = new(@"record\s+" + Regex.Escape(typeName) + @"\s*\(");
-        foreach (var text in sources.Values)
+        var declared = sources
+            .Where(source => declaration.IsMatch(source.Value))
+            .Select(source => (Path: source.Key, Context: ContextOf(source.Key), Text: source.Value))
+            .ToList();
+
+        var own = declared.Where(d => d.Context == context).ToList();
+        var pool = own.Count > 0 ? own : declared;
+        var resolution = pool.Count switch
         {
-            var match = declaration.Match(text);
-            if (!match.Success)
-            {
-                continue;
-            }
+            0 => new Resolution(null, null),
+            1 => new Resolution(CandidatesIn(pool[0].Text, declaration), null),
+            _ => new Resolution(
+                null,
+                $"record '{typeName}' is declared in several contexts "
+                + $"({string.Join(", ", pool.Select(d => d.Path))}) — cannot tell which this handler deconstructs."),
+        };
 
-            var header = Balanced(text, match.Index + match.Length - 1, '(', ')');
-            if (header is null)
-            {
-                continue;
-            }
+        cache[(context, typeName)] = resolution;
+        return resolution;
+    }
 
-            List<IReadOnlyList<string>> candidates = [Names(header)];
-            candidates.AddRange(DeconstructOverloads(text, match.Index));
-            cache[typeName] = candidates;
-            return candidates;
+    private static List<IReadOnlyList<string>>? CandidatesIn(string text, Regex declaration)
+    {
+        var match = declaration.Match(text);
+        var header = Balanced(text, match.Index + match.Length - 1, '(', ')');
+        if (header is null)
+        {
+            return null;
         }
 
-        return null;
+        List<IReadOnlyList<string>> candidates = [Names(header)];
+        candidates.AddRange(DeconstructOverloads(text, match.Index));
+        return candidates;
     }
 
     private static IEnumerable<IReadOnlyList<string>> DeconstructOverloads(string text, int typeIndex)
@@ -246,6 +293,6 @@ internal static class HandlerDeconstructionScanner
         return Directory.EnumerateFiles(src, "*.cs", SearchOption.AllDirectories)
             .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
                 && !f.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .ToDictionary(f => Path.GetRelativePath(root.FullName, f), File.ReadAllText, StringComparer.Ordinal);
+            .ToDictionary(f => Path.GetRelativePath(root.FullName, f).Replace('\\', '/'), File.ReadAllText, StringComparer.Ordinal);
     }
 }
