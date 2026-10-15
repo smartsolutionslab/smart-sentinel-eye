@@ -285,14 +285,9 @@ public static class IdentityInfrastructureModule
         builder.Services.AddHttpClient(KeycloakAdminTokenProvider.HttpClientName, ConfigureHttpClient)
             .RetryEveryMethod();
         builder.Services.AddSingleton<KeycloakAdminTokenProvider>();
-        // Nested mint: this handler mints a token through an opted-in client from inside
-        // each attempt of this client's pipeline, so in a Keycloak outage one call can drive
-        // several mints (about 9 token POSTs per call, measured on #2959). A failed mint counts
-        // against THIS upstream's breaker when it surfaces as the attempt's timeout or as the
-        // HttpRequestException from EnsureSuccessStatusCode on a 401; only a Keycloak 503
-        // feeds Keycloak's own breaker. A credential Keycloak rejects is retried by the outer
-        // call as well (4 token POSTs per outer GET, not 1). Accepted: the mint is
-        // single-flight and the outer attempt timeout cancels it.
+        // Nested mint: this handler mints a token inside each attempt of this client's
+        // pipeline, so a Keycloak outage multiplies calls; see UpstreamAuthority for what
+        // that costs and why it is accepted.
         // This client and its mint share Keycloak's authority, so one breaker: while it
         // is half-open the call can take the only probe, the nested mint is refused, and the
         // breaker can close without Keycloak having been asked anything.
