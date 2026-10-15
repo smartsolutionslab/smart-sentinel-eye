@@ -9,7 +9,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// (revoked vs. never-existed are indistinguishable to the caller, pinned by
 /// spec 102's <c>WebhookRevocationRefusesDeliveryIntegrationTests</c>) but
 /// adds a purely internal audit line: when the lookup in
-/// <c>EventsEndpoints.Writes.AuthenticateWebhookAsync</c> finds a
+/// <c>WebhookDeliveryAuthentication.AuthenticateWebhookAsync</c> finds a
 /// <b>revoked</b> integration specifically, the endpoint must write a
 /// structured log record saying so. When the lookup finds nothing at all
 /// (an unknown name), no such record is written — that branch is unchanged.
@@ -174,7 +174,7 @@ public class RevokedWebhookDeliveryIsLoggedIntegrationTests(AspireFixture aspire
     /// Review finding on #2205 (phase 6, both reviewers): every fact above
     /// posts with <c>fabId</c> equal to the integration's own fab, so nothing
     /// here proves the log call actually runs before
-    /// <c>AuthenticateWebhookAsync</c>'s <c>IsIntegrationsOwnFab</c> check — a
+    /// <c>WebhookDeliveryAuthentication.AuthenticateWebhookAsync</c>'s <c>IsIntegrationsOwnFab</c> check — a
     /// regression that moved it after would still pass every fact above — and
     /// the "never logs the caller-supplied fabId" property is untested, since
     /// caller fabId and the integration's own fab are identical everywhere

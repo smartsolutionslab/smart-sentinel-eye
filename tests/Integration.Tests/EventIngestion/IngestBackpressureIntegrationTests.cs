@@ -5,7 +5,7 @@ using Xunit.Abstractions;
 namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 
 /// <summary>
-/// Spec 223 (#2441) — the seam at <c>EventsEndpoints.Writes.cs:344-351</c> that
+/// Spec 223 (#2441) — the seam in <c>EventIngestStore.StoreOrRefuseAsync</c> that
 /// turns a refused lease into a 429 is covered at unit level (spec 104's
 /// <c>IngestWriteLimiterTests</c>) but unreachable from outside the process
 /// until the fixture pins <c>EventIngestion:IngestWrite:Concurrency</c> to 1

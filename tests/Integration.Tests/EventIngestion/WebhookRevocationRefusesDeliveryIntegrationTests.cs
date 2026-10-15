@@ -11,7 +11,7 @@ namespace SmartSentinelEye.Integration.Tests.EventIngestion;
 /// <summary>
 /// Spec 102 (#603) — revocation as a containment action rather than a registry
 /// annotation. The domain flips correctly and the endpoint consults the flag on
-/// one line (<c>EventsEndpoints.Writes.AuthenticateWebhookAsync</c>), but until
+/// one line (<c>WebhookDeliveryAuthentication.AuthenticateWebhookAsync</c>), but until
 /// now nothing anywhere revoked an integration and then attempted a delivery
 /// through it: the two files that POST to <c>/events/webhook/</c> never revoke,
 /// and the two that revoke assert registry state only. A regression making the
