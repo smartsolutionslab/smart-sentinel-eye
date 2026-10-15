@@ -111,12 +111,11 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         };
 
         // #2491. SqlQueryRaw, not ExecuteSqlRawAsync, because the INSERT ...
-        // RETURNING above is the fencing token itself — the value this claim
-        // wrote and the only value CompleteAsync/ReleaseAsync will later
+        // RETURNING in ClaimSql is the fencing token itself — the value this
+        // claim wrote and the only value CompleteAsync/ReleaseAsync will later
         // accept back. No LINQ operator follows: ToArrayAsync is the
-        // non-composing terminal EF already uses for the fall-through SELECT
-        // below, so there is nothing here for EF to wrap the RETURNING
-        // statement in.
+        // non-composing terminal EF already uses in ReadBindingAsync, so
+        // there is nothing here for EF to wrap the RETURNING statement in.
         return await dbContext.Database
             .SqlQueryRaw<DateTime>(
                 ClaimSql,
@@ -133,7 +132,9 @@ public sealed class IdempotencyStore<TDbContext>(TDbContext dbContext) : IIdempo
         await dbContext.Database
             .SqlQueryRaw<StoredBinding>(
                 ReadBindingSql,
-                scope.Key.Value, scope.Endpoint, scope.Caller)
+                scope.Key.Value,
+                scope.Endpoint,
+                scope.Caller)
             .ToArrayAsync(cancellationToken);
 
     private static IdempotencyReservation Classify(IdempotencyScope scope, StoredBinding row)
