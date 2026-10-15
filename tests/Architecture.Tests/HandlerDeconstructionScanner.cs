@@ -14,7 +14,6 @@ internal static class HandlerDeconstructionScanner
         + @"([A-Za-z0-9_]+)\s+(\w+)\s*,",
         RegexOptions.Singleline | RegexOptions.Compiled);
 
-
     private static readonly Regex Deconstruction = new(
         @"(?:var\s*\((?<plain>[^)]*)\)"
         + @"|\((?<paren>\s*(?:var\s+\w+|_)\s*(?:,\s*(?:var\s+\w+|_)\s*)+)\))"
@@ -23,48 +22,63 @@ internal static class HandlerDeconstructionScanner
 
     private static readonly Regex VarPrefix = new(@"^var\s+", RegexOptions.Compiled);
 
+    private sealed record Resolution(IReadOnlyList<IReadOnlyList<string>>? Candidates, string? Problem);
+
+    private sealed class ScanState(IReadOnlyDictionary<string, string> sources)
+    {
+        public IReadOnlyDictionary<string, string> Sources { get; } = sources;
+
+        public Dictionary<(string Context, string Name), Resolution> Records { get; } = [];
+
+        public List<string> Failures { get; } = [];
+
+        public int Checked { get; set; }
+
+        public int CheckedParenthesised { get; set; }
+    }
+
     internal static HandlerDeconstructionScan Scan(IReadOnlyDictionary<string, string> sources)
     {
-        Dictionary<(string Context, string Name), Resolution> records = [];
-        List<string> failures = [];
-        var checkedCount = 0;
-        var checkedParenthesised = 0;
+        ScanState state = new(sources);
 
         foreach ((var path, var text) in sources)
         {
             foreach (Match signature in HandlerSignature.Matches(text))
             {
-                var typeName = signature.Groups[1].Value;
-                var parameter = signature.Groups[2].Value;
-
                 var body = BodyAfter(text, signature.Index);
-                if (body is null)
+                if (body is not null)
                 {
-                    continue;
-                }
-
-                foreach (Match deconstruction in Deconstruction.Matches(body))
-                {
-                    if (deconstruction.Groups["target"].Value != parameter)
-                    {
-                        continue;
-                    }
-
-                    checkedCount++;
-                    var parenthesised = deconstruction.Groups["paren"].Success;
-                    if (parenthesised)
-                    {
-                        checkedParenthesised++;
-                    }
-
-                    var bound = BoundNames(deconstruction, parenthesised);
-                    var resolution = Resolve(path, typeName, sources, records);
-                    failures.AddRange(Verify(path, typeName, bound, resolution));
+                    CheckBody(path, signature, body, state);
                 }
             }
         }
 
-        return new HandlerDeconstructionScan(checkedCount, checkedParenthesised, failures);
+        return new HandlerDeconstructionScan(state.Checked, state.CheckedParenthesised, state.Failures);
+    }
+
+    private static void CheckBody(string path, Match signature, string body, ScanState state)
+    {
+        var typeName = signature.Groups[1].Value;
+        var parameter = signature.Groups[2].Value;
+
+        foreach (Match deconstruction in Deconstruction.Matches(body))
+        {
+            if (deconstruction.Groups["target"].Value != parameter)
+            {
+                continue;
+            }
+
+            state.Checked++;
+            var parenthesised = deconstruction.Groups["paren"].Success;
+            if (parenthesised)
+            {
+                state.CheckedParenthesised++;
+            }
+
+            var bound = BoundNames(deconstruction, parenthesised);
+            var resolution = Resolve(path, typeName, state.Sources, state.Records);
+            state.Failures.AddRange(Verify(path, typeName, bound, resolution));
+        }
     }
 
     private static string[] BoundNames(Match deconstruction, bool parenthesised)
@@ -77,7 +91,10 @@ internal static class HandlerDeconstructionScanner
     }
 
     private static IEnumerable<string> Verify(
-        string path, string typeName, string[] bound, Resolution resolution)
+        string path,
+        string typeName,
+        string[] bound,
+        Resolution resolution)
     {
         if (resolution.Problem is not null)
         {
@@ -138,9 +155,6 @@ internal static class HandlerDeconstructionScanner
     private static bool Same(string local, string field) =>
         string.Equals(local, field, StringComparison.OrdinalIgnoreCase);
 
-
-    private sealed record Resolution(IReadOnlyList<IReadOnlyList<string>>? Candidates, string? Problem);
-
     private static string ContextOf(string path)
     {
         var segments = path.Split('/');
@@ -153,6 +167,12 @@ internal static class HandlerDeconstructionScanner
     /// C# selects between them by arity, so the guard must too — checking only
     /// the header would misreport a type that declares its own overload.
     /// The handler's own context wins; otherwise the declaration must be unique.
+    /// Known heuristic: records are matched by name with <c>record\s+T\s*\(</c>,
+    /// which can also match comments or XML docs — that surfaces as an ambiguity
+    /// (loud), never silently. Own-context-first would pick the wrong record if a
+    /// handler parameter is a Shared.Contracts record while its own context
+    /// declares a same-named record in another namespace; no such collision exists
+    /// today, and resolving by namespace was rejected (plan section 5).
     /// </summary>
     private static Resolution Resolve(
         string handlerPath,
@@ -180,7 +200,7 @@ internal static class HandlerDeconstructionScanner
             1 => new Resolution(CandidatesIn(pool[0].Text, declaration), null),
             _ => new Resolution(
                 null,
-                $"record '{typeName}' is declared in several contexts "
+                $"record '{typeName}' is declared {(own.Count > 0 ? "more than once" : "in several contexts")} "
                 + $"({string.Join(", ", pool.Select(d => d.Path))}) — cannot tell which this handler deconstructs."),
         };
 

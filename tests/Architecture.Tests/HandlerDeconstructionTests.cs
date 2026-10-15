@@ -1,4 +1,3 @@
-
 namespace SmartSentinelEye.Architecture.Tests;
 
 /// <summary>
