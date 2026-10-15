@@ -250,4 +250,53 @@ public sealed class SimulatorRuntimeBindingTests
 
         message.ShouldBe("system-variables URL not configured (services:system-variables:http:0).");
     }
+
+    private static readonly (string[] Keys, string Message)[] ReportingOrder =
+    [
+        (["services:camera-catalog:http:0", Prefix + "CameraCatalogUrl"], "camera-catalog URL not configured (services:camera-catalog:http:0)."),
+        (["services:camera-sim:api:0", Prefix + "CameraSimApiUrl"], "camera-sim API URL not configured (services:camera-sim:api:0)."),
+        (["services:overlay-designer:http:0", Prefix + "OverlayDesignerUrl"], "overlay-designer URL not configured (services:overlay-designer:http:0)."),
+        (["services:automation:http:0", Prefix + "AutomationUrl"], "automation URL not configured (services:automation:http:0)."),
+        (["services:layout-composition:http:0", Prefix + "LayoutCompositionUrl"], "layout-composition URL not configured (services:layout-composition:http:0)."),
+        (["services:system-variables:http:0", Prefix + "SystemVariablesUrl"], "system-variables URL not configured (services:system-variables:http:0)."),
+        (["services:mosquitto:mqtt:0", Prefix + "MqttHost"], "mosquitto MQTT host not configured (services:mosquitto:mqtt:0)."),
+        (["services:keycloak:http:0"], "Keycloak URL not configured for the scenario simulator."),
+        ([Prefix + "ClientSecret"], "scenario-simulator client secret not configured."),
+    ];
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(7)]
+    public void With_two_adjacent_settings_missing_the_earlier_one_is_reported(int earlier)
+    {
+        var message = Missing(
+            Complete(),
+            [.. ReportingOrder[earlier].Keys, .. ReportingOrder[earlier + 1].Keys]);
+
+        message.ShouldBe(ReportingOrder[earlier].Message);
+    }
+
+    [Fact]
+    public void An_empty_client_secret_is_a_value_and_binds_as_empty()
+    {
+        var settings = Complete();
+        settings[Prefix + "ClientSecret"] = string.Empty;
+
+        Bind(settings).ClientSecret.ShouldBe(string.Empty);
+    }
+
+    [Fact]
+    public void An_empty_keycloak_connection_string_is_a_value_and_wins_over_the_aspire_endpoint()
+    {
+        var settings = Complete();
+        settings["ConnectionStrings:keycloak"] = string.Empty;
+
+        Bind(settings).KeycloakUrl.ShouldBe(string.Empty);
+    }
 }
