@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using Microsoft.Extensions.Options;
 using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Keycloak;
+using SmartSentinelEye.Shared.Kernel;
 
 namespace SmartSentinelEye.ScenarioSimulator.CameraCatalog;
 
@@ -56,7 +57,7 @@ public sealed class CameraCatalogClient(
 
         response.EnsureSuccessStatusCode();
         var camera = await response.Content.ReadFromJsonAsync<Guid>(cancellationToken);
-        logger.CameraRegistered(name, rtspUrl);
+        logger.CameraRegistered(name, UrlRedaction.ToOrigin(rtspUrl));
         return camera;
     }
 

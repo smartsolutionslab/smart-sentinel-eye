@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using SmartSentinelEye.ScenarioSimulator.CameraSim;
 
 namespace SmartSentinelEye.ScenarioSimulator;
 
@@ -37,8 +38,8 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Active scenario '{Scenario}' not found in configuration; nothing to seed.")]
     public static partial void ScenarioNotFound(this ILogger logger, string scenario);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Registered camera '{Name}' -> {RtspUrl}.")]
-    public static partial void CameraRegistered(this ILogger logger, string name, string rtspUrl);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Registered camera '{Name}' -> {Origin}.")]
+    public static partial void CameraRegistered(this ILogger logger, string name, string origin);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Camera '{Name}' already registered; skipping (idempotent).")]
     public static partial void CameraAlreadyRegistered(this ILogger logger, string name);
@@ -54,10 +55,14 @@ internal static partial class Log
 
     [LoggerMessage(
         Level = LogLevel.Information,
-        Message = "camera-sim path '{Path}' now carries the label '{Label}' for camera {Camera}. "
+        Message = "camera-sim path ({Write}) now carries the label '{Label}' for camera {Camera}. "
             + "The label and hue belong to the path: two cameras registered at the same simulator URL "
             + "share it, and the later one wins.")]
-    public static partial void CameraSimPathLabelled(this ILogger logger, string path, string label, Guid camera);
+    public static partial void CameraSimPathLabelled(
+        this ILogger logger,
+        string label,
+        Guid camera,
+        CameraSimProvisioner.PathWrite write);
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Asset '{Asset}' names clip '{Clip}', which is not in the clips directory. Add it (scripts/generate-sim-clips.sh) or correct the scenario file.")]
     public static partial void ClipMissing(this ILogger logger, string asset, string clip);
@@ -68,8 +73,8 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Could not reconcile camera-sim loop path '{Path}': {Error}.")]
     public static partial void CameraSimReconcileFailed(this ILogger logger, string path, string error);
 
-    [LoggerMessage(Level = LogLevel.Information, Message = "Camera URL {Url} has no path component; not a simulated camera, skipping.")]
-    public static partial void SkippedNonSimulatedCamera(this ILogger logger, string url);
+    [LoggerMessage(Level = LogLevel.Information, Message = "Camera {Camera} at {Origin} has no path component; not a simulated camera, skipping.")]
+    public static partial void SkippedNonSimulatedCamera(this ILogger logger, Guid camera, string origin);
 
     // --- M2 seeding (Phase A overlays / Phase B rules / Phase D wall) ---
 
@@ -111,6 +116,11 @@ internal static partial class Log
 
     [LoggerMessage(Level = LogLevel.Warning, Message = "Wall layout '{Name}' ({Layout}) came back with no revisions; cannot tell whether it still needs publishing.")]
     public static partial void WallRevisionsMissing(this ILogger logger, string name, Guid layout);
+
+    [LoggerMessage(
+        Level = LogLevel.Information,
+        Message = "Recorded camera {Camera} at {Origin}; it is not a scenario asset, so it plays the shared clip with its name drawn on it.")]
+    public static partial void NonAssetCameraRecorded(this ILogger logger, Guid camera, string origin);
 
     [LoggerMessage(Level = LogLevel.Information, Message = "Recorded camera {Camera} for asset '{Asset}'.")]
     public static partial void AssetCameraRecorded(this ILogger logger, string asset, Guid camera);

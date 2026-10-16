@@ -68,10 +68,25 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
     private static string Sanitize(string label) =>
         new(label.Where(c => char.IsLetterOrDigit(c) || c is ' ' or '-' or '_' or '.').Take(48).ToArray());
 
-    public Task ProvisionLoopPathAsync(string path, string clip, CancellationToken cancellationToken)
+    internal enum PathWrite
+    {
+        Added,
+        Replaced
+    }
+
+    public async Task ProvisionLoopPathAsync(string path, string clip, CancellationToken cancellationToken)
     {
         Ensure.That(clip).IsNotNull().IsNotNullOrWhiteSpace();
-        return ProvisionAsync(path, clip, LoopCommand(clip), cancellationToken);
+
+        var write = await ProvisionAsync(path, LoopCommand(clip), cancellationToken);
+
+        if (write == PathWrite.Added)
+        {
+            logger.CameraSimPathProvisioned(path, clip);
+            return;
+        }
+
+        logger.CameraSimPathReplaced(path, clip);
     }
 
     /// <summary>
@@ -91,22 +106,21 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
         // spread is what matters, not the value — 360 buckets off the identifier.
         var hue = (int)((uint)camera.GetHashCode() % 360);
 
-        await ProvisionAsync(path, DefaultClip, LabelledCommand(DefaultClip, label, hue), cancellationToken);
+        var write = await ProvisionAsync(path, LabelledCommand(DefaultClip, label, hue), cancellationToken);
 
-        // Which camera's label the path now carries, because ProvisionAsync can
-        // only say it plays `sim-loop.mp4` — true of every labelled path, and so
-        // no help at all when two cameras share one.
+        // Which camera's label the path now carries — `sim-loop.mp4` is true of
+        // every labelled path, and so no help at all when two cameras share one.
+        // The path itself is not logged: it is the URL path an operator typed.
         //
         // The guarantee is per simulator path, not per camera row: two cameras
         // registered at the same URL are one source, and the later registration
         // wins the label and the hue. That is the line to look for when a
         // camera's picture changes without anyone touching that camera.
-        logger.CameraSimPathLabelled(path, label, camera);
+        logger.CameraSimPathLabelled(label, camera, write);
     }
 
-    private async Task ProvisionAsync(
+    private async Task<PathWrite> ProvisionAsync(
         string path,
-        string clip,
         string command,
         CancellationToken cancellationToken)
     {
@@ -122,8 +136,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
 
         if (response.IsSuccessStatusCode)
         {
-            logger.CameraSimPathProvisioned(path, clip);
-            return;
+            return PathWrite.Added;
         }
 
         // MediaMTX returns 400 for a duplicate add. Returning here — which is what
@@ -144,7 +157,7 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
             .PostAsJsonAsync($"/v3/config/paths/replace/{path}", body, cancellationToken);
 
         replaced.EnsureSuccessStatusCode();
-        logger.CameraSimPathReplaced(path, clip);
+        return PathWrite.Replaced;
     }
 
     // MediaMTX v3 path config (subset). runOnDemandRestart re-spawns FFmpeg if
