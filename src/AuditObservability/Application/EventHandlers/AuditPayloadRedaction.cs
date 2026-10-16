@@ -152,8 +152,9 @@ public static class AuditPayloadRedaction
         || (uri.HostNameType == UriHostNameType.IPv6
             && (uri.DnsSafeHost.Contains('%') || !BracketContentIsAddressOnly(url)));
 
-    // Locates the authority the way UrlRedaction.ToOrigin does (past the scheme, past any run of / and \).
-    // The parser closes the brackets before it honours a terminator, so this does too; anything unlocatable is refused.
+    // Follows UrlRedaction.ToOrigin in locating the authority (past the scheme, past any run of / and \), except
+    // that it trims first and does not re-check the scheme characters. A bracket in the userinfo is refused, so
+    // it can never stand in for the host's. The parser closes the brackets before it honours a terminator, so this does too; anything unlocatable is refused.
     private static bool BracketContentIsAddressOnly(string url)
     {
         var rest = url.AsSpan().Trim();
@@ -172,21 +173,33 @@ public static class AuditPayloadRedaction
         }
 
         var authority = rest[authorityStart..];
-        var open = authority.IndexOf('[');
-        var userinfo = open < 0 ? authority : authority[..open];
+        var terminator = authority.IndexOfAny("/?#\\");
+        var userinfoEnd = (terminator < 0 ? authority : authority[..terminator]).LastIndexOf('@');
 
-        if (open < 0 || userinfo.IndexOfAny("/?#\\") >= 0 || (open > 0 && userinfo[^1] != '@'))
+        if (userinfoEnd >= 0 && authority[..userinfoEnd].IndexOfAny("[]") >= 0)
         {
             return false;
         }
 
-        var close = authority.IndexOf(']');
+        var host = authority[(userinfoEnd + 1)..];
 
-        return close > open && IsAddressText(authority[(open + 1)..close]);
+        if (host.IsEmpty || host[0] != '[')
+        {
+            return false;
+        }
+
+        var close = host.IndexOf(']');
+
+        return close > 0 && IsAddressText(host[1..close]);
     }
 
     private static bool IsAddressText(ReadOnlySpan<char> text)
     {
+        if (text.IsEmpty)
+        {
+            return false;
+        }
+
         foreach (var character in text)
         {
             if (!char.IsAsciiHexDigit(character) && character is not (':' or '.'))
