@@ -145,13 +145,14 @@ The autonomous lane may not amend an ADR (ADR-0144); this was drafted for review
 
 **What the measurement showed.** The 2026-09-17 baseline put S107 at 84. After
 the per-context refactors (#2887–#2895, #2929–#2933, #2951–#2952, #2962–#2963)
-S104 is 0 and S138 is 1 (`WolverineDefaults`, #2953), but S107 stands at **113**
+S104 is 0 and S138 is 1 (`WolverineDefaults`, #2953), but S107 stands at **108**
 in production code (Release, `--no-incremental`, `sort -u`, migrations
-excluded, measured 2026-10-15). By location:
+excluded, re-measured 2026-10-16 after #2971, #2973 and #2975 each cleared a
+helper hit; the first measurement, 2026-10-15, read 113). By location:
 
 | Where | S107 hits |
 |---|---|
-| Api layer — endpoint and handler methods | 50 |
+| Api layer — endpoint and handler methods | 45 |
 | `Log.cs` — `[LoggerMessage]` methods | 31 |
 | Other — ScenarioSimulator, ServiceDefaults, AppHost | 13 |
 | Domain — constructors and factories | 12 |
@@ -165,13 +166,18 @@ would defeat the source generator and the structured fields it exists to
 produce. S107 is therefore switched off for files named `Log.cs`, in
 `.editorconfig` after the `src/` section so that it wins.
 
-**What this does not do.** It does not touch the other 82. The 50 Api-layer
-hits follow the precedent of spec 341 (`IngestManualServices`: injected
-services bundled into one record bound with `[AsParameters]`) and are tracked
-as per-context issues. The Domain, Application and "other" hits (32) are
+**What this does not do.** It does not touch the other 77. The 45 Api-layer
+hits were first described as fixable by the precedent of spec 341
+(`IngestManualServices`: injected services bundled into one record bound with
+`[AsParameters]`). **They are not**: S107 does not count `[FromServices]`
+parameters, and route-handler request parameters are pinned by the route-table
+baselines (specs 380/382/383, issue #2971). A second exemption — minimal-API
+handler request parameters — is therefore an **open owner question** (options
+on #2971); it is not part of this amendment and is not in `.editorconfig`. The
+Domain, Application and "other" hits (32) are
 per-case design decisions and remain advisory warnings; none is exempted.
 
-**Consequences.** The S107 count falls by 31 with no code change, so it now
+**Consequences.** The S107 count falls by 31 with no code change (108 to 77), so it now
 measures something a person could act on. The exemption is by file name: a
 `[LoggerMessage]` method placed outside a file called `Log.cs` is still
 counted, which at the date of this amendment is none (verified by searching
