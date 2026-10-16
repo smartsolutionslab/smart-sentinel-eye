@@ -21,7 +21,7 @@ internal static class IdentityFabResolution
 {
     /// <summary>
     /// The fabs a read may span (spec 183 AS-1/AS-4). Omitting
-    /// <paramref name="fabId"/> spans every fab the caller holds; naming one
+    /// <see cref="FabReadRequest.Fab"/> spans every fab the caller holds; naming one
     /// narrows to it; naming one they do not hold is refused.
     ///
     /// <para>
@@ -34,12 +34,13 @@ internal static class IdentityFabResolution
     /// </para>
     /// </summary>
     public static async Task<Result<IReadOnlyList<FabIdentifier>, IResult>> ResolveReadFabsAsync(
-        ClaimsPrincipal user,
-        string fabId,
+        FabReadRequest read,
         IFabAuthorizationGuard fabGuard,
         string unusableFabErrorCode,
         CancellationToken cancellationToken)
     {
+        var (user, fabId) = read;
+
         var resolved =
             await FabResolution.ResolveForReadAsync(user, fabId, fabGuard, cancellationToken);
 
@@ -69,3 +70,12 @@ internal static class IdentityFabResolution
         return Result<IReadOnlyList<FabIdentifier>, IResult>.Success(fabs);
     }
 }
+
+/// <summary>
+/// The caller and the fab they asked to read, carried together so the two
+/// cannot be passed transposed: the members have different types, so a swap
+/// is a compile error rather than a silent change to which fabs are read.
+/// </summary>
+/// <param name="User">The authenticated caller whose fab groups bound the read.</param>
+/// <param name="Fab">The fab named on the request; empty spans every fab the caller holds.</param>
+internal sealed record FabReadRequest(ClaimsPrincipal User, string Fab);
