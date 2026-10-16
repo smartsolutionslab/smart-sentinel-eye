@@ -43,7 +43,8 @@ three different test projects.
   `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~StreamDistributionModelCharacterisationTests"`;
   return verbatim: `The_stream_distribution_model_has_exactly_this_shape` **fails** (line missing),
   `..._the_committed_snapshot_describes` passes.
-- [x] **T003** [P] [US1] R6 — `tests/Integration.Tests/StreamDistribution/RepointStreamIntegrationTests.cs`:
+- [x] **T003** [P] [US1] (written; **R6 was never seen red** - the red round trip was not taken, the
+  integration lane's first run is CI, and the red evidence rests on R1-R5) R6 — `tests/Integration.Tests/StreamDistribution/RepointStreamIntegrationTests.cs`:
   add `Correcting_a_cameras_address_records_when_the_change_was_made` (plan §8.1, raw SQL). Existing
   class, already in `shard-1.filter`: **no filter edit**. Red needs the stack: if Docker is up, run
   `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifiedName~RepointStreamIntegrationTests"`
@@ -57,10 +58,13 @@ three different test projects.
   `SourceChangedAt.From(Moment)` in `Harness.RepointAsync`). No assertion edited. Run
   `dotnet build tests/StreamDistribution.Application.Tests -c Release`; return the verbatim CS0246 /
   CS1729 errors naming `SourceChangedAt` / the arity. **Do not commit**; hand to T010.
+  (D1 `SourceChangedAtTests` and D2 `StreamRepointOrderingTests` only ever failed to **compile**:
+  they were never seen failing as assertions.)
 
 ## Phase 1b: Adversarial (test-adversary)
 
-- [ ] **T005** [US1] new
+- [x] **T005** [US1] DONE (64ee8a77: `CameraAddressChangedAdversarialOrderingTests`, green; findings:
+  the clamp residuals R-1 and R-2 of spec §8 and the pre-existing items listed there) new
   `tests/StreamDistribution.Application.Tests/EventHandlers/CameraAddressChangedOrderingAdversarialTests.cs`
   per plan §8.4 (permutations of 3+ changes with injected failures; offset-equal instants;
   `MinValue`; sub-microsecond pair; a commit between load and save via `OnSave`). Report the §7
@@ -87,7 +91,13 @@ three different test projects.
 
 ## Phase 3: Verify
 
-- [x] **T020** Local: `dotnet build -c Release` clean (no new warnings beyond advisory S/IDE1006);
+- [x] **T020a** (local half, ticked) Counterfactuals, quoted from the reports: `<` -> `<=` in
+  `RepointTo` turns the equal-instant guards red (G1 etc., 3-4 tests); recording only on a URL change
+  turns R3 red; the guard disabled turns 17 of the 22 adversarial tests red, and the exhaustive test
+  reports 8658 failing schedules.
+- [ ] **T020b** (CI half, **not done**: CI pending) R6 and the two existing `RepointStreamIntegrationTests`
+  facts green; coverage gates hold.
+- [ ] **T020** (superseded by T020a/T020b; the original text follows) Local: `dotnet build -c Release` clean (no new warnings beyond advisory S/IDE1006);
   `dotnet test` for `StreamDistribution.Domain.Tests`, `StreamDistribution.Application.Tests`,
   `StreamDistribution.Infrastructure.Tests`, `Architecture.Tests` (`PrimitiveBoundaryTests`,
   `HandlerDeconstructionTests`, registration characterisation) — all green, R1-R5, G1-G3, D1-D2,
@@ -114,12 +124,14 @@ untracked `*.cs.pending` (the options type does not exist): `CameraAddressChange
 (Application.Tests) and `StreamRepointToleranceValidationTests.cs.pending` (Infrastructure.Tests).
 
 - [x] **T030** [US1] Red tests C1-C6 committed; C7/C8 written untracked with compile errors quoted.
-- [ ] **T031** [US1] `StreamRepointOptions` (Application), its binding + validation in the
+- [x] **T031** [US1] `StreamRepointOptions` (Application), its binding + validation in the
   Infrastructure module (like `BindMediaMtxSourceRepair`), the clamp in `RepointStreamCommandHandler`,
   the clamp Warning and the ignore-line change in `Log.cs`. Rename the two `.pending` files to `.cs`
   (adapting only constructor/namespace/binder name, never an assertion). Add the two options entries to
   `StreamDistributionRegistrationCharacterisationTests` (authorised).
-- [ ] **T032** [US1] Verify: C1-C8 and every existing test green unmodified; counterfactual quoted
-  (remove the clamp: C1/C2 red).
-- [ ] **T033** Follow-up decision issue for ordering by a serialised sequence (V2); PR notes the
+- [x] **T032** [US1] Verify: C1-C8 and every existing test green unmodified; counterfactual quoted
+  (remove the clamp: C1, C2, C4, C7 red; reject instead of clamp: C1, C4, C7 red; drop the poisoned-stamp Warning: C5 red; log the full URL: C1 red). "Poisoned" means the recorded stamp is beyond now plus the tolerance, as C6 pins (a recorded stamp 5 s ahead is routine skew).
+- [x] **T033** (#3008) Follow-up decision issue for ordering by a serialised sequence (V2); PR notes the
   backward-clock-step residual.
+  (Not created by the implementer: accepted residual is the backward clock step, tracked as #3008; an
+  operator path to clear `source_changed_at` is not in scope.)
