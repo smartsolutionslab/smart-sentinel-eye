@@ -73,7 +73,7 @@ hidden, and the stored payload is the only copy (the previous host cannot be rec
 | 1 | `AuditPayloadHostCharsetRedactionTests.Changing_between_two_different_non_ascii_addresses_still_reports_a_detail_change` (:94) | `rtsp://cam／a＝…1` -> `…2` | P / P | `true` | `null` | **yes — named in the decision** |
 | 2 | `AuditPayloadUserInfoRedactionTests.Changing_between_two_cut_short_addresses_stores_the_placeholder_and_reports_a_detail_change` (:71) | `rtsp://operator:2468#@cam/s` -> `…1357…` | P / P | `true` | `null` | **yes — "spec 381's equivalent", named in the decision** |
 | 3 | `AuditPayloadRedactionPostFixAdversarialTests.DetailChanged_edges`, row `("garbage SECRET1", "garbage SECRET2", true)` (:101) | not a URI | P / P | `true` | `null` | **yes — see below** |
-| 4 | same theory, rows `CAM/x`~`cam/x`, `cam`~`cam/`, `cam/x`~`cam/x `, `[fe80::1%25eth0]`~`[…eth1]` | read / read, equal origin, raw differs | R / R | `true` | `true` | no |
+| 4 | same theory, rows `CAM/x`~`cam/x`, `cam`~`cam/`, `cam/x`~`cam/x `, `[fe80::1%25eth0]`~`[…eth1]` | read / read, equal origin, raw differs | R / R | `true` | `true` | no (the `[fe80::1%25eth0]` row is superseded by spec 387: `null`) |
 | 5 | same theory, row `cam:554/x`~`cam/x` | read / read, origins differ | R / R | `false` | `false` | no |
 | 6 | `AuditPayloadRedactionPostFixAdversarialTests.Both_null_still_audits_with_no_detail_change` (:92) | null / null | — | `false` | `false` | no |
 | 7 | `AuditPayloadRedactionTests.An_address_change_within_one_origin_stores_both_origins_and_a_detail_change` (:129) | `rtsp://cam/a?…` -> `rtsp://cam/b?…` | R / R | `true` | `true` | no |
