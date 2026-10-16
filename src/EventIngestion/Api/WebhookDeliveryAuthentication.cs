@@ -198,9 +198,12 @@ internal static class WebhookDeliveryAuthentication
 }
 
 /// <summary>What a webhook caller presented: the route's integration name, the request carrying its bearer, and the delivery's fab.</summary>
-internal sealed record WebhookDelivery(string IntegrationName, HttpRequest Request, string FabId);
+internal sealed record WebhookDelivery(string IntegrationName, HttpRequest Request, string Fab);
 
-/// <summary>The collaborators <see cref="WebhookDeliveryAuthentication.AuthenticateWebhookAsync"/> reads, bundled so the check keeps a readable signature (ADR-0084).</summary>
+/// <summary>
+/// The collaborators <see cref="WebhookDeliveryAuthentication.AuthenticateWebhookAsync"/> reads,
+/// bundled so the check keeps a readable signature (ADR-0084).
+/// </summary>
 internal sealed record WebhookAuthenticationServices(
     IWebhookIntegrationRepository Integrations,
     ILogger Logger,
