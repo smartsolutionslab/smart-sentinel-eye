@@ -10,30 +10,23 @@ namespace SmartSentinelEye.ScenarioSimulator.Tests;
 /// Spec 390 / #2976, US4. IHttpClientFactory logs every request URI at Information, and the
 /// camera-sim request URI carries the operator's URL path. The simulator's real appsettings.json
 /// is loaded, not a copy, so editing the filter away fails here.
+/// <para>
+/// The counterfactual that once lived here (the recorder sees the factory's request log when its
+/// level allows) is deleted: the camera-sim client no longer registers the factory's loggers at
+/// all, so it would fail for the wrong reason. It only proved the test below is not vacuous; that
+/// job now belongs to <see cref="CameraSimProvisionerResilienceScopeLeakTests"/> and the
+/// request-URI-scope counterfactual in <see cref="CameraSimProvisionerLogRedactionAdversarialTests"/>.
+/// Both tests were added in this PR, so nothing on develop is weakened.
+/// </para>
 /// </summary>
 public sealed class CameraSimProvisionerHttpLoggingTests
 {
-    private const string FactoryCategory = "System.Net.Http.HttpClient.CameraSimProvisioner";
-
     [Fact]
     public async Task The_camera_sim_client_request_log_does_not_print_the_path()
     {
         var log = await ProvisionAsync(overrides: []);
 
         log.Dump.ShouldNotContain("SECRET-token", customMessage: log.Dump);
-    }
-
-    [Fact]
-    public async Task The_recorder_sees_the_camera_sim_client_request_log_when_its_level_allows()
-    {
-        var log = await ProvisionAsync(overrides: new Dictionary<string, string?>
-        {
-            [$"Logging:LogLevel:{FactoryCategory}"] = "Information",
-        });
-
-        log.Entries
-            .Where(entry => entry.Category.StartsWith(FactoryCategory, StringComparison.Ordinal))
-            .ShouldContain(entry => entry.Message.Contains("SECRET-token", StringComparison.Ordinal), log.Dump);
     }
 
     private static async Task<RecordingLoggerProvider> ProvisionAsync(Dictionary<string, string?> overrides)
