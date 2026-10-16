@@ -36,6 +36,8 @@ internal sealed class SourceRepairGateway : IRtspGateway
 
     public void FailPatchesFor(MediaMtxPath path, Exception failure) => failures[path] = failure;
 
+    public void StopFailingPatchesFor(MediaMtxPath path) => failures.Remove(path);
+
     public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
         CancellationToken cancellationToken)
     {
