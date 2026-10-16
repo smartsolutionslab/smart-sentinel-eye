@@ -37,19 +37,17 @@ internal sealed class SimHandlerRig
             Log.CreateLogger<CameraSimProvisioner>());
 
         var layouts = new LayoutCompositionClient(
-            new HttpClient(new RigHandler(null, _ => throw new HttpRequestException("layouts unreachable")))
+            new HttpClient(Layouts)
             {
                 BaseAddress = new Uri("https://layouts.test"),
             },
             Tokens(),
             Log.CreateLogger<LayoutCompositionClient>());
 
-        var correlation = new AssetCorrelationTable();
-
         handler = new CameraRegisteredSimHandler(
             provisioner,
-            correlation,
-            new WallSeeder(layouts, correlation, options, Log.CreateLogger<WallSeeder>()),
+            Correlation,
+            new WallSeeder(layouts, Correlation, options, Log.CreateLogger<WallSeeder>()),
             options,
             Log.CreateLogger<CameraRegisteredSimHandler>());
     }
@@ -57,6 +55,12 @@ internal sealed class SimHandlerRig
     public RecordingLoggerProvider Log { get; } = new();
 
     public RigHandler CameraSim { get; }
+
+    /// <summary>The correlation table the handler and the wall seeder share.</summary>
+    public AssetCorrelationTable Correlation { get; } = new();
+
+    /// <summary>The layout service; every wall attempt that reaches it is a recorded request (it then refuses).</summary>
+    public RigHandler Layouts { get; } = new(null, _ => throw new HttpRequestException("layouts unreachable"));
 
     public Task HandleAsync(Guid camera, string name, string url)
     {
