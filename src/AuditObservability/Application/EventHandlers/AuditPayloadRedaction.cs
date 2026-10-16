@@ -143,10 +143,60 @@ public static class AuditPayloadRedaction
     }
 
     // The origin drops an IPv6 zone, so two addresses on different interfaces share one origin and the
-    // ordinal rule would call them the same host; an address that cannot be parsed is unknown too.
+    // ordinal rule would call them the same host. The parser keeps the zone in DnsSafeHost only when it is
+    // written directly after the address; behind a prefix length ([fe80::1/64%25eth0]) it drops it, so the
+    // written bracket text is read as well. The unparseable arm is unreachable here (the placeholder check
+    // runs first) and stays so that an address nobody could read is unknown, never "same origin".
     private static bool CarriesZone(string url) =>
         !Uri.TryCreate(url, UriKind.Absolute, out var uri)
-        || (uri.HostNameType == UriHostNameType.IPv6 && uri.DnsSafeHost.Contains('%'));
+        || (uri.HostNameType == UriHostNameType.IPv6
+            && (uri.DnsSafeHost.Contains('%') || !BracketContentIsAddressOnly(url)));
+
+    // Locates the authority the way UrlRedaction.ToOrigin does (past the scheme, past any run of / and \).
+    // The parser closes the brackets before it honours a terminator, so this does too; anything unlocatable is refused.
+    private static bool BracketContentIsAddressOnly(string url)
+    {
+        var rest = url.AsSpan().Trim();
+        var colon = rest.IndexOf(':');
+
+        if (colon > 0 && char.IsAsciiLetter(rest[0]))
+        {
+            rest = rest[(colon + 1)..];
+        }
+
+        var authorityStart = rest.IndexOfAnyExcept('/', '\\');
+
+        if (authorityStart < 0)
+        {
+            return false;
+        }
+
+        var authority = rest[authorityStart..];
+        var open = authority.IndexOf('[');
+        var userinfo = open < 0 ? authority : authority[..open];
+
+        if (open < 0 || userinfo.IndexOfAny("/?#\\") >= 0 || (open > 0 && userinfo[^1] != '@'))
+        {
+            return false;
+        }
+
+        var close = authority.IndexOf(']');
+
+        return close > open && IsAddressText(authority[(open + 1)..close]);
+    }
+
+    private static bool IsAddressText(ReadOnlySpan<char> text)
+    {
+        foreach (var character in text)
+        {
+            if (!char.IsAsciiHexDigit(character) && character is not (':' or '.'))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static bool IsPlaceholder(string origin) =>
         string.Equals(origin, UrlRedaction.Unparseable, StringComparison.Ordinal);

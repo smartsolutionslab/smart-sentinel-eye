@@ -68,6 +68,14 @@ passing, before dispatching T010.
   against T010; a failing one is a finding returned verbatim (fix red-first as T011), not an edited test.
   Commit: `test(3006): adversarial zone spellings for DetailChanged`.
 
+- [x] **T021** [US1] Finding B1 (security review): red tests
+  `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedBracketContentTests.cs`
+  (c30072c5; 10 assertion failures `should be Null but was True`) for a prefix length or zone written inside the
+  brackets, which the parser strips from `DnsSafeHost`.
+- [x] **T022** [US1] B1 fix in `AuditPayloadRedaction.cs` only (FR-006): written bracket content other than hex
+  digits, `:` and `.` makes the value unknown; unlocatable content is refused. Tests unmodified. Commit:
+  `fix(audit): report DetailChanged as unknown when the bracket content carries more than an address`.
+
 ## Phase 4: Verify, review, PR (orchestrator)
 
 - [ ] **T030** Phase 5 per spec §5: step 1 always; step 3 only if no other Aspire stack runs; otherwise state
