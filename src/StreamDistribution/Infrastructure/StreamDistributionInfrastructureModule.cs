@@ -46,6 +46,7 @@ public static class StreamDistributionInfrastructureModule
         BindMediaMtxApiOptions(builder);
         BindWhepAuthOptions(builder);
         BindStreamFabAttribution(builder);
+        BindMediaMtxSourceRepair(builder);
 
         AddStreamPersistenceAndDomainEventDispatch(builder.Services);
         AddClockAndMediaMtxAccessServices(builder.Services);
@@ -279,10 +280,6 @@ public static class StreamDistributionInfrastructureModule
             options.Realm = builder.Configuration["Keycloak:Realm"] ?? options.Realm;
         });
 
-        // Registered here, ahead of the token provider, because the registration
-        // order is pinned by StreamDistributionRegistrationCharacterisationTests.
-        BindMediaMtxSourceRepair(builder);
-
         // Idempotent POST — see ADR-0143; a second token supersedes the first.
         builder.Services.AddHttpClient(CameraCatalogTokenProvider.HttpClientName).RetryEveryMethod();
         builder.Services.AddSingleton<CameraCatalogTokenProvider>();
@@ -307,18 +304,20 @@ public static class StreamDistributionInfrastructureModule
     }
 
     /// <summary>
-    /// Spec 378 (#2960): an interval outside 1 ms to 4294967294 ms would make the sweep's
-    /// <c>PeriodicTimer</c> throw inside the hosted service, so it is a startup
-    /// failure here instead.
+    /// Spec 378 (#2960): an interval outside 1 s to 4294967294 ms is a startup
+    /// failure here. Above the range, the sweep's <c>PeriodicTimer</c> would throw
+    /// inside the hosted service. Below one second, passes run back to back and
+    /// exhaust the shared MediaMTX control-API rate partition (2000 per minute),
+    /// which also serves health, provisioning, repoint and retire.
     /// </summary>
     private static void BindMediaMtxSourceRepair(IHostApplicationBuilder builder)
     {
         builder.Services.AddOptions<MediaMtxSourceRepairOptions>()
             .Configure(options => builder.Configuration.GetSection(MediaMtxSourceRepairOptions.SectionName).Bind(options))
             .Validate(
-                options => options.Interval >= TimeSpan.FromMilliseconds(1)
+                options => options.Interval >= TimeSpan.FromSeconds(1)
                     && options.Interval <= TimeSpan.FromMilliseconds(uint.MaxValue - 1),
-                "MediaMtxSourceRepair:Interval must be between 1 and 4294967294 milliseconds, the range PeriodicTimer accepts.")
+                "MediaMtxSourceRepair:Interval must be between 1 second and 4294967294 milliseconds: a shorter interval exhausts the shared MediaMTX control-API rate partition, a longer one is outside the range PeriodicTimer accepts.")
             .ValidateOnStart();
     }
 
