@@ -72,9 +72,8 @@ internal static class IdentityFabResolution
 }
 
 /// <summary>
-/// The caller and the fab they asked to read, carried together so the two
-/// cannot be passed transposed: the members have different types, so a swap
-/// is a compile error rather than a silent change to which fabs are read.
+/// The caller and the fab they asked to read, carried together so that
+/// <c>ResolveReadFabsAsync</c> stays within ADR-0084's four parameters.
 /// </summary>
 /// <param name="User">The authenticated caller whose fab groups bound the read.</param>
 /// <param name="Fab">The fab named on the request; empty spans every fab the caller holds.</param>
