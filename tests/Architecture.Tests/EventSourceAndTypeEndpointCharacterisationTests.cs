@@ -469,6 +469,74 @@ public class EventSourceAndTypeEndpointCharacterisationTests
             Times.Once);
     }
 
+    [Fact]
+    public async Task A_keyed_declare_stores_the_mode_and_the_caller_as_the_declarer()
+    {
+        await using var host = new EventIngestionEndpointHost();
+
+        var response = await host.SendAsync(
+            "POST", Sources, Caller("dresden"), bodyJson: DeclareBody("plc", "strict"), headers: Header("Idempotency-Key", "key-1"));
+
+        response.Status.ShouldBe(201);
+        host.SourceModes.Verify(
+            sourceModes => sourceModes.Add(It.Is<SourceMode>(declared =>
+                declared.Source == Source.Plc
+                && declared.Mode == EventTypeMode.Strict
+                && declared.Declaration.DeclaredBy.Value == Subject)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task A_replayed_declare_answers_the_stored_identifier_and_declares_nothing()
+    {
+        await using var host = new EventIngestionEndpointHost();
+        var stored = Guid.CreateVersion7();
+        host.IdempotencyStore
+            .Setup(store => store.BeginAsync(It.IsAny<IdempotencyScope>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdempotencyReservation.CompletedWith(stored));
+
+        var response = await host.SendAsync(
+            "POST", Sources, Caller("dresden"), bodyJson: DeclareBody("plc", "strict"), headers: Header("Idempotency-Key", "key-1"));
+
+        response.Status.ShouldBe(201);
+        response.Body.Trim('"').ShouldBe(stored.ToString());
+        host.SourceModes.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task A_keyed_register_stores_the_kind_and_the_caller_as_the_registrant()
+    {
+        await using var host = new EventIngestionEndpointHost();
+
+        var response = await host.SendAsync(
+            "POST", Types, Caller("dresden"), bodyJson: """{"kind":"DoorOpened"}""", headers: Header("Idempotency-Key", "key-1"));
+
+        response.Status.ShouldBe(201);
+        host.EventTypes.Verify(
+            eventTypes => eventTypes.Add(It.Is<RegisteredEventType>(registered =>
+                registered.Kind.Value == "DoorOpened"
+                && registered.Registration.RegisteredBy.Value == Subject)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task A_replayed_register_answers_the_stored_identifier_and_registers_nothing()
+    {
+        await using var host = new EventIngestionEndpointHost();
+        var stored = Guid.CreateVersion7();
+        host.IdempotencyStore
+            .Setup(store => store.BeginAsync(It.IsAny<IdempotencyScope>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(IdempotencyReservation.CompletedWith(stored));
+
+        var response = await host.SendAsync(
+            "POST", Types, Caller("dresden"), bodyJson: """{"kind":"DoorOpened"}""", headers: Header("Idempotency-Key", "key-1"));
+
+        response.Status.ShouldBe(201);
+        response.Body.Trim('"').ShouldBe(stored.ToString());
+        host.EventTypes.VerifyNoOtherCalls();
+        host.DeadLetters.VerifyNoOtherCalls();
+    }
+
     private static string AmbiguousFab { get; } = EventIngestionEndpointHost.Problem(
         400,
         "EVENT_FAB_REQUIRED",
