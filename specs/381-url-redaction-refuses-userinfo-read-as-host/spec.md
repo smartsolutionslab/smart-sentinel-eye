@@ -5,7 +5,7 @@ which contains spec 379's `UrlRedaction` rule)
 
 **Created**: 2026-10-16
 
-**Status**: Phases 1-3 done; awaiting phase 4a. No `[NEEDS CLARIFICATION]` remains: the direction was
+**Status**: Phases 1-3 done; phase 4a red observed (421 failures at 89c871aa); T010 green (9cb12308); awaiting adversarial pass (T020). No `[NEEDS CLARIFICATION]` remains: the direction was
 delegated by the owner on #2993 ("refuse, return the placeholder"). One finding **narrows** the owner's
 suggested form, because that form changes two existing exact-output rows (§1.4, FR-001); two judgement
 calls are marked **[Assumption]** in §6.

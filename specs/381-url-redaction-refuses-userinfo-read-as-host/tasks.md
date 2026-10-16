@@ -29,24 +29,24 @@ one project).
 
 ## Phase 1: Red (test-writer; production code untouched)
 
-- [ ] **T001** [P] [US1] New `tests/Shared.Kernel.Tests/UrlRedactionUserInfoAsHostTests.cs` per plan
+- [x] **T001** [P] [US1] New `tests/Shared.Kernel.Tests/UrlRedactionUserInfoAsHostTests.cs` per plan
   §4.1: U1 (396 rows, red), U2 (564, green), U3 (count fact, green), U4 (49,152-input sweep fact, red with
   `768`), U5 (18 rows, red), U6 (6 rows, red), U7 (22 rows, green), U8 (idempotence over U1 ∪ U5 ∪ U6,
   green). Build U4's inputs in the test body (U+0000 does not survive theory serialisation). Run
   `dotnet test tests/Shared.Kernel.Tests -c Release --filter "FullyQualifiedName~UrlRedactionUserInfoAsHostTests"`.
   Expected: **420 + 1 failed** (U1 396, U5 18, U6 6, U4 1, message containing `768`); U2, U3, U7, U8
   passed. Then `--filter "FullyQualifiedName~UrlRedaction"` to show every pre-existing class still green.
-- [ ] **T002** [P] [US1] New
+- [x] **T002** [P] [US1] New
   `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadUserInfoRedactionTests.cs` per plan
   §4.2 S1: (a), (b) red; (c) green. Run
   `dotnet test tests/AuditObservability.Application.Tests -c Release --filter "FullyQualifiedName~AuditPayloadUserInfoRedactionTests"`.
-- [ ] **T003** [P] [US1] New
+- [x] **T003** [P] [US1] New
   `tests/StreamDistribution.Infrastructure.Tests/Gateways/MediaMtxRtspGatewayUserInfoLogRedactionTests.cs`
   (S2: two log facts red, two "still sends" facts green) and
   `tests/StreamDistribution.Infrastructure.Tests/Reconciler/MediaMtxSourceRepairUserInfoLogRedactionTests.cs`
   (S3: log fact red, "still configured" fact green). Run
   `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~UserInfoLogRedactionTests"`.
-- [ ] **T004** [P] [US1] New
+- [x] **T004** [P] [US1] New
   `tests/CameraCatalog.Application.Tests/Commands/ChangeCameraAddressUserInfoLogRedactionTests.cs` per plan
   §4.2 S4: log fact red, "still stores the full url" green. Run
   `dotnet test tests/CameraCatalog.Application.Tests -c Release --filter "FullyQualifiedName~ChangeCameraAddressUserInfoLogRedactionTests"`.
@@ -60,7 +60,7 @@ green set passing, before dispatching T010.
 
 ## Phase 2: Green (backend-engineer)
 
-- [ ] **T010** [US1] `src/Shared.Kernel/UrlRedaction.cs` per plan §2: add `AtSignFollowsTheAuthority`
+- [x] **T010** [US1] `src/Shared.Kernel/UrlRedaction.cs` per plan §2: add `AtSignFollowsTheAuthority`
   (scheme prefix via the existing `IsSchemeCharacter`, skip the `/` `\` run, first `AuthorityTerminators`
   character, any `@` at or after it) as the **first** disjunct of the refusal condition; nothing else in
   the method changes. Counterfactual before committing: a build that locates the authority only after a
@@ -93,3 +93,13 @@ green set passing, before dispatching T010.
 ## Dependencies
 
 T001 ‖ T002 ‖ T003 ‖ T004 -> T010 -> T020 -> T030 -> T031 -> T032.
+
+## T010 outcome
+
+Implemented as `AtSignFollowsTheAuthority` (first disjunct in `ToOrigin`), commit 9cb12308. Shared.Kernel
+Tests 14,786 passed / 0 failed (421 reds green, unmodified). Counterfactuals on the new scan only
+(Shared.Kernel.Tests failures): no `#` 147, no `?` 134, no `/` 137 (each: U4 sweep reports 256 leaking
+inputs), marker run not skipped 12, check removed 421 (U4 reports 768). Independent sweep, 230,400 inputs
+(8 schemes x 5 marker spellings x 8 shapes x 4 secrets x 10 delimiters incl. percent-encoded x 3 hosts x
+3 tails x 2): 0 residual leaks; 20,052 outputs differ from develop, all with an `@` at or after the first
+terminator. Release build 0 errors, S107 113 (#2971 not merged on this base) / S138 21 / S104 0.
