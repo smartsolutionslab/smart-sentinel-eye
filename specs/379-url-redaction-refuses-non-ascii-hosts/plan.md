@@ -213,3 +213,12 @@ None. No domain or integration event, no contract, no queue changes.
 - **Spec 378 ordering.** If `fix/2960-...` merges first, C7 inherits the fix with no file overlap
   (this spec touches no StreamDistribution production file). If this merges first, 378 rebases with
   no conflict. Re-check the spec number either way.
+
+## 7. Third pass (D4, D5)
+
+Rule (b) is amended: for a non-ASCII input the authority is located only in the strict form
+`scheme://` (scheme of ASCII letters/digits/`+.-`), ending at the first `/ ? # \`; any other form
+yields the placeholder (fail-closed; `Uri` also takes `\`, `/\`, `\/` and slashless markers).
+`Uri.TryCreate` is wrapped in a narrow `catch (IndexOutOfRangeException)` returning the placeholder
+(a BCL defect on untrusted text; a deliberate boundary catch, to be stated in the PR body).
+All-ASCII inputs are untouched. Accepted over-refusals: non-ASCII IPv6 zone, UNC `\kämera\x`.
