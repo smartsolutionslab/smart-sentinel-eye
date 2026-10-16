@@ -158,7 +158,7 @@ No new test class is added, so no shard-filter entry is owed.
 
 ```sh
 grep -oE '[^ (]+\([0-9]+,[0-9]+\): warning S[0-9]+' metrics.log | sort -u | tr '\\' '/' | grep 'src/EventIngestion/Api'
-git diff --stat origin/develop -- tests/        # must be empty
+git diff --stat f935e56a -- tests/        # must be empty (relative to the characterisation commit f935e56a; against origin/develop it lists that commit's four new tests)
 git diff origin/develop -- src/EventIngestion/Api/WebhookDeliveryAuthentication.cs   # signature + 2 lines + 2 records only
 ```
 

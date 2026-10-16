@@ -32,26 +32,26 @@ disjoint files and may run in parallel; T012 owns `WebhookDeliveryAuthentication
 
 ## Phase 1: Baseline (orchestrator; no files)
 
-- [ ] **T000** On `c0f4969d`, run spec §1's Release `--no-incremental` build and record the S107
+- [x] **T000** On `c0f4969d`, run spec §1's Release `--no-incremental` build and record the S107
   list under `src/EventIngestion/Api` (expect the 14 of spec §1) and the full Sonar warning list
   there (plan §4 gate measurement; expect S107 only).
 
 ## Phase 2: Characterisation, observed green (test-writer; runs only)
 
-- [ ] **T001** [US1] Run every command in plan §4 "In-process" (and "Aspire fixture" if the stack
+- [x] **T001** [US1] Run every command in plan §4 "In-process" (and "Aspire fixture" if the stack
   is free) on unchanged code. Capture each summary line verbatim, with non-zero counts. Writes no
   file. Depends on T000.
 
 ## Phase 3: The change (backend-engineer; one commit each, each builds and stays green)
 
-- [ ] **T010** [P] [US1] `src/EventIngestion/Api/EventSourcesEndpoints.cs`: `DeclareAsync` takes
+- [x] **T010** [P] [US1] `src/EventIngestion/Api/EventSourcesEndpoints.cs`: `DeclareAsync` takes
   `(handler, DeclareSourceModeCommand command, cancellationToken)`; the call in `Declare` builds
   the command inline in the lambda on one line (plan §2.1, no hoisted local). Commit:
   `refactor(event-ingestion): DeclareAsync takes the command it sends`. Depends on T001.
-- [ ] **T011** [P] [US1] `src/EventIngestion/Api/EventTypesEndpoints.cs`: same for `RegisterAsync`
+- [x] **T011** [P] [US1] `src/EventIngestion/Api/EventTypesEndpoints.cs`: same for `RegisterAsync`
   (plan §2.2). Commit: `refactor(event-ingestion): RegisterAsync takes the command it sends`.
   Depends on T001.
-- [ ] **T012** [P] [US1] `src/EventIngestion/Api/WebhookDeliveryAuthentication.cs` +
+- [x] **T012** [P] [US1] `src/EventIngestion/Api/WebhookDeliveryAuthentication.cs` +
   `src/EventIngestion/Api/EventsEndpoints.Writes.cs`: add `WebhookDelivery` and
   `WebhookAuthenticationServices` (plan §2.3); `AuthenticateWebhookAsync` takes `(delivery,
   services, cancellationToken)` and deconstructs both first, the rest of its body byte-identical;
@@ -59,17 +59,17 @@ disjoint files and may run in parallel; T012 owns `WebhookDeliveryAuthentication
   (the signature and its only caller must change together to build — ADR-0087). Commit:
   `refactor(event-ingestion): webhook authentication takes the delivery and its collaborators`.
   Depends on T001. **Security-sensitive.**
-- [ ] **T013** [US1] `using` cleanup in the touched files only (`dotnet format style --diagnostics
+- [x] **T013** [US1] `using` cleanup in the touched files only (`dotnet format style --diagnostics
   IDE0005`, scoped); fold into T010-T012's commits where it applies. Depends on T010, T011, T012.
 
 ## Phase 4: Verify (orchestrator)
 
-- [ ] **T020** [US1] Re-run T001's commands unmodified; quote the summaries. `git diff --stat
-  origin/develop -- tests/` empty. Release `--no-incremental` build: S107 under
+- [x] **T020** [US1] Re-run T001's commands unmodified; quote the summaries. `git diff --stat
+  f935e56a -- tests/` empty. Release `--no-incremental` build: S107 under
   `src/EventIngestion/Api` is exactly the 11 of plan §4 (H6, H10, H13 gone), and no S138, S104,
   S1541, S134 or other new warning there. Attach the `AuthenticateWebhookAsync` diff (signature +
   two lines) to the PR for the security review. Depends on T013.
-- [ ] **T021** Comment on #2971 with spec §6 (the ten blocked hits, the counterfactual that
+- [x] **T021** Comment on #2971 with spec §6 (the ten blocked hits, the counterfactual that
   `[FromServices]` is not counted, and options a-c), and note that #2972-#2975 hit the same block.
   The issue stays open after the PR merges (use `Refs #2971`, not a closing keyword). Depends on T020.
 
