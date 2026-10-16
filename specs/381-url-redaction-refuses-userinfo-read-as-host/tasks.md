@@ -71,7 +71,7 @@ green set passing, before dispatching T010.
 
 ## Phase 3: Adversarial (test-adversary)
 
-- [ ] **T020** [US1] New `tests/Shared.Kernel.Tests/UrlRedactionUserInfoAsHostAdversarialTests.cs` per plan
+- [x] **T020** [US1] New `tests/Shared.Kernel.Tests/UrlRedactionUserInfoAsHostAdversarialTests.cs` per plan
   §4.3. Every new fact passes against T010; any that fails is a finding returned verbatim to the
   orchestrator (fix in a follow-up T011 commit, red first), not an edited test. Commit:
   `test(2993): adversarial userinfo cases for URL redaction`.
