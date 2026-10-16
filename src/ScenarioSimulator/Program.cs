@@ -49,11 +49,7 @@ builder.Services.AddHttpClient<CameraCatalogClient>((sp, client) =>
     });
 
 // camera-sim MediaMTX v3 control-plane client (provisions loop paths).
-builder.Services.AddHttpClient<CameraSimProvisioner>((sp, client) =>
-    {
-        var options = Resolve(sp);
-        client.BaseAddress = new Uri(options.CameraSimApiUrl);
-    });
+builder.Services.AddCameraSimProvisionerClient();
 
 // M2 (ADR-0111): overlay/rule/layout seed clients + the asset correlation
 // table, and the billet timeline that publishes correlated sensor MQTT.
