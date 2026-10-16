@@ -61,7 +61,7 @@ Scenario: foreign fab named on /webhook-integrations is refused
 
 Scenario: own fab named on /devices narrows to that fab (happy)
   Given a device registered in munich by admin@munich.test and one in dresden by op-dresden@dresden.test
-  When admin@munich.test GETs /devices?fabId=munich
+  When op-multi@smart-sentinel-eye.test (holding munich and dresden) GETs /devices?fabId=munich
   Then the response is 200
   And it contains the munich device's clientId and not the dresden one's
   And the distinct fab values are exactly ["munich"]
@@ -100,4 +100,9 @@ N/A. No code on the event-to-overlay path changes; the Identity list routes are 
 - **A-1** These tests have never run: Docker is not available to the lane locally, so CI shard 2 is
   their first observation. The PR says so.
 - **A-2** admin@munich.test holds `sse.identity.devices.read` and `sse.webhooks.write` already: I2
-  and I3 list both routes with that caller today.
+  and I3 list both routes with that caller today. The two named-munich positive facts list as
+  op-multi@smart-sentinel-eye.test (munich and dresden), who I4 already lists on both routes with
+  the same management-web scopes, so a route that ignored the named fab would return the dresden row.
+- **A-3** The existing kiosk I6 still lists as the single-fab caller (admin@munich.test), so it cannot
+  tell "all my fabs" from "munich". Follow-up candidate: the same one-line change to the multi-fab
+  caller; left untouched here by scope.

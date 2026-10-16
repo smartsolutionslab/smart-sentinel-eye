@@ -41,9 +41,11 @@ namespace SmartSentinelEye.Integration.Tests.Identity;
 /// I5/I6 are the unchanged-behaviour guard for an explicitly named
 /// <c>fabId</c> (spec AS-4), present for each of the three routes since
 /// spec 386: every route makes its own call into the shared fab resolution,
-/// so one route's wiring could regress alone. The named-munich pair cannot
-/// tell "all my fabs" from "munich" for a caller who holds only munich.
-/// </para>
+/// so one route's wiring could regress alone. The named-munich facts for
+/// <c>/devices</c> and <c>/webhook-integrations</c> list as the caller who holds
+/// munich and dresden, so a route that ignored the named fab would return the
+/// dresden row too.
+///</para>
 ///
 /// <para>
 /// Modelled on <c>CrossFabDisableIntegrationTests</c> (spec 180) and reusing
@@ -229,10 +231,8 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// I5 — naming a fab the caller does not hold is unchanged behaviour
-    /// (spec AS-4). Written once, against <c>/kiosks</c>: nothing in this fix
-    /// touches the explicit-fab branch, so a defect here would not be
-    /// endpoint-specific.
+    /// I5 for <c>/kiosks</c> — naming a fab the caller does not hold is
+    /// unchanged behaviour (spec AS-4).
     /// </summary>
     [Fact]
     public async Task A_munich_operator_naming_dresden_is_still_refused()
@@ -249,9 +249,8 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
     }
 
     /// <summary>
-    /// I6 — naming a fab the caller does hold still returns only that fab's
-    /// rows (spec AS-4). Written once, against <c>/kiosks</c>, for the same
-    /// reason as I5.
+    /// I6 for <c>/kiosks</c> — naming a fab the caller does hold still returns
+    /// only that fab's rows (spec AS-4).
     /// </summary>
     [Fact]
     public async Task A_munich_operator_naming_munich_still_sees_only_munich_rows()
@@ -303,21 +302,22 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
 
     /// <summary>I6 for <c>/devices</c> (spec 386).</summary>
     [Fact]
-    public async Task A_munich_operator_naming_munich_on_devices_still_sees_only_munich_devices()
+    public async Task A_caller_holding_munich_and_dresden_naming_munich_on_devices_sees_only_munich_devices()
     {
         using var munich = await MunichClientAsync();
         var munichClientId = await RegisterDeviceAsync(munich, "munich");
         using var dresden = await DresdenClientAsync();
         var dresdenClientId = await RegisterDeviceAsync(dresden, "dresden");
 
-        var rows = await ListAsync(munich, "/devices?fabId=munich");
+        using var multi = await MultiClientAsync();
+        var rows = await ListAsync(multi, "/devices?fabId=munich");
 
         ClientIds(rows).ShouldContain(
             munichClientId,
-            "naming the caller's own fab must still return that fab's devices");
+            "naming one of the caller's fabs must return that fab's devices");
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
-            "a dresden device must not appear when munich is named");
+            "a dresden device must not appear when munich is named, even though the caller also holds dresden");
         DistinctFabs(rows).ShouldBe(
             ["munich"],
             "naming a single fab must narrow the list to exactly that fab");
@@ -325,21 +325,22 @@ public class CrossFabListIntegrationTests(AspireFixture aspire)
 
     /// <summary>I6 for <c>/webhook-integrations</c> (spec 386).</summary>
     [Fact]
-    public async Task A_munich_operator_naming_munich_on_webhook_integrations_still_sees_only_munich_integrations()
+    public async Task A_caller_holding_munich_and_dresden_naming_munich_on_webhook_integrations_sees_only_munich_integrations()
     {
         using var munich = await MunichClientAsync();
         var munichClientId = await CreateWebhookIntegrationAsync(munich, "munich");
         using var dresden = await DresdenClientAsync();
         var dresdenClientId = await CreateWebhookIntegrationAsync(dresden, "dresden");
 
-        var rows = await ListAsync(munich, "/webhook-integrations?fabId=munich");
+        using var multi = await MultiClientAsync();
+        var rows = await ListAsync(multi, "/webhook-integrations?fabId=munich");
 
         ClientIds(rows).ShouldContain(
             munichClientId,
-            "naming the caller's own fab must still return that fab's webhook integrations");
+            "naming one of the caller's fabs must return that fab's webhook integrations");
         ClientIds(rows).ShouldNotContain(
             dresdenClientId,
-            "a dresden webhook integration must not appear when munich is named");
+            "a dresden webhook integration must not appear when munich is named, even though the caller also holds dresden");
         DistinctFabs(rows).ShouldBe(
             ["munich"],
             "naming a single fab must narrow the list to exactly that fab");
