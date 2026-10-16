@@ -199,3 +199,68 @@ via the `MigrationRunner`), Wolverine subscriber unchanged, xUnit + Shouldly + h
 3. Stack (CI authoritative): `RepointStreamIntegrationTests` — a real `PATCH /cameras/{id}` records
    a non-null `source_changed_at` inside the request window, proving the migration ran in the
    integration lane and the instant travelled from CameraCatalog.
+
+---
+
+## 8. Addendum (2026-10-16): a future `ChangedAt` must not pin a stream
+
+Owner-delegated decision on #2991 (last comment), from the security review of the implementation.
+Trusting `ChangedAt` has two consequences.
+
+**(1) A future stamp pins a stream - IN SCOPE.** The broker has one shared credential
+(`AppHost.cs:119` plus every `.WithReference(rabbitmq)`), so anything holding it can publish a
+`CameraAddressChangedV1` with `ChangedAt = DateTimeOffset.MaxValue`; the stream records it, every
+later legitimate correction is ignored, and spec 378's sweep keeps forcing MediaMTX back to the
+attacker's URL. A fast CameraCatalog clock does the same non-adversarially. Before this spec the
+next legitimate change undid a hijack; with it, the hijack would stick.
+
+- **FR-010** The repoint handler compares the incoming `ChangedAt` with the receiving `IClock`'s
+  `UtcNow`. A stamp **more than the tolerance ahead** of that now is **clamped to now** before it is
+  compared with the recorded stamp and before it is recorded. Clamp, not reject: a genuine change
+  from a slightly skewed clock still applies. A stamp exactly at `now + tolerance` is not clamped;
+  one tick beyond is.
+- **FR-011** Tolerance is configuration, `StreamRepoint:ChangedAtTolerance`, default `00:05:00`,
+  validated `>= 0` and `<= 1 day`, `ValidateOnStart`, registered like `MediaMtxSourceRepairOptions`.
+  Zero clamps every future stamp. The new options registration is an inherent, owner-authorised
+  addition to `StreamDistributionRegistrationCharacterisationTests`' expected list (one
+  `IConfigureOptions<>` and one `IValidateOptions<>` entry).
+- **FR-012** A clamp is logged at **Warning**: camera id, the URL's **origin only**
+  (`UrlRedaction.ToOrigin`), the stamp received and the receiver's now.
+- **FR-013** The ignore log line (FR-002) also carries the **recorded** stamp, and is **Warning**
+  when the recorded stamp is later than the receiver's now (a poisoned stamp must not read like a
+  routine reorder); otherwise it stays Information. The origin-only rule is unchanged.
+
+```gherkin
+  Scenario: a maximum stamp is clamped, the repoint applies, the stream is not pinned
+    Given the receiver's now is N
+    When Url=U at ChangedAt=MaxValue is handled
+    Then the stream's source is U and its recorded instant is N (not MaxValue)
+    And one Warning names the camera, U's origin, MaxValue and N, and no entry contains the secret
+    When Url=B at ChangedAt=N+1s is handled
+    Then the stream's source is B
+
+  Scenario: within tolerance nothing is clamped
+    When ChangedAt=N+4min and ChangedAt=N+5min are handled (default tolerance)
+    Then each is recorded as given and nothing is logged at Warning
+    But ChangedAt=N+5min+1tick is clamped to N and a Warning is logged
+
+  Scenario: a poisoned recorded stamp is loud
+    Given the recorded stamp is N+1h
+    When an older change is handled
+    Then it is ignored and one Warning carries both stamps
+
+  Scenario: tolerance 0 clamps any future stamp;  negative or > 1 day is refused at start
+```
+
+**(2) A backward clock step in CameraCatalog - accepted residual, NOT in scope.** NTP/PTP
+correction makes wall-clock order non-monotonic, so a genuine fresh change stamped earlier than the
+recorded one is silently dropped. The fix is ordering by a sequence the database serialises (the
+camera aggregate's version carried on the event: a contract change, `V2`, ADR-0073). Recorded as an
+accepted residual in the PR and tracked as a **follow-up decision issue**.
+
+Out of scope too: an operator path to clear `source_changed_at`, and per-service broker publish
+permissions (an ADR).
+
+**Lane.** Behaviour-changing, phase 4a RED. Tests: `CameraAddressChangedFutureStampTests` (C1-C6,
+compile today, default tolerance) and, pending the options type, C7 (tolerance zero) and C8
+(validation) as untracked `*.cs.pending` files. No existing assertion changes (plan §10).

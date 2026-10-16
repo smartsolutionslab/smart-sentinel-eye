@@ -264,3 +264,32 @@ race (§7) with its 378 repair as the stated mitigation.
 4. **Address change before registration** (spec §5) — pre-existing, unchanged; follow-up candidate.
 5. A repoint ignored by this spec is **acked**, so it leaves no dead-letter trace; the Information
    line is the only record. Intended (it is not a failure).
+
+---
+
+## 10. Addendum (2026-10-16): clamping a future `ChangedAt` (spec §8)
+
+**Where.** `RepointStreamCommandHandler` already holds the `IClock`; the clamp lives there, before
+`RepointTo`: `effective = changedAt > clock.UtcNow + tolerance ? SourceChangedAt.From(clock.UtcNow) : changedAt`.
+`Stream.RepointTo` is unchanged (it keeps comparing and recording whatever it is given). The tolerance
+arrives as `IOptions<StreamRepointOptions>` (assumed: `ChangedAtTolerance`, `SectionName = "StreamRepoint"`,
+default 5 min), bound and validated in the Infrastructure module beside `BindMediaMtxSourceRepair`
+(`>= 0`, `<= 1 day`, `ValidateOnStart`). The production code decides the names; the tests adapt only
+their constructor/binder call.
+
+**Logs (`Log.cs`).** New Warning for the clamp (camera, origin, received, now). `IgnoredOlderRepoint`
+gains the recorded stamp and becomes Warning when recorded > now. To keep the existing
+`An_ignored_change_is_logged_at_information_with_its_origin_only` assertion (exact message text)
+passing unmodified, the routine Information line must keep its current text; the recorded stamp and
+the Warning level apply to the poisoned case (a second message, or the recorded stamp carried only
+where it is later than now). If that is not achievable, STOP: editing that assertion is an owner call.
+
+**Existing tests.** Every existing handler test uses `FixedClock(Moment)` with stamps equal to or
+within seconds after `Moment`, far inside the 5-minute tolerance: none is affected by the clamp, and
+no harness edit is needed. `StreamDistributionRegistrationCharacterisationTests` gains the two
+options entries (authorised, FR-011).
+
+**Risks revisited.** Risk 2 (forged far-future stamp) is now mitigated by the clamp. Risk 1 (backward
+clock step) stays an accepted residual; follow-up decision issue for a serialised sequence (V2).
+A clamped stamp equal to "now" still outranks a legitimate change stamped earlier than the
+receiver's now within the tolerance window; that bounded window is the price of clamp-not-reject.
