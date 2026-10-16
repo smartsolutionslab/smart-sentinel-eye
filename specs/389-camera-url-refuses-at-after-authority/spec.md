@@ -1,6 +1,6 @@
 # Spec 389: Camera URLs refuse a raw `@` after the authority on write, and stay readable on read
 
-**Feature Branch**: `fix/2999-reject-at-after-authority` (cut from `origin/develop` at `2159a482`)
+**Feature Branch**: `fix/2999-reject-at-after-authority` (cut from `origin/develop` at `2159a482`, rebased onto `b5a29905`)
 
 **Created**: 2026-10-16
 
@@ -113,8 +113,14 @@ command failure, `STREAM_INVALID_RTSP_SOURCE` included, into an `InvalidOperatio
 Decompiled from the pinned `WolverineFx 6.48.3` (`Wolverine.ErrorHandling.FailureRuleCollection`):
 `CombineRules` sets `MaximumAttempts = MaximumAttempts ?? parent.MaximumAttempts ?? 3`, which synthesises two
 `RequeueContinuation` slots, and `DetermineExecutionContinuation` falls through to `new MoveToErrorQueue(e)`.
-So a message whose handler throws is attempted **three times and then moved to the error queue**. That is
-bounded; it is not a poison loop. Spec 203's plan records the same default and keeps it on purpose
+CORRECTION (observed by the tests, which supersede the first reading of the decompilation): the synthesised
+`RequeueContinuation` slots are not reached for a handler exception that has no rule of its own. With no
+failure rule registered, `DetermineExecutionContinuation` returns `MoveToErrorQueue` on the **first** attempt
+(it does so for attempts 1, 2 and 3 alike). A message whose handler throws is moved to the error queue **at
+once, with no retry**. That is bounded; it is not a poison loop. It is pinned by
+`CameraEventFailurePolicyCharacterisationTests` (`aec00bd7`), which reaches into Wolverine internals by
+reflection for the combined rules and adds a source scan of StreamDistribution for any rule of its own (the
+module's options lambda cannot run in a unit test). Spec 203's plan records the same default and keeps it on purpose
 ("a dead letter remains the right answer for a message that genuinely cannot be processed").
 
 (The comment at `RepointStreamCommandHandler.cs:98-99`, "failing would redeliver it forever", overstates
@@ -156,7 +162,7 @@ both columns materialise every row of §5's reject set without throwing.
 
 As **the operator of the message bus**, I want a `CameraRegisteredV1` or `CameraAddressChangedV1` published
 before this change (still in the outbox at deploy, or replayed from the error queue) whose address the new
-rule refuses to end on the error queue after Wolverine's default three attempts, with a Warning that names
+rule refuses to end on the error queue on the first attempt (Wolverine's default with no failure rule, §1.4), with a Warning that names
 the camera and the error code but not the address, and with no stream provisioned or re-pointed — so that a
 camera left without a stream is visible, and nothing retries forever.
 
@@ -165,7 +171,7 @@ chain and the real `CameraAddressChangedIntegrationEventHandler` → `RepointStr
 the in-memory repository and gateway fakes, each throw `InvalidOperationException` for a misread address,
 write nothing, call no gateway, and log one Warning whose text contains `STREAM_INVALID_RTSP_SOURCE` and
 none of the address; and Wolverine's discovered chains for the two messages carry no failure rule of their
-own, so the default bounded policy is the one in force.
+own, so the default policy (error queue on the first attempt) is the one in force.
 
 ---
 
@@ -235,7 +241,7 @@ Feature: Camera URLs refuse a raw @ after the authority on write
     When StreamDistribution handles it
     Then the handler throws, no stream is saved and the gateway is not called
     And one Warning names the camera and "STREAM_INVALID_RTSP_SOURCE" and does not contain "12345"
-    And under Wolverine's default policy the message is moved to the error queue after its third attempt
+    And under Wolverine's default policy the message is moved to the error queue on its first attempt, with no retry
 
   Scenario: A pre-deploy CameraAddressChangedV1 carrying a misread address is dead-lettered, not looped
     Given a stream at "rtsp://camera-sim:8554/b"
@@ -277,8 +283,8 @@ Feature: Camera URLs refuse a raw @ after the authority on write
   rule. `CameraConfiguration` and `StreamConfiguration` switch their `HasConversion` read lambda from `From`
   to `FromStored`. Nothing else calls `FromStored` (FR-008). No migration, no rewrite of a stored value.
 - **FR-006 — Replay is bounded and visible.** The two integration event handlers keep throwing on
-  `STREAM_INVALID_RTSP_SOURCE`; no failure policy is added; the default (3 attempts, then the error queue,
-  §1.4) is what bounds a replay. Both handlers' comments that call an invalid source "cannot occur without
+  `STREAM_INVALID_RTSP_SOURCE`; no failure policy is added; the default (the error queue on the first
+  attempt, no retry, §1.4) is what bounds a replay. Both handlers' comments that call an invalid source "cannot occur without
   drift" are corrected to name the second cause (an event published before this change). The Warning they
   already log carries the camera, the code and the FR-003 message, never the address.
 - **FR-007 — No new cross-context reference.** Both contexts already reference `Shared.Kernel`; nothing else
@@ -287,7 +293,9 @@ Feature: Camera URLs refuse a raw @ after the authority on write
 - **FR-008 — `FromStored` cannot quietly become a write path.** A source-scanning architecture test fails if
   `RtspUrl.FromStored` or `StreamSourceUrl.FromStored` is referenced from any file other than its own
   context's `Infrastructure/Persistence/Configurations/*Configuration.cs` (or its own declaration). Proven by
-  counterfactual (a temporary call from a command handler turns it red), with slash-normalised paths.
+  a permanent synthetic check (a fixture file that must be flagged) rather than a temporary-call
+  counterfactual, with slash-normalised paths. The text scan `FromStoredCallSiteTests` is bypassed by `using static`
+  or a split line, so `FromStoredCallerIlTests` (`fb7dd0c1`) scans the compiled IL as well.
 
 ## 5. Accept / reject sets (pinned by tests in both value objects)
 
@@ -342,6 +350,26 @@ of the new reject set above, plus the accept set.
 - The overstated "redeliver it forever" comment in `RepointStreamCommandHandler.IgnoreOlderRepoint` (§1.4):
   accurate in direction (failing would not help), wrong in mechanism; noted, not touched — it is not on a
   path this spec changes.
+
+Follow-up issues: #3016 (`CameraDto` and the management UI serve stored URLs verbatim, including legacy
+credential rows), #3012 (text after `]`), #3017 (an empty authority followed by credentials, e.g.
+`rtsp:///admin:4242@cam/s`; the predicate comment's claim that the authority is "located the way the parser
+does" is also wrong for `rtsp:`).
+
+## 7.1 Accepted / recorded
+
+- U+FF20 fullwidth `@` is accepted: no parser treats it as a delimiter; only IME typos produce it.
+- `rtsp://@cam/s` (empty userinfo) and control characters are accepted; pre-existing.
+- A `with` expression on a `StringValueObject` bypasses both factories; pre-existing, no use in `src`.
+- Reflection bypasses both `FromStored` guards.
+- `AuditPayloadRedaction.cs:168,176` keeps its own `'/?#\\'` locator (spec 387), pinned by name in
+  `UrlAuthoritySingleSourceTests`; #3017 proposes unifying it.
+- `ProvisionStreamCommandHandler` validates the URL before the existing-row lookup, so a redelivered
+  `CameraRegisteredV1` for a stream stored at a misread source never reaches the spec 309 FR-004 "reassert the
+  path" branch; the reconciler restores the path through `FromStored`.
+- The fix text only shows when `Uri` parses the misread form (a numeric "password" <= 65535, or the `/` `?`
+  forms). A non-numeric `password#@` gets the older userinfo message, and was refused before this change too.
+- `POST` checks the address before resolving the fab; pre-existing.
 
 ## 8. End-to-end test procedure (phase 5)
 
