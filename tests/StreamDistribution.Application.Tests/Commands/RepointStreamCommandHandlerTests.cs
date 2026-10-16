@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using SmartSentinelEye.Shared.Kernel;
 using SmartSentinelEye.StreamDistribution.Application.Commands;
 using SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
@@ -202,5 +203,5 @@ public class RepointStreamCommandHandlerTests
     private static RepointStreamCommandHandler NewHandler(
         InMemoryStreamRepository streams,
         FakeRtspGateway gateway) =>
-        new(streams, gateway, new FixedClock(FixedMoment), NullLogger<RepointStreamCommandHandler>.Instance);
+        new(streams, gateway, new ChangedAtPolicy(new FixedClock(FixedMoment), Options.Create(new StreamRepointOptions())), NullLogger<RepointStreamCommandHandler>.Instance);
 }

@@ -47,6 +47,7 @@ public static class StreamDistributionInfrastructureModule
         BindWhepAuthOptions(builder);
         BindStreamFabAttribution(builder);
         BindMediaMtxSourceRepair(builder);
+        BindStreamRepoint(builder);
 
         AddStreamPersistenceAndDomainEventDispatch(builder.Services);
         AddClockAndMediaMtxAccessServices(builder.Services);
@@ -319,6 +320,25 @@ public static class StreamDistributionInfrastructureModule
                     && options.Interval <= TimeSpan.FromMilliseconds(uint.MaxValue - 1),
                 "MediaMtxSourceRepair:Interval must be between 1 second and 4294967294 milliseconds: a shorter interval exhausts the shared MediaMTX control-API rate partition, a longer one is outside the range PeriodicTimer accepts.")
             .ValidateOnStart();
+    }
+
+    /// <summary>
+    /// Spec 385 (#2991): how far ahead of this service's clock an address
+    /// change's stamp may be before it is clamped. Refused at startup outside
+    /// zero to one day: a negative tolerance would clamp every change, and a
+    /// longer one lets a hostile stamp pin a stream for that long.
+    /// </summary>
+    private static void BindStreamRepoint(IHostApplicationBuilder builder)
+    {
+        builder.Services.AddOptions<StreamRepointOptions>()
+            .Configure(options => builder.Configuration.GetSection(StreamRepointOptions.SectionName).Bind(options))
+            .Validate(
+                options => options.ChangedAtTolerance >= TimeSpan.Zero
+                    && options.ChangedAtTolerance <= TimeSpan.FromDays(1),
+                "StreamRepoint:ChangedAtTolerance must be between zero and one day.")
+            .ValidateOnStart();
+
+        builder.Services.AddSingleton<ChangedAtPolicy>();
     }
 
     /// <summary>

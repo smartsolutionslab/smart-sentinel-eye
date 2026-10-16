@@ -8,7 +8,7 @@ namespace SmartSentinelEye.StreamDistribution.Application.Commands.Handlers;
 public sealed class RepointStreamCommandHandler(
     IStreamRepository streams,
     IRtspGateway rtsp,
-    IClock clock,
+    ChangedAtPolicy changedAtPolicy,
     ILogger<RepointStreamCommandHandler> logger)
     : ICommandHandler<RepointStreamCommand, Result<Option<StreamIdentifier>, RepointStreamError>>
 {
@@ -37,12 +37,21 @@ public sealed class RepointStreamCommandHandler(
         }
 
         var stream = repointable.Value;
+        var applied = ClampFutureStamp(camera, rtspSourceUrl, changedAt);
 
-        if (!stream.RepointTo(sourceUrl, changedAt, clock))
+        if (!stream.RepointTo(sourceUrl, applied, changedAtPolicy.Clock))
         {
-            return IgnoreOlderRepoint(camera, rtspSourceUrl, changedAt);
+            return IgnoreOlderRepoint(stream, rtspSourceUrl, applied);
         }
 
+        return await SaveAndRepointGatewayAsync(stream, rtspSourceUrl, cancellationToken);
+    }
+
+    private async Task<Result<Option<StreamIdentifier>, RepointStreamError>> SaveAndRepointGatewayAsync(
+        Stream stream,
+        string rtspSourceUrl,
+        CancellationToken cancellationToken)
+    {
         // Saved before the gateway is touched, the same ordering the retirement
         // handler uses and for the same reason: the durable record of where the
         // stream should point is what the startup reconciler restores from. If
@@ -59,23 +68,51 @@ public sealed class RepointStreamCommandHandler(
             // Unfinished cleanup rather than lost work: the aggregate already
             // holds the new address, so the outbox retry finishes the re-point
             // rather than redoing it. RepointTo is idempotent.
-            logger.PathRepointFailed(ex, camera);
+            logger.PathRepointFailed(ex, stream.Camera);
             return Failure(RepointStreamFailures.RtspGatewayUnavailable(ex.Message));
         }
 
-        logger.RepointedStream(stream.Id, camera, stream.Path);
+        logger.RepointedStream(stream.Id, stream.Camera, stream.Path);
 
         return Success(Option<StreamIdentifier>.Some(stream.Id));
     }
 
-    private Result<Option<StreamIdentifier>, RepointStreamError> IgnoreOlderRepoint(
+    private SourceChangedAt ClampFutureStamp(
         CameraIdentifier camera,
+        string rtspSourceUrl,
+        SourceChangedAt changedAt)
+    {
+        var (applied, wasClamped) = changedAtPolicy.Clamp(changedAt);
+
+        if (wasClamped)
+        {
+            logger.ClampedFutureChangedAt(camera, UrlRedaction.ToOrigin(rtspSourceUrl), new(changedAt, applied));
+        }
+
+        return applied;
+    }
+
+    private Result<Option<StreamIdentifier>, RepointStreamError> IgnoreOlderRepoint(
+        Stream stream,
         string rtspSourceUrl,
         SourceChangedAt changedAt)
     {
         // Acked rather than failed: no retry will make an older change newer,
         // so failing would redeliver it forever.
-        logger.IgnoredOlderRepoint(camera, UrlRedaction.ToOrigin(rtspSourceUrl), changedAt);
+        var origin = UrlRedaction.ToOrigin(rtspSourceUrl);
+        var recorded = stream.SourceChangedAt;
+
+        if (recorded is not null && changedAtPolicy.IsPoisoned(recorded))
+        {
+            // A recorded stamp beyond this service's clock plus the tolerance is a poisoned
+            // one, which must not read like a routine reorder.
+            logger.IgnoredAgainstFutureRecordedStamp(stream.Camera, origin, new(changedAt, recorded));
+        }
+        else
+        {
+            logger.IgnoredOlderRepoint(stream.Camera, origin, changedAt);
+        }
+
         return Success(Option<StreamIdentifier>.None);
     }
 
