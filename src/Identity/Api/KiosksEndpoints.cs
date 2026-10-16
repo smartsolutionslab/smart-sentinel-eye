@@ -96,9 +96,7 @@ public static class KiosksEndpoints
     {
         var fabsResolution =
             await IdentityFabResolution.ResolveReadFabsAsync(
-                new FabReadRequest(
-                    user,
-                    fabId),
+                new FabReadRequest(user, fabId),
                 fabGuard,
                 "KIOSK_INVALID_INPUT",
                 cancellationToken);
