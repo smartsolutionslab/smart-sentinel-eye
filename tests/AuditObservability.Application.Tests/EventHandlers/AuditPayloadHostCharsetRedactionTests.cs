@@ -73,7 +73,7 @@ public class AuditPayloadHostCharsetRedactionTests
     }
 
     [Fact]
-    public async Task Changing_between_two_different_non_ascii_addresses_still_reports_a_detail_change()
+    public async Task Changing_between_two_different_non_ascii_addresses_reports_the_detail_change_as_unknown()
     {
         InMemoryAuditEventRepository repo = new();
         var message = new CameraAddressChangedV1(
@@ -91,7 +91,7 @@ public class AuditPayloadHostCharsetRedactionTests
         var json = JsonDocument.Parse(raw).RootElement;
         json.GetProperty("PreviousUrl").GetString().ShouldBe(UrlRedaction.Unparseable);
         json.GetProperty("Url").GetString().ShouldBe(UrlRedaction.Unparseable);
-        json.GetProperty("DetailChanged").GetBoolean().ShouldBeTrue();
+        json.GetProperty("DetailChanged").ValueKind.ShouldBe(JsonValueKind.Null);
         raw.ShouldNotContain(Marker, Case.Insensitive);
     }
 }
