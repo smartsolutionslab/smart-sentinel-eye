@@ -35,6 +35,8 @@ public class WebhookRotationEndpointCharacterisationTests
 {
     private const string Rotate = "/webhook-integrations/{name}/rotate";
 
+    private const string List = "/webhook-integrations/";
+
     private const string BadRequestType = "https://tools.ietf.org/html/rfc9110#section-15.5.1";
 
     private const string ConflictType = "https://tools.ietf.org/html/rfc9110#section-15.5.10";
@@ -361,6 +363,99 @@ public class WebhookRotationEndpointCharacterisationTests
             $"The registration '{Resource}' recorded against this Idempotency-Key no longer exists.",
             ConflictType));
         host.Keycloak.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task A_list_without_a_fab_spans_every_fab_the_caller_holds_and_never_asks_the_guard()
+    {
+        await using var host = SeededHost();
+
+        var response = await host.SendAsync("GET", List, IdentityEndpointHost.Operator(Subject, "munich", "dresden"));
+
+        response.Status.ShouldBe(200);
+        IdentityEndpointHost.ClientIds(response).ShouldBe(["webhook-munich", "webhook-dresden"], ignoreOrder: true);
+        host.FabGuard.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task A_list_naming_a_held_fab_asks_the_guard_once_and_narrows_to_that_fab()
+    {
+        await using var host = SeededHost();
+
+        var response = await host.SendAsync(
+            "GET", List, IdentityEndpointHost.Operator(Subject, "munich", "dresden"), query: "?fabId=munich");
+
+        response.Status.ShouldBe(200);
+        IdentityEndpointHost.ClientIds(response).ShouldBe(["webhook-munich"]);
+        host.FabGuard.Verify(
+            guard => guard.EnsureAccessAsync(IsSubject(), "munich", It.IsAny<CancellationToken>()),
+            Times.Once);
+        host.FabGuard.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task A_list_naming_a_fab_the_caller_does_not_hold_lets_the_guards_refusal_escape_before_the_store_is_read()
+    {
+        await using var host = SeededHost();
+        host.GuardRefuses("bremen");
+
+        var refusal = await Should.ThrowAsync<FabAuthorizationException>(
+            host.SendAsync("GET", List, IdentityEndpointHost.Operator(Subject, "munich"), query: "?fabId=bremen"));
+
+        refusal.FabId.ShouldBe("bremen");
+        host.QuerySource.Reads.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task A_list_skips_a_group_that_is_not_a_usable_fab_and_lists_the_fabs_that_are()
+    {
+        await using var host = SeededHost();
+
+        var response = await host.SendAsync(
+            "GET", List, IdentityEndpointHost.Operator(Subject, "Not-A-Fab", "munich"));
+
+        response.Status.ShouldBe(200);
+        IdentityEndpointHost.ClientIds(response).ShouldBe(["webhook-munich"]);
+    }
+
+    [Fact]
+    public async Task A_list_with_no_usable_fab_answers_400_with_the_routes_own_code_and_never_reads_the_store()
+    {
+        await using var host = SeededHost();
+
+        var unusableGroup = await host.SendAsync("GET", List, IdentityEndpointHost.Operator(Subject, "Not-A-Fab"));
+        var unusableNamedFab = await host.SendAsync(
+            "GET", List, IdentityEndpointHost.Operator(Subject, "munich"), query: "?fabId=Not-A-Fab");
+
+        var expected = IdentityEndpointHost.Problem(
+            400, "WEBHOOK_INVALID_INPUT", "None of your fab groups is a usable fab name.", BadRequestType);
+        unusableGroup.Status.ShouldBe(400);
+        unusableGroup.Body.ShouldBe(expected);
+        unusableNamedFab.Status.ShouldBe(400);
+        unusableNamedFab.Body.ShouldBe(expected);
+        host.QuerySource.Reads.ShouldBe(0);
+    }
+
+    [Fact]
+    public async Task A_list_by_a_caller_with_no_fab_membership_is_refused_before_the_store_is_read()
+    {
+        await using var host = SeededHost();
+
+        await Should.ThrowAsync<FabAuthorizationException>(
+            host.SendAsync("GET", List, IdentityEndpointHost.Operator(Subject)));
+
+        host.QuerySource.Reads.ShouldBe(0);
+    }
+
+    private static IdentityEndpointHost SeededHost()
+    {
+        IdentityEndpointHost host = new();
+        foreach (var fab in new[] { "munich", "dresden", "bremen" })
+        {
+            host.Seed("webhook-" + fab, ClientKind.WebhookIntegration, fab);
+        }
+
+        return host;
     }
 
     private static ClaimsPrincipal Caller() => IdentityEndpointHost.Operator(Subject, "dresden");

@@ -105,7 +105,10 @@ internal sealed class IdentityEndpointHost : IAsyncDisposable
                 Clock.Object,
                 DisableWebhookClient.Object,
                 NullLogger<RotateWebhookClientCommandHandler>.Instance))
-            .AddSingleton(new ReplayRegisteredClientQueryHandler(Clients.Object, Keycloak.Object));
+            .AddSingleton(new ReplayRegisteredClientQueryHandler(Clients.Object, Keycloak.Object))
+            .AddSingleton(new ListDevicesQueryHandler(QuerySource))
+            .AddSingleton(new ListKiosksQueryHandler(QuerySource))
+            .AddSingleton(new ListWebhookClientsQueryHandler(QuerySource));
         app = builder.Build();
         app.MapDevicesEndpoints();
         app.MapKiosksEndpoints();
@@ -113,6 +116,8 @@ internal sealed class IdentityEndpointHost : IAsyncDisposable
     }
 
     public Mock<IFabAuthorizationGuard> FabGuard { get; } = new();
+
+    public CountingRegisteredClientQuerySource QuerySource { get; } = new();
 
     public Mock<IIdempotencyStore> IdempotencyStore { get; } = new();
 
@@ -173,6 +178,16 @@ internal sealed class IdentityEndpointHost : IAsyncDisposable
 
         return held;
     }
+
+    /// <summary>Puts a registered client of <paramref name="kind"/> in <paramref name="fab"/> where the list handlers will find it.</summary>
+    public void Seed(string clientId, ClientKind kind, string fab) =>
+        QuerySource.Add(RegisteredClientAggregate.Register(
+            ClientId.From(clientId), kind, FabIdentifier.From(fab), OperatorIdentifier.From(Guid.NewGuid()), Clock.Object));
+
+    /// <summary>The client identifiers a list answer carries, so a wrong fab set fails by name rather than by count.</summary>
+    public static IReadOnlyList<string> ClientIds(HostResponse response) =>
+        [.. System.Text.Json.JsonDocument.Parse(response.Body).RootElement.EnumerateArray()
+            .Select(client => client.GetProperty("clientId").GetString()!)];
 
     /// <summary>Makes the store answer every claim as an already completed request for <paramref name="resource"/>.</summary>
     public void StoreReplaysAs(Guid resource) =>
