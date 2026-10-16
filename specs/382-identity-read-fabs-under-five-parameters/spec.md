@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Draft (Phases 1-3). No `[NEEDS CLARIFICATION]` remains. The issue's scope is **shrunk**
+**Status**: Implemented (T010 done; CI pending). No `[NEEDS CLARIFICATION]` remains. The issue's scope is **shrunk**
 from 8 hits to 1 (§5, D-1): the other 7 are route handlers in two contexts whose route-table
 characterisation baselines pin every handler's parameter list, so clearing them would edit a
 characterisation assertion, which is a block (ADR-0144). They stay open for the owner decision

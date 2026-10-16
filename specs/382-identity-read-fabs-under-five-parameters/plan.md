@@ -26,7 +26,7 @@ placement spec 380 used for `WebhookDelivery` in `WebhookDeliveryAuthentication.
 
 ```csharp
 /// <summary>A read the caller asks for: who they are, and the fab they named (empty for "all of mine").</summary>
-internal sealed record FabReadRequest(ClaimsPrincipal User, string FabId);
+internal sealed record FabReadRequest(ClaimsPrincipal User, string Fab);
 ```
 
 Signature and the first body line:
@@ -51,7 +51,7 @@ The locals take the old parameter names, so the rest of the body (the
 security review checks: `git diff 38eb836f -- src/Identity/Api/IdentityFabResolution.cs` shows the
 signature, one deconstruction line plus its blank line, and the record. The method's `<summary>`
 keeps its meaning; its `<paramref name="fabId"/>` becomes
-`<see cref="FabReadRequest.FabId"/>` (the only doc edit, because a `paramref` to a parameter that no
+`<see cref="FabReadRequest.Fab"/>` (the only doc edit, because a `paramref` to a parameter that no
 longer exists is a dangling reference, CS1734 where documentation generation is on). No `Ensure.That` is added (internal helper, its callers
 are the handlers; `FabResolution.ResolveForReadAsync` already guards `user` and `fabGuard`;
 ADR-0036, no drive-by guards). The method stays `public` on the `internal static` class.
