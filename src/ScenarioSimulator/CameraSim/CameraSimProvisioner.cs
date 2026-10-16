@@ -114,8 +114,9 @@ public sealed class CameraSimProvisioner(HttpClient http, ILogger<CameraSimProvi
         //
         // The guarantee is per simulator path, not per camera row: two cameras
         // registered at the same URL are one source, and the later registration
-        // wins the label and the hue. That is the line to look for when a
-        // camera's picture changes without anyone touching that camera.
+        // wins the label and the hue. When a camera's picture changes without anyone
+        // touching that camera, pair this line with the handler's recorded line by
+        // camera identifier; camera-sim's /v3/config/paths/list names the path.
         logger.CameraSimPathLabelled(label, camera, write);
     }
 
