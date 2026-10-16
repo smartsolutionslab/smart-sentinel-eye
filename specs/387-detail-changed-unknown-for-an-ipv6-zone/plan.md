@@ -55,8 +55,9 @@ dropped deliberately, spec 377; `Registration_leaks_nothing` carries `%25SECRET`
 No entity or value object. Invariants of the stored `CameraAddressChangedV1` payload after this spec, in
 addition to spec 384's I1-I3:
 
-- **I4** If either raw address is a parseable IPv6 literal with a zone, `DetailChanged` is not `true` (it is
-  `null`, or `false` when the other side is null).
+- **I4** If either raw address is a parseable IPv6 literal with a zone (a `%` in `DnsSafeHost`, or written
+  bracket content holding anything but hex digits, `:` and `.`, which covers the prefix-length spelling the
+  parser strips), `DetailChanged` is not `true` (it is `null`, or `false` when the other side is null).
 - **I5** `PreviousUrl` / `Url` never contain the zone text (unchanged `ToOrigin` behaviour, re-asserted).
 - **I6** For two zone-free addresses, `DetailChanged` is exactly what it was before this spec.
 
@@ -111,7 +112,10 @@ computed by the code under test), every pair pushed through the real handler in 
 - Zone-free shapes: `[fe80::1]`, `[fe80::2]`, `[fd00::5]` (short and long), `[::ffff:10.0.0.1]`, `rtsp://cam`,
   `10.0.5.12`.
 - Placeholder shapes that look like zones but do not parse: `rtsp://fe80::1%25eth0/x`,
-  `rtsp://[fe80::1%25eth0/x`, `rtsp://10.0.0.1%25eth0/x`, `rtsp://cam%25eth0/x`, `\\[fe80::1%25eth0]\s`.
+  `rtsp://[fe80::1%25eth0/x`, `rtsp://10.0.0.1%25eth0/x`, `rtsp://cam%25eth0/x`.
+- Zoned spellings that do parse as IPv6 and come out `null` through the zone rule: `\\[fe80::1%25eth0]\s`,
+  `file:\\[fe80::1%25eth0]\s`, `rtsp:\\[fe80::1%25eth0]/x`, and the prefix-length forms
+  (`rtsp://[fe80::1/64%25eth0]/s`, covered by `AuditPayloadDetailChangedBracketContentTests`).
 - A `%` outside the host (`rtsp://[fe80::1]/%25eth0`, `rtsp://[fe80::1]/?z=%25eth1`) must be treated as
   zone-free (guards against a textual implementation).
 - Assert: the hand-modelled expectation per pair (spec FR-001) for every pair; I4 (no `True` with a zoned
@@ -153,6 +157,8 @@ appended member changes value.
   not add zoned entries to that file (it would require editing its oracle).
 - **Old rows.** Rows written before this spec with zoned sides keep their stored `true` (#2990 tracks rewriting).
 - **Runtime drift.** The detection depends on `DnsSafeHost` keeping the zone for IPv6. Z1-Z5 fail if a future
-  runtime drops it (they would read `True` again), so the drift is loud, not silent.
+  runtime drops it (they would read `True` again), so the drift is loud, not silent. The prefix-length spelling,
+  where the runtime already drops the zone, is covered by the B1 tests (`AuditPayloadDetailChangedBracketContentTests`)
+  and the written-bracket-content rule, which does not depend on `DnsSafeHost`.
 - **Consumers.** Unchanged since spec 384: nothing reads the member as a boolean (`AuditRowMapper`, the
   archiver and the UI pass the JSON through).

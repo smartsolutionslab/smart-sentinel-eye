@@ -94,7 +94,9 @@ exact call `UrlRedaction.TryParse` makes.
 | `rtsps://[…%25eth0]:8554`, `http://…`, `http://…:80`, `file://[…%25eth0]/s`, `user:p@[…]`, padded with spaces, 300-char zone | read, zone-free | IPv6 | zone-free | zone present |
 | `rtsp://[fe80::1]/x`, `[fd00::5]`, `[::ffff:10.0.0.1]` (no zone) | read | IPv6 | bracketed | **no `%`** |
 | `rtsp://cam/x` | read | Dns | `cam` | `cam` |
-| `rtsp://fe80::1%25eth0/x`, `rtsp://[fe80::1%25eth0/x`, `\\[fe80::1%25eth0]\s`, `rtsp://10.0.0.1%25eth0/x`, `rtsp://cam%25eth0/x` | placeholder | — (`TryCreate` false) | — | — |
+| `rtsp://fe80::1%25eth0/x`, `rtsp://[fe80::1%25eth0/x`, `rtsp://10.0.0.1%25eth0/x`, `rtsp://cam%25eth0/x` | placeholder | — (`TryCreate` false) | — | — |
+| `\\[fe80::1%25eth0]\s`, `file:\\[fe80::1%25eth0]\s`, `rtsp:\\[fe80::1%25eth0]/x` (backslash authority) | `file:///` / `rtsp://` form, read | IPv6 | `[fe80::1]` | zone present: `null` through the **zone** rule, not the placeholder rule |
+| `rtsp://[fe80::1/64%25eth0]/s`, `[fe80::1/64]`, `[fe80::1/64:1]`, `[::ffff:10.0.0.1/96%25eth0]` (text after the address inside the brackets, B1) | `rtsp://[fe80::1]` | IPv6 | `[fe80::1]` | **no `%`** (the parser drops the zone behind a prefix length); caught by the written-bracket-content rule |
 
 Findings:
 
@@ -104,14 +106,21 @@ Findings:
    every IPv6 address change into `null` and break the zone-free rows that must not change (§1.3). It is
    rejected.
 2. **A `%` in `DnsSafeHost` of an IPv6-typed host** (the decision's second suggestion, "a `%` in the bracketed
-   host", read from the parsed `Uri`) is present for every zone spelling above, including the empty zone, and
-   absent for every zone-free IPv6 literal. `IdnHost` behaves identically. `Host` never carries the zone.
+   host", read from the parsed `Uri`) is present for every zone spelling that puts the zone directly after
+   the address, including the empty zone, and absent for every zone-free IPv6 literal. It is **not** present
+   for every spelling: behind a prefix length inside the brackets (`[fe80::1/64%25eth0]`) the parser drops
+   the zone and `DnsSafeHost` is `fe80::1` (blocker B1, #3006). `IdnHost` behaves identically. `Host` never
+   carries the zone.
 3. A zone on a non-IPv6 host does not parse (`TryCreate` false), so it already redacts to the placeholder and
-   is `null` by spec 384. The detection therefore only needs to look at IPv6-typed hosts.
+   is `null` by spec 384. The detection therefore only needs to look at IPv6-typed hosts; the backslash
+   authority form is not such a case: it parses as an IPv6-typed host and is caught by the zone rule.
 4. Zones are not decoded or case-folded: `%25eth0`, `%25ETH0` and `%eth0` are three different strings. The
    rule never compares zones, so this does not matter: any zone on either side makes the value unknown.
 
-Detection used by this spec: `uri.HostNameType == UriHostNameType.IPv6 && uri.DnsSafeHost.Contains('%')`.
+Detection used by this spec, for an IPv6-typed host (`uri.HostNameType == UriHostNameType.IPv6`): a `%` in
+`uri.DnsSafeHost` **or** a written bracket content (located in the raw string the way `ToOrigin` locates the
+authority) holding anything other than hex digits, `:` and `.`. A bracket content that cannot be located is
+refused (unknown). Text after the `]` is a different class (#3012) and is not covered.
 
 ### 1.3 Every test that pins `DetailChanged` for a zone-bearing pair
 
@@ -203,7 +212,8 @@ behaviour (scenario "A null side").
   - `false` if either raw value is null (unchanged, spec 384 precedence);
   - otherwise `null` if either `ToOrigin(raw)` is `UrlRedaction.Unparseable` (unchanged, spec 384);
   - otherwise `null` if either raw value parses (`Uri.TryCreate(raw, UriKind.Absolute, ...)`) to a host whose
-    `HostNameType` is `IPv6` and whose `DnsSafeHost` contains `%` (**new**);
+    `HostNameType` is `IPv6` and whose `DnsSafeHost` contains `%`, or whose written bracket content holds a
+    character other than a hex digit, `:` or `.` (**new**; the second clause is FR-006);
   - otherwise `true` iff the two origins are ordinally equal and the raw values ordinally differ;
   - otherwise `false`.
 - **FR-002** The zone rule applies to **either** side, as the decision states: a zone against a zone-free
@@ -216,6 +226,12 @@ behaviour (scenario "A null side").
   from `true` to `null`, moved to its own fact. No other existing test assertion changes.
 - **FR-005** Rejected by the decision and not to be implemented: comparing on `DnsSafeHost` and returning
   `false` when zones differ (two identical displayed origins with `false` read as "identical address").
+
+- **FR-006** (finding B1, security review) For an IPv6-typed host, `DetailChanged` is `null` when the
+  **written** bracket content (located in the raw string the way `ToOrigin` locates the authority) contains
+  anything other than hex digits (either case), `:` and `.`; a bracket content that cannot be located is
+  `null` too (fail closed). This closes `rtsp://[fe80::1/64%25eth0]/s`, where the parser drops the zone so
+  `DnsSafeHost` carries no `%`. `ToOrigin` is not changed. Text after `]` is the F1 class (#3012), out of scope.
 
 ## 4. Out of scope
 
@@ -239,6 +255,10 @@ behaviour (scenario "A null side").
    evidence, stated in the PR.
 
 ## 6. Assumptions
+
+**Accepted nit.** `AuditPayloadDetailChangedZoneAdversarialTests` (the `Redelivering_...` test, about :237-257)
+is named for a redelivery but exercises the re-serialised audit copy; its name is left as is because the file
+is frozen (no test edits in the fix).
 
 - **The decision's two detection examples are alternatives, and the first is unusable.** §1.2 finding 1:
   `DnsSafeHost != Host` is true for every IPv6 literal on runtime 10.0.13. The decision says "verify on the
