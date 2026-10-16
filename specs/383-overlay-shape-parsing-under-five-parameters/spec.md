@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Draft (phases 1-3 written; Phase 4 not started). No `[NEEDS CLARIFICATION]` remains.
+**Status**: Implemented (T010 committed as `4f7891c8` on top of C0 `8b414beb`); verification T020 recorded below, CI pending. No `[NEEDS CLARIFICATION]` remains.
 The issue's scope is **shrunk** from 11 hits to 1 (§5, D-1): the other 10 are route handlers in two
 contexts whose route-table characterisation baselines pin every handler's parameter list, so
 clearing them would edit a characterisation assertion, which is a block (ADR-0144). They stay open

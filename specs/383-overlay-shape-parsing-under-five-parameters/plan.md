@@ -173,3 +173,14 @@ or S134** in either Api project, no new warning of any rule; solution-wide S107 
   assertion that would need editing is a block, reported back.
 - **Spec-number race.** Re-check `specs/` on `origin/develop` and open PR heads before the PR (382 is
   in flight as PR #3002).
+
+## 6. Outcome (T010, implemented; CI pending)
+
+`OverlayElementParsing.cs` only: nested `private readonly record struct ElementAppearance`,
+`ParseShapeElement(kind, request, appearance)` opening with `var (position, size, color) = appearance;`,
+rest of the body unchanged. Swapping two fields at the construction site is CS1503 (compile error).
+Observed on the commit: characterisation + both route-table baselines 45/45; eight guards 300/300;
+Architecture.Tests 1179/1179; OverlayDesigner Domain 310, Application 68; `git diff --stat C0 -- tests/`
+empty; Release `--no-incremental` 0 errors, S107 in scope 10 (H2-H11), solution-wide 109, S138 21,
+S104/S1541/S134 0; `dotnet format --verify-no-changes` clean; Integration.Tests builds (Docker down,
+CI shard 2 owns the Aspire run).
