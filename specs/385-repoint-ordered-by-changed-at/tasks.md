@@ -31,26 +31,26 @@ three different test projects.
 
 ## Phase 1: Red (test-writer; production code untouched)
 
-- [ ] **T001** [P] [US1] R1-R4 + G1-G3 — new
+- [x] **T001** [P] [US1] R1-R4 + G1-G3 — new
   `tests/StreamDistribution.Application.Tests/EventHandlers/CameraAddressChangedOrderingTests.cs`,
   harness and facts exactly as plan §8.1 (real event handler over the real command handler; no new
   type referenced). Run
   `dotnet test tests/StreamDistribution.Application.Tests -c Release --filter "FullyQualifiedName~CameraAddressChangedOrderingTests"`;
   return verbatim output: R1-R4 **fail on assertions** (R1 on `SourceUrl` being `.../a`), G1-G3 pass.
-- [ ] **T002** [P] [US1] R5 — `tests/StreamDistribution.Infrastructure.Tests/StreamDistributionModelCharacterisationTests.cs`:
+- [x] **T002** [P] [US1] R5 — `tests/StreamDistribution.Infrastructure.Tests/StreamDistributionModelCharacterisationTests.cs`:
   insert the one `source_changed_at` line of plan §8.1 between `mediamtx_path` and `source_url`;
   nothing else. Run
   `dotnet test tests/StreamDistribution.Infrastructure.Tests -c Release --filter "FullyQualifiedName~StreamDistributionModelCharacterisationTests"`;
   return verbatim: `The_stream_distribution_model_has_exactly_this_shape` **fails** (line missing),
   `..._the_committed_snapshot_describes` passes.
-- [ ] **T003** [P] [US1] R6 — `tests/Integration.Tests/StreamDistribution/RepointStreamIntegrationTests.cs`:
+- [x] **T003** [P] [US1] R6 — `tests/Integration.Tests/StreamDistribution/RepointStreamIntegrationTests.cs`:
   add `Correcting_a_cameras_address_records_when_the_change_was_made` (plan §8.1, raw SQL). Existing
   class, already in `shard-1.filter`: **no filter edit**. Red needs the stack: if Docker is up, run
   `dotnet test tests/Integration.Tests -c Release --filter "FullyQualifiedName~RepointStreamIntegrationTests"`
   and quote the `42703`; otherwise the orchestrator pushes the Phase 1 commit alone and quotes the CI
   job log, or the PR says that round trip was not taken and relies on R1-R5.
   **Commit T001-T003 only:** `test(stream-distribution): pin repoint ordering by the change's own ChangedAt (red)`.
-- [ ] **T004** [US1] D1 + D2 + ripple — write `SourceChangedAtTests.cs` and
+- [x] **T004** [US1] D1 + D2 + ripple — write `SourceChangedAtTests.cs` and
   `StreamRepointOrderingTests.cs` (plan §8.2) in `tests/StreamDistribution.Domain.Tests/Stream/`, and
   add the new argument at the 12 sites of plan §3 (`StreamRepointTests` 4,
   `RepointStreamCommandHandlerTests` 7, `RepointStreamOrderCharacterisationTests` 1 —
@@ -69,16 +69,16 @@ three different test projects.
 
 ## Phase 2: Green (backend-engineer; may not edit any test written above)
 
-- [ ] **T010** [US1] Foundational — `src/StreamDistribution/Domain/Stream/SourceChangedAt.cs` (plan §2,
+- [x] **T010** [US1] Foundational — `src/StreamDistribution/Domain/Stream/SourceChangedAt.cs` (plan §2,
   sibling of `LastSuccessAt`).
-- [ ] **T011** [US1] `Stream.cs` — `SourceChangedAt?` property with its doc comment, `RepointTo(sourceUrl,
+- [x] **T011** [US1] `Stream.cs` — `SourceChangedAt?` property with its doc comment, `RepointTo(sourceUrl,
   changedAt, clock)` returning `bool` (plan §2 steps 1-3); `RepointTo`'s doc comment updated to say
   it is ordered, not only idempotent. `Provision` untouched.
-- [ ] **T012** [US1] Application — `RepointStreamCommand` third component and its remarks;
+- [x] **T012** [US1] Application — `RepointStreamCommand` third component and its remarks;
   `RepointStreamCommandHandler` deconstructs three fields and adds the plan §4 branch (comment on the
   save-before-gateway ordering kept); `CameraAddressChangedIntegrationEventHandler` maps `ChangedAt`;
   `Log.IgnoredOlderRepoint` (plan §5, four parameters). `Ensure.That`, `var`, no underscores.
-- [ ] **T013** [US1] Infrastructure — `StreamConfiguration` mapping (plan §6) and
+- [x] **T013** [US1] Infrastructure — `StreamConfiguration` mapping (plan §6) and
   `dotnet ef migrations add RecordStreamSourceChangedAt --project src/StreamDistribution/Infrastructure --output-dir Persistence/Migrations`.
   Read the generated `Up`/`Down` against plan §6; **paste**
   `git diff --stat origin/develop -- src/StreamDistribution/Infrastructure/Persistence/Migrations`
@@ -87,7 +87,7 @@ three different test projects.
 
 ## Phase 3: Verify
 
-- [ ] **T020** Local: `dotnet build -c Release` clean (no new warnings beyond advisory S/IDE1006);
+- [x] **T020** Local: `dotnet build -c Release` clean (no new warnings beyond advisory S/IDE1006);
   `dotnet test` for `StreamDistribution.Domain.Tests`, `StreamDistribution.Application.Tests`,
   `StreamDistribution.Infrastructure.Tests`, `Architecture.Tests` (`PrimitiveBoundaryTests`,
   `HandlerDeconstructionTests`, registration characterisation) — all green, R1-R5, G1-G3, D1-D2,

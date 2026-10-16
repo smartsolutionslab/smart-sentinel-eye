@@ -35,6 +35,9 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "Re-pointed stream {Stream} for camera {Camera} at path {Path}.")]
     public static partial void RepointedStream(this ILogger logger, StreamIdentifier stream, CameraIdentifier camera, MediaMtxPath path);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Camera {Camera} address change to {Origin} made at {ChangedAt} is older than the change its stream already applied; ignored.")]
+    public static partial void IgnoredOlderRepoint(this ILogger logger, CameraIdentifier camera, string origin, SourceChangedAt changedAt);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Re-point attempt failed for camera {Camera}: {Code} {Message}.")]
     public static partial void RepointAttemptFailed(this ILogger logger, CameraIdentifier camera, string code, string message);
 

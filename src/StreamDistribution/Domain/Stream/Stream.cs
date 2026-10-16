@@ -61,6 +61,14 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
 
     public StreamError? LastError { get; private set; }
 
+    /// <summary>
+    /// The CameraCatalog-stamped instant of the address change this stream last
+    /// applied (spec 385). Null for rows written before it and for streams never
+    /// re-pointed, in which case any change applies (ADR-0048 carve-out, as
+    /// <see cref="LastSuccessAt"/>).
+    /// </summary>
+    public SourceChangedAt? SourceChangedAt { get; private set; }
+
     public Provisioning Provisioning { get; private set; } = null!;
 
     private Stream() { }
@@ -178,25 +186,34 @@ public sealed class Stream : AggregateRoot<StreamIdentifier>
     /// </para>
     ///
     /// <para>
-    /// Idempotent, and terminal-safe. The announcement rides the outbox and can
-    /// be redelivered, so re-pointing at the URL already held raises nothing;
-    /// and a retired stream refuses, mirroring the health reports, because
-    /// re-pointing hardware that has been retired changes nothing except the
-    /// record.
+    /// Idempotent, ordered and terminal-safe. The announcement rides the outbox
+    /// and can be redelivered out of order, so a change made earlier than the
+    /// one already applied is refused (returns <c>false</c>) and the recorded
+    /// instant never moves backwards. An equal or newer change applies, and
+    /// records its instant even when the URL is unchanged: otherwise a
+    /// reordered A to B to A pair would end on B. A retired stream refuses,
+    /// mirroring the health reports, because re-pointing hardware that has
+    /// been retired changes nothing except the record.
     /// </para>
     /// </summary>
-    public void RepointTo(StreamSourceUrl sourceUrl, IClock clock)
+    public bool RepointTo(
+        StreamSourceUrl sourceUrl,
+        SourceChangedAt changedAt,
+        IClock clock)
     {
         Ensure.That(sourceUrl).IsNotNull();
+        Ensure.That(changedAt).IsNotNull();
         Ensure.That(clock).IsNotNull();
         EnsureNotRetired(nameof(RepointTo));
 
-        if (SourceUrl == sourceUrl)
+        if (SourceChangedAt is not null && changedAt < SourceChangedAt)
         {
-            return;
+            return false;
         }
 
+        SourceChangedAt = changedAt;
         SourceUrl = sourceUrl;
+        return true;
     }
 
     public void ReportHealthy(TranscodeMode detectedMode, IClock clock)

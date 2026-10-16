@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-16
 
-**Status**: Specified. No `[NEEDS CLARIFICATION]` remains: the owner's delegated decision on #2991
+**Status**: Implemented, CI pending (T005 adversarial and T021 review outstanding). No `[NEEDS CLARIFICATION]` remains: the owner's delegated decision on #2991
 (2026-10-16, last comment) settles every behavioural question. Judgement calls the decision left
 to the architect are marked **[DECIDED]** with their reason; none is new architecture.
 

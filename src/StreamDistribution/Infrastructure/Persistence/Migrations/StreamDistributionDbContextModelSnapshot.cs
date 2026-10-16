@@ -17,7 +17,7 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.10")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -52,13 +52,9 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
                         .HasColumnType("character varying(80)")
                         .HasColumnName("mediamtx_path");
 
-                    b.Property<DateTimeOffset>("ProvisionedAt")
+                    b.Property<DateTimeOffset?>("SourceChangedAt")
                         .HasColumnType("timestamp with time zone")
-                        .HasColumnName("provisioned_at");
-
-                    b.Property<Guid>("ProvisionedBy")
-                        .HasColumnType("uuid")
-                        .HasColumnName("provisioned_by");
+                        .HasColumnName("source_changed_at");
 
                     b.Property<string>("SourceUrl")
                         .IsRequired()
@@ -97,6 +93,33 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Persistence.Migrati
                         .HasDatabaseName("ux_streams_mediamtx_path");
 
                     b.ToTable("streams", (string)null);
+                });
+
+            modelBuilder.Entity("SmartSentinelEye.StreamDistribution.Domain.Stream.Stream", b =>
+                {
+                    b.OwnsOne("SmartSentinelEye.StreamDistribution.Domain.Stream.Provisioning", "Provisioning", b1 =>
+                        {
+                            b1.Property<Guid>("StreamId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<DateTimeOffset>("At")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("provisioned_at");
+
+                            b1.Property<Guid>("By")
+                                .HasColumnType("uuid")
+                                .HasColumnName("provisioned_by");
+
+                            b1.HasKey("StreamId");
+
+                            b1.ToTable("streams");
+
+                            b1.WithOwner()
+                                .HasForeignKey("StreamId");
+                        });
+
+                    b.Navigation("Provisioning")
+                        .IsRequired();
                 });
 #pragma warning restore 612, 618
         }
