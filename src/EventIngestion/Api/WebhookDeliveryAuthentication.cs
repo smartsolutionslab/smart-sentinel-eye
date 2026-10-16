@@ -25,14 +25,12 @@ internal static class WebhookDeliveryAuthentication
     /// other refusal stays silent, exactly as before.
     /// </summary>
     internal static async Task<WebhookIntegration?> AuthenticateWebhookAsync(
-        string integrationName,
-        HttpRequest request,
-        string fabId,
-        IWebhookIntegrationRepository integrations,
-        ILogger logger,
-        IMemoryCache cache,
+        WebhookDelivery delivery,
+        WebhookAuthenticationServices services,
         CancellationToken cancellationToken)
     {
+        var (integrationName, request, fabId) = delivery;
+        var (integrations, logger, cache) = services;
         string? authHeader = request.Headers.Authorization;
         if (string.IsNullOrEmpty(authHeader) || !authHeader.StartsWith(BearerPrefix, StringComparison.Ordinal))
         {
@@ -198,3 +196,12 @@ internal static class WebhookDeliveryAuthentication
                 .Contains(targetGroup, StringComparer.Ordinal));
     }
 }
+
+/// <summary>What a webhook caller presented: the route's integration name, the request carrying its bearer, and the delivery's fab.</summary>
+internal sealed record WebhookDelivery(string IntegrationName, HttpRequest Request, string FabId);
+
+/// <summary>The collaborators <see cref="WebhookDeliveryAuthentication.AuthenticateWebhookAsync"/> reads, bundled so the check keeps a readable signature (ADR-0084).</summary>
+internal sealed record WebhookAuthenticationServices(
+    IWebhookIntegrationRepository Integrations,
+    ILogger Logger,
+    IMemoryCache Cache);
