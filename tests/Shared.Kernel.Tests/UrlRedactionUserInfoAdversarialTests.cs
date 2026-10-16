@@ -224,6 +224,15 @@ public partial class UrlRedactionUserInfoAdversarialTests
         offenders.ShouldBeEmpty();
     }
 
+    // The boundary of the rule, made explicit: U+FF20 is not an at sign to any parser, so this address
+    // reads exactly like rtsp://admin:12345#cam, where nothing can tell a host from a credential.
+    [Fact]
+    public void A_fullwidth_at_sign_after_the_terminator_is_not_a_delimiter_and_is_not_refused()
+    {
+        UrlRedaction.ToOrigin("rtsp://admin:12345#＠cam/s").ShouldBe("rtsp://admin:12345");
+        UrlRedaction.ToOrigin("rtsp://admin:12345#cam").ShouldBe("rtsp://admin:12345");
+    }
+
     private static bool LeaksATokenWrittenBeforeTheLastAtSign(string input, string output)
     {
         var lastAt = input.LastIndexOf('@');
