@@ -52,7 +52,7 @@ public sealed class CameraRegisteredSimHandler(
         //
         // A scenario asset plays its own clip; anything else — hand-registered, or
         // whatever a test run left behind — gets the shared clip with its name
-        // drawn on it, so it is still answerable by looking (FR-004). Only an
+        // drawn on it, so it is still answerable by looking. Only an
         // asset's path is ours to log: for anything else it is operator-typed URL text.
         var isAsset = TryFindAssetClip(path, out var clip);
 
