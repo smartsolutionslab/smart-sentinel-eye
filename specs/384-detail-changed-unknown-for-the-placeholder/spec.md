@@ -5,7 +5,7 @@ which contains specs 377, 379 and 381)
 
 **Created**: 2026-10-16
 
-**Status**: Specified, planned, tasked (phases 1-3). No `[NEEDS CLARIFICATION]` remains: the rule was decided
+**Status**: Implemented (T010), CI pending. Rows already written keep their stored `true` (#2990 tracks rewriting them). No `[NEEDS CLARIFICATION]` remains: the rule was decided
 by the owner on #2998 (option 1, recorded in the issue comment "Decision (owner delegated, 2026-10-16)").
 One reading of that rule where two of its clauses overlap is marked **[Assumption]** in §6.
 

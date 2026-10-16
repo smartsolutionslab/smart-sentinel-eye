@@ -31,10 +31,10 @@ one test project and may run in parallel; T010 is the only production task.
 
 ## Phase 1: Red (test-writer; production code untouched)
 
-- [ ] **T001** [P] [US1] New
+- [x] **T001** [P] [US1] New
   `tests/AuditObservability.Application.Tests/EventHandlers/AuditPayloadDetailChangedUnknownTests.cs` per
   plan §4.1: D1, D2 (4 rows), D3, D4 red; C1 (2 rows), C2 (2 facts) green.
-- [ ] **T002** [P] [US1] The three re-pins per plan §4.2 in `AuditPayloadHostCharsetRedactionTests.cs`,
+- [x] **T002** [P] [US1] The three re-pins per plan §4.2 in `AuditPayloadHostCharsetRedactionTests.cs`,
   `AuditPayloadUserInfoRedactionTests.cs`, `AuditPayloadRedactionPostFixAdversarialTests.cs`.
 
 Run:
@@ -56,7 +56,7 @@ passing, before dispatching T010.
 
 ## Phase 2: Green (backend-engineer)
 
-- [ ] **T010** [US1] `src/AuditObservability/Application/EventHandlers/AuditPayloadRedaction.cs` per plan §2:
+- [x] **T010** [US1] `src/AuditObservability/Application/EventHandlers/AuditPayloadRedaction.cs` per plan §2:
   `DetailChanged` returns `bool?` (null-raw -> `false` first, then either origin `UrlRedaction.Unparseable`
   -> `null`, else the unchanged rule); `DetailChangedMember(bool?)` gains the `"DetailChanged":null` arm;
   one *why* comment. Run the three counterfactuals in plan §4.4 (each must leave its named test red), then
@@ -83,3 +83,12 @@ passing, before dispatching T010.
 ## Dependencies
 
 T001 ‖ T002 -> T010 -> T020 -> T030 -> T031 -> T032.
+
+## Implementation record (T010)
+
+Status: implemented, CI pending. Counterfactuals (uncommitted scratch edits, restored and rebuilt): placeholder
+arm returning `false` left 10 tests red (D1, D2 x4, D3, D4, the two re-pins, `Two_unparseable_spellings_...`);
+placeholder checked only when both sides are placeholders left the 4 D2 rows red; null-raw rule after the
+placeholder check left the 2 C1 rows red. After the fix: AuditObservability.Application.Tests 224 passed,
+Architecture.Tests 1197 passed, Shared.Kernel.Tests 14895 passed; Release build 0 errors with S107 108,
+S138 21, S104 0. Rows already written keep their stored `true` (#2990).
