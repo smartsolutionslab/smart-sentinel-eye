@@ -1,10 +1,10 @@
 # Spec 388: The source repair logs a failing path on change, bounds its list read, and reports its own startup failure
 
-**Feature Branch**: `fix/2994-source-repair-log-volume` (cut from `origin/develop` at `b932aa70`)
+**Feature Branch**: `fix/2994-source-repair-log-volume` (cut from `origin/develop` at `b932aa70`, rebased onto `2159a482`)
 
 **Created**: 2026-10-16
 
-**Status**: Ready for review. No `[NEEDS CLARIFICATION]` remains. The owner's decisions on #2994
+**Status**: Implemented and reviewed; residuals recorded in §6 (follow-ups #3013, #3010), awaiting PR. No `[NEEDS CLARIFICATION]` remains. The owner's decisions on #2994
 settle all three items. Three judgement calls that those decisions presupposed but did not make are
 marked **[ASSUMPTION]** in §5: when a path's state is dropped, which clock times the 10-minute
 re-log, and whether the page cap is logged.
@@ -154,7 +154,7 @@ Scenario: the caller's cancellation still ends the pass (spec 378 FR-009)
   Given a pass whose token is cancelled while a PATCH is in flight
   Then  the pass throws OperationCanceledException
   And   nothing is logged at Warning or above
-  And   no per-path state is changed
+  And   PassCompleted is skipped: entries applied before the throw stand, and the pass-local failed set is reset at the next pass start
 ```
 
 ### US2 (P1, same slice) — A hostile or broken `pageCount` cannot stall or fail the repair read
@@ -224,7 +224,7 @@ lines only at Debug level.
   per tick. The startup pass in `MediaMtxReconciler` keeps building its own instance, which runs
   once. No `static` mutable state and no DI registration.
 - **FR-002** A path's failure **outcome** is the exception's runtime type plus, for an
-  `HttpRequestException`, its `StatusCode` (which may be null). A failure is logged at Warning with
+  `HttpRequestException`, its `StatusCode` (which may be null) and its `HttpRequestError`. A failure is logged at Warning with
   the exception, using the existing `ReconcilerFailedToRepairPathSource` template unchanged, when:
   (a) the path has no state, (b) the outcome differs from the path's last recorded outcome, or
   (c) at least 10 minutes have passed since that path's last Warning. Otherwise it is logged at
@@ -238,7 +238,8 @@ lines only at Debug level.
 - **FR-005** When a pass **completes**, the state holds only the paths whose repair failed (not
   404) in that pass. Every path no longer in the database is therefore pruned, and so is every path
   that converged or was repaired. A pass that throws (the list GET fails, or the caller cancels)
-  leaves the state as it was.
+  skips `PassCompleted`: entries applied before the throw stand, and the pass-local failed set is
+  reset at the start of the next pass, so a cut-short pass cannot leak into the next one.
 - **FR-006** The 10-minute interval is measured on `TimeProvider`'s monotonic timestamp
   (`GetTimestamp` / `GetElapsedTime`), not on wall-clock `GetUtcNow`, so a wall-clock step cannot
   suppress or flood Warnings. The sweep passes its injected `TimeProvider`. The startup pass and the
@@ -246,7 +247,7 @@ lines only at Debug level.
   configuration.
 - **FR-007** The caller's cancellation semantics are unchanged (spec 378 FR-009): the catch filter
   stays `when (!cancellationToken.IsCancellationRequested)`, and a cancelled pass propagates without
-  logging and without touching state.
+  logging and without running `PassCompleted` (FR-005).
 - **FR-008** `ListConfiguredPathSourcesAsync` reads pages `0..999` at most. It stops after a page
   whose `items` is absent, not an array, or of length zero. It stops when `page + 1 >= pageCount`.
   It reads only one page when `pageCount` is absent or not a JSON number (today's behaviour). It
@@ -312,6 +313,10 @@ lines only at Debug level.
 | `SourceRepairSweepFailed` (list GET failed) is still one Warning per tick during a full outage | One per tick, as today | Outside the decision (non-goal). Recommend a follow-up if it shows up in practice. |
 | Hostile non-empty pages: 1,000 GETs per pass | At a 10 s interval that is up to 6,000 calls/min against the 2,000/min `api` partition, which the limiter then refuses with 401. The pass then fails as a list failure. | The owner chose the cap. Reaching it needs a MediaMTX that reports more than 100k paths or lies about having them. It is now logged (A3). |
 | A Debug-only interval of up to 10 minutes during which a stuck tile has no Warning | ≤ 10 min, after a first Warning that already stated the fault | This is the trade-off the decision made. |
+| The unreadable-`pageCount` and cap-reached Warnings repeat once per list read | About 8,640 per day per message at a 10 s interval | The throttle covers per-path repair failures only. Follow-up #3013 (and #3010 for the older readers). |
+| Every 404 on a PATCH is treated as a retire race (FR-003) | A stream that exists but whose MediaMTX path is missing logs Debug only | Mitigation: the re-read `ReadCommittedSourceAsync` returning `None` confirms the retirement. Follow-up #3013. |
+| The outcome now includes `HttpRequestError`; a 400 whose reason text changes is the same outcome | Bounded: a status code and an enum, nothing attacker-controlled | A new reason behind the same status does not re-Warn. Follow-up #3013. |
+| A non-object page body throws `InvalidOperationException` from the list read | One list failure per tick, as for any list failure | Outside this slice. Follow-up #3013 (#3010 for the older readers). |
 
 ## 7. Acceptance
 
