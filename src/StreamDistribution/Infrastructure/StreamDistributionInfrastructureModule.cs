@@ -307,7 +307,7 @@ public static class StreamDistributionInfrastructureModule
     }
 
     /// <summary>
-    /// Spec 378 (#2960): a non-positive interval would make the sweep's
+    /// Spec 378 (#2960): an interval outside 1 ms to 4294967294 ms would make the sweep's
     /// <c>PeriodicTimer</c> throw inside the hosted service, so it is a startup
     /// failure here instead.
     /// </summary>
@@ -316,8 +316,9 @@ public static class StreamDistributionInfrastructureModule
         builder.Services.AddOptions<MediaMtxSourceRepairOptions>()
             .Configure(options => builder.Configuration.GetSection(MediaMtxSourceRepairOptions.SectionName).Bind(options))
             .Validate(
-                options => options.Interval > TimeSpan.Zero,
-                "MediaMtxSourceRepair:Interval must be greater than zero.")
+                options => options.Interval >= TimeSpan.FromMilliseconds(1)
+                    && options.Interval <= TimeSpan.FromMilliseconds(uint.MaxValue - 1),
+                "MediaMtxSourceRepair:Interval must be between 1 and 4294967294 milliseconds, the range PeriodicTimer accepts.")
             .ValidateOnStart();
     }
 
