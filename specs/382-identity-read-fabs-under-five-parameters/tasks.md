@@ -41,7 +41,7 @@ commit to build (ADR-0087). Commits land sequentially (one branch, one index).
 
 ## Phase 2: Characterisation, observed green (test-writer)
 
-- [ ] **T000a** [US1] Extend `tests/Architecture.Tests/IdentityEndpointHost.cs` with the three list
+- [x] **T000a** [US1] Extend `tests/Architecture.Tests/IdentityEndpointHost.cs` with the three list
   query handlers over a seedable, async-capable in-memory `IRegisteredClientQuerySource` (plan §4;
   a new fake file in `tests/Architecture.Tests` is allowed, it is not a test class). Add the six
   spec §2 scenarios per route to `DeviceAndKioskEndpointCharacterisationTests` (`/devices/`,
@@ -51,18 +51,18 @@ commit to build (ADR-0087). Commits land sequentially (one branch, one index).
   and report each red. Commit `test(identity): pin the list routes' fab resolution before the
   helper is reshaped` = `C0`. Depends on T000.
 
-- [ ] **T001** [US1] Run every plan §4 "In-process" command (and "Aspire fixture" if the stack is
+- [x] **T001** [US1] Run every plan §4 "In-process" command (and "Aspire fixture" if the stack is
   free) on `C0`. Capture each summary line verbatim, with non-zero counts. Writes no file. Depends
   on T000a.
 
 ## Phase 3: The change (backend-engineer; one commit)
 
-- [ ] **T010** [US1] `src/Identity/Api/IdentityFabResolution.cs` + `DevicesEndpoints.cs` +
+- [x] **T010** [US1] `src/Identity/Api/IdentityFabResolution.cs` + `DevicesEndpoints.cs` +
   `KiosksEndpoints.cs` + `WebhookRotationEndpoints.cs`: add `FabReadRequest` after the class;
   `ResolveReadFabsAsync` takes `(FabReadRequest read, IFabAuthorizationGuard fabGuard, string
   unusableFabErrorCode, CancellationToken cancellationToken)` and deconstructs `read` first, the rest
   of its body byte-identical; the `<paramref name="fabId"/>` becomes a `<see cref>` to
-  `FabReadRequest.FabId`; each `List` passes `new FabReadRequest(user, fabId)`, one argument per
+  `FabReadRequest.Fab`; each `List` passes `new FabReadRequest(user, fabId)`, one argument per
   line, its error-code literal unchanged (plan §2.1). Remove any redundant `using` in the touched
   files only (`dotnet format style --diagnostics IDE0005`, scoped). One commit:
   `refactor(identity): read-fab resolution takes the caller's read request`. Depends on T001.
