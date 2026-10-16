@@ -20,8 +20,12 @@ public class AuditPayloadHostCharsetRedactionTests
     private static readonly DateTimeOffset At = DateTimeOffset.Parse("2026-05-30T08:00:00Z", CultureInfo.InvariantCulture);
 
     private static IntegrationEventAuditHandler Build(InMemoryAuditEventRepository repo) =>
-        new(new AuditingMessageHandler(repo, V1ResourceMap.Default, new FakeClock(At),
-            Options.Create(new AuditMeasurementOptions()), NullLogger<AuditingMessageHandler>.Instance));
+        new(new AuditingMessageHandler(
+            repo,
+            V1ResourceMap.Default,
+            new FakeClock(At),
+            Options.Create(new AuditMeasurementOptions()),
+            NullLogger<AuditingMessageHandler>.Instance));
 
     private static EventMetadata Metadata() => new(Guid.CreateVersion7(), At, Fab: "munich", Actor: null);
 
