@@ -6,7 +6,9 @@ namespace SmartSentinelEye.CameraCatalog.Domain.Camera;
 /// <summary>
 /// RTSP URL for an IP camera. Must use the rtsp:// scheme, must be 1–2048
 /// characters, and must not contain a userinfo segment (user:password@) per
-/// spec 001-register-camera FR-008 — credentialed cameras are deferred.
+/// spec 001-register-camera FR-008 — credentialed cameras are deferred. A raw
+/// @ after the authority (in the path, query or fragment) is also refused on
+/// write, because a parser can misread it as userinfo (spec 389).
 /// </summary>
 public sealed record RtspUrl : StringValueObject
 {
