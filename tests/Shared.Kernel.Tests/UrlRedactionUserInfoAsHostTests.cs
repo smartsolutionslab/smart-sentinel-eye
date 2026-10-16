@@ -45,14 +45,12 @@ public class UrlRedactionUserInfoAsHostTests
                     {
                         foreach (var host in HostParts)
                         {
-                            var leaks = delimiter != "\\"
-                                && shape != "empty-user"
-                                && (shape == "user-only" || secret.All(char.IsAsciiDigit));
+                            var input = $"{scheme}://{Userinfo(shape, secret, delimiter)}{host}";
 
                             rows.Add(new Row(
                                 $"{scheme} {shape} {secret} {delimiter} {host}",
-                                $"{scheme}://{Userinfo(shape, secret, delimiter)}{host}",
-                                leaks));
+                                input,
+                                ParserReadsTheSecretAsTheHost(input, RealHost(host))));
                         }
                     }
                 }
@@ -61,6 +59,22 @@ public class UrlRedactionUserInfoAsHostTests
 
         return rows;
     }
+
+    private static string RealHost(string hostPart)
+    {
+        var authority = hostPart[..hostPart.IndexOf('/')];
+
+        return authority.StartsWith('[')
+            ? authority[..(authority.IndexOf(']') + 1)]
+            : authority.Split(':')[0];
+    }
+
+    // Derived from the runtime, not from a hand-written rule: the parser leaves the userinfo empty and
+    // reports a host other than the one written after the @, so the text before the delimiter was read as host.
+    private static bool ParserReadsTheSecretAsTheHost(string input, string realHost) =>
+        Uri.TryCreate(input, UriKind.Absolute, out var uri)
+        && uri.UserInfo.Length == 0
+        && uri.Host != realHost;
 
     public static TheoryData<string, string> LeakingRows()
     {
@@ -165,6 +179,7 @@ public class UrlRedactionUserInfoAsHostTests
             Matrix().Where(row => row.LeaksToday).Select(row => row.Input)
                 .Concat(PinnedLeaks)
                 .Concat(AcceptedOverRefusals)
+                .Concat(Unchanged.Select(pair => pair.Input))
                 .ToArray());
 
     private static TheoryData<string> ToData(IEnumerable<string> values)
@@ -278,6 +293,7 @@ public class UrlRedactionUserInfoAsHostTests
     {
         var once = UrlRedaction.ToOrigin(input);
 
+        once.ShouldNotContain('@');
         UrlRedaction.ToOrigin(once).ShouldBe(once);
     }
 }
