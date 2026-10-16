@@ -18,8 +18,15 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 /// per path per pass.
 /// </para>
 /// </summary>
-internal sealed class MediaMtxSourceRepair(ILogger logger)
+internal sealed class MediaMtxSourceRepair(ILogger logger, TimeProvider timeProvider)
 {
+    private readonly SourceRepairFailureLog failureLog = new(logger, timeProvider);
+
+    public MediaMtxSourceRepair(ILogger logger)
+        : this(logger, TimeProvider.System)
+    {
+    }
+
     public async Task<int> RepairAsync(
         IRtspGateway gateway,
         IStreamSourceSnapshot snapshot,
@@ -46,6 +53,8 @@ internal sealed class MediaMtxSourceRepair(ILogger logger)
                 repaired++;
             }
         }
+
+        failureLog.PassCompleted();
 
         return repaired;
     }
@@ -79,11 +88,12 @@ internal sealed class MediaMtxSourceRepair(ILogger logger)
                     UrlRedaction.ToOrigin(committed.Value.Value));
             }
 
+            failureLog.Succeeded(path);
             return true;
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
-            logger.ReconcilerFailedToRepairPathSource(ex, path);
+            failureLog.Failed(path, ex);
             return false;
         }
     }

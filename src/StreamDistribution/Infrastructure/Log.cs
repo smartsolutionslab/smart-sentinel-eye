@@ -34,6 +34,21 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Warning, Message = "Reconciler failed to repair MediaMTX path {Path}; the next sweep retries.")]
     public static partial void ReconcilerFailedToRepairPathSource(this ILogger logger, Exception exception, MediaMtxPath path);
 
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Reconciler still cannot repair MediaMTX path {Path} ({ExceptionType} {Status}); the Warning repeats at most every 10 minutes.")]
+    public static partial void ReconcilerStillFailingToRepairPathSource(this ILogger logger, MediaMtxPath path, string exceptionType, string status);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "Reconciler skipped MediaMTX path {Path}: path gone (404), its stream was retired during the pass.")]
+    public static partial void ReconcilerRepairPathGone(this ILogger logger, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxReconciler source repair after the startup pass failed; the periodic sweep retries.")]
+    public static partial void ReconcilerStartupSourceRepairFailed(this ILogger logger, Exception exception);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list reported a pageCount that is not a 32-bit integer on page {Page}; the source repair compares only the paths read so far.")]
+    public static partial void MediaMtxConfiguredSourcesPageCountUnreadable(this ILogger logger, int page);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMTX config path list still reported more pages after {PageCap} pages; the source repair compares only the paths read so far.")]
+    public static partial void MediaMtxConfiguredSourcesPageCapReached(this ILogger logger, int pageCap);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxSourceRepairSweep pass failed; the next tick retries.")]
     public static partial void SourceRepairSweepFailed(this ILogger logger, Exception exception);
 
