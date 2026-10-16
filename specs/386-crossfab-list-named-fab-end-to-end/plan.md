@@ -30,8 +30,8 @@ would be churn).
 |---|---|---|---|---|
 | I5-devices | `A_munich_operator_naming_dresden_on_devices_is_still_refused` | munich client | `GET /devices?fabId=dresden` | 403 (message includes status + body, as I5); `ProblemTitleAsync == "RESOURCE_FAB_NOT_AUTHORIZED"` |
 | I5-webhooks | `A_munich_operator_naming_dresden_on_webhook_integrations_is_still_refused` | munich client | `GET /webhook-integrations?fabId=dresden` | as above |
-| I6-devices | `A_munich_operator_naming_munich_on_devices_still_sees_only_munich_devices` | `RegisterDeviceAsync(munich, "munich")`, `RegisterDeviceAsync(dresden, "dresden")` | `ListAsync(munich, "/devices?fabId=munich")` | contains munich id; does **not** contain dresden id; `DistinctFabs == ["munich"]` |
-| I6-webhooks | `A_munich_operator_naming_munich_on_webhook_integrations_still_sees_only_munich_integrations` | `CreateWebhookIntegrationAsync` x2, same shape | `ListAsync(munich, "/webhook-integrations?fabId=munich")` | as above |
+| I6-devices | `A_caller_holding_munich_and_dresden_naming_munich_on_devices_sees_only_munich_devices` | `RegisterDeviceAsync(munich, "munich")`, `RegisterDeviceAsync(dresden, "dresden")` | `ListAsync(multi, "/devices?fabId=munich")` (multi = op-multi, holds munich and dresden) | contains munich id; does **not** contain dresden id; `DistinctFabs == ["munich"]` |
+| I6-webhooks | `A_caller_holding_munich_and_dresden_naming_munich_on_webhook_integrations_sees_only_munich_integrations` | `CreateWebhookIntegrationAsync` x2, same shape | `ListAsync(multi, "/webhook-integrations?fabId=munich")` | as above |
 
 The I6 pair adds a `ShouldNotContain(dresdenId)` the kiosk I6 lacks: with the dresden row created in
 the same test, it fails by construction if the named fab stops narrowing, independent of what other
@@ -63,9 +63,9 @@ Proof the assertions can fail, without Docker:
    `new FabReadRequest(user, fabId)` with `new FabReadRequest(user, string.Empty)`, which skips
    `fabGuard.EnsureAccessAsync` for those two routes only. Dispatch with
    `gh workflow run ci.yml --ref throwaway/3001-counterfactual` (no PR). Expected in shard 2:
-   **exactly the two new I5 facts red** (403 expected, 200 got); kiosk I5 green (control: the shared
-   guard and mapping still work); the new I6 pair green (admin@munich.test holds only munich, so
-   "all my fabs" equals "munich", an honest limit stated in the PR). Any other red in shard 2 means
+   **exactly the two new I5 facts and the two new I6 facts red** (I5: 403 expected, 200 got); kiosk I5 green (control: the shared
+   guard and mapping still work); the new I6 pair red too (the fab-ignored counterfactual returns the dresden row to the
+   multi-fab caller, so `ShouldNotContain(dresden)` and `DistinctFabs` both fail). Any other red in shard 2 means
    the counterfactual is not isolated: report, do not interpret. Delete the branch afterwards.
    Removing the guard line in `FabResolution.cs:105` instead is **not** recommended: it reaches
    every context's reads and reds other shards, which proves nothing more about these two routes.
