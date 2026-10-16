@@ -70,7 +70,7 @@ public sealed class StreamConfiguration : IEntityTypeConfiguration<Domain.Stream
         builder.Property(stream => stream.SourceUrl)
             .HasColumnName("source_url")
             .HasMaxLength(StreamSourceUrl.MaximumLength)
-            .HasConversion(url => url.Value, value => StreamSourceUrl.From(value))
+            .HasConversion(url => url.Value, value => StreamSourceUrl.FromStored(value))
             .IsRequired();
 
         builder.Property(stream => stream.State)

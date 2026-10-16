@@ -96,7 +96,7 @@ public sealed class CameraConfiguration : IEntityTypeConfiguration<Camera>
         builder.Property(camera => camera.Url)
             .HasColumnName("rtsp_url")
             .HasMaxLength(RtspUrl.MaximumLength)
-            .HasConversion(url => url.Value, value => RtspUrl.From(value))
+            .HasConversion(url => url.Value, value => RtspUrl.FromStored(value))
             .IsRequired();
 
         builder.Property(camera => camera.Status)
