@@ -81,7 +81,7 @@ internal sealed class MediaMtxSourceRepair(ILogger logger)
 
             return true;
         }
-        catch (HttpRequestException ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             logger.ReconcilerFailedToRepairPathSource(ex, path);
             return false;
