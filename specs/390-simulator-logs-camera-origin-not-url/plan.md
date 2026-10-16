@@ -25,10 +25,10 @@ functional), any `Shared.Contracts` type, any csproj (Shared.Kernel arrives thro
 
 ## 2. Types and invariants
 
-No new public type. One private enum in `CameraSimProvisioner`:
+No new public type. One enum nested in `CameraSimProvisioner` (built as `internal`, the second option below, because `Log` is `internal static partial` and must see it):
 
 ```csharp
-private enum PathWrite { Added, Replaced }
+internal enum PathWrite { Added, Replaced }
 ```
 
 Invariants (each is a test in §8):
@@ -93,7 +93,7 @@ not touch options.
 
 ## 5. The provisioner
 
-- `ProvisionAsync(path, clip, command, ct)` -> `Task<PathWrite>`: same requests, same
+- `ProvisionAsync(path, command, ct)` -> `Task<PathWrite>` (the `clip` parameter was dropped: it was only logged and logging moved out): same requests, same
   `EnsureSuccessStatusCode` calls, same "already exists" test; returns `Added` where it logged
   `CameraSimPathProvisioned` and `Replaced` where it logged `CameraSimPathReplaced`; **logs nothing**.
 - `ProvisionLoopPathAsync` becomes `async`: `Ensure.That(clip)...` first (unchanged), then
@@ -172,7 +172,7 @@ fails on an assertion.
    - `A_camera_with_no_url_path_is_skipped_by_identifier_and_origin` (US1 s1) - RED.
    - `A_non_asset_camera_never_logs_its_url_path` (US1 s2) - RED on the path assertion; the same test
      asserts the camera-sim request path and the correlation row (I3), which already hold.
-   - `A_non_asset_camera_on_the_replace_branch_never_logs_its_url_path` (US1 s3) - RED.
+   - the replace branch (US1 s3) is the `cameraSimAlreadyHasThePath: true` row of the `A_non_asset_camera_never_logs_its_url_path` Theory, not a separate test - RED.
    - `An_unparseable_url_is_skipped_without_being_printed` (US1 s4) - RED.
    - `A_scenario_asset_camera_logs_its_asset_path_as_today` (US2) - **characterisation, GREEN** before
      and after, asserting the two exact strings.
@@ -234,3 +234,33 @@ Assume a leak survives somewhere and hunt it, writing failing tests where found:
 - **PR #3018** edits `UrlRedaction.cs` internals; no overlap with this file set. Rebase after whichever
   merges first; `ToOrigin` is unchanged in both.
 - **Trace attributes** still carry the path (spec §6).
+
+## 11. Addendum: the factory scope, and one shared registration
+
+**Finding (`96b1a286`).** §1 and spec §6 assumed Polly would not log the URI. Polly's message does not, but
+its `Execution attempt` records (Information, written for every request, success included) are emitted
+inside `IHttpClientFactory`'s `HTTP {HttpMethod} {Uri}` scope, and ServiceDefaults exports scopes
+(`IncludeScopes = true`). Each exported record therefore carried
+`Uri = http://camera-sim:9997/v3/config/paths/add/<operator URL path>`. The appsettings category filter
+cannot reach it: the category is `Polly`.
+
+**Fix.** `.RemoveAllLoggers()` on the `CameraSimProvisioner` typed-client registration removes the factory's
+logging handlers and their scope. Failures still reach callers as exceptions (the 500, refused and cancel
+adversarial tests stay green). The `appsettings.json` filter stays as defence in depth.
+
+**Lesson - the rig bypassed `Program.cs`.** The red scope tests (`96b1a286`) built their own host and called
+`AddHttpClient<CameraSimProvisioner>` themselves, so a fix in `Program.cs` could never turn them green.
+The registration was extracted (`7f4667de`) into
+`internal static IHttpClientBuilder AddCameraSimProvisionerClient(this IServiceCollection services)`
+(`CameraSim/CameraSimProvisionerExtensions.cs`; `InternalsVisibleTo` to the test project already existed).
+`Program.cs` and the rig now share ONE registration (`8ebe608c`). The fix is `6f627422`. A red test must
+exercise the code path that carries the fix.
+
+**Harness.** The recorders are `RecordingLoggerProvider` (category, level, message, structured state) and
+`ScopedRecordingLoggerProvider` (adds scopes), not `RecordingLogger<T>`, because the leak is in scopes and
+in framework categories. `The_recorder_sees_the_request_uri_scope_when_a_line_is_written_inside_it` passes
+`keepFactoryLoggers: true` (a plain `AddHttpClient`): its job is to prove the recorder can see the scope
+production now removes; its assertion is unchanged.
+
+**Characterisation (`613d5f97`).** The correlation row, the wall attempt and the replace-branch log line are
+asserted unchanged (spec I3/FR-006).

@@ -4,7 +4,10 @@
 
 **Created**: 2026-10-16
 
-**Status**: Phases 1-3 written; no `[NEEDS CLARIFICATION]` remains. One scope extension beyond the
+**Status**: Phases 1-4 implemented on the branch (red `45003349`, fixes `b48c6c42` `61902b7d`, adversary
+`eee36742`, characterisation `613d5f97`, scope-leak red `96b1a286`, fix `7f4667de` `6f627422` `09fed9ec`,
+rig switch `8ebe608c`); the Release suite is green. Phase 5 (the live-stack dashboard check, T014) is open:
+Docker was down. Phases 6-7 are open. No `[NEEDS CLARIFICATION]` remains. One scope extension beyond the
 issue's named sites is marked `[ASSUMPTION]` in §5 and is the reviewer's to strike.
 
 **Input**: Issue [#2976](https://github.com/smartsolutionslab/smart-sentinel-eye/issues/2976), a
@@ -130,7 +133,8 @@ Scenario: A non-asset camera with a secret in its path is labelled by identifier
   Then camera-sim receives POST "/v3/config/paths/add/SECRET-token/stream"   # unchanged behaviour
   And the correlation table holds C under "SECRET-token/stream"               # unchanged behaviour
   And the simulator's lines name C, "rtsp://cam.example" and the label "Line 7 Spare"
-  And no line from the handler or the provisioner contains "SECRET-token", "pw" or "admin"
+  And no line from the handler or the provisioner contains "SECRET-token", ":pw" or "admin"   # ":pw", not "pw": the bare
+    # two letters occur in ordinary words, so the test asserts the userinfo separator form
 
 Scenario: The same camera when camera-sim already has the path (replace branch)
   Given camera-sim answers the add with 400 "path already exists"
@@ -215,7 +219,15 @@ camera-sim's API (`GET /v3/config/paths/list`) that the path `SECRET-token/strea
   labelled line (site C). They name the camera identifier, and the handler's line names the origin.
 - **FR-004** For a scenario-asset camera, sites D, E and F log exactly as today (US2).
 - **FR-005** `src/ScenarioSimulator/appsettings.json` sets `System.Net.Http.HttpClient.CameraSimProvisioner`
-  to `Warning`, mirroring StreamDistribution's `IRtspGateway` filter. (Site G.)
+  to `Warning`, mirroring StreamDistribution's `IRtspGateway` filter. (Site G.) Since FR-009 this filter is
+  defence in depth: with the factory loggers removed the category writes nothing, and the filter only
+  matters if the registration regresses.
+- **FR-009** (added after `96b1a286`) No exported record carries the camera-sim path in its **scope**. The
+  HttpClient factory opens an `HTTP {HttpMethod} {Uri}` scope around every request, ServiceDefaults exports
+  scopes (`IncludeScopes = true`), and Polly's `Execution attempt` records (Information, success included)
+  are written inside it. The camera-sim client is therefore registered with `.RemoveAllLoggers()`, in the one
+  extension `AddCameraSimProvisionerClient` that `Program.cs` and the test rig both call. Failures still
+  reach callers as exceptions.
 - **FR-006** Functional behaviour is unchanged: the same camera-sim requests (path, body), the same
   correlation-table rows, the same wall attempts, in the same order; the same POST /cameras body.
 - **FR-007** `UrlRedaction` is not modified.
@@ -260,10 +272,24 @@ camera-sim's API (`GET /v3/config/paths/list`) that the path `SECRET-token/strea
 ## 6. Accepted residuals (in writing)
 
 - **Trace attributes** (`url.full` on the camera-sim client span) still carry the path; dev-only Aspire
-  dashboard. To be filed as a follow-up issue at phase 7 if the reviewer agrees it matters.
-- **Polly / resilience telemetry** (category `Polly`) is assumed not to log the request URI for this
-  client; POST is not retried (ADR-0143) so retry events do not fire. The adversary pass checks the
-  timeout and circuit-breaker events.
+  dashboard. To be filed as a follow-up issue at phase 7 if the reviewer agrees it matters. Follow-up #3019.
+- **Polly / resilience telemetry: the original assumption was wrong.** This section assumed Polly does not
+  log the request URI. Polly does not put it in the *message*, but its records are written inside the
+  HttpClient factory's `HTTP {HttpMethod} {Uri}` scope, which ServiceDefaults exports. `96b1a286` showed it
+  (3 failures: status 200, status 500, attempt timeout). Resolved by FR-009; no longer a residual.
+- **`CameraSimPathLabelled` logs `{Label}`** - the raw, operator-typed camera name. It is display text,
+  and CR/LF in it can forge lines in a text sink. Not pinned by any test. To be filed with the trace
+  attribute below (follow-up #3019).
+- **Structured-field renames.** `Path` is gone from the simulator's lines and `RtspUrl` became `Origin`;
+  saved dashboard searches on the old fields stop matching.
+- **Filter prefix.** The `appsettings.json` category filter is a prefix: a future client whose name starts
+  with `CameraSimProvisioner` would be matched by it. Harmless (it only raises a level).
+- **Bisect note.** `b48c6c42`'s own US4 test stays red until `61902b7d`, because the provisioner's own
+  lines still carried the path at that commit.
+- **Other typed clients checked.** `CameraSimPathClient` is only called by `ClipCueHostedService` with
+  `asset.Camera.Path` from scenario definitions, so only scenario paths reach it; `CameraCatalogClient` and
+  the seed clients carry no camera-sim path. No operator-typed path reaches any client but
+  `CameraSimProvisioner`, so only that one is changed.
 
 ## 7. Acceptance
 
