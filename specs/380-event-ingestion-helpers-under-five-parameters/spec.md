@@ -70,8 +70,8 @@ them `[FromServices]`) is not.
 **Why P1.** It is the only part of #2971 reachable without editing a characterisation assertion
 (§5, D-1). It is small, independent of the §6 decision, and does not foreclose any answer to it.
 
-**Independent test.** The §4 commands pass on `c0f4969d` and pass again, **unmodified**, after the
-change (`git diff f935e56a -- tests/` empty); the §1 measurement no longer lists H6, H10 and
+**Independent test.** The §4 commands pass on `6a32aa9f` (the characterisation commit; `c0f4969d` lacks its four new
+tests) and pass again, **unmodified**, after the change (`git diff 6a32aa9f -- tests/` empty); the §1 measurement no longer lists H6, H10 and
 H13, lists H1-H5, H7-H9, H11, H12 and `Log.cs` exactly as before (same methods; line numbers may
 shift), and no other new warning appears under `src/EventIngestion/Api`.
 
@@ -120,19 +120,28 @@ Scenario: auth — every webhook refusal still collapses to one 401
   keep their exact signatures (`EventIngestionRouteTableCharacterisationTests` pins them).
 - **FR-005** Route templates, verbs, names, summaries, tags, policies, status codes, response
   bodies, `Location` values, the OpenAPI shape and log text are unchanged.
-- **FR-006** No file under `tests/` changes. No suppression, threshold, `.editorconfig`,
+- **FR-006** No file under `tests/` changes after the characterisation commit `6a32aa9f`. No suppression, threshold, `.editorconfig`,
   `SonarLint.xml`, `Directory.Build.props` or csproj change. No new file whose name ends
   `Endpoints.cs`; no new `EventsEndpoints` partial file.
 - **FR-007** Each commit builds on its own and leaves the §4 suite green (ADR-0087).
 
 ## 4. Characterisation, the safety net
 
-All of these exist (spec 365 and earlier); **none is written by this spec**. Each method that
+All of these exist (spec 365 and earlier) **except four tests this spec adds first**, in
+`6a32aa9f`, to `EventSourceAndTypeEndpointCharacterisationTests`: a keyed declare stores the `Mode`
+and the caller as `DeclaredBy`, a keyed register stores the kind and `RegisteredBy`, and a replayed
+key on each answers the stored identifier without touching a repository. They were observed green
+on unchanged code (characterisation-first, ADR-0144). They close a gap: in-process, the declared
+`Mode` and the keyed/replay path were not pinned, so a wrong-mode counterfactual passed every
+in-process test (it now fails only the new test). The new tests guard *the handler does not run on
+replay*, **not** *the command is not built on replay*: hoisting the command out of the lambda stays
+green, because both command records are plain records with no logic and building one is
+unobservable (plan §2.1 gives S138, not behaviour, as the reason not to hoist). Each method that
 changes is covered:
 
 | Changed | Covered by (in-process, `tests/Architecture.Tests`) | Covered by (Aspire, `tests/Integration.Tests/EventIngestion`, CI shards authoritative) |
 |---|---|---|
-| `DeclareAsync` (+ its call in `Declare`) | `EventSourceAndTypeEndpointCharacterisationTests` — Declare rows: refusal order, keyed/unkeyed, named fab, 409, and the declared `Mode` and `DeclaredBy` asserted on the repository call | `EventSourceModeIntegrationTests`, `EventSourceModeAuthorizationIntegrationTests`, `DiscoverySourceHoldsIntegrationTests`, `StrictSourceIngestIntegrationTests` |
+| `DeclareAsync` (+ its call in `Declare`) | `EventSourceAndTypeEndpointCharacterisationTests` — Declare rows: refusal order, keyed/unkeyed, named fab, 409, and the declared `Mode` and `DeclaredBy` asserted on the repository call (keyed and replayed paths: the four tests added in `6a32aa9f`) | `EventSourceModeIntegrationTests`, `EventSourceModeAuthorizationIntegrationTests`, `DiscoverySourceHoldsIntegrationTests`, `StrictSourceIngestIntegrationTests` |
 | `RegisterAsync` (+ its call in `Register`) | `EventSourceAndTypeEndpointCharacterisationTests` — Register rows, incl. `RegisteredBy` asserted | `EventTypeRegistryIntegrationTests`, `EventTypeRegistryIdempotencyIntegrationTests`, `EventTypeRegistryAuthorizationIntegrationTests`, `IdempotencyKeyReuseEventIngestionIntegrationTests` |
 | `AuthenticateWebhookAsync` (+ its call in `IngestWebhook`) | `WebhookEndpointCharacterisationTests` (32 tests: refusal order with `Times.Never`, byte-identical 401 bodies, revoked log once per window, JWT via `IAuthenticationService`, cross-fab) | `WebhookBearerValidationIntegrationTests`, `WebhookRevocationRefusesDeliveryIntegrationTests`, `RevokedWebhookDeliveryIsLoggedIntegrationTests`, `CrossFabWebhookRotationEffectIntegrationTests`, `AnonymousIngestIsRefusedTests` |
 | every handler signature (must not move) | `EventIngestionRouteTableCharacterisationTests` | — |
@@ -181,9 +190,12 @@ Commands are in plan §4.
 for"), not for a security reason. #2971 asks. The body stays textually identical below one
 deconstruction line (plan §2.3), so the security review compares two signatures and one line.
 
-**D-4. No new characterisation test.** §4 covers every changed method with assertions on the
-values the moved parameters carry (mode, kind, declaredBy, registeredBy, the integration name, the
-fab, the bearer); a refactor with covering tests is not a rewrite.
+**D-4. Four characterisation tests are added first, `6a32aa9f`.** §4 covers every changed method
+with assertions on the values the moved parameters carry (mode, kind, declaredBy, registeredBy, the
+integration name, the fab, the bearer), but the declared `Mode` and the keyed/replay path were not
+pinned in-process. A refactor with no covering test is a rewrite (CLAUDE.md), so the four tests were
+written and observed green on the unchanged code before any production change. They edit no
+existing assertion; `git diff 6a32aa9f -- tests/` is empty after the refactor.
 
 ## 6. Out of scope, and the decision handed back
 
@@ -195,9 +207,14 @@ fab, the bearer); a refactor with covering tests is not a rewrite.
   with request-value `[AsParameters]` records, proven OpenAPI-neutral by diffing the generated
   document — a separately approved contract-surface change, not a refactor;
   (c) leave them as advisory warnings (ADR-0084 is advisory).
-  **The same block applies to #2972-#2975**: every context with a route-table baseline renders the
-  handler parameter list, and the spec 341 pattern cannot reduce S107 anywhere, since `[FromServices]`
-  is never counted.
+  **The same block applies to the route-handler hits of #2972-#2975 in contexts that have a
+  route-table baseline** (that rendering includes the handler parameter list, and `[FromServices]`
+  is never counted by S107, so the spec 341 pattern cannot reduce it). It is not a blanket claim:
+  - `src/Identity/Api/IdentityFabResolution.cs(36,97)` `ResolveReadFabsAsync` (#2975) is a
+    **helper**, not a route handler, so it is fixable without touching any baseline.
+  - AuditObservability (#2974) has **no** `*RouteTableCharacterisationTests` file, so the
+    route-table reasoning does not apply to `AuditEndpoints.cs(60,46)` and `(116,51)`; the
+    `[FromServices]` point still does. Whether re-shaping them is safe needs its own measurement.
 - `Log.cs(19,72)` (#2970). Hits outside `src/EventIngestion/Api`.
 - Unbundling `IngestManualServices` / `DeclareSourceModeServices` / `RegisterEventTypeServices`
   (6 → 5, still a hit, and a route-table change).

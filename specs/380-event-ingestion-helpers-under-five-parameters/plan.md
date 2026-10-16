@@ -39,8 +39,10 @@ unchanged. Call site in `Declare` (line 163), **one line, inside the lambda**:
 token => DeclareAsync(services.Handler, new DeclareSourceModeCommand(fabResolution.Value, source, mode, declaredBy), token),
 ```
 
-The command is still constructed only when `IdempotentRequest` runs the operation (not on a
-replay), exactly as today. **Not hoisted into a local**: `Declare` sits at about 30 counted lines
+The command is still constructed only inside the lambda, i.e. when `IdempotentRequest` runs the
+operation, exactly as today. The tests do not pin that: they guard that the handler does not run on
+replay, and hoisting the command stays green (both command records are plain, so building one is
+unobservable). **Not hoisted into a local**: `Declare` sits at about 30 counted lines
 (S138's limit) and one more line risks a new S138 hit; the line is 136 characters against
 `.editorconfig`'s `max_line_length = 160`, so the house wrapping rule does not trigger.
 
@@ -63,9 +65,12 @@ as `StreamEndpoints.cs` and `LayoutEndpoints.cs` declare records beside their cl
 
 ```csharp
 /// <summary>What a webhook caller presented: the route's integration name, the request carrying its bearer, and the delivery's fab.</summary>
-internal sealed record WebhookDelivery(string IntegrationName, HttpRequest Request, string FabId);
+internal sealed record WebhookDelivery(string IntegrationName, HttpRequest Request, string Fab);
 
-/// <summary>The collaborators <see cref="WebhookDeliveryAuthentication.AuthenticateWebhookAsync"/> reads, bundled so the check keeps a readable signature (ADR-0084).</summary>
+/// <summary>
+/// The collaborators <see cref="WebhookDeliveryAuthentication.AuthenticateWebhookAsync"/> reads,
+/// bundled so the check keeps a readable signature (ADR-0084).
+/// </summary>
 internal sealed record WebhookAuthenticationServices(
     IWebhookIntegrationRepository Integrations,
     ILogger Logger,
@@ -158,7 +163,7 @@ No new test class is added, so no shard-filter entry is owed.
 
 ```sh
 grep -oE '[^ (]+\([0-9]+,[0-9]+\): warning S[0-9]+' metrics.log | sort -u | tr '\\' '/' | grep 'src/EventIngestion/Api'
-git diff --stat f935e56a -- tests/        # must be empty (relative to the characterisation commit f935e56a; against origin/develop it lists that commit's four new tests)
+git diff --stat 6a32aa9f -- tests/        # must be empty (relative to the characterisation commit 6a32aa9f; against origin/develop it lists that commit's four new tests)
 git diff origin/develop -- src/EventIngestion/Api/WebhookDeliveryAuthentication.cs   # signature + 2 lines + 2 records only
 ```
 
@@ -175,7 +180,7 @@ warning of any rule.
   §2.3 and `/security-review`; `WebhookEndpointCharacterisationTests` pins the refusal order, the
   byte-identical 401 and the log-once window.
 - **Transposed fields in a deconstruction.** `WebhookDelivery` holds two `string`s
-  (`IntegrationName`, `FabId`); swapping them compiles. The locals take exactly the old parameter
+  (`IntegrationName`, `Fab`); swapping them compiles. The locals take exactly the old parameter
   names in record order, and every 201 case in `WebhookEndpointCharacterisationTests` fails on a
   swap: the lookup then runs on the fab string (no integration, or the wrong one), and if an
   integration is found its own-fab check runs against the integration name — 401 either way.
