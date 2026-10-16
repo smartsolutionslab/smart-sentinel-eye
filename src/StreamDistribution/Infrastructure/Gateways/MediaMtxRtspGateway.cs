@@ -119,6 +119,71 @@ public sealed class MediaMtxRtspGateway(HttpClient http, ILogger<MediaMtxRtspGat
         return paths;
     }
 
+    public async Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
+        CancellationToken cancellationToken)
+    {
+        // Same paginated read as ListConfiguredPathsAsync, keeping each item's
+        // `source` verbatim: the repair compares it ordinally with the database.
+        Dictionary<MediaMtxPath, string> sources = [];
+
+        var page = 0;
+        var hasMorePages = true;
+        while (hasMorePages)
+        {
+            using var response = await http.GetAsync(
+                $"/v3/config/paths/list?page={page}&itemsPerPage=100", cancellationToken);
+            response.EnsureSuccessStatusCode();
+
+            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
+
+            AddPageToSources(payload, sources);
+
+            var pageCount = payload.TryGetProperty("pageCount", out var pageCountElement)
+                && pageCountElement.ValueKind == JsonValueKind.Number
+                ? pageCountElement.GetInt32()
+                : 1;
+
+            page++;
+            hasMorePages = page < pageCount;
+        }
+
+        return sources;
+    }
+
+    private static void AddPageToSources(JsonElement payload, Dictionary<MediaMtxPath, string> sources)
+    {
+        if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)
+        {
+            return;
+        }
+
+        foreach (var item in items.EnumerateArray())
+        {
+            if (!item.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
+            {
+                continue;
+            }
+
+            var raw = name.GetString() ?? string.Empty;
+            if (MediaMtxPath.IsCanonical(raw) && TryReadSource(item, out var source))
+            {
+                sources[MediaMtxPath.From(raw)] = source;
+            }
+        }
+    }
+
+    private static bool TryReadSource(JsonElement item, out string source)
+    {
+        source = string.Empty;
+        if (!item.TryGetProperty("source", out var element) || element.ValueKind != JsonValueKind.String)
+        {
+            return false;
+        }
+
+        source = element.GetString() ?? string.Empty;
+        return true;
+    }
+
     private static void AddPageToPaths(JsonElement payload, List<MediaMtxPath> paths)
     {
         if (!payload.TryGetProperty("items", out var items) || items.ValueKind != JsonValueKind.Array)

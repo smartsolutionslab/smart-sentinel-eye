@@ -209,6 +209,7 @@ public static class StreamDistributionInfrastructureModule
         services
             .AddHostedService<StreamHealthWatcher>()
             .AddHostedService<MediaMtxReconciler>()
+            .AddHostedService<MediaMtxSourceRepairSweep>()
             .AddHostedService<StreamFabAttributionService>();
     }
 
@@ -278,6 +279,10 @@ public static class StreamDistributionInfrastructureModule
             options.Realm = builder.Configuration["Keycloak:Realm"] ?? options.Realm;
         });
 
+        // Registered here, ahead of the token provider, because the registration
+        // order is pinned by StreamDistributionRegistrationCharacterisationTests.
+        BindMediaMtxSourceRepair(builder);
+
         // Idempotent POST — see ADR-0143; a second token supersedes the first.
         builder.Services.AddHttpClient(CameraCatalogTokenProvider.HttpClientName).RetryEveryMethod();
         builder.Services.AddSingleton<CameraCatalogTokenProvider>();
@@ -299,6 +304,21 @@ public static class StreamDistributionInfrastructureModule
             client.BaseAddress = new Uri("http://camera-catalog");
 #pragma warning restore S1075, S5332
         }).AddHttpMessageHandler<CameraCatalogAuthorizationHandler>();
+    }
+
+    /// <summary>
+    /// Spec 378 (#2960): a non-positive interval would make the sweep's
+    /// <c>PeriodicTimer</c> throw inside the hosted service, so it is a startup
+    /// failure here instead.
+    /// </summary>
+    private static void BindMediaMtxSourceRepair(IHostApplicationBuilder builder)
+    {
+        builder.Services.AddOptions<MediaMtxSourceRepairOptions>()
+            .Configure(options => builder.Configuration.GetSection(MediaMtxSourceRepairOptions.SectionName).Bind(options))
+            .Validate(
+                options => options.Interval > TimeSpan.Zero,
+                "MediaMtxSourceRepair:Interval must be greater than zero.")
+            .ValidateOnStart();
     }
 
     /// <summary>

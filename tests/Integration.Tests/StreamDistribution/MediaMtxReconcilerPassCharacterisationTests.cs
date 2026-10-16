@@ -164,6 +164,18 @@ public class MediaMtxReconcilerPassCharacterisationTests(AspireFixture aspire) :
             return Task.FromResult(configured);
         }
 
+        public Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(
+            CancellationToken cancellationToken)
+        {
+            // Records no event: the kept path already points at its persisted source, so the
+            // trailing repair pass finds nothing to do and the pass sequence stays as pinned.
+            IReadOnlyDictionary<MediaMtxPath, string> sources = new Dictionary<MediaMtxPath, string>
+            {
+                [PathOf(KeptCamera)] = "rtsp://10.0.5.2/h264",
+            };
+            return Task.FromResult(sources);
+        }
+
         public Task RemovePathAsync(MediaMtxPath path, CancellationToken cancellationToken)
         {
             events.Add($"remove {path.Value}");

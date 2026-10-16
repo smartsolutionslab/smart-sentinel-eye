@@ -28,6 +28,15 @@ internal static partial class Log
     [LoggerMessage(Level = LogLevel.Information, Message = "MediaMtxReconciler startup pass complete. Configured={Configured}, expected={Expected}, removed={Removed}, readded={Readded}.")]
     public static partial void ReconcilerStartupPassComplete(this ILogger logger, int configured, int expected, int removed, int readded);
 
+    [LoggerMessage(Level = LogLevel.Information, Message = "Reconciler repaired MediaMTX path {Path} source {ObservedSource} -> {PersistedSource}.")]
+    public static partial void ReconcilerRepairedPathSource(this ILogger logger, MediaMtxPath path, string observedSource, string persistedSource);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "Reconciler failed to repair MediaMTX path {Path}; the next sweep retries.")]
+    public static partial void ReconcilerFailedToRepairPathSource(this ILogger logger, Exception exception, MediaMtxPath path);
+
+    [LoggerMessage(Level = LogLevel.Warning, Message = "MediaMtxSourceRepairSweep pass failed; the next tick retries.")]
+    public static partial void SourceRepairSweepFailed(this ILogger logger, Exception exception);
+
     [LoggerMessage(Level = LogLevel.Warning, Message = "Stream fab attribution failed; streams without a fab stay invisible and the next restart retries.")]
     public static partial void AttributionPassFailed(this ILogger logger, Exception exception);
 

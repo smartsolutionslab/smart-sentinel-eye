@@ -18,7 +18,8 @@ public interface IRtspGateway
     /// matches <paramref name="rtspSourceUrl"/>. This makes a redelivery of a
     /// provisioning attempt — or a resilience-handler retry of a lost
     /// response — safe to call again, but it does not confirm a retry's path
-    /// is pointed at the same source as the first attempt's. Any other
+    /// is pointed at the same source as the first attempt's — the periodic
+    /// <c>MediaMtxSourceRepairSweep</c> is what repairs that. Any other
     /// rejection (e.g. a source MediaMTX cannot parse) still throws
     /// <see cref="HttpRequestException"/>.
     /// </para>
@@ -78,6 +79,16 @@ public interface IRtspGateway
     /// stream that was deleted while MediaMTX was down).
     /// </summary>
     Task<IReadOnlyList<MediaMtxPath>> ListConfiguredPathsAsync(CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Lists the configured <c>source</c> of every canonical path
+    /// (<c>GET /v3/config/paths/list</c>), verbatim. The value is MediaMTX's own
+    /// vocabulary (<c>publisher</c>, <c>rtsp://…</c>), not necessarily a
+    /// <see cref="StreamSourceUrl"/>, so it stays a string. A path whose
+    /// <c>source</c> is missing or not a string is omitted. Used by the source
+    /// repair to find a path pulling an address the database does not record.
+    /// </summary>
+    Task<IReadOnlyDictionary<MediaMtxPath, string>> ListConfiguredPathSourcesAsync(CancellationToken cancellationToken);
 }
 
 /// <summary>

@@ -374,6 +374,7 @@ var streamDistribution = builder
     .WaitFor(mediamtx);
 
 streamDistribution.WithIntegrationLaneWhepCeiling(isE2ETests);
+streamDistribution.WithIntegrationLaneSourceRepairInterval(isE2ETests);
 
 mediamtx.WithRunLaneAuthorizeHookAddress(streamDistribution, isRunMode);
 
