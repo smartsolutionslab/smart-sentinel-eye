@@ -103,3 +103,23 @@ three different test projects.
 
 T001, T002, T003 [P] → commit 1. T004 and T005 (uncommitted) → T010 → T011 → T012 → T013 → commit 2
 → T020 → T021. T011-T013 are sequential: each compiles only on its predecessor.
+
+---
+
+## Addendum tasks (spec §8, plan §10)
+
+**Colour: RED.** Test-writer output: C1-C6 in `CameraAddressChangedFutureStampTests.cs` (C1, C2,
+C4-one-tick, C5 red on assertions; C3, C4-boundary, C6 are guards, green by nature). C7 and C8 are
+untracked `*.cs.pending` (the options type does not exist): `CameraAddressChangedFutureStampToleranceTests.cs.pending`
+(Application.Tests) and `StreamRepointToleranceValidationTests.cs.pending` (Infrastructure.Tests).
+
+- [x] **T030** [US1] Red tests C1-C6 committed; C7/C8 written untracked with compile errors quoted.
+- [ ] **T031** [US1] `StreamRepointOptions` (Application), its binding + validation in the
+  Infrastructure module (like `BindMediaMtxSourceRepair`), the clamp in `RepointStreamCommandHandler`,
+  the clamp Warning and the ignore-line change in `Log.cs`. Rename the two `.pending` files to `.cs`
+  (adapting only constructor/namespace/binder name, never an assertion). Add the two options entries to
+  `StreamDistributionRegistrationCharacterisationTests` (authorised).
+- [ ] **T032** [US1] Verify: C1-C8 and every existing test green unmodified; counterfactual quoted
+  (remove the clamp: C1/C2 red).
+- [ ] **T033** Follow-up decision issue for ordering by a serialised sequence (V2); PR notes the
+  backward-clock-step residual.
