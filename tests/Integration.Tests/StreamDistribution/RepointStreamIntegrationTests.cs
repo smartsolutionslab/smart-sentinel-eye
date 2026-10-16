@@ -84,6 +84,41 @@ public class RepointStreamIntegrationTests(AspireFixture aspire) : IAsyncLifetim
             .GetProperty("rtspUrl").GetString().ShouldBe(CorrectedUrl);
     }
 
+    /// <summary>
+    /// Spec 385. The stream records the instant of the address change it last
+    /// applied, so a retried older change can be recognised and ignored. Read
+    /// with raw SQL: the column is not on any type this project can name yet.
+    /// </summary>
+    [Fact]
+    public async Task Correcting_a_cameras_address_records_when_the_change_was_made()
+    {
+        using var cameras = await aspire.CreateAdminClientAsync("camera-catalog");
+        var camera = await RegisterAsync(cameras);
+        var provisioned = await WaitForStreamAsync(camera, ProvisionTimeout);
+
+        var before = DateTimeOffset.UtcNow;
+        await PatchAddressAsync(cameras, camera, CorrectedUrl);
+
+        // The save precedes the gateway call, so once the SFU reports the new
+        // source the row has been written.
+        await WaitForMediaMtxSourceAsync(provisioned.Path.Value, CorrectedUrl);
+        var after = DateTimeOffset.UtcNow;
+
+        await using var context = await aspire.CreateStreamDistributionDbContextAsync();
+        var recorded = await context.Database
+            .SqlQuery<DateTimeOffset?>($"""
+                SELECT source_changed_at AS "Value"
+                FROM streams
+                WHERE camera_id = {camera}
+                """)
+            .ToListAsync();
+
+        var changedAt = recorded.ShouldHaveSingleItem();
+        changedAt.ShouldNotBeNull();
+        changedAt.Value.ShouldBeGreaterThanOrEqualTo(before.AddSeconds(-1));
+        changedAt.Value.ShouldBeLessThanOrEqualTo(after.AddSeconds(1));
+    }
+
     private static async Task<Guid> RegisterAsync(HttpClient cameras)
     {
         var name = $"repoint-{Guid.CreateVersion7():N}"[..24];
