@@ -35,6 +35,8 @@ internal sealed class MediaMtxSourceRepair(ILogger logger, TimeProvider timeProv
         Ensure.That(gateway).IsNotNull();
         Ensure.That(snapshot).IsNotNull();
 
+        failureLog.PassStarting();
+
         var observed = await gateway.ListConfiguredPathSourcesAsync(cancellationToken);
         var persisted = await snapshot.ListLiveSourcesAsync(cancellationToken);
 

@@ -9,8 +9,8 @@ namespace SmartSentinelEye.StreamDistribution.Infrastructure.Reconciler;
 /// Spec 388 (#2994): decides how loudly a path's repair failure is logged. A
 /// first or changed outcome Warns with the exception; the same outcome repeats
 /// at most every ten minutes, measured on the monotonic timestamp. Owned by one
-/// <see cref="MediaMtxSourceRepair"/>, which never runs two passes at once, so
-/// it is not thread-safe.
+/// <see cref="MediaMtxSourceRepair"/> and used by one sequential caller, so it
+/// is not thread-safe.
 /// </summary>
 internal sealed class SourceRepairFailureLog(ILogger logger, TimeProvider timeProvider)
 {
@@ -31,7 +31,8 @@ internal sealed class SourceRepairFailureLog(ILogger logger, TimeProvider timePr
         failedThisPass.Add(path);
 
         var status = (failure as HttpRequestException)?.StatusCode;
-        Outcome outcome = new(failure.GetType(), status);
+        var error = (failure as HttpRequestException)?.HttpRequestError;
+        Outcome outcome = new(failure.GetType(), status, error);
 
         if (failures.TryGetValue(path, out var state)
             && state.Outcome == outcome
@@ -47,16 +48,20 @@ internal sealed class SourceRepairFailureLog(ILogger logger, TimeProvider timePr
 
     public void Succeeded(MediaMtxPath path) => failures.Remove(path);
 
+    public void PassStarting() => failedThisPass.Clear();
+
     public void PassCompleted()
     {
-        failures.Keys.Where(path => !failedThisPass.Contains(path)).ToList().ForEach(path => failures.Remove(path));
-        failedThisPass.Clear();
+        foreach (var path in failures.Keys.Except(failedThisPass).ToList())
+        {
+            failures.Remove(path);
+        }
     }
 
     private static string StatusText(HttpStatusCode? status) =>
         status.HasValue ? ((int)status.Value).ToString(CultureInfo.InvariantCulture) : "-";
 
-    private readonly record struct Outcome(Type ExceptionType, HttpStatusCode? Status);
+    private readonly record struct Outcome(Type ExceptionType, HttpStatusCode? Status, HttpRequestError? Error);
 
     private sealed record FailureState(Outcome Outcome, long LastWarnedAt);
 }
