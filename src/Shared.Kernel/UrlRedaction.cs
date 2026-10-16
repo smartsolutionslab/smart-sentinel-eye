@@ -33,6 +33,8 @@ public static class UrlRedaction
     // once the authority is cut short, text such as admin:12345 becomes the host and port and
     // would be rendered. The authority is located the way the parser does (after the scheme, past
     // any run of / and \), not only after a literal ://, which would fail open for rtsp:\\admin:1#@cam.
+    // AuthorityWasWrittenAsAscii keeps the strict :// form on purpose: there an unrecognised shape is
+    // refused (fail closed), here an unrecognised shape must still be scanned, so do not unify the two.
     private static bool AtSignFollowsTheAuthority(string url)
     {
         var rest = url.AsSpan();
@@ -43,16 +45,17 @@ public static class UrlRedaction
             rest = rest[(colon + 1)..];
         }
 
-        var marker = rest.IndexOfAnyExcept('/', '\\');
+        var authorityStart = rest.IndexOfAnyExcept('/', '\\');
 
-        if (marker < 0)
+        if (authorityStart < 0)
         {
             return false;
         }
 
-        var terminator = rest[marker..].IndexOfAny(AuthorityTerminators);
+        var authority = rest[authorityStart..];
+        var end = authority.IndexOfAny(AuthorityTerminators);
 
-        return terminator >= 0 && rest[(marker + terminator)..].Contains('@');
+        return end >= 0 && authority[end..].Contains('@');
     }
 
     private static bool AllSchemeCharacters(ReadOnlySpan<char> text)
