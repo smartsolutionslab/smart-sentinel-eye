@@ -168,6 +168,14 @@ public sealed class MediaMtxReconciler(
 
         logger.ReconcilerStartupPassComplete(configured.Count, expected.Count, removed, readded);
 
+        await RepairSourcesAfterStartupAsync(gateway, context, cancellationToken);
+    }
+
+    private async Task RepairSourcesAfterStartupAsync(
+        IRtspGateway gateway,
+        StreamDistributionDbContext context,
+        CancellationToken cancellationToken)
+    {
         try
         {
             await new MediaMtxSourceRepair(logger)
