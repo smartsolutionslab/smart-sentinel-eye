@@ -350,6 +350,270 @@ public class OverlayDraftEndpointCharacterisationTests
         host.Overlays.Verify(overlays => overlays.SaveAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    [Theory]
+    [InlineData("Box", "0.11", "0.23", "0.31", "0.47", "#12345678")]
+    [InlineData("Ellipse", "0.41", "0.52", "0.13", "0.24", "#ABCDEF")]
+    public async Task A_shape_keeps_each_of_its_values_in_its_own_place_on_create(
+        string kind, string x, string y, string width, string height, string color)
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var added = CaptureAdded(host);
+
+        var response = await Post(
+            host, Json(new CreateOverlayRequest("Main wall", [Shape(kind, color, D(x), D(y), D(width), D(height))])));
+
+        response.Status.ShouldBe(201);
+        AssertShape(
+            added().Revisions.Single().Elements.ShouldHaveSingleItem(),
+            kind,
+            color,
+            D(x),
+            D(y),
+            D(width),
+            D(height));
+    }
+
+    [Theory]
+    [InlineData("Box", "0.11", "0.23", "0.31", "0.47", "#12345678")]
+    [InlineData("Ellipse", "0.41", "0.52", "0.13", "0.24", "#ABCDEF")]
+    public async Task A_shape_keeps_each_of_its_values_in_its_own_place_on_edit(
+        string kind, string x, string y, string width, string height, string color)
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var existing = Existing(host);
+
+        var response = await Patch(
+            host,
+            existing.Id.Value,
+            "1",
+            Json(new EditDraftRequest([Shape(kind, color, D(x), D(y), D(width), D(height))])),
+            ifMatch: "0");
+
+        response.Status.ShouldBe(200);
+        AssertShape(
+            existing.Revisions.Single().Elements.ShouldHaveSingleItem(),
+            kind,
+            color,
+            D(x),
+            D(y),
+            D(width),
+            D(height));
+    }
+
+    [Fact]
+    public async Task A_mixed_box_and_ellipse_set_keeps_each_elements_values_and_order_on_create()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var added = CaptureAdded(host);
+        var box = Shape("Box", "#112233", 0.11m, 0.23m, 0.31m, 0.47m);
+        var ellipse = Shape("Ellipse", "#44556677", 0.53m, 0.17m, 0.29m, 0.41m);
+
+        var response = await Post(host, Json(new CreateOverlayRequest("Main wall", [box, ellipse])));
+
+        response.Status.ShouldBe(201);
+        var elements = added().Revisions.Single().Elements;
+        elements.Count.ShouldBe(2);
+        AssertShape(elements[0], "Box", "#112233", 0.11m, 0.23m, 0.31m, 0.47m);
+        AssertShape(elements[1], "Ellipse", "#44556677", 0.53m, 0.17m, 0.29m, 0.41m);
+    }
+
+    [Fact]
+    public async Task A_mixed_ellipse_and_box_set_keeps_each_elements_values_and_order_on_edit()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var existing = Existing(host);
+        var ellipse = Shape("Ellipse", "#44556677", 0.53m, 0.17m, 0.29m, 0.41m);
+        var box = Shape("Box", "#112233", 0.11m, 0.23m, 0.31m, 0.47m);
+
+        var response = await Patch(host, existing.Id.Value, "1", Json(new EditDraftRequest([ellipse, box])), ifMatch: "0");
+
+        response.Status.ShouldBe(200);
+        var elements = existing.Revisions.Single().Elements;
+        elements.Count.ShouldBe(2);
+        AssertShape(elements[0], "Ellipse", "#44556677", 0.53m, 0.17m, 0.29m, 0.41m);
+        AssertShape(elements[1], "Box", "#112233", 0.11m, 0.23m, 0.31m, 0.47m);
+    }
+
+    [Fact]
+    public async Task A_fully_transparent_shape_colour_is_accepted_and_kept_on_create()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var added = CaptureAdded(host);
+
+        var response = await Post(host, Json(new CreateOverlayRequest("Main wall", [Shape("Box", "#00000000")])));
+
+        response.Status.ShouldBe(201);
+        added().Revisions.Single().Elements.ShouldHaveSingleItem().Color.ShouldBe(OverlayColor.From("#00000000"));
+    }
+
+    [Theory]
+    [InlineData("Box")]
+    [InlineData("Ellipse")]
+    public async Task A_shape_carrying_text_is_refused_naming_text_on_create(string kind)
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Post(host, Json(new CreateOverlayRequest("Main wall", [Shape(kind, text: "hello")])));
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput($"text must be absent for a {kind} element. (Parameter 'text')"));
+        host.Overlays.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("Box")]
+    [InlineData("Ellipse")]
+    public async Task A_shape_carrying_text_is_refused_naming_text_on_edit(string kind)
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var existing = Existing(host);
+
+        var response = await Patch(
+            host, existing.Id.Value, "1", Json(new EditDraftRequest([Shape(kind, text: "hello")])), ifMatch: "0");
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput($"text must be absent for a {kind} element. (Parameter 'text')"));
+        host.Overlays.Verify(overlays => overlays.SaveAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData("Box")]
+    [InlineData("Ellipse")]
+    public async Task A_shape_carrying_a_font_size_is_refused_naming_font_size_on_create(string kind)
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Post(host, Json(new CreateOverlayRequest("Main wall", [Shape(kind, fontSizePx: 14)])));
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput($"fontSizePx must be absent for a {kind} element. (Parameter 'fontSizePx')"));
+        host.Overlays.VerifyNoOtherCalls();
+    }
+
+    [Theory]
+    [InlineData("Box")]
+    [InlineData("Ellipse")]
+    public async Task A_shape_carrying_a_font_size_is_refused_naming_font_size_on_edit(string kind)
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var existing = Existing(host);
+
+        var response = await Patch(
+            host, existing.Id.Value, "1", Json(new EditDraftRequest([Shape(kind, fontSizePx: 14)])), ifMatch: "0");
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput($"fontSizePx must be absent for a {kind} element. (Parameter 'fontSizePx')"));
+        host.Overlays.Verify(overlays => overlays.SaveAsync(It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task A_shape_carrying_text_and_a_font_size_is_refused_naming_text_on_create()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Post(
+            host, Json(new CreateOverlayRequest("Main wall", [Shape("Box", text: "hello", fontSizePx: 14)])));
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput("text must be absent for a Box element. (Parameter 'text')"));
+    }
+
+    [Fact]
+    public async Task A_shape_carrying_text_and_a_font_size_is_refused_naming_text_on_edit()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+        var existing = Existing(host);
+
+        var response = await Patch(
+            host,
+            existing.Id.Value,
+            "1",
+            Json(new EditDraftRequest([Shape("Ellipse", text: "hello", fontSizePx: 14)])),
+            ifMatch: "0");
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput("text must be absent for a Ellipse element. (Parameter 'text')"));
+    }
+
+    [Fact]
+    public async Task An_out_of_range_position_is_refused_before_the_shape_text_check_on_create()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Post(host, Json(new CreateOverlayRequest("Main wall", [Shape("Box", x: 1.5m, text: "hello")])));
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput($"normalizedX must be in [0, 1]; got {1.5m}. (Parameter 'normalizedX')"));
+    }
+
+    [Fact]
+    public async Task An_out_of_range_position_is_refused_before_the_shape_text_check_on_edit()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Patch(
+            host, Guid.NewGuid(), "1", Json(new EditDraftRequest([Shape("Box", x: 1.5m, text: "hello")])), ifMatch: "0");
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput($"normalizedX must be in [0, 1]; got {1.5m}. (Parameter 'normalizedX')"));
+    }
+
+    [Fact]
+    public async Task An_invalid_colour_is_refused_before_the_shape_text_check_on_create()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Post(host, Json(new CreateOverlayRequest("Main wall", [Shape("Box", "red", text: "hello")])));
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput("color must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA. Got 'red'. (Parameter 'color')"));
+    }
+
+    [Fact]
+    public async Task An_invalid_colour_is_refused_before_the_shape_text_check_on_edit()
+    {
+        await using var host = new OverlayDesignerEndpointHost();
+
+        var response = await Patch(
+            host, Guid.NewGuid(), "1", Json(new EditDraftRequest([Shape("Ellipse", "red", text: "hello")])), ifMatch: "0");
+
+        response.Status.ShouldBe(400);
+        response.Body.ShouldBe(InvalidInput("color must be a six- or eight-digit hex colour, e.g. #RRGGBB or #RRGGBBAA. Got 'red'. (Parameter 'color')"));
+    }
+
+    private static decimal D(string value) => decimal.Parse(value, System.Globalization.CultureInfo.InvariantCulture);
+
+    private static Func<Overlay> CaptureAdded(OverlayDesignerEndpointHost host)
+    {
+        Overlay? added = null;
+        host.Overlays.Setup(overlays => overlays.Add(It.IsAny<Overlay>())).Callback<Overlay>(overlay => added = overlay);
+
+        return () => added.ShouldNotBeNull();
+    }
+
+    private static ElementRequest Shape(
+        string kind,
+        string color = "#FF0000",
+        decimal x = 0.1m,
+        decimal y = 0.1m,
+        decimal width = 0.2m,
+        decimal height = 0.2m,
+        string? text = null,
+        int? fontSizePx = null) =>
+        new(kind, color, x, y, width, height, text, fontSizePx);
+
+    private static void AssertShape(
+        OverlayElement element, string kind, string color, decimal x, decimal y, decimal width, decimal height)
+    {
+        element.Kind.ShouldBe(ElementKind.From(kind));
+        element.Position.X.ShouldBe(x);
+        element.Position.Y.ShouldBe(y);
+        element.Size.Width.ShouldBe(width);
+        element.Size.Height.ShouldBe(height);
+        element.Color.ShouldBe(OverlayColor.From(color));
+        element.Text.ShouldBeNull();
+    }
+
     private static string InvalidInput(string detail) =>
         $$"""{"type":"{{BadRequestType}}","title":"OVERLAY_INVALID_INPUT","status":400,"detail":"{{detail}}"}""";
 
