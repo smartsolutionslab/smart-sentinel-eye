@@ -460,9 +460,6 @@ public class CameraAddressChangedAdversarialOrderingTests
     [InlineData("rtsp://camera-sim:8554/feed?token=SECRET-MARKER")]
     [InlineData("rtsp://camera-sim:8554/feed;SECRET-MARKER")]
     [InlineData("rtsp://camera-sim:8554/feed#SECRET-MARKER")]
-    [InlineData("rtsp://camera-sim:8554/x#@admin:SECRET-MARKER")]
-    [InlineData("rtsp://camera-sim/SECRET-MARKER@elsewhere")]
-    [InlineData("rtsp://camera-sim/x?u=admin:SECRET-MARKER@elsewhere")]
     [InlineData("rtsp://[::1]:8554/SECRET-MARKER")]
     [InlineData("rtsp://SECRET-MARKER.cаmera-sim:8554/x")]
     [InlineData("rtsp://camera-sim:8554/%53ECRET-MARKER")]
@@ -486,6 +483,9 @@ public class CameraAddressChangedAdversarialOrderingTests
     [Theory]
     [InlineData("rtsp://admin:SECRET-MARKER@camera-sim:8554/a")]
     [InlineData("rtsp://camera-sim\\SECRET-MARKER@elsewhere/x")]
+    [InlineData("rtsp://camera-sim:8554/x#@admin:SECRET-MARKER")]
+    [InlineData("rtsp://camera-sim/SECRET-MARKER@elsewhere")]
+    [InlineData("rtsp://camera-sim/x?u=admin:SECRET-MARKER@elsewhere")]
     public async Task An_older_change_whose_address_this_context_rejects_fails_rather_than_being_ignored(string rejected)
     {
         var harness = new Harness();
