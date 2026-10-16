@@ -186,10 +186,10 @@ public static partial class EventsEndpoints
         Ensure.That(body).IsNotNull();
         Ensure.That(request).IsNotNull();
 
-        var logger = loggerFactory.CreateLogger(typeof(EventsEndpoints));
-
         var integration = await WebhookDeliveryAuthentication.AuthenticateWebhookAsync(
-            integrationName, request, fabId, integrations, logger, cache, cancellationToken);
+            new WebhookDelivery(integrationName, request, fabId),
+            new WebhookAuthenticationServices(integrations, loggerFactory.CreateLogger(typeof(EventsEndpoints)), cache),
+            cancellationToken);
         if (integration is null)
         {
             return Results.Unauthorized();
