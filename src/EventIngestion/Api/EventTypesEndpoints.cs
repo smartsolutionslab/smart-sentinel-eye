@@ -131,7 +131,7 @@ public static class EventTypesEndpoints
                 services.Idempotency,
                 services.Clock),
             _ => $"/event-types/{kind.Value}",
-            token => RegisterAsync(services.Handler, fabResolution.Value, kind, registeredBy, token),
+            token => RegisterAsync(services.Handler, new RegisterEventTypeCommand(fabResolution.Value, kind, registeredBy), token),
             cancellationToken);
     }
 
@@ -149,13 +149,10 @@ public static class EventTypesEndpoints
 
     private static async Task<Result<Guid, IResult>> RegisterAsync(
         RegisterEventTypeCommandHandler handler,
-        FabIdentifier fab,
-        Kind kind,
-        OperatorIdentifier registeredBy,
+        RegisterEventTypeCommand command,
         CancellationToken cancellationToken)
     {
-        var result = await handler.HandleAsync(
-            new RegisterEventTypeCommand(fab, kind, registeredBy), cancellationToken);
+        var result = await handler.HandleAsync(command, cancellationToken);
 
         return result.Match(
             onSuccess: identifier => Result<Guid, IResult>.Success(identifier.Value),
