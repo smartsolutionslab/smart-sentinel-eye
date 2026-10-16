@@ -2,6 +2,7 @@ using System.Net;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SmartSentinelEye.ScenarioSimulator.CameraSim;
+using SmartSentinelEye.ScenarioSimulator.Configuration;
 using SmartSentinelEye.ScenarioSimulator.Tests.Fakes;
 
 namespace SmartSentinelEye.ScenarioSimulator.Tests;
@@ -39,8 +40,9 @@ public sealed class CameraSimProvisionerHttpLoggingTests
         RecordingLoggerProvider log = new();
         ServiceCollection services = new();
         services.AddLogging(builder => builder.AddConfiguration(configuration.GetSection("Logging")).AddProvider(log));
+        services.Configure<SimulatorOptions>(options => options.CameraSimApiUrl = "http://camera-sim:9997");
         services
-            .AddHttpClient<CameraSimProvisioner>(client => client.BaseAddress = new Uri("http://camera-sim:9997"))
+            .AddCameraSimProvisionerClient()
             .ConfigurePrimaryHttpMessageHandler(() => new RigHandler(null, _ => new HttpResponseMessage(HttpStatusCode.OK)));
 
         await using var provider = services.BuildServiceProvider();
