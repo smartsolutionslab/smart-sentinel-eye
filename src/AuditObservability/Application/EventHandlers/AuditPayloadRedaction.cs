@@ -133,9 +133,20 @@ public static class AuditPayloadRedaction
             return null;
         }
 
+        if (CarriesZone(previousUrl) || CarriesZone(url))
+        {
+            return null;
+        }
+
         return string.Equals(previousOrigin, origin, StringComparison.Ordinal)
             && !string.Equals(previousUrl, url, StringComparison.Ordinal);
     }
+
+    // The origin drops an IPv6 zone, so two addresses on different interfaces share one origin and the
+    // ordinal rule would call them the same host; an address that cannot be parsed is unknown too.
+    private static bool CarriesZone(string url) =>
+        !Uri.TryCreate(url, UriKind.Absolute, out var uri)
+        || (uri.HostNameType == UriHostNameType.IPv6 && uri.DnsSafeHost.Contains('%'));
 
     private static bool IsPlaceholder(string origin) =>
         string.Equals(origin, UrlRedaction.Unparseable, StringComparison.Ordinal);
