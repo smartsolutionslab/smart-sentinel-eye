@@ -424,6 +424,7 @@ public class WebhookRotationEndpointCharacterisationTests
         await using var host = SeededHost();
 
         var unusableGroup = await host.SendAsync("GET", List, IdentityEndpointHost.Operator(Subject, "Not-A-Fab"));
+        // Mock guard admits any fab, so 400 here; production answers 403 unless the token carries /fabs/Not-A-Fab.
         var unusableNamedFab = await host.SendAsync(
             "GET", List, IdentityEndpointHost.Operator(Subject, "munich"), query: "?fabId=Not-A-Fab");
 
