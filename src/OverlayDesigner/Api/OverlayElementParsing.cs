@@ -25,8 +25,14 @@ internal static class OverlayElementParsing
 
         return kind == ElementKind.Text
             ? ParseTextElement(request, position, size, color)
-            : ParseShapeElement(kind, request, position, size, color);
+            : ParseShapeElement(kind, request, new ElementAppearance(position, size, color));
     }
+
+    /// <summary>The geometry and colour a shape element is drawn with, carried as one argument.</summary>
+    private readonly record struct ElementAppearance(
+        NormalizedPosition Position,
+        NormalizedSize Size,
+        OverlayColor Color);
 
     /// <summary>
     /// <see cref="OverlayColor.From"/>'s own guard names its parameter
@@ -72,10 +78,10 @@ internal static class OverlayElementParsing
     private static OverlayElement ParseShapeElement(
         ElementKind kind,
         ElementRequest request,
-        NormalizedPosition position,
-        NormalizedSize size,
-        OverlayColor color)
+        ElementAppearance appearance)
     {
+        var (position, size, color) = appearance;
+
         RequireNoTextFields(kind, request.Text, request.FontSizePx);
 
         return kind == ElementKind.Box
