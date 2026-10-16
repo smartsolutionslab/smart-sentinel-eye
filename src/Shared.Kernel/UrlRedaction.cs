@@ -15,7 +15,8 @@ public static class UrlRedaction
     {
         Ensure.That(url).IsNotNull();
 
-        if (!TryParse(url, out var uri)
+        if (AtSignFollowsTheAuthority(url)
+            || !TryParse(url, out var uri)
             || string.IsNullOrEmpty(uri.Host)
             || !HostIsPlainAscii(uri)
             || !AuthorityWasWrittenAsAscii(url))
@@ -26,6 +27,45 @@ public static class UrlRedaction
         var origin = $"{uri.Scheme}://{uri.Host}";
 
         return uri.IsDefaultPort ? origin : $"{origin}:{uri.Port}";
+    }
+
+    // The parser takes an @ as the userinfo delimiter only while it precedes the first / ? # or \;
+    // once the authority is cut short, text such as admin:12345 becomes the host and port and
+    // would be rendered. The authority is located the way the parser does (after the scheme, past
+    // any run of / and \), not only after a literal ://, which would fail open for rtsp:\\admin:1#@cam.
+    private static bool AtSignFollowsTheAuthority(string url)
+    {
+        var rest = url.AsSpan();
+        var colon = rest.IndexOf(':');
+
+        if (colon > 0 && char.IsAsciiLetter(rest[0]) && AllSchemeCharacters(rest[..colon]))
+        {
+            rest = rest[(colon + 1)..];
+        }
+
+        var marker = rest.IndexOfAnyExcept('/', '\\');
+
+        if (marker < 0)
+        {
+            return false;
+        }
+
+        var terminator = rest[marker..].IndexOfAny(AuthorityTerminators);
+
+        return terminator >= 0 && rest[(marker + terminator)..].Contains('@');
+    }
+
+    private static bool AllSchemeCharacters(ReadOnlySpan<char> text)
+    {
+        foreach (var character in text)
+        {
+            if (!IsSchemeCharacter(character))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     // Trust-boundary guard around a BCL parser fed untrusted text: Uri.TryCreate throws
