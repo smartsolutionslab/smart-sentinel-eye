@@ -14,10 +14,10 @@ reference (constitution §III). Layers touched:
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepair.cs` (new) | the repair pass (decision + writes), DB-free |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/StreamSourceSnapshot.cs` (new) | EF reads the pass needs: non-retired `(Path, SourceUrl)`; committed source of one path |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepairSweep.cs` (new) | `BackgroundService`: waits for `ApplicationStarted`, then `PeriodicTimer(Interval, TimeProvider)` |
-| Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepairOptions.cs` (new) | `SectionName = "MediaMtxSourceRepair"`, `Interval` default `00:00:10`, validated 1 ms to 4294967294 ms (PeriodicTimer's range) on start |
+| Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepairOptions.cs` (new) | `SectionName = "MediaMtxSourceRepair"`, `Interval` default `00:00:10`, validated 1 s to 4294967294 ms on start (ceiling: PeriodicTimer's range; floor: a shorter interval exhausts the shared MediaMTX control-API rate partition) |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxReconciler.cs` | `ReconcileOnceAsync` runs the repair pass as its last step; nothing else changes |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Log.cs` | three new `[LoggerMessage]`s (§5) |
-| Infrastructure | `src/StreamDistribution/Infrastructure/StreamDistributionInfrastructureModule.cs` | bind options (+`ValidateOnStart`); `.AddHostedService<MediaMtxSourceRepairSweep>()` after `MediaMtxReconciler` |
+| Infrastructure | `src/StreamDistribution/Infrastructure/StreamDistributionInfrastructureModule.cs` | bind options (+`ValidateOnStart`) via `BindMediaMtxSourceRepair`, called at the top level of `AddStreamDistributionInfrastructure` right after `BindStreamFabAttribution` (not inside it); `.AddHostedService<MediaMtxSourceRepairSweep>()` after `MediaMtxReconciler` |
 | AppHost | `src/AppHost/IntegrationLaneOverrides.cs` + `AppHost.cs:376` | `isE2ETests`-gated `MediaMtxSourceRepair__Interval=49.17:02:47.2940000` on `stream-distribution` |
 
 No Application-layer change: this is an infrastructure reconcile loop over a port, like
@@ -165,5 +165,9 @@ New tests — see tasks.md for exact files and commands.
 | Sweep clobbers an in-flight repoint | §3 order + re-read; adversarial unit tests per row of §3's table. |
 | Spec 099 / UnresolvedFab outage tests flake | Integration-lane interval 49.17:02:47.2940000, the largest PeriodicTimer accepts (spec §5); those classes unmodified and green in CI is the evidence. |
 | A source MediaMTX refuses (e.g. `RTSP://` upper-case scheme, which `StreamSourceUrl` accepts and MediaMTX's case-sensitive prefix rejects) re-fails every sweep | Bounded: one Warning per such stream per tick. Such a stream also fails `add/`, so it cannot be live; recorded, not fixed here. |
+| Stale write after a repair (accepted in writing) | A late-landing `RetryEveryMethod` attempt can leave the previous database value on a path for up to one interval; the next sweep repairs it. Bounded, short, and the price of not serialising repoints (the owner's decision on #2960). |
+| A refused PATCH logs every interval (accepted; follow-up) | A source MediaMTX keeps refusing logs a Warning per sweep. Follow-up, not here. |
+| Unbounded `pageCount` (accepted; follow-up) | `ListConfiguredPathSourcesAsync` follows `pageCount` as `ListConfiguredPathsAsync` does; the same pattern, the same follow-up. |
+| Misleading log pair after Complete (accepted; documented in §4) | A repair-list failure at startup logs `ReconcilerStartupPassFailed` after `ReconcilerStartupPassComplete`. |
 | Sweep runs before Kestrel binds | Unit test: no scope created before `ApplicationStarted` (mirror `MediaMtxReconcilerStartupOrderingTests`). |
 | Full URL in a log | Unit: a source with `?token=SECRET` and a `/SECRET` path segment; assert exact rendered line and no `SECRET`. |

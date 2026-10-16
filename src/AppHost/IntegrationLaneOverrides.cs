@@ -88,8 +88,8 @@ internal static class IntegrationLaneOverrides
     // diverged or absent for seconds, and the unresolved-fab audit tests rely on
     // MediaMTX staying as they left it; a 10 s repair sweep would heal it under
     // them. The startup pass still repairs once; the sweep is parked at the largest
-    // interval PeriodicTimer accepts (~49.7 days): a shard longer than the old 10 minutes
-    // got ticks inside the spec 099 outage windows and flaked those tests.
+    // interval PeriodicTimer accepts (~49.7 days): any finite interval shorter than a
+    // shard can tick inside the spec 099 outage windows and flake those tests.
     internal static void WithIntegrationLaneSourceRepairInterval(
         this IResourceBuilder<ProjectResource> streamDistribution,
         bool isE2ETests)
