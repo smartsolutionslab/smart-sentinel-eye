@@ -40,7 +40,7 @@ public sealed class CameraRegisteredSimHandler(
         {
             // Cameras not registered by this simulator (no path component) are
             // none of our business — log and drop, don't retry.
-            logger.SkippedNonSimulatedCamera(url);
+            logger.SkippedNonSimulatedCamera(camera, OriginOf(url));
             return;
         }
 
@@ -49,15 +49,27 @@ public sealed class CameraRegisteredSimHandler(
         // is best-effort and runs last: if it throws Wolverine retries the whole
         // handler, and RecordCamera + the wall claim/read-back are both idempotent,
         // so a camera-sim hiccup can never block the wall from being created.
+        //
+        // A scenario asset plays its own clip; anything else — hand-registered, or
+        // whatever a test run left behind — gets the shared clip with its name
+        // drawn on it, so it is still answerable by looking (FR-004). Only an
+        // asset's path is ours to log: for anything else it is operator-typed URL text.
+        var isAsset = TryFindAssetClip(path, out var clip);
+
         correlation.RecordCamera(path, camera);
-        logger.AssetCameraRecorded(path, camera);
+
+        if (isAsset)
+        {
+            logger.AssetCameraRecorded(path, camera);
+        }
+        else
+        {
+            logger.NonAssetCameraRecorded(camera, OriginOf(url));
+        }
 
         await wall.TryCreateAsync(cancellationToken);
 
-        // A scenario asset plays its own clip; anything else — hand-registered, or
-        // whatever a test run left behind — gets the shared clip with its name
-        // drawn on it, so it is still answerable by looking (FR-004).
-        if (TryFindAssetClip(path, out var clip))
+        if (isAsset)
         {
             await provisioner.ProvisionLoopPathAsync(path, clip, cancellationToken);
             return;
@@ -65,6 +77,9 @@ public sealed class CameraRegisteredSimHandler(
 
         await provisioner.ProvisionLabelledPathAsync(path, name, camera, cancellationToken);
     }
+
+    private static string OriginOf(string? url) =>
+        url is null ? UrlRedaction.Unparseable : UrlRedaction.ToOrigin(url);
 
     private bool TryFindAssetClip(string path, out string clip)
     {
