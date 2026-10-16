@@ -14,11 +14,11 @@ reference (constitution §III). Layers touched:
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepair.cs` (new) | the repair pass (decision + writes), DB-free |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/StreamSourceSnapshot.cs` (new) | EF reads the pass needs: non-retired `(Path, SourceUrl)`; committed source of one path |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepairSweep.cs` (new) | `BackgroundService`: waits for `ApplicationStarted`, then `PeriodicTimer(Interval, TimeProvider)` |
-| Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepairOptions.cs` (new) | `SectionName = "MediaMtxSourceRepair"`, `Interval` default `00:00:10`, validated `> 0` on start |
+| Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxSourceRepairOptions.cs` (new) | `SectionName = "MediaMtxSourceRepair"`, `Interval` default `00:00:10`, validated 1 ms to 4294967294 ms (PeriodicTimer's range) on start |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Reconciler/MediaMtxReconciler.cs` | `ReconcileOnceAsync` runs the repair pass as its last step; nothing else changes |
 | Infrastructure | `src/StreamDistribution/Infrastructure/Log.cs` | three new `[LoggerMessage]`s (§5) |
 | Infrastructure | `src/StreamDistribution/Infrastructure/StreamDistributionInfrastructureModule.cs` | bind options (+`ValidateOnStart`); `.AddHostedService<MediaMtxSourceRepairSweep>()` after `MediaMtxReconciler` |
-| AppHost | `src/AppHost/IntegrationLaneOverrides.cs` + `AppHost.cs:376` | `isE2ETests`-gated `MediaMtxSourceRepair__Interval=00:10:00` on `stream-distribution` |
+| AppHost | `src/AppHost/IntegrationLaneOverrides.cs` + `AppHost.cs:376` | `isE2ETests`-gated `MediaMtxSourceRepair__Interval=49.17:02:47.2940000` on `stream-distribution` |
 
 No Application-layer change: this is an infrastructure reconcile loop over a port, like
 `StreamHealthWatcher` and `MediaMtxReconciler`, and it writes MediaMTX only — never the aggregate.
@@ -57,7 +57,7 @@ RepairAsync(gateway, snapshot, cancellationToken) -> repaired count
               gateway.RepointPathAsync(path, c.Value)           // once; never loops
               log Repaired(path, origin(source.Value), origin(c.Value))
           repaired++
-      catch HttpRequestException ex:
+      catch Exception ex when caller token not cancelled:
           log RepairFailed(ex, path)                            // FR-009; continue
 ```
 
@@ -142,7 +142,7 @@ Existing assertions expected to change, and why — **only these**:
    `"Singleton IHostedService -> MediaMtxSourceRepairSweep"` (directly after `MediaMtxReconciler`).
    Assertion-red on unchanged code; runs locally (no Docker).
 2. `tests/Integration.Tests/AppHostComposition/IntegrationFixture.snapshot.txt`: one new
-   `EnvironmentAnnotation` on `stream-distribution` writing `MediaMtxSourceRepair__Interval="00:10:00"`,
+   `EnvironmentAnnotation` on `stream-distribution` writing `MediaMtxSourceRepair__Interval="49.17:02:47.2940000"`,
    directly after the `WhepAuthorizeRateLimiting__Window` entry, with that resource's later
    annotation indices renumbered. `[Trait("Category","FixtureLogic")]`, in-memory, no Docker:
    assertion-red locally. No other lane's snapshot changes (gated `isE2ETests`).
@@ -163,7 +163,7 @@ New tests — see tasks.md for exact files and commands.
 |---|---|
 | Patch storm from a false mismatch | R2 + spec §1 proof; unit "converged path, two sweeps, zero PATCH"; integration "second pass sends nothing" (re-read the source after pass 2). |
 | Sweep clobbers an in-flight repoint | §3 order + re-read; adversarial unit tests per row of §3's table. |
-| Spec 099 / UnresolvedFab outage tests flake | Integration-lane interval 10 min (spec §5); those classes unmodified and green in CI is the evidence. |
+| Spec 099 / UnresolvedFab outage tests flake | Integration-lane interval 49.17:02:47.2940000, the largest PeriodicTimer accepts (spec §5); those classes unmodified and green in CI is the evidence. |
 | A source MediaMTX refuses (e.g. `RTSP://` upper-case scheme, which `StreamSourceUrl` accepts and MediaMTX's case-sensitive prefix rejects) re-fails every sweep | Bounded: one Warning per such stream per tick. Such a stream also fails `add/`, so it cannot be live; recorded, not fixed here. |
 | Sweep runs before Kestrel binds | Unit test: no scope created before `ApplicationStarted` (mirror `MediaMtxReconcilerStartupOrderingTests`). |
 | Full URL in a log | Unit: a source with `?token=SECRET` and a `/SECRET` path segment; assert exact rendered line and no `SECRET`. |

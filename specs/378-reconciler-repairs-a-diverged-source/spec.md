@@ -197,7 +197,7 @@ shutdown. Not separately shippable from US1 — without it the bound is "until t
   is logged at Warning and the next tick tries again; it never takes the host down.
 - **FR-008** Every new log line that names a source renders it with `UrlRedaction.ToOrigin`
   (spec 373). No new log line carries a full URL, path segment or query.
-- **FR-009** A per-path repair failure (`HttpRequestException`) is logged at Warning with the path
+- **FR-009** A per-path repair failure (any exception except cancellation of the caller's token) is logged at Warning with the path
   and does not abort the pass.
 - **FR-010** No change to `Shared.Contracts`, to any other context, to `StreamSourceUrl`, to
   `AddPathAsync`'s behaviour, or to `RepointStreamCommandHandler`.
@@ -218,10 +218,10 @@ shutdown. Not separately shippable from US1 — without it the bound is "until t
   as the 2-8 s retry window that opens it. This is the smallest option consistent with the decision:
   it adds a loop, not a mechanism. Not folded into `StreamHealthWatcher`: that loop reads the runtime
   list, which has no configured source, so it would need a second endpoint every 2 s.
-- **[ASSUMPTION] Integration lane: `MediaMtxSourceRepair__Interval=00:10:00`.** Spec 099's
+- **[ASSUMPTION] Integration lane: `MediaMtxSourceRepair__Interval=49.17:02:47.2940000`.** Spec 099's
   `StreamHealthTransitionTests` and `UnresolvedFabAuditRowIntegrationTests` provoke an outage by
   patching a MediaMTX path away from its recorded source — exactly the divergence this spec now
-  repairs. At 10 s the sweep would race their 15 s budgets and flake. The lane override (gated
+  repairs. At 10 s the sweep would race their 15 s budgets and flake; the value is the largest interval `PeriodicTimer` accepts (~49.7 days), because a shard longer than 10 minutes would get ticks inside those outage windows. The lane override (gated
   `isE2ETests`, precedent: `AuditObservability__Retention__TickInterval`) keeps that technique
   valid; the repair itself is exercised in the integration lane by calling the pass directly, and
   the cadence by a unit test. The Playwright e2e boot (`dotnet run`) keeps the production default.
